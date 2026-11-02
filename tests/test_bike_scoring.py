@@ -194,6 +194,20 @@ def test_predictions_too_large_to_average_are_refused_not_an_overflow_or_an_infi
     assert caught.value.code == "NON_FINITE_ERROR"
 
 
+def test_a_target_beyond_the_largest_float_is_refused_not_an_overflow(tmp_path):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    targets = tmp_path / "targets.csv"
+    targets.write_text("dteday,cnt\n2012-01-01,1" + "0" * 400 + "\n")
+    path = tmp_path / "p.csv"
+    write_predictions(path, [("2012-01-01", 5)])
+    with pytest.raises(InvalidInputError) as caught:
+        mean_absolute_error_by_date(path, targets)
+    assert caught.value.stage == "score"
+    assert caught.value.details["date"] == "2012-01-01"
+
+
 def test_a_repeated_date_in_the_targets_is_refused(tmp_path):
     from hypotrail.core.errors import InvalidInputError
     from hypotrail.core.regression import mean_absolute_error_by_date

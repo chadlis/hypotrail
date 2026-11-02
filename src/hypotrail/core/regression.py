@@ -8,7 +8,10 @@ from hypotrail.core.errors import InvalidInputError
 
 
 def _number(cell, *, column: str, date: str, integer: bool = False) -> float:
-    """A finite number from a CSV cell, or an InvalidInputError naming the date."""
+    """A finite number from a CSV cell, or an InvalidInputError naming the date.
+
+    An integer too large for a float counts as not finite: it could not be compared.
+    """
     details = {"date": date, "column": column}
     if cell is None or not cell.strip():
         raise InvalidInputError(
@@ -21,7 +24,11 @@ def _number(cell, *, column: str, date: str, integer: bool = False) -> float:
         raise InvalidInputError(
             "NOT_A_NUMBER", f"{column} is not a number for date: {date}", stage="score", details=details
         ) from None
-    if not math.isfinite(value):
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:  # an integer beyond the largest float
+        finite = False
+    if not finite:
         raise InvalidInputError(
             "NON_FINITE_NUMBER", f"{column} is not finite for date: {date}", stage="score", details=details
         )
