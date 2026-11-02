@@ -53,6 +53,14 @@ def _steps(messages) -> list[dict]:
     return steps
 
 
+def _scoring_events(sample):
+    """Span events of the scoring phase: structured fields only, never error text."""
+    spans = [e for e in (sample.events or []) if e.event == "span_begin"]
+    started = any(e.type == "scorers" for e in spans)
+    names = [e.name for e in spans if e.type == "scorer"]
+    return started, names
+
+
 def _episode(sample, model: str) -> dict:
     inputs = []
     for message in sample.messages:
@@ -62,19 +70,33 @@ def _episode(sample, model: str) -> dict:
             break
     steps = _steps(sample.messages)
     final = next((s["text"] for s in steps if s["kind"] == "final_answer"), None)
-    failed = sample.error is not None
+
+    status, reason, criteria = "produced", None, []
+    if sample.error is not None:
+        # Inspect marks both kinds of breakage as an errored sample. What tells
+        # them apart is whether the scoring phase had begun when it happened.
+        scoring_started, scorer_names = _scoring_events(sample)
+        if scoring_started:
+            criteria = [
+                {"name": name, "state": "errored", "reason": "scoring_failed"}
+                for name in scorer_names
+                if name not in (sample.scores or {})
+            ]
+        else:
+            status, reason, final = "failed", "execution_failed", None
     return {
         "case_id": str(sample.id),
         "repeat": sample.epoch - 1,
-        "status": "failed" if failed else "produced",
+        "status": status,
+        "reason": reason,
+        "criteria": criteria,
         "model": model,
         "provider": model.split("/", 1)[0],
         "input": inputs,
         "steps": steps,
-        "final_answer": None if failed else final,
+        "final_answer": final,
         "limit": None if sample.limit is None else {"type": sample.limit.type, "limit": sample.limit.limit},
         "turn_count": sample.turn_count,
-        "error": None if not failed else {"present": True},
     }
 
 
@@ -92,6 +114,8 @@ def project_log(location: str, *, expected: Iterable[tuple[str, int]]) -> list[d
                     "case_id": case_id,
                     "repeat": repeat,
                     "status": "missing",
+                    "reason": "missing_from_log",
+                    "criteria": [],
                     "model": model,
                     "provider": model.split("/", 1)[0],
                     "input": [],
@@ -99,7 +123,6 @@ def project_log(location: str, *, expected: Iterable[tuple[str, int]]) -> list[d
                     "final_answer": None,
                     "limit": None,
                     "turn_count": None,
-                    "error": None,
                 }
             )
         else:

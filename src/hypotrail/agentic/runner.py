@@ -15,7 +15,7 @@ from hypotrail.agentic.cases import model_input
 from hypotrail.agentic.sql_tool import query_readonly
 
 
-def build_task(cases: list[dict], database: Path) -> Task:
+def build_task(cases: list[dict], database: Path, scorer=None) -> Task:
     """The spike task: the model may call `query_readonly`, then answers."""
     samples = []
     for case in cases:
@@ -29,6 +29,7 @@ def build_task(cases: list[dict], database: Path) -> Task:
     return Task(
         dataset=MemoryDataset(samples, name="chinook-spike"),
         solver=[use_tools(query_readonly(database)), generate()],
+        scorer=scorer,
         name="chinook_spike",
         fail_on_error=False,
     )
@@ -46,10 +47,11 @@ def run_episodes(
     model: Model,
     repeats: int,
     log_dir: Path,
+    scorer=None,
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
-        build_task(cases, database),
+        build_task(cases, database, scorer),
         model=model,
         epochs=repeats,
         log_dir=str(log_dir),

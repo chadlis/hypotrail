@@ -33,11 +33,14 @@ class ScriptedModel:
     exactly what the model was sent.
     """
 
-    def __init__(self, cases, *, error_on=None, always_call_tool=False):
+    def __init__(
+        self, cases, *, error_on=None, always_call_tool=False, error_message="scripted model failure"
+    ):
         self.sql_by_question = {c["question"]: oracle_sql(c["case_id"]) for c in cases}
         self.unit_by_question = {c["question"]: c["unit"] for c in cases}
         self.case_by_question = {c["question"]: c["case_id"] for c in cases}
         self.error_on = error_on  # (case_id, nth first-generate of that case)
+        self.error_message = error_message
         self.always_call_tool = always_call_tool
         self.calls = []
         self._first_generates = {}
@@ -55,7 +58,7 @@ class ScriptedModel:
                 case_id = self.case_by_question[question]
                 n = self._first_generates[case_id] = self._first_generates.get(case_id, 0) + 1
                 if self.error_on == (case_id, n):
-                    raise RuntimeError("scripted model failure")
+                    raise RuntimeError(self.error_message)
             return ModelOutput.for_tool_call(
                 MODEL, "query_readonly", {"sql": self.sql_by_question[question]}
             )
