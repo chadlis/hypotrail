@@ -29,13 +29,19 @@ def _number(cell, *, column: str, date: str, integer: bool = False) -> float:
 
 
 def _read_targets(targets_path: Path, date_column: str, target_column: str) -> dict:
+    targets = {}
     with Path(targets_path).open(newline="", encoding="utf-8") as handle:
-        return {
-            row[date_column]: _number(
-                row[target_column], column=target_column, date=row[date_column], integer=True
-            )
-            for row in csv.DictReader(handle)
-        }
+        for row in csv.DictReader(handle):
+            date = row[date_column]
+            if date in targets:
+                raise InvalidInputError(
+                    "DUPLICATE_DATE",
+                    f"date present more than once in the targets: {date}",
+                    stage="score",
+                    details={"date": date},
+                )
+            targets[date] = _number(row[target_column], column=target_column, date=date, integer=True)
+    return targets
 
 
 def mean_absolute_error_by_date(
@@ -50,7 +56,8 @@ def mean_absolute_error_by_date(
     """Mean absolute error of daily predictions, in rentals per day.
 
     Each prediction is joined to its target by date, never by position. A date
-    missing from the targets, or repeated in the predictions, is refused.
+    missing from the targets, or repeated in the predictions or in the targets,
+    is refused, and so are errors too large for their mean to be finite.
     Coverage of the population is not checked here.
     """
     targets = _read_targets(targets_path, target_date_column, target_column)
@@ -75,10 +82,25 @@ def mean_absolute_error_by_date(
                     details={"date": date},
                 )
             predicted = _number(row[prediction_column], column=prediction_column, date=date)
-            errors.append(abs(predicted - targets[date]))
+            error = abs(predicted - targets[date])
+            if not math.isfinite(error):  # finite cells, but their difference overflows
+                raise InvalidInputError(
+                    "NON_FINITE_ERROR",
+                    f"the error is too large to be a finite number for date: {date}",
+                    stage="score",
+                    details={"date": date},
+                )
+            errors.append(error)
     if not errors:
         raise InvalidInputError(
             "NO_PREDICTIONS", "the predictions file holds no row", stage="score"
         )
     # fsum makes the result independent of the row order.
-    return math.fsum(errors) / len(errors)
+    try:
+        return math.fsum(errors) / len(errors)
+    except OverflowError:  # every error is finite, their sum is not
+        raise InvalidInputError(
+            "NON_FINITE_ERROR",
+            "the errors are too large for their mean to be a finite number",
+            stage="score",
+        ) from None

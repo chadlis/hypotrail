@@ -175,6 +175,40 @@ def test_a_repeated_date_is_refused_rather_than_counted_twice(tmp_path):
         mean_absolute_error_by_date(path, DAY_CSV)
 
 
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [("2012-01-01", 1e308), ("2012-01-02", -1e308)],  # an error beyond the largest float
+        [("2012-01-01", 1e308), ("2012-01-02", 1e308)],  # each error fits, their sum does not
+    ],
+)
+def test_predictions_too_large_to_average_are_refused_not_an_overflow_or_an_infinite_mae(tmp_path, rows):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    path = tmp_path / "p.csv"
+    write_predictions(path, rows)
+    with pytest.raises(InvalidInputError) as caught:
+        mean_absolute_error_by_date(path, DAY_CSV)
+    assert caught.value.stage == "score"
+    assert caught.value.code == "NON_FINITE_ERROR"
+
+
+def test_a_repeated_date_in_the_targets_is_refused(tmp_path):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    targets = tmp_path / "targets.csv"
+    targets.write_text("dteday,cnt\n2012-01-01,10\n2012-01-01,20\n")
+    path = tmp_path / "p.csv"
+    write_predictions(path, [("2012-01-01", 5)])
+    with pytest.raises(InvalidInputError) as caught:
+        mean_absolute_error_by_date(path, targets)
+    assert caught.value.code == "DUPLICATE_DATE"
+    assert caught.value.stage == "score"
+    assert caught.value.details["date"] == "2012-01-01"
+
+
 def test_inspect_is_declared_only_under_an_extra():
     import tomllib
 
