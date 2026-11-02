@@ -266,3 +266,64 @@ def test_verification_leaves_the_chinook_file_unchanged(examples_copy):
     assert sorted(p.name for p in path.parent.iterdir()) == [
         "Chinook_Sqlite.sqlite"
     ]
+
+
+def test_verifying_no_workload_at_all_is_refused_rather_than_reported_as_success(tmp_path):
+    (tmp_path / "examples").mkdir()
+    code, out, _ = run_cli("data", "verify", "--examples-dir", str(tmp_path / "examples"), "--json")
+    assert code == 2
+    report = json.loads(out)
+    assert report["ok"] is False
+    assert report["error"]["code"] == "NO_WORKLOAD"
+    assert report["error"]["stage"] == "config"
+
+
+def test_verify_workloads_refuses_an_empty_selection(tmp_path):
+    from hypotrail.core.errors import InvalidInputError
+
+    with pytest.raises(InvalidInputError) as caught:
+        data.verify_workloads(EXAMPLES, [])
+    assert caught.value.code == "NO_WORKLOAD"
+
+
+# --- Ticket #7 review: with --json, every failure is one JSON object on stdout -----------------------
+
+
+def test_an_unexpected_exception_with_json_is_one_object_and_exit_4(monkeypatch):
+    secret = "sk-ant-NOT-FOR-OUTPUT"
+
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"upstream said: bad key {secret}")
+
+    monkeypatch.setattr(data, "verify_workloads", boom)
+    code, out, err = run_cli("data", "verify", "--json")
+    assert code == 4
+    report = json.loads(out)
+    assert report["ok"] is False
+    assert set(report["error"]) == {"code", "message", "stage", "details"}
+    assert report["error"]["code"] == "UNEXPECTED_ERROR"
+    assert report["error"]["details"] == {"type": "RuntimeError"}
+    assert secret not in out + err
+
+
+def test_an_unexpected_exception_without_json_exits_4_and_leaks_nothing(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("sk-ant-NOT-FOR-OUTPUT")
+
+    monkeypatch.setattr(data, "verify_workloads", boom)
+    code, out, err = run_cli("data", "verify")
+    assert code == 4
+    assert out == ""
+    assert "UNEXPECTED_ERROR" in err and "sk-ant-NOT-FOR-OUTPUT" not in err
+
+
+def test_an_os_error_with_json_is_still_one_object_and_exit_4(monkeypatch):
+    def boom(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(data, "verify_workloads", boom)
+    code, out, _ = run_cli("data", "verify", "--json")
+    assert code == 4
+    error = json.loads(out)["error"]
+    assert error["code"] == "INFRASTRUCTURE_FAILURE"
+    assert set(error) == {"code", "message", "stage", "details"}

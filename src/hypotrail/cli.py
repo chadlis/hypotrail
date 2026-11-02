@@ -130,12 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return handler(args)
     except HypotrailError as error:
-        if getattr(args, "json", False):
-            print(json.dumps({"ok": False, "error": error.to_dict()}, indent=2))
-            print(f"{error.code} [{error.stage}]: {error.message}", file=sys.stderr)
-        else:
-            print(f"{error.code} [{error.stage}]: {error.message}", file=sys.stderr)
-        return error.exit_code
+        failure = error
     except OSError as error:
         failure = HypotrailError(
             "INFRASTRUCTURE_FAILURE",
@@ -143,7 +138,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             stage="infrastructure",
             exit_code=EXIT_INFRASTRUCTURE,
         )
-        if getattr(args, "json", False):
-            print(json.dumps({"ok": False, "error": failure.to_dict()}, indent=2))
-        print(f"{failure.code}: {failure.message}", file=sys.stderr)
-        return failure.exit_code
+    except Exception as error:
+        # The text of an unexpected exception can carry anything, a provider key
+        # included, so only its type is reported.
+        failure = HypotrailError(
+            "UNEXPECTED_ERROR",
+            f"unexpected {type(error).__name__}",
+            stage="infrastructure",
+            details={"type": type(error).__name__},
+            exit_code=EXIT_INFRASTRUCTURE,
+        )
+    if getattr(args, "json", False):
+        print(json.dumps({"ok": False, "error": failure.to_dict()}, indent=2))
+    print(f"{failure.code} [{failure.stage}]: {failure.message}", file=sys.stderr)
+    return failure.exit_code

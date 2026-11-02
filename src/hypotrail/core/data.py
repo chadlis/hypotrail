@@ -277,6 +277,13 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
     examples_dir = Path(examples_dir)
     if names is None:
         names = discover_workloads(examples_dir)
+    if not names:
+        raise InvalidInputError(
+            "NO_WORKLOAD",
+            f"no Workload to verify in {examples_dir}",
+            stage="config",
+            details={"examples_dir": str(examples_dir)},
+        )
     workloads = [_load_workload(examples_dir, name) for name in names]
     for workload in workloads:
         _verify_bytes(workload)
