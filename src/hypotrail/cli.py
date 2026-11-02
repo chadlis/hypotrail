@@ -10,11 +10,26 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from hypotrail.core.errors import EXIT_INFRASTRUCTURE, EXIT_OK, HypotrailError
+from hypotrail.core.errors import (
+    EXIT_INFRASTRUCTURE,
+    EXIT_OK,
+    HypotrailError,
+    InvalidInputError,
+)
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    """An argument error is a Hypotrail error, so `--json` can report it as one."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        raise InvalidInputError(
+            "INVALID_ARGUMENTS", message, stage="config", details={"command": self.prog}
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _ArgumentParser(
         prog="hypotrail",
         description="Small, explicit studies of predictive and agentic systems.",
     )
@@ -82,20 +97,18 @@ def _data_verify(args) -> int:
 def _spike_live(args) -> int:
     import os
 
+    from hypotrail.agentic import cases
     from hypotrail.core import data, live
 
     model = live.require_model(args.model)
     examples = data.default_examples_dir()
     cases_path = examples / "chinook" / "cases" / "chinook-dev.jsonl"
-    dev_ids = {
-        json.loads(line)["case_id"]
-        for line in cases_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    }
+    # `hypotrail.agentic.cases` imports no Inspect, so it is read here, before the key.
+    dev_ids = {case["case_id"] for case in cases.load_cases(cases_path)}
     case_ids = args.case or ["D03", "D05"]
     live.check_bounds(case_ids, args.repeats, dev_ids)
-    # The key is read last among the cheap checks and before anything is imported
-    # from the agentic side: without it nothing else starts and nothing is sent.
+    # The key is read last among the cheap checks and before Inspect is imported:
+    # without it nothing else starts and nothing is sent.
     api_key = live.read_api_key(os.environ)
     data.verify_workloads(examples, ["chinook"])
 
@@ -122,7 +135,12 @@ def _spike_live(args) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    try:
+        args = parser.parse_args(arguments)
+    except InvalidInputError as error:
+        # No namespace exists yet: `--json` is looked for in the arguments.
+        return _report(error, "--json" in arguments)
     handler = getattr(args, "handler", None)
     if handler is None:
         parser.print_help()
@@ -148,7 +166,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             details={"type": type(error).__name__},
             exit_code=EXIT_INFRASTRUCTURE,
         )
-    if getattr(args, "json", False):
+    return _report(failure, getattr(args, "json", False))
+
+
+def _report(failure: HypotrailError, as_json: bool) -> int:
+    if as_json:
         print(json.dumps({"ok": False, "error": failure.to_dict()}, indent=2))
     print(f"{failure.code} [{failure.stage}]: {failure.message}", file=sys.stderr)
     return failure.exit_code

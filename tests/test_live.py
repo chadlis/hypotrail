@@ -333,6 +333,35 @@ def test_the_scan_finds_a_key_in_a_plain_file_and_inside_a_compressed_log(tmp_pa
     assert agentic_live.scan_for_secret(tmp_path / "logs", FAKE_KEY) == [Path(location).name]
 
 
+def test_an_unreadable_log_does_not_stop_the_scan_of_the_other_files(tmp_path):
+    # "a.eval" sorts first and is not a readable log; the key sits in a later file
+    (tmp_path / "a.eval").write_bytes(b"PK\x03\x04 truncated, not a zip")
+    (tmp_path / "z.txt").write_text(f"x {FAKE_KEY} y")
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == ["z.txt"]
+
+
+def test_an_unreadable_log_is_still_searched_as_raw_bytes(tmp_path):
+    (tmp_path / "a.eval").write_bytes(b"PK\x03\x04 truncated " + FAKE_KEY.encode())
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == ["a.eval"]
+
+
+def test_an_unreadable_log_next_to_a_leak_still_ends_in_secret_in_output(tmp_path):
+    from hypotrail.core.errors import HypotrailError
+
+    (tmp_path / "a.eval").write_bytes(b"")
+    (tmp_path / "z.txt").write_text(FAKE_KEY)
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live._raise_if_leaked(tmp_path, FAKE_KEY)
+    assert caught.value.code == "SECRET_IN_OUTPUT"
+    assert caught.value.details == {"files": ["z.txt"]}
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_an_unreadable_log_without_a_leak_does_not_fail_the_scan(tmp_path):
+    (tmp_path / "a.eval").write_bytes(b"not a log")
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == []
+
+
 def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
     for name in PROXY_VARIABLES:
         clean_env.delenv(name, raising=False)
@@ -364,6 +393,43 @@ def test_a_non_empty_output_directory_is_refused(tmp_path):
             model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
         )
+
+
+def test_the_command_reads_the_cases_through_the_cases_module_and_validates_before_the_key(
+    tmp_path, clean_env, never_runs, monkeypatch
+):
+    seen = []
+
+    def fake_load_cases(path, case_ids=None):
+        seen.append(Path(path).name)
+        return [{"case_id": "D03"}, {"case_id": "D05"}]
+
+    monkeypatch.setattr(case_module, "load_cases", fake_load_cases)
+    # no key: the bounds are checked first, so an out-of-bounds request exits 2, not 5
+    code, out, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID, "--case", "E01"))
+    assert code == 2 and json.loads(out)["error"]["code"] == "CASE_NOT_DEV"
+    assert seen == ["chinook-dev.jsonl"]
+    code, out, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+    assert code == 5
+
+
+def test_the_command_reaches_the_missing_key_without_importing_inspect(tmp_path):
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, json\n"
+        "from hypotrail import cli\n"
+        "code = cli.main(sys.argv[1:])\n"
+        "print(json.dumps({'code': code, 'inspect': 'inspect_ai' in sys.modules}))\n"
+    )
+    env = {k: v for k, v in __import__("os").environ.items() if "ANTHROPIC" not in k}
+    result = subprocess.run(
+        [sys.executable, "-c", probe, "spike", "live", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"],
+        capture_output=True, text=True, env=env, check=True,
+    )
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    assert report == {"code": 5, "inspect": False}
 
 
 # --- opt-in --------------------------------------------------------------------------------------------------------

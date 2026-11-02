@@ -176,6 +176,13 @@ def check_daily_series(path: Path, source: dict, spec: dict) -> dict:
         rows = list(reader)
 
     key = source["native_key"]
+    for position, row in enumerate(rows, 1):
+        if row[key] is None:  # a short row: DictReader fills the missing cells with None
+            raise DataCheckError(
+                "calendar",
+                f"{key} is missing on data row {position}",
+                {"column": key, "row": position},
+            )
     try:
         dates = [datetime.date.fromisoformat(row[key]) for row in rows]
     except ValueError as error:
@@ -198,7 +205,7 @@ def check_daily_series(path: Path, source: dict, spec: dict) -> dict:
     total, parts = spec["total_column"], spec["part_columns"]
     for row in rows:
         for column in [total, *parts]:
-            if not _NON_NEGATIVE_INTEGER.fullmatch(row[column]):
+            if row[column] is None or not _NON_NEGATIVE_INTEGER.fullmatch(row[column]):
                 raise DataCheckError(
                     "values",
                     f"{column} is not a non-negative integer on {row[key]}: "
@@ -275,6 +282,13 @@ def _check_content(workload: dict) -> dict:
 def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list[dict]:
     """Verify the named Workloads (all of them by default)."""
     examples_dir = Path(examples_dir)
+    if not examples_dir.is_dir():
+        raise InvalidInputError(
+            "EXAMPLES_DIR_NOT_FOUND",
+            f"examples directory not found: {examples_dir}",
+            stage="config",
+            details={"examples_dir": str(examples_dir)},
+        )
     if names is None:
         names = discover_workloads(examples_dir)
     if not names:

@@ -327,3 +327,93 @@ def test_an_os_error_with_json_is_still_one_object_and_exit_4(monkeypatch):
     error = json.loads(out)["error"]
     assert error["code"] == "INFRASTRUCTURE_FAILURE"
     assert set(error) == {"code", "message", "stage", "details"}
+
+
+# --- Review of ticket #7: short rows, a missing directory, argument errors -------------------------
+
+
+@pytest.mark.parametrize("cut_before", ["cnt", "casual"])
+def test_a_short_row_is_a_content_failure_naming_the_date_and_column(tmp_path, cut_before):
+    lines = bike_lines()
+    columns = lines[0].split(",")
+    cells = lines[10].split(",")
+    lines[10] = ",".join(cells[: columns.index(cut_before)])  # the row stops before `cut_before`
+    # the total is checked before the parts, so it is the column named in both cases
+    column = BIKE_SPEC["total_column"]
+    with pytest.raises(data.DataCheckError) as caught:
+        data.check_daily_series(write_csv(tmp_path, lines), BIKE_SOURCE, BIKE_SPEC)
+    date = cells[columns.index(BIKE_SOURCE["native_key"])]
+    assert caught.value.code == "DATA_CHECK_FAILED" and caught.value.exit_code == 3
+    assert caught.value.stage == "values"
+    assert caught.value.details["column"] == column
+    assert caught.value.details["date"] == date
+    assert column in str(caught.value) and date in str(caught.value)
+
+
+def test_a_row_without_its_date_cell_is_a_calendar_failure_not_a_type_error(tmp_path):
+    lines = bike_lines()
+    lines[10] = lines[10].split(",")[0]  # only the first cell: the date is missing
+    assert BIKE_SOURCE["native_key"] != lines[0].split(",")[0]
+    with pytest.raises(data.DataCheckError) as caught:
+        data.check_daily_series(write_csv(tmp_path, lines), BIKE_SOURCE, BIKE_SPEC)
+    assert caught.value.code == "DATA_CHECK_FAILED"
+    assert caught.value.stage == "calendar"
+    assert caught.value.details["column"] == BIKE_SOURCE["native_key"]
+
+
+def test_a_short_row_through_the_command_exits_3(examples_copy):
+    day = examples_copy / "bike_day" / "data" / "day.csv"
+    lines = day.read_text().splitlines()
+    lines[10] = ",".join(lines[10].split(",")[:-1])
+    day.write_text("\n".join(lines) + "\n")
+    # the lock would refuse the changed bytes first: lock the changed file
+    lock_path = examples_copy / "bike_day" / "data-sources.lock.json"
+    lock = json.loads(lock_path.read_text())
+    lock["sources"][0]["sha256"] = sha256(day)
+    lock["sources"][0]["size_bytes"] = day.stat().st_size
+    lock_path.write_text(json.dumps(lock))
+    code, out, _ = run_cli(
+        "data", "verify", "--workload", "bike_day", "--examples-dir", str(examples_copy), "--json"
+    )
+    assert code == 3
+    error = json.loads(out)["error"]
+    assert error["code"] == "DATA_CHECK_FAILED"
+    assert error["details"]["column"] and error["details"]["date"]
+
+
+def test_a_missing_examples_directory_is_an_invalid_input_not_an_infrastructure_failure(tmp_path):
+    code, out, _ = run_cli("data", "verify", "--examples-dir", str(tmp_path / "nope"), "--json")
+    assert code == 2
+    error = json.loads(out)["error"]
+    assert set(error) == {"code", "message", "stage", "details"}
+    assert error["code"] == "EXAMPLES_DIR_NOT_FOUND"
+    assert error["stage"] == "config"
+    assert error["details"] == {"examples_dir": str(tmp_path / "nope")}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["data", "verify", "--bogus", "--json"],
+        ["--json", "data", "verify", "--examples-dir"],
+        ["spike", "live", "--json"],  # --out is required
+        ["spike", "live", "--out", "x", "--repeats", "many", "--json"],
+        ["--json", "nonsense"],
+    ],
+)
+def test_an_argument_error_with_json_is_one_object_on_stdout_and_exit_2(argv):
+    code, out, err = run_cli(*argv)
+    assert code == 2
+    report = json.loads(out)
+    assert report["ok"] is False
+    assert set(report["error"]) == {"code", "message", "stage", "details"}
+    assert report["error"]["code"] == "INVALID_ARGUMENTS"
+    assert report["error"]["message"]
+    assert err  # the human diagnostic stays on stderr
+
+
+def test_an_argument_error_without_json_keeps_stdout_empty_and_exits_2():
+    code, out, err = run_cli("data", "verify", "--bogus")
+    assert code == 2
+    assert out == ""
+    assert "usage:" in err and "--bogus" in err

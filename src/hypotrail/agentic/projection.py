@@ -12,15 +12,11 @@ from collections.abc import Iterable
 from inspect_ai.log import read_eval_log
 
 
-def _message_text(message) -> str:
-    return message.text
-
-
 def _steps(messages) -> list[dict]:
     steps = []
     turn = 0
     conversation = [m for m in messages if m.role in ("assistant", "tool")]
-    for index, message in enumerate(conversation):
+    for message in conversation:
         if message.role == "assistant":
             turn += 1
             steps.append({"kind": "model_turn", "turn": turn})

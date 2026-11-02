@@ -35,14 +35,20 @@ def scan_for_secret(directory: Path, secret: str) -> list[str]:
     """Files under `directory` that hold `secret`, in raw bytes or once decoded.
 
     An `.eval` log is compressed, so it is also read back through Inspect's log
-    API and searched as text.
+    API and searched as text. A log that cannot be read back (truncated, or not
+    a log at all) is searched as raw bytes only: it never stops the scan of the
+    files after it.
     """
     needle = secret.encode()
     found = []
     for path in sorted(p for p in Path(directory).rglob("*") if p.is_file()):
         hit = needle in path.read_bytes()
         if not hit and path.suffix == ".eval":
-            hit = secret in read_eval_log(str(path)).model_dump_json()
+            try:
+                hit = secret in read_eval_log(str(path)).model_dump_json()
+            except Exception:
+                # The text of the error is not kept: it could quote the content.
+                pass
         if hit:
             found.append(str(path.relative_to(directory)))
     return found
