@@ -57,6 +57,6 @@ In Claude Code cloud sessions `gh` is not authenticated. Use the GitHub MCP tool
 | Comment | `add_issue_comment` |
 | Sub-issue | `issue_write` with `parent_issue_number`, or `sub_issue_write` |
 
-Labels that do not exist yet are created when first applied to an issue. Native issue dependencies are not available
+These tools do not create labels: a label must already exist in the repository (create it in GitHub's UI), otherwise `issue_write` fails with "label not found". Native issue dependencies are not available
 through these tools: use a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every
 listed blocker is closed.
