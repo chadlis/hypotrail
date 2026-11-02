@@ -185,7 +185,7 @@ If a blocker is open, say which and stop. That is a floor, not a question.
 | 6 | Route the findings (table below); fixes go to `slice-builder`; after a fix, step 5 runs again, bare, on the fixes only: `/mattpocock-skills:code-review <head of the last reviewed round>` | you, then subagent | nothing left unrouted |
 | 7 | Documentation: the handbook (`docs/handbook/`) describes what changed; the README is still true; the PR names which acceptance tests (T-xx) it proves; push the slice's notes to `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push) | `slice-builder` | the files exist |
 | 8 | PR, body shaped by `/pr`, closing the slice's tickets, not the slice | you | the PR exists |
-| 9 | Learning trigger: an issue in `chadlis/hypotrail-learning` titled `learn: <slice>`, asking for the chapter to be written by a fresh session from the notes, the PR and the ADRs. If that repository has issues disabled, file it here with label `learn` | you | the issue exists |
+| 9 | Learning trigger: an issue in `chadlis/hypotrail-learning` titled `learn: <slice>`, asking for the chapter to be written by a fresh session from the notes, the PR and the ADRs. Salah takes it up later with `/etudier` in that repository. If that repository has issues disabled, file it here with label `learn` | you | the issue exists |
 | 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner` | its list comes back |
 | 11 | **The brief** (STOP) | you | he answers |
 | 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`; close the slice issue; add the squash SHA to the `learn:` issue | you | the slice issue is closed |
