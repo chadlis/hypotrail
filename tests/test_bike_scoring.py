@@ -128,6 +128,43 @@ def test_a_date_outside_the_target_file_is_refused(tmp_path):
         mean_absolute_error_by_date(path, DAY_CSV)
 
 
+@pytest.mark.parametrize("cell", ["nan", "NaN", "inf", "-inf", "Infinity", "1e999", "", "  ", "abc"])
+def test_a_prediction_that_is_not_a_finite_number_is_refused(tmp_path, cell):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    path = tmp_path / "p.csv"
+    write_predictions(path, [("2012-01-01", 5), ("2012-01-02", cell)])
+    with pytest.raises(InvalidInputError) as caught:
+        mean_absolute_error_by_date(path, DAY_CSV)
+    assert caught.value.stage == "score"
+    assert caught.value.details["date"] == "2012-01-02"
+
+
+def test_a_prediction_row_with_a_missing_cell_is_refused(tmp_path):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    path = tmp_path / "p.csv"
+    path.write_text("date,y_pred\n2012-01-01\n")
+    with pytest.raises(InvalidInputError):
+        mean_absolute_error_by_date(path, DAY_CSV)
+
+
+@pytest.mark.parametrize("cell", ["nan", "inf", "-inf", "", "abc"])
+def test_a_target_that_is_not_a_finite_integer_is_refused(tmp_path, cell):
+    from hypotrail.core.errors import InvalidInputError
+    from hypotrail.core.regression import mean_absolute_error_by_date
+
+    targets = tmp_path / "targets.csv"
+    targets.write_text(f"dteday,cnt\n2012-01-01,{cell}\n")
+    path = tmp_path / "p.csv"
+    write_predictions(path, [("2012-01-01", 5)])
+    with pytest.raises(InvalidInputError) as caught:
+        mean_absolute_error_by_date(path, targets)
+    assert caught.value.stage == "score"
+
+
 def test_a_repeated_date_is_refused_rather_than_counted_twice(tmp_path):
     from hypotrail.core.errors import InvalidInputError
     from hypotrail.core.regression import mean_absolute_error_by_date

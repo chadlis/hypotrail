@@ -7,9 +7,35 @@ from pathlib import Path
 from hypotrail.core.errors import InvalidInputError
 
 
+def _number(cell, *, column: str, date: str, integer: bool = False) -> float:
+    """A finite number from a CSV cell, or an InvalidInputError naming the date."""
+    details = {"date": date, "column": column}
+    if cell is None or not cell.strip():
+        raise InvalidInputError(
+            "EMPTY_CELL", f"empty {column} for date: {date}", stage="score", details=details
+        )
+    try:
+        value = int(cell) if integer else float(cell)
+    except ValueError:
+        # int() also refuses "nan" and "inf", which is the refusal wanted here.
+        raise InvalidInputError(
+            "NOT_A_NUMBER", f"{column} is not a number for date: {date}", stage="score", details=details
+        ) from None
+    if not math.isfinite(value):
+        raise InvalidInputError(
+            "NON_FINITE_NUMBER", f"{column} is not finite for date: {date}", stage="score", details=details
+        )
+    return value
+
+
 def _read_targets(targets_path: Path, date_column: str, target_column: str) -> dict:
     with Path(targets_path).open(newline="", encoding="utf-8") as handle:
-        return {row[date_column]: int(row[target_column]) for row in csv.DictReader(handle)}
+        return {
+            row[date_column]: _number(
+                row[target_column], column=target_column, date=row[date_column], integer=True
+            )
+            for row in csv.DictReader(handle)
+        }
 
 
 def mean_absolute_error_by_date(
@@ -48,7 +74,8 @@ def mean_absolute_error_by_date(
                     stage="score",
                     details={"date": date},
                 )
-            errors.append(abs(float(row[prediction_column]) - targets[date]))
+            predicted = _number(row[prediction_column], column=prediction_column, date=date)
+            errors.append(abs(predicted - targets[date]))
     if not errors:
         raise InvalidInputError(
             "NO_PREDICTIONS", "the predictions file holds no row", stage="score"
