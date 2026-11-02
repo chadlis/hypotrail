@@ -4,14 +4,14 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Lot 1 is in progress and there is no code yet. It covers two public examples: daily bike-rental regression and a tool-using agent on the Chinook SQLite database. Scope and amendments to the specification: chadlis/hypotrail#1.
+Early development, no code yet. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database. Plan: chadlis/hypotrail#1.
 
 ## Where to look
 
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`AGENTS.md`](AGENTS.md): rules for contributors and coding agents.
-- [chadlis/hypotrail-learning](https://github.com/chadlis/hypotrail-learning): the learning book (French) and the original lot 1 specification kit.
+- [chadlis/hypotrail-learning](https://github.com/chadlis/hypotrail-learning): the learning book (French) and the original specification of the first milestone.
 
 ## License
 
