@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hypotrail"
+version = "0.0.0"
+description = "Small, explicit studies of predictive and agentic systems."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = []
+
+# The core uses the standard library only (ENV-02). Each Track brings its own
+# dependencies, loaded only by that Track.
+[project.optional-dependencies]
+agent = [
+    "inspect-ai==0.3.287",
+    "anthropic==2.3.0",
+]
+ml = [
+    "numpy==2.5.4",
+    "scikit-learn==1.9.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hypotrail"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
