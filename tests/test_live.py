@@ -357,9 +357,86 @@ def test_an_unreadable_log_next_to_a_leak_still_ends_in_secret_in_output(tmp_pat
     assert FAKE_KEY not in str(caught.value)
 
 
-def test_an_unreadable_log_without_a_leak_does_not_fail_the_scan(tmp_path):
-    (tmp_path / "a.eval").write_bytes(b"not a log")
+def _zip_with(path, members, corrupt=()):
+    """A zip at `path` holding deflated `members`; the data of `corrupt` ones is damaged."""
+    import zipfile
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    if corrupt:
+        data = bytearray(Path(path).read_bytes())
+        with zipfile.ZipFile(path) as archive:
+            for name in corrupt:
+                info = archive.getinfo(name)
+                start = info.header_offset + 30 + len(info.filename.encode()) + 4
+                for i in range(start, start + 8):
+                    data[i] ^= 0xFF
+        Path(path).write_bytes(bytes(data))
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b"not a log", b"", b"PK\x03\x04 truncated, not a zip"],
+    ids=["not-a-zip", "empty", "truncated-zip"],
+)
+def test_a_log_that_cannot_be_read_back_and_is_clean_in_raw_bytes_is_not_reported_clean(
+    tmp_path, content
+):
+    from hypotrail.core.errors import HypotrailError
+
+    (tmp_path / "a.eval").write_bytes(content)
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live.scan_for_secret(tmp_path, FAKE_KEY)
+    assert caught.value.code == "LOG_NOT_FULLY_SCANNED"
+    assert caught.value.stage == "live"
+    assert caught.value.details == {"files": ["a.eval"]}
+    assert "could not be fully scanned" in caught.value.message
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_a_zip_that_read_eval_log_refuses_is_searched_member_by_member(tmp_path):
+    # compressed: the key is invisible in the raw bytes, and the members are not a valid log
+    _zip_with(tmp_path / "a.eval", {"header.json": "{}", "samples/1.json": f"x {FAKE_KEY} y" * 50})
+    assert FAKE_KEY.encode() not in (tmp_path / "a.eval").read_bytes()
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == ["a.eval"]
+
+
+def test_a_readable_member_is_searched_even_when_another_member_is_damaged(tmp_path):
+    _zip_with(
+        tmp_path / "a.eval",
+        {"bad.json": "damaged " * 200, "good.json": f"x {FAKE_KEY} y" * 50},
+        corrupt=["bad.json"],
+    )
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == ["a.eval"]
+
+
+def test_a_zip_with_a_damaged_member_and_no_key_in_the_rest_is_not_reported_clean(tmp_path):
+    from hypotrail.core.errors import HypotrailError
+
+    _zip_with(
+        tmp_path / "a.eval",
+        {"bad.json": "damaged " * 200, "good.json": "nothing here"},
+        corrupt=["bad.json"],
+    )
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live.scan_for_secret(tmp_path, FAKE_KEY)
+    assert caught.value.code == "LOG_NOT_FULLY_SCANNED"
+    assert caught.value.details == {"files": ["a.eval"]}
+
+
+def test_a_zip_whose_members_all_read_and_hold_no_key_is_clean(tmp_path):
+    _zip_with(tmp_path / "a.eval", {"header.json": "{}", "samples/1.json": "nothing here"})
     assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == []
+
+
+def test_a_log_that_cannot_be_fully_scanned_fails_the_run_report(tmp_path):
+    from hypotrail.core.errors import HypotrailError
+
+    (tmp_path / "a.eval").write_bytes(b"not a log")
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live._raise_if_leaked(tmp_path, FAKE_KEY)
+    assert caught.value.code == "LOG_NOT_FULLY_SCANNED"
 
 
 def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
