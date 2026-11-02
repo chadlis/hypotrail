@@ -56,7 +56,10 @@ def _tool_loop_observed(episodes: list[dict]) -> bool:
 
 
 def _uses_result(episode: dict) -> bool | None:
-    """True when the final answer's rows are the rows the tool returned."""
+    """True when every row of the final answer is a row the tool returned.
+
+    The model may fetch more rows than it reports (for example to check ties).
+    """
     results = [s for s in episode["steps"] if s["kind"] == "tool_result"]
     if episode["final_answer"] is None or not results:
         return None
@@ -64,7 +67,11 @@ def _uses_result(episode: dict) -> bool | None:
         answer = json.loads(episode["final_answer"])
     except json.JSONDecodeError:
         return False
-    return isinstance(answer, dict) and answer.get("rows") == results[-1]["result"]["rows"]
+    if not isinstance(answer, dict):
+        return False
+    rows = answer.get("rows")
+    returned = [row for result in results for row in result["result"]["rows"]]
+    return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows)
 
 
 def request_parameters(log) -> dict | None:
@@ -103,15 +110,40 @@ def run_live(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cases = case_module.load_cases(cases_path, case_ids)
-    limits = limits_module.EpisodeLimits()
     location = runner.run_episodes(
         cases,
         database=database,
         model=live_model(model_id, api_key, base_url),
         repeats=repeats,
         log_dir=out_dir / "inspect",
-        limits=limits,
+        limits=limits_module.EpisodeLimits(),
     )
+    return summarize(
+        location=location,
+        out_dir=out_dir,
+        model_id=model_id,
+        api_key=api_key,
+        case_ids=case_ids,
+        repeats=repeats,
+    )
+
+
+def summarize(
+    *,
+    location: str,
+    out_dir: Path,
+    model_id: str,
+    api_key: str,
+    case_ids: list[str],
+    repeats: int,
+) -> dict:
+    """Project a kept log, write the run record, and scan the output for the key.
+
+    It reads the log only; it calls neither the model nor any tool, so it can be
+    run again on a kept log.
+    """
+    out_dir = Path(out_dir).resolve()
+    limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
     episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
@@ -130,7 +162,7 @@ def run_live(
         "machine": platform.machine(),
         "effective_limits": limits_module.read_back(location),
         "requested_limits": limits.as_dict(),
-        "inspect_log": str(Path(location).relative_to(out_dir)),
+        "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
         "episodes": [
             {
@@ -156,4 +188,3 @@ def run_live(
             details={"files": leaked},
         )
     return record
-

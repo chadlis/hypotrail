@@ -377,3 +377,55 @@ def test_nothing_in_the_suite_starts_a_live_run_against_the_real_endpoint():
                 assert path.name == "test_live.py", (path.name, number)
     assert agentic_live.ANTHROPIC_BASE_URL == "https://api.anthropic.com"
     assert core_live.MAX_EPISODES == 2
+
+
+# --- regression: a relative output directory, and summarising a kept log ----------------------------------------
+
+
+def test_a_relative_output_directory_works(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    clean_env.chdir(tmp_path)
+    with FakeAnthropic() as fake:
+        record = agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url,
+        )
+    assert record["inspect_log"].startswith("inspect/")
+    assert (tmp_path / "relative-out" / "run.json").is_file()
+
+
+def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tmp_path, network_guard):
+    _, record, out = rehearsal
+    (out / "run.json").unlink()
+    (out / "projection.json").unlink()
+    again = agentic_live.summarize(
+        location=str(next((out / "inspect").glob("*.eval"))),
+        out_dir=out,
+        model_id=MODEL_ID,
+        api_key=FAKE_KEY,
+        case_ids=["D03", "D05"],
+        repeats=1,
+    )
+    assert again == record
+    assert (out / "run.json").is_file()
+
+
+def _episode(answer, tool_rows):
+    return {
+        "final_answer": None if answer is None else json.dumps(answer),
+        "steps": [{"kind": "tool_result", "result": {"rows": tool_rows}}],
+    }
+
+
+def test_uses_result_means_every_answer_row_is_a_row_the_tool_returned():
+    tool_rows = [["Iron Maiden", 21], ["Led Zeppelin", 14], ["Deep Purple", 11], ["Metallica", 10]]
+    # the model may fetch more rows than it reports (for example to check ties)
+    assert agentic_live._uses_result(_episode({"rows": tool_rows[:3]}, tool_rows)) is True
+    assert agentic_live._uses_result(_episode({"rows": tool_rows}, tool_rows)) is True
+    # a value the tool never returned is not "using its result"
+    assert agentic_live._uses_result(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) is False
+    assert agentic_live._uses_result(_episode({"rows": []}, tool_rows)) is False
+    assert agentic_live._uses_result(_episode(None, tool_rows)) is None
+    assert agentic_live._uses_result({"final_answer": "not json", "steps": [{"kind": "tool_result", "result": {"rows": []}}]}) is False
