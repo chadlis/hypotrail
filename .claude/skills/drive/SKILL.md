@@ -1,6 +1,6 @@
 ---
 name: drive
-description: "Companion session that takes one slice issue (a sub-issue of a milestone) from branch to open pull request, delegating every step that needs fresh eyes to subagents. It writes no implementation code and holds no gate. Every turn opens with a banner, EXÉCUTION or STOP, and the companion talks to Salah in French. Default mode is full-auto: nothing interrupts him until the PR is open, because the feature branch can be thrown away. Two modifiers he may add in the opening message, never inferred: `merge` (squash-merge and close the slice) and `chain` (requires `merge`; opens the next startable slice). Trigger when Salah types \"/drive #n\", \"on reprend #n\", \"où j'en suis\" on a slice, or opens a session to build a slice end to end."
+description: "Companion session that takes one slice issue (a sub-issue of a milestone) from branch to open pull request, delegating every step that needs fresh eyes to subagents. It writes no implementation code and holds no gate. Every turn opens with a banner, EXÉCUTION or STOP, and the companion talks to Salah in French. Default mode is full-auto: nothing interrupts him until the PR is open, because the feature branch can be thrown away. Two modifiers he may add in the opening message, never inferred: `merge` (squash-merge and close the slice) and `chain` (requires `merge`; opens the next startable slice). Trigger when Salah types \"/drive\" (with or without an issue number), \"on reprend #n\", \"où j'en suis\" on a slice, or opens a session to build a slice end to end. With no number, the companion picks the next startable slice itself and says which."
 disable-model-invocation: true
 ---
 
@@ -69,7 +69,7 @@ By default the run **stops at the open PR**:
 **Modifiers**, only if named in the opening message:
 
 - **`merge`**: squash-merge the PR (agents may merge, per `AGENTS.md`) without deleting the branch, then close the slice issue. The ticket gate then becomes **retrospective**: refusing a ticket afterwards costs a corrective slice. Say so in one line when the run opens.
-- **`chain`** requires `merge`; asked alone, treat it as both and say so. When a slice closes, open the next slice whose blockers are all closed, in the order Salah named, otherwise in issue order. Budgets and floors count **per chain**.
+- **`chain`** requires `merge`; asked alone, treat it as both and say so. When a slice closes, open the next one: the slices Salah named, in his order, otherwise the next pick under "Picking the slice". Budgets and floors count **per chain**.
 
 **Changes to the apparatus are deferred, never applied.** The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
@@ -124,6 +124,16 @@ git log --oneline origin/main..HEAD
 
 If the comment and the repository disagree, the repository is right. Correct the comment and say what disagreed.
 
+## Picking the slice
+
+With `/drive #n`, the slice is `#n`. With a bare `/drive`:
+
+1. **A slice already in progress wins.** An open issue with label `in-progress` and a state comment is resumed.
+2. Otherwise take the **first startable slice**: an open sub-issue of the open milestone (the oldest open parent issue whose title starts with `L<n>`), in sub-issue order, whose blockers are all closed. A blocker is a native "blocked by" link or, failing that, the issue's first line `Blocked by: #a, #b`. Native links win when both exist.
+3. If no slice is startable, the run ends: say which slices are open and what blocks each. This is not a STOP.
+
+Announce the pick in an EXÉCUTION turn: « je prends #n (<titre>), parce que <raison> ; pour une autre : `/drive #m` ». Never ask him to choose. Picking by size or by what looks easiest is not a reason.
+
 ## Step 0: briefing
 
 When there is no state comment yet, read the following yourself and say what each told you:
@@ -142,7 +152,7 @@ If a blocker is open, say which and stop. That is a floor, not a question.
 | # | Step | Who | Done when |
 |---|---|---|---|
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
-| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, with native blocked-by links | `slice-planner` | the tickets exist |
+| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, with native blocked-by links where the tools allow, otherwise a first line `Blocked by: #a` | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED` | `slice-gate`, fresh | its reading comes back |
 | 4 | `implement-spec` on the slice, or `implement` per ticket when there are at most two | `slice-builder` | tickets resolved, full test suite green |
 | 5 | **Review of record**: `/code-review main`, bare | `slice-gate`, fresh | both axes reported |
