@@ -17,7 +17,7 @@ Everything you need is in the repository and its issue tracker. Read it; do not 
 **You hold no gate.** You followed the design, so you cannot judge whether it belongs. Two checks need a session that followed nothing:
 
 - the **ticket gate** (step 3), delegated to a fresh agent that reads text against text;
-- the **review of record** (step 5), `/mattpocock-skills:code-review` dispatched bare to a fresh agent.
+- the **review of record** (step 5), `/mattpocock-skills:code-review` invoked bare, its two axis readers each a fresh `slice-gate` agent.
 
 **You write no implementation code.** Not one line under `src/`, `tests/` or `examples/`. You write issue comments, amendments, glossary or ADR lines when a finding requires them, and the commits that carry what subagents leave uncommitted.
 
@@ -32,8 +32,10 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 | step | agent type | model |
 |---|---|---|
 | 2 tickets, 10 retro | `slice-planner` | opus |
-| 3 ticket gate, 5 review | `slice-gate` | opus |
+| 3 ticket gate, 5 review axes | `slice-gate` | opus |
 | 4 implementation, 6 fixes, 7 docs | `slice-builder` | sonnet |
+
+**A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
 **A reviewer never runs on a weaker model than the author.** If a type is missing, create it with the model of the nearest step and say so; never fall back to an untyped call. Never change a step's model mid-slice.
 
@@ -73,13 +75,15 @@ By default the run **stops at the open PR**:
 
 **Changes to the apparatus are deferred, never applied.** The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
+**Paid live runs.** A live run is one invocation of a command that calls a real model, whatever its number of Episodes. At most five per slice, each within the slice issue's bounds and written in the state comment with its reason. Before the first, a test runs the exact live command (same working directory, same arguments) with the provider patched, and exits 0. A run is repeated only after a technical failure, never to get a better result. When post-processing fails, rerun it from the kept log, never the call.
+
 **Native primitives are his to leave.** Inspect owns the agent loop, its logs, retries and limits. scikit-learn owns fitting and preprocessing. SQLite owns read-only enforcement through `mode=ro` and its authorizer. Do not recreate what they provide, never parse an Inspect log by hand, never filter SQL with a regex. A slice that seems to need any of these departures is a floor.
 
 ## Floors
 
 Each ends the run and produces the brief early:
 
-- a gate blocking for the third time;
+- a third round of the review of record that still returns a finding routed to row 1 or 2 of the routing table (the other rows never block);
 - a finding that fits no row of the routing table;
 - two consecutive subagent failures on one step;
 - a decision you are arguing yourself out of escalating;
@@ -87,6 +91,10 @@ Each ends the run and produces the brief early:
 - an apparatus change the slice cannot proceed without;
 - leaving a native primitive;
 - a paid live campaign beyond the slice issue's scope, or before Salah has reviewed the References.
+
+### After a floor
+
+If Salah answers the brief with more work, add a row to the state comment with his decision, its date and the commits it allows. Steps 7 to 10 then run as usual, and the PR body names the floor.
 
 Under `chain`, finish the slice in hand if it can be finished honestly, then stop. Ending a run is not a failure. Grinding past a floor under `merge` produces a `main` nobody can throw away.
 
@@ -131,10 +139,14 @@ The slice issue carries **one state comment** that you create at step 1 and edit
 On start, read it, then **check it against the repository** before trusting it:
 
 ```bash
+git remote get-url origin
 git branch --show-current
 git status -s
-git log --oneline origin/main..HEAD
+git fetch -q https://github.com/chadlis/hypotrail main
+git log --oneline FETCH_HEAD..HEAD
 ```
+
+The repository is `chadlis/hypotrail`. If `origin` points elsewhere (a cloud session can attach an unrelated repository under the same folder name), never push there: push with `git push https://github.com/chadlis/hypotrail HEAD:<branch>`, say so once, and treat the stop hook's unpushed-commits warning as expected.
 
 If the comment and the repository disagree, the repository is right. Correct the comment and say what disagreed.
 
@@ -168,15 +180,17 @@ If a blocker is open, say which and stop. That is a floor, not a question.
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
 | 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED` | `slice-gate`, fresh | its reading comes back |
-| 4 | `implement-spec` on the slice, or `implement` per ticket when there are at most two | `slice-builder` | tickets resolved, full test suite green |
-| 5 | **Review of record**: `/mattpocock-skills:code-review main`, bare | `slice-gate`, fresh | both axes reported |
-| 6 | Route the findings (table below); fixes go to `slice-builder`; after any code change, step 5 runs again | you, then subagent | nothing left unrouted |
+| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder` | you, then `slice-builder` | tickets resolved, full test suite green |
+| 5 | **Review of record**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports, kept verbatim |
+| 6 | Route the findings (table below); fixes go to `slice-builder`; after a fix, step 5 runs again, bare, on the fixes only: `/mattpocock-skills:code-review <head of the last reviewed round>` | you, then subagent | nothing left unrouted |
 | 7 | Documentation: the handbook (`docs/handbook/`) describes what changed; the README is still true; the PR names which acceptance tests (T-xx) it proves; push the slice's notes to `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push) | `slice-builder` | the files exist |
 | 8 | PR, body shaped by `/pr`, closing the slice's tickets, not the slice | you | the PR exists |
 | 9 | Learning trigger: an issue in `chadlis/hypotrail-learning` titled `learn: <slice>`, asking for the chapter to be written by a fresh session from the notes, the PR and the ADRs. If that repository has issues disabled, file it here with label `learn` | you | the issue exists |
 | 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner` | its list comes back |
 | 11 | **The brief** (STOP) | you | he answers |
 | 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`; close the slice issue; add the squash SHA to the `learn:` issue | you | the slice issue is closed |
+
+Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments. A line without a quoted source is your decision: it goes to brief item 2, not into the ticket.
 
 `implement-spec` runs its own `code-review` from the author's side. That is hygiene. Step 5 is the review of record.
 
@@ -219,6 +233,7 @@ Under `chain`, this is one brief for the whole chain, numbered continuously, eac
 
 - Every commit carries the attribution trailers this session was given, and a session URL only if one exists. **Never invent a link.**
 - The squash subject ends with `(#<slice>)`, so `git log --grep '#<slice>'` finds it without the tracker.
+- The PR body names the last commit a review of record covered, and lists every later commit as not reviewed.
 - Apparatus changes never travel in a slice's squash: they go on their own branch and pull request, after Salah agrees.
 
 ## What goes wrong

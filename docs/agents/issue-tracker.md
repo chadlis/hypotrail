@@ -12,7 +12,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+The repo is `chadlis/hypotrail`. A cloud clone may point `origin` at an unrelated repository: never infer the repo from it, and pass `--repo chadlis/hypotrail` to `gh`.
 
 ## Pull requests as a triage surface
 
@@ -52,7 +52,7 @@ In Claude Code cloud sessions `gh` is not authenticated. Use the GitHub MCP tool
 | Operation | Tool |
 |---|---|
 | Create / update / close an issue, apply labels | `issue_write` (`method: create` or `update`; `state: closed` with `state_reason`) |
-| Read an issue, its comments, sub-issues, parent | `issue_read` |
+| Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body |
 | List issues | `list_issues` |
 | Comment | `add_issue_comment` |
 | Sub-issue | `issue_write` with `parent_issue_number`, or `sub_issue_write` |
