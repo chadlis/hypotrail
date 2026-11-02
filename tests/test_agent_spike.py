@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -147,6 +148,36 @@ def test_a_write_statement_through_the_tool_fails_and_the_file_is_unchanged(stat
     assert result["error"] is not None
     assert result["rows"] == [] and result["columns"] == []
     assert sha(DATABASE) == before
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "VACUUM INTO '{path}'",
+        "ATTACH DATABASE '{path}' AS other",
+        "ATTACH '{path}' AS other; SELECT 1",
+        "DETACH DATABASE other",
+    ],
+)
+def test_the_tool_cannot_create_a_file_through_vacuum_into_or_attach(tmp_path, template):
+    target = tmp_path / "written.db"
+    before = sha(DATABASE)
+    result = sql_tool.run_query(DATABASE, template.format(path=target))
+    assert isinstance(result["error"], dict)
+    assert set(result["error"]) == {"type", "message"}
+    assert result["rows"] == [] and result["columns"] == []
+    assert list(tmp_path.iterdir()) == []
+    assert sha(DATABASE) == before
+
+
+def test_the_tools_connection_allows_no_attached_database_and_reads_still_work():
+    connection = sql_tool.open_sqlite_readonly(DATABASE)
+    try:
+        sql_tool.restrict_connection(connection)
+        assert connection.getlimit(sqlite3.SQLITE_LIMIT_ATTACHED) == 0
+        assert connection.execute("SELECT count(*) FROM Genre").fetchone()[0] > 0
+    finally:
+        connection.close()
 
 
 def test_load_extension_fails_on_the_tools_connection():
