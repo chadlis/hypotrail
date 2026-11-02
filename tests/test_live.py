@@ -1,0 +1,379 @@
+"""Ticket #20: the opt-in, bounded live run. Nothing here reaches a real provider.
+
+The live path is exercised against a fake Anthropic endpoint on loopback, which
+speaks the Messages API well enough to carry a tool call, so the provider
+client, the key header, the logs and the key scan are all the real ones.
+"""
+
+import io
+import json
+import threading
+from contextlib import redirect_stderr, redirect_stdout
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+import pytest
+
+from _agent_helpers import CASES, DATABASE, REFERENCES, oracle_sql, read_jsonl
+
+from hypotrail import cli
+from hypotrail.agentic import cases as case_module
+from hypotrail.agentic import live as agentic_live
+from hypotrail.agentic import projection, runner
+from hypotrail.core import live as core_live
+
+ROOT = Path(__file__).resolve().parent.parent
+FAKE_KEY = "sk-ant-FAKE-live-key-0123456789abcdef"
+MODEL_ID = "anthropic/claude-test-1"
+PROXY_VARIABLES = ["http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
+
+
+def run_cli(*args):
+    out, err = io.StringIO(), io.StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        code = cli.main(list(args))
+    return code, out.getvalue(), err.getvalue()
+
+
+@pytest.fixture
+def clean_env(monkeypatch):
+    for name in ("HYPOTRAIL_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("INSPECT_EVAL_MODEL", "anthropic/should-never-be-used")
+    return monkeypatch
+
+
+@pytest.fixture
+def never_runs(monkeypatch):
+    calls = []
+
+    def fail(**kwargs):
+        calls.append(kwargs)
+        raise AssertionError("the live run was started")
+
+    monkeypatch.setattr(agentic_live, "run_live", fail)
+    return calls
+
+
+def live_args(tmp_path, *extra):
+    return ["spike", "live", "--out", str(tmp_path / "out"), "--json", *extra]
+
+
+# --- the key ------------------------------------------------------------------------------------
+
+
+def test_without_the_key_the_live_path_exits_5_names_the_blocker_and_sends_nothing(
+    tmp_path, clean_env, never_runs, network_guard
+):
+    code, out, err = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+
+    assert code == 5
+    assert "LIVE_NOT_VALIDATED" in out + err
+    error = json.loads(out)["error"]
+    assert error["details"]["blocker"] == "HYPOTRAIL_ANTHROPIC_API_KEY is not set"
+    assert error["details"]["status"] == "LIVE_NOT_VALIDATED"
+    assert never_runs == []
+    assert network_guard.attempts == []
+    assert not (tmp_path / "out").exists()
+
+
+def test_the_old_variable_name_is_not_read(tmp_path, clean_env, never_runs, network_guard):
+    clean_env.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
+    code, out, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+    assert code == 5
+    assert "HYPOTRAIL_ANTHROPIC_API_KEY is not set" in out
+    assert network_guard.attempts == []
+
+
+def test_a_bearer_token_in_the_environment_would_override_the_key_so_the_run_refuses(
+    tmp_path, clean_env, never_runs
+):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    clean_env.setenv("ANTHROPIC_AUTH_TOKEN", "bearer-token")
+    code, out, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+    assert code == 5
+    assert "ANTHROPIC_AUTH_TOKEN" in out
+    assert "bearer-token" not in out and FAKE_KEY not in out
+
+
+def test_the_key_is_never_echoed(tmp_path, clean_env, monkeypatch):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: {
+        "model": kw["model_id"], "tool_loop_observed": False, "episodes": []
+    })
+    code, out, err = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+    assert code == 0
+    assert FAKE_KEY not in out + err
+
+
+# --- the model identifier ----------------------------------------------------------------------------
+
+
+def test_without_a_model_the_run_exits_before_inspect_starts(tmp_path, clean_env, never_runs):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    code, out, _ = run_cli(*live_args(tmp_path))
+    assert code == 2
+    assert json.loads(out)["error"]["code"] == "MODEL_REQUIRED"
+    assert never_runs == []
+
+
+@pytest.mark.parametrize(
+    "model", ["claude-sonnet-5-5", "openai/gpt-x", "anthropic/bedrock/claude", "anthropic/", "anthropic/a b"]
+)
+def test_only_a_plain_anthropic_model_identifier_is_accepted(tmp_path, clean_env, never_runs, model):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    code, out, _ = run_cli(*live_args(tmp_path, "--model", model))
+    assert code == 2
+    assert never_runs == []
+
+
+def test_the_code_holds_no_default_model():
+    source = (ROOT / "src" / "hypotrail").rglob("*.py")
+    for path in source:
+        text = path.read_text()
+        assert "claude-sonnet" not in text and "claude-opus" not in text and "claude-haiku" not in text, path.name
+
+
+# --- bounds ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["--case", "E01"],  # public_check
+        ["--case", "D03", "--case", "E01"],
+        ["--case", "D01", "--case", "D02", "--case", "D03"],  # 3 Episodes
+        ["--case", "D03", "--case", "D05", "--repeats", "2"],  # 4 Episodes
+        ["--case", "D03", "--repeats", "3"],
+        ["--case", "D03", "--repeats", "0"],
+        ["--case", "D03", "--case", "D03"],
+        ["--case", "NOPE"],
+    ],
+)
+def test_the_run_refuses_non_dev_cases_and_more_than_two_episodes(tmp_path, clean_env, never_runs, extra):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    code, _, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID, *extra))
+    assert code == 2
+    assert never_runs == []
+
+
+def test_two_episodes_on_dev_cases_are_accepted(tmp_path, clean_env, monkeypatch):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    seen = []
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: seen.append(kw) or {
+        "model": kw["model_id"], "tool_loop_observed": False, "episodes": []
+    })
+    code, _, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID))
+    assert code == 0
+    assert seen[0]["case_ids"] == ["D03", "D05"] and seen[0]["repeats"] == 1
+    assert seen[0]["api_key"] == FAKE_KEY
+
+
+# --- the provider client ------------------------------------------------------------------------------------
+
+
+def test_the_key_reaches_the_provider_explicitly_and_no_environment_key_is_used(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "some-other-key")
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    model = agentic_live.live_model(MODEL_ID, FAKE_KEY)
+    client = model.api.client
+    assert client.api_key == FAKE_KEY
+    assert client.max_retries == 0
+    assert str(client.base_url).rstrip("/") == "https://api.anthropic.com"
+
+
+# --- a rehearsal against a fake endpoint -------------------------------------------------------------------------
+
+
+class FakeAnthropic:
+    """Speaks just enough of the Messages API to carry model -> tool -> model."""
+
+    def __init__(self):
+        cases = case_module.load_cases(CASES)
+        self.sql = {c["question"]: oracle_sql(c["case_id"]) for c in cases if c["case_id"] in ("D03", "D05")}
+        self.units = {c["question"]: c["unit"] for c in cases}
+        self.requests = []
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["content-length"])))
+                outer.requests.append({"path": self.path, "headers": dict(self.headers), "body": body})
+                reply = json.dumps(outer.reply(body)).encode()
+                self.send_response(200)
+                self.send_header("content-type", "application/json")
+                self.send_header("content-length", str(len(reply)))
+                self.end_headers()
+                self.wfile.write(reply)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.server.shutdown()
+        self.server.server_close()
+
+    @staticmethod
+    def _text_of(blocks):
+        if isinstance(blocks, str):
+            return blocks
+        return "".join(b.get("text", "") for b in blocks)
+
+    def reply(self, body):
+        first_user = next(m for m in body["messages"] if m["role"] == "user")
+        question = next(q for q in self.sql if q in self._text_of(first_user["content"]))
+        message = {
+            "id": "msg_fake", "type": "message", "role": "assistant", "model": "claude-test-1-20261101",
+            "stop_sequence": None, "usage": {"input_tokens": 120, "output_tokens": 30},
+        }
+        last = body["messages"][-1]
+        results = [b for b in last["content"] if isinstance(b, dict) and b.get("type") == "tool_result"]
+        if not results:
+            return {**message, "stop_reason": "tool_use", "content": [
+                {"type": "tool_use", "id": "toolu_fake01", "name": "query_readonly", "input": {"sql": self.sql[question]}}
+            ]}
+        result = json.loads(self._text_of(results[0]["content"]))
+        answer = {"status": "answered", "reason_code": None, "columns": result["columns"],
+                  "rows": result["rows"], "unit": self.units[question], "evidence": [result["tool_call_id"]]}
+        return {**message, "stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(answer)}]}
+
+
+@pytest.fixture
+def rehearsal(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with FakeAnthropic() as fake:
+        record = agentic_live.run_live(
+            model_id=MODEL_ID,
+            api_key=FAKE_KEY,
+            cases_path=CASES,
+            database=DATABASE,
+            case_ids=["D03", "D05"],
+            repeats=1,
+            out_dir=tmp_path / "out",
+            base_url=fake.url,
+        )
+        yield fake, record, tmp_path / "out"
+
+
+def test_a_rehearsal_shows_a_real_client_carrying_model_tool_model_answer(rehearsal):
+    fake, record, out = rehearsal
+    assert record["tool_loop_observed"] is True
+    assert [e["status"] for e in record["episodes"]] == ["produced", "produced"]
+    assert [e["uses_tool_result"] for e in record["episodes"]] == [True, True]
+    assert len(fake.requests) == 4  # two generations per Episode
+    episodes = json.loads((out / "projection.json").read_text())
+    assert all([s["kind"] for s in e["steps"]] == agentic_live.EXPECTED_SEQUENCE for e in episodes)
+
+
+def test_the_key_is_sent_only_in_the_authorization_header(rehearsal):
+    fake, _, _ = rehearsal
+    for request in fake.requests:
+        headers = {k.lower(): v for k, v in request["headers"].items()}
+        assert headers["authorization"] == f"Bearer {FAKE_KEY}"
+        assert "x-api-key" not in headers
+        others = {k: v for k, v in headers.items() if k != "authorization"}
+        assert FAKE_KEY not in json.dumps(others)
+        assert FAKE_KEY not in json.dumps(request["body"])
+        assert request["path"].endswith("/v1/messages")
+        assert request["body"]["max_tokens"] == 1024
+        assert request["body"]["model"] == "claude-test-1"
+
+
+def test_the_record_holds_provider_model_revision_engine_parameters_and_hardware(rehearsal):
+    _, record, out = rehearsal
+    assert record["provider"] == "anthropic" and record["model"] == MODEL_ID
+    assert record["served_models"] == ["claude-test-1-20261101"]
+    assert record["engine"]["name"] == "inspect-ai" and record["engine"]["version"]
+    assert record["hardware"] and record["machine"]
+    assert record["effective_limits"]["model_turns"] == 6
+    assert record["effective_limits"]["transport_retries"] == 0
+    # the request parameters that took effect, as the log recorded them
+    assert record["request_parameters"]["max_tokens"] == 1024
+    assert record["request_parameters"]["model"] == "claude-test-1"
+    assert "messages" not in record["request_parameters"]
+    assert (out / "run.json").is_file() and (out / "projection.json").is_file()
+
+
+def test_the_key_appears_in_no_file_the_run_produced(rehearsal):
+    _, _, out = rehearsal
+    files = [p for p in out.rglob("*") if p.is_file()]
+    assert files
+    assert agentic_live.scan_for_secret(out, FAKE_KEY) == []
+    for path in files:
+        assert FAKE_KEY.encode() not in path.read_bytes()
+
+
+def test_the_scan_finds_a_key_in_a_plain_file_and_inside_a_compressed_log(tmp_path):
+    (tmp_path / "plain.txt").write_text(f"x {FAKE_KEY} y")
+    assert agentic_live.scan_for_secret(tmp_path, FAKE_KEY) == ["plain.txt"]
+
+    # a log whose system prompt holds the key: invisible in the compressed bytes
+    from _agent_helpers import ScriptedModel
+
+    cases = case_module.load_cases(CASES, ["D03"])
+    leaky = [{**cases[0], "question": cases[0]["question"] + " " + FAKE_KEY}]
+    script = ScriptedModel(leaky)
+    script.sql_by_question = {leaky[0]["question"]: oracle_sql("D03")}
+    script.unit_by_question = {leaky[0]["question"]: "count"}
+    script.case_by_question = {leaky[0]["question"]: "D03"}
+    location = runner.run_episodes(
+        leaky, database=DATABASE, model=runner.mock_model(script), repeats=1, log_dir=tmp_path / "logs"
+    )
+    assert FAKE_KEY.encode() not in Path(location).read_bytes()
+    assert agentic_live.scan_for_secret(tmp_path / "logs", FAKE_KEY) == [Path(location).name]
+
+
+def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    real = projection.project_log
+
+    def leaky(location, expected):
+        episodes = real(location, expected=expected)
+        episodes[0]["steps"].append({"kind": "note", "text": FAKE_KEY})
+        return episodes
+
+    monkeypatch.setattr(agentic_live.projection, "project_log", leaky)
+    from hypotrail.core.errors import HypotrailError
+
+    with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+        )
+    assert caught.value.code == "SECRET_IN_OUTPUT"
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_a_non_empty_output_directory_is_refused(tmp_path):
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "earlier.txt").write_text("x")
+    with pytest.raises(Exception, match="not empty"):
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+        )
+
+
+# --- opt-in --------------------------------------------------------------------------------------------------------
+
+
+def test_nothing_in_the_suite_starts_a_live_run_against_the_real_endpoint():
+    # The only run_live calls in tests pass a loopback base_url or are patched.
+    for path in (ROOT / "tests").glob("test_*.py"):
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            if "run_live(" in line and "def " not in line:
+                assert path.name == "test_live.py", (path.name, number)
+    assert agentic_live.ANTHROPIC_BASE_URL == "https://api.anthropic.com"
+    assert core_live.MAX_EPISODES == 2

@@ -39,6 +39,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
+
+    spike = commands.add_parser("spike", help="feasibility spike entry points")
+    spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
+    live = spike_commands.add_parser(
+        "live",
+        help="opt-in, paid: run the spike task against a real Anthropic model "
+        "(at most 2 Episodes on dev Cases)",
+    )
+    live.add_argument("--model", help="explicit model identifier, as anthropic/<model>; no default")
+    live.add_argument(
+        "--case",
+        action="append",
+        metavar="CASE_ID",
+        help="a dev Case (repeatable; default: D03 and D05)",
+    )
+    live.add_argument("--repeats", type=int, default=1, help="Repeats per Case (default 1)")
+    live.add_argument("--out", type=Path, required=True, metavar="DIR", help="empty output directory")
+    live.add_argument("--json", action="store_true", help="print one JSON object")
+    live.set_defaults(handler=_spike_live)
     return parser
 
 
@@ -57,6 +76,47 @@ def _data_verify(args) -> int:
         for r in reports
     ]
     _emit({"ok": True, "datasets": reports}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _spike_live(args) -> int:
+    import os
+
+    from hypotrail.core import data, live
+
+    model = live.require_model(args.model)
+    examples = data.default_examples_dir()
+    cases_path = examples / "chinook" / "cases" / "chinook-dev.jsonl"
+    dev_ids = {
+        json.loads(line)["case_id"]
+        for line in cases_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    case_ids = args.case or ["D03", "D05"]
+    live.check_bounds(case_ids, args.repeats, dev_ids)
+    # The key is read last among the cheap checks and before anything is imported
+    # from the agentic side: without it nothing else starts and nothing is sent.
+    api_key = live.read_api_key(os.environ)
+    data.verify_workloads(examples, ["chinook"])
+
+    from hypotrail.agentic import live as agentic_live
+
+    record = agentic_live.run_live(
+        model_id=model,
+        api_key=api_key,
+        cases_path=cases_path,
+        database=examples / "chinook" / "data" / "Chinook_Sqlite.sqlite",
+        case_ids=case_ids,
+        repeats=args.repeats,
+        out_dir=args.out,
+    )
+    lines = [
+        f"live run recorded in {args.out} (model {record['model']}, "
+        f"tool loop observed: {record['tool_loop_observed']})"
+    ] + [
+        f"  {e['case_id']} repeat {e['repeat']}: {e['status']}" for e in record["episodes"]
+    ]
+    _emit({"ok": True, "run": record}, args.json, "\n".join(lines))
     return EXIT_OK
 
 

@@ -12,6 +12,9 @@ import socket
 import pytest
 
 
+LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+
+
 class NetworkBlocked(RuntimeError):
     pass
 
@@ -35,15 +38,18 @@ def network_guard(monkeypatch):
     guard = NetworkGuard()
 
     def blocked_connect(self, address, *args, **kwargs):
-        # Unix sockets stay possible: they never leave the machine.
-        if self.family == socket.AF_UNIX:
+        # Unix sockets and loopback stay possible: they never leave the machine.
+        if self.family == socket.AF_UNIX or address[0] in LOOPBACK:
             return real_connect(self, address, *args, **kwargs)
         guard.record(f"connect {address!r}")
 
     def blocked_getaddrinfo(host, *args, **kwargs):
+        if host in LOOPBACK:
+            return real_getaddrinfo(host, *args, **kwargs)
         guard.record(f"getaddrinfo {host!r}")
 
     real_connect = socket.socket.connect
+    real_getaddrinfo = socket.getaddrinfo
     monkeypatch.setattr(socket.socket, "connect", blocked_connect)
     monkeypatch.setattr(socket.socket, "connect_ex", blocked_connect)
     monkeypatch.setattr(socket, "getaddrinfo", blocked_getaddrinfo)
