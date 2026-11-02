@@ -7,7 +7,7 @@ Hypotrail runs small, explicit studies of predictive and agentic systems: it pro
 ### Study structure
 
 **Study**:
-The folder-scoped record of one investigation of one Workload under one frozen protocol; it holds native and imported Attempts alike.
+The folder-scoped record of one investigation of one Workload under one frozen Protocol; it holds native and imported Attempts alike.
 _Avoid_: project, run folder, experiment
 
 **Track**:
@@ -17,6 +17,14 @@ _Avoid_: case (for this meaning), task type, family, pipeline
 **Workload**:
 One Track applied to concrete data, with its population, Partitions, References and declared settings (for example daily bike rentals, or the Chinook analyst questions); a demonstration Workload is still a Workload.
 _Avoid_: benchmark, dataset (for the whole), use case, example (as a domain term)
+
+**Protocol**:
+What a Study evaluates and how it scores it: the population, Partitions, References, Scorers and the rules on when information is available; it binds every Attempt, while how an imported Attempt's outputs were produced stays `declared` or `unknown`.
+_Avoid_: pipeline, method, setup
+
+**Exposure**:
+Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
+_Avoid_: use, peek, leak
 
 **Partition**:
 A named, disjoint subset of a Track's population with a fixed role in the protocol, such as `train`, `dev` or `public_check`.
