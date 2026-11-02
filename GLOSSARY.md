@@ -1,0 +1,106 @@
+# Hypotrail
+
+Hypotrail runs small, explicit studies of predictive and agentic systems: it produces or adopts their outputs, keeps them, scores them against frozen references, and compares two configurations under one protocol.
+
+## Language
+
+### Study structure
+
+**Study**:
+The folder-scoped record of one investigation of one Track under one frozen protocol; it holds native and imported Attempts alike.
+_Avoid_: project, run folder, experiment
+
+**Track**:
+A kind of study the software supports end to end, defined by its data, population, protocol and scorers (for example the daily bike-rental regression, or the Chinook analyst agent).
+_Avoid_: case (for this meaning), use case, scenario, pipeline
+
+**Partition**:
+A named, disjoint subset of a Track's population with a fixed role in the protocol, such as `train`, `dev` or `public_check`.
+_Avoid_: split, fold
+
+**Item**:
+The unit that is produced, scored and counted one at a time, identified by a stable ID that never depends on file order.
+_Avoid_: row, sample, example
+
+**Case**:
+One question of an agentic Track, with its requested columns and unit; it carries no expected answer.
+_Avoid_: task, prompt, question item
+
+**Episode**:
+The Item of an agentic Track: one Case answered once, identified by Case and Repeat.
+_Avoid_: sample, trial, run
+
+**Repeat**:
+The index distinguishing fresh, independent executions of the same Case under the same Configuration.
+_Avoid_: epoch, retry, copy
+
+### Producing outputs
+
+**Configuration**:
+The complete, named description of what is executed for a Track (for example `seasonal_7`, `ridge_v1`, or a prompt variant), excluding the role it later plays in a Comparison.
+_Avoid_: variant, model (when the whole setup is meant)
+
+**Mode**:
+How an Attempt's outputs came to exist: `native_ml`, `scripted_fixture`, `llm_live` or `external_unknown`.
+_Avoid_: profile, backend
+
+**Attempt**:
+One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs.
+_Avoid_: run, job, execution record
+
+**Import**:
+An Attempt that adopts outputs produced outside Hypotrail, keeping the original files and marking everything it cannot establish as unknown.
+_Avoid_: migration, resume, recovery
+
+**Campaign**:
+A named group of Attempts planned together, such as both Configurations over the same Cases and Repeats; it is a label, not a container of its own.
+_Avoid_: batch, eval set
+
+**Observation set**:
+The outputs of one Attempt, one per Item, each marked `produced`, `failed` or `missing`.
+_Avoid_: results, predictions (as a generic term), log
+
+### Scoring and comparing
+
+**Reference**:
+The frozen expected outcome for an Item, versioned as a whole set and never shown to the system being evaluated.
+_Avoid_: ground truth, gold, label, oracle
+
+**Scorer**:
+A versioned, registered scoring rule that turns an Observation set and a Reference set into Criteria per Item.
+_Avoid_: grader, judge, evaluator
+
+**Criterion**:
+One property a Scorer checks for each Item (for example `exact_table`, `format_valid`, `evidence_link_valid`), whose state is `scored`, `unscorable` or `scoring_error`.
+_Avoid_: check, test, sub-score
+
+**Metric**:
+A number aggregated over Items from one Criterion, such as MAE or the share of Items with a correct verdict.
+_Avoid_: score (for the aggregate), KPI
+
+**Assessment**:
+One application of one Scorer version to one Observation set and one Reference set; rescoring always creates a new Assessment.
+_Avoid_: evaluation, result, score
+
+**Comparison**:
+Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate.
+_Avoid_: benchmark, diff
+
+**Control**:
+The Assessment a Comparison measures against.
+_Avoid_: baseline (as a role), reference (as a role)
+
+**Candidate**:
+The Assessment a Comparison measures; a positive loss delta means the Candidate is worse.
+_Avoid_: variant (as a role), challenger, treatment
+
+## Relationships
+
+- A **Study** belongs to one **Track** and holds many **Attempts**.
+- An **Attempt** runs one **Configuration** in one **Mode** and yields exactly one **Observation set**.
+- An **Assessment** applies one **Scorer** to one **Observation set** and one **Reference** set; one Observation set can have many Assessments.
+- A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
+
+## Correspondence with Inspect
+
+Inspect executes agentic Episodes; its words map onto Hypotrail's as follows. **Sample** ↔ Case, **epoch** ↔ Repeat, **sample × epoch** ↔ Episode, **eval log** ↔ the raw artifact behind an Observation set, **Inspect scorer** ↔ a display of a Hypotrail Scorer, never the authoritative verdict.
