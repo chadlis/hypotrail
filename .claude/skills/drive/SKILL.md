@@ -211,6 +211,7 @@ The STOP banner, the framing section, then a numbered decision list in French, e
    Under `merge`, open with one sentence: this gate is retrospective, and refusing now costs a corrective slice. Never write « ce ticket tient »: a recommendation he overrules leaves a trace, a verdict you grant does not.
 1. **What is waiting to reach `main`**: deferred apparatus diffs (including `retro`'s), invented behaviours, anything kept off `main`. One line each, with the cost of dropping it.
 2. What shipped, what you decided alone, what you filed instead of asking, what is still open.
+3. **L'ordre recommandé**: the order in which Salah should take the brief's items and the actions around them. Name which decisions he can answer now, which are better taken after something else (the `learn:` session for the slice, his review of References, another decision), which merges wait on which answer, and which later choice would make a chapter or a note false. One numbered list, each step with its reason.
 
 Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice.
 
