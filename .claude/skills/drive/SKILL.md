@@ -129,7 +129,7 @@ If the comment and the repository disagree, the repository is right. Correct the
 With `/drive #n`, the slice is `#n`. With a bare `/drive`:
 
 1. **A slice already in progress wins.** An open issue with label `in-progress` and a state comment is resumed.
-2. Otherwise take the **first startable slice**: an open sub-issue of the open milestone (the oldest open parent issue whose title starts with `L<n>`), in sub-issue order, whose blockers are all closed. A blocker is a native "blocked by" link or, failing that, the issue's first line `Blocked by: #a, #b`. Native links win when both exist.
+2. Otherwise take the **first startable slice**: an open sub-issue of the open milestone (the oldest open parent issue whose title starts with `L<n>`), in sub-issue order, whose blockers are all closed. Blockers are declared only by the issue's first line, `Blocked by: #a, #b`; GitHub's native dependency links are not used in this repository.
 3. If no slice is startable, the run ends: say which slices are open and what blocks each. This is not a STOP.
 
 Announce the pick in an EXÉCUTION turn: « je prends #n (<titre>), parce que <raison> ; pour une autre : `/drive #m` ». Never ask him to choose. Picking by size or by what looks easiest is not a reason.
@@ -152,7 +152,7 @@ If a blocker is open, say which and stop. That is a floor, not a question.
 | # | Step | Who | Done when |
 |---|---|---|---|
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
-| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, with native blocked-by links where the tools allow, otherwise a first line `Blocked by: #a` | `slice-planner` | the tickets exist |
+| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED` | `slice-gate`, fresh | its reading comes back |
 | 4 | `implement-spec` on the slice, or `implement` per ticket when there are at most two | `slice-builder` | tickets resolved, full test suite green |
 | 5 | **Review of record**: `/code-review main`, bare | `slice-gate`, fresh | both axes reported |
