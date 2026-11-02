@@ -7,12 +7,16 @@ Hypotrail runs small, explicit studies of predictive and agentic systems: it pro
 ### Study structure
 
 **Study**:
-The folder-scoped record of one investigation of one Track under one frozen protocol; it holds native and imported Attempts alike.
+The folder-scoped record of one investigation of one Workload under one frozen protocol; it holds native and imported Attempts alike.
 _Avoid_: project, run folder, experiment
 
 **Track**:
-A kind of study the software supports end to end, defined by its data, population, protocol and scorers (for example the daily bike-rental regression, or the Chinook analyst agent).
-_Avoid_: case (for this meaning), use case, scenario, pipeline
+A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
+_Avoid_: case (for this meaning), task type, family, pipeline
+
+**Workload**:
+One Track applied to concrete data, with its population, Partitions, References and declared settings (for example daily bike rentals, or the Chinook analyst questions); a demonstration Workload is still a Workload.
+_Avoid_: benchmark, dataset (for the whole), use case, example (as a domain term)
 
 **Partition**:
 A named, disjoint subset of a Track's population with a fixed role in the protocol, such as `train`, `dev` or `public_check`.
@@ -37,7 +41,7 @@ _Avoid_: epoch, retry, copy
 ### Producing outputs
 
 **Configuration**:
-The complete, named description of what is executed for a Track (for example `seasonal_7`, `ridge_v1`, or a prompt variant), excluding the role it later plays in a Comparison.
+The complete, named description of what is executed for a Track (for example `seasonal_7`, `ridge_v1`, `plain` or `verify`), excluding the role it later plays in a Comparison.
 _Avoid_: variant, model (when the whole setup is meant)
 
 **Mode**:
@@ -96,7 +100,7 @@ _Avoid_: variant (as a role), challenger, treatment
 
 ## Relationships
 
-- A **Study** belongs to one **Track** and holds many **Attempts**.
+- A **Workload** instantiates one **Track**; a **Study** investigates one **Workload** and holds many **Attempts**.
 - An **Attempt** runs one **Configuration** in one **Mode** and yields exactly one **Observation set**.
 - An **Assessment** applies one **Scorer** to one **Observation set** and one **Reference** set; one Observation set can have many Assessments.
 - A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
