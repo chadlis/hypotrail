@@ -12,6 +12,7 @@ from inspect_ai.model import ChatMessageSystem, ChatMessageUser, Model, get_mode
 from inspect_ai.solver import generate, use_tools
 
 from hypotrail.agentic.cases import model_input
+from hypotrail.agentic.limits import EpisodeLimits, eval_options
 from hypotrail.agentic.sql_tool import query_readonly
 
 
@@ -48,6 +49,8 @@ def run_episodes(
     repeats: int,
     log_dir: Path,
     scorer=None,
+    limits: EpisodeLimits | None = None,
+    **overrides,
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
@@ -56,6 +59,6 @@ def run_episodes(
         epochs=repeats,
         log_dir=str(log_dir),
         display="none",
-        max_samples=1,
+        **{**eval_options(limits or EpisodeLimits()), **overrides},
     )
     return logs[0].location

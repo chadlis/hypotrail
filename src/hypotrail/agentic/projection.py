@@ -95,7 +95,9 @@ def _episode(sample, model: str) -> dict:
         "input": inputs,
         "steps": steps,
         "final_answer": final,
-        "limit": None if sample.limit is None else {"type": sample.limit.type, "limit": sample.limit.limit},
+        "stopped_by_limit": None
+        if sample.limit is None
+        else {"type": sample.limit.type, "limit": sample.limit.limit},
         "turn_count": sample.turn_count,
     }
 
@@ -121,7 +123,7 @@ def project_log(location: str, *, expected: Iterable[tuple[str, int]]) -> list[d
                     "input": [],
                     "steps": [],
                     "final_answer": None,
-                    "limit": None,
+                    "stopped_by_limit": None,
                     "turn_count": None,
                 }
             )
