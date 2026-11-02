@@ -131,6 +131,24 @@ def test_an_answer_that_is_not_a_json_object_is_incorrect_without_looking_for_a_
         assert verdict["parsed"] is False
 
 
+@pytest.mark.parametrize("field", ["status", "reason_code", "columns", "rows", "unit", "evidence"])
+def test_an_answer_missing_a_required_field_is_malformed_even_when_the_reference_holds_null(field):
+    answer = correct_answer("D03")
+    del answer[field]
+    # null in the Reference: a missing field, read as None, would otherwise match it
+    reference = {**REFS["D03"], "reason_code": None, "unit": None}
+    verdict = score(answer, reference=reference)
+    assert verdict["parsed"] is False
+    assert verdict["correct"] is False
+    assert not any(verdict["components"].values())
+
+
+def test_a_present_null_is_not_a_missing_field():
+    reference = {**REFS["D03"], "reason_code": None, "unit": None}
+    answer = {**correct_answer("D03"), "reason_code": None, "unit": None}
+    assert score(answer, reference=reference)["correct"] is True
+
+
 def test_a_missing_answer_is_incorrect():
     assert answer_scoring.score_answer(None, REFS["D03"])["correct"] is False
 

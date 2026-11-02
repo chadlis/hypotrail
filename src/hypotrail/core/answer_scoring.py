@@ -4,8 +4,8 @@ Standard library only: this is the one scoring function, whatever produced the
 answer. It compares status, reason, columns (in order), rows (in order) and unit.
 There is no conversion from a string to a number, a boolean is not an integer,
 NULL stays NULL, non-finite numbers are refused, and no number is picked out of
-prose. The Reference's absolute tolerance applies to numbers; it is 0 for exact
-comparison.
+prose. An answer missing one of the six required fields is malformed. The
+Reference's absolute tolerance applies to numbers; it is 0 for exact comparison.
 """
 
 import json
@@ -13,6 +13,7 @@ import math
 from decimal import Decimal
 
 COMPONENTS = ("status", "reason_code", "columns", "rows", "unit")
+REQUIRED_FIELDS = (*COMPONENTS, "evidence")
 
 
 def _refuse_constant(name):
@@ -60,9 +61,15 @@ def _same_rows(expected, actual, tolerance):
 
 
 def score_answer(answer_text, reference: dict) -> dict:
-    """Compare an answer (raw text) with a Reference record."""
+    """Compare an answer (raw text) with a Reference record.
+
+    An answer that is not a JSON object, or that lacks one of the six required
+    fields, is malformed: `parsed` is False and every component is False.
+    """
     answer = parse_answer(answer_text)
-    if answer is None:
+    # An answer without a required field is malformed, whatever the Reference holds:
+    # a missing field must not read as the null a Reference may hold (AG-08).
+    if answer is None or any(field not in answer for field in REQUIRED_FIELDS):
         return {
             "parsed": False,
             "correct": False,
