@@ -1,0 +1,3 @@
+Les nouvelles questions, références dérivées, fixtures et schémas contenus dans ce kit sont proposés sous CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+Cette mention ne remplace pas les licences des données source. La base Chinook conserve sa notice MIT, et Bike Sharing son attribution CC BY 4.0.

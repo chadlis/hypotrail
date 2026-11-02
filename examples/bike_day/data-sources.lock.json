@@ -1,0 +1,22 @@
+{
+  "schema_version": "data-sources/1",
+  "verified_on": "2026-11-01",
+  "sources": [
+    {
+      "dataset_id": "uci-bike-day-v1",
+      "landing_url": "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset",
+      "download_url": "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip",
+      "archive_sha256": "b70182d0d0508e9abbb79306ce5c0cec34869000f8220175ac83d11dbe845401",
+      "member": "day.csv",
+      "local_path": "data/day.csv",
+      "sha256": "a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be",
+      "size_bytes": 57569,
+      "rows": 731,
+      "license": "CC-BY-4.0",
+      "notice": "licenses/Bike-Sharing-attribution.md",
+      "native_key": "dteday",
+      "date_min": "2011-01-01",
+      "date_max": "2012-12-31"
+    }
+  ]
+}
