@@ -48,6 +48,30 @@ def scan_for_secret(directory: Path, secret: str) -> list[str]:
     return found
 
 
+def _raise_if_leaked(out_dir: Path, api_key: str) -> None:
+    leaked = scan_for_secret(out_dir, api_key)
+    if leaked:
+        raise HypotrailError(
+            "SECRET_IN_OUTPUT",
+            f"the API key was found in the run output: {', '.join(leaked)}; do not keep or commit it",
+            stage="live",
+            details={"files": leaked},
+        )
+
+
+def _scanned(out_dir: Path, api_key: str, work):
+    """Run `work`, then scan `out_dir` for the key, whether or not `work` failed.
+
+    Nothing may keep a key in its output (#20), so a failing step must not skip
+    the scan. If both fail, the leak is raised and the first failure stays
+    attached to it as its context.
+    """
+    try:
+        return work()
+    finally:
+        _raise_if_leaked(out_dir, api_key)
+
+
 def _tool_loop_observed(episodes: list[dict]) -> bool:
     return any(
         e["status"] == "produced" and [s["kind"] for s in e["steps"]] == EXPECTED_SEQUENCE
@@ -70,7 +94,13 @@ def _uses_result(episode: dict) -> bool | None:
     if not isinstance(answer, dict):
         return False
     rows = answer.get("rows")
-    returned = [row for result in results for row in result["result"]["rows"]]
+    # A tool message that is not JSON has no result (None); it returned no row.
+    returned = [
+        row
+        for result in results
+        if isinstance(result["result"], dict) and isinstance(result["result"].get("rows"), list)
+        for row in result["result"]["rows"]
+    ]
     return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows)
 
 
@@ -109,23 +139,21 @@ def run_live(
         )
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    cases = case_module.load_cases(cases_path, case_ids)
-    location = runner.run_episodes(
-        cases,
-        database=database,
-        model=live_model(model_id, api_key, base_url),
-        repeats=repeats,
-        log_dir=out_dir / "inspect",
-        limits=limits_module.EpisodeLimits(),
-    )
-    return summarize(
-        location=location,
-        out_dir=out_dir,
-        model_id=model_id,
-        api_key=api_key,
-        case_ids=case_ids,
-        repeats=repeats,
-    )
+    def work() -> dict:
+        cases = case_module.load_cases(cases_path, case_ids)
+        location = runner.run_episodes(
+            cases,
+            database=database,
+            model=live_model(model_id, api_key, base_url),
+            repeats=repeats,
+            log_dir=out_dir / "inspect",
+            limits=limits_module.EpisodeLimits(),
+        )
+        return _record(
+            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+        )
+
+    return _scanned(out_dir, api_key, work)
 
 
 def summarize(
@@ -140,8 +168,19 @@ def summarize(
     """Project a kept log, write the run record, and scan the output for the key.
 
     It reads the log only; it calls neither the model nor any tool, so it can be
-    run again on a kept log.
+    run again on a kept log. The scan runs even if a step fails.
     """
+    out_dir = Path(out_dir).resolve()
+    return _scanned(
+        out_dir,
+        api_key,
+        lambda: _record(
+            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+        ),
+    )
+
+
+def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str], repeats: int) -> dict:
     out_dir = Path(out_dir).resolve()
     limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
@@ -178,13 +217,4 @@ def summarize(
     }
     (out_dir / "projection.json").write_text(json.dumps(episodes, indent=2, sort_keys=True) + "\n")
     (out_dir / "run.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
-
-    leaked = scan_for_secret(out_dir, api_key)
-    if leaked:
-        raise HypotrailError(
-            "SECRET_IN_OUTPUT",
-            f"the API key was found in the run output: {', '.join(leaked)}; do not keep or commit it",
-            stage="live",
-            details={"files": leaked},
-        )
     return record

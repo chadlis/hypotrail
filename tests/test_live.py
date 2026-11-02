@@ -429,3 +429,93 @@ def test_uses_result_means_every_answer_row_is_a_row_the_tool_returned():
     assert agentic_live._uses_result(_episode({"rows": []}, tool_rows)) is False
     assert agentic_live._uses_result(_episode(None, tool_rows)) is None
     assert agentic_live._uses_result({"final_answer": "not json", "steps": [{"kind": "tool_result", "result": {"rows": []}}]}) is False
+
+
+# --- review findings: a non-JSON tool message, and the key scan on a failing run ------------------------------
+
+
+def test_a_tool_result_that_is_not_json_does_not_count_as_a_returned_row():
+    episode = {
+        "final_answer": json.dumps({"rows": [["Iron Maiden", 21]]}),
+        "steps": [{"kind": "tool_result", "result": None}],
+    }
+    assert agentic_live._uses_result(episode) is False
+    odd = {"final_answer": json.dumps({"rows": [["x", 1]]}), "steps": [
+        {"kind": "tool_result", "result": {"rows": "not a list"}},
+        {"kind": "tool_result", "result": {"columns": []}},
+        {"kind": "tool_result", "result": ["a", "list"]},
+    ]}
+    assert agentic_live._uses_result(odd) is False
+
+
+def test_a_non_json_tool_message_still_gives_a_summary_and_both_files(rehearsal, monkeypatch):
+    _, _, out = rehearsal
+    (out / "run.json").unlink()
+    (out / "projection.json").unlink()
+    real = projection.project_log
+
+    def with_a_text_tool_message(location, expected):
+        episodes = real(location, expected=expected)
+        for step in episodes[0]["steps"]:
+            if step["kind"] == "tool_result":
+                step["result"] = None
+        return episodes
+
+    monkeypatch.setattr(agentic_live.projection, "project_log", with_a_text_tool_message)
+    again = agentic_live.summarize(
+        location=str(next((out / "inspect").glob("*.eval"))), out_dir=out, model_id=MODEL_ID,
+        api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    assert again["episodes"][0]["uses_tool_result"] is False
+    assert again["episodes"][1]["uses_tool_result"] is True
+    assert (out / "run.json").is_file() and (out / "projection.json").is_file()
+
+
+def test_the_key_scan_runs_even_when_summarising_fails(rehearsal, monkeypatch):
+    _, _, out = rehearsal
+    (out / "stray.txt").write_text(FAKE_KEY)
+
+    def broken(location, expected):
+        raise RuntimeError("projection failed")
+
+    monkeypatch.setattr(agentic_live.projection, "project_log", broken)
+    from hypotrail.core.errors import HypotrailError
+
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live.summarize(
+            location=str(next((out / "inspect").glob("*.eval"))), out_dir=out, model_id=MODEL_ID,
+            api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+        )
+    assert caught.value.code == "SECRET_IN_OUTPUT"
+    assert caught.value.details["files"] == ["stray.txt"]
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monkeypatch):
+    out = tmp_path / "out"
+
+    def fails_after_writing_the_key(cases, **kwargs):
+        (kwargs["log_dir"].parent / "stray.txt").write_text(FAKE_KEY)
+        raise RuntimeError("the run stopped")
+
+    monkeypatch.setattr(agentic_live.runner, "run_episodes", fails_after_writing_the_key)
+    from hypotrail.core.errors import HypotrailError
+
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            case_ids=["D03"], repeats=1, out_dir=out,
+        )
+    assert caught.value.code == "SECRET_IN_OUTPUT"
+
+
+def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
+    def fails(cases, **kwargs):
+        raise RuntimeError("the run stopped")
+
+    monkeypatch.setattr(agentic_live.runner, "run_episodes", fails)
+    with pytest.raises(RuntimeError, match="the run stopped"):
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+        )
