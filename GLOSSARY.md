@@ -61,7 +61,7 @@ A named group of Attempts planned together, such as both Configurations over the
 _Avoid_: batch, eval set
 
 **Observation set**:
-The outputs of one Attempt, one per Item, each marked `produced`, `failed` or `missing`.
+The outputs of one Attempt, one per Item, each marked `produced`, `failed` (execution stopped without an output) or `missing` (absent from imported outputs); this execution status is separate from how the Item is scored.
 _Avoid_: results, predictions (as a generic term), log
 
 ### Scoring and comparing
@@ -75,11 +75,23 @@ A versioned, registered scoring rule that turns an Observation set and a Referen
 _Avoid_: grader, judge, evaluator
 
 **Criterion**:
-One property a Scorer checks for each Item (for example `exact_table`, `format_valid`, `evidence_link_valid`), whose state is `scored`, `unscorable` or `scoring_error`.
+One property a Scorer checks for each Item (for example `exact_table`, `format_valid`, `evidence_link_valid`, or the absolute error of a day), in state `scored`, `unscored` or `errored`.
 _Avoid_: check, test, sub-score
 
+**Score**:
+The value a scored Criterion gives one Item: a boolean (correct or incorrect) or a number such as an absolute error; a numeric loss is never counted as correct or incorrect.
+_Avoid_: grade, mark, verdict (for numeric values)
+
+**Reason**:
+The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing` or `scoring_failed`.
+_Avoid_: error message, explanation (for the code)
+
+**Instrument failure**:
+A Criterion left `unscored` (the Scorer ran but had no usable reading) or `errored` (the scoring machinery broke); it is never held against the evaluated system.
+_Avoid_: grader error, harness error
+
 **Metric**:
-A number aggregated over Items from one Criterion, such as MAE or the share of Items with a correct verdict.
+A number aggregated over Items from one Criterion, such as MAE or the share of Items with a correct Score.
 _Avoid_: score (for the aggregate), KPI
 
 **Assessment**:
@@ -107,4 +119,4 @@ _Avoid_: variant (as a role), challenger, treatment
 
 ## Correspondence with Inspect
 
-Inspect executes agentic Episodes; its words map onto Hypotrail's as follows. **Sample** ↔ Case, **epoch** ↔ Repeat, **sample × epoch** ↔ Episode, **eval log** ↔ the raw artifact behind an Observation set, **Inspect scorer** ↔ a display of a Hypotrail Scorer, never the authoritative verdict.
+Inspect executes agentic Episodes; its words map onto Hypotrail's as follows. **Sample** ↔ Case, **epoch** ↔ Repeat, **sample × epoch** ↔ Episode, **eval log** ↔ the raw artifact behind an Observation set, **Inspect scorer** ↔ a display of a Hypotrail Scorer, never the authoritative verdict, **`Score.unscored()`** ↔ `unscored`. Inspect's `ERRORED` sample covers two of our cases at once: an execution that stopped (Item `failed`) and a scoring machinery failure (Criterion `errored`).
