@@ -4,7 +4,8 @@ Every test runs with outbound network access blocked. An attempt is recorded
 and raises, and the test fails at teardown unless it asserted the attempt
 itself. This is what keeps a model key in the environment from ever leading
 to a live call from the default test command (AGENTS.md: live LLM calls are
-opt-in and never run in CI).
+opt-in and never run in CI). Proxy variables are removed for the same reason:
+a proxy on loopback is a way out the loopback allowance would not see.
 """
 
 import socket
@@ -13,6 +14,12 @@ import pytest
 
 
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+
+# A proxy on loopback would carry a request out of the machine while the guard,
+# which allows loopback, sees only the hop to the proxy. No test gets one.
+PROXY_VARIABLES = [
+    "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy",
+]
 
 
 class NetworkBlocked(RuntimeError):
@@ -36,6 +43,12 @@ class NetworkGuard:
 @pytest.fixture(autouse=True)
 def network_guard(monkeypatch):
     guard = NetworkGuard()
+    for name in PROXY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    # "*" bypasses any proxy a client might still find, so a call goes direct
+    # and meets the guard like any other.
+    monkeypatch.setenv("NO_PROXY", "*")
+    monkeypatch.setenv("no_proxy", "*")
 
     def blocked_connect(self, address, *args, **kwargs):
         # Unix sockets and loopback stay possible: they never leave the machine.
