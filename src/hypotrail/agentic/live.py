@@ -7,7 +7,6 @@ never logged or persisted; the output is scanned for it before the run reports.
 
 import json
 import platform
-import zipfile
 from importlib import metadata
 from pathlib import Path
 
@@ -32,32 +31,16 @@ def live_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) 
     return get_model(model_id, api_key=api_key, base_url=base_url, max_retries=0)
 
 
-def _scan_members(path: Path, needle: bytes) -> tuple[bool, bool]:
-    """Search the decompressed members of a zip: (found, every member was read)."""
-    found, complete = False, True
-    try:
-        with zipfile.ZipFile(path) as archive:
-            for info in archive.infolist():
-                try:
-                    found = found or needle in archive.read(info)
-                except Exception:  # a member that cannot be decompressed or fails its CRC
-                    complete = False
-    except Exception:  # not a zip, or its directory is unreadable
-        complete = False
-    return found, complete
-
-
 def scan_for_secret(directory: Path, secret: str) -> list[str]:
     """Files under `directory` that hold `secret`, in raw bytes or once decoded.
 
     An `.eval` log is compressed, so it is also read back through Inspect's log
-    API and searched as text. A log that cannot be read back is searched as raw
-    bytes and, when it is a zip, member by member for every member that can still
-    be decompressed. The scan goes on to the files after it.
+    API and searched as text. The log's storage format is never opened by hand
+    (ADR 0001). The scan goes on to the files after any log that cannot be read.
 
-    A log some part of which could not be read is never reported clean: if no
-    leak is found anywhere, the scan fails with LOG_NOT_FULLY_SCANNED. A leak that
-    is found is returned first, since it is what must be acted on.
+    A log that Inspect cannot read back is never reported clean: if no leak is
+    found anywhere, the scan fails with LOG_NOT_FULLY_SCANNED. A leak that is
+    found is returned first, since it is what must be acted on.
     """
     needle = secret.encode()
     found = []
@@ -70,9 +53,7 @@ def scan_for_secret(directory: Path, secret: str) -> list[str]:
                 hit = secret in read_eval_log(str(path)).model_dump_json()
             except Exception:
                 # The text of the error is not kept: it could quote the content.
-                hit, complete = _scan_members(path, needle)
-                if not complete:
-                    unscanned.append(relative)
+                unscanned.append(relative)
         if hit:
             found.append(relative)
     if unscanned and not found:
