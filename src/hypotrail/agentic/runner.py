@@ -36,9 +36,22 @@ def build_task(cases: list[dict], database: Path, scorer=None) -> Task:
     )
 
 
+async def _estimate_text_tokens(text: str) -> int:
+    """Offline token estimate: about four characters per token, never zero."""
+    return max(1, len(text) // 4)
+
+
 def mock_model(script: Callable) -> Model:
-    """Inspect's built-in mock model driven by a scripted callable."""
-    return get_model("mockllm/model", custom_outputs=script)
+    """Inspect's built-in mock model driven by a scripted callable.
+
+    The mock provider fills in token usage by counting with tiktoken, which
+    downloads its vocabulary on first use. A scripted run must work with the
+    network off after installation (SPEC DATA-03), so the count is replaced by
+    a local estimate and nothing is fetched.
+    """
+    model = get_model("mockllm/model", custom_outputs=script)
+    model.api.count_text_tokens = _estimate_text_tokens
+    return model
 
 
 def run_episodes(

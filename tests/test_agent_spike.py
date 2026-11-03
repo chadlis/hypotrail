@@ -293,3 +293,22 @@ def test_no_core_module_imports_inspect():
     assert result.stdout.strip() == "[]"
     for path in (ROOT / "src" / "hypotrail" / "core").glob("*.py"):
         assert "inspect_ai" not in path.read_text(), path.name
+
+
+def test_the_scripted_model_never_loads_a_tiktoken_vocabulary(monkeypatch):
+    """SPEC DATA-03: a scripted run needs no download, even through a proxy that hides it from the guard."""
+    import asyncio
+
+    import tiktoken
+    from inspect_ai.model import ChatMessageUser, ModelOutput
+
+    from hypotrail.agentic.runner import mock_model
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("tiktoken vocabulary requested")
+
+    monkeypatch.setattr(tiktoken, "get_encoding", refuse)
+    model = mock_model(lambda *a, **k: ModelOutput.from_content(MODEL, "ok"))
+    output = asyncio.run(model.generate([ChatMessageUser(content="hello there")]))
+
+    assert output.usage.input_tokens >= 1
