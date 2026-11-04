@@ -12,6 +12,7 @@ from pathlib import Path
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.configuration import load_configuration
 from hypotrail.ml.memberships import derive_memberships
+from hypotrail.ml.periods import shift_back
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
 
@@ -26,7 +27,7 @@ def write_seasonal_baseline(workload_dir: Path, out_dir: Path, config_id: str, p
     row_ids, raw = [], []
     for item in items:
         date = datetime.date.fromisoformat(item["date"])
-        earlier = date - datetime.timedelta(days=k)
+        earlier = shift_back(date, k, key="period_k", path=f"configurations.{config_id}.period_k")
         if earlier not in series:
             raise InvalidInputError(
                 "NO_VALUE_K_PERIODS_EARLIER",
