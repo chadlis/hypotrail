@@ -144,7 +144,6 @@ def test_target_feature_reaching_date_t_or_later_is_refused(tmp_path, period):
         {"name": "lag_2", "kind": "lag", "period": 2},
         {"name": "mean_previous_14", "kind": "mean_previous", "period": 14},
         {"name": "lag_1", "kind": "mean_previous", "period": 1},
-        {"name": "ewm_7", "kind": "ewm", "period": 7},
     ],
 )
 def test_undeclared_target_transformation_is_refused(tmp_path, feature):

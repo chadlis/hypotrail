@@ -118,6 +118,10 @@ SPECIFIC = [
     (("period_k",), True, WRONG_TYPE, "period_k"),
     (("period_k",), 7.5, WRONG_TYPE, "period_k"),
     (("period_k",), 7.0, WRONG_TYPE, "period_k"),
+    # the kinds of lag feature the Track can compute (round 5, G3)
+    (("allowed_target_features", 0, "kind"), "bogus", NOT_ALLOWED, "kind"),
+    (RIDGE + ("lag_features", 0, "kind"), "bogus", NOT_ALLOWED, "kind"),
+    (RIDGE + ("lag_features", 0, "kind"), "", NOT_ALLOWED, "kind"),
     # dates of a Partition
     (("partitions", "dev", 0), "2012-02-30", NOT_ALLOWED, "dev"),
     (("partitions", "dev", 0), "20120101", NOT_ALLOWED, "dev"),
@@ -215,6 +219,8 @@ MALFORMED = [
     (("period_k",), "7"),
     (("period_k",), 0),
     (RIDGE + ("ridge", "solver"), "bogus"),
+    (("allowed_target_features", 0, "kind"), "bogus"),
+    (RIDGE + ("lag_features", 0, "kind"), "bogus"),
     (RIDGE + ("encoder", "sparse_output"), True),
     (("id_prefix",), ""),
     (("partitions", "dev", 0), "2012-02-30"),

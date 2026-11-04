@@ -42,7 +42,7 @@
       "required": ["name", "kind", "period"],
       "properties": {
         "name": {"type": "string"},
-        "kind": {"type": "string"},
+        "kind": {"type": "string", "enum": ["lag", "mean_previous"]},
         "period": {"type": "integer"}
       }
     },
