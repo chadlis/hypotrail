@@ -10,17 +10,16 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.configuration import declared_configuration, validate_configuration
-from hypotrail.ml.memberships import derive_memberships, load_declaration
+from hypotrail.ml.configuration import load_configuration
+from hypotrail.ml.memberships import derive_memberships
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
 
 
 def write_seasonal_baseline(workload_dir: Path, out_dir: Path, config_id: str, partition: str) -> Path:
     """Write `predictions.csv` for the Items of `partition`, as the declared Configuration `config_id`."""
-    declaration = load_declaration(workload_dir)
-    configuration = declared_configuration(declaration, config_id)
-    validate_configuration(declaration, config_id, configuration)
+    loaded = load_configuration(workload_dir, config_id)
+    declaration, configuration = loaded["declaration"], loaded["configuration"]
     k = configuration["period_k"]
     series = read_target_series(workload_dir, declaration)
     items = [m for m in derive_memberships(workload_dir) if m["partition"] == partition]

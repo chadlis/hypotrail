@@ -27,9 +27,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.configuration import declared_configuration, validate_configuration
+from hypotrail.ml.configuration import load_configuration
 from hypotrail.ml.lags import compute_lags
-from hypotrail.ml.memberships import derive_memberships, load_declaration
+from hypotrail.ml.memberships import derive_memberships
 from hypotrail.ml.partitions import TRAIN
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
@@ -58,13 +58,6 @@ class FittedConfiguration:
     pipeline: Pipeline
     columns: list
     train_row_ids: list
-
-
-def load_configuration(workload_dir: Path, config_id: str) -> dict:
-    declaration = load_declaration(workload_dir)
-    configuration = declared_configuration(declaration, config_id)
-    validate_configuration(declaration, config_id, configuration)
-    return {"declaration": declaration, "configuration": configuration}
 
 
 def _columns(configuration: dict) -> list:

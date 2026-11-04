@@ -1,18 +1,30 @@
 """Validation of a Configuration against its Workload's declarations.
 
-Standard library only. The Workload declares `forbidden_features` (columns that
-are not known at date t) and `allowed_target_features` (the only transformations
-of the target a Configuration may use). This module only checks a Configuration
-against those declarations; it holds no list of its own. A Configuration that
-breaks a rule is refused with a coded error, before anything is fitted or
-predicted. Nothing is dropped or included silently.
+Standard library only. What the Track code fixes is small: the Partition roles
+(`hypotrail.ml.partitions`: `train`, `dev`, `public_check`) and the kinds of
+Configuration it knows (`seasonal_baseline`, `ridge_pipeline`) with the keys each
+takes. Everything else is declared by the Workload: `forbidden_features` (columns
+that are not known at date t), `allowed_target_features` (the only transformations
+of the target a Configuration may use), the Partition date ranges, and each
+Configuration's own settings.
 
-The model inputs are the lag feature names and `calendar_columns`. The forbidden-feature check
-reads them and the `columns` of the encoder and of the scaler; the encoder and the scaler must
-together take exactly the model inputs.
+A Configuration declares its kind. The kind picks the keys it may carry; an unknown
+kind, or a key that does not belong to the kind, is refused. The checks that apply to
+every Configuration (forbidden features, target transformations that reach date t or
+later, target transformations the Workload does not declare) run for every kind. A
+`ridge_pipeline` is fitted on `train`, so the Workload must declare that Partition.
+A Configuration that breaks a rule is refused with a coded error, before anything is
+fitted or predicted. Nothing is dropped or included silently.
+
+The model inputs of a `ridge_pipeline` are the lag feature names and `calendar_columns`.
+The forbidden-feature check reads them and the `columns` of the encoder and of the
+scaler; the encoder and the scaler must together take exactly the model inputs.
 """
 
+from pathlib import Path
+
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.memberships import load_declaration
 from hypotrail.ml.partitions import TRAIN
 
 
@@ -169,3 +181,11 @@ def validate_configuration(declaration: dict, config_id: str, configuration: dic
     _check_target_transformations(declaration, config_id, _target_transformations(kind, configuration))
     if kind == RIDGE:
         _check_ridge_inputs(config_id, configuration)
+
+
+def load_configuration(workload_dir: Path, config_id: str) -> dict:
+    """Read the Workload's declaration and the Configuration `config_id`, validated for its kind."""
+    declaration = load_declaration(workload_dir)
+    configuration = declared_configuration(declaration, config_id)
+    validate_configuration(declaration, config_id, configuration)
+    return {"declaration": declaration, "configuration": configuration}

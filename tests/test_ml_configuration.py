@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.ridge import fit_configuration, load_configuration, write_outputs
+from hypotrail.ml.configuration import load_configuration
+from hypotrail.ml.ridge import fit_configuration, write_outputs
 
 ROOT = Path(__file__).resolve().parent.parent
 BIKE = ROOT / "examples" / "bike_day"
