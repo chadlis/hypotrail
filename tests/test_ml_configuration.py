@@ -81,17 +81,6 @@ def test_dev_and_public_check_are_never_fitted_on(tmp_path, partition):
     assert probe.calls == []
 
 
-@pytest.mark.parametrize("partition", ["dev", "public_check", "train"])
-@pytest.mark.parametrize("config_id", ["ridge_v1"])
-def test_a_configuration_cannot_choose_its_fit_partition(tmp_path, config_id, partition):
-    workload = workload_with(
-        tmp_path, lambda d: d["configurations"][config_id].update(fit_partition=partition)
-    )
-    error = refusal(workload, config_id)
-    assert error.code == "FIT_PARTITION_NOT_A_CONFIGURATION_CHOICE"
-    assert error.details["config_id"] == config_id
-
-
 def test_a_workload_without_a_fit_partition_is_refused(tmp_path):
     error = refusal(workload_with(tmp_path, lambda d: d.pop("fit_partition")))
     assert error.code == "DECLARATION_INCOMPLETE"
@@ -222,3 +211,70 @@ def test_an_encoder_or_scaler_column_that_is_not_a_model_input_is_refused(tmp_pa
     error = refusal(workload_with(tmp_path, edit))
     assert error.code == "TRANSFORMER_COLUMN_NOT_A_MODEL_INPUT"
     assert error.details == {"config_id": "ridge_v1", "feature": "yr", "transformer": where}
+
+
+# --- a Configuration declares its kind; validation dispatches on it ------------------
+
+
+def test_each_declared_configuration_names_its_kind():
+    declared = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))["configurations"]
+    assert declared["seasonal_7"]["kind"] == "seasonal_baseline"
+    assert declared["ridge_v1"]["kind"] == "ridge_pipeline"
+
+
+def test_a_ridge_configuration_with_a_seasonal_key_is_refused_before_anything_else(tmp_path):
+    """The reviewer's case: `period_k` added to ridge_v1 must not switch the checks off."""
+
+    def edit(declaration):
+        config = declaration["configurations"]["ridge_v1"]
+        config["period_k"] = 7
+        config["calendar_columns"].append("casual")
+        config["encoder"]["columns"].append("casual")
+
+    workload = workload_with(tmp_path, edit)
+    error = refusal(workload)
+    assert error.code == "CONFIGURATION_KEY_NOT_FOR_KIND"
+    assert error.details == {"config_id": "ridge_v1", "kind": "ridge_pipeline", "key": "period_k"}
+    out = tmp_path / "out"
+    with pytest.raises(InvalidInputError):
+        write_outputs(workload, out, "ridge_v1", "dev")
+    assert not out.exists() or not list(out.rglob("predictions.csv"))
+
+
+def test_forbidden_feature_is_still_refused_once_the_foreign_key_is_gone(tmp_path):
+    workload = workload_with(tmp_path, inject("casual", "calendar_columns"))
+    assert refusal(workload).code == "FORBIDDEN_FEATURE"
+
+
+@pytest.mark.parametrize("key", ["lag_features", "calendar_columns", "encoder", "scaler", "ridge", "fit_partition"])
+def test_a_seasonal_configuration_with_a_key_of_another_kind_is_refused(tmp_path, key):
+    workload = workload_with(tmp_path, lambda d: d["configurations"]["seasonal_7"].update({key: []}))
+    error = refusal(workload, "seasonal_7")
+    assert error.code == "CONFIGURATION_KEY_NOT_FOR_KIND"
+    assert error.details["key"] == key and error.details["kind"] == "seasonal_baseline"
+
+
+@pytest.mark.parametrize("kind", ["theta", "", None, 7, ["ridge_pipeline"]])
+def test_an_unknown_kind_is_refused(tmp_path, kind):
+    workload = workload_with(tmp_path, lambda d: d["configurations"]["ridge_v1"].update(kind=kind))
+    error = refusal(workload)
+    assert error.code == "CONFIGURATION_KIND_UNKNOWN"
+    assert error.details["config_id"] == "ridge_v1"
+
+
+def test_a_configuration_without_a_kind_is_refused(tmp_path):
+    workload = workload_with(tmp_path, lambda d: d["configurations"]["seasonal_7"].pop("kind"))
+    assert refusal(workload, "seasonal_7").code == "CONFIGURATION_KIND_UNKNOWN"
+
+
+def test_the_target_checks_run_for_the_seasonal_kind_too(tmp_path):
+    def edit(declaration):
+        declaration["configurations"]["seasonal_7"]["period_k"] = 0
+
+    assert refusal(workload_with(tmp_path / "a", edit), "seasonal_7").code == "TARGET_FEATURE_NOT_PAST"
+
+    def edit_undeclared(declaration):
+        declaration["configurations"]["seasonal_7"]["period_k"] = 14
+
+    error = refusal(workload_with(tmp_path / "b", edit_undeclared), "seasonal_7")
+    assert error.code == "TARGET_TRANSFORMATION_NOT_ALLOWED"

@@ -22,12 +22,14 @@
   },
   "configurations": {
     "seasonal_7": {
+      "kind": "seasonal_baseline",
       "period_k": 7,
       "post_processing": {
         "clip_min": 0
       }
     },
     "ridge_v1": {
+      "kind": "ridge_pipeline",
       "lag_features": [
         {"name": "lag_1", "kind": "lag", "period": 1},
         {"name": "lag_7", "kind": "lag", "period": 7},

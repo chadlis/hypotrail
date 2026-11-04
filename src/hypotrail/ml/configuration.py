@@ -70,61 +70,84 @@ def _check_fit_partition(declaration: dict, config_id: str, configuration: dict)
         )
 
 
-def _validate_seasonal(declaration: dict, config_id: str, configuration: dict) -> None:
-    """`seasonal_k` uses the target k periods earlier: a lag the Workload must declare as allowed."""
-    allowed = _declared(declaration, "allowed_target_features")
-    k = configuration["period_k"]
-    if not isinstance(k, int) or isinstance(k, bool) or k < 1:
+SEASONAL = "seasonal_baseline"
+RIDGE = "ridge_pipeline"
+# The kinds the Track knows and the keys each one takes (`kind` included).
+KINDS = {
+    SEASONAL: {"kind", "period_k", "post_processing"},
+    RIDGE: {
+        "kind", "lag_features", "calendar_columns", "encoder", "scaler", "ridge", "post_processing",
+    },
+}
+
+
+def is_past_period(period) -> bool:
+    """A period that points strictly before date t: a whole number of at least 1."""
+    return isinstance(period, int) and not isinstance(period, bool) and period >= 1
+
+
+def _kind_of(config_id: str, configuration: dict) -> str:
+    kind = configuration.get("kind")
+    if not isinstance(kind, str) or kind not in KINDS:
         raise _refuse(
-            "TARGET_FEATURE_NOT_PAST",
-            f"configuration {config_id!r} reaches date t or later (period {k!r})",
+            "CONFIGURATION_KIND_UNKNOWN",
+            f"configuration {config_id!r} declares the kind {kind!r}; the Track knows {sorted(KINDS)}",
             config_id=config_id,
-            period=k,
+            kind=kind if isinstance(kind, (str, int, float, bool, type(None))) else repr(kind),
         )
-    if not any(f["kind"] == "lag" and f["period"] == k for f in allowed):
-        raise _refuse(
-            "TARGET_TRANSFORMATION_NOT_ALLOWED",
-            f"configuration {config_id!r} uses the target {k} periods earlier, which the Workload does not declare as allowed",
-            config_id=config_id,
-            period=k,
-        )
-
-
-def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
-    _check_fit_partition(declaration, config_id, configuration)
-    if "period_k" in configuration:
-        _validate_seasonal(declaration, config_id, configuration)
-        return
-    forbidden = _declared(declaration, "forbidden_features")
-    allowed = _declared(declaration, "allowed_target_features")
-
-    for name in _input_names(configuration):
-        if name in forbidden:
+    for key in configuration:
+        if key not in KINDS[kind]:
             raise _refuse(
-                "FORBIDDEN_FEATURE",
-                f"configuration {config_id!r} uses {name!r}, which is forbidden at date t",
+                "CONFIGURATION_KEY_NOT_FOR_KIND",
+                f"configuration {config_id!r} is of kind {kind!r}, which takes no key {key!r}",
                 config_id=config_id,
-                feature=name,
+                kind=kind,
+                key=key,
             )
+    return kind
 
-    for feature in configuration["lag_features"]:
-        name, period = feature["name"], feature["period"]
-        if not isinstance(period, int) or isinstance(period, bool) or period < 1:
+
+def _target_transformations(kind: str, configuration: dict) -> list:
+    """The transformations of the target a Configuration uses: named lags, or the seasonal period."""
+    if kind == SEASONAL:
+        return [{"kind": "lag", "period": configuration["period_k"]}]
+    return configuration["lag_features"]
+
+
+def _model_input_names(kind: str, configuration: dict) -> list:
+    """The columns and features a Configuration feeds to a model, wherever it lists them."""
+    if kind == SEASONAL:
+        return []
+    return _input_names(configuration)
+
+
+def _check_target_transformations(declaration: dict, config_id: str, transformations: list) -> None:
+    allowed = _declared(declaration, "allowed_target_features")
+    for feature in transformations:
+        name, period = feature.get("name"), feature["period"]
+        named = {"feature": name} if name is not None else {}
+        if not is_past_period(period):
             raise _refuse(
                 "TARGET_FEATURE_NOT_PAST",
-                f"feature {name!r} of {config_id!r} reaches date t or later (period {period!r})",
+                f"configuration {config_id!r} reaches date t or later (period {period!r})",
                 config_id=config_id,
-                feature=name,
                 period=period,
+                **named,
             )
-        if feature not in allowed:
+        declared = feature in allowed if name is not None else any(
+            f["kind"] == feature["kind"] and f["period"] == period for f in allowed
+        )
+        if not declared:
             raise _refuse(
                 "TARGET_TRANSFORMATION_NOT_ALLOWED",
-                f"feature {name!r} of {config_id!r} is not a declared transformation of the target",
+                f"configuration {config_id!r} uses a transformation of the target ({feature!r}) that the Workload does not declare",
                 config_id=config_id,
-                feature=name,
+                period=period,
+                **named,
             )
 
+
+def _check_ridge_inputs(config_id: str, configuration: dict) -> None:
     # Every model input goes through the encoder or the scaler, and every column they take is a
     # model input: nothing is dropped by a remainder, nothing is invented.
     model_inputs = [f["name"] for f in configuration["lag_features"]] + list(configuration["calendar_columns"])
@@ -147,3 +170,22 @@ def validate_configuration(declaration: dict, config_id: str, configuration: dic
                     feature=name,
                     transformer=transformer,
                 )
+
+
+def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
+    """Refuse a Configuration that breaks a declared rule. The kind it declares picks its keys only;
+    the checks that apply to every Configuration run for every kind."""
+    kind = _kind_of(config_id, configuration)
+    _check_fit_partition(declaration, config_id, configuration)
+    forbidden = _declared(declaration, "forbidden_features")
+    for name in _model_input_names(kind, configuration):
+        if name in forbidden:
+            raise _refuse(
+                "FORBIDDEN_FEATURE",
+                f"configuration {config_id!r} uses {name!r}, which is forbidden at date t",
+                config_id=config_id,
+                feature=name,
+            )
+    _check_target_transformations(declaration, config_id, _target_transformations(kind, configuration))
+    if kind == RIDGE:
+        _check_ridge_inputs(config_id, configuration)
