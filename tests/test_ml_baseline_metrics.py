@@ -16,7 +16,10 @@ from hypotrail.ml.metrics import compute_metrics
 from hypotrail.ml.predictions import clip_below, write_predictions
 from hypotrail.ml.references import write_references
 
-from _ml_helpers import fit_probe
+from hypotrail.ml.memberships import derive_memberships
+from hypotrail.ml.ridge import write_outputs
+
+from _ml_helpers import fit_probe, fitted_row_ids
 
 ROOT = Path(__file__).resolve().parent.parent
 BIKE = ROOT / "examples" / "bike_day"
@@ -88,19 +91,20 @@ def test_references_artifact_holds_row_id_and_y_true(bike_outputs):
     assert "bike-day:2011-01-03" not in by_id  # a warm-up day is not an Item
 
 
-def test_seasonal_7_makes_no_fit_call_and_the_probe_does_fire_on_a_fit(tmp_path):
+def test_seasonal_7_makes_no_fit_call_and_the_probe_does_fire_when_ridge_v1_is_produced(tmp_path):
     write_memberships(BIKE, tmp_path)
     with fit_probe(strict=True) as probe:
         write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "dev")
     assert probe.calls == []
     assert (tmp_path / "predictions.csv").exists()
 
-    # Positive control: the same probe fires on a real fit.
-    from sklearn.linear_model import Ridge
-
+    # Positive control: the same probe fires, on the 358 train Items only, when ridge_v1 is produced.
     with fit_probe() as probe:
-        Ridge().fit([[0.0], [1.0]], [0.0, 1.0])
-    assert probe.calls == ["Ridge.fit"]
+        write_outputs(BIKE, tmp_path / "ridge", "ridge_v1", "dev")
+    assert {"Pipeline.fit", "ColumnTransformer.fit_transform", "OneHotEncoder.fit", "StandardScaler.fit", "Ridge.fit"} <= set(probe.calls)
+    train_ids = {m["row_id"] for m in derive_memberships(BIKE) if m["partition"] == "train"}
+    assert len(train_ids) == 358
+    assert fitted_row_ids(probe, BIKE, "ridge_v1") == train_ids
 
 
 def test_metrics_match_an_independent_calculation(bike_outputs):

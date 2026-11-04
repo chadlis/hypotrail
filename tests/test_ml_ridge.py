@@ -25,6 +25,8 @@ from hypotrail.ml.ridge import (
     write_outputs,
 )
 
+from _ml_helpers import fit_probe, fitted_row_ids
+
 ROOT = Path(__file__).resolve().parent.parent
 BIKE = ROOT / "examples" / "bike_day"
 CALENDAR = ["mnth", "weekday", "holiday", "workingday"]
@@ -134,84 +136,45 @@ def test_shuffling_the_rows_changes_no_input_and_no_prediction(tmp_path, fitted)
 # --- fitting on train only (T05) --------------------------------------------------
 
 
-class FitSpy:
-    """Hooks every fit entry point the pipeline calls and records what it receives."""
-
-    TARGETS = [
-        (Pipeline, ("fit", "fit_transform", "fit_predict")),
-        (ColumnTransformer, ("fit", "fit_transform")),
-        (OneHotEncoder, ("fit", "fit_transform", "partial_fit")),
-        (StandardScaler, ("fit", "fit_transform", "partial_fit")),
-        (Ridge, ("fit",)),
-    ]
-
-    def __init__(self, monkeypatch):
-        self.calls = []
-        for cls, names in self.TARGETS:
-            for name in names:
-                original = getattr(cls, name, None)
-                if original is None:
-                    continue
-                monkeypatch.setattr(cls, name, self._wrap(cls.__name__, name, original))
-
-    def _wrap(self, cls_name, name, original):
-        def spy(estimator, X, *args, **kwargs):
-            self.calls.append((cls_name, name, np.array(X, copy=True)))
-            return original(estimator, X, *args, **kwargs)
-
-        return spy
-
-
-def test_every_fit_receives_exactly_the_train_items(monkeypatch):
+def test_every_fit_receives_exactly_the_train_items():
     memberships = derive_memberships(BIKE)
     train_ids = {m["row_id"] for m in memberships if m["partition"] == "train"}
     assert len(train_ids) == 358
-    other = {m["row_id"] for m in memberships if m["partition"] != "train"}
 
-    # The identity of a received row is read back from the inputs of all Items.
-    columns = None
-    owner = {}
-    for partition in ("train", "dev", "public_check"):
-        inputs = build_inputs(BIKE, "ridge_v1", partition)
-        columns = inputs.columns
-        for row_id, line in zip(inputs.row_ids, inputs.matrix):
-            assert line.tobytes() not in owner  # rows are told apart by their values
-            owner[line.tobytes()] = row_id
-
-    spy = FitSpy(monkeypatch)
-    fitted = fit_configuration(BIKE, "ridge_v1")
+    with fit_probe() as probe:
+        fitted = fit_configuration(BIKE, "ridge_v1")
 
     assert fitted.train_row_ids == sorted(train_ids)
-    classes = {name for name, _, _ in spy.calls}
+    classes = {label.split(".")[0] for label in probe.calls}
     assert {"Pipeline", "ColumnTransformer", "OneHotEncoder", "StandardScaler", "Ridge"} <= classes
+    assert fitted_row_ids(probe, BIKE, "ridge_v1") == train_ids  # no dev or public_check Item
 
-    full_width = len(columns)
-    for cls_name, method, X in spy.calls:
-        assert X.shape[0] == 358, (cls_name, method)
+    full_width = len(LAGS) + len(CALENDAR)
+    for label, X in probe.inputs:
+        assert X.shape[0] == 358, label
+        cls_name = label.split(".")[0]
         if cls_name in ("Pipeline", "ColumnTransformer"):
-            assert X.shape[1] == full_width
-            seen = {owner[line.tobytes()] for line in X}
-            assert seen == train_ids and not (seen & other), (cls_name, method)
+            assert X.shape[1] == full_width, label
         elif cls_name == "OneHotEncoder":
             assert X.shape[1] == len(CALENDAR)
         elif cls_name == "StandardScaler":
             assert X.shape[1] == len(LAGS)
     # the inner estimators see the train rows in the same order as the pipeline
-    pipeline_rows = next(X for c, m, X in spy.calls if c == "Pipeline")
-    scaler_rows = next(X for c, m, X in spy.calls if c == "StandardScaler")
-    encoder_rows = next(X for c, m, X in spy.calls if c == "OneHotEncoder")
+    pipeline_rows = next(X for c, X in probe.inputs if c == "Pipeline.fit")
+    scaler_rows = next(X for c, X in probe.inputs if c.startswith("StandardScaler"))
+    encoder_rows = next(X for c, X in probe.inputs if c.startswith("OneHotEncoder"))
     assert np.array_equal(scaler_rows, pipeline_rows[:, :3])
     assert np.array_equal(encoder_rows, pipeline_rows[:, 3:])
 
 
-def test_predicting_dev_or_public_check_fits_nothing(fitted, monkeypatch):
-    spy = FitSpy(monkeypatch)
+def test_predicting_dev_or_public_check_fits_nothing(fitted):
     before = fitted.pipeline.steps[-1][1].coef_.copy()
 
-    dev = predict_partition(fitted, "dev")
-    check = predict_partition(fitted, "public_check")
+    with fit_probe(strict=True) as probe:
+        dev = predict_partition(fitted, "dev")
+        check = predict_partition(fitted, "public_check")
 
-    assert spy.calls == []
+    assert probe.calls == []
     assert len(dev) == 182 and len(check) == 184
     assert np.array_equal(fitted.pipeline.steps[-1][1].coef_, before)
 
