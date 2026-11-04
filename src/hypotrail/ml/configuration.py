@@ -7,8 +7,9 @@ against those declarations; it holds no list of its own. A Configuration that
 breaks a rule is refused with a coded error, before anything is fitted or
 predicted. Nothing is dropped or included silently.
 
-The model inputs checked are the lag feature names, `calendar_columns`, and the
-`columns` of the encoder and of the scaler.
+The model inputs are the lag feature names and `calendar_columns`. The forbidden-feature check
+reads them and the `columns` of the encoder and of the scaler; the encoder and the scaler must
+together take exactly the model inputs.
 """
 
 from hypotrail.core.errors import InvalidInputError
@@ -72,3 +73,26 @@ def validate_configuration(declaration: dict, config_id: str, configuration: dic
                 config_id=config_id,
                 feature=name,
             )
+
+    # Every model input goes through the encoder or the scaler, and every column they take is a
+    # model input: nothing is dropped by a remainder, nothing is invented.
+    model_inputs = [f["name"] for f in configuration["lag_features"]] + list(configuration["calendar_columns"])
+    transformed = set(configuration["encoder"]["columns"]) | set(configuration["scaler"]["columns"])
+    for name in model_inputs:
+        if name not in transformed:
+            raise _refuse(
+                "MODEL_INPUT_NOT_TRANSFORMED",
+                f"input {name!r} of {config_id!r} is taken by neither the encoder nor the scaler",
+                config_id=config_id,
+                feature=name,
+            )
+    for transformer in ("encoder", "scaler"):
+        for name in configuration[transformer]["columns"]:
+            if name not in model_inputs:
+                raise _refuse(
+                    "TRANSFORMER_COLUMN_NOT_A_MODEL_INPUT",
+                    f"the {transformer} of {config_id!r} takes {name!r}, which is not a model input",
+                    config_id=config_id,
+                    feature=name,
+                    transformer=transformer,
+                )

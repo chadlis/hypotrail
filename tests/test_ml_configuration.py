@@ -82,6 +82,7 @@ def test_refusal_follows_the_declaration_not_the_track(tmp_path):
     def edit_other(declaration):
         declaration["forbidden_features"] = ["hum"]
         declaration["configurations"]["ridge_v1"]["calendar_columns"].append("temp")
+        declaration["configurations"]["ridge_v1"]["encoder"]["columns"].append("temp")
 
     assert load_configuration(workload_with(tmp_path / "b", edit_other), "ridge_v1")
 
@@ -125,6 +126,7 @@ def test_allowed_transformations_follow_the_declaration(tmp_path):
     def edit(declaration):
         declaration["allowed_target_features"].append(lag_2)
         declaration["configurations"]["ridge_v1"]["lag_features"].append(lag_2)
+        declaration["configurations"]["ridge_v1"]["scaler"]["columns"].append("lag_2")
 
     assert load_configuration(workload_with(tmp_path, edit), "ridge_v1")
 
@@ -138,3 +140,34 @@ def test_rules_apply_to_every_configuration(tmp_path):
     workload = workload_with(tmp_path, edit)
     assert load_configuration(workload, "ridge_v1")
     assert refusal(workload, "other").code == "FORBIDDEN_FEATURE"
+
+
+# --- no model input is dropped, no transformed column is invented -------------------
+
+
+def test_a_calendar_input_that_the_encoder_does_not_take_is_refused(tmp_path):
+    def edit(declaration):
+        declaration["configurations"]["ridge_v1"]["calendar_columns"].append("yr")
+
+    error = refusal(workload_with(tmp_path, edit))
+    assert error.code == "MODEL_INPUT_NOT_TRANSFORMED"
+    assert error.details == {"config_id": "ridge_v1", "feature": "yr"}
+
+
+def test_a_lag_input_that_the_scaler_does_not_take_is_refused(tmp_path):
+    def edit(declaration):
+        declaration["configurations"]["ridge_v1"]["scaler"]["columns"].remove("lag_7")
+
+    error = refusal(workload_with(tmp_path, edit))
+    assert error.code == "MODEL_INPUT_NOT_TRANSFORMED"
+    assert error.details["feature"] == "lag_7"
+
+
+@pytest.mark.parametrize("where", ["encoder", "scaler"])
+def test_an_encoder_or_scaler_column_that_is_not_a_model_input_is_refused(tmp_path, where):
+    def edit(declaration):
+        declaration["configurations"]["ridge_v1"][where]["columns"].append("yr")
+
+    error = refusal(workload_with(tmp_path, edit))
+    assert error.code == "TRANSFORMER_COLUMN_NOT_A_MODEL_INPUT"
+    assert error.details == {"config_id": "ridge_v1", "feature": "yr", "transformer": where}
