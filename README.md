@@ -4,14 +4,14 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). Two parts exist. The feasibility spike: a locked Python 3.13 environment, verified datasets, an Inspect task where a model calls a read-only SQL tool on Chinook, scoring of a kept log, and one recorded live trace. The temporal regression Track on the bike Workload: Partitions, References, two Configurations (`seasonal_7`, `ridge_v1`), metrics and a first Comparison on `dev`, called from Python (no command line yet). There is no Study, run manifest, freeze or Exposure journal, and no report yet.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). Two parts exist. The feasibility spike: a locked Python 3.13 environment, verified datasets, an Inspect task where a model calls a read-only SQL tool on Chinook, scoring of a kept log, and one recorded live trace. The temporal regression Track on the bike Workload: Partitions, References, two Configurations (`seasonal_7`, `ridge_v1`), metrics and a first Comparison on `dev`, called from Python (no command line yet), with a Workload declaration checked against a JSON Schema. There is no Study, run manifest, freeze or Exposure journal, and no report yet.
 
 ## Install
 
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.13.
 
 ```
-uv sync --locked --all-extras                 # the core alone needs no extra: uv sync --locked
+uv sync --locked --all-extras                 # the core (Python plus jsonschema) needs no extra: uv sync --locked
 uv run --locked --all-extras pytest           # offline: no network, no model call
 uv run python -m hypotrail data verify        # check the public datasets
 ```
