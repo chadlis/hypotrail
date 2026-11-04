@@ -139,20 +139,14 @@ def test_the_comparison_reports_the_unit_the_workload_declares(dirs, tmp_path):
     assert result["control"]["metrics"]["mae"]["unit"] == "visits per day"
 
 
-def test_a_comparison_is_computed_on_any_partition_but_public_check(tmp_path):
-    shared = tmp_path / "shared"
-    write_memberships(BIKE, shared)
-    write_references(BIKE, shared)
-    control, candidate = tmp_path / "control", tmp_path / "candidate"
-    write_seasonal_baseline(BIKE, control, "seasonal_7", "train")
-    write_outputs(BIKE, candidate, "ridge_v1", "train")
+@pytest.mark.parametrize("partition", ["train", "nowhere"])
+def test_a_comparison_is_computed_on_dev_only(dirs, partition):
+    with pytest.raises(InvalidInputError) as caught:
+        run(dirs, partition=partition)
 
-    result = compare(
-        control / "predictions.csv", candidate / "predictions.csv",
-        shared / "references.csv", shared / "memberships.csv", tmp_path / "out", BIKE, partition="train",
-    )
-
-    assert result["population"]["partition"] == "train" and result["population"]["count"] == 358
+    assert caught.value.code == "COMPARISON_PARTITION_NOT_DEV"
+    assert caught.value.details == {"partition": partition}
+    assert not (dirs[3] / COMPARISON_NAME).exists()
 
 
 def test_the_comparison_names_what_it_compares(dirs):

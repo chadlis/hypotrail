@@ -296,19 +296,23 @@ def test_a_workload_without_a_unit_is_refused(tmp_path, bike_outputs):
     assert caught.value.details == {"key": "target_unit"}
 
 
-def test_metrics_are_computed_on_any_partition_but_public_check(tmp_path):
+@pytest.mark.parametrize("partition", ["train", "nowhere"])
+def test_metrics_are_computed_on_dev_only(tmp_path, partition):
     write_memberships(BIKE, tmp_path)
     write_references(BIKE, tmp_path)
-    write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "train")
+    write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "dev")
 
-    result = metrics_of(tmp_path, partition="train")
-
-    assert result["partition"] == "train" and result["count"] == 358
-
-
-def test_a_partition_the_workload_does_not_declare_is_refused(bike_outputs):
     with pytest.raises(InvalidInputError) as caught:
-        metrics_of(bike_outputs, partition="nowhere")
+        metrics_of(tmp_path, partition=partition)
+
+    assert caught.value.code == "METRICS_PARTITION_NOT_DEV"
+    assert caught.value.details == {"partition": partition}
+
+
+def test_a_workload_that_declares_no_dev_partition_is_refused(tmp_path, bike_outputs):
+    workload = copy_bike(tmp_path, lambda d: d["partitions"].pop("dev"))
+    with pytest.raises(InvalidInputError) as caught:
+        metrics_of(bike_outputs, workload=workload)
     assert caught.value.code == "PARTITION_NOT_DECLARED"
 
 

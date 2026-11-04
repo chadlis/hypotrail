@@ -6,7 +6,7 @@ exactly the same Items: there is no silent intersection (SPEC CMP-02). The
 metrics are those of `metrics.summarise`, over the same scored Items as the
 differences. `delta_mae` is `MAE(Candidate) - MAE(Control)` from the two reported
 MAEs: a positive value means the Candidate is worse, and no sign is required. The strict comparability checks belong to a later
-contract. A request on `public_check` is refused until the Exposure journal
+contract. A Comparison is computed on `dev` only; a request on `public_check` is refused until the Exposure journal
 exists (SPEC section 2).
 """
 
@@ -15,13 +15,13 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.memberships import load_declaration
+from hypotrail.ml.partitions import require_dev
 from hypotrail.ml.metrics import (
     DIRECTION,
     PRIMARY,
     declared_partition,
     declared_unit,
     read_by_row_id,
-    refuse_public_check,
     score_items,
     summarise,
 )
@@ -52,7 +52,13 @@ def compare(
     partition: str = "dev",
 ) -> dict:
     """Compare two predictions files on a Partition and write `comparison.json` into `out_dir`."""
-    refuse_public_check(partition, "PUBLIC_CHECK_COMPARISON_REFUSED", "a Comparison", stage="comparison")
+    require_dev(
+        partition,
+        public_check_code="PUBLIC_CHECK_COMPARISON_REFUSED",
+        not_dev_code="COMPARISON_PARTITION_NOT_DEV",
+        what="a Comparison",
+        stage="comparison",
+    )
     declaration = load_declaration(workload_dir)
     declared_partition(declaration, partition)
     unit = declared_unit(declaration)

@@ -2,8 +2,9 @@
 
 Targets come from the separate References artifact and are joined to the
 predictions by `row_id`, never by position. Metrics use `y_pred`. The unit is the
-one the Workload declares (`target_unit`). A request on `public_check` is refused
-until the Exposure journal exists (SPEC section 2; the slice keeps no such journal yet).
+one the Workload declares (`target_unit`). Metrics are computed on `dev` only; a request on
+`public_check` is refused until the Exposure journal exists (SPEC section 2; the slice keeps no
+such journal yet).
 """
 
 import csv
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.memberships import load_declaration
-from hypotrail.ml.partitions import PUBLIC_CHECK
+from hypotrail.ml.partitions import require_dev
 
 DIRECTION = "lower_is_better"
 PRIMARY = "mae"
@@ -20,17 +21,6 @@ PRIMARY = "mae"
 
 def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage="metrics", details=details)
-
-
-def refuse_public_check(partition: str, code: str, what: str, stage: str = "metrics") -> None:
-    """The one guard of `public_check`: a metric or a Comparison there is refused, whatever the caller."""
-    if partition == PUBLIC_CHECK:
-        raise InvalidInputError(
-            code,
-            f"{what} on {PUBLIC_CHECK} is refused: no Exposure journal exists yet",
-            stage=stage,
-            details={"partition": partition},
-        )
 
 
 def declared_unit(declaration: dict) -> str:
@@ -134,7 +124,13 @@ def summarise(items: list[dict], partition: str, unit: str) -> dict:
 
 
 def compute_metrics(predictions_path, references_path, memberships_path, workload_dir, *, partition: str = "dev") -> dict:
-    refuse_public_check(partition, "PUBLIC_CHECK_METRICS_REFUSED", "metrics")
+    require_dev(
+        partition,
+        public_check_code="PUBLIC_CHECK_METRICS_REFUSED",
+        not_dev_code="METRICS_PARTITION_NOT_DEV",
+        what="metrics",
+        stage="metrics",
+    )
     declaration = load_declaration(workload_dir)
     declared_partition(declaration, partition)
     unit = declared_unit(declaration)
