@@ -28,6 +28,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.configuration import validate_configuration
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import derive_memberships, load_declaration
 from hypotrail.ml.predictions import clip_below, write_predictions
@@ -64,6 +65,7 @@ def load_configuration(workload_dir: Path, config_id: str) -> dict:
         configuration = declaration["configurations"][config_id]
     except KeyError:
         raise _refuse("CONFIGURATION_NOT_DECLARED", f"no configuration {config_id!r} is declared", config_id=config_id) from None
+    validate_configuration(declaration, config_id, configuration)
     return {"declaration": declaration, "configuration": configuration}
 
 
