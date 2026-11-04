@@ -60,6 +60,14 @@ def test_a_workload_cannot_declare_dev_or_public_check_as_the_fit_partition(tmp_
     assert error.details["partition"] == partition
 
 
+@pytest.mark.parametrize("partition", ["holdout", "", None, 7])
+def test_a_fit_partition_the_workload_does_not_declare_is_refused(tmp_path, partition):
+    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
+    error = refusal(workload)
+    assert error.code == "FIT_PARTITION_NOT_DECLARED"
+    assert error.details["partition"] == partition
+
+
 @pytest.mark.parametrize("partition", ["dev", "public_check"])
 def test_dev_and_public_check_are_never_fitted_on(tmp_path, partition):
     from _ml_helpers import fit_probe

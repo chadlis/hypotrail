@@ -62,6 +62,12 @@ def _check_fit_partition(declaration: dict, config_id: str, configuration: dict)
             f"the Workload declares {partition!r} as its fit partition; it can never be fitted on",
             partition=partition,
         )
+    if partition not in _declared(declaration, "partitions"):
+        raise _refuse(
+            "FIT_PARTITION_NOT_DECLARED",
+            f"the Workload's fit partition {partition!r} is not one of its declared partitions",
+            partition=partition,
+        )
 
 
 def _validate_seasonal(declaration: dict, config_id: str, configuration: dict) -> None:
