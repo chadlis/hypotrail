@@ -30,7 +30,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import derive_memberships, load_declaration
-from hypotrail.ml.predictions import clip_at, write_predictions
+from hypotrail.ml.predictions import clip_below, write_predictions
+from hypotrail.ml.series import read_target_series
 
 PARAMETERS_NAME = "sklearn_params.json"
 PREDICTED_PARTITION = "dev"
@@ -80,7 +81,7 @@ def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInp
     loaded = load_configuration(workload_dir, config_id)
     declaration, configuration = loaded["declaration"], loaded["configuration"]
     rows = _read_rows_by_date(workload_dir, declaration)
-    target = {day: float(row[declaration["target_column"]]) for day, row in rows.items()}
+    target = read_target_series(workload_dir, declaration)
     lag_names = [f["name"] for f in configuration["lag_features"]]
 
     row_ids, lines = [], []
@@ -119,8 +120,7 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
     declaration, configuration = loaded["declaration"], loaded["configuration"]
     fit_partition = configuration["fit_partition"]
     inputs = build_inputs(workload_dir, config_id, fit_partition)
-    target = {day: float(row[declaration["target_column"]])
-              for day, row in _read_rows_by_date(workload_dir, declaration).items()}
+    target = read_target_series(workload_dir, declaration)
     y = np.array(
         [target[datetime.date.fromisoformat(r.removeprefix(f"{declaration['id_prefix']}:"))] for r in inputs.row_ids],
         dtype=np.float64,
@@ -133,8 +133,9 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
 
 
 def post_process(raw_values, configuration: dict) -> list[dict]:
-    minimum = configuration["post_processing"]["clip_min"]
-    return [{"y_pred_raw": float(v), "y_pred": clip_at(v, minimum)} for v in raw_values]
+    raw = [float(v) for v in raw_values]
+    clipped, _ = clip_below(raw, configuration["post_processing"]["clip_min"])
+    return [{"y_pred_raw": r, "y_pred": c} for r, c in zip(raw, clipped)]
 
 
 def predict_partition(fitted: FittedConfiguration, partition: str) -> list[dict]:
@@ -181,7 +182,14 @@ def effective_parameters(fitted: FittedConfiguration) -> dict:
 def write_outputs(workload_dir: Path, out_dir: Path, config_id: str = "ridge_v1") -> Path:
     """Fit on the declared fit Partition, predict `dev`, write `predictions.csv` and the parameters file."""
     fitted = fit_configuration(workload_dir, config_id)
-    path = write_predictions(out_dir, predict_partition(fitted, PREDICTED_PARTITION), config_id=config_id)
+    rows = predict_partition(fitted, PREDICTED_PARTITION)
+    path = write_predictions(
+        out_dir,
+        config_id,
+        [r["row_id"] for r in rows],
+        [r["y_pred_raw"] for r in rows],
+        clip_min=fitted.configuration["post_processing"]["clip_min"],
+    )
     (path.parent / PARAMETERS_NAME).write_text(
         json.dumps(effective_parameters(fitted), indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

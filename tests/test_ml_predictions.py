@@ -1,27 +1,24 @@
-"""Ticket #33: the predictions.csv writer, shared in format with seasonal_7 (#32)."""
+"""Ticket #33: the shared predictions writer takes a declared lower bound."""
 
 import csv
 
-from hypotrail.ml.predictions import COLUMNS, clip_at, write_predictions
+from hypotrail.ml.predictions import write_predictions
 
 
-def test_predictions_file_has_the_agreed_columns_and_keeps_raw_and_clipped(tmp_path):
-    rows = [
-        {"row_id": "bike-day:2012-01-01", "y_pred_raw": -12.5, "y_pred": 0.0},
-        {"row_id": "bike-day:2012-01-02", "y_pred_raw": 310.25, "y_pred": 310.25},
-    ]
-    path = write_predictions(tmp_path, rows, config_id="ridge_v1")
-
-    assert path == tmp_path / "predictions.csv"
-    assert COLUMNS == ["row_id", "y_pred_raw", "y_pred", "config_id"]
+def read(path):
     with path.open(newline="", encoding="utf-8") as handle:
-        written = list(csv.DictReader(handle))
-    assert written[0] == {
-        "row_id": "bike-day:2012-01-01", "y_pred_raw": "-12.5", "y_pred": "0.0", "config_id": "ridge_v1",
-    }
-    assert [r["config_id"] for r in written] == ["ridge_v1", "ridge_v1"]
+        return list(csv.DictReader(handle))
 
 
-def test_clip_at_zero_keeps_the_raw_value_apart():
-    assert clip_at(-3.2, 0) == 0.0
-    assert clip_at(4.5, 0) == 4.5
+def test_default_lower_bound_is_zero_and_raw_is_kept(tmp_path):
+    path = write_predictions(tmp_path, "c", ["a", "b"], [-12.5, 310.25])
+    rows = read(path)
+    assert [(r["y_pred_raw"], r["y_pred"], r["config_id"]) for r in rows] == [
+        ("-12.5", "0.0", "c"), ("310.25", "310.25", "c"),
+    ]
+
+
+def test_a_declared_lower_bound_replaces_the_default(tmp_path):
+    rows = read(write_predictions(tmp_path, "c", ["a", "b", "c"], [-5.0, 50.0, 150.0], clip_min=100))
+    assert [r["y_pred"] for r in rows] == ["100.0", "100.0", "150.0"]
+    assert [r["y_pred_raw"] for r in rows] == ["-5.0", "50.0", "150.0"]
