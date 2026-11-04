@@ -1,0 +1,12 @@
+{
+  "schema_version": "data-checks/1",
+  "dataset_id": "uci-bike-day-v1",
+  "kind": "daily_series",
+  "columns": [
+    "instant", "dteday", "season", "yr", "mnth", "holiday", "weekday",
+    "workingday", "weathersit", "temp", "atemp", "hum", "windspeed",
+    "casual", "registered", "cnt"
+  ],
+  "total_column": "cnt",
+  "part_columns": ["casual", "registered"]
+}

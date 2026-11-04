@@ -1,0 +1,103 @@
+<!-- chapter: id=feasibility-spike; kicker=Spike; title=Feasibility spike; accent=gold -->
+<p class="lead">The spike proved on the target machine that the chosen stack works before anything general is built: a locked Python 3.13 environment, both public datasets verified, an <b>Inspect</b> task where a model calls a read-only SQL tool on Chinook, and a live trace of a real model doing it. This chapter is the reference for what exists, how to run it and where it stops.</p>
+
+<div class="prose">
+<h3>Install and run</h3>
+<p>The project is a uv project on Python 3.13 with a committed lock. The core needs only the standard library; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
+</div>
+<pre class="code"><span class="cm"># core only: the standard library</span>
+uv sync --locked
+uv run python -m hypotrail --help
+
+<span class="cm"># everything the spike needs, then the offline test suite (no network, no model call)</span>
+uv sync --locked --all-extras
+uv run --locked --all-extras pytest
+
+<span class="cm"># the Python version is pinned by .python-version and requires-python (3.13 only)</span></pre>
+<p class="prose">The default test command never calls a model, even when a model key is present: every test runs with outbound network access blocked, and an attempt fails the test. Live calls are opt-in and never part of the suite.</p>
+
+<p class="sub2">Data verification</p>
+<div class="prose">
+<p>The two public datasets live in the declarative Workloads <code>examples/bike_day</code> and <code>examples/chinook</code>, each with the slice of <code>data-sources.lock.json</code> that covers it and a <code>data-checks.json</code> that declares what to check. Verification works offline, in a fixed order: the bytes of every selected dataset first, then the licence notices, then the content.</p>
+</div>
+<pre class="code">uv run python -m hypotrail data verify                  <span class="cm"># both datasets</span>
+uv run python -m hypotrail data verify --workload chinook --json</pre>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Dataset</th><th>Checked</th></tr></thead><tbody>
+<tr><td>Bike (<code>day.csv</code>)</td><td>SHA-256 and size from the lock; CC BY 4.0 attribution notice present; 731 rows, exactly one per date from 2011-01-01 to 2012-12-31, no gap or duplicate; <code>cnt</code> a non-negative integer and equal to <code>casual + registered</code>.</td></tr>
+<tr><td>Chinook (SQLite)</td><td>SHA-256 and size from the lock; MIT notice present and equal to the lock's <code>notice_sha256</code>; SQLite integrity check <code>ok</code>; the eleven tables have their listed row counts. The file is opened read-only (<code>mode=ro</code>).</td></tr>
+</tbody></table></div>
+<div class="note"><span class="t">Exit codes</span><span>A flipped byte in either data file exits with 3 (integrity refused) and names the file, before any calendar or table check runs. An unknown Workload exits with 2, and so does <code>data verify</code> when it finds no Workload to verify: it then reports <code>NO_WORKLOAD</code> rather than success. An error nobody planned for exits with 4 and <code>UNEXPECTED_ERROR</code>; only the exception's type is reported, never its text, which could carry a key. With <code>--json</code>, stdout holds one JSON object and every error has <code>code</code>, <code>message</code>, <code>stage</code> and <code>details</code>.</span></div>
+
+<p class="sub2">The Inspect spike</p>
+<div class="prose">
+<p>The agentic side lives in <code>src/hypotrail/agentic/</code>; the core never imports Inspect (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Inspect owns the agent loop, the tool calls, its limits and its log; Hypotrail owns the scoring function and reads the log only through Inspect's public log API.</p>
+<ul>
+<li><b>Task</b> (<code>runner.py</code>): a system message and a user message per Case, the read-only tool, then Inspect's own generate-and-call-tools loop. The model is sent the question, the requested columns and the unit and nothing else; the renderer takes those three arguments only (<code>prompt.py</code>).</li>
+<li><b>Tool</b> (<code>sql_tool.py</code>): <code>query_readonly(sql)</code> opens the Chinook file read-only at a path fixed by the application, one connection per execution, <code>execute</code> and never <code>executescript</code>, extensions disabled. <code>mode=ro</code> covers only the main database, so two native SQLite mechanisms also apply on that connection and no SQL text is inspected: the limit on attached databases is 0, and an authorizer allows only the read actions (select, read, function, recursive) and denies any other, so <code>ATTACH</code>, <code>DETACH</code>, <code>VACUUM INTO</code>, writes and schema changes fail and create no file. It returns <code>columns</code>, <code>rows</code>, <code>row_count</code>, <code>truncated</code>, <code>error</code> (a <code>type</code> and a <code>message</code>) and a <code>tool_call_id</code>. The full authorizer allow-list (reads on the eleven tables, the permitted functions, no <code>PRAGMA</code>, transaction or system table) and the row, size and time caps are not built yet; they belong to issue #8.</li>
+<li><b>Projection</b> (<code>projection.py</code>): one record per Case x Repeat, in the order model turn, tool call, tool result, model turn, final answer. A Repeat is 0-based; Inspect's epoch is 1-based. An Episode is <code>produced</code>, <code>failed</code> (execution stopped with an error) or <code>missing</code> (absent from the log).</li>
+<li><b>Scoring</b> (<code>core/answer_scoring.py</code>): compares status, reason, columns, rows and unit with the frozen Reference. An answer missing one of the six required fields (<code>status</code>, <code>reason_code</code>, <code>columns</code>, <code>rows</code>, <code>unit</code>, <code>evidence</code>) is malformed: <code>parsed</code> is false and every component is false, even when the Reference holds null there. No string-to-number conversion, a boolean is not an integer, NULL stays NULL, non-finite numbers are refused, and the Reference's absolute tolerance applies. <code>agentic/rescore.py</code> rescores a kept log without the model, the tool or the Chinook file.</li>
+<li><b>Limits</b> (<code>limits.py</code>): set through Inspect's own options and read back from the log.</li>
+<li><b>Live run</b> (<code>live.py</code>): <code>python -m hypotrail spike live --model anthropic/&lt;model&gt; --out DIR</code>. Opt-in and paid. See below.</li>
+</ul>
+</div>
+
+<p class="sub2">Environment sheet</p>
+<div class="tblwrap"><table class="tbl" id="environment-sheet"><thead><tr><th>Item</th><th>Value</th></tr></thead><tbody>
+<tr><td>Python</td><td data-sheet="python">3.13.18</td></tr>
+<tr><td>SQLite (library linked into that Python)</td><td data-sheet="sqlite">3.53.1</td></tr>
+<tr><td>NumPy</td><td data-sheet="numpy">2.5.4</td></tr>
+<tr><td>scikit-learn</td><td data-sheet="scikit-learn">1.9.1</td></tr>
+<tr><td>Inspect (<code>inspect-ai</code>)</td><td data-sheet="inspect-ai">0.3.287</td></tr>
+<tr><td>Anthropic SDK (<code>anthropic</code>)</td><td data-sheet="anthropic">2.3.0</td></tr>
+<tr><td>Model identifier of the live run</td><td data-sheet="model">anthropic/claude-sonnet-5-5</td></tr>
+<tr><td>Model served (reported by the API)</td><td data-sheet="served-model">claude-sonnet-5-5</td></tr>
+<tr><td>Hardware</td><td data-sheet="hardware">Linux-6.18.44-fc-v185-x86_64-with-glibc2.39</td></tr>
+</tbody></table></div>
+<p class="prose">Python 3.13 runs Inspect; there was no need for the 3.12 fallback. The pinned versions are those of <code>uv.lock</code>, and a test compares the four package versions with the lock and the Python version with the running interpreter on major.minor only, and checks that the SQLite version is recorded and well formed without comparing it to the current machine's (the patch level and the SQLite build belong to the machine that wrote the sheet). The sheet therefore fails loudly when a pinned package or the Python minor changes, not when only the machine does.</p>
+
+<p class="sub2">Effective limits</p>
+<p class="prose">The proposals are 6 model turns, 8 tool calls, 60 s, 12 000 tokens, 1 024 output tokens per call, concurrency 1, response cache off and no retries. The column "Effective" is what the live run's Inspect log recorded, read back through the public log API. A limit is either <b>shown enforced</b> (a named offline test makes a scripted model exceed it), <b>configured, not witnessed</b>, or <b>not enforceable</b>.</p>
+<div class="tblwrap"><table class="tbl" id="effective-limits"><thead><tr><th>Limit</th><th>Proposed</th><th>Effective</th><th>State</th><th>Witness (tests/test_limits.py)</th></tr></thead><tbody>
+<tr data-limit="model_turns"><td>Model turns per Episode</td><td>6</td><td data-effective>6</td><td data-state>shown enforced</td><td><code>test_the_turn_limit_stops_the_episode_at_the_configured_count</code></td></tr>
+<tr data-limit="tool_calls"><td>Tool calls per Episode</td><td>8</td><td data-effective>none</td><td data-state>not enforceable</td><td><code>test_inspect_has_no_tool_call_limit</code></td></tr>
+<tr data-limit="time_seconds"><td>Seconds per Episode</td><td>60</td><td data-effective>60</td><td data-state>configured, not witnessed</td><td><code>test_the_time_limit_stops_a_slow_episode</code> (mechanism shown with 1 s)</td></tr>
+<tr data-limit="total_tokens"><td>Tokens in total per Episode</td><td>12000</td><td data-effective>12000</td><td data-state>shown enforced</td><td><code>test_the_token_limit_stops_the_episode</code> (scripted usage)</td></tr>
+<tr data-limit="max_output_tokens"><td>Output tokens per model call</td><td>1024</td><td data-effective>1024</td><td data-state>configured, not witnessed</td><td><code>test_the_output_token_cap_reaches_every_model_call</code></td></tr>
+<tr data-limit="concurrency"><td>Concurrency (Episodes at a time)</td><td>1</td><td data-effective>1</td><td data-state>shown enforced</td><td><code>test_one_episode_runs_at_a_time</code></td></tr>
+<tr data-limit="response_cache"><td>Response cache</td><td>off</td><td data-effective>off</td><td data-state>shown enforced</td><td><code>test_the_response_cache_is_off</code></td></tr>
+<tr data-limit="sample_retries"><td>Episode retries (application)</td><td>0</td><td data-effective>0</td><td data-state>shown enforced</td><td><code>test_an_errored_episode_is_not_retried</code></td></tr>
+<tr data-limit="transport_retries"><td>Model-call retries (transport)</td><td>0</td><td data-effective>0</td><td data-state>shown enforced</td><td><code>test_a_transient_model_error_is_not_retried</code></td></tr>
+</tbody></table></div>
+<div class="note"><span class="t">What the limits do not cover</span><span><b>Tool calls</b>: Inspect has no limit on them; only the turn limit bounds them indirectly (one call per turn, unless the model calls tools in parallel). <b>Turns</b>: Inspect checks after a generation completes, so the generation that exceeds the limit is still made: a limit of 6 allows 7 provider calls, and the seventh is not kept. <b>Anthropic SDK retries</b>: the SDK retries twice by default, below Inspect's own retry loop; the live run sets the client's <code>max_retries</code> to 0, which a test checks on the client and which a real provider failure would be the only witness of. <b>Time</b>: 60 s is configured, never reached by a test.</span></div>
+
+<p class="sub2">The live run</p>
+<div class="prose">
+<p><code>spike live</code> runs the spike task on at most two dev Cases (<code>D03</code> and <code>D05</code> by default), one Repeat each, under the limits above. It scores nothing against References; it only shows that a real model calls the tool and uses its result.</p>
+<ul>
+<li><b>Key</b>: read only from <code>HYPOTRAIL_ANTHROPIC_API_KEY</code> and passed explicitly to the provider; <code>ANTHROPIC_API_KEY</code> is ignored. It is never logged or persisted, and the output directory, including the decoded Inspect log, is scanned for its value before the run reports, and the scan also runs when a step of the run fails (a leak is then the error reported). Each log is read back through Inspect's <code>read_eval_log</code> and searched, and its raw bytes are searched too; the log's storage format is never opened by hand (ADR 0001). A log that Inspect cannot read back does not stop the scan of the other files; if no leak is found anywhere and some log could not be read, the run fails with <code>LOG_NOT_FULLY_SCANNED</code> and the files named, and is never reported clean. Without the key the command exits 5 with the named blocker <code>LIVE_NOT_VALIDATED</code> before any network call. Inspect's Anthropic provider prefers <code>ANTHROPIC_AUTH_TOKEN</code> to an explicit key, so the run refuses to start when that variable is set.</li>
+<li><b>Model</b>: an explicit input of the form <code>anthropic/&lt;model&gt;</code>; the code holds no default, and another provider or a cloud-platform variant is refused so the key cannot travel there.</li>
+<li><b>Bounds</b>: non-dev Cases and more than two Episodes are refused.</li>
+<li><b>Record</b>: <code>run.json</code> holds the provider, the model identifier, the served model, the request parameters the log recorded, the engine version, the effective limits and the hardware; <code>projection.json</code> holds the Episodes; <code>inspect/</code> holds the Inspect log.</li>
+</ul>
+</div>
+<p class="prose" id="live-outcome">The recorded run used <code>anthropic/claude-sonnet-5-5</code>. Both Episodes ran model, tool call executed on Chinook, model, final answer, and both final answers repeat rows the tool returned. The request carried the provider's defaults for this model: adaptive thinking and a top-level ephemeral cache control, with <code>max_tokens</code> 1024 shared between thinking and the answer.</p>
+<p class="prose">Trace: <a href="traces/live-spike/run.json">run.json</a>, <a href="traces/live-spike/projection.json">projection.json</a> and the Inspect log under <code>traces/live-spike/inspect/</code>.</p>
+
+<p class="sub2">Report on the six spike checks</p>
+<div class="tblwrap"><table class="tbl" id="spike-report"><thead><tr><th>#</th><th>Check</th><th>Outcome</th><th>Witness</th></tr></thead><tbody>
+<tr data-check="1"><td>1</td><td>Read the Inspect log through the public API and recover every Case x Repeat</td><td>Done. 2 Cases x 2 Repeats give four records, each present once; an Episode made to error is still one record, marked <code>failed</code>; one absent from the log is <code>missing</code>.</td><td><code>tests/test_agent_spike.py::test_four_episodes_are_projected_once_each_with_the_expected_sequence</code>, <code>tests/test_agent_spike.py::test_an_episode_that_errors_is_still_one_record_marked_failed</code></td></tr>
+<tr data-check="2"><td>2</td><td>Rescore a log without calling the model or the tools</td><td>Done. Two rescorings of one kept log give identical verdicts while the model call, the SQL tool, <code>sqlite3.connect</code> and any open of the Chinook file are made to fail.</td><td><code>tests/test_answer_scoring.py::test_rescoring_a_kept_log_twice_gives_identical_verdicts_and_calls_nothing</code></td></tr>
+<tr data-check="3"><td>3</td><td>Check that the limits are enforced</td><td>Mixed: see the table of effective limits. Turns, tokens, concurrency, cache and both kinds of retry are shown enforced; time and the output cap are configured, not witnessed; tool calls are not enforceable.</td><td><code>tests/test_limits.py</code> (one test per limit, named in the table)</td></tr>
+<tr data-check="4"><td>4</td><td>Import and score a Bike CSV without Inspect installed</td><td>Done. A predictions CSV is joined to <code>cnt</code> by date and scored as a mean absolute error in a subprocess where <code>inspect_ai</code>, scikit-learn and NumPy cannot be imported; shuffling the rows changes nothing. A prediction or a target that is not a finite number, including an integer too large for a float, is refused with an <code>InvalidInputError</code>. This reads and scores a CSV; it is not yet the Import contract.</td><td><code>tests/test_bike_scoring.py::test_the_mae_is_computed_without_inspect_and_matches_an_independent_calculation</code></td></tr>
+<tr data-check="5"><td>5</td><td>Tell a scorer crash from an execution failure without parsing error text</td><td>Done, with a finding. Inspect marks both as an errored sample. They differ in structured fields: a scorer crash happens after a <code>scorers</code> span began in the sample's events and leaves a complete conversation; an execution failure has no such span and no final answer. The projection reads those fields only and gives a produced Episode with an errored Criterion (reason <code>scoring_failed</code>) versus a failed Item (reason <code>execution_failed</code>).</td><td><code>tests/test_answer_scoring.py::test_a_scorer_crash_and_an_execution_failure_project_differently</code></td></tr>
+<tr data-check="6"><td>6</td><td>Scorer parity with an Inspect adapter</td><td>Not run: no adapter built.</td><td>none</td></tr>
+<tr data-check="live"><td>live</td><td>One live trace showing a real tool call</td><td id="live-line">Recorded on <code>anthropic/claude-sonnet-5-5</code>: model, tool call executed on Chinook, model, final answer for both dev Cases (D03, D05). Status of the milestone is unchanged: this is the spike trace, not the 72-Episode campaign.</td><td><a href="traces/live-spike/run.json">traces/live-spike/run.json</a></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Choices and limits worth knowing</p>
+<div class="grid2">
+<div class="card" style="--c:var(--gold)"><h3>Tool-call IDs</h3><p>Inspect gives a tool no public way to read its own call ID while it runs. The tool mints an application ID, puts it in the result the model sees, and the projection keeps the mapping to the native ID.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Scripted runs</h3><p>Offline runs use Inspect's mock model, recorded as <code>mockllm/model</code>, so no projection of such a log can be taken for a live model.</p></div>
+<div class="card" style="--c:var(--teal)"><h3>Rehearsal</h3><p>The live path is exercised in the suite against a fake endpoint on loopback, so the real Anthropic client, the key header and the key scan are tested without a real call.</p></div>
+<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The full SQL authorizer allow-list and the row, size and time caps, <code>describe_schema</code>, the <code>plain</code> and <code>verify</code> prompts, the format and evidence Criteria, and the Import and Assessment contracts.</p></div>
+</div>
