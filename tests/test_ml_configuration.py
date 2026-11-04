@@ -66,7 +66,7 @@ def test_refusal_writes_no_predictions(tmp_path, column):
     workload = workload_with(tmp_path, inject(column, "calendar_columns"))
     out = tmp_path / "out"
     with pytest.raises(InvalidInputError):
-        write_outputs(workload, out, "ridge_v1")
+        write_outputs(workload, out, "ridge_v1", "dev")
     with pytest.raises(InvalidInputError):
         fit_configuration(workload, "ridge_v1")
     assert not out.exists() or not list(out.rglob("predictions.csv"))

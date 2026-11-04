@@ -21,7 +21,6 @@ from hypotrail.ml.ridge import (
     build_inputs,
     fit_configuration,
     load_configuration,
-    post_process,
     predict_partition,
     write_outputs,
 )
@@ -221,7 +220,7 @@ def test_predicting_dev_or_public_check_fits_nothing(fitted, monkeypatch):
 
 
 def test_dev_predictions_are_182_and_y_pred_is_the_clipped_raw(fitted, tmp_path):
-    write_outputs(BIKE, tmp_path)
+    write_outputs(BIKE, tmp_path, "ridge_v1", "dev")
     rows = read_csv(tmp_path / "predictions.csv")
 
     assert list(rows[0]) == ["row_id", "y_pred_raw", "y_pred", "config_id"]
@@ -233,35 +232,8 @@ def test_dev_predictions_are_182_and_y_pred_is_the_clipped_raw(fitted, tmp_path)
         assert float(r["y_pred"]) == max(0.0, float(r["y_pred_raw"]))
 
 
-def test_clipping_zeroes_a_negative_raw_prediction_and_keeps_the_raw_value():
-    config = load_configuration(BIKE, "ridge_v1")["configuration"]
-    processed = post_process([-250.5, 0.0, 17.0], config)
-    assert processed == [
-        {"y_pred_raw": -250.5, "y_pred": 0.0},
-        {"y_pred_raw": 0.0, "y_pred": 0.0},
-        {"y_pred_raw": 17.0, "y_pred": 17.0},
-    ]
-
-
-def test_clipping_is_a_declared_setting_not_a_constant(tmp_path):
-    workload = copy_workload(tmp_path)
-    path = workload / "workload.json"
-    declaration = json.loads(path.read_text(encoding="utf-8"))
-    declaration["configurations"]["ridge_v1"]["post_processing"]["clip_min"] = 100
-    path.write_text(json.dumps(declaration), encoding="utf-8")
-
-    config = load_configuration(workload, "ridge_v1")["configuration"]
-    assert post_process([-5.0, 50.0, 150.0], config)[0:3] == [
-        {"y_pred_raw": -5.0, "y_pred": 100.0},
-        {"y_pred_raw": 50.0, "y_pred": 100.0},
-        {"y_pred_raw": 150.0, "y_pred": 150.0},
-    ]
-    declared = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))
-    assert declared["configurations"]["ridge_v1"]["post_processing"] == {"clip_min": 0}
-
-
 def test_effective_parameters_are_recorded_next_to_the_predictions(tmp_path):
-    predictions = write_outputs(BIKE, tmp_path)
+    predictions = write_outputs(BIKE, tmp_path, "ridge_v1", "dev")
     params_path = predictions.parent / "sklearn_params.json"
     params = json.loads(params_path.read_text(encoding="utf-8"))
 
@@ -287,3 +259,43 @@ def test_importing_the_core_and_the_stdlib_ml_modules_loads_no_scikit_learn():
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == "[]"
+
+
+# --- the Configuration and the Partition are parameters ----------------------------
+
+
+def test_the_config_id_in_the_predictions_is_the_declared_key(tmp_path):
+    workload = copy_workload(tmp_path)
+    path = workload / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    declaration["configurations"]["ridge_b"] = declaration["configurations"].pop("ridge_v1")
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+
+    out = write_outputs(workload, tmp_path / "out", "ridge_b", "dev")
+
+    assert {r["config_id"] for r in read_csv(out)} == {"ridge_b"}
+
+
+def test_the_partition_to_predict_is_a_parameter(tmp_path):
+    out = write_outputs(BIKE, tmp_path, "ridge_v1", "public_check")
+    rows = read_csv(out)
+    public_ids = {m["row_id"] for m in derive_memberships(BIKE) if m["partition"] == "public_check"}
+    assert {r["row_id"] for r in rows} == public_ids and len(rows) == 184
+
+
+def test_predict_partition_returns_raw_values_clipping_happens_when_predictions_are_written(fitted):
+    rows = predict_partition(fitted, "dev")
+    assert all(set(r) == {"row_id", "y_pred_raw"} for r in rows)
+
+
+def test_the_declared_clip_bound_reaches_the_written_predictions(tmp_path):
+    workload = copy_workload(tmp_path)
+    path = workload / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    declaration["configurations"]["ridge_v1"]["post_processing"]["clip_min"] = 3000
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+
+    rows = read_csv(write_outputs(workload, tmp_path / "out", "ridge_v1", "dev"))
+
+    assert min(float(r["y_pred"]) for r in rows) == 3000.0
+    assert any(float(r["y_pred_raw"]) < 3000 for r in rows)

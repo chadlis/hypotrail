@@ -10,6 +10,7 @@ Predictions at `public_check` dates are made here, and no metric is computed on 
 import csv
 import datetime
 import shutil
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +19,7 @@ import pytest
 import hypotrail.ml.metrics as metrics
 from hypotrail.ml.baselines import write_seasonal_baseline
 from hypotrail.ml.memberships import derive_memberships
+from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.ridge import fit_configuration, predict_partition
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,7 +63,7 @@ def partition_of(workload: Path, day: str) -> str:
 
 
 def seasonal_prediction(workload: Path, day: str, out_dir: Path) -> dict:
-    write_seasonal_baseline(workload, out_dir, partition=partition_of(workload, day))
+    write_seasonal_baseline(workload, out_dir, "seasonal_7", partition_of(workload, day))
     with (out_dir / "predictions.csv").open(newline="", encoding="utf-8") as handle:
         rows = {r["row_id"]: r for r in csv.DictReader(handle)}
     row = rows[f"bike-day:{day}"]
@@ -71,8 +73,14 @@ def seasonal_prediction(workload: Path, day: str, out_dir: Path) -> dict:
 def ridge_run(workload: Path, day: str) -> tuple[dict, dict]:
     """Fit on `train` from this table, predict the Partition of `day`; return (prediction, fitted state)."""
     fitted = fit_configuration(workload, "ridge_v1")
-    rows = {r["row_id"]: r for r in predict_partition(fitted, partition_of(workload, day))}
-    row = rows[f"bike-day:{day}"]
+    rows = predict_partition(fitted, partition_of(workload, day))
+    with tempfile.TemporaryDirectory() as out_dir:  # y_pred is the clipped raw, written once
+        path = write_predictions(
+            out_dir, fitted.config_id, [r["row_id"] for r in rows], [r["y_pred_raw"] for r in rows],
+            clip_min=fitted.configuration["post_processing"]["clip_min"],
+        )
+        with path.open(newline="", encoding="utf-8") as handle:
+            row = {r["row_id"]: r for r in csv.DictReader(handle)}[f"bike-day:{day}"]
     pre = fitted.pipeline.named_steps["preprocessor"]
     scaler = pre.named_transformers_["scaler"]
     encoder = pre.named_transformers_["encoder"]

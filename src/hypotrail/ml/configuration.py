@@ -24,6 +24,16 @@ def _declared(declaration: dict, key: str) -> list:
     return declaration[key]
 
 
+def declared_configuration(declaration: dict, config_id: str) -> dict:
+    """The Configuration the Workload declares under `config_id`; its key is its id."""
+    try:
+        return declaration["configurations"][config_id]
+    except KeyError:
+        raise _refuse(
+            "CONFIGURATION_NOT_DECLARED", f"no configuration {config_id!r} is declared", config_id=config_id
+        ) from None
+
+
 def _input_names(configuration: dict) -> list:
     names = [f["name"] for f in configuration["lag_features"]]
     names += configuration["calendar_columns"]

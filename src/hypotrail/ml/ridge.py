@@ -27,15 +27,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.configuration import validate_configuration
+from hypotrail.ml.configuration import declared_configuration, validate_configuration
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import derive_memberships, load_declaration
-from hypotrail.ml.predictions import clip_below, write_predictions
+from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
 from hypotrail.ml.table import read_table
 
 PARAMETERS_NAME = "sklearn_params.json"
-PREDICTED_PARTITION = "dev"
 
 
 def _refuse(code, message, **details):
@@ -45,6 +44,7 @@ def _refuse(code, message, **details):
 @dataclass
 class ModelInputs:
     row_ids: list
+    dates: list
     columns: list
     matrix: np.ndarray
 
@@ -61,10 +61,7 @@ class FittedConfiguration:
 
 def load_configuration(workload_dir: Path, config_id: str) -> dict:
     declaration = load_declaration(workload_dir)
-    try:
-        configuration = declaration["configurations"][config_id]
-    except KeyError:
-        raise _refuse("CONFIGURATION_NOT_DECLARED", f"no configuration {config_id!r} is declared", config_id=config_id) from None
+    configuration = declared_configuration(declaration, config_id)
     validate_configuration(declaration, config_id, configuration)
     return {"declaration": declaration, "configuration": configuration}
 
@@ -80,7 +77,7 @@ def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInp
     target = read_target_series(workload_dir, declaration)
     lag_names = [f["name"] for f in configuration["lag_features"]]
 
-    row_ids, lines = [], []
+    row_ids, dates, lines = [], [], []
     for item in derive_memberships(workload_dir):
         if item["partition"] != partition:
             continue
@@ -88,9 +85,10 @@ def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInp
         lags = compute_lags(target, day, configuration["lag_features"])
         calendar = [float(rows[day][c]) for c in configuration["calendar_columns"]]
         row_ids.append(item["row_id"])
+        dates.append(day)
         lines.append([lags[n] for n in lag_names] + calendar)
     matrix = np.array(lines, dtype=np.float64).reshape(len(lines), len(_columns(configuration)))
-    return ModelInputs(row_ids, _columns(configuration), matrix)
+    return ModelInputs(row_ids, dates, _columns(configuration), matrix)
 
 
 def build_pipeline(configuration: dict) -> Pipeline:
@@ -117,10 +115,7 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
     fit_partition = configuration["fit_partition"]
     inputs = build_inputs(workload_dir, config_id, fit_partition)
     target = read_target_series(workload_dir, declaration)
-    y = np.array(
-        [target[datetime.date.fromisoformat(r.removeprefix(f"{declaration['id_prefix']}:"))] for r in inputs.row_ids],
-        dtype=np.float64,
-    )
+    y = np.array([target[day] for day in inputs.dates], dtype=np.float64)
     pipeline = build_pipeline(configuration)
     pipeline.fit(inputs.matrix, y)
     return FittedConfiguration(
@@ -128,20 +123,14 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
     )
 
 
-def post_process(raw_values, configuration: dict) -> list[dict]:
-    raw = [float(v) for v in raw_values]
-    clipped, _ = clip_below(raw, configuration["post_processing"]["clip_min"])
-    return [{"y_pred_raw": r, "y_pred": c} for r, c in zip(raw, clipped)]
-
-
 def predict_partition(fitted: FittedConfiguration, partition: str) -> list[dict]:
-    """Predict a Partition with the parameters already fitted; nothing is fitted here."""
+    """Raw predictions of a Partition with the parameters already fitted; nothing is fitted here.
+
+    Clipping is applied once, when the predictions are written (`predictions.write_predictions`).
+    """
     inputs = build_inputs(fitted.workload_dir, fitted.config_id, partition)
     raw = fitted.pipeline.predict(inputs.matrix)
-    return [
-        {"row_id": row_id, **values}
-        for row_id, values in zip(inputs.row_ids, post_process(raw, fitted.configuration))
-    ]
+    return [{"row_id": row_id, "y_pred_raw": float(value)} for row_id, value in zip(inputs.row_ids, raw)]
 
 
 def _dotted_class(cls) -> str:
@@ -175,10 +164,10 @@ def effective_parameters(fitted: FittedConfiguration) -> dict:
     }
 
 
-def write_outputs(workload_dir: Path, out_dir: Path, config_id: str = "ridge_v1") -> Path:
-    """Fit on the declared fit Partition, predict `dev`, write `predictions.csv` and the parameters file."""
+def write_outputs(workload_dir: Path, out_dir: Path, config_id: str, partition: str) -> Path:
+    """Fit on the declared fit Partition, predict `partition`, write `predictions.csv` and the parameters file."""
     fitted = fit_configuration(workload_dir, config_id)
-    rows = predict_partition(fitted, PREDICTED_PARTITION)
+    rows = predict_partition(fitted, partition)
     path = write_predictions(
         out_dir,
         config_id,

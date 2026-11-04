@@ -43,8 +43,8 @@ def shared(tmp_path_factory):
     write_references(BIKE, shared)
     control = tmp_path_factory.mktemp("control")
     candidate = tmp_path_factory.mktemp("candidate")
-    write_seasonal_baseline(BIKE, control)
-    write_outputs(BIKE, candidate)
+    write_seasonal_baseline(BIKE, control, "seasonal_7", "dev")
+    write_outputs(BIKE, candidate, "ridge_v1", "dev")
     return shared, control, candidate
 
 

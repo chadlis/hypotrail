@@ -13,7 +13,7 @@ from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.baselines import write_seasonal_baseline
 from hypotrail.ml.memberships import write_memberships
 from hypotrail.ml.metrics import compute_metrics
-from hypotrail.ml.predictions import clip_non_negative, write_predictions
+from hypotrail.ml.predictions import clip_below, write_predictions
 from hypotrail.ml.references import write_references
 
 from _ml_helpers import fit_probe
@@ -49,7 +49,7 @@ def metrics_of(out_dir, **kwargs):
 def bike_outputs(tmp_path):
     write_memberships(BIKE, tmp_path)
     write_references(BIKE, tmp_path)
-    write_seasonal_baseline(BIKE, tmp_path)
+    write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "dev")
     return tmp_path
 
 
@@ -90,7 +90,7 @@ def test_references_artifact_holds_row_id_and_y_true(bike_outputs):
 def test_seasonal_7_makes_no_fit_call_and_the_probe_does_fire_on_a_fit(tmp_path):
     write_memberships(BIKE, tmp_path)
     with fit_probe(strict=True) as probe:
-        write_seasonal_baseline(BIKE, tmp_path)
+        write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "dev")
     assert probe.calls == []
     assert (tmp_path / "predictions.csv").exists()
 
@@ -145,7 +145,7 @@ def test_metrics_do_not_depend_on_the_row_order_of_predictions(bike_outputs):
 
 
 def test_clipping_bounds_negative_raw_predictions_and_counts_them():
-    clipped, count = clip_non_negative([-3.5, 0.0, 12.0, -0.1])
+    clipped, count = clip_below([-3.5, 0.0, 12.0, -0.1], 0)
     assert clipped == [0.0, 0.0, 12.0, 0.0]
     assert count == 2
 
@@ -190,11 +190,12 @@ def test_seasonal_baseline_follows_the_declaration_not_bike(tmp_path):
         "schema_version": "workload/1", "data_file": "data/series.csv",
         "licence_notice": "none.md", "id_prefix": "shop-day", "date_column": "day",
         "target_column": "visits", "period_k": 3,
+        "configurations": {"seasonal_3": {"period_k": 3, "post_processing": {"clip_min": 0}}},
         "partitions": {"train": ["2020-01-04", "2020-01-07"], "dev": ["2020-01-08", "2020-01-10"]},
     }))
     out = tmp_path / "out"
     write_memberships(directory, out)
-    write_seasonal_baseline(directory, out)
+    write_seasonal_baseline(directory, out, "seasonal_3", "dev")
 
     rows = rows_of(out / "predictions.csv")
     assert [(r["row_id"], float(r["y_pred"]), r["config_id"]) for r in rows] == [
@@ -202,3 +203,58 @@ def test_seasonal_baseline_follows_the_declaration_not_bike(tmp_path):
         ("shop-day:2020-01-09", 25.0, "seasonal_3"),
         ("shop-day:2020-01-10", 36.0, "seasonal_3"),
     ]
+
+
+def copy_bike(tmp_path, edit):
+    import shutil
+
+    target = tmp_path / "bike"
+    shutil.copytree(BIKE, target)
+    path = target / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    edit(declaration)
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+    return target
+
+
+def test_seasonal_7_is_a_declared_configuration():
+    declared = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))["configurations"]["seasonal_7"]
+    assert declared["period_k"] == 7
+    assert declared["post_processing"] == {"clip_min": 0}
+
+
+def test_seasonal_k_follows_the_declared_configuration(tmp_path):
+    workload = copy_bike(tmp_path, lambda d: d["configurations"]["seasonal_7"].update(period_k=14))
+    write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
+
+    by_id = {r["row_id"]: r for r in rows_of(tmp_path / "out" / "predictions.csv")}
+    cnt = bike_cnt()
+    assert float(by_id["bike-day:2012-03-05"]["y_pred"]) == cnt["2012-02-20"]  # 14 days earlier
+    assert {r["config_id"] for r in by_id.values()} == {"seasonal_7"}  # the id is the declared key
+
+
+def test_seasonal_clipping_is_the_declared_bound(tmp_path):
+    def edit(d):
+        d["configurations"]["seasonal_7"]["post_processing"]["clip_min"] = 5000
+
+    write_seasonal_baseline(copy_bike(tmp_path, edit), tmp_path / "out", "seasonal_7", "dev")
+
+    rows = rows_of(tmp_path / "out" / "predictions.csv")
+    assert min(float(r["y_pred"]) for r in rows) == 5000.0
+    assert any(float(r["y_pred_raw"]) < 5000 for r in rows)  # raw is kept
+
+
+def test_seasonal_baseline_of_an_undeclared_configuration_is_refused(tmp_path):
+    with pytest.raises(InvalidInputError) as caught:
+        write_seasonal_baseline(BIKE, tmp_path, "seasonal_9", "dev")
+    assert caught.value.code == "CONFIGURATION_NOT_DECLARED"
+    assert not (tmp_path / "predictions.csv").exists()
+
+
+@pytest.mark.parametrize("k", [0, -7])
+def test_seasonal_k_that_reaches_date_t_or_later_is_refused(tmp_path, k):
+    workload = copy_bike(tmp_path, lambda d: d["configurations"]["seasonal_7"].update(period_k=k))
+    with pytest.raises(InvalidInputError) as caught:
+        write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
+    assert caught.value.code == "TARGET_FEATURE_NOT_PAST"
+    assert caught.value.details["config_id"] == "seasonal_7"

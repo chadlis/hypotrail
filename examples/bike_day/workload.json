@@ -19,6 +19,12 @@
     "public_check": ["2012-07-01", "2012-12-31"]
   },
   "configurations": {
+    "seasonal_7": {
+      "period_k": 7,
+      "post_processing": {
+        "clip_min": 0
+      }
+    },
     "ridge_v1": {
       "fit_partition": "train",
       "lag_features": [

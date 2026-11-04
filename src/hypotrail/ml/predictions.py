@@ -20,11 +20,6 @@ def clip_below(raw_values, minimum=0) -> tuple[list, int]:
     return clipped, sum(1 for value in raw_values if value < minimum)
 
 
-def clip_non_negative(raw_values) -> tuple[list, int]:
-    """max(0, raw) for each value, and the number of values that were raised to 0."""
-    return clip_below(raw_values, 0)
-
-
 def write_predictions(out_dir: Path, config_id: str, row_ids, raw_values, *, clip_min=0) -> Path:
     """`clip_min` is the Configuration's declared lower bound (default 0, SPEC ML-03)."""
     row_ids, raw_values = list(row_ids), list(raw_values)
