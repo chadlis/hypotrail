@@ -273,6 +273,15 @@ Use a STOP banner only if a decision is required. Otherwise use EXÉCUTION and p
 
 Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice. Append at most one learning focus and its link as information. Do not make every `learn:` issue another decision for Salah.
 
+### The brief page
+
+Salah asked for every brief, STOP or ordinary, to also reach him as one self-contained HTML page. Publish it with the Artifact tool (private), starting from its quickstart, and give its link in the turn beside the numbered decision list. If the Artifact tool is unavailable, write the page in the session's scratchpad and send it as a file.
+
+- **Same explanation as the turn**, section by section: framing, each decision point in the order of "How a STOP is written", then *L'ordre recommandé*. French, the writing style above, cosmic-couture charter, light by default.
+- **One diagram or animation per decision point** that shows its mechanism: what flows where, what is refused, what changes from one option to the other. Options whose consequence is visible get a toggle that shows each one. A finding is replayed on its real input (the JSON, the command, the dates). An information brief illustrates what shipped the same way.
+- **True numbers.** Charts are drawn to scale, from the repository or from a run you made. Illustrative values are labelled as such.
+- **Checked once** before the link is given: load it headless at phone width, with no script error and no horizontal overflow.
+
 ## The trail
 
 - Every commit carries the attribution trailers this session was given, and a session URL only if one exists. **Never invent a link.**
