@@ -11,5 +11,32 @@
     "train": ["2011-01-08", "2011-12-31"],
     "dev": ["2012-01-01", "2012-06-30"],
     "public_check": ["2012-07-01", "2012-12-31"]
+  },
+  "configurations": {
+    "ridge_v1": {
+      "fit_partition": "train",
+      "lag_features": [
+        {"name": "lag_1", "kind": "lag", "period": 1},
+        {"name": "lag_7", "kind": "lag", "period": 7},
+        {"name": "mean_previous_7", "kind": "mean_previous", "period": 7}
+      ],
+      "calendar_columns": ["mnth", "weekday", "holiday", "workingday"],
+      "encoder": {
+        "columns": ["mnth", "weekday", "holiday", "workingday"],
+        "handle_unknown": "ignore",
+        "sparse_output": false
+      },
+      "scaler": {
+        "columns": ["lag_1", "lag_7", "mean_previous_7"]
+      },
+      "ridge": {
+        "alpha": 1.0,
+        "fit_intercept": true,
+        "solver": "svd"
+      },
+      "post_processing": {
+        "clip_min": 0
+      }
+    }
   }
 }
