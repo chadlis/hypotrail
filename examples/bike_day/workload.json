@@ -6,6 +6,7 @@
   "id_prefix": "bike-day",
   "date_column": "dteday",
   "target_column": "cnt",
+  "target_unit": "rentals per day",
   "period_k": 7,
   "forbidden_features": ["casual", "registered", "cnt", "temp", "atemp", "hum", "windspeed", "weathersit"],
   "allowed_target_features": [

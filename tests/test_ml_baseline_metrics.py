@@ -41,7 +41,8 @@ def dev_dates():
 
 def metrics_of(out_dir, **kwargs):
     return compute_metrics(
-        out_dir / "predictions.csv", out_dir / "references.csv", out_dir / "memberships.csv", **kwargs
+        out_dir / "predictions.csv", out_dir / "references.csv", out_dir / "memberships.csv",
+        kwargs.pop("workload", BIKE), **kwargs
     )
 
 
@@ -258,3 +259,37 @@ def test_seasonal_k_that_reaches_date_t_or_later_is_refused(tmp_path, k):
         write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
     assert caught.value.code == "TARGET_FEATURE_NOT_PAST"
     assert caught.value.details["config_id"] == "seasonal_7"
+
+
+def test_the_metric_unit_is_declared_in_the_workload(tmp_path, bike_outputs):
+    assert json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))["target_unit"] == "rentals per day"
+
+    workload = copy_bike(tmp_path, lambda d: d.update(target_unit="visits per day"))
+    metrics = metrics_of(bike_outputs, workload=workload)["metrics"]
+
+    for name in ("mae", "rmse", "mae_by_month"):
+        assert metrics[name]["unit"] == "visits per day"
+
+
+def test_a_workload_without_a_unit_is_refused(tmp_path, bike_outputs):
+    workload = copy_bike(tmp_path, lambda d: d.pop("target_unit"))
+    with pytest.raises(InvalidInputError) as caught:
+        metrics_of(bike_outputs, workload=workload)
+    assert caught.value.code == "DECLARATION_INCOMPLETE"
+    assert caught.value.details == {"key": "target_unit"}
+
+
+def test_metrics_are_computed_on_any_partition_but_public_check(tmp_path):
+    write_memberships(BIKE, tmp_path)
+    write_references(BIKE, tmp_path)
+    write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "train")
+
+    result = metrics_of(tmp_path, partition="train")
+
+    assert result["partition"] == "train" and result["count"] == 358
+
+
+def test_a_partition_the_workload_does_not_declare_is_refused(bike_outputs):
+    with pytest.raises(InvalidInputError) as caught:
+        metrics_of(bike_outputs, partition="nowhere")
+    assert caught.value.code == "PARTITION_NOT_DECLARED"

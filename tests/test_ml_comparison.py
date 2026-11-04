@@ -65,7 +65,8 @@ def run(dirs, **kwargs):
     shared_dir, control, candidate, out = dirs
     return compare(
         control / "predictions.csv", candidate / "predictions.csv",
-        shared_dir / "references.csv", shared_dir / "memberships.csv", out, **kwargs
+        shared_dir / "references.csv", shared_dir / "memberships.csv", out,
+        kwargs.pop("workload", BIKE), **kwargs
     )
 
 
@@ -110,6 +111,48 @@ def test_comparison_metrics_and_delta_match_an_independent_calculation(dirs):
     for row_id, value in diffs.items():
         assert value == pytest.approx(candidate["abs_err"][row_id] - control["abs_err"][row_id])
     assert result["delta_mae"]["value"] == pytest.approx(sum(diffs.values()) / 182)
+
+
+def test_delta_mae_is_the_difference_of_the_two_reported_maes_and_the_mean_of_the_differences(dirs):
+    result = run(dirs)
+
+    reported = result["candidate"]["metrics"]["mae"]["value"] - result["control"]["metrics"]["mae"]["value"]
+    assert result["delta_mae"]["value"] == reported
+    mean_of_differences = sum(d["delta_abs_error"] for d in result["differences"]) / 182
+    assert abs(result["delta_mae"]["value"] - mean_of_differences) < 1e-9
+
+
+def test_the_comparison_reports_the_unit_the_workload_declares(dirs, tmp_path):
+    import shutil
+
+    workload = tmp_path / "bike"
+    shutil.copytree(BIKE, workload)
+    path = workload / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    declaration["target_unit"] = "visits per day"
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+
+    result = run(dirs, workload=workload)
+
+    assert result["metric"]["unit"] == "visits per day"
+    assert result["delta_mae"]["unit"] == "visits per day"
+    assert result["control"]["metrics"]["mae"]["unit"] == "visits per day"
+
+
+def test_a_comparison_is_computed_on_any_partition_but_public_check(tmp_path):
+    shared = tmp_path / "shared"
+    write_memberships(BIKE, shared)
+    write_references(BIKE, shared)
+    control, candidate = tmp_path / "control", tmp_path / "candidate"
+    write_seasonal_baseline(BIKE, control, "seasonal_7", "train")
+    write_outputs(BIKE, candidate, "ridge_v1", "train")
+
+    result = compare(
+        control / "predictions.csv", candidate / "predictions.csv",
+        shared / "references.csv", shared / "memberships.csv", tmp_path / "out", BIKE, partition="train",
+    )
+
+    assert result["population"]["partition"] == "train" and result["population"]["count"] == 358
 
 
 def test_the_comparison_names_what_it_compares(dirs):
