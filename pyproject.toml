@@ -8,10 +8,12 @@ version = "0.0.0"
 description = "Small, explicit studies of predictive and agentic systems."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+    "jsonschema==4.26.0",
+]
 
-# The core uses the standard library only (ENV-02). Each Track brings its own
-# dependencies, loaded only by that Track.
+# The core uses the standard library and one schema validator, jsonschema (ENV-02).
+# Each Track brings its own dependencies, loaded only by that Track.
 [project.optional-dependencies]
 agent = [
     "inspect-ai==0.3.287",
