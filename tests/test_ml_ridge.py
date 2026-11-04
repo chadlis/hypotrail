@@ -211,6 +211,20 @@ def test_effective_parameters_are_recorded_next_to_the_predictions(tmp_path):
     assert params["scaler"]["params"]["with_mean"] is True
 
 
+def test_effective_parameters_include_the_column_transformer_and_the_pipeline(tmp_path):
+    predictions = write_outputs(BIKE, tmp_path, "ridge_v1", "dev")
+    params = json.loads((predictions.parent / "sklearn_params.json").read_text(encoding="utf-8"))
+
+    preprocessor = params["preprocessor"]
+    assert preprocessor["class"] == "sklearn.compose.ColumnTransformer"
+    assert preprocessor["params"]["remainder"] == "drop"  # a default nobody declared is still recorded
+    assert preprocessor["params"]["verbose_feature_names_out"] is True
+    pipeline = params["pipeline"]
+    assert pipeline["class"] == "sklearn.pipeline.Pipeline"
+    assert pipeline["params"]["memory"] is None
+    assert pipeline["params"]["verbose"] is False
+
+
 # --- the core stays free of scikit-learn ------------------------------------------
 
 

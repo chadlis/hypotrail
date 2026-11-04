@@ -151,6 +151,8 @@ def _json_value(value):
 def effective_parameters(fitted: FittedConfiguration) -> dict:
     preprocessor = fitted.pipeline.named_steps["preprocessor"]
     estimators = {
+        "pipeline": fitted.pipeline,
+        "preprocessor": preprocessor,
         "encoder": preprocessor.named_transformers_["encoder"],
         "scaler": preprocessor.named_transformers_["scaler"],
         "ridge": fitted.pipeline.named_steps["ridge"],
