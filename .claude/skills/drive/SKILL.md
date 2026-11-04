@@ -1,6 +1,6 @@
 ---
 name: drive
-description: "Companion session that takes one slice issue (a sub-issue of a milestone) from branch to open pull request, delegating every step that needs fresh eyes to subagents. It writes no implementation code and holds no gate. Every turn opens with a banner, EXÉCUTION or STOP, and the companion talks to Salah in French. Default mode is full-auto: nothing interrupts him until the PR is open, because the feature branch can be thrown away. Two modifiers he may add in the opening message, never inferred: `merge` (squash-merge and close the slice) and `chain` (requires `merge`; opens the next startable slice). Trigger when Salah types \"/drive\" (with or without an issue number), \"on reprend #n\", \"où j'en suis\" on a slice, or opens a session to build a slice end to end. With no number, the companion picks the next startable slice itself and says which."
+description: "Deliver one Hypotrail slice through the existing delegated implementation and independent review workflow. Preserve autonomous development and attach concise evidence for selected learning goals. Invoke with /drive, /drive #n, or a request to resume a slice. Optional prepare produces a learning handoff before implementation. Existing merge and chain modifiers remain explicit."
 disable-model-invocation: true
 ---
 
@@ -37,7 +37,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
-**A reviewer never runs on a weaker model than the author.** If a type is missing, create it with the model of the nearest step and say so; never fall back to an untyped call. Never change a step's model mid-slice.
+**A reviewer never runs on a weaker model than the author.** Before execution, verify the required named types exist. If one is missing, stop execution under the apparatus floor and propose its creation separately. Do not create it during the slice or fall back to an untyped call. Read-only `prepare` does not require these types. Never change a step's model mid-slice.
 
 **Reaching Matt Pocock's user-invoked skills.** `to-tickets`, `implement`, `implement-spec` and `retro` cannot be invoked through the Skill tool. Tell the subagent to read the file and follow it:
 
@@ -59,7 +59,7 @@ When a subagent asks, answer it yourself from the repository (EXÉCUTION). If th
 
 ## Full-auto, and what may leave the branch
 
-The safety of this mode is that **everything it produces can be thrown away by deleting one branch**. When something is not covered here, ask that question.
+Code on the feature branch is reversible. Issue edits, learning notes and paid live runs are external effects and remain bounded by their existing authorization. Learning preparation adds no permission to merge, spend, or change the product scope.
 
 By default the run **stops at the open PR**:
 
@@ -70,8 +70,10 @@ By default the run **stops at the open PR**:
 
 **Modifiers**, only if named in the opening message:
 
-- **`merge`**: squash-merge the PR (agents may merge, per `AGENTS.md`) without deleting the branch, then close the slice issue. The ticket gate then becomes **retrospective**: refusing a ticket afterwards costs a corrective slice. Say so in one line when the run opens.
-- **`chain`** requires `merge`; asked alone, treat it as both and say so. When a slice closes, open the next one: the slices Salah named, in his order, otherwise the next pick under "Picking the slice". Budgets and floors count **per chain**.
+- **`merge`**: authorization to squash-merge a completed, reviewed slice without a second routine approval, then close it without deleting the branch. Resolve every pending product decision, owner reservation and blocking finding before merging. An `INFERRED` ticket is cleared by a cited requirement or an explicit owner decision, never by a teaching result. With no pending decision, deliver the ordinary brief after merging. With a pending decision, deliver a STOP brief before dependent work or merge.
+- **`chain`** requires `merge`; asked alone, treat it as both and say so. Apply the `merge` rules to each slice. Continue in the requested order, otherwise by "Picking the slice". Give one ordinary brief at the end of the chain. A pending decision or floor stops the chain at that boundary and triggers a STOP brief. Review floors and invented-behaviour counts apply per chain. Paid live runs, as defined under "Paid live runs" below, are capped at five per slice and five in total across the explicitly requested chain, unless Salah explicitly sets a different chain budget. Resume does not reset counters. This cumulative cap resolves the former contradictory budget wording conservatively.
+
+**Preparation mode**, only on an explicit `/drive #n prepare` request: read the slice and its sources, create or update the slice preparation note below, then finish normally with `/hypotrail-study before <fully-qualified-source-issue>` as the next command. Do not enter steps 1–12, create a delivery branch, add an `in-progress` label, open implementation tickets, merge, or start a chain. Save the note and its link only. Create no learning issue in this mode. Do not mark an implementation step done because preparation happened. If `prepare` is combined with `merge` or `chain`, preparation takes precedence and the next execution needs a new explicit command. Preparation is optional. A plain `/drive` does not start a course or wait for a learning session.
 
 **Changes to the apparatus are deferred, never applied.** The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
@@ -100,7 +102,47 @@ Under `chain`, finish the slice in hand if it can be finished honestly, then sto
 
 ## How Salah works this loop
 
-He is not following the detail. He launches the session and runs what you hand him, and he learns the slice later, from the learning book. **Take every decision that is not critical**: do it, then say in one line what you did and how to undo it. If you are about to write « veux-tu que… » about something you can decide, stop and decide.
+Salah wants system-wide orientation, participation in consequential choices, and deep practice on a few transferable mechanisms. He does not follow every implementation detail. Keep the delivery and learning loops separate. **Take every non-critical decision within the accepted contract**, record its reason and reversibility briefly, and continue. A lesson, chapter or unanswered recall exercise never becomes a merge gate.
+
+An owner-reserved decision is different from a learning suggestion. When Salah explicitly reserves a decision, record its scope and required answer in the source issue's state comment. Stop before implementing work that depends on it, including under `merge` or `chain`. Continue independent work only within the already authorized slice. Silence, an Anki score or a completed lesson is never the answer. If the owner explicitly delegates the decision, record that delegation and apply the stated bounds.
+
+Unsettled product semantics, public contracts or hard-to-reverse choices follow the existing product-decision gate even if the owner did not reserve them for learning. Routine reversible choices do not acquire a new gate merely because they illustrate a concept.
+
+## Learning notes and selected objectives, version 2
+
+**Do not create a learning issue automatically for a PR or a delivery slice.** Delivery tickets remain unchanged. Record the useful learning material in the slice notes. Only the tutor creates a `learn: <competency>` issue when a learning objective is selected in a requested session, or when Salah explicitly asks to track that objective. One such issue can cover several slices and several sessions.
+
+For every slice, reuse its existing `notes/<slice>.md` in `chadlis/hypotrail-learning`. If no path is already recorded, use `notes/hypotrail-<source-issue-number>.md`. Put the fully qualified source issue in the note and link the note from the source issue's state comment. In `prepare`, save that pointer in a short preparation comment on the existing source issue, without marking implementation started. Do not make another file for each update or another issue to hold the note.
+
+On every start and resume, read the note, any linked selected objective and relevant `before` records, following the unconditional authority check below. Also search selected learning issues by the source issue reference if no backlink exists. A tutor can have prepared the objective directly before `drive` ran. A suggested focus in a note is not an activated learning objective.
+
+In explicit `prepare`, collect the note now and finish with `/hypotrail-study before chadlis/hypotrail#N`. In normal execution, update it at steps 7 and 9. If a selected learning issue already covers this source, add the new evidence to that issue without changing the objective, closing it or creating a duplicate. If none exists, stop at the note. A missing learning issue is a normal completed state.
+
+Use these compact fields in the note, omitting empty optional sections:
+
+```text
+Source: chadlis/hypotrail#N, parent issue, relevant ADRs
+Code: <base SHA>; <PR URL and head SHA, or not implemented>; <squash SHA when available>
+Delivered behaviour: <one sentence, or preparation only>
+Focus suggestion: <one durable competency and at most two concepts, or reference-only>
+Why: <durable value for SWE or evaluation work, one sentence>
+Before: <optional problem and preparation question, not asked by drive>
+Owner decision: none | reserved | decided | delegated
+Decision evidence: <exact owner statement/link, affected scope, requirement excerpt and consultation date, or none>
+Evidence: <1–3 fixed code/test/ADR pointers; observed result vs unrun command>
+Selected objective: <existing qualified learn issue and record links, or none — not selected>
+After: <only if selected: exercise property and plausible error to distinguish>
+```
+
+Use existing decisions as examples of reasoning, not as fictional open choices. Label an alternative invented for teaching `hypothetical`. For a genuinely open choice, write the problem and a preparation question in `Before`, without asking Salah to solve it in `drive`. The tutor owns calibration, the first attempt and the detailed pedagogical explanation. Reuse any spontaneous answer with its context and assistance level rather than asking it twice. A necessary product-decision brief still supplies the argued recommendation and remains separate from teaching.
+
+During implementation, keep at most three consequential choices in the slice notes: constraint, chosen option, actual alternative if considered, evidence, reversibility. The PR and ADRs remain the sources of truth. Do not invent a rejected option to fill a template.
+
+If a preparation record's source has changed, compare only the relevant requirements, code boundary or decision. Keep unaffected learning evidence. For an editable issue requirement that underpins a reservation, preserve only the relevant excerpt, URL, consultation date and an available revision timestamp. A code SHA alone does not freeze an issue body. A material change makes the affected recommendation stale. If the old requirement cannot be recovered, state that uncertainty and seek resolution only if it prevents honoring the reserved decision. A changed owner-reserved scope requires a new owner answer before dependent work. An educational prediction is never silently promoted to a product decision.
+
+The short focus list in `chadlis/hypotrail-learning/apprentissage/parcours.md`, when present, belongs to the tutor. `drive` may read/link it but must not activate a topic or mark a skill acquired. Existing `learn: <slice>` issues remain readable as historical references. If one already tracks a selected objective, enrich it without renaming or closing it. Otherwise leave it unchanged until the tutor selects an objective. Do not bulk-migrate old issues, count them as a personal debt or send reminders.
+
+If learning-repository access fails, keep the short note in a preparation/delivery comment on the **existing source issue** in `chadlis/hypotrail` (English, without personal Anki data), then reference that comment from the state. Update the same fallback comment on resume. Do not create a fallback `learn:` issue just to store it. If issue writes also fail, preserve the note locally and include its path/content in the delivery brief as unsaved. Do not block delivery solely on learning storage, and never claim that a failed save succeeded. Once access returns, reconcile into the same note and preserve its links. A reference-only note needs no exercise or promise to make one later.
 
 ### The banner: first line of every turn, in French
 
@@ -114,9 +156,9 @@ He is not following the detail. He launches the session and runs what you hand h
 
 - At most one STOP per turn, and a STOP turn carries nothing else.
 - Running a command, even a long one that can fail, is EXÉCUTION.
-- Only these qualify for a STOP: the brief, a product decision, something irreversible beyond the mode's floor, a floor being hit.
+- Only these qualify for a STOP: a brief requiring a decision, a product decision (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. Optional learning preparation ends normally and is not a STOP.
 
-A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn. **Every doubt carries at least two options and an argued recommendation.** A doubt without options gets a PASS, because that is the only answer he can give from a standing start.
+A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn. **Every doubt carries at least two options and an argued recommendation.** Never infer PASS from a missing option or an absent answer. Distinguish a routine information brief from a STOP that requires an owner decision.
 
 ### How a STOP is written
 
@@ -128,13 +170,15 @@ Salah asked for this level of explanation for every decision he is asked to take
 - *Options*: at least two, each with what it costs.
 - *Recommandation*: one option, argued from the sources.
 
-The brief opens with a framing section: what the slice is for, what was done, and why he is being asked now.
+A decision brief opens with a framing section: what the slice is for, what was done, and why he is being asked now.
 
 Writing style, in French: descriptive and explicit, never condensed or literary. Say plainly who does what. Visible connectors (« Premièrement », « Autrement dit », « En revanche »), the colon to unfold a statement, French quotation marks « ». No em or en dash in the body (the banner keeps its own), no semicolon, no emphatic vocabulary. English technical terms in italics on first use, with the French equivalent when one exists. Reference: the `style-redaction-salah` skill, sections 1 to 4.
 
 ## Where the state lives
 
-The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session.
+**Unconditional authority check, including resumes.** Before dependent implementation and again before merge, read the current source issue and parent, their new comments since the last verified state, the linked slice notes, selected learning objectives and relevant `before` records. If no reliable checkpoint exists, read all relevant comments. Reconcile newly reserved, decided or delegated choices with the current contract. Record the last checked owner evidence and source excerpts in the state comment. Reading only that comment or Git is insufficient. A preparation session can have added a reservation after the preceding execution stopped.
+
+The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
 
 On start, read it, then **check it against the repository** before trusting it:
 
@@ -148,7 +192,7 @@ git log --oneline FETCH_HEAD..HEAD
 
 The repository is `chadlis/hypotrail`. If `origin` points elsewhere (a cloud session can attach an unrelated repository under the same folder name), never push there: push with `git push https://github.com/chadlis/hypotrail HEAD:<branch>`, say so once, and treat the stop hook's unpushed-commits warning as expected.
 
-If the comment and the repository disagree, the repository is right. Correct the comment and say what disagreed.
+Use Git to verify technical execution state. Use the current accepted contract and explicit owner instructions to verify authority. Code that disagrees with the contract does not silently amend it. Reconcile the state comment with both sources and say what disagreed.
 
 ## Picking the slice
 
@@ -171,7 +215,7 @@ When there is no state comment yet, read the following yourself and say what eac
 
 Then brief him in French in four short sections: **Ce que la tranche livre**, **Ce qui est déjà tranché** (with the rejected alternative), **Ce qui bloque ou manque**, **Ce que le modèle risque d'inventer**.
 
-If a blocker is open, say which and stop. That is a floor, not a question.
+If a blocker is open, say which and stop implementation. Read-only preparation may still proceed when explicitly requested, with unresolved dependencies identified. Check owner-reserved decisions and any linked preparation evidence before starting dependent work.
 
 ## The loop
 
@@ -183,12 +227,12 @@ If a blocker is open, say which and stop. That is a floor, not a question.
 | 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder` | you, then `slice-builder` | tickets resolved, full test suite green |
 | 5 | **Review of record**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports, kept verbatim |
 | 6 | Route the findings (table below); fixes go to `slice-builder`; after a fix, step 5 runs again, bare, on the fixes only: `/mattpocock-skills:code-review <head of the last reviewed round>` | you, then subagent | nothing left unrouted |
-| 7 | Documentation: the handbook (`docs/handbook/`) describes what changed; the README is still true; the PR names which acceptance tests (T-xx) it proves; push the slice's notes to `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push) | `slice-builder` | the files exist |
+| 7 | Documentation: the handbook (`docs/handbook/`) describes what changed; the README is still true; the PR names which acceptance tests (T-xx) it proves; update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above) | `slice-builder` | product docs exist, and learning notes are saved or preserved in the named fallback |
 | 8 | PR, body shaped by `/pr`, closing the slice's tickets, not the slice | you | the PR exists |
-| 9 | Learning trigger: an issue in `chadlis/hypotrail-learning` titled `learn: <slice>`, asking for the chapter to be written by a fresh session from the notes, the PR and the ADRs. Salah takes it up later with `/hypotrail-study` in that repository. If that repository has issues disabled, file it here with label `learn` | you | the issue exists |
+| 9 | Finalise and link the slice note, retaining preparation and owner decisions. Enrich a selected learning issue only if one exists. Create no learning issue. Offer `after` with the selected learning issue, or with the qualified source issue if a later session is wanted | you | note/fallback linked, existing selected objective updated or explicitly none |
 | 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner` | its list comes back |
-| 11 | **The brief** (STOP) | you | he answers |
-| 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`; close the slice issue; add the squash SHA to the `learn:` issue | you | the slice issue is closed |
+| 11 | Check pending decisions and authority. Default mode: give the brief with the open PR and stop. `merge`/`chain`: a pending decision gets a STOP and waits, otherwise continue to step 12 | you | no unresolved decision is passed over |
+| 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`, close the slice, add the squash SHA to the note and any already linked selected objective. Give the ordinary brief now, or once at the end under `chain` | you | merged state and learning reference are truthful |
 
 Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments. A line without a quoted source is your decision: it goes to brief item 2, not into the ticket.
 
@@ -213,7 +257,7 @@ Take the first row that applies:
 
 ## The brief
 
-The STOP banner, the framing section, then a numbered decision list in French, each point written as in "How a STOP is written":
+Use a STOP banner only if a decision is required. Otherwise use EXÉCUTION and provide an information brief, without asking for a ceremonial PASS. The ordinary brief follows the placement defined by `merge` and `chain`. A decision brief starts with framing, then a numbered decision list in French, each point written as in "How a STOP is written":
 
 0. **The ticket gate, for real.** For each ticket marked `INFERRED`:
    - the source sentence, quoted (slice issue, amendment, or specification);
@@ -222,12 +266,12 @@ The STOP banner, the framing section, then a numbered decision list in French, e
    - options `1A`, `1B` with their cost;
    - your recommendation, argued.
 
-   Under `merge`, open with one sentence: this gate is retrospective, and refusing now costs a corrective slice. Never write « ce ticket tient »: a recommendation he overrules leaves a trace, a verdict you grant does not.
+   Any unresolved requirement or owner decision is handled before dependent work or merge. Never describe an unresolved ticket gate as retrospectively approved. Cite how each previously `INFERRED` ticket was settled, rather than asserting « ce ticket tient ».
 1. **What is waiting to reach `main`**: deferred apparatus diffs (including `retro`'s), invented behaviours, anything kept off `main`. One line each, with the cost of dropping it.
 2. What shipped, what you decided alone, what you filed instead of asking, what is still open.
-3. **L'ordre recommandé**: the order in which Salah should take the brief's items and the actions around them. Name which decisions he can answer now, which are better taken after something else (the `learn:` session for the slice, his review of References, another decision), which merges wait on which answer, and which later choice would make a chapter or a note false. One numbered list, each step with its reason.
+3. **L'ordre recommandé**: the order in which Salah should take the brief's items and the actions around them. Name which decisions he can answer now, which depend on an explicit owner decision or review of References, and which learning activities are merely optional preparation, which merges wait on which answer, and which later choice would make a chapter or a note false. One numbered list, each step with its reason.
 
-Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice.
+Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice. Append at most one learning focus and its link as information. Do not make every `learn:` issue another decision for Salah.
 
 ## The trail
 
@@ -245,3 +289,13 @@ Under `chain`, this is one brief for the whole chain, numbered continuously, eac
 - Raising a doubt without options.
 - Applying an apparatus change instead of deferring it.
 - Stating the slice's position from memory instead of from the repository.
+
+
+## Learning anti-patterns
+
+- Requiring a lesson, Anki access or a generated chapter before routine implementation or merge.
+- Treating a successful lesson as acceptance of a product decision.
+- Starting a course automatically, or treating `prepare` as permission to execute.
+- Creating a learning issue per PR/slice, duplicating a selected objective on resume, or overwriting a tutor record.
+- Sending production Reference answers to the agent being evaluated as part of a teaching exercise.
+- Recording an unrun command as a passed test, or claiming that a hypothesis is a documented design decision.
