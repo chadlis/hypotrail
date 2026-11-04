@@ -14,7 +14,6 @@
     {"name": "lag_7", "kind": "lag", "period": 7},
     {"name": "mean_previous_7", "kind": "mean_previous", "period": 7}
   ],
-  "fit_partition": "train",
   "partitions": {
     "train": ["2011-01-08", "2011-12-31"],
     "dev": ["2012-01-01", "2012-06-30"],

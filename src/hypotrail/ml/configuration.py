@@ -13,6 +13,7 @@ together take exactly the model inputs.
 """
 
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.partitions import TRAIN
 
 
 def _refuse(code, message, **details):
@@ -41,33 +42,6 @@ def _input_names(configuration: dict) -> list:
     names += configuration["encoder"]["columns"]
     names += configuration["scaler"]["columns"]
     return names
-
-
-# Partitions that can never be fitted on: evaluation and exposure (SPEC §2, ML-05).
-NEVER_FITTED = ("dev", "public_check")
-
-
-def _check_fit_partition(declaration: dict, config_id: str, configuration: dict) -> None:
-    """The Partition to fit on is the Workload's protocol; a Configuration cannot pick another."""
-    if "fit_partition" in configuration:
-        raise _refuse(
-            "FIT_PARTITION_NOT_A_CONFIGURATION_CHOICE",
-            f"configuration {config_id!r} declares a fit partition; only the Workload does",
-            config_id=config_id,
-        )
-    partition = _declared(declaration, "fit_partition")
-    if partition in NEVER_FITTED:
-        raise _refuse(
-            "FIT_PARTITION_NOT_ALLOWED",
-            f"the Workload declares {partition!r} as its fit partition; it can never be fitted on",
-            partition=partition,
-        )
-    if partition not in _declared(declaration, "partitions"):
-        raise _refuse(
-            "FIT_PARTITION_NOT_DECLARED",
-            f"the Workload's fit partition {partition!r} is not one of its declared partitions",
-            partition=partition,
-        )
 
 
 SEASONAL = "seasonal_baseline"
@@ -176,7 +150,13 @@ def validate_configuration(declaration: dict, config_id: str, configuration: dic
     """Refuse a Configuration that breaks a declared rule. The kind it declares picks its keys only;
     the checks that apply to every Configuration run for every kind."""
     kind = _kind_of(config_id, configuration)
-    _check_fit_partition(declaration, config_id, configuration)
+    if kind == RIDGE and TRAIN not in _declared(declaration, "partitions"):
+        raise _refuse(
+            "TRAIN_PARTITION_NOT_DECLARED",
+            f"configuration {config_id!r} is fitted on {TRAIN!r}, which the Workload does not declare",
+            config_id=config_id,
+            partition=TRAIN,
+        )
     forbidden = _declared(declaration, "forbidden_features")
     for name in _model_input_names(kind, configuration):
         if name in forbidden:

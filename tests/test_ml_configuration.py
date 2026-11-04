@@ -45,46 +45,45 @@ def refusal(workload, config_id="ridge_v1"):
 
 def test_unmodified_ridge_v1_is_accepted():
     loaded = load_configuration(BIKE, "ridge_v1")
-    assert loaded["declaration"]["fit_partition"] == "train"  # declared by the Workload
-    assert "fit_partition" not in loaded["configuration"]  # not chosen by the Configuration
+    assert loaded["configuration"]["kind"] == "ridge_pipeline"
 
 
-# --- the Partition used for fitting belongs to the Workload's protocol -------------
+# --- Partition roles are protocol vocabulary: fitting is on `train`, always ----------
 
 
-@pytest.mark.parametrize("partition", ["dev", "public_check"])
-def test_a_workload_cannot_declare_dev_or_public_check_as_the_fit_partition(tmp_path, partition):
-    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
+def test_the_workload_declares_no_fit_partition():
+    assert "fit_partition" not in json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))
+
+
+def test_ridge_is_fitted_on_train_whatever_a_stale_fit_partition_key_says(tmp_path):
+    from hypotrail.ml.memberships import derive_memberships
+
+    workload = workload_with(tmp_path, lambda d: d.update(fit_partition="dev"))
+    fitted = fit_configuration(workload, "ridge_v1")
+    train_ids = sorted(m["row_id"] for m in derive_memberships(workload) if m["partition"] == "train")
+    assert fitted.train_row_ids == train_ids
+
+
+@pytest.mark.parametrize("partitions", [["dev", "public_check"], ["dev"]])
+def test_a_ridge_configuration_needs_a_train_partition(tmp_path, partitions):
+    from hypotrail.ml.memberships import derive_memberships
+
+    def edit(declaration):
+        declaration["partitions"] = {
+            "dev": ["2011-01-08", "2012-06-30"], "public_check": ["2012-07-01", "2012-12-31"],
+        }
+        if partitions == ["dev"]:
+            del declaration["partitions"]["public_check"]
+            declaration["partitions"]["dev"] = ["2011-01-08", "2012-12-31"]
+
+    workload = workload_with(tmp_path, edit)
+    assert derive_memberships(workload)  # the Partitions themselves are fine
     error = refusal(workload)
-    assert error.code == "FIT_PARTITION_NOT_ALLOWED"
-    assert error.details["partition"] == partition
-
-
-@pytest.mark.parametrize("partition", ["holdout", "", None, 7])
-def test_a_fit_partition_the_workload_does_not_declare_is_refused(tmp_path, partition):
-    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
-    error = refusal(workload)
-    assert error.code == "FIT_PARTITION_NOT_DECLARED"
-    assert error.details["partition"] == partition
-
-
-@pytest.mark.parametrize("partition", ["dev", "public_check"])
-def test_dev_and_public_check_are_never_fitted_on(tmp_path, partition):
-    from _ml_helpers import fit_probe
-
-    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
-    with fit_probe(strict=True) as probe:
-        with pytest.raises(InvalidInputError):
-            fit_configuration(workload, "ridge_v1")
-        with pytest.raises(InvalidInputError):
-            write_outputs(workload, tmp_path / "out", "ridge_v1", "dev")
-    assert probe.calls == []
-
-
-def test_a_workload_without_a_fit_partition_is_refused(tmp_path):
-    error = refusal(workload_with(tmp_path, lambda d: d.pop("fit_partition")))
-    assert error.code == "DECLARATION_INCOMPLETE"
-    assert error.details["key"] == "fit_partition"
+    assert error.code == "TRAIN_PARTITION_NOT_DECLARED"
+    out = tmp_path / "out"
+    with pytest.raises(InvalidInputError):
+        write_outputs(workload, out, "ridge_v1", "dev")
+    assert not out.exists() or not list(out.rglob("predictions.csv"))
 
 
 def test_the_workload_declares_the_eight_forbidden_features():

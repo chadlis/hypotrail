@@ -12,10 +12,10 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.memberships import load_declaration
+from hypotrail.ml.partitions import PUBLIC_CHECK
 
 DIRECTION = "lower_is_better"
 PRIMARY = "mae"
-PUBLIC_CHECK = "public_check"
 
 
 def _refuse(code, message, **details):

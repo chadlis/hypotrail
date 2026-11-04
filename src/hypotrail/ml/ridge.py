@@ -6,12 +6,12 @@ scaling and the fitting; this module only builds the table of inputs and wires
 the declared estimators together. Everything it needs comes from the Workload's
 declaration (`configurations.<id>` in `workload.json`): the lag features, the
 calendar columns, the estimators' settings, the post-processing. The
-Partition to fit on is the Workload's, not the Configuration's.
+Partition to fit on is the `train` role, fixed by the Track (`hypotrail.ml.partitions`).
 
 The lags are computed from dates (`hypotrail.ml.lags`), the calendar columns
 are read from the verified data file as they are, and the Items of a Partition
 come from `hypotrail.ml.memberships`, always in date order. The pipeline is
-fitted once, on the declared fit Partition only. Predicting any other Partition
+fitted once, on the `train` Partition only. Predicting any other Partition
 never fits anything.
 """
 
@@ -30,6 +30,7 @@ from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.configuration import declared_configuration, validate_configuration
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import derive_memberships, load_declaration
+from hypotrail.ml.partitions import TRAIN
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
 from hypotrail.ml.table import read_table
@@ -109,11 +110,10 @@ def build_pipeline(configuration: dict) -> Pipeline:
 
 
 def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration:
-    """Fit the declared pipeline once, on the declared fit Partition's Items."""
+    """Fit the declared pipeline once, on the Items of the `train` Partition."""
     loaded = load_configuration(workload_dir, config_id)
     declaration, configuration = loaded["declaration"], loaded["configuration"]
-    fit_partition = declaration["fit_partition"]
-    inputs = build_inputs(workload_dir, config_id, fit_partition)
+    inputs = build_inputs(workload_dir, config_id, TRAIN)
     target = read_target_series(workload_dir, declaration)
     y = np.array([target[day] for day in inputs.dates], dtype=np.float64)
     pipeline = build_pipeline(configuration)
@@ -167,7 +167,7 @@ def effective_parameters(fitted: FittedConfiguration) -> dict:
 
 
 def write_outputs(workload_dir: Path, out_dir: Path, config_id: str, partition: str) -> Path:
-    """Fit on the declared fit Partition, predict `partition`, write `predictions.csv` and the parameters file."""
+    """Fit on `train`, predict `partition`, write `predictions.csv` and the parameters file."""
     fitted = fit_configuration(workload_dir, config_id)
     rows = predict_partition(fitted, partition)
     path = write_predictions(

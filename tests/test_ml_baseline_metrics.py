@@ -192,7 +192,7 @@ def test_seasonal_baseline_follows_the_declaration_not_bike(tmp_path):
     (directory / "workload.json").write_text(json.dumps({
         "schema_version": "workload/1", "data_file": "data/series.csv",
         "licence_notice": "none.md", "id_prefix": "shop-day", "date_column": "day",
-        "target_column": "visits", "period_k": 3, "fit_partition": "train",
+        "target_column": "visits", "period_k": 3,
         "forbidden_features": [],
         "allowed_target_features": [{"name": "lag_3", "kind": "lag", "period": 3}],
         "configurations": {"seasonal_3": {"kind": "seasonal_baseline", "period_k": 3, "post_processing": {"clip_min": 0}}},
@@ -310,3 +310,13 @@ def test_a_partition_the_workload_does_not_declare_is_refused(bike_outputs):
     with pytest.raises(InvalidInputError) as caught:
         metrics_of(bike_outputs, partition="nowhere")
     assert caught.value.code == "PARTITION_NOT_DECLARED"
+
+
+def test_a_workload_with_only_a_baseline_needs_no_train_partition(tmp_path):
+    def edit(d):
+        d["partitions"] = {"dev": ["2011-01-08", "2012-06-30"], "public_check": ["2012-07-01", "2012-12-31"]}
+        del d["configurations"]["ridge_v1"]
+
+    workload = copy_bike(tmp_path, edit)
+    write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
+    assert len(rows_of(tmp_path / "out" / "predictions.csv")) > 182
