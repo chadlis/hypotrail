@@ -7,6 +7,12 @@
   "date_column": "dteday",
   "target_column": "cnt",
   "period_k": 7,
+  "forbidden_features": ["casual", "registered", "cnt", "temp", "atemp", "hum", "windspeed", "weathersit"],
+  "allowed_target_features": [
+    {"name": "lag_1", "kind": "lag", "period": 1},
+    {"name": "lag_7", "kind": "lag", "period": 7},
+    {"name": "mean_previous_7", "kind": "mean_previous", "period": 7}
+  ],
   "partitions": {
     "train": ["2011-01-08", "2011-12-31"],
     "dev": ["2012-01-01", "2012-06-30"],

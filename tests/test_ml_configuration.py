@@ -1,0 +1,140 @@
+"""Ticket #34: a Configuration that uses a forbidden feature is refused."""
+
+import copy
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.ridge import fit_configuration, load_configuration, write_outputs
+
+ROOT = Path(__file__).resolve().parent.parent
+BIKE = ROOT / "examples" / "bike_day"
+FORBIDDEN = ["casual", "registered", "cnt", "temp", "atemp", "hum", "windspeed", "weathersit"]
+
+
+def workload_with(tmp_path, edit):
+    target = tmp_path / "bike"
+    shutil.copytree(BIKE, target)
+    path = target / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    edit(declaration)
+    path.write_text(json.dumps(declaration), encoding="utf-8")
+    return target
+
+
+def inject(column, where):
+    def edit(declaration):
+        config = declaration["configurations"]["ridge_v1"]
+        if where == "lag_features":
+            config["lag_features"].append({"name": column, "kind": "lag", "period": 1})
+        elif where == "calendar_columns":
+            config["calendar_columns"].append(column)
+        else:
+            config[where]["columns"].append(column)
+    return edit
+
+
+def refusal(workload, config_id="ridge_v1"):
+    with pytest.raises(InvalidInputError) as caught:
+        load_configuration(workload, config_id)
+    return caught.value
+
+
+def test_unmodified_ridge_v1_is_accepted():
+    assert load_configuration(BIKE, "ridge_v1")["configuration"]["fit_partition"] == "train"
+
+
+def test_the_workload_declares_the_eight_forbidden_features():
+    declared = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))["forbidden_features"]
+    assert declared == FORBIDDEN
+
+
+@pytest.mark.parametrize("where", ["calendar_columns", "encoder", "scaler", "lag_features"])
+@pytest.mark.parametrize("column", FORBIDDEN)
+def test_forbidden_column_is_refused_in_every_input_list(tmp_path, column, where):
+    error = refusal(workload_with(tmp_path, inject(column, where)))
+    assert error.code == "FORBIDDEN_FEATURE"
+    assert error.details["feature"] == column
+    assert column in error.message
+
+
+@pytest.mark.parametrize("column", FORBIDDEN)
+def test_refusal_writes_no_predictions(tmp_path, column):
+    workload = workload_with(tmp_path, inject(column, "calendar_columns"))
+    out = tmp_path / "out"
+    with pytest.raises(InvalidInputError):
+        write_outputs(workload, out, "ridge_v1")
+    with pytest.raises(InvalidInputError):
+        fit_configuration(workload, "ridge_v1")
+    assert not out.exists() or not list(out.rglob("predictions.csv"))
+
+
+def test_refusal_follows_the_declaration_not_the_track(tmp_path):
+    def edit(declaration):
+        declaration["forbidden_features"] = ["holiday"]
+
+    error = refusal(workload_with(tmp_path / "a", edit))
+    assert error.code == "FORBIDDEN_FEATURE" and error.details["feature"] == "holiday"
+
+    def edit_other(declaration):
+        declaration["forbidden_features"] = ["hum"]
+        declaration["configurations"]["ridge_v1"]["calendar_columns"].append("temp")
+
+    assert load_configuration(workload_with(tmp_path / "b", edit_other), "ridge_v1")
+
+
+def test_missing_forbidden_declaration_fails_closed(tmp_path):
+    workload = workload_with(tmp_path, lambda d: d.pop("forbidden_features"))
+    assert refusal(workload).code == "DECLARATION_INCOMPLETE"
+
+
+@pytest.mark.parametrize("period", [0, -1, -7])
+def test_target_feature_reaching_date_t_or_later_is_refused(tmp_path, period):
+    def edit(declaration):
+        declaration["configurations"]["ridge_v1"]["lag_features"][0]["period"] = period
+
+    error = refusal(workload_with(tmp_path, edit))
+    assert error.code == "TARGET_FEATURE_NOT_PAST"
+    assert error.details["feature"] == "lag_1"
+
+
+@pytest.mark.parametrize(
+    "feature",
+    [
+        {"name": "lag_2", "kind": "lag", "period": 2},
+        {"name": "mean_previous_14", "kind": "mean_previous", "period": 14},
+        {"name": "lag_1", "kind": "mean_previous", "period": 1},
+        {"name": "ewm_7", "kind": "ewm", "period": 7},
+    ],
+)
+def test_undeclared_target_transformation_is_refused(tmp_path, feature):
+    def edit(declaration):
+        declaration["configurations"]["ridge_v1"]["lag_features"].append(feature)
+
+    error = refusal(workload_with(tmp_path, edit))
+    assert error.code == "TARGET_TRANSFORMATION_NOT_ALLOWED"
+    assert error.details["feature"] == feature["name"]
+
+
+def test_allowed_transformations_follow_the_declaration(tmp_path):
+    lag_2 = {"name": "lag_2", "kind": "lag", "period": 2}
+
+    def edit(declaration):
+        declaration["allowed_target_features"].append(lag_2)
+        declaration["configurations"]["ridge_v1"]["lag_features"].append(lag_2)
+
+    assert load_configuration(workload_with(tmp_path, edit), "ridge_v1")
+
+
+def test_rules_apply_to_every_configuration(tmp_path):
+    def edit(declaration):
+        other = copy.deepcopy(declaration["configurations"]["ridge_v1"])
+        other["calendar_columns"].append("casual")
+        declaration["configurations"]["other"] = other
+
+    workload = workload_with(tmp_path, edit)
+    assert load_configuration(workload, "ridge_v1")
+    assert refusal(workload, "other").code == "FORBIDDEN_FEATURE"
