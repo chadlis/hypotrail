@@ -61,6 +61,10 @@ def make_workload(tmp_path, *, k, ranges, dates):
         "date_column": "day",
         "target_column": "visits",
         "period_k": k,
+        "target_unit": "visits per day",
+        "forbidden_features": [],
+        "allowed_target_features": [],
+        "configurations": {},
         "partitions": ranges,
     }))
     return directory

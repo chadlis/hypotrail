@@ -12,7 +12,7 @@ A Configuration declares its kind. The kind picks the keys it may carry; an unkn
 kind, or a key that does not belong to the kind, is refused. The checks that apply to
 every Configuration (forbidden features, target transformations that reach date t or
 later, target transformations the Workload does not declare) run for every kind. A
-`ridge_pipeline` is fitted on `train`, so the Workload must declare that Partition.
+Workload declaration must declare the `train` Partition whatever its Configurations (`hypotrail.ml.declaration`).
 A Configuration that breaks a rule is refused with a coded error, before anything is
 fitted or predicted. Nothing is dropped or included silently.
 
@@ -24,8 +24,7 @@ scaler; the encoder and the scaler must together take exactly the model inputs.
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.memberships import load_declaration
-from hypotrail.ml.partitions import TRAIN
+from hypotrail.ml.declaration import RIDGE, SEASONAL, kind_of, load_declaration
 
 
 def _refuse(code, message, **details):
@@ -56,41 +55,9 @@ def _input_names(configuration: dict) -> list:
     return names
 
 
-SEASONAL = "seasonal_baseline"
-RIDGE = "ridge_pipeline"
-# The kinds the Track knows and the keys each one takes (`kind` included).
-KINDS = {
-    SEASONAL: {"kind", "period_k", "post_processing"},
-    RIDGE: {
-        "kind", "lag_features", "calendar_columns", "encoder", "scaler", "ridge", "post_processing",
-    },
-}
-
-
 def is_past_period(period) -> bool:
     """A period that points strictly before date t: a whole number of at least 1."""
     return isinstance(period, int) and not isinstance(period, bool) and period >= 1
-
-
-def _kind_of(config_id: str, configuration: dict) -> str:
-    kind = configuration.get("kind")
-    if not isinstance(kind, str) or kind not in KINDS:
-        raise _refuse(
-            "CONFIGURATION_KIND_UNKNOWN",
-            f"configuration {config_id!r} declares the kind {kind!r}; the Track knows {sorted(KINDS)}",
-            config_id=config_id,
-            kind=kind if isinstance(kind, (str, int, float, bool, type(None))) else repr(kind),
-        )
-    for key in configuration:
-        if key not in KINDS[kind]:
-            raise _refuse(
-                "CONFIGURATION_KEY_NOT_FOR_KIND",
-                f"configuration {config_id!r} is of kind {kind!r}, which takes no key {key!r}",
-                config_id=config_id,
-                kind=kind,
-                key=key,
-            )
-    return kind
 
 
 def _target_transformations(kind: str, configuration: dict) -> list:
@@ -161,14 +128,7 @@ def _check_ridge_inputs(config_id: str, configuration: dict) -> None:
 def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
     """Refuse a Configuration that breaks a declared rule. The kind it declares picks its keys only;
     the checks that apply to every Configuration run for every kind."""
-    kind = _kind_of(config_id, configuration)
-    if kind == RIDGE and TRAIN not in _declared(declaration, "partitions"):
-        raise _refuse(
-            "TRAIN_PARTITION_NOT_DECLARED",
-            f"configuration {config_id!r} is fitted on {TRAIN!r}, which the Workload does not declare",
-            config_id=config_id,
-            partition=TRAIN,
-        )
+    kind = kind_of(config_id, configuration)
     forbidden = _declared(declaration, "forbidden_features")
     for name in _model_input_names(kind, configuration):
         if name in forbidden:

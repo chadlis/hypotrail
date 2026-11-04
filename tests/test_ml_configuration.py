@@ -56,19 +56,16 @@ def test_the_workload_declares_no_fit_partition():
     assert "fit_partition" not in json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))
 
 
-def test_ridge_is_fitted_on_train_whatever_a_stale_fit_partition_key_says(tmp_path):
-    from hypotrail.ml.memberships import derive_memberships
-
-    workload = workload_with(tmp_path, lambda d: d.update(fit_partition="dev"))
-    fitted = fit_configuration(workload, "ridge_v1")
-    train_ids = sorted(m["row_id"] for m in derive_memberships(workload) if m["partition"] == "train")
-    assert fitted.train_row_ids == train_ids
+@pytest.mark.parametrize("stale", ["train", "dev", ["train", "dev"]])
+def test_a_stale_fit_partition_key_in_the_workload_is_refused(tmp_path, stale):
+    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=stale))
+    error = refusal(workload)
+    assert error.code == "DECLARATION_KEY_UNKNOWN"
+    assert error.details["key"] == "fit_partition"
 
 
 @pytest.mark.parametrize("partitions", [["dev", "public_check"], ["dev"]])
-def test_a_ridge_configuration_needs_a_train_partition(tmp_path, partitions):
-    from hypotrail.ml.memberships import derive_memberships
-
+def test_a_workload_needs_a_train_partition(tmp_path, partitions):
     def edit(declaration):
         declaration["partitions"] = {
             "dev": ["2011-01-08", "2012-06-30"], "public_check": ["2012-07-01", "2012-12-31"],
@@ -78,7 +75,6 @@ def test_a_ridge_configuration_needs_a_train_partition(tmp_path, partitions):
             declaration["partitions"]["dev"] = ["2011-01-08", "2012-12-31"]
 
     workload = workload_with(tmp_path, edit)
-    assert derive_memberships(workload)  # the Partitions themselves are fine
     error = refusal(workload)
     assert error.code == "TRAIN_PARTITION_NOT_DECLARED"
     out = tmp_path / "out"

@@ -77,7 +77,8 @@ def write_small_workload(directory, csv_text, *, extra=None):
     declaration = {
         "schema_version": "workload/1", "data_file": "data/series.csv",
         "licence_notice": "none.md", "id_prefix": "shop-day", "date_column": "day",
-        "target_column": "visits", "period_k": 1,
+        "target_column": "visits", "period_k": 1, "target_unit": "visits per day",
+        "forbidden_features": [], "allowed_target_features": [], "configurations": {},
         "partitions": {"train": ["2020-01-02", "2020-01-03"]},
         **(extra or {}),
     }
