@@ -42,3 +42,18 @@ def test_a_seasonal_period_beyond_the_calendar_is_refused_with_its_key_and_path(
         CODE, "period_k", "configurations.seasonal_7.period_k",
     )
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("index, kind", [(0, "lag"), (2, "mean_previous")], ids=["lag", "mean_previous"])
+def test_a_ridge_lag_period_beyond_the_calendar_is_refused_with_its_key_and_path(tmp_path, index, kind):
+    def edit(d):
+        big = {**d["allowed_target_features"][index], "period": BIG}
+        d["allowed_target_features"][index] = big  # declared as allowed, so every semantic rule lets it through
+        at(d, RIDGE)["lag_features"][index] = dict(big)
+
+    workload = workload_with(tmp_path, edit)
+    error = refusal(lambda: write_outputs(workload, tmp_path / "out", "ridge_v1", "dev"))
+    assert (error.code, error.details["key"], error.details["path"]) == (
+        CODE, "period", f"configurations.ridge_v1.lag_features.{index}.period",
+    )
+    assert not (tmp_path / "out").exists()

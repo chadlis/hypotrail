@@ -76,7 +76,9 @@ def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInp
         if item["partition"] != partition:
             continue
         day = datetime.date.fromisoformat(item["date"])
-        lags = compute_lags(target, day, configuration["lag_features"])
+        lags = compute_lags(
+            target, day, configuration["lag_features"], where=f"configurations.{config_id}.lag_features"
+        )
         calendar = [float(rows[day][c]) for c in configuration["calendar_columns"]]
         row_ids.append(item["row_id"])
         dates.append(day)
