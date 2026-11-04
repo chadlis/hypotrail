@@ -194,7 +194,9 @@ def test_seasonal_baseline_follows_the_declaration_not_bike(tmp_path):
     (directory / "workload.json").write_text(json.dumps({
         "schema_version": "workload/1", "data_file": "data/series.csv",
         "licence_notice": "none.md", "id_prefix": "shop-day", "date_column": "day",
-        "target_column": "visits", "period_k": 3,
+        "target_column": "visits", "period_k": 3, "fit_partition": "train",
+        "forbidden_features": [],
+        "allowed_target_features": [{"name": "lag_3", "kind": "lag", "period": 3}],
         "configurations": {"seasonal_3": {"period_k": 3, "post_processing": {"clip_min": 0}}},
         "partitions": {"train": ["2020-01-04", "2020-01-07"], "dev": ["2020-01-08", "2020-01-10"]},
     }))
@@ -229,7 +231,11 @@ def test_seasonal_7_is_a_declared_configuration():
 
 
 def test_seasonal_k_follows_the_declared_configuration(tmp_path):
-    workload = copy_bike(tmp_path, lambda d: d["configurations"]["seasonal_7"].update(period_k=14))
+    def edit(d):
+        d["allowed_target_features"].append({"name": "lag_14", "kind": "lag", "period": 14})  # declared
+        d["configurations"]["seasonal_7"].update(period_k=14)
+
+    workload = copy_bike(tmp_path, edit)
     write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
 
     by_id = {r["row_id"]: r for r in rows_of(tmp_path / "out" / "predictions.csv")}
@@ -254,6 +260,22 @@ def test_seasonal_baseline_of_an_undeclared_configuration_is_refused(tmp_path):
         write_seasonal_baseline(BIKE, tmp_path, "seasonal_9", "dev")
     assert caught.value.code == "CONFIGURATION_NOT_DECLARED"
     assert not (tmp_path / "predictions.csv").exists()
+
+
+def test_seasonal_k_the_workload_does_not_declare_is_refused(tmp_path):
+    workload = copy_bike(tmp_path, lambda d: d["configurations"]["seasonal_7"].update(period_k=14))
+    with pytest.raises(InvalidInputError) as caught:
+        write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
+    assert caught.value.code == "TARGET_TRANSFORMATION_NOT_ALLOWED"
+    assert caught.value.details["config_id"] == "seasonal_7"
+    assert not (tmp_path / "out" / "predictions.csv").exists()
+
+
+def test_seasonal_goes_through_the_same_validation_as_every_configuration(tmp_path):
+    workload = copy_bike(tmp_path, lambda d: d["configurations"]["seasonal_7"].update(fit_partition="dev"))
+    with pytest.raises(InvalidInputError) as caught:
+        write_seasonal_baseline(workload, tmp_path / "out", "seasonal_7", "dev")
+    assert caught.value.code == "FIT_PARTITION_NOT_A_CONFIGURATION_CHOICE"
 
 
 @pytest.mark.parametrize("k", [0, -7])

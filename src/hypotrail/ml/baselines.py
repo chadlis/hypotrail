@@ -10,7 +10,7 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.configuration import declared_configuration
+from hypotrail.ml.configuration import declared_configuration, validate_configuration
 from hypotrail.ml.memberships import derive_memberships, load_declaration
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
@@ -20,14 +20,8 @@ def write_seasonal_baseline(workload_dir: Path, out_dir: Path, config_id: str, p
     """Write `predictions.csv` for the Items of `partition`, as the declared Configuration `config_id`."""
     declaration = load_declaration(workload_dir)
     configuration = declared_configuration(declaration, config_id)
+    validate_configuration(declaration, config_id, configuration)
     k = configuration["period_k"]
-    if not isinstance(k, int) or isinstance(k, bool) or k < 1:
-        raise InvalidInputError(
-            "TARGET_FEATURE_NOT_PAST",
-            f"configuration {config_id!r} reaches date t or later (period {k!r})",
-            stage="seasonal_baseline",
-            details={"config_id": config_id, "period": k},
-        )
     series = read_target_series(workload_dir, declaration)
     items = [m for m in derive_memberships(workload_dir) if m["partition"] == partition]
     row_ids, raw = [], []

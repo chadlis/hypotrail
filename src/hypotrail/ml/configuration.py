@@ -64,8 +64,31 @@ def _check_fit_partition(declaration: dict, config_id: str, configuration: dict)
         )
 
 
+def _validate_seasonal(declaration: dict, config_id: str, configuration: dict) -> None:
+    """`seasonal_k` uses the target k periods earlier: a lag the Workload must declare as allowed."""
+    allowed = _declared(declaration, "allowed_target_features")
+    k = configuration["period_k"]
+    if not isinstance(k, int) or isinstance(k, bool) or k < 1:
+        raise _refuse(
+            "TARGET_FEATURE_NOT_PAST",
+            f"configuration {config_id!r} reaches date t or later (period {k!r})",
+            config_id=config_id,
+            period=k,
+        )
+    if not any(f["kind"] == "lag" and f["period"] == k for f in allowed):
+        raise _refuse(
+            "TARGET_TRANSFORMATION_NOT_ALLOWED",
+            f"configuration {config_id!r} uses the target {k} periods earlier, which the Workload does not declare as allowed",
+            config_id=config_id,
+            period=k,
+        )
+
+
 def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
     _check_fit_partition(declaration, config_id, configuration)
+    if "period_k" in configuration:
+        _validate_seasonal(declaration, config_id, configuration)
+        return
     forbidden = _declared(declaration, "forbidden_features")
     allowed = _declared(declaration, "allowed_target_features")
 
