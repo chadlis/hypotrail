@@ -1,0 +1,15 @@
+{
+  "schema_version": "workload/1",
+  "track": "temporal_regression",
+  "data_file": "data/day.csv",
+  "licence_notice": "licenses/Bike-Sharing-attribution.md",
+  "id_prefix": "bike-day",
+  "date_column": "dteday",
+  "target_column": "cnt",
+  "period_k": 7,
+  "partitions": {
+    "train": ["2011-01-08", "2011-12-31"],
+    "dev": ["2012-01-01", "2012-06-30"],
+    "public_check": ["2012-07-01", "2012-12-31"]
+  }
+}
