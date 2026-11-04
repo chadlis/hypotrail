@@ -8,3 +8,7 @@ A Workload (data, licence, References, declared settings) holds no Python: every
 
 - When a Workload cannot be expressed through existing parameters, the missing capability is added to the Track explicitly, never as code inside `examples/`.
 - `examples/external/` is the deliberate exception: it is Python that stands in for someone else's program and never imports `hypotrail`.
+
+## Amendment, 2026-11-04
+
+Track code fixes two kinds of vocabulary, and only these. The Partition roles of a Track (`train`, `dev` and `public_check` for temporal regression: fit on `train`, measure on `dev`, keep `public_check` for the Exposure-tracked check) are protocol vocabulary, defined once in the Track, because a Workload that could choose where to fit could fit on the check (SPEC §2, ML-05). The kinds of Configuration a Track runs (for example `seasonal_baseline` and `ridge_pipeline`), with the keys each kind takes, are Track capabilities. Everything else stays a Workload parameter, including the Partition date ranges. Decided by the owner on chadlis/hypotrail#7 (option 3A).
