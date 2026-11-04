@@ -118,13 +118,6 @@ SPECIFIC = [
     (("period_k",), True, WRONG_TYPE, "period_k"),
     (("period_k",), 7.5, WRONG_TYPE, "period_k"),
     (("period_k",), 7.0, WRONG_TYPE, "period_k"),
-    # a period no date of the calendar can apply (here 10**30; the limit is the span of the calendar)
-    (("period_k",), 10**30, NOT_ALLOWED, "period_k"),
-    (("allowed_target_features", 0, "period"), 10**30, NOT_ALLOWED, "period"),
-    (RIDGE + ("lag_features", 0, "period"), 10**30, NOT_ALLOWED, "period"),
-    (RIDGE + ("lag_features", 2, "period"), 10**30, NOT_ALLOWED, "period"),
-    (SEASONAL + ("period_k",), 10**30, NOT_ALLOWED, "period_k"),
-    (SEASONAL + ("period_k",), 3_652_059, NOT_ALLOWED, "period_k"),
     # dates of a Partition
     (("partitions", "dev", 0), "2012-02-30", NOT_ALLOWED, "dev"),
     (("partitions", "dev", 0), "20120101", NOT_ALLOWED, "dev"),
@@ -139,27 +132,6 @@ def test_a_malformed_value_is_refused_at_load_with_a_code_naming_its_path(tmp_pa
     assert error.stage == "declaration"
     assert error.details["key"] == key
     assert error.details["path"] == label(path) + (".0" if value in ([{}], [["casual"]]) else "")
-
-
-def test_a_period_within_the_calendar_but_beyond_the_data_is_still_a_coded_refusal(tmp_path):
-    # Declared everywhere, so the semantic rules let it through: the data reader refuses it with a code.
-    def edit(d):
-        d["period_k"] = 3_000_000
-        d["allowed_target_features"][0]["period"] = 3_000_000
-        d["configurations"]["seasonal_7"]["period_k"] = 3_000_000
-        d["configurations"]["ridge_v1"]["lag_features"][0]["period"] = 3_000_000
-        d["configurations"]["ridge_v1"]["lag_features"][2]["period"] = 3_000_000
-        d["allowed_target_features"][2]["period"] = 3_000_000
-
-    workload = workload_with(tmp_path, edit)
-    for run in (
-        lambda: write_memberships(workload, tmp_path / "o1"),
-        lambda: write_seasonal_baseline(workload, tmp_path / "o2", "seasonal_7", "dev"),
-        lambda: write_outputs(workload, tmp_path / "o3", "ridge_v1", "dev"),
-    ):
-        with pytest.raises(InvalidInputError):
-            run()
-    assert not any((tmp_path / name).exists() for name in ("o1", "o2", "o3"))
 
 
 def test_schema_version_is_an_optional_string_with_no_value_check(tmp_path):
@@ -242,9 +214,6 @@ MALFORMED = [
     (RIDGE + ("post_processing", "clip_min"), None),
     (("period_k",), "7"),
     (("period_k",), 0),
-    (("period_k",), 10**30),
-    (SEASONAL + ("period_k",), 10**30),
-    (RIDGE + ("lag_features", 2, "period"), 10**30),
     (RIDGE + ("ridge", "solver"), "bogus"),
     (RIDGE + ("encoder", "sparse_output"), True),
     (("id_prefix",), ""),

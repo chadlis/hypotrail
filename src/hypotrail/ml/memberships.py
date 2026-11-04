@@ -14,6 +14,7 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.declaration import DECLARATION_NAME, load_declaration, require_keys  # noqa: F401
+from hypotrail.ml.periods import shift_back
 from hypotrail.ml.table import read_table
 
 MEMBERSHIPS_NAME = "memberships.csv"
@@ -50,7 +51,7 @@ def derive_memberships(workload_dir: Path) -> list[dict]:
     incomplete = {
         date
         for date in dates
-        if any(date - datetime.timedelta(days=offset) not in present for offset in range(1, k + 1))
+        if any(shift_back(date, offset, key="period_k", path="period_k") not in present for offset in range(1, k + 1))
     }
     for date in dates:
         if date not in incomplete:

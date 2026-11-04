@@ -11,17 +11,17 @@ import datetime
 from hypotrail.core.errors import InvalidInputError
 
 
-def shift_back(date: datetime.date, period: int, *, key: str, path: str) -> datetime.date:
-    """`date` minus `period` days; a shift no date can apply is an `InvalidInputError`.
+def shift_back(date: datetime.date, days: int, *, key: str, path: str) -> datetime.date:
+    """`date` minus `days` days (a declared period, or an offset inside a window of it); a shift no date can apply is an `InvalidInputError`.
 
     `key` and `path` say where the period is declared (`path` is the dotted path in `workload.json`).
     """
     try:
-        return date - datetime.timedelta(days=period)
+        return date - datetime.timedelta(days=days)
     except OverflowError:
         raise InvalidInputError(
             "DECLARATION_VALUE_NOT_ALLOWED",
-            f"{path} is not allowed: {period} days before {date.isoformat()} is outside the calendar",
+            f"{path} is not allowed: reaching {days} days before {date.isoformat()} leaves the calendar",
             stage="declaration",
-            details={"key": key, "path": path, "period": period, "date": date.isoformat()},
+            details={"key": key, "path": path, "days": days, "date": date.isoformat()},
         ) from None

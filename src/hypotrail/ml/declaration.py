@@ -30,7 +30,6 @@ the schema: the `train` Partition being declared (here), and in `configuration.p
 scaler covering the model inputs, and the Partition ranges.
 """
 
-import datetime
 import json
 import math
 from functools import cache
@@ -175,38 +174,9 @@ def check_schema(declaration) -> None:
         raise found[0][2]
 
 
-# A period counts days back from a date. Beyond the span of the calendar no date can apply it:
-# computing it would overflow, whatever the data. A period within the span but beyond the data is
-# refused by the readers (LAG_SOURCE_MISSING, NO_VALUE_K_PERIODS_EARLIER, PARTITION_COVERS_WARMUP).
-MAX_PERIOD = (datetime.date.max - datetime.date.min).days
-
-
-def _periods(declaration):
-    """Every period the declaration sets, with its path."""
-    if "period_k" in declaration:
-        yield ("period_k",), declaration["period_k"]
-    for index, feature in enumerate(declaration.get("allowed_target_features", [])):
-        yield ("allowed_target_features", index, "period"), feature["period"]
-    for config_id, configuration in declaration.get("configurations", {}).items():
-        base = ("configurations", config_id)
-        if configuration["kind"] == SEASONAL:
-            yield base + ("period_k",), configuration["period_k"]
-        else:
-            for index, feature in enumerate(configuration["lag_features"]):
-                yield base + ("lag_features", index, "period"), feature["period"]
-
-
 def validate_declaration(declaration) -> None:
-    """The schema, then the rules of the declaration itself: no period beyond the calendar, `train` is declared."""
+    """The schema, then the rule of the declaration itself: `train` is declared."""
     check_schema(declaration)
-    for path, period in _periods(declaration):
-        if period > MAX_PERIOD:
-            raise _refuse(
-                "DECLARATION_VALUE_NOT_ALLOWED",
-                f"{_dotted(path)} is not allowed: {period} days reach before the first date of the calendar",
-                key=path[-1],
-                path=_dotted(path),
-            )
     if TRAIN not in declaration["partitions"]:
         raise _refuse(
             "TRAIN_PARTITION_NOT_DECLARED",
