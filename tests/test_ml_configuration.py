@@ -44,7 +44,50 @@ def refusal(workload, config_id="ridge_v1"):
 
 
 def test_unmodified_ridge_v1_is_accepted():
-    assert load_configuration(BIKE, "ridge_v1")["configuration"]["fit_partition"] == "train"
+    loaded = load_configuration(BIKE, "ridge_v1")
+    assert loaded["declaration"]["fit_partition"] == "train"  # declared by the Workload
+    assert "fit_partition" not in loaded["configuration"]  # not chosen by the Configuration
+
+
+# --- the Partition used for fitting belongs to the Workload's protocol -------------
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check"])
+def test_a_workload_cannot_declare_dev_or_public_check_as_the_fit_partition(tmp_path, partition):
+    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
+    error = refusal(workload)
+    assert error.code == "FIT_PARTITION_NOT_ALLOWED"
+    assert error.details["partition"] == partition
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check"])
+def test_dev_and_public_check_are_never_fitted_on(tmp_path, partition):
+    from _ml_helpers import fit_probe
+
+    workload = workload_with(tmp_path, lambda d: d.update(fit_partition=partition))
+    with fit_probe(strict=True) as probe:
+        with pytest.raises(InvalidInputError):
+            fit_configuration(workload, "ridge_v1")
+        with pytest.raises(InvalidInputError):
+            write_outputs(workload, tmp_path / "out", "ridge_v1", "dev")
+    assert probe.calls == []
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check", "train"])
+@pytest.mark.parametrize("config_id", ["ridge_v1"])
+def test_a_configuration_cannot_choose_its_fit_partition(tmp_path, config_id, partition):
+    workload = workload_with(
+        tmp_path, lambda d: d["configurations"][config_id].update(fit_partition=partition)
+    )
+    error = refusal(workload, config_id)
+    assert error.code == "FIT_PARTITION_NOT_A_CONFIGURATION_CHOICE"
+    assert error.details["config_id"] == config_id
+
+
+def test_a_workload_without_a_fit_partition_is_refused(tmp_path):
+    error = refusal(workload_with(tmp_path, lambda d: d.pop("fit_partition")))
+    assert error.code == "DECLARATION_INCOMPLETE"
+    assert error.details["key"] == "fit_partition"
 
 
 def test_the_workload_declares_the_eight_forbidden_features():

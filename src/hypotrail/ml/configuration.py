@@ -43,7 +43,29 @@ def _input_names(configuration: dict) -> list:
     return names
 
 
+# Partitions that can never be fitted on: evaluation and exposure (SPEC §2, ML-05).
+NEVER_FITTED = ("dev", "public_check")
+
+
+def _check_fit_partition(declaration: dict, config_id: str, configuration: dict) -> None:
+    """The Partition to fit on is the Workload's protocol; a Configuration cannot pick another."""
+    if "fit_partition" in configuration:
+        raise _refuse(
+            "FIT_PARTITION_NOT_A_CONFIGURATION_CHOICE",
+            f"configuration {config_id!r} declares a fit partition; only the Workload does",
+            config_id=config_id,
+        )
+    partition = _declared(declaration, "fit_partition")
+    if partition in NEVER_FITTED:
+        raise _refuse(
+            "FIT_PARTITION_NOT_ALLOWED",
+            f"the Workload declares {partition!r} as its fit partition; it can never be fitted on",
+            partition=partition,
+        )
+
+
 def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
+    _check_fit_partition(declaration, config_id, configuration)
     forbidden = _declared(declaration, "forbidden_features")
     allowed = _declared(declaration, "allowed_target_features")
 

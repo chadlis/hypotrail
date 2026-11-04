@@ -5,8 +5,8 @@ NumPy, and nothing in the core imports it. scikit-learn owns the encoding, the
 scaling and the fitting; this module only builds the table of inputs and wires
 the declared estimators together. Everything it needs comes from the Workload's
 declaration (`configurations.<id>` in `workload.json`): the lag features, the
-calendar columns, the estimators' settings, the Partition to fit on and the
-post-processing.
+calendar columns, the estimators' settings, the post-processing. The
+Partition to fit on is the Workload's, not the Configuration's.
 
 The lags are computed from dates (`hypotrail.ml.lags`), the calendar columns
 are read from the verified data file as they are, and the Items of a Partition
@@ -112,7 +112,7 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
     """Fit the declared pipeline once, on the declared fit Partition's Items."""
     loaded = load_configuration(workload_dir, config_id)
     declaration, configuration = loaded["declaration"], loaded["configuration"]
-    fit_partition = configuration["fit_partition"]
+    fit_partition = declaration["fit_partition"]
     inputs = build_inputs(workload_dir, config_id, fit_partition)
     target = read_target_series(workload_dir, declaration)
     y = np.array([target[day] for day in inputs.dates], dtype=np.float64)
