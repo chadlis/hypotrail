@@ -21,11 +21,20 @@ from hypotrail.ml.ridge import write_outputs
 BIKE = Path(__file__).resolve().parent.parent / "examples" / "bike_day"
 DECLARATION = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))
 
-# Keys that may be absent, with the reason. Nothing else may be.
+# Keys that may be absent from the declaration at load, with the reason. Only `partitions` may not.
+# The optional keys that some entry point reads are refused by that entry point when absent
+# (tests/test_ml_declaration_schema.py).
 OPTIONAL = {
     ("schema_version",): "descriptive: no Track code reads it",
     ("track",): "descriptive: no Track code reads it",
     ("licence_notice",): "descriptive: no Track code reads it",
+    **{
+        (key,): "required by the entry points that read it, not by every entry point"
+        for key in (
+            "data_file", "id_prefix", "date_column", "target_column", "target_unit", "period_k",
+            "forbidden_features", "allowed_target_features", "configurations",
+        )
+    },
 }
 # Maps whose keys are names the Workload chooses, so adding or removing a child is the
 # Workload's own business, not a schema key. The one child the Track requires is listed
@@ -101,7 +110,8 @@ def test_the_witness_covers_every_level():
     assert ("configurations", "ridge_v1", "encoder", "handle_unknown") in REMOVALS
     assert ("configurations", "seasonal_7", "post_processing", "clip_min") in REMOVALS
     assert ("allowed_target_features", 0, "period") in REMOVALS
-    assert ("period_k",) in REMOVALS and ("partitions", "train") in REMOVALS
+    assert ("period_k",) not in REMOVALS  # optional at load: the entry points that read it refuse its absence
+    assert ("partitions",) in REMOVALS and ("partitions", "train") in REMOVALS
 
 
 @pytest.mark.parametrize("path", REMOVALS, ids=label)

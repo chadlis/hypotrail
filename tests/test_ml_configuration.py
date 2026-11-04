@@ -230,7 +230,9 @@ def test_a_ridge_configuration_with_a_seasonal_key_is_refused_before_anything_el
     workload = workload_with(tmp_path, edit)
     error = refusal(workload)
     assert error.code == "CONFIGURATION_KEY_NOT_FOR_KIND"
-    assert error.details == {"config_id": "ridge_v1", "kind": "ridge_pipeline", "key": "period_k"}
+    assert error.details == {
+        "config_id": "ridge_v1", "kind": "ridge_pipeline", "key": "period_k", "path": "configurations.ridge_v1",
+    }
     out = tmp_path / "out"
     with pytest.raises(InvalidInputError):
         write_outputs(workload, out, "ridge_v1", "dev")

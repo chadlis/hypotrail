@@ -293,7 +293,7 @@ def test_a_workload_without_a_unit_is_refused(tmp_path, bike_outputs):
     with pytest.raises(InvalidInputError) as caught:
         metrics_of(bike_outputs, workload=workload)
     assert caught.value.code == "DECLARATION_INCOMPLETE"
-    assert caught.value.details == {"key": "target_unit"}
+    assert caught.value.details == {"key": "target_unit", "path": ""}
 
 
 @pytest.mark.parametrize("partition", ["train", "nowhere"])

@@ -1,4 +1,4 @@
-"""The one reader of a Workload's data table, standard library only.
+"""The one reader of a Workload's data table.
 
 Rows are keyed by date, never by position, so the order of the file changes nothing.
 The date column and the data file come from the Workload's declaration.
@@ -9,6 +9,7 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.declaration import require_keys
 
 
 def _refuse(code, message, **details):
@@ -17,6 +18,7 @@ def _refuse(code, message, **details):
 
 def read_table(workload_dir: Path, declaration: dict, columns=()) -> dict:
     """The data rows keyed by date, in date order. `columns` must exist besides the date column."""
+    require_keys(declaration, "data_file", "date_column")
     date_column = declaration["date_column"]
     rows = {}
     with (Path(workload_dir) / declaration["data_file"]).open(newline="", encoding="utf-8") as handle:

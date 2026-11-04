@@ -228,10 +228,11 @@ def test_effective_parameters_include_the_column_transformer_and_the_pipeline(tm
 # --- the core stays free of scikit-learn ------------------------------------------
 
 
-def test_importing_the_core_and_the_stdlib_ml_modules_loads_no_scikit_learn():
+def test_importing_the_core_and_the_declaration_modules_loads_no_scikit_learn():
     code = (
         "import sys\n"
         "import hypotrail.core.data, hypotrail.ml.memberships, hypotrail.ml.lags, hypotrail.ml.predictions\n"
+        "import hypotrail.ml.declaration, hypotrail.ml.configuration, hypotrail.ml.metrics, hypotrail.ml.comparison\n"
         "print(sorted(m for m in sys.modules if m.split('.')[0] in {'sklearn', 'numpy'}))\n"
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)

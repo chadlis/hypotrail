@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/ml/workload.schema.json",
+  "title": "workload.json of the temporal regression Track",
+  "description": "The whole shape of a Workload declaration. Only `partitions` is required here: every other key is required by the entry points that read it (hypotrail.ml.declaration.require_keys). The rules that relate values to each other or to the protocol are Track code, not this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["partitions"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "track": {"type": "string", "enum": ["temporal_regression"]},
+    "licence_notice": {"type": "string"},
+    "data_file": {"$ref": "#/$defs/name"},
+    "id_prefix": {"$ref": "#/$defs/name"},
+    "date_column": {"$ref": "#/$defs/name"},
+    "target_column": {"$ref": "#/$defs/name"},
+    "target_unit": {"type": "string"},
+    "period_k": {"type": "integer", "minimum": 1},
+    "forbidden_features": {"$ref": "#/$defs/names"},
+    "allowed_target_features": {"type": "array", "items": {"$ref": "#/$defs/target_feature"}},
+    "partitions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"$ref": "#/$defs/date"}
+      }
+    },
+    "configurations": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/configuration"}
+    }
+  },
+  "$defs": {
+    "name": {"type": "string", "minLength": 1},
+    "names": {"type": "array", "items": {"type": "string"}},
+    "date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "target_feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "period"],
+      "properties": {
+        "name": {"type": "string"},
+        "kind": {"type": "string"},
+        "period": {"type": "integer"}
+      }
+    },
+    "post_processing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clip_min"],
+      "properties": {"clip_min": {"type": "number"}}
+    },
+    "configuration": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {"kind": {"enum": ["seasonal_baseline", "ridge_pipeline"]}},
+      "allOf": [
+        {
+          "if": {"required": ["kind"], "properties": {"kind": {"const": "seasonal_baseline"}}},
+          "then": {"$ref": "#/$defs/seasonal_baseline"}
+        },
+        {
+          "if": {"required": ["kind"], "properties": {"kind": {"const": "ridge_pipeline"}}},
+          "then": {"$ref": "#/$defs/ridge_pipeline"}
+        }
+      ]
+    },
+    "seasonal_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "period_k", "post_processing"],
+      "properties": {
+        "kind": {},
+        "period_k": {"type": "integer"},
+        "post_processing": {"$ref": "#/$defs/post_processing"}
+      }
+    },
+    "ridge_pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "lag_features", "calendar_columns", "encoder", "scaler", "ridge", "post_processing"],
+      "properties": {
+        "kind": {},
+        "lag_features": {"type": "array", "items": {"$ref": "#/$defs/target_feature"}},
+        "calendar_columns": {"$ref": "#/$defs/names"},
+        "encoder": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["columns", "handle_unknown", "sparse_output"],
+          "properties": {
+            "columns": {"$ref": "#/$defs/names"},
+            "handle_unknown": {"type": "string", "enum": ["error", "ignore"]},
+            "sparse_output": {"type": "boolean", "enum": [false]}
+          }
+        },
+        "scaler": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["columns"],
+          "properties": {"columns": {"$ref": "#/$defs/names"}}
+        },
+        "ridge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["alpha", "fit_intercept", "solver"],
+          "properties": {
+            "alpha": {"type": "number", "minimum": 0},
+            "fit_intercept": {"type": "boolean"},
+            "solver": {"type": "string", "enum": ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"]}
+          }
+        },
+        "post_processing": {"$ref": "#/$defs/post_processing"}
+      }
+    }
+  }
+}

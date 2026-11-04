@@ -1,4 +1,4 @@
-"""Metrics of a predictions CSV of the temporal regression Track, standard library only.
+"""Metrics of a predictions CSV of the temporal regression Track.
 
 Targets come from the separate References artifact and are joined to the
 predictions by `row_id`, never by position. Metrics use `y_pred`. The unit is the
@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.memberships import load_declaration
+from hypotrail.ml.declaration import load_declaration, require_keys
 from hypotrail.ml.partitions import require_dev
 
 DIRECTION = "lower_is_better"
@@ -24,8 +24,7 @@ def _refuse(code, message, **details):
 
 
 def declared_unit(declaration: dict) -> str:
-    if "target_unit" not in declaration:
-        raise _refuse("DECLARATION_INCOMPLETE", "declaration lacks 'target_unit'", key="target_unit")
+    require_keys(declaration, "target_unit")
     return declaration["target_unit"]
 
 

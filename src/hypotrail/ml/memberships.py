@@ -1,7 +1,7 @@
 """Partitions and memberships of the temporal regression Track.
 
 Reads a Workload's declarations (`workload.json`) and its daily series, derives
-one Item per date and writes `memberships.csv`. Standard library only. Every
+one Item per date and writes `memberships.csv`. It needs neither scikit-learn nor NumPy. Every
 parameter comes from the declaration: the Partition date ranges, the period k
 (a day is excluded when any of the k dates before it is absent from the data) and the columns.
 Nothing is drawn at random and nothing depends on the order of the input rows.
@@ -13,7 +13,7 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import DECLARATION_NAME, load_declaration  # noqa: F401
+from hypotrail.ml.declaration import DECLARATION_NAME, load_declaration, require_keys  # noqa: F401
 from hypotrail.ml.table import read_table
 
 MEMBERSHIPS_NAME = "memberships.csv"
@@ -28,10 +28,7 @@ def _refuse(code, message, **details):
 def _partition_ranges(declaration: dict) -> list:
     ranges = []
     for name, bounds in declaration["partitions"].items():
-        try:
-            first, last = (datetime.date.fromisoformat(b) for b in bounds)
-        except (ValueError, TypeError):
-            raise _refuse("BAD_PARTITION_RANGE", f"unreadable date range for {name}", partition=name) from None
+        first, last = (datetime.date.fromisoformat(bound) for bound in bounds)  # dates: guaranteed by the schema
         if first > last:
             raise _refuse("BAD_PARTITION_RANGE", f"range of {name} ends before it starts", partition=name)
         ranges.append((first, last, name))
@@ -44,6 +41,7 @@ def _partition_ranges(declaration: dict) -> list:
 
 def derive_memberships(workload_dir: Path) -> list[dict]:
     declaration = load_declaration(workload_dir)
+    require_keys(declaration, "data_file", "date_column", "id_prefix", "period_k")
     ranges = _partition_ranges(declaration)
     dates = list(read_table(workload_dir, declaration))
     present = set(dates)

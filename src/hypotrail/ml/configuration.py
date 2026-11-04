@@ -1,6 +1,6 @@
 """Validation of a Configuration against its Workload's declarations.
 
-Standard library only. What the Track code fixes is small: the Partition roles
+What the Track code fixes is small: the Partition roles
 (`hypotrail.ml.partitions`: `train`, `dev`, `public_check`) and the kinds of
 Configuration it knows (`seasonal_baseline`, `ridge_pipeline`) with the keys each
 takes. Everything else is declared by the Workload: `forbidden_features` (columns
@@ -8,13 +8,14 @@ that are not known at date t), `allowed_target_features` (the only transformatio
 of the target a Configuration may use), the Partition date ranges, and each
 Configuration's own settings.
 
-A Configuration declares its kind. The kind picks the keys it may carry; an unknown
-kind, or a key that does not belong to the kind, is refused. The checks that apply to
-every Configuration (forbidden features, target transformations that reach date t or
-later, target transformations the Workload does not declare) run for every kind. A
-Workload declaration must declare the `train` Partition whatever its Configurations (`hypotrail.ml.declaration`).
-A Configuration that breaks a rule is refused with a coded error, before anything is
-fitted or predicted. Nothing is dropped or included silently.
+A Configuration declares its kind. The JSON Schema of the declaration (`hypotrail.ml.declaration`)
+has already refused an unknown kind, a key that does not belong to the kind, a missing key and
+a wrongly typed or disallowed value when the declaration was loaded. What runs here are the
+rules that relate values to each other or to the protocol. They apply to every Configuration
+(forbidden features, target transformations that reach date t or later, target transformations
+the Workload does not declare), and to the `ridge_pipeline` kind the cover of its model inputs
+by the encoder and the scaler. A Configuration that breaks a rule is refused with a coded
+error, before anything is fitted or predicted. Nothing is dropped or included silently.
 
 The model inputs of a `ridge_pipeline` are the lag feature names and `calendar_columns`.
 The forbidden-feature check reads them and the `columns` of the encoder and of the
@@ -24,21 +25,16 @@ scaler; the encoder and the scaler must together take exactly the model inputs.
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import RIDGE, SEASONAL, kind_of, load_declaration
+from hypotrail.ml.declaration import RIDGE, SEASONAL, load_declaration, require_keys
 
 
 def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage="configuration", details=details)
 
 
-def _declared(declaration: dict, key: str) -> list:
-    if key not in declaration:
-        raise _refuse("DECLARATION_INCOMPLETE", f"declaration lacks {key!r}", key=key)
-    return declaration[key]
-
-
 def declared_configuration(declaration: dict, config_id: str) -> dict:
     """The Configuration the Workload declares under `config_id`; its key is its id."""
+    require_keys(declaration, "configurations")
     try:
         return declaration["configurations"][config_id]
     except KeyError:
@@ -55,9 +51,9 @@ def _input_names(configuration: dict) -> list:
     return names
 
 
-def is_past_period(period) -> bool:
-    """A period that points strictly before date t: a whole number of at least 1."""
-    return isinstance(period, int) and not isinstance(period, bool) and period >= 1
+def is_past_period(period: int) -> bool:
+    """A period that points strictly before date t: at least 1 (the schema guarantees a whole number)."""
+    return period >= 1
 
 
 def _target_transformations(kind: str, configuration: dict) -> list:
@@ -75,7 +71,7 @@ def _model_input_names(kind: str, configuration: dict) -> list:
 
 
 def _check_target_transformations(declaration: dict, config_id: str, transformations: list) -> None:
-    allowed = _declared(declaration, "allowed_target_features")
+    allowed = declaration["allowed_target_features"]
     for feature in transformations:
         name, period = feature.get("name"), feature["period"]
         named = {"feature": name} if name is not None else {}
@@ -126,10 +122,11 @@ def _check_ridge_inputs(config_id: str, configuration: dict) -> None:
 
 
 def validate_configuration(declaration: dict, config_id: str, configuration: dict) -> None:
-    """Refuse a Configuration that breaks a declared rule. The kind it declares picks its keys only;
-    the checks that apply to every Configuration run for every kind."""
-    kind = kind_of(config_id, configuration)
-    forbidden = _declared(declaration, "forbidden_features")
+    """Refuse a Configuration that breaks a declared rule, once the schema has passed.
+    The checks that apply to every Configuration run for every kind."""
+    require_keys(declaration, "forbidden_features", "allowed_target_features")
+    kind = configuration["kind"]
+    forbidden = declaration["forbidden_features"]
     for name in _model_input_names(kind, configuration):
         if name in forbidden:
             raise _refuse(
@@ -146,6 +143,7 @@ def validate_configuration(declaration: dict, config_id: str, configuration: dic
 def load_configuration(workload_dir: Path, config_id: str) -> dict:
     """Read the Workload's declaration and the Configuration `config_id`, validated for its kind."""
     declaration = load_declaration(workload_dir)
+    require_keys(declaration, "target_column")
     configuration = declared_configuration(declaration, config_id)
     validate_configuration(declaration, config_id, configuration)
     return {"declaration": declaration, "configuration": configuration}
