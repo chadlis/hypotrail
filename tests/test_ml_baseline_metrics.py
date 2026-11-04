@@ -149,10 +149,8 @@ def test_metrics_do_not_depend_on_the_row_order_of_predictions(bike_outputs):
     assert metrics_of(bike_outputs) == before
 
 
-def test_clipping_bounds_negative_raw_predictions_and_counts_them():
-    clipped, count = clip_below([-3.5, 0.0, 12.0, -0.1], 0)
-    assert clipped == [0.0, 0.0, 12.0, 0.0]
-    assert count == 2
+def test_clipping_bounds_negative_raw_predictions():
+    assert clip_below([-3.5, 0.0, 12.0, -0.1], 0) == [0.0, 0.0, 12.0, 0.0]
 
 
 def test_the_clipped_count_reaches_the_metrics(tmp_path):

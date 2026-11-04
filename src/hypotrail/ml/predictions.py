@@ -2,7 +2,7 @@
 
 `predictions.csv` holds `row_id`, `y_pred_raw`, `y_pred` and `config_id`, and
 never a target: the References are a separate artifact (`references.py`).
-`y_pred` is `y_pred_raw` bounded below at zero (SPEC ML-03).
+`y_pred` is `y_pred_raw` bounded below at the Configuration's declared `clip_min`, zero by default (SPEC ML-03).
 """
 
 import csv
@@ -14,10 +14,9 @@ PREDICTIONS_NAME = "predictions.csv"
 COLUMNS = ["row_id", "y_pred_raw", "y_pred", "config_id"]
 
 
-def clip_below(raw_values, minimum=0) -> tuple[list, int]:
-    """max(minimum, raw) for each value, and the number of values that were raised."""
-    clipped = [float(minimum) if value < minimum else value for value in raw_values]
-    return clipped, sum(1 for value in raw_values if value < minimum)
+def clip_below(raw_values, minimum=0) -> list:
+    """max(minimum, raw) for each value."""
+    return [float(minimum) if value < minimum else value for value in raw_values]
 
 
 def write_predictions(out_dir: Path, config_id: str, row_ids, raw_values, *, clip_min=0) -> Path:
@@ -30,7 +29,7 @@ def write_predictions(out_dir: Path, config_id: str, row_ids, raw_values, *, cli
             stage="predictions",
             details={"row_ids": len(row_ids), "raw_values": len(raw_values)},
         )
-    clipped, _ = clip_below(raw_values, clip_min)
+    clipped = clip_below(raw_values, clip_min)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / PREDICTIONS_NAME

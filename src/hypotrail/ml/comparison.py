@@ -77,12 +77,12 @@ def compare(
     row_ids = [item["row_id"] for item in control_items]  # the same Items on both sides, in a fixed order
     differences = [
         {
-            "row_id": c["row_id"],
-            "control_abs_error": c["abs_error"],
-            "candidate_abs_error": k["abs_error"],
-            "delta_abs_error": k["abs_error"] - c["abs_error"],
+            "row_id": ctl["row_id"],
+            "control_abs_error": ctl["abs_error"],
+            "candidate_abs_error": cand["abs_error"],
+            "delta_abs_error": cand["abs_error"] - ctl["abs_error"],
         }
-        for c, k in zip(control_items, candidate_items)
+        for ctl, cand in zip(control_items, candidate_items)
     ]
     delta_mae = candidate["metrics"][PRIMARY]["value"] - control["metrics"][PRIMARY]["value"]
 
