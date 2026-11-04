@@ -1,0 +1,128 @@
+"""Projecting an Inspect eval log into one record per Episode (Case x Repeat).
+
+The log is read through Inspect's public log API only. An Episode is `produced`
+when it ran to an answer or to a limit, `failed` when its execution stopped
+with an error, and `missing` when the log holds nothing for it. Inspect's
+`epoch` is 1-based; a Repeat is 0-based, as in the kit's fixture.
+"""
+
+import json
+from collections.abc import Iterable
+
+from inspect_ai.log import read_eval_log
+
+
+def _steps(messages) -> list[dict]:
+    steps = []
+    turn = 0
+    conversation = [m for m in messages if m.role in ("assistant", "tool")]
+    for message in conversation:
+        if message.role == "assistant":
+            turn += 1
+            steps.append({"kind": "model_turn", "turn": turn})
+            if message.tool_calls:
+                for call in message.tool_calls:
+                    steps.append(
+                        {
+                            "kind": "tool_call",
+                            "native_tool_call_id": call.id,
+                            "function": call.function,
+                            "arguments": call.arguments,
+                        }
+                    )
+            else:
+                steps.append({"kind": "final_answer", "text": message.text})
+        else:
+            try:
+                result = json.loads(message.text)
+            except json.JSONDecodeError:
+                result = None
+            steps.append(
+                {
+                    "kind": "tool_result",
+                    "native_tool_call_id": message.tool_call_id,
+                    "app_tool_call_id": result.get("tool_call_id") if isinstance(result, dict) else None,
+                    "result": result,
+                    "tool_error": None if message.error is None else {"type": message.error.type},
+                }
+            )
+    return steps
+
+
+def _scoring_events(sample):
+    """Span events of the scoring phase: structured fields only, never error text."""
+    spans = [e for e in (sample.events or []) if e.event == "span_begin"]
+    started = any(e.type == "scorers" for e in spans)
+    names = [e.name for e in spans if e.type == "scorer"]
+    return started, names
+
+
+def _episode(sample, model: str) -> dict:
+    inputs = []
+    for message in sample.messages:
+        if message.role in ("system", "user"):
+            inputs.append({"role": message.role, "content": message.text})
+        else:
+            break
+    steps = _steps(sample.messages)
+    final = next((s["text"] for s in steps if s["kind"] == "final_answer"), None)
+
+    status, reason, criteria = "produced", None, []
+    if sample.error is not None:
+        # Inspect marks both kinds of breakage as an errored sample. What tells
+        # them apart is whether the scoring phase had begun when it happened.
+        scoring_started, scorer_names = _scoring_events(sample)
+        if scoring_started:
+            criteria = [
+                {"name": name, "state": "errored", "reason": "scoring_failed"}
+                for name in scorer_names
+                if name not in (sample.scores or {})
+            ]
+        else:
+            status, reason, final = "failed", "execution_failed", None
+    return {
+        "case_id": str(sample.id),
+        "repeat": sample.epoch - 1,
+        "status": status,
+        "reason": reason,
+        "criteria": criteria,
+        "model": model,
+        "provider": model.split("/", 1)[0],
+        "input": inputs,
+        "steps": steps,
+        "final_answer": final,
+        "stopped_by_limit": None
+        if sample.limit is None
+        else {"type": sample.limit.type, "limit": sample.limit.limit},
+        "turn_count": sample.turn_count,
+    }
+
+
+def project_log(location: str, *, expected: Iterable[tuple[str, int]]) -> list[dict]:
+    """One record per expected (case_id, repeat), in the order given."""
+    log = read_eval_log(location)
+    model = log.eval.model
+    by_key = {(str(s.id), s.epoch - 1): s for s in (log.samples or [])}
+    records = []
+    for case_id, repeat in expected:
+        sample = by_key.get((case_id, repeat))
+        if sample is None:
+            records.append(
+                {
+                    "case_id": case_id,
+                    "repeat": repeat,
+                    "status": "missing",
+                    "reason": "missing_from_log",
+                    "criteria": [],
+                    "model": model,
+                    "provider": model.split("/", 1)[0],
+                    "input": [],
+                    "steps": [],
+                    "final_answer": None,
+                    "stopped_by_limit": None,
+                    "turn_count": None,
+                }
+            )
+        else:
+            records.append(_episode(sample, model))
+    return records

@@ -1,0 +1,77 @@
+{
+  "effective_limits": {
+    "concurrency": 1,
+    "max_connections": 1,
+    "max_output_tokens": 1024,
+    "model_turns": 6,
+    "response_cache": false,
+    "sample_retries": 0,
+    "time_seconds": 60,
+    "tool_calls": null,
+    "total_tokens": 12000,
+    "transport_retries": 0
+  },
+  "engine": {
+    "name": "inspect-ai",
+    "version": "0.3.287"
+  },
+  "episodes": [
+    {
+      "case_id": "D03",
+      "repeat": 0,
+      "status": "produced",
+      "stopped_by_limit": null,
+      "uses_tool_result": true
+    },
+    {
+      "case_id": "D05",
+      "repeat": 0,
+      "status": "produced",
+      "stopped_by_limit": null,
+      "uses_tool_result": true
+    }
+  ],
+  "hardware": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
+  "inspect_log": "inspect/2026-11-02T10-30-50-00-00_chinook-spike_mWC9L4LkU7Bt3p4pG6XXoC.eval",
+  "inspect_status": "success",
+  "machine": "x86_64",
+  "mode": "llm_live",
+  "model": "anthropic/claude-sonnet-5-5",
+  "provider": "anthropic",
+  "python": "3.13.18",
+  "request_parameters": {
+    "cache_control": {
+      "type": "ephemeral"
+    },
+    "extra_headers": {
+      "anthropic-beta": "thinking-binding-controls-2026-08-01",
+      "x-irid": "iB7G4TpdcCN6ptd4uj6C4s"
+    },
+    "max_tokens": 1024,
+    "model": "claude-sonnet-5-5",
+    "thinking": {
+      "block_binding": {
+        "prefix_mismatch_behavior": "drop_block"
+      },
+      "type": "adaptive"
+    },
+    "tool_choice": {
+      "type": "auto"
+    }
+  },
+  "requested_limits": {
+    "concurrency": 1,
+    "max_output_tokens": 1024,
+    "model_turns": 6,
+    "response_cache": false,
+    "sample_retries": 0,
+    "time_seconds": 60,
+    "tool_calls": 8,
+    "total_tokens": 12000,
+    "transport_retries": 0
+  },
+  "served_models": [
+    "claude-sonnet-5-5"
+  ],
+  "tool_loop_observed": true
+}
