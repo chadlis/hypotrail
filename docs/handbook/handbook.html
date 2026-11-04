@@ -147,9 +147,9 @@ pre.code .cm{color:var(--faint)}
 
 <div class="prose">
 <h3>Install and run</h3>
-<p>The project is a uv project on Python 3.13 with a committed lock. The core needs only the standard library; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
+<p>The project is a uv project on Python 3.13 with a committed lock. The core needs the standard library and one schema validator, <code>jsonschema</code>; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
 </div>
-<pre class="code"><span class="cm"># core only: the standard library</span>
+<pre class="code"><span class="cm"># core only: the standard library and jsonschema</span>
 uv sync --locked
 uv run python -m hypotrail --help
 
@@ -322,7 +322,7 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 </tbody></table></div>
 
 <p class="sub2">Refusals</p>
-<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a <code>code</code>, a <code>message</code>, a <code>stage</code> and <code>details</code>. Nothing is dropped or included silently, and a declaration or Configuration is refused before anything is fitted or predicted. Every refusal raised while the declaration is loaded has the stage <code>declaration</code> and its <code>details</code> give <code>key</code> and <code>path</code> (the dotted path of the faulty value, empty at the root).</p>
+<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a <code>code</code>, a <code>message</code>, a <code>stage</code> and <code>details</code>. Nothing is dropped or included silently, and a declaration or Configuration is refused before anything is fitted or predicted. Every refusal raised while the declaration is loaded has the stage <code>declaration</code> and its <code>details</code> give <code>key</code> and <code>path</code> (the dotted path of the faulty value, empty at the root). A declaration file that is missing or not JSON is refused with <code>FILE_NOT_FOUND</code> or <code>FILE_NOT_JSON</code>: <code>key</code> is the file name, <code>path</code> is empty (the whole document) and <code>file</code> is its location. A period that no date can apply (it reaches before the first date of the calendar) passes the schema, since it depends on the dates; it is refused when a date is shifted, in memberships, lags and the seasonal baseline, with <code>DECLARATION_VALUE_NOT_ALLOWED</code>, stage <code>declaration</code>, and the <code>key</code> and <code>path</code> of the period.</p>
 <div class="tblwrap"><table class="tbl" id="refusals"><thead><tr><th>Case</th><th>Code</th></tr></thead><tbody>
 <tr><td>A model input (lag name, calendar column, encoder or scaler column) is in <code>forbidden_features</code></td><td><code>FORBIDDEN_FEATURE</code></td></tr>
 <tr><td>A lag feature that is not exactly one of <code>allowed_target_features</code>, or a <code>seasonal_baseline</code> period that is not a declared <code>lag</code></td><td><code>TARGET_TRANSFORMATION_NOT_ALLOWED</code></td></tr>
@@ -335,7 +335,7 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <tr><td>A key missing from the declaration, from a Configuration or from one of its objects (for example <code>partitions</code>, <code>post_processing</code>, <code>ridge</code>, <code>lag_features</code>, the <code>period</code> of a lag feature), or an optional root key (such as <code>target_unit</code> or <code>period_k</code>) that the entry point called reads</td><td><code>DECLARATION_INCOMPLETE</code> (<code>details.key</code> names it)</td></tr>
 <tr><td>A key the declaration does not define, in a closed object at any level (for example a stale top-level <code>fit_partition</code>)</td><td><code>DECLARATION_KEY_UNKNOWN</code></td></tr>
 <tr><td>A value of the wrong JSON type, leaf or container (a string where a number, an object or a list is expected, <code>clip_min: null</code>, <code>period_k: "7"</code>, <code>7.5</code>, <code>7.0</code> or <code>true</code> where a whole number is expected)</td><td><code>DECLARATION_WRONG_TYPE</code></td></tr>
-<tr><td>A value of the right type that the schema does not allow (<code>period_k</code> of 0 or -1, an empty <code>id_prefix</code>, <code>ridge.solver: "bogus"</code>, <code>encoder.sparse_output: true</code>, a negative <code>alpha</code>, a period (root or Configuration) larger than the span of the calendar, 3,652,058 days, which no date can apply, a Partition date such as <code>2011-02-30</code>, a Partition range that is not two dates, a <code>track</code> other than <code>temporal_regression</code>)</td><td><code>DECLARATION_VALUE_NOT_ALLOWED</code></td></tr>
+<tr><td>A value of the right type that the schema does not allow (<code>period_k</code> of 0 or -1, an empty <code>id_prefix</code>, <code>ridge.solver: "bogus"</code>, <code>encoder.sparse_output: true</code>, a negative <code>alpha</code>, a lag <code>kind</code> other than <code>lag</code> or <code>mean_previous</code>, an empty feature, column or forbidden-feature name, a Partition date such as <code>2011-02-30</code>, a Partition range that is not two dates, a <code>track</code> other than <code>temporal_regression</code>)</td><td><code>DECLARATION_VALUE_NOT_ALLOWED</code></td></tr>
 <tr><td>Metrics or a Comparison on a Partition other than <code>dev</code></td><td><code>METRICS_PARTITION_NOT_DEV</code>, <code>COMPARISON_PARTITION_NOT_DEV</code></td></tr>
 <tr><td>Metrics or a Comparison on <code>public_check</code></td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code>, <code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
 <tr><td><code>dev</code> not declared by the Workload</td><td><code>PARTITION_NOT_DECLARED</code></td></tr>

@@ -3,9 +3,9 @@
 
 <div class="prose">
 <h3>Install and run</h3>
-<p>The project is a uv project on Python 3.13 with a committed lock. The core needs only the standard library; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
+<p>The project is a uv project on Python 3.13 with a committed lock. The core needs the standard library and one schema validator, <code>jsonschema</code>; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
 </div>
-<pre class="code"><span class="cm"># core only: the standard library</span>
+<pre class="code"><span class="cm"># core only: the standard library and jsonschema</span>
 uv sync --locked
 uv run python -m hypotrail --help
 

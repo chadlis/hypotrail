@@ -6,7 +6,7 @@ leaf. `jsonschema` checks it (ENV-02: one schema validator). A declaration that 
 refused with a coded `InvalidInputError`, stage `declaration`, whose details give `key` and
 `path`, before anything is read, fitted, predicted or written. Nothing is dropped or defaulted
 silently. The schema is the only description of the shape: no key, object, list or type is
-checked by hand elsewhere.
+checked by hand elsewhere, apart from the two checks named below.
 
 The codes:
 
@@ -18,14 +18,22 @@ The codes:
 - `CONFIGURATION_KIND_UNKNOWN`: a Configuration with no kind or an unknown kind;
 - `CONFIGURATION_KEY_NOT_FOR_KIND`: a key that does not belong to the kind of its Configuration.
 
-Only `partitions` is required by the schema, because it is the one key every public entry point
-reads. Every other key is read by some entry points only; each of them refuses its absence with
-`DECLARATION_INCOMPLETE` through `require_keys`, before it writes anything. Three root keys are
-descriptive and no Track code reads them (`schema_version`, `track`, `licence_notice`). The keys
-of `partitions` and of `configurations` are names the Workload chooses.
+Two kinds of check stay in Track code, next to their use (ADR 0002, clarification of 2026-11-04):
 
-The rules that relate values to each other or to the protocol stay in Track code and run after
-the schema: the `train` Partition being declared (here), and in `configuration.py` and
+- whether a key is required: only `partitions` is required by the schema, because it is the one
+  key every public entry point reads. Every other key is read by some entry points only; each of
+  them refuses its absence with `DECLARATION_INCOMPLETE` through `require_keys`, before it
+  writes anything;
+- whether a period can be applied to actual dates: `periods.shift_back` refuses, with
+  `DECLARATION_VALUE_NOT_ALLOWED` naming the period's key and path, a shift that leaves the
+  calendar.
+
+Three root keys are descriptive and no Track code reads them (`schema_version`, `track`,
+`licence_notice`). The keys of `partitions` and of `configurations` are names the Workload
+chooses.
+
+The rules that relate values to each other or to the protocol also stay in Track code and run
+after the schema: the `train` Partition being declared (here), and in `configuration.py` and
 `memberships.py` the forbidden features, the target transformations, the encoder and the
 scaler covering the model inputs, and the Partition ranges.
 """
