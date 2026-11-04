@@ -125,6 +125,16 @@ def test_a_date_outside_every_partition_is_refused(tmp_path):
     assert error.value.code == "DATE_IN_NO_PARTITION"
 
 
+def test_a_partition_covering_a_warm_up_date_is_refused(tmp_path):
+    ranges = {**RANGES, "train": ["2020-03-03", "2020-03-12"]}
+    workload = make_workload(tmp_path, k=3, ranges=ranges, dates=DATES)
+    with pytest.raises(InvalidInputError) as error:
+        write_memberships(workload, tmp_path / "out")
+    assert error.value.code == "PARTITION_COVERS_WARMUP"
+    assert error.value.details["partition"] == "train"
+    assert error.value.details["date"] == "2020-03-03"
+
+
 def test_overlapping_partitions_are_refused(tmp_path):
     ranges = {**RANGES, "dev": ["2020-03-12", "2020-03-16"]}
     workload = make_workload(tmp_path, k=3, ranges=ranges, dates=DATES)

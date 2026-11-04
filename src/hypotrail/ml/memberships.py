@@ -76,6 +76,15 @@ def derive_memberships(workload_dir: Path) -> list[dict]:
     ranges = _partition_ranges(declaration)
     dates = _read_dates(workload_dir, declaration)
     warm_up = set(dates[: declaration["period_k"]])
+    for date in dates[: declaration["period_k"]]:
+        for first, last, name in ranges:
+            if first <= date <= last:
+                raise _refuse(
+                    "PARTITION_COVERS_WARMUP",
+                    f"Partition {name} covers the warm-up day {date.isoformat()}",
+                    partition=name,
+                    date=date.isoformat(),
+                )
 
     rows = []
     for date in dates:
