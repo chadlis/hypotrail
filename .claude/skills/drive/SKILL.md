@@ -33,7 +33,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 |---|---|---|
 | 2 tickets, 10 retro | `slice-planner` | opus |
 | 3 ticket gate, 5 review axes | `slice-gate` | opus |
-| 4 implementation, 6 fixes, 7 docs | `slice-builder` | sonnet |
+| 4 implementation and product docs, 6 fixes, 7 learning notes | `slice-builder` | sonnet |
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
@@ -53,9 +53,9 @@ Read and follow ~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering
 If the repository does not settle a question, stop and hand back with the question. Do not decide in my place.
 ```
 
-When a subagent asks, answer it yourself from the repository (EXÉCUTION). If the question rests on a false premise, correct the premise in the answer.
+When a subagent asks, answer it yourself from the repository, inside your delegation (see "Who decides"), without forwarding it to Salah (EXÉCUTION). If the question rests on a false premise, correct the premise in the answer.
 
-**The review of record goes out bare**: `/mattpocock-skills:code-review main`, nothing else, ever. "Look especially at X" contaminates it while it still looks independent.
+**The review of record goes out bare**: `/mattpocock-skills:code-review main` in round 1, `/mattpocock-skills:code-review <head of the last reviewed round>` after, nothing else, ever. "Look especially at X" contaminates it while it still looks independent. A disposition check (see "Routing findings") is a separate, later message to an axis reader, after its independent first reading, never part of the invocation.
 
 ## Full-auto, and what may leave the branch
 
@@ -73,6 +73,8 @@ By default the run **stops at the open PR**:
 - **`merge`**: authorization to squash-merge a completed, reviewed slice without a second routine approval, then close it without deleting the branch. Resolve every pending product decision, owner reservation and blocking finding before merging. An `INFERRED` ticket is cleared by a cited requirement or an explicit owner decision, never by a teaching result. With no pending decision, deliver the ordinary brief after merging. With a pending decision, deliver a STOP brief before dependent work or merge.
 - **`chain`** requires `merge`; asked alone, treat it as both and say so. Apply the `merge` rules to each slice. Continue in the requested order, otherwise by "Picking the slice". Give one ordinary brief at the end of the chain. A pending decision or floor stops the chain at that boundary and triggers a STOP brief. Invented-behaviour counts apply per chain. Review rounds are counted per slice, and a floor reached in any slice stops the chain. Paid live runs, as defined under "Paid live runs" below, are capped at five per slice and five in total across the explicitly requested chain, unless Salah explicitly sets a different chain budget. Resume does not reset counters.
 
+**Review rounds under `merge` and `chain`.** The round number alone does not revoke an explicit merge or chain authorization: up to five review rounds (see "Review rounds") can run before a slice reaches `main` without Salah reading it. What bounds it: merge still requires a completed review on the accepted head, passing required checks, no unresolved blocker, no unmet owner reservation and no other floor. Default mode still stops at an open PR.
+
 **Preparation mode**, only on an explicit `/drive #n prepare` request: read the slice and its sources, create or update the slice preparation note below, then finish normally with `/hypotrail-study before <fully-qualified-source-issue>` as the next command, to run in a session opened on `chadlis/hypotrail-learning` so that its repository skill is used, not a same-named personal skill. Do not enter steps 1–12, create a delivery branch, add an `in-progress` label, open implementation tickets, merge, or start a chain. Save the note and its link only. Create no learning issue in this mode. Do not mark an implementation step done because preparation happened. If `prepare` is combined with `merge` or `chain`, preparation takes precedence and the next execution needs a new explicit command. Preparation is optional. A plain `/drive` does not start a course or wait for a learning session.
 
 **Changes to the apparatus are deferred, never applied.** The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
@@ -85,28 +87,73 @@ By default the run **stops at the open PR**:
 
 Each ends the run and produces the brief early:
 
-- a third round of the review of record that still returns a finding routed to row 1 or 2 of the routing table (the other rows never block);
+- review round 5 ends with an unresolved finding routed to row 1 or 2, or an unresolved dispute about whether a finding belongs to either row. Stop after that review, before another correction. A fifth review with no unresolved blocker does not itself trigger a floor;
+- the same preserved acceptance or regression check, tied to an accepted requirement, still fails after two consecutive completed fix attempts explicitly intended to satisfy it. Changing or deleting the check is not a fix. If the requirement or check is disputed, resolve that dispute rather than treating the result as evidence of non-convergence;
+- an explicitly owner-set review/fix budget is exhausted;
+- drive identifies a concrete reason why another bounded correction is not justified, such as incompatible requirements, repairs that reverse an earlier accepted decision, or an expanding change with no credible verification plan. Record the evidence and the decision needed. No numeric threshold must be reached before invoking this floor;
 - a finding that fits no row of the routing table;
 - two consecutive subagent failures on one step;
-- a decision you are arguing yourself out of escalating;
+- a decision beyond your delegated authority (see "Who decides"). Name the limit it crosses, or the uncertainty the sources leave open. Weighing several options inside the delegation is not this floor;
 - a **second** invented behaviour in the same run (per chain under `chain`);
 - an apparatus change the slice cannot proceed without;
 - leaving a native primitive;
 - a paid live campaign beyond the slice issue's scope, or before Salah has reviewed the References.
 
+### Review rounds
+
+**Counting.** Round 1 is the first review of record. The two axis readers together make one round. A correction followed by a new review opens the next round. A disposition check or a targeted routing check on the same head belongs to the round in progress; it never stands in for a new correction-and-review cycle.
+
+**Five is a cap, not a target.** It is an experimental cap, to be re-evaluated with the data the state comment records. As soon as blockers and decisions are settled and the required checks pass, finish in the authorised mode, without further rounds. An empty report does not close earlier blockers that are still open. Never rerun an unchanged review in the hope of a kinder report.
+
+**Fix attempts.** A fix attempt is a completed correction (committed, full suite run) that names the check it means to satisfy. Running the same command twice on the same head is not two attempts. A test kept red on purpose before implementation (test-first) is not a completed attempt. The check must test an accepted requirement, not a constraint the test invented.
+
+**Budgets.** These rules create no numeric budget. If Salah set a specific review/fix budget, apply it, and if its consumption cannot be established, say so before the spending that depends on it. Unknown usage stays unknown.
+
+**Round 3 checkpoint.** If review round 3 ends with unresolved blockers, record a short internal checkpoint: which accepted requirements remain unmet, what changed, whether a regression is demonstrated, the bounded correction scope, the verification plan, and any unresolved owner decision. If the next correction remains within delegated authority and no floor applies, continue without asking for routine approval, up to round 5. The checkpoint uses the existing reports and state comment. It does not create another standing reviewer or a separate approval ceremony.
+
+**Diagnostics, not floors.** Repeated file paths, counts that do not decrease, and lines that `git blame` attributes to the previous fix are recorded as signals. They can support the judgement-based floor above, with its evidence. None of them stops the run on its own.
+
 ### After a floor
+
+A floor ends with the STOP brief and a concrete recommendation. It is never a request for Salah to debug.
 
 If Salah answers the brief with more work, add a row to the state comment with his decision, its date and the commits it allows. Steps 7 to 10 then run as usual, and the PR body names the floor.
 
+Review counters, fix attempts per check, open findings, unresolved decisions and floors survive resumes and history rewrites. A new review or a session restart cannot erase an earlier floor, and a later change to these rules does not lift a floor already reached: that needs Salah's explicit answer.
+
 Under `chain`, finish the slice in hand if it can be finished honestly, then stop. Ending a run is not a failure. Grinding past a floor under `merge` produces a `main` nobody can throw away.
 
-## How Salah works this loop
+## Who decides: delegated choices, owner decisions, learning occasions
 
-Salah wants system-wide orientation, participation in consequential choices, and deep practice on a few transferable mechanisms. He does not follow every implementation detail. Keep the delivery and learning loops separate. **Take every non-critical decision within the accepted contract**, record its reason and reversibility briefly, and continue. A lesson, chapter or unanswered recall exercise never becomes a merge gate.
+Salah wants system-wide orientation, participation in consequential choices, and deep practice on a few transferable mechanisms. He does not follow every implementation detail. Keep the delivery and learning loops separate. A lesson, chapter or unanswered recall exercise never becomes a merge gate. Every choice is either delegated to you or an owner decision. A few choices are also learning occasions, which changes neither who decides nor when.
 
-An owner-reserved decision is different from a learning suggestion. When Salah explicitly reserves a decision, record its scope and required answer in the source issue's state comment. Stop before implementing work that depends on it, including under `merge` or `chain`. Continue independent work only within the already authorized slice. Silence, an Anki score or a completed lesson is never the answer. If the owner explicitly delegates the decision, record that delegation and apply the stated bounds.
+### Delegated implementation choices
 
-Unsettled product semantics, public contracts or hard-to-reverse choices follow the existing product-decision gate even if the owner did not reserve them for learning. Routine reversible choices do not acquire a new gate merely because they illustrate a concept.
+**Decide and continue** when the choice keeps to the accepted contract, stays inside the authorised budget and scope, meets no owner reservation or other floor, and can be verified by suitable checks. That the repository does not prescribe an implementation detail does not make it a product decision. Record a structuring choice briefly where records already live (state comment, slice note, PR body), with its reason, limit and reversibility. An ADR only when the routing table asks for one.
+
+Delegated, for example: repairing incomplete validation so that it meets an already accepted requirement, renaming an internal symbol, choosing the structure of a test. Not delegated, however easy to code or to undo: changing the scope of a public refusal, a methodological guarantee, or an evaluation protocol that is not settled.
+
+### Owner decisions
+
+Ask when the choice touches a limit that is not delegated: product goal, scope, public guarantees, an unsettled methodological trade-off, hard-to-reverse effects, spending not authorised, or a choice Salah reserved. The other floors still apply, whatever their teaching value. The brief says precisely what existing authority cannot settle, the consequences, the viable options and the recommendation. An implementation preference, or the ordinary uncertainty of a technical choice, is not enough. Reuse earlier decisions whose scope still covers the case.
+
+When the same category of question recurs, propose a bounded delegation (its conditions and exclusions) inside a brief that is already due. It holds only after an explicit instruction. Once adopted, it saves asking the same permission for each occurrence. Silence is never authorisation.
+
+An owner-reserved decision is different from a learning suggestion. Salah reserves a choice explicitly, in a product instruction or a `before` session, with its scope. Record that scope and the answer required in the source issue's state comment. Stop before implementing work that depends on it, including under `merge` or `chain`. Continue independent work only within the already authorized slice. A reservation does not lapse with time or silence, and an Anki score or a completed lesson is never the answer. If the owner explicitly delegates the decision, record that delegation and apply the stated bounds.
+
+Unsettled product semantics, public contracts or hard-to-reverse choices follow this owner-decision gate even if the owner did not reserve them for learning. Routine reversible choices do not acquire a new gate merely because they illustrate a concept.
+
+### Learning occasions
+
+Select occasions by durable competency, never by the number of PRs or defects: contracts and invariants, interfaces and dependencies, discriminating tests, state and persistence, provenance, reproducibility and evaluation validity. The aim is that Salah can explain a trade-off, predict a failure and verify a property on code.
+
+- Propose at most one occasion at a time, in an orientation brief or an existing note, naming the competency and why it is useful now. It is not a quota per slice, an issue or a STOP. Prefer objectives already selected: one structuring choice can serve several slices and sessions, within the tutor's limit on active competencies.
+- A suggested occasion reserves nothing. Without a reservation, delegated decisions go ahead, and the tutor may later run a retrospective or counterfactual exercise announced as such. A decision already taken is never replayed as if Salah could still take it before delivery.
+- The tutor (`/hypotrail-study` in `chadlis/hypotrail-learning`) owns sessions, calibration, the short production asked before the detailed recommendation, and records. You never start a session, and you do not ask a teaching question at each interruption.
+- Never withhold information a real decision needs in order to protect an exercise. An urgent or required decision gets a full brief. A teaching result is never a product approval, and a teaching suggestion never becomes a merge restriction. Delegating a routine choice never waives tests, independent readers or reserved decisions. Teaching value never permits going past the accepted contract or the authorised budget, and never widens an authorisation.
+- Salah's agreement rate with your recommendations, his number of approvals, his declared confidence or his Anki scores alone are not evidence of competence. The tutor observes predictions, counterexamples, diagnoses, tests and delayed application, with the help received.
+
+Example, the declaration validation of chadlis/hypotrail#7: fixing coded refusals that were already required is delegated; where structural validation sits before domain checks is a good learning occasion if it matches a selected objective; an undecided change to the guarantees around `public_check`, the freeze or Exposure stays an owner decision.
 
 ## Learning notes and selected objectives, version 2
 
@@ -144,7 +191,7 @@ The short focus list in `chadlis/hypotrail-learning/apprentissage/parcours.md`, 
 
 If learning-repository access fails, keep the short note in a preparation/delivery comment on the **existing source issue** in `chadlis/hypotrail` (English, without personal Anki data), then reference that comment from the state. Update the same fallback comment on resume. Do not create a fallback `learn:` issue just to store it. If issue writes also fail, preserve the note locally and include its path/content in the delivery brief as unsaved. Do not block delivery solely on learning storage, and never claim that a failed save succeeded. If the learning repository cannot be read, take owner authority from the source issue, its comments and the state comment, and record that learning records were not read. Under `merge` or `chain`, do not merge until they are read or Salah confirms that no reservation is recorded there. Once access returns, reconcile into the same note and preserve its links. A reference-only note needs no exercise or promise to make one later.
 
-### The banner: first line of every turn, in French
+## The banner: first line of every turn, in French
 
 ```
 ▶︎ EXÉCUTION — rien à décider
@@ -156,7 +203,7 @@ If learning-repository access fails, keep the short note in a preparation/delive
 
 - At most one STOP per turn, and a STOP turn carries nothing else.
 - Running a command, even a long one that can fail, is EXÉCUTION.
-- Only these qualify for a STOP: a brief requiring a decision, a product decision (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. Optional learning preparation ends normally and is not a STOP.
+- Only these qualify for a STOP: an owner decision as defined in "Who decides" (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. A choice inside the delegation is not a STOP. Optional learning preparation ends normally and is not a STOP.
 
 A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn. **Every doubt carries at least two options and an argued recommendation.** Never infer PASS from a missing option or an absent answer. Distinguish a routine information brief from a STOP that requires an owner decision.
 
@@ -179,6 +226,15 @@ Writing style, in French: descriptive and explicit, never condensed or literary.
 **Unconditional authority check, including resumes.** Before dependent implementation and again before merge, read the current source issue and parent, their new comments since the last verified state, the linked slice notes, selected learning objectives and relevant `before` records. If no reliable checkpoint exists, read all relevant comments. Reconcile newly reserved, decided or delegated choices with the current contract. Record the last checked owner evidence and source excerpts in the state comment. Reading only that comment or Git is insufficient. A preparation session can have added a reservation after the preceding execution stopped.
 
 The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
+
+From the first review of record on, the state comment also holds the compact **findings register** (see "Routing findings") and one line per review round:
+- the reviewed base and head;
+- raw and deduplicated finding counts by routing row, and the cited paths;
+- pre-existing defects, incomplete fixes and demonstrated regressions, and for rounds 4 and 5 the defects resolved and introduced;
+- the models actually used if known, the available token or cost telemetry and durations (unknown stays unknown);
+- each human interruption, its reason, and whether the existing delegation could already have settled it.
+
+Defects found after acceptance are added when someone reports them. This record is what will be used to re-evaluate the five-round cap. Build no other tracking for it, and open no issue to hold it.
 
 On start, read it, then **check it against the repository** before trusting it:
 
@@ -224,23 +280,25 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
 | 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED` | `slice-gate`, fresh | its reading comes back |
-| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder` | you, then `slice-builder` | tickets resolved, full test suite green |
-| 5 | **Review of record**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports, kept verbatim |
-| 6 | Route the findings (table below); fixes go to `slice-builder`; after a fix, step 5 runs again, bare, on the fixes only: `/mattpocock-skills:code-review <head of the last reviewed round>` | you, then subagent | nothing left unrouted |
-| 7 | Documentation: the handbook (`docs/handbook/`) describes what changed; the README is still true; the PR names which acceptance tests (T-xx) it proves; update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above) | `slice-builder` | product docs exist, and learning notes are saved or preserved in the named fallback |
+| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, affected product documentation complete |
+| 5 | **Review of record, round 1**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports kept verbatim, each finding entered in the register |
+| 6 | Route each finding through the register (see "Routing findings"); fixes go to `slice-builder`. A correction followed by a review opens the next round: `/mattpocock-skills:code-review <head of the last reviewed round>`, bare. Checkpoint after round 3, plan before rounds 4 and 5, and stop at any floor (see "Review rounds") | you, then subagent | every finding fixed and verified, refuted with evidence, linked as a duplicate, or escalated; the accepted head is named |
+| 7 | Learning notes and links: update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above). The PR names which acceptance tests (T-xx) it proves | `slice-builder` | learning notes are saved or preserved in the named fallback |
 | 8 | PR, body shaped by `/pr`, closing the slice's tickets, not the slice | you | the PR exists |
 | 9 | Finalise and link the slice note, retaining preparation and owner decisions. Enrich a selected learning issue only if one exists. Create no learning issue. Offer `after` with the selected learning issue, or with the qualified source issue if a later session is wanted | you | note/fallback linked, existing selected objective updated or explicitly none |
 | 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner` | its list comes back |
-| 11 | Check pending decisions and authority. Default mode: give the brief with the open PR and stop. `merge`/`chain`: a pending decision gets a STOP and waits, otherwise continue to step 12 | you | no unresolved decision is passed over |
+| 11 | Check pending decisions and authority. Default mode: give the brief with the open PR and stop. `merge`/`chain`: a pending decision gets a STOP and waits. Continue to step 12 only with a completed review on the accepted head, required checks passing, no unresolved blocker, no unmet owner reservation and no other floor | you | no unresolved decision or blocker is passed over |
 | 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`, close the slice, add the squash SHA to the note and any already linked selected objective. Give the ordinary brief now, or once at the end under `chain` | you | merged state and learning reference are truthful |
 
 Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments. A line without a quoted source is your decision: it goes to brief item 2, not into the ticket.
+
+Complete affected product documentation before the first review of record. Step 7 finalises learning notes and links. Any later change affecting product behaviour or its documented contract requires appropriate verification and review before acceptance.
 
 `implement-spec` runs its own `code-review` from the author's side. That is hygiene. Step 5 is the review of record.
 
 ## Routing findings
 
-A finding that cites a requirement and a file line is real until shown otherwise. A finding that only proposes an improvement is out of scope, whoever raised it.
+A citation and a line number support investigation, but do not by themselves establish a valid finding. Missing behaviour may be cited without an existing implementation line. A finding that only proposes an improvement is out of scope, whoever raised it.
 
 Take the first row that applies:
 
@@ -252,6 +310,36 @@ Take the first row that applies:
 | identified work outside this slice | a new issue, label `needs-triage` |
 | something about the tooling (flaky test, broken script) | the brief, not the code |
 | none of the above | the brief, under "non classé" |
+
+Three readings of this table that it does not say on its face:
+- Missing required documentation is a requirement, row 1.
+- Duplicated code or an unflattering name is not, by itself, behaviour nobody asked for. Row 2 is about what the code does.
+- A product ambiguity is not settled by routing it to row 3. It follows the owner-decision gate of "Who decides".
+
+### The findings register
+
+Keep each original finding with a stable ID, its cited requirement, routing row, status and verification evidence. Link duplicates explicitly. Record reclassifications and their reasons. After its initial bare review, an axis reader must verify any disposition that dismisses or downgrades a potential row-1 or row-2 blocker. Drive cannot clear it alone.
+
+- **Where it lives.** A compact table in the state comment (`ID | round | axis | requirement | row | status | evidence`). An ID is assigned at first sighting and kept when a file is renamed or a remark is reworded.
+- **Statuses.** `open`, `confirmed`, `fixed-verified`, `refuted` (with its evidence), `duplicate of <ID>`, `disputed`.
+- **Disposition checks.** They go to the axis reader that raised the finding, continued when possible, otherwise a fresh `slice-gate` given that axis. They belong to the round in progress. Add no standing third reviewer and no chain of appeals: a dispute that the reader does not settle stays a blocker. If the contract itself is undecided, the owner-decision gate applies.
+
+Record the reviewed base and head, raw and deduplicated counts by routing row, cited paths, and available token/cost telemetry. Unknown usage stays unknown. Counts, repeated paths and blame attribution are diagnostic signals, not automatic floors. Raw and deduplicated counts are kept apart, and neither has to decrease.
+
+For a suspected regression, distinguish demonstrated before/after failure, an older defect newly discovered, an incomplete fix, and unknown origin. Use reproducible checks where possible, otherwise a concrete contract-based causal explanation.
+
+Before rounds 4 and 5, record the outstanding requirements, bounded correction scope and verification plan. Include tests for the relevant failure class. Do not add unrelated refactoring or change product scope.
+
+Incremental review includes affected dependencies and verification of earlier blockers. From round 2 on, the Spec reader's sources include the register's open entries as written (finding and cited requirement), without your disposition. Both readers start from the diff since the last reviewed head, and may read the callers, dependencies, tests and requirements a fix affects. Acceptance names the exact reviewed head and requires all blockers to be resolved, required checks to pass, and no later unreviewed change affecting behaviour or the accepted contract.
+
+### Fixing a family of defects
+
+When a defect reveals a family of mishandled inputs, the fix verifies the neighbouring cases the contract covers, not only the first counterexample. For a declaration validator, that can mean:
+- missing required keys and wrong types;
+- unknown keys in closed objects;
+- mixed Configuration kinds and retired keys.
+
+Check the coded refusal at the public entry point concerned, and that no forbidden effect happens before it. Keep valid cases, so that a validator that refuses everything fails. Optional keys, defaults and extension points follow the accepted contract: a removed or added key is not always a refusal. Parametrised tests are enough, and no property-based tool is required.
 
 **A rule found inside a slice belongs outside it.** If a subagent justifies a choice with a criterion that would apply to every later slice, that criterion goes to an ADR or the brief's apparatus list, not into one slice's code comments.
 
@@ -268,10 +356,10 @@ Use a STOP banner only if a decision is required. Otherwise use EXÉCUTION and p
 
    Any unresolved requirement or owner decision is handled before dependent work or merge. Never describe an unresolved ticket gate as retrospectively approved. Cite how each previously `INFERRED` ticket was settled, rather than asserting « ce ticket tient ».
 1. **What is waiting to reach `main`**: deferred apparatus diffs (including `retro`'s), invented behaviours, anything kept off `main`. One line each, with the cost of dropping it.
-2. What shipped, what you decided alone, what you filed instead of asking, what is still open.
+2. What shipped, what you decided alone, what you filed instead of asking, what is still open. Add the review rounds used and the register in brief (unique findings, reclassifications, demonstrated regressions against older defects), and a proposed bounded delegation if a category of question keeps coming back (see "Who decides").
 3. **L'ordre recommandé**: the order in which Salah should take the brief's items and the actions around them. Name which decisions he can answer now, which depend on an explicit owner decision or review of References, and which learning activities are merely optional preparation, which merges wait on which answer, and which later choice would make a chapter or a note false. One numbered list, each step with its reason.
 
-Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice. Append at most one learning focus and its link as information. Do not make every `learn:` issue another decision for Salah.
+Under `chain`, this is one brief for the whole chain, numbered continuously, each line naming its slice. Append at most one learning occasion and its link as information (see "Learning occasions"). Do not make every `learn:` issue another decision for Salah.
 
 ### The brief page
 
@@ -296,6 +384,10 @@ Salah asked for every brief, STOP or ordinary, to also reach him as one self-con
 - Appending anything to `/mattpocock-skills:code-review main`, or sending the bare `/code-review` instead.
 - Opening a turn without a banner, or crying STOP for something you could decide.
 - Raising a doubt without options.
+- Forwarding to Salah a question your delegation already covers, or deciding alone one that it does not.
+- Clearing or downgrading a row-1 or row-2 finding without an axis reader's verification.
+- Rerunning an unchanged review, or calling a head accepted when a later change was not reviewed.
+- Adding rounds to reach five when nothing is left to fix.
 - Applying an apparatus change instead of deferring it.
 - Stating the slice's position from memory instead of from the repository.
 
