@@ -212,8 +212,8 @@ def load_declaration(workload_dir: Path) -> dict:
             path.read_text(encoding="utf-8"), parse_float=_finite, parse_constant=_not_json
         )
     except FileNotFoundError:
-        raise _refuse("FILE_NOT_FOUND", f"declaration not found: {path}", file=str(path)) from None
+        raise _refuse("FILE_NOT_FOUND", f"declaration not found: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
     except ValueError:  # json.JSONDecodeError, a constant such as NaN, a float beyond the double range
-        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {path}", file=str(path)) from None
+        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
     validate_declaration(declaration)
     return declaration

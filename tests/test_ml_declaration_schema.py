@@ -371,3 +371,22 @@ def test_a_leaf_of_another_type_is_refused_with_its_own_code_and_key(tmp_path, p
     assert error.stage == "declaration"
     assert error.details["key"] == last_key(path)
     assert error.details["path"] == label(path)
+
+
+# --- the two file-level refusals carry key and path too (round 5, G4) -------------------------
+
+
+def test_a_missing_declaration_names_the_file_as_key_and_the_whole_document_as_path(tmp_path):
+    error = load_refusal(tmp_path)
+    assert (error.code, error.stage) == ("FILE_NOT_FOUND", "declaration")
+    assert error.details["key"] == "workload.json" and error.details["path"] == ""
+    assert error.details["file"] == str(tmp_path / "workload.json")
+
+
+@pytest.mark.parametrize("text", ["{", "", "[1, NaN]", '{"period_k": 1e999}'])
+def test_a_declaration_that_is_not_json_names_the_file_as_key_and_the_whole_document_as_path(tmp_path, text):
+    (tmp_path / "workload.json").write_text(text, encoding="utf-8")
+    error = load_refusal(tmp_path)
+    assert (error.code, error.stage) == ("FILE_NOT_JSON", "declaration")
+    assert error.details["key"] == "workload.json" and error.details["path"] == ""
+    assert error.details["file"] == str(tmp_path / "workload.json")
