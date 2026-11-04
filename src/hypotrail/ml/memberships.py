@@ -3,7 +3,7 @@
 Reads a Workload's declarations (`workload.json`) and its daily series, derives
 one Item per date and writes `memberships.csv`. Standard library only. Every
 parameter comes from the declaration: the Partition date ranges, the period k
-(the first k days have no complete history and are excluded) and the columns.
+(a day is excluded when any of the k dates before it is absent from the data) and the columns.
 Nothing is drawn at random and nothing depends on the order of the input rows.
 The caller verifies the data against its lock first (`hypotrail.core.data`).
 """
@@ -75,13 +75,22 @@ def derive_memberships(workload_dir: Path) -> list[dict]:
     declaration = load_declaration(workload_dir)
     ranges = _partition_ranges(declaration)
     dates = _read_dates(workload_dir, declaration)
-    warm_up = set(dates[: declaration["period_k"]])
-    for date in dates[: declaration["period_k"]]:
+    present = set(dates)
+    k = declaration["period_k"]
+    # A day has an incomplete history when any of the k dates before it is absent from the data.
+    incomplete = {
+        date
+        for date in dates
+        if any(date - datetime.timedelta(days=offset) not in present for offset in range(1, k + 1))
+    }
+    for date in dates:
+        if date not in incomplete:
+            continue
         for first, last, name in ranges:
             if first <= date <= last:
                 raise _refuse(
                     "PARTITION_COVERS_WARMUP",
-                    f"Partition {name} covers the warm-up day {date.isoformat()}",
+                    f"Partition {name} covers the day {date.isoformat()}, whose history is incomplete",
                     partition=name,
                     date=date.isoformat(),
                 )
@@ -89,7 +98,7 @@ def derive_memberships(workload_dir: Path) -> list[dict]:
     rows = []
     for date in dates:
         partition, reason = "", ""
-        if date in warm_up:
+        if date in incomplete:
             reason = WARM_UP_REASON
         else:
             for first, last, name in ranges:

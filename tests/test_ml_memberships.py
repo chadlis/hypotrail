@@ -147,3 +147,37 @@ def test_adds_no_cli_command():
     from hypotrail import cli
 
     assert "memberships" not in Path(cli.__file__).read_text()
+
+
+GAP_DATES = [d for d in DATES if d != "2020-03-10"]
+GAP_RANGES = {
+    "train": ["2020-03-04", "2020-03-09"],
+    "dev": ["2020-03-14", "2020-03-16"],
+    "public_check": ["2020-03-17", "2020-03-20"],
+}
+
+
+def test_a_day_is_excluded_when_any_of_its_k_previous_dates_is_absent(tmp_path):
+    # 2020-03-10 is absent. With k=3, the three days after the gap lack a complete history,
+    # wherever they stand in the file; the first three days of the file lack one too.
+    workload = make_workload(tmp_path, k=3, ranges=GAP_RANGES, dates=GAP_DATES)
+    out = tmp_path / "out"
+    write_memberships(workload, out)
+    rows = read_memberships(out)
+
+    excluded = [r for r in rows if r["partition"] == ""]
+    assert [r["date"] for r in excluded] == [
+        "2020-03-01", "2020-03-02", "2020-03-03", "2020-03-11", "2020-03-12", "2020-03-13",
+    ]
+    assert all(r["exclusion_reason"] == "insufficient_history" for r in excluded)
+    by_date = {r["date"]: r["partition"] for r in rows}
+    assert by_date["2020-03-14"] == "dev"  # 03-11, 03-12, 03-13 all exist
+
+
+def test_a_partition_covering_a_day_with_incomplete_history_after_a_gap_is_refused(tmp_path):
+    ranges = {**GAP_RANGES, "train": ["2020-03-04", "2020-03-11"]}
+    workload = make_workload(tmp_path, k=3, ranges=ranges, dates=GAP_DATES)
+    with pytest.raises(InvalidInputError) as error:
+        write_memberships(workload, tmp_path / "out")
+    assert error.value.code == "PARTITION_COVERS_WARMUP"
+    assert error.value.details["date"] == "2020-03-11"
