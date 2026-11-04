@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.table import read_table
 
 DECLARATION_NAME = "workload.json"
 MEMBERSHIPS_NAME = "memberships.csv"
@@ -56,25 +57,10 @@ def _partition_ranges(declaration: dict) -> list:
     return ranges
 
 
-def _read_dates(workload_dir: Path, declaration: dict) -> list:
-    column = declaration["date_column"]
-    with (Path(workload_dir) / declaration["data_file"]).open(newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        if column not in (reader.fieldnames or []):
-            raise _refuse("DATE_COLUMN_MISSING", f"no column {column!r} in the data", column=column)
-        try:
-            dates = [datetime.date.fromisoformat(row[column]) for row in reader]
-        except (ValueError, TypeError):
-            raise _refuse("UNREADABLE_DATE", f"unreadable date in column {column!r}", column=column) from None
-    if len(set(dates)) != len(dates):
-        raise _refuse("DUPLICATE_DATE", "a date appears more than once")
-    return sorted(dates)
-
-
 def derive_memberships(workload_dir: Path) -> list[dict]:
     declaration = load_declaration(workload_dir)
     ranges = _partition_ranges(declaration)
-    dates = _read_dates(workload_dir, declaration)
+    dates = list(read_table(workload_dir, declaration))
     present = set(dates)
     k = declaration["period_k"]
     # A day has an incomplete history when any of the k dates before it is absent from the data.

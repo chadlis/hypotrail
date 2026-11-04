@@ -8,6 +8,8 @@ never a target: the References are a separate artifact (`references.py`).
 import csv
 from pathlib import Path
 
+from hypotrail.core.errors import InvalidInputError
+
 PREDICTIONS_NAME = "predictions.csv"
 COLUMNS = ["row_id", "y_pred_raw", "y_pred", "config_id"]
 
@@ -27,7 +29,12 @@ def write_predictions(out_dir: Path, config_id: str, row_ids, raw_values, *, cli
     """`clip_min` is the Configuration's declared lower bound (default 0, SPEC ML-03)."""
     row_ids, raw_values = list(row_ids), list(raw_values)
     if len(row_ids) != len(raw_values):
-        raise ValueError("row_ids and raw_values differ in length")
+        raise InvalidInputError(
+            "PREDICTIONS_LENGTH_MISMATCH",
+            "row_ids and raw_values differ in length",
+            stage="predictions",
+            details={"row_ids": len(row_ids), "raw_values": len(raw_values)},
+        )
     clipped, _ = clip_below(raw_values, clip_min)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

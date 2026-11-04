@@ -52,3 +52,22 @@ def fit_probe(*, strict: bool = False):
                 delattr(cls, method)
             else:
                 setattr(cls, method, own)
+
+
+def write_small_workload(directory, csv_text, *, extra=None):
+    """A tiny Workload (date column `day`, target `visits`, k=1) around the given CSV text."""
+    import json
+    from pathlib import Path
+
+    directory = Path(directory)
+    (directory / "data").mkdir(parents=True)
+    (directory / "data" / "series.csv").write_text(csv_text, encoding="utf-8")
+    declaration = {
+        "schema_version": "workload/1", "data_file": "data/series.csv",
+        "licence_notice": "none.md", "id_prefix": "shop-day", "date_column": "day",
+        "target_column": "visits", "period_k": 1,
+        "partitions": {"train": ["2020-01-02", "2020-01-03"]},
+        **(extra or {}),
+    }
+    (directory / "workload.json").write_text(json.dumps(declaration), encoding="utf-8")
+    return directory

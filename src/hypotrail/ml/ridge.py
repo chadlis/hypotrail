@@ -15,7 +15,6 @@ fitted once, on the declared fit Partition only. Predicting any other Partition
 never fits anything.
 """
 
-import csv
 import datetime
 import json
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import derive_memberships, load_declaration
 from hypotrail.ml.predictions import clip_below, write_predictions
 from hypotrail.ml.series import read_target_series
+from hypotrail.ml.table import read_table
 
 PARAMETERS_NAME = "sklearn_params.json"
 PREDICTED_PARTITION = "dev"
@@ -69,12 +69,6 @@ def load_configuration(workload_dir: Path, config_id: str) -> dict:
     return {"declaration": declaration, "configuration": configuration}
 
 
-def _read_rows_by_date(workload_dir: Path, declaration: dict) -> dict:
-    column = declaration["date_column"]
-    with (Path(workload_dir) / declaration["data_file"]).open(newline="", encoding="utf-8") as handle:
-        return {datetime.date.fromisoformat(row[column]): row for row in csv.DictReader(handle)}
-
-
 def _columns(configuration: dict) -> list:
     return [f["name"] for f in configuration["lag_features"]] + list(configuration["calendar_columns"])
 
@@ -82,7 +76,7 @@ def _columns(configuration: dict) -> list:
 def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInputs:
     loaded = load_configuration(workload_dir, config_id)
     declaration, configuration = loaded["declaration"], loaded["configuration"]
-    rows = _read_rows_by_date(workload_dir, declaration)
+    rows = read_table(workload_dir, declaration, configuration["calendar_columns"])
     target = read_target_series(workload_dir, declaration)
     lag_names = [f["name"] for f in configuration["lag_features"]]
 
