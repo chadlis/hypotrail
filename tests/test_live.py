@@ -742,7 +742,9 @@ def test_both_configurations_send_the_same_explicit_reasoning_setting_and_the_10
 
 def test_the_record_holds_the_reasoning_setting_and_the_output_cap_as_sent(both_rehearsals):
     for configuration, (_, record, out) in both_rehearsals.items():
-        assert record["reasoning"] == {"setting": "disabled", "requested": "none", "sent": {"type": "disabled"}}
+        assert {k: v for k, v in record["reasoning"].items() if k != "note"} == {
+            "setting": "disabled", "requested": "none", "sent": {"type": "disabled"}
+        }
         assert record["output_cap"] == {"requested": 1024, "sent": 1024}
         assert record["configuration"] == configuration
         assert record["system_text"] == WORKLOAD.system_text(configuration)
@@ -816,3 +818,40 @@ def test_an_episode_with_no_usage_in_the_log_has_null_tokens_not_zero():
 
     usage = agentic_live.usage_of(Sample())
     assert usage == {"model_calls": 0, "latency_seconds": 1.5, "input_tokens": None, "output_tokens": None, "cost": None}
+
+
+# --- the reasoning setting must be stated by the request, or nothing is sent ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("model", "thinking"),
+    [("anthropic/claude-sonnet-5", {"type": "disabled"}), ("anthropic/claude-sonnet-5-5", {"type": "between_tools"})],
+)
+def test_the_request_inspect_would_build_states_the_reasoning_setting(model, thinking):
+    assert agentic_live.reasoning_in_request(agentic_live.live_model(model, FAKE_KEY)) == thinking
+
+
+@pytest.mark.parametrize("model", ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-5-5"])
+def test_a_model_whose_request_would_not_state_reasoning_is_refused_and_nothing_is_sent(
+    tmp_path, clean_env, model
+):
+    from hypotrail.core.errors import HypotrailError
+
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
+        agentic_live.run_live(
+            model_id=model, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+        )
+    assert caught.value.code == "REASONING_NOT_EXPLICIT" and caught.value.exit_code == 2
+    assert fake.requests == []
+    assert not (tmp_path / "out").exists()
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_the_record_explains_between_tools_for_disabled_reasoning(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        assert "between_tools" in record["reasoning"]["note"]
+        assert "no up-front thinking" in record["reasoning"]["note"]

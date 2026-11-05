@@ -12,7 +12,7 @@ from importlib import metadata
 from pathlib import Path
 
 from inspect_ai.log import read_eval_log
-from inspect_ai.model import Model, get_model
+from inspect_ai.model import GenerateConfig, Model, get_model
 
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
@@ -25,6 +25,16 @@ ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 # setting; disabled keeps the whole cap for the answer. Inspect's name for it is "none".
 REASONING_EFFORT = "none"
 REASONING_SETTING = "disabled"
+# From Inspect's Anthropic provider (`completion_config` and `_supports_disabling_thinking`): for
+# reasoning_effort="none" it sends thinking {"type": "disabled"}; Sonnet 5.5 rejects "disabled" and
+# is sent {"type": "between_tools"} instead, which its source calls "no up-front thinking" and the
+# model's lowest setting. Its source does not say whether thinking may still occur between tool calls.
+REASONING_NOTE = (
+    'reasoning_effort "none" is sent as thinking {"type": "disabled"}; for Sonnet 5.5, which rejects '
+    '"disabled", Inspect sends {"type": "between_tools"}, described in its source as no up-front thinking '
+    "and the model's lowest setting. Inspect's source does not say whether thinking may still happen "
+    "between tool calls."
+)
 EXPECTED_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]
 
 
@@ -143,6 +153,18 @@ def request_parameters(log) -> dict | None:
     return None
 
 
+def reasoning_in_request(model: Model) -> dict | None:
+    """The `thinking` field Inspect's own request building gives this model, with no network.
+
+    It asks the provider's `completion_config` for the parameters it would send for the run's
+    generation settings. None means the request would not state the reasoning setting.
+    """
+    config = GenerateConfig(
+        max_tokens=limits_module.EpisodeLimits().max_output_tokens, reasoning_effort=REASONING_EFFORT
+    )
+    return model.api.completion_config(config)[0].get("thinking")
+
+
 def usage_of(sample) -> dict:
     """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
 
@@ -186,6 +208,15 @@ def run_live(
     configuration: str = "plain",
 ) -> dict:
     out_dir = Path(out_dir)
+    model = live_model(model_id, api_key, base_url)
+    if reasoning_in_request(model) is None:
+        raise InvalidInputError(
+            "REASONING_NOT_EXPLICIT",
+            f"the request for {model_id} would not state the reasoning setting; "
+            "a live run needs it explicit, so nothing was sent",
+            stage="live",
+            details={"model": model_id},
+        )
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
             "OUTPUT_NOT_EMPTY",
@@ -202,7 +233,7 @@ def run_live(
             workload.cases("dev", case_ids),
             workload=workload,
             configuration=configuration,
-            model=live_model(model_id, api_key, base_url),
+            model=model,
             repeats=repeats,
             log_dir=out_dir / "inspect",
             limits=limits_module.EpisodeLimits(),
@@ -285,6 +316,7 @@ def _record(
             "setting": REASONING_SETTING,
             "requested": _read_back_reasoning(location),
             "sent": (parameters or {}).get("thinking"),
+            "note": REASONING_NOTE,
         },
         "output_cap": {"requested": limits.max_output_tokens, "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
