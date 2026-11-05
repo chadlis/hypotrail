@@ -98,13 +98,15 @@ def _spike_live(args) -> int:
     import os
 
     from hypotrail.agentic import cases
+    from hypotrail.agentic.declaration import load_workload
     from hypotrail.core import data, live
 
     model = live.require_model(args.model)
     examples = data.default_examples_dir()
-    cases_path = examples / "chinook" / "cases" / "chinook-dev.jsonl"
-    # `hypotrail.agentic.cases` imports no Inspect, so it is read here, before the key.
-    dev_ids = {case["case_id"] for case in cases.load_cases(cases_path)}
+    workload_dir = examples / "chinook"
+    # Neither the declaration nor `hypotrail.agentic.cases` imports Inspect, so they are read
+    # here, before the key.
+    dev_ids = {case["case_id"] for case in cases.load_cases(load_workload(workload_dir).cases_path("dev"))}
     case_ids = args.case or ["D03", "D05"]
     live.check_bounds(case_ids, args.repeats, dev_ids)
     # The key is read last among the cheap checks and before Inspect is imported:
@@ -117,8 +119,7 @@ def _spike_live(args) -> int:
     record = agentic_live.run_live(
         model_id=model,
         api_key=api_key,
-        cases_path=cases_path,
-        database=examples / "chinook" / "data" / "Chinook_Sqlite.sqlite",
+        workload_dir=workload_dir,
         case_ids=case_ids,
         repeats=args.repeats,
         out_dir=args.out,

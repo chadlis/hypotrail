@@ -8,13 +8,14 @@ import time
 import anyio
 from inspect_ai.model import ModelOutput
 
-from _agent_helpers import CASES, DATABASE, MODEL, ScriptedModel
+from _agent_helpers import CASES, DATABASE, MODEL, WORKLOAD, ScriptedModel
 
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner, sql_tool
 from hypotrail.agentic.sql_tool import QueryCaps
 
+CONFIGURATION = "plain"
 CROSS_JOIN = "SELECT count(*) FROM InvoiceLine, PlaylistTrack, Track"
 OUT_OF_REACH_INSTRUCTIONS = 10**13
 OUT_OF_REACH_SECONDS = 600.0
@@ -160,7 +161,8 @@ def test_the_episode_time_limit_stops_an_episode_whose_query_outlasts_it(tmp_pat
     started = time.monotonic()
     location = runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration=CONFIGURATION,
         model=runner.mock_model(costly),
         repeats=1,
         log_dir=tmp_path / "logs",
@@ -181,7 +183,8 @@ def test_the_run_records_the_four_caps_next_to_the_episode_limits(tmp_path):
     caps = QueryCaps(time_seconds=2.0, max_instructions=7_000_000, max_rows=150, max_bytes=2048)
     location = runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration=CONFIGURATION,
         model=runner.mock_model(ScriptedModel(cases)),
         repeats=1,
         log_dir=tmp_path / "logs",

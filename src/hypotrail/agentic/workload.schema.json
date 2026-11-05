@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/agentic/workload.schema.json",
+  "title": "workload.json of the tool-using agent Track",
+  "description": "The whole shape of a Workload declaration of the agentic Track. Every key is required: the one entry point that reads it builds a task from all of them. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "configurations"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "track": {"type": "string", "enum": ["tool_using_agent"]},
+    "workload_id": {"$ref": "#/$defs/name"},
+    "licence_notice": {"$ref": "#/$defs/name"},
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "dataset_id"],
+      "properties": {
+        "file": {"$ref": "#/$defs/name"},
+        "dataset_id": {"$ref": "#/$defs/name"}
+      }
+    },
+    "cases": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/name"}
+    },
+    "references": {"$ref": "#/$defs/name"},
+    "configurations": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/configuration"}
+    }
+  },
+  "$defs": {
+    "name": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "configuration": {
+      "description": "Either a full system text, or another Configuration's text followed by one added instruction.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "system_text": {"$ref": "#/$defs/text"},
+        "extends": {"$ref": "#/$defs/name"},
+        "added_instruction": {"$ref": "#/$defs/text"}
+      },
+      "oneOf": [
+        {"required": ["system_text"], "not": {"anyOf": [{"required": ["extends"]}, {"required": ["added_instruction"]}]}},
+        {"required": ["extends", "added_instruction"], "not": {"required": ["system_text"]}}
+      ]
+    }
+  }
+}
