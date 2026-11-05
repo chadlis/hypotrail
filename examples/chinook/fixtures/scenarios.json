@@ -1,0 +1,66 @@
+{
+  "schema_version": "scenarios/1",
+  "mode": "scripted_fixture",
+  "description": "Technical scenarios for the scripted_fixture Mode. They are not business Cases: none of them is one of the 20 questions of the dev and public_check Partitions. A script is data read by generic code: each entry is one model turn (a tool call, an answer built from the last tool result, or a raw answer). The tools it calls are the real local tools on the Chinook file.",
+  "scenarios": [
+    {
+      "scenario_id": "good_result",
+      "case": {"case_id": "SCN-01", "question": "Scenario: how many tracks have the genre Rock?", "answer_columns": ["track_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["track_count"], "rows": [[1297]], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS track_count FROM Track t JOIN Genre g ON t.GenreId = g.GenreId WHERE g.Name = 'Rock'"}}},
+        {"answer_from_last_result": {"unit": "count"}}
+      ]
+    },
+    {
+      "scenario_id": "wrong_result",
+      "case": {"case_id": "SCN-02", "question": "Scenario: how many artists are in the catalogue?", "answer_columns": ["artist_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["artist_count"], "rows": [[275]], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS artist_count FROM Album"}}},
+        {"answer_from_last_result": {"unit": "count"}}
+      ]
+    },
+    {
+      "scenario_id": "invalid_format",
+      "case": {"case_id": "SCN-03", "question": "Scenario: how many genres are there?", "answer_columns": ["genre_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["genre_count"], "rows": [[25]], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS genre_count FROM Genre"}}},
+        {"raw_answer": "There are 25 genres in the catalogue."}
+      ]
+    },
+    {
+      "scenario_id": "recovered_tool_error",
+      "case": {"case_id": "SCN-04", "question": "Scenario: how many media types are there?", "answer_columns": ["media_type_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["media_type_count"], "rows": [[5]], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELEC COUNT(*) AS media_type_count FROM MediaType"}}},
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS media_type_count FROM MediaType"}}},
+        {"answer_from_last_result": {"unit": "count"}}
+      ]
+    },
+    {
+      "scenario_id": "budget_exhausted",
+      "case": {"case_id": "SCN-05", "question": "Scenario: how many playlists are there?", "answer_columns": ["playlist_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["playlist_count"], "rows": [[18]], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS playlist_count FROM Playlist"}}, "repeat": true}
+      ]
+    },
+    {
+      "scenario_id": "missing_reference",
+      "case": {"case_id": "SCN-06", "question": "Scenario: how many employees are there?", "answer_columns": ["employee_count"], "unit": "count"},
+      "script": [
+        {"tool_call": {"function": "query_readonly", "arguments": {"sql": "SELECT COUNT(*) AS employee_count FROM Employee"}}},
+        {"answer_from_last_result": {"unit": "count"}}
+      ]
+    },
+    {
+      "scenario_id": "absent_from_log",
+      "case": {"case_id": "SCN-07", "question": "Scenario: how many invoices are there?", "answer_columns": ["invoice_count"], "unit": "count"},
+      "reference": {"status": "answered", "reason_code": null, "columns": ["invoice_count"], "rows": [[412]], "unit": "count"},
+      "script": null
+    }
+  ]
+}

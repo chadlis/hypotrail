@@ -1,8 +1,8 @@
 """Projecting an Inspect eval log into one record per Episode (Case x Repeat).
 
 The log is read through Inspect's public log API only. An Episode is `produced`
-when it ran to an answer or to a limit, `failed` when its execution stopped
-with an error, and `missing` when the log holds nothing for it. Inspect's
+when it ran to an answer, `failed` when its execution stopped with an error or at one of our
+limits (turns, time, tokens) before any final answer, and `missing` when the log holds nothing for it. Inspect's
 `epoch` is 1-based; a Repeat is 0-based, as in the kit's fixture.
 """
 
@@ -80,6 +80,11 @@ def _episode(sample, model: str) -> dict:
             ]
         else:
             status, reason, final = "failed", "execution_failed", None
+    elif sample.limit is not None and final is None:
+        # Stopped by one of our limits before any final answer: no output exists, so the Episode
+        # is `failed` (GLOSSARY, Observation set), never `produced` with no answer. The Reason
+        # names the limit that stopped it.
+        status, reason = "failed", f"{sample.limit.type}_limit"
     return {
         "case_id": str(sample.id),
         "repeat": sample.epoch - 1,
