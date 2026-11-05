@@ -453,6 +453,9 @@ wheels = [
 name = "hypotrail"
 version = "0.0.0"
 source = { editable = "." }
+dependencies = [
+    { name = "jsonschema" },
+]
 
 [package.optional-dependencies]
 agent = [
@@ -473,6 +476,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", marker = "extra == 'agent'", specifier = "==2.3.0" },
     { name = "inspect-ai", marker = "extra == 'agent'", specifier = "==0.3.287" },
+    { name = "jsonschema", specifier = "==4.26.0" },
     { name = "numpy", marker = "extra == 'ml'", specifier = "==2.5.4" },
     { name = "scikit-learn", marker = "extra == 'ml'", specifier = "==1.9.1" },
 ]

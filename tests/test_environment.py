@@ -78,18 +78,18 @@ def _locked_versions():
     return {p["name"]: p["version"] for p in lock["package"]}
 
 
-def test_inspect_scikit_learn_and_numpy_are_extras_not_core_dependencies():
+def test_the_core_depends_on_one_schema_validator_and_inspect_scikit_learn_numpy_are_extras():
     project = _pyproject()["project"]
-    assert project["dependencies"] == []
+    assert project["dependencies"] == ["jsonschema==4.26.0"]
     extras = project["optional-dependencies"]
     assert any(d.startswith("inspect-ai") for d in extras["agent"])
     assert {d.split("==")[0] for d in extras["ml"]} == {"numpy", "scikit-learn"}
 
 
-def test_every_extra_is_pinned_exactly_and_matches_the_committed_lock():
+def test_every_dependency_is_pinned_exactly_and_matches_the_committed_lock():
     locked = _locked_versions()
-    extras = _pyproject()["project"]["optional-dependencies"]
-    pinned = [dep for deps in extras.values() for dep in deps]
+    project = _pyproject()["project"]
+    pinned = list(project["dependencies"]) + [dep for deps in project["optional-dependencies"].values() for dep in deps]
     assert pinned, "no extras declared"
     for dep in pinned:
         name, sep, version = dep.partition("==")

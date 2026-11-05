@@ -1,0 +1,41 @@
+"""The predictions artifact, shared by every Configuration of the temporal regression Track.
+
+`predictions.csv` holds `row_id`, `y_pred_raw`, `y_pred` and `config_id`, and
+never a target: the References are a separate artifact (`references.py`).
+`y_pred` is `y_pred_raw` bounded below at the Configuration's declared `clip_min`, zero by default (SPEC ML-03).
+"""
+
+import csv
+from pathlib import Path
+
+from hypotrail.core.errors import InvalidInputError
+
+PREDICTIONS_NAME = "predictions.csv"
+COLUMNS = ["row_id", "y_pred_raw", "y_pred", "config_id"]
+
+
+def clip_below(raw_values, minimum=0) -> list:
+    """max(minimum, raw) for each value."""
+    return [float(minimum) if value < minimum else value for value in raw_values]
+
+
+def write_predictions(out_dir: Path, config_id: str, row_ids, raw_values, *, clip_min=0) -> Path:
+    """`clip_min` is the Configuration's declared lower bound (default 0, SPEC ML-03)."""
+    row_ids, raw_values = list(row_ids), list(raw_values)
+    if len(row_ids) != len(raw_values):
+        raise InvalidInputError(
+            "PREDICTIONS_LENGTH_MISMATCH",
+            "row_ids and raw_values differ in length",
+            stage="predictions",
+            details={"row_ids": len(row_ids), "raw_values": len(raw_values)},
+        )
+    clipped = clip_below(raw_values, clip_min)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / PREDICTIONS_NAME
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(COLUMNS)
+        for row_id, raw, value in zip(row_ids, raw_values, clipped):
+            writer.writerow([row_id, raw, value, config_id])
+    return path

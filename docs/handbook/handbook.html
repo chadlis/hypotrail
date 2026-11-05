@@ -141,15 +141,15 @@ pre.code .cm{color:var(--faint)}
 <h1>Hypotrail <em>handbook</em></h1>
 <p class="sub">What each part does, how to run it, its limits, and which decision record explains it. It describes the current state and is rewritten when that changes.</p>
 </header>
-<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a></nav>
+<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a><a href="#temporal-regression-track" style="--ac:var(--teal)"><span>02</span>Temporal regression Track</a></nav>
 <section id="feasibility-spike" style="--ac:var(--gold)"><div class="sh"><div class="n">01</div><div><p class="k">Spike</p><h2>Feasibility spike</h2></div></div>
 <p class="lead">The spike proved on the target machine that the chosen stack works before anything general is built: a locked Python 3.13 environment, both public datasets verified, an <b>Inspect</b> task where a model calls a read-only SQL tool on Chinook, and a live trace of a real model doing it. This chapter is the reference for what exists, how to run it and where it stops.</p>
 
 <div class="prose">
 <h3>Install and run</h3>
-<p>The project is a uv project on Python 3.13 with a committed lock. The core needs only the standard library; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
+<p>The project is a uv project on Python 3.13 with a committed lock. The core needs the standard library and one schema validator, <code>jsonschema</code>; the Inspect and the machine-learning dependencies are optional extras (<code>agent</code> and <code>ml</code>).</p>
 </div>
-<pre class="code"><span class="cm"># core only: the standard library</span>
+<pre class="code"><span class="cm"># core only: the standard library and jsonschema</span>
 uv sync --locked
 uv run python -m hypotrail --help
 
@@ -245,6 +245,141 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <div class="card" style="--c:var(--teal)"><h3>Rehearsal</h3><p>The live path is exercised in the suite against a fake endpoint on loopback, so the real Anthropic client, the key header and the key scan are tested without a real call.</p></div>
 <div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The full SQL authorizer allow-list and the row, size and time caps, <code>describe_schema</code>, the <code>plain</code> and <code>verify</code> prompts, the format and evidence Criteria, and the Import and Assessment contracts.</p></div>
 </div>
+</section>
+<section id="temporal-regression-track" style="--ac:var(--teal)"><div class="sh"><div class="n">02</div><div><p class="k">Track</p><h2>Temporal regression Track</h2></div></div>
+<p class="lead">The temporal regression Track runs the daily bike-rental Workload end to end on the Partition <code>dev</code>: it derives the Items of each Partition, builds the References, produces the predictions of two declared Configurations, <code>seasonal_7</code> and <code>ridge_v1</code>, scores them and writes a first Comparison with per-date paired differences and <code>delta_mae</code>. It is a library driven from Python: there is no command line for it yet.</p>
+
+<div class="prose">
+<h3>The Workload declaration</h3>
+<p>The Workload is declarative and holds no Python (<a href="../adr/0002-workloads-are-declarative.md">ADR 0002</a>). Everything the Track needs is a parameter read from <code>examples/bike_day/workload.json</code>, next to its data (<code>data/day.csv</code>) and licence notice. The Track code in <code>src/hypotrail/ml/</code> fixes only two things: the Partition roles <code>train</code>, <code>dev</code> and <code>public_check</code> (protocol vocabulary, defined once in <code>partitions.py</code>) and the two kinds of Configuration it knows, with the keys each takes. Every other rule is checked against the declarations below.</p>
+<p>The shape of <code>workload.json</code> is described once, as a JSON Schema (<code>src/hypotrail/ml/workload.schema.json</code>) checked by <code>jsonschema</code>, the one schema validator of the core (<code>jsonschema</code> is a pinned dependency of the core, not of an extra). The schema lists every key at every level, each kind of Configuration with the keys it takes, and the type of every value, leaves included: a column name is a string, a period is a whole number (<code>7.0</code> and <code>true</code> are not), <code>clip_min</code> is a number, <code>sparse_output</code> is a boolean. It also lists the values the Track can run: <code>ridge.solver</code> is one of <code>auto</code>, <code>svd</code>, <code>cholesky</code>, <code>lsqr</code>, <code>sparse_cg</code>, <code>sag</code>, <code>saga</code>; <code>encoder.handle_unknown</code> is <code>ignore</code> or <code>error</code>; <code>encoder.sparse_output</code> is <code>false</code> (the Track feeds a dense matrix to scikit-learn); <code>ridge.alpha</code> is at least 0; the root <code>period_k</code> is at least 1; <code>id_prefix</code> and the file and column names are not empty; the dates of a Partition are calendar dates <code>YYYY-MM-DD</code>; <code>track</code>, when present, is <code>temporal_regression</code>. A declaration that does not match is refused when it is loaded, with a code and the <code>path</code> of the faulty value, before any data is read, any model is fitted, any prediction is made or any file is written. The Track keeps no hand-written check of what the schema guarantees.</p>
+<p>Only <code>partitions</code> is required by the schema, because it is the one key every public entry point reads (memberships, References, the seasonal baseline, the Ridge outputs, metrics and the Comparison). Any other key is required by the entry points that read it, which refuse its absence with <code>DECLARATION_INCOMPLETE</code> before they write anything: <code>data_file</code>, <code>date_column</code>, <code>id_prefix</code> and <code>period_k</code> by memberships (and so by References and by the two Configurations); <code>target_column</code> by References and the two Configurations; <code>forbidden_features</code>, <code>allowed_target_features</code> and <code>configurations</code> by the two Configurations; <code>target_unit</code> by metrics and the Comparison. <code>schema_version</code>, <code>track</code> and <code>licence_notice</code> are read by no Track code and may be absent. The rules that relate values to each other or to the protocol stay in Track code and run after the schema (see Refusals).</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="declaration"><thead><tr><th>Key</th><th>Value for <code>bike_day</code></th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>data_file</code>, <code>date_column</code>, <code>target_column</code>, <code>target_unit</code></td><td><code>data/day.csv</code>, <code>dteday</code>, <code>cnt</code>, <code>rentals per day</code></td><td>The table is read by date, never by row position; the unit is carried into every metric.</td></tr>
+<tr><td><code>id_prefix</code></td><td><code>bike-day</code></td><td>An Item ID is <code>bike-day:YYYY-MM-DD</code>; it is the column <code>row_id</code> of every artifact.</td></tr>
+<tr><td><code>period_k</code></td><td>7</td><td>Warm-up: a day whose k previous dates are not all in the data has an incomplete history.</td></tr>
+<tr><td><code>partitions</code></td><td><code>train</code> 2011-01-08 to 2011-12-31; <code>dev</code> 2012-01-01 to 2012-06-30; <code>public_check</code> 2012-07-01 to 2012-12-31</td><td>Date ranges, inclusive. Nothing is drawn at random. The roles are the Track's: fitting is on <code>train</code>, metrics and Comparisons are on <code>dev</code>, <code>public_check</code> is the held-out check. A Workload declares the ranges and always declares <code>train</code>, whatever its Configurations (a baseline-only Workload without it is refused).</td></tr>
+<tr><td><code>forbidden_features</code></td><td><code>casual</code>, <code>registered</code>, <code>cnt</code>, <code>temp</code>, <code>atemp</code>, <code>hum</code>, <code>windspeed</code>, <code>weathersit</code></td><td>Columns not known at date t.</td></tr>
+<tr><td><code>allowed_target_features</code></td><td><code>lag_1</code>, <code>lag_7</code> (kind <code>lag</code>), <code>mean_previous_7</code> (kind <code>mean_previous</code>)</td><td>The only transformations of the target a Configuration may use.</td></tr>
+<tr><td><code>configurations</code></td><td><code>seasonal_7</code>, <code>ridge_v1</code></td><td>The key is the Configuration's id. Each declares its <code>kind</code>: <code>seasonal_baseline</code> or <code>ridge_pipeline</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Memberships and References</p>
+<div class="prose">
+<p><code>write_memberships(workload_dir, out_dir)</code> derives one row per date of the data into <code>memberships.csv</code> with the columns <code>row_id</code>, <code>date</code>, <code>partition</code> and <code>exclusion_reason</code>. A date inside a declared range gets that Partition. A date whose history is incomplete gets no Partition and the reason <code>insufficient_history</code>; for Bike these are the seven first days, 2011-01-01 to 2011-01-07. A declared range may not cover such a day, and a date that falls in no range is refused, so the declaration and the data are always consistent. The result does not depend on the order of the input rows.</p>
+<p><code>write_references(workload_dir, out_dir)</code> writes <code>references.csv</code> (<code>row_id</code>, <code>y_true</code>): the target of every Item that belongs to a Partition. Predictions never carry their own target; metrics join this file by <code>row_id</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="memberships-counts"><thead><tr><th>Partition</th><th>Items</th></tr></thead><tbody>
+<tr><td><code>train</code></td><td>358</td></tr>
+<tr><td><code>dev</code></td><td>182</td></tr>
+<tr><td><code>public_check</code></td><td>184</td></tr>
+<tr><td>excluded (<code>insufficient_history</code>)</td><td>7</td></tr>
+<tr><td>rows of <code>memberships.csv</code></td><td>731</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The two Configurations</p>
+<div class="prose">
+<ul>
+<li><b><code>seasonal_7</code></b> (kind <code>seasonal_baseline</code>; <code>baselines.py</code>, needs neither scikit-learn nor NumPy): the prediction for date t is the target 7 days earlier. Nothing is fitted. Its declaration holds <code>period_k</code> and <code>post_processing.clip_min</code>. A period must be a declared <code>lag</code> of <code>allowed_target_features</code>.</li>
+<li><b><code>ridge_v1</code></b> (kind <code>ridge_pipeline</code>; <code>ridge.py</code>, needs the <code>ml</code> extra: it imports scikit-learn and NumPy, and nothing in the core does): the inputs are the lag features <code>lag_1</code>, <code>lag_7</code>, <code>mean_previous_7</code>, computed from dates in <code>lags.py</code> (only values strictly before t are read), and the calendar columns <code>mnth</code>, <code>weekday</code>, <code>holiday</code>, <code>workingday</code> read as they are. A scikit-learn <code>Pipeline</code> holds a <code>ColumnTransformer</code> (a <code>OneHotEncoder</code> on the calendar columns, <code>handle_unknown=ignore</code>, dense output; a <code>StandardScaler</code> on the lags) and a <code>Ridge</code> (<code>alpha</code> 1.0, intercept, solver <code>svd</code>). The pipeline is fitted once, on the <code>train</code> Partition, always. Predicting any other Partition fits nothing.</li>
+</ul>
+<p>Both apply the same post-processing: <code>y_pred</code> is <code>y_pred_raw</code> bounded below at the declared <code>clip_min</code> (0), applied once when the predictions are written. Both go through the same function (<code>configuration.load_configuration</code>) before anything is fitted or predicted. The declared kind picks the keys a Configuration may carry; the schema refuses an unknown kind, or a key that does not belong to its kind, when the declaration is loaded. The checks that apply to every Configuration (forbidden features, target transformations that reach date t or later, target transformations the Workload does not declare) run for every kind.</p>
+</div>
+
+<p class="sub2">Output formats</p>
+<div class="tblwrap"><table class="tbl" id="artifacts"><thead><tr><th>File</th><th>Written by</th><th>Content</th></tr></thead><tbody>
+<tr><td><code>memberships.csv</code></td><td><code>memberships.write_memberships</code></td><td><code>row_id</code>, <code>date</code>, <code>partition</code>, <code>exclusion_reason</code></td></tr>
+<tr><td><code>references.csv</code></td><td><code>references.write_references</code></td><td><code>row_id</code>, <code>y_true</code></td></tr>
+<tr><td><code>predictions.csv</code></td><td><code>baselines.write_seasonal_baseline</code>, <code>ridge.write_outputs</code></td><td><code>row_id</code>, <code>y_pred_raw</code>, <code>y_pred</code>, <code>config_id</code>. No target. One row per Item of the predicted Partition.</td></tr>
+<tr><td><code>sklearn_params.json</code></td><td><code>ridge.write_outputs</code>, beside the <code>ridge_v1</code> predictions</td><td>The effective parameters of the fitted estimators as scikit-learn reports them, one entry (<code>class</code>, <code>params</code>) each for <code>pipeline</code>, <code>preprocessor</code> (the <code>ColumnTransformer</code>), <code>encoder</code>, <code>scaler</code> and <code>ridge</code>. Package versions are frozen by <code>uv.lock</code>, not recorded here.</td></tr>
+<tr><td><code>comparison.json</code></td><td><code>comparison.compare</code></td><td><code>mode</code> (<code>native_ml</code>), <code>population</code> (Partition, count, <code>row_ids</code>), <code>metric</code>, <code>control</code> and <code>candidate</code> (each with its <code>config_id</code> and the metrics below), <code>delta_mae</code> and <code>differences</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Metrics</p>
+<div class="prose">
+<p><code>metrics.compute_metrics(predictions, references, memberships, workload_dir, partition="dev")</code> joins predictions, References and memberships by <code>row_id</code> and scores <code>y_pred</code>. The predictions must be exactly the Items of the Partition, each with a reference; a repeated <code>row_id</code>, a value that is not a finite number or a missing reference is refused. Reported: <code>mae</code> (the primary metric), <code>rmse</code>, <code>mae_by_month</code> and <code>clipped_count</code> (the number of Items where <code>y_pred</code> differs from <code>y_pred_raw</code>). Each carries the declared unit and a direction (<code>lower_is_better</code>); the order of the files changes nothing.</p>
+<p>Metrics are computed on <code>dev</code> only. Any other Partition is refused; <code>public_check</code> has its own code.</p>
+</div>
+
+<p class="sub2">Comparison on dev</p>
+<div class="prose">
+<p><code>comparison.compare(control_predictions, candidate_predictions, references, memberships, out_dir, workload_dir, partition="dev")</code> pairs the two predictions files by <code>row_id</code>. They must cover exactly the same Items: there is no silent intersection. It reports the metrics of each side over the same scored Items and, for each Item, <code>control_abs_error</code>, <code>candidate_abs_error</code> and <code>delta_abs_error</code> (Candidate minus Control). <code>delta_mae</code> is <code>MAE(Candidate) - MAE(Control)</code> taken from the two reported MAEs: a positive value means the Candidate is worse. An improvement is never required. Here <code>seasonal_7</code> is the Control and <code>ridge_v1</code> the Candidate.</p>
+<p>Numbers produced by running the code on the bike Workload (unit: rentals per day, 182 Items of <code>dev</code>, <code>clipped_count</code> 0 for both):</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="dev-comparison"><thead><tr><th>Quantity</th><th>seasonal_7 (Control)</th><th>ridge_v1 (Candidate)</th></tr></thead><tbody>
+<tr data-metric="mae"><td>MAE</td><td>1090.79</td><td>1264.73</td></tr>
+<tr data-metric="rmse"><td>RMSE</td><td>1469.17</td><td>1480.28</td></tr>
+<tr data-metric="delta_mae"><td><code>delta_mae</code></td><td colspan="2">+173.94 (the Candidate is worse)</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="dev-mae-by-month"><thead><tr><th>Month</th><th>seasonal_7 MAE</th><th>ridge_v1 MAE</th></tr></thead><tbody>
+<tr><td>2012-01</td><td>917.35</td><td>995.69</td></tr>
+<tr><td>2012-02</td><td>853.62</td><td>987.23</td></tr>
+<tr><td>2012-03</td><td>1299.94</td><td>1705.72</td></tr>
+<tr><td>2012-04</td><td>1427.50</td><td>1445.37</td></tr>
+<tr><td>2012-05</td><td>994.32</td><td>1267.98</td></tr>
+<tr><td>2012-06</td><td>1046.13</td><td>1171.30</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a <code>code</code>, a <code>message</code>, a <code>stage</code> and <code>details</code>. Nothing is dropped or included silently, and a declaration or Configuration is refused before anything is fitted or predicted. Every refusal raised while the declaration is loaded has the stage <code>declaration</code> and its <code>details</code> give <code>key</code> and <code>path</code> (the dotted path of the faulty value, empty at the root). A declaration file that is missing or not JSON is refused with <code>FILE_NOT_FOUND</code> or <code>FILE_NOT_JSON</code>: <code>key</code> is the file name, <code>path</code> is empty (the whole document) and <code>file</code> is its location. A period that no date can apply (it reaches before the first date of the calendar) passes the schema, since it depends on the dates; it is refused when a date is shifted, in memberships, lags and the seasonal baseline, with <code>DECLARATION_VALUE_NOT_ALLOWED</code>, stage <code>declaration</code>, and the <code>key</code> and <code>path</code> of the period.</p>
+<div class="tblwrap"><table class="tbl" id="refusals"><thead><tr><th>Case</th><th>Code</th></tr></thead><tbody>
+<tr><td>A model input (lag name, calendar column, encoder or scaler column) is in <code>forbidden_features</code></td><td><code>FORBIDDEN_FEATURE</code></td></tr>
+<tr><td>A lag feature that is not exactly one of <code>allowed_target_features</code>, or a <code>seasonal_baseline</code> period that is not a declared <code>lag</code></td><td><code>TARGET_TRANSFORMATION_NOT_ALLOWED</code></td></tr>
+<tr><td>A Configuration period below 1, which would reach date t or later</td><td><code>TARGET_FEATURE_NOT_PAST</code></td></tr>
+<tr><td>A model input taken by neither the encoder nor the scaler; a transformer column that is not a model input</td><td><code>MODEL_INPUT_NOT_TRANSFORMED</code>, <code>TRANSFORMER_COLUMN_NOT_A_MODEL_INPUT</code></td></tr>
+<tr><td>An id the Workload does not declare</td><td><code>CONFIGURATION_NOT_DECLARED</code></td></tr>
+<tr><td>A Configuration with no kind or an unknown kind</td><td><code>CONFIGURATION_KIND_UNKNOWN</code></td></tr>
+<tr><td>A Configuration with a key that does not belong to its kind (for example <code>period_k</code> on a <code>ridge_pipeline</code>)</td><td><code>CONFIGURATION_KEY_NOT_FOR_KIND</code></td></tr>
+<tr><td>A Workload that declares no <code>train</code> Partition, whatever its Configurations (a check in Track code, after the schema; stage <code>declaration</code>)</td><td><code>TRAIN_PARTITION_NOT_DECLARED</code></td></tr>
+<tr><td>A key missing from the declaration, from a Configuration or from one of its objects (for example <code>partitions</code>, <code>post_processing</code>, <code>ridge</code>, <code>lag_features</code>, the <code>period</code> of a lag feature), or an optional root key (such as <code>target_unit</code> or <code>period_k</code>) that the entry point called reads</td><td><code>DECLARATION_INCOMPLETE</code> (<code>details.key</code> names it)</td></tr>
+<tr><td>A key the declaration does not define, in a closed object at any level (for example a stale top-level <code>fit_partition</code>)</td><td><code>DECLARATION_KEY_UNKNOWN</code></td></tr>
+<tr><td>A value of the wrong JSON type, leaf or container (a string where a number, an object or a list is expected, <code>clip_min: null</code>, <code>period_k: "7"</code>, <code>7.5</code>, <code>7.0</code> or <code>true</code> where a whole number is expected)</td><td><code>DECLARATION_WRONG_TYPE</code></td></tr>
+<tr><td>A value of the right type that the schema does not allow (<code>period_k</code> of 0 or -1, an empty <code>id_prefix</code>, <code>ridge.solver: "bogus"</code>, <code>encoder.sparse_output: true</code>, a negative <code>alpha</code>, a lag <code>kind</code> other than <code>lag</code> or <code>mean_previous</code>, an empty feature, column or forbidden-feature name, a Partition date such as <code>2011-02-30</code>, a Partition range that is not two dates, a <code>track</code> other than <code>temporal_regression</code>)</td><td><code>DECLARATION_VALUE_NOT_ALLOWED</code></td></tr>
+<tr><td>Metrics or a Comparison on a Partition other than <code>dev</code></td><td><code>METRICS_PARTITION_NOT_DEV</code>, <code>COMPARISON_PARTITION_NOT_DEV</code></td></tr>
+<tr><td>Metrics or a Comparison on <code>public_check</code></td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code>, <code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
+<tr><td><code>dev</code> not declared by the Workload</td><td><code>PARTITION_NOT_DECLARED</code></td></tr>
+<tr><td>Predictions that are not exactly the Items of the Partition; Control and Candidate on different Items</td><td><code>PREDICTIONS_DO_NOT_MATCH_PARTITION</code>, <code>COMPARISON_ITEMS_DIFFER</code></td></tr>
+<tr><td>Ranges that overlap, end before they start, cover a warm-up day, or leave a day in no Partition</td><td><code>PARTITIONS_OVERLAP</code>, <code>BAD_PARTITION_RANGE</code>, <code>PARTITION_COVERS_WARMUP</code>, <code>DATE_IN_NO_PARTITION</code></td></tr>
+</tbody></table></div>
+<p class="prose">A date-keyed lag cannot read the future: a lag whose source date is absent from the series is refused with <code>LAG_SOURCE_MISSING</code>. Other input errors (unreadable or duplicated dates, a missing column, a target that is not a finite number) carry their own codes and name the column or date.</p>
+
+<p class="sub2">How to run it</p>
+<p class="prose">There is no command for this Track yet. The functions are called from Python, after the data has been checked against its lock with <code>uv run python -m hypotrail data verify --workload bike_day</code>; the Track functions themselves do not verify the data. <code>ridge_v1</code> needs the <code>ml</code> extra (<code>uv sync --locked --all-extras</code>).</p>
+<pre class="code"><span class="cm"># from the repository root</span>
+from pathlib import Path
+from hypotrail.ml.memberships import write_memberships
+from hypotrail.ml.references import write_references
+from hypotrail.ml.baselines import write_seasonal_baseline
+from hypotrail.ml.ridge import write_outputs
+from hypotrail.ml.comparison import compare
+
+workload, out = Path("examples/bike_day"), Path("out")
+write_memberships(workload, out)
+write_references(workload, out)
+write_seasonal_baseline(workload, out / "control", "seasonal_7", "dev")
+write_outputs(workload, out / "candidate", "ridge_v1", "dev")   <span class="cm"># also writes sklearn_params.json</span>
+result = compare(
+    out / "control" / "predictions.csv", out / "candidate" / "predictions.csv",
+    out / "references.csv", out / "memberships.csv", out / "comparison", workload,
+)
+print(result["delta_mae"]["value"])</pre>
+<p class="prose">The tests that run the real Workload through both Configurations are <code>tests/test_ml_bike_end_to_end.py</code>; the causality, refusal and Comparison tests are in the other <code>tests/test_ml_*.py</code> files. Like the rest of the suite they run offline and call no model.</p>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--coral)"><h3>No Study</h3><p>No Study, run manifest, <code>request_id</code> or command line. These contracts belong to issue #9.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>No freeze, no Exposure</h3><p>No protocol freeze and no Exposure journal. Because no use of <code>public_check</code> can be recorded, every metric and Comparison on it is refused. Both belong to issue #30.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Data lock</h3><p>The Track does not verify the data against its lock; the caller does (<code>data verify</code>, later the command of issue #9).</p></div>
+<div class="card" style="--c:var(--amber)"><h3>Comparison contract</h3><p><code>mode</code> is a constant, <code>native_ml</code>. The strict comparability checks of the Comparison are a later contract. The code sits in <code>hypotrail/ml/</code>, not in the core (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a> names the Comparison as a core concept).</p></div>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partition date ranges, the target, the lag period, the forbidden features and the Configurations are parameters in <code>workload.json</code>. The Partition roles and the Configuration kinds are the Track's vocabulary, not Workload parameters.</td></tr>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the core does not import Inspect; this Track does not use Inspect, and scikit-learn is imported by <code>ridge.py</code> only.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this handbook is a reference for behaviour, updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
 </section>
 <footer><span>Hypotrail &middot; handbook</span><div class="pj"><span>ADRs in docs/adr</span><span>Vocabulary in GLOSSARY.md</span></div></footer>
 </div>
