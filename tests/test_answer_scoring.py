@@ -218,7 +218,12 @@ def test_rescoring_a_kept_log_twice_gives_identical_verdicts_and_calls_nothing(
     assert first == second
     assert [(v["case_id"], v["repeat"]) for v in first] == expected
     assert all(
-        {c["name"]: c["score"] for c in v["criteria"]} == {"exact_table": True, "format_valid": True}
+        {c["name"]: c["score"] for c in v["criteria"]} == {
+                "exact_table": True,
+                "format_valid": True,
+                "evidence_link_valid": True,
+                "contract_success": True,
+            }
         for v in first
     )
     assert all(v["scorer"]["name"] == "chinook_contract_v1" for v in first)

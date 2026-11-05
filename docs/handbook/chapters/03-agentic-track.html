@@ -1,5 +1,5 @@
 <!-- chapter: id=agentic-track; kicker=Track; title=Agentic Track; accent=violet -->
-<p class="lead">The agentic Track asks a model Chinook questions and scores the answer it keeps. This chapter describes the part that exists: the Workload declaration and the task built from it, and the <code>chinook_contract_v1</code> Scorer, which turns one Episode's raw final answer and its Reference into two Criteria, <code>exact_table</code> and <code>format_valid</code>, and keeps failures of the instrument apart from failures of the evaluated system. The spike chapter covers the runs and the log projection.</p>
+<p class="lead">The agentic Track asks a model Chinook questions and scores the answer it keeps. This chapter describes the part that exists: the Workload declaration and the task built from it, and the <code>chinook_contract_v1</code> Scorer, which turns one Episode's raw final answer, its Reference and its projected trace into four Criteria, <code>exact_table</code>, <code>format_valid</code>, <code>evidence_link_valid</code> and <code>contract_success</code>, and keeps failures of the instrument apart from failures of the evaluated system. The spike chapter covers the runs and the log projection.</p>
 
 <div class="prose">
 <h3>Where the Scorer lives</h3>
@@ -74,10 +74,12 @@
 <p>The row, size and time caps of the tool are not built yet; they belong to issue #8.</p>
 </div>
 
-<p class="sub2">The two Criteria</p>
+<p class="sub2">The four Criteria</p>
 <div class="tblwrap"><table class="tbl" id="chinook-criteria"><thead><tr><th>Criterion</th><th>Scored true when</th><th>Scored false when</th></tr></thead><tbody>
 <tr><td><code>exact_table</code></td><td>Status, <code>reason_code</code>, columns in order, rows in the requested order, types and unit all equal the Reference.</td><td>Any of them differs, or the answer is malformed (then every component is false).</td></tr>
 <tr><td><code>format_valid</code></td><td>The raw answer is one JSON object, with no Markdown fence and no prose, valid against the Workload's <code>table-answer/1</code> schema.</td><td>Otherwise, with the Reason <code>invalid_response_format</code>: text that is not JSON, a fenced object, an object with prose around it, a missing or extra field, or <code>needs_clarification</code> with non-empty rows.</td></tr>
+<tr><td><code>evidence_link_valid</code></td><td>Every ID the answer cites is the application <code>tool_call_id</code> of a successful tool call of this Episode, made before the final answer, whose native ID matches a tool-call event of the log. An <code>answered</code> answer must cite at least one.</td><td>A cited ID is found nowhere in the trace (another Case or another Repeat included), designates a call that failed, comes after the final answer, or has a native ID matching no tool-call event; or an <code>answered</code> answer cites nothing. Reasons: <code>evidence_unknown_id</code>, <code>evidence_call_failed</code>, <code>evidence_after_final_answer</code>, <code>evidence_no_native_event</code>, <code>evidence_missing</code>.</td></tr>
+<tr><td><code>contract_success</code></td><td>For <code>answered</code>: <code>exact_table</code> and <code>format_valid</code> and <code>evidence_link_valid</code> all true. For <code>needs_clarification</code> and <code>not_answerable</code>: <code>format_valid</code> true and the exact status and <code>reason_code</code>, with no tool call required.</td><td>As soon as one of those is false. A malformed answer is never a success, even when the Reference is missing.</td></tr>
 </tbody></table></div>
 <div class="prose">
 <p>The comparison rules are the spike's: no string is converted to a number, a boolean is not an integer, NULL stays NULL, non-finite numbers are refused, and no number is picked out of prose. The numeric tolerance is read from the Reference (<code>numeric_absolute_tolerance</code>), not from the code: on E08 an answer within 0.005 of 283910.04 is correct and one beyond it is not, and every other number, whose Reference tolerance is 0, is compared exactly.</p>
@@ -94,12 +96,18 @@
 <p><code>format_valid</code> does not need the Reference, so a missing Reference leaves it scored. A crash is caught where the core applies the Scorer to one Episode (<code>apply_scorer</code>): that Episode's Criteria become <code>errored</code>, the exception's type goes into the structured field <code>error_type</code> (the message is never kept or read), the other Episodes are still scored, and the Episode's execution status stays <code>produced</code>. The log projection of the spike keeps telling an Inspect scorer crash from an execution failure through structured fields of the log, never through error text.</p>
 </div>
 
+<p class="sub2">The evidence link and contract success</p>
+<div class="prose">
+<p>A successful tool call is one with no Inspect-level tool error and no structured <code>error</code> in its result body (the shape <code>{code, type, message}</code> that the read-only SQL tool returns, for example when its authorizer refuses a statement). The Scorer reads the Episode's projected <code>steps</code>, plain records, and never an Inspect object; the projection itself still reads the log only through Inspect's public log API. The link is a check that a cited ID points to a real, earlier, successful call. It is not a proof that every claim in the answer follows from the trace.</p>
+<p>An exact table with no valid evidence is exact but not a success of the tool-based path: <code>exact_table</code> true, <code>evidence_link_valid</code> false, contract success false. Contract success is scored false as soon as one dependency is false, whatever the state of the others. Only when none is false and one is <code>unscored</code> or <code>errored</code> does it take that state and Reason: a well-formed answer with valid evidence and a missing Reference gives <code>unscored</code> with <code>reference_missing</code>. Without a trace, <code>evidence_link_valid</code> is <code>unscored</code> (<code>trace_missing</code>), and so is the contract success of an <code>answered</code> answer; for a malformed answer, whose <code>evidence</code> cannot be read, it is <code>unscored</code> with <code>invalid_response_format</code>.</p>
+</div>
+
 <p class="sub2">Choices and limits worth knowing</p>
 <div class="grid2">
 <div class="card" style="--c:var(--violet)"><h3>Malformed means not exact</h3><p>A malformed answer, including a valid JSON object with an extra field, is scored false on <code>exact_table</code> as well; <code>format_valid</code> carries the Reason.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Failed and missing Episodes</h3><p>Rescoring leaves the Criteria of a <code>failed</code> or <code>missing</code> Episode, and of a produced Episode without a final answer, unset (<code>criteria: None</code>). How they are scored waits on an owner decision.</p></div>
 <div class="card" style="--c:var(--gold)"><h3>The schema is an input</h3><p>The Scorer is given the Workload's <code>table-answer/1</code> schema; it does not read it from disk, so rescoring opens no Workload file.</p></div>
-<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p><code>evidence_link_valid</code> and contract success, counts per Criterion, the Assessment contract and a closed Scorer registry, and an Inspect adapter (ADR 0001's parity test applies if one is built).</p></div>
+<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>Scoring answers imported without a trace, counts per Criterion, the Assessment contract and a closed Scorer registry, and an Inspect adapter (ADR 0001's parity test applies if one is built).</p></div>
 </div>
 
 <p class="sub2">Where the decisions are</p>

@@ -1,5 +1,8 @@
 """Rescoring a kept log: projection plus the `chinook_contract_v1` Scorer.
 
+The Scorer is given the Episode's projected steps (plain records), so it can check the
+evidence link; it never sees an Inspect object.
+
 Neither the model nor any tool is run, and the Chinook file is not opened: the
 frozen References are enough. Only Episodes the log shows as `produced` with an
 answer are scored here; how a `failed` or `missing` Episode is scored is not decided
@@ -34,7 +37,7 @@ def rescore_log(
         }
         if episode["status"] == "produced" and episode["final_answer"] is not None:
             reference = references.get(episode["case_id"])
-            verdict.update(apply_scorer(scorer, episode["final_answer"], reference, schema))
+            verdict.update(apply_scorer(scorer, episode["final_answer"], reference, schema, episode["steps"]))
         else:
             verdict.update({"scorer": None, "criteria": None})
         verdicts.append(verdict)
