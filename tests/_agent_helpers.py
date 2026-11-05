@@ -5,12 +5,15 @@ from pathlib import Path
 
 from inspect_ai.model import ModelOutput
 
+from hypotrail.agentic.declaration import load_workload
+
 ROOT = Path(__file__).resolve().parent.parent
 CHINOOK = ROOT / "examples" / "chinook"
 DATABASE = CHINOOK / "data" / "Chinook_Sqlite.sqlite"
 CASES = CHINOOK / "cases" / "chinook-dev.jsonl"
 REFERENCES = CHINOOK / "references" / "chinook-references.jsonl"
 MODEL = "mockllm/model"
+WORKLOAD = load_workload(CHINOOK)
 
 
 def read_jsonl(path):

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from hypotrail.agentic.prompt import render_model_input
+from hypotrail.agentic.prompt import render_user_message
 
 
 def load_cases(path: Path, case_ids: list[str] | None = None) -> list[dict]:
@@ -22,8 +22,8 @@ def load_cases(path: Path, case_ids: list[str] | None = None) -> list[dict]:
     return [by_id[case_id] for case_id in case_ids]
 
 
-def model_input(case: dict) -> tuple[str, str]:
-    """The (system, user) texts for a Case: an allow-list of three fields."""
-    return render_model_input(
+def user_message(case: dict) -> str:
+    """The user message for a Case: an allow-list of three fields."""
+    return render_user_message(
         question=case["question"], columns=case["answer_columns"], unit=case["unit"]
     )
