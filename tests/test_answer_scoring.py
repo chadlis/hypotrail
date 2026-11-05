@@ -20,6 +20,7 @@ from hypotrail.agentic import projection, rescore, runner, sql_tool
 from hypotrail.core import answer_scoring
 
 ROOT = Path(__file__).resolve().parent.parent
+SCHEMA = json.loads((ROOT / "examples" / "chinook" / "schemas" / "table-answer.schema.json").read_text())
 REFS = {r["case_id"]: r for r in read_jsonl(REFERENCES)}
 SPIKE = ["D03", "D05"]
 
@@ -210,12 +211,16 @@ def test_rescoring_a_kept_log_twice_gives_identical_verdicts_and_calls_nothing(
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
     calls = _forbid(monkeypatch)
 
-    first = rescore.rescore_log(kept_log, REFS, expected=expected)
-    second = rescore.rescore_log(kept_log, REFS, expected=expected)
+    first = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
+    second = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
 
     assert first == second
     assert [(v["case_id"], v["repeat"]) for v in first] == expected
-    assert all(v["correct"] is True for v in first)
+    assert all(
+        {c["name"]: c["score"] for c in v["criteria"]} == {"exact_table": True, "format_valid": True}
+        for v in first
+    )
+    assert all(v["scorer"]["name"] == "chinook_contract_v1" for v in first)
     assert calls == []
 
 

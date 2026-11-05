@@ -91,7 +91,7 @@ The value a scored Criterion gives one Item: a boolean (correct or incorrect) or
 _Avoid_: grade, mark, verdict (for numeric values)
 
 **Reason**:
-The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing` or `scoring_failed`.
+The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing`, `reference_invalid` or `scoring_failed`.
 _Avoid_: error message, explanation (for the code)
 
 **Instrument failure**:
