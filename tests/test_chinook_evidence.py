@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from _agent_helpers import CASES, CHINOOK, DATABASE, REFERENCES, ScriptedModel, read_jsonl
+from _agent_helpers import CASES, CHINOOK, REFERENCES, WORKLOAD, ScriptedModel, read_jsonl
 
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import projection, rescore, runner
@@ -275,7 +275,8 @@ def episodes(tmp_path):
     cases = case_module.load_cases(CASES, SPIKE)
     location = runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(ScriptedModel(cases)),
         repeats=2,
         log_dir=tmp_path / "logs",

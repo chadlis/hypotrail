@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, REFERENCES, ScriptedModel, read_jsonl
+from _agent_helpers import CASES, DATABASE, REFERENCES, WORKLOAD, ScriptedModel, read_jsonl
 
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState
@@ -162,7 +162,8 @@ def kept_log(tmp_path):
     script = ScriptedModel(spike_cases())
     return runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=2,
         log_dir=tmp_path / "logs",
@@ -263,7 +264,8 @@ def run_with(tmp_path, *, scorer_, error_on=None, error_message="scripted model 
     script = ScriptedModel(spike_cases(), error_on=error_on, error_message=error_message)
     return runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=1,
         log_dir=tmp_path / "logs",

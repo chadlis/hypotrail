@@ -4,17 +4,21 @@ The database path is fixed by the application when the tool is built; the model
 supplies the SQL and nothing else. The file is opened read-only for each
 execution, and a single statement is run with `execute`, never `executescript`.
 
-`mode=ro` covers the main database only, so `VACUUM INTO '/path'` and
-`ATTACH DATABASE '/path'` could still write a file. Two native SQLite mechanisms
-close that, with no inspection of the SQL text: the number of attached databases
-is limited to 0, and a minimal authorizer allows only the actions that read
-(SELECT, READ, FUNCTION, RECURSIVE) and denies every other one, ATTACH and
-DETACH among them. A denied statement comes back as a structured tool error.
+SQLite decides what runs; this module never reads the SQL text. Three native
+mechanisms do the work:
 
-This is not the AG-03 allow-list. The full allow-list (reads on the eleven
-tables, the permitted functions, refusing PRAGMA, transactions and system
-tables) and the row, size and time caps belong to the agentic Track slice
-(issue #8), not to this spike.
+- the number of attached databases is limited to 0 (`mode=ro` covers the main
+  database only);
+- an authorizer holds the AG-03 allow-list: SELECT, reads of the tables the file
+  itself declares (so never its system tables), and the functions `count`,
+  `sum`, `avg`, `min`, `max`, `round`, `lower`, `upper`, `coalesce`, `ifnull`
+  and `strftime`. Every other action is denied: writes, DDL, ATTACH, DETACH,
+  PRAGMA, transactions, VACUUM, extension loading, any other function;
+- `execute` accepts a single statement.
+
+A refused or failed statement comes back as a structured tool error whose `code`
+tells a denied action from a SQL error and from a call holding several
+statements. Row, size and time caps are another ticket.
 """
 
 import json
@@ -27,25 +31,93 @@ from inspect_ai.tool import Tool, tool
 from hypotrail.core.data import open_sqlite_readonly
 
 
-_ALLOWED_ACTIONS = frozenset(
-    {
-        sqlite3.SQLITE_SELECT,
-        sqlite3.SQLITE_READ,
-        sqlite3.SQLITE_FUNCTION,
-        sqlite3.SQLITE_RECURSIVE,
-    }
+DENIED_ACTION = "DENIED_ACTION"
+SQL_ERROR = "SQL_ERROR"
+MULTIPLE_STATEMENTS = "MULTIPLE_STATEMENTS"
+
+ALLOWED_FUNCTIONS = frozenset(
+    {"count", "sum", "avg", "min", "max", "round", "lower", "upper", "coalesce", "ifnull", "strftime"}
 )
 
 
-def _authorize(action, arg1, arg2, database, trigger):
-    """SQLite's authorizer callback: read actions pass, every other action is denied."""
-    return sqlite3.SQLITE_OK if action in _ALLOWED_ACTIONS else sqlite3.SQLITE_DENY
+def declared_tables(connection: sqlite3.Connection) -> frozenset[str]:
+    """The tables the file itself declares, read before the authorizer is installed."""
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'"
+    )
+    return frozenset(name for (name,) in rows)
 
 
-def restrict_connection(connection: sqlite3.Connection) -> None:
-    """No attached database and no action but reads, on this connection."""
+class _Authorizer:
+    """SQLite's authorizer callback. It remembers that it denied something, because
+    SQLite reports a denied function as a plain SQL error, not as an authorization one."""
+
+    def __init__(self, tables: frozenset[str]):
+        self.tables = tables
+        self.denied = False
+
+    def __call__(self, action, arg1, arg2, database, trigger):
+        if action == sqlite3.SQLITE_SELECT:
+            return sqlite3.SQLITE_OK
+        if action == sqlite3.SQLITE_READ and database in (None, "main") and arg1 in self.tables:
+            return sqlite3.SQLITE_OK
+        if action == sqlite3.SQLITE_FUNCTION and arg2 and arg2.lower() in ALLOWED_FUNCTIONS:
+            return sqlite3.SQLITE_OK
+        self.denied = True
+        return sqlite3.SQLITE_DENY
+
+
+def restrict_connection(connection: sqlite3.Connection) -> _Authorizer:
+    """No attached database and no action off the allow-list, on this connection."""
+    authorizer = _Authorizer(declared_tables(connection))
     connection.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
-    connection.set_authorizer(_authorize)
+    connection.set_authorizer(authorizer)
+    return authorizer
+
+
+def _error(error: Exception, authorizer: _Authorizer) -> dict:
+    if authorizer.denied:
+        code = DENIED_ACTION
+    elif isinstance(error, sqlite3.ProgrammingError):
+        code = MULTIPLE_STATEMENTS
+    else:
+        code = SQL_ERROR
+    return {"code": code, "type": type(error).__name__, "message": str(error)}
+
+
+def schema_description(database: Path) -> dict:
+    """The tables of the file with their columns, types and foreign keys, read from SQLite itself.
+
+    The application reads the schema (`PRAGMA` on a read-only connection); the model supplies
+    nothing. It holds no row, no Reference and no oracle SQL.
+    """
+    connection = open_sqlite_readonly(database)
+    try:
+        names = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        ]
+        tables = []
+        for name in names:
+            quoted = '"' + name.replace('"', '""') + '"'
+            tables.append(
+                {
+                    "name": name,
+                    "columns": [
+                        {"name": c[1], "type": c[2], "not_null": bool(c[3]), "primary_key_position": c[5]}
+                        for c in connection.execute(f"PRAGMA table_info({quoted})")
+                    ],
+                    "foreign_keys": [
+                        {"from": f[3], "table": f[2], "to": f[4]}
+                        for f in connection.execute(f"PRAGMA foreign_key_list({quoted})")
+                    ],
+                }
+            )
+        return {"tables": tables}
+    finally:
+        connection.close()
 
 
 def run_query(database: Path, sql: str) -> dict:
@@ -64,17 +136,27 @@ def run_query(database: Path, sql: str) -> dict:
         "tool_call_id": f"hypotrail-{uuid.uuid4().hex}",
     }
     connection = open_sqlite_readonly(database)
+    authorizer = None
     try:
-        restrict_connection(connection)
+        authorizer = restrict_connection(connection)
         cursor = connection.execute(sql)
         result["columns"] = [d[0] for d in cursor.description or []]
         result["rows"] = [list(row) for row in cursor.fetchall()]
         result["row_count"] = len(result["rows"])
     except (sqlite3.Error, ValueError) as error:
-        result["error"] = {"type": type(error).__name__, "message": str(error)}
+        result["error"] = _error(error, authorizer)
     finally:
         connection.close()
     return result
+
+
+@tool
+def describe_schema(database: Path) -> Tool:
+    async def execute() -> str:
+        """Describe the database: its tables, their columns and types, and their foreign-key relations."""
+        return json.dumps(schema_description(database))
+
+    return execute
 
 
 @tool
@@ -90,4 +172,4 @@ def query_readonly(database: Path) -> Tool:
     return execute
 
 
-__all__ = ["open_sqlite_readonly", "query_readonly", "run_query"]
+__all__ = ["describe_schema", "open_sqlite_readonly", "query_readonly", "run_query", "schema_description"]

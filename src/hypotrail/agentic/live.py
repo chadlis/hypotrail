@@ -13,9 +13,9 @@ from pathlib import Path
 from inspect_ai.log import read_eval_log
 from inspect_ai.model import Model, get_model
 
-from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
+from hypotrail.agentic.declaration import load_workload
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -141,12 +141,12 @@ def run_live(
     *,
     model_id: str,
     api_key: str,
-    cases_path: Path,
-    database: Path,
+    workload_dir: Path,
     case_ids: list[str],
     repeats: int,
     out_dir: Path,
     base_url: str = ANTHROPIC_BASE_URL,
+    configuration: str = "plain",
 ) -> dict:
     out_dir = Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
@@ -159,10 +159,11 @@ def run_live(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def work() -> dict:
-        cases = case_module.load_cases(cases_path, case_ids)
+        workload = load_workload(workload_dir)
         location = runner.run_episodes(
-            cases,
-            database=database,
+            workload.cases("dev", case_ids),
+            workload=workload,
+            configuration=configuration,
             model=live_model(model_id, api_key, base_url),
             repeats=repeats,
             log_dir=out_dir / "inspect",
@@ -209,6 +210,9 @@ def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str],
     record = {
         "mode": "llm_live",
         "provider": "anthropic",
+        # the exact prompt text of the Configuration, as the log header kept it
+        "configuration": (log.eval.metadata or {}).get("configuration"),
+        "system_text": (log.eval.metadata or {}).get("system_text"),
         "model": model_id,
         "served_models": sorted(
             {s.output.model for s in (log.samples or []) if s.output and s.output.model}

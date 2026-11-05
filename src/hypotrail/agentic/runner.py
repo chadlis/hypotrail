@@ -1,4 +1,4 @@
-"""Running the spike task under Inspect, offline or live.
+"""Running the Workload task under Inspect, offline or live.
 
 One code path serves the scripted runs and the live run: only the model differs.
 """
@@ -11,27 +11,42 @@ from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser, Model, get_model
 from inspect_ai.solver import generate, use_tools
 
-from hypotrail.agentic.cases import model_input
+from hypotrail.agentic.cases import user_message
+from hypotrail.agentic.declaration import Workload
 from hypotrail.agentic.limits import EpisodeLimits, eval_options
-from hypotrail.agentic.sql_tool import query_readonly
+from hypotrail.agentic.sql_tool import describe_schema, query_readonly
 
 
-def build_task(cases: list[dict], database: Path, scorer=None) -> Task:
-    """The spike task: the model may call `query_readonly`, then answers."""
-    samples = []
-    for case in cases:
-        system_text, user_text = model_input(case)
-        samples.append(
-            Sample(
-                id=case["case_id"],
-                input=[ChatMessageSystem(content=system_text), ChatMessageUser(content=user_text)],
-            )
+def build_task(
+    workload: Workload,
+    configuration: str,
+    *,
+    cases: list[dict] | None = None,
+    partition: str = "dev",
+    scorer=None,
+) -> Task:
+    """The Inspect task of a Workload under one Configuration.
+
+    Each Case is one sample whose input is the Configuration's system text and the user message
+    rendered from the Case. The model gets `describe_schema` and `query_readonly` on the database
+    the declaration fixes. The References are not an input: nothing here reads them.
+    """
+    system_text = workload.system_text(configuration)
+    samples = [
+        Sample(
+            id=case["case_id"],
+            input=[ChatMessageSystem(content=system_text), ChatMessageUser(content=user_message(case))],
         )
+        for case in (cases if cases is not None else workload.cases(partition))
+    ]
+    database = workload.database_path
     return Task(
-        dataset=MemoryDataset(samples, name="chinook-spike"),
-        solver=[use_tools(query_readonly(database)), generate()],
+        dataset=MemoryDataset(samples, name=workload.workload_id),
+        solver=[use_tools(describe_schema(database), query_readonly(database)), generate()],
         scorer=scorer,
-        name="chinook_spike",
+        name=f"{workload.workload_id}_{configuration}",
+        # the exact prompt text of the Configuration is kept in the log header
+        metadata={"configuration": configuration, "system_text": system_text},
         fail_on_error=False,
     )
 
@@ -57,7 +72,8 @@ def mock_model(script: Callable) -> Model:
 def run_episodes(
     cases: list[dict],
     *,
-    database: Path,
+    workload: Workload,
+    configuration: str,
     model: Model,
     repeats: int,
     log_dir: Path,
@@ -67,7 +83,7 @@ def run_episodes(
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
-        build_task(cases, database, scorer),
+        build_task(workload, configuration, cases=cases, scorer=scorer),
         model=model,
         epochs=repeats,
         log_dir=str(log_dir),
