@@ -166,7 +166,7 @@ def test_the_tool_cannot_create_a_file_through_vacuum_into_or_attach(tmp_path, t
     before = sha(DATABASE)
     result = sql_tool.run_query(DATABASE, template.format(path=target))
     assert isinstance(result["error"], dict)
-    assert set(result["error"]) == {"type", "message"}
+    assert set(result["error"]) == {"code", "type", "message"}
     assert result["rows"] == [] and result["columns"] == []
     assert list(tmp_path.iterdir()) == []
     assert sha(DATABASE) == before

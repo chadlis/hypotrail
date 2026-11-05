@@ -1,5 +1,11 @@
-<!-- chapter: id=agentic-track; kicker=Track; title=Tool-using agent Track; accent=violet -->
-<p class="lead">The tool-using agent Track answers the Chinook Cases with an Inspect agent that has two tools on a read-only SQLite database. This chapter covers what exists so far: the Workload declaration, the two Configurations <code>plain</code> and <code>verify</code>, and the task that generic Track code builds from them. It is library code exercised by tests: there is no <code>run</code> command yet, because a run needs a request identity that comes later. The caps and allow-list of the tools, the Scorer and the scripted scenarios are separate pieces of work and are not described here.</p>
+<!-- chapter: id=agentic-track; kicker=Track; title=Agentic Track; accent=violet -->
+<p class="lead">The agentic Track asks a model Chinook questions and scores the answer it keeps. This chapter describes the part that exists: the Workload declaration and the task built from it, and the <code>chinook_contract_v1</code> Scorer, which turns one Episode's raw final answer and its Reference into two Criteria, <code>exact_table</code> and <code>format_valid</code>, and keeps failures of the instrument apart from failures of the evaluated system. The spike chapter covers the runs and the log projection.</p>
+
+<div class="prose">
+<h3>Where the Scorer lives</h3>
+<p>The Scorer is <code>src/hypotrail/core/chinook_contract.py</code>. It needs the standard library and <code>jsonschema</code> only; the core never imports Inspect (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Rescoring a kept log (<code>agentic/rescore.py</code>) projects the log, then applies this Scorer to each Episode. It calls neither the model nor a tool and never opens the Chinook file: the frozen References are enough. The output of every Episode records the Scorer's name, <code>chinook_contract_v1</code>, and its version, and two rescorings of one log give the same verdicts.</p>
+<p>The Scorer takes the raw final answer unchanged and keeps it unchanged in its output, whether or not it respects the schema.</p>
+</div>
 
 <div class="prose">
 <h3>The Workload declaration</h3>
@@ -48,6 +54,53 @@
 </div>
 
 <div class="note"><span class="t">Open point</span><span>The builder can build a task on any declared group of Cases, <code>public_check</code> included. Refusing it before the Exposure journal exists is not decided here.</span></div>
+
+<p class="sub2">The read-only SQL tool</p>
+<div class="prose">
+<p>The evaluated model reaches Chinook through two tools, <code>describe_schema</code> (see above) and <code>query_readonly(sql)</code> (<code>agentic/sql_tool.py</code>; the connection details are in the spike chapter). No SQL text is inspected: three native SQLite mechanisms decide what runs. The limit on attached databases is 0, <code>execute</code> takes a single statement, and an authorizer holds the allow-list.</p>
+<ul>
+<li><b>Allowed:</b> <code>SELECT</code>, reads of the tables the Chinook file itself declares, and eleven functions: <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>round</code>, <code>lower</code>, <code>upper</code>, <code>coalesce</code>, <code>ifnull</code> and <code>strftime</code>.</li>
+<li><b>Tables read from the file:</b> the table names are never written in the code, so a table the file does not declare is not readable, and the system tables such as <code>sqlite_master</code> stay refused.</li>
+<li><b>Denied:</b> writes and DDL, <code>ATTACH</code>, <code>DETACH</code>, <code>PRAGMA</code>, transactions, <code>VACUUM</code> (also <code>INTO</code>), extension loading, recursive queries and any other function. A statement that starts with <code>WITH</code> or <code>SELECT</code> but needs a denied action is refused.</li>
+</ul>
+<p>A refused or failed statement sets <code>error</code> to a <code>code</code>, a <code>type</code> and a <code>message</code>; the code is what to rely on.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="sql-tool-error-codes"><thead><tr><th>Code</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>DENIED_ACTION</code></td><td>The authorizer refused an action outside the allow-list.</td></tr>
+<tr><td><code>SQL_ERROR</code></td><td>SQLite failed the statement for another reason (syntax, unknown table or column).</td></tr>
+<tr><td><code>MULTIPLE_STATEMENTS</code></td><td>The text holds more than one statement.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The row, size and time caps of the tool are not built yet; they belong to issue #8.</p>
+</div>
+
+<p class="sub2">The two Criteria</p>
+<div class="tblwrap"><table class="tbl" id="chinook-criteria"><thead><tr><th>Criterion</th><th>Scored true when</th><th>Scored false when</th></tr></thead><tbody>
+<tr><td><code>exact_table</code></td><td>Status, <code>reason_code</code>, columns in order, rows in the requested order, types and unit all equal the Reference.</td><td>Any of them differs, or the answer is malformed (then every component is false).</td></tr>
+<tr><td><code>format_valid</code></td><td>The raw answer is one JSON object, with no Markdown fence and no prose, valid against the Workload's <code>table-answer/1</code> schema.</td><td>Otherwise, with the Reason <code>invalid_response_format</code>: text that is not JSON, a fenced object, an object with prose around it, a missing or extra field, or <code>needs_clarification</code> with non-empty rows.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The comparison rules are the spike's: no string is converted to a number, a boolean is not an integer, NULL stays NULL, non-finite numbers are refused, and no number is picked out of prose. The numeric tolerance is read from the Reference (<code>numeric_absolute_tolerance</code>), not from the code: on E08 an answer within 0.005 of 283910.04 is correct and one beyond it is not, and every other number, whose Reference tolerance is 0, is compared exactly.</p>
+</div>
+
+<p class="sub2">Three situations, three outcomes</p>
+<div class="tblwrap"><table class="tbl" id="chinook-outcomes"><thead><tr><th>Situation</th><th>Criterion state</th><th>Reason</th><th>Counts against the evaluated system</th></tr></thead><tbody>
+<tr><td>Reference missing</td><td><code>exact_table</code> <code>unscored</code></td><td><code>reference_missing</code></td><td>No</td></tr>
+<tr><td>Reference invalid (for example without <code>rows</code>)</td><td><code>exact_table</code> <code>unscored</code></td><td><code>reference_invalid</code></td><td>No</td></tr>
+<tr><td>Crash of the Scorer</td><td>every Criterion <code>errored</code></td><td><code>scoring_failed</code></td><td>No</td></tr>
+<tr><td>Malformed answer</td><td><code>format_valid</code> scored false</td><td><code>invalid_response_format</code></td><td>Yes</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p><code>format_valid</code> does not need the Reference, so a missing Reference leaves it scored. A crash is caught where the core applies the Scorer to one Episode (<code>apply_scorer</code>): that Episode's Criteria become <code>errored</code>, the exception's type goes into the structured field <code>error_type</code> (the message is never kept or read), the other Episodes are still scored, and the Episode's execution status stays <code>produced</code>. The log projection of the spike keeps telling an Inspect scorer crash from an execution failure through structured fields of the log, never through error text.</p>
+</div>
+
+<p class="sub2">Choices and limits worth knowing</p>
+<div class="grid2">
+<div class="card" style="--c:var(--violet)"><h3>Malformed means not exact</h3><p>A malformed answer, including a valid JSON object with an extra field, is scored false on <code>exact_table</code> as well; <code>format_valid</code> carries the Reason.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Failed and missing Episodes</h3><p>Rescoring leaves the Criteria of a <code>failed</code> or <code>missing</code> Episode, and of a produced Episode without a final answer, unset (<code>criteria: None</code>). How they are scored waits on an owner decision.</p></div>
+<div class="card" style="--c:var(--gold)"><h3>The schema is an input</h3><p>The Scorer is given the Workload's <code>table-answer/1</code> schema; it does not read it from disk, so rescoring opens no Workload file.</p></div>
+<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p><code>evidence_link_valid</code> and contract success, counts per Criterion, the Assessment contract and a closed Scorer registry, and an Inspect adapter (ADR 0001's parity test applies if one is built).</p></div>
+</div>
 
 <p class="sub2">Where the decisions are</p>
 <div class="tblwrap"><table class="tbl" id="agentic-adr-map"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
