@@ -19,7 +19,7 @@ Everything you need is in the repository and its issue tracker. Read it; do not 
 - the **ticket gate** (step 3), delegated to a fresh agent that reads text against text;
 - the **review of record** (step 5), `/mattpocock-skills:code-review` invoked bare, its two axis readers each a fresh `slice-gate` agent.
 
-**You write no implementation code.** Not one line under `src/`, `tests/` or `examples/`. You write issue comments, amendments, glossary or ADR lines when a finding requires them, and the commits that carry what subagents leave uncommitted.
+**You write no implementation code.** Not one line under `src/`, `tests/` or `examples/`. You write issue comments, amendments, glossary or ADR lines when a finding requires them, and the commits that carry what subagents leave uncommitted. An ADR line you write states only what the code does or a ticket requires. Once a review of record has read it, it changes only by a new dated line below it.
 
 **Say what you read and what you deduce.** Each time you state where the slice stands, name the file, issue or command that told you. When you infer, write « je déduis ».
 
@@ -55,7 +55,7 @@ If the repository does not settle a question, stop and hand back with the questi
 
 When a subagent asks, answer it yourself from the repository, inside your delegation (see "Who decides"), without forwarding it to Salah (EXÉCUTION). If the question rests on a false premise, correct the premise in the answer.
 
-**The review of record goes out bare**: `/mattpocock-skills:code-review main` in round 1, `/mattpocock-skills:code-review <head of the last reviewed round>` after, nothing else, ever. "Look especially at X" contaminates it while it still looks independent. A disposition check (see "Routing findings") is a separate, later message to an axis reader, after its independent first reading, never part of the invocation.
+**The review of record goes out bare**: `/mattpocock-skills:code-review main` in round 1, `/mattpocock-skills:code-review <head of the last reviewed round>` after, nothing else, ever. Merge `main` into the slice branch only directly onto a reviewed head. The next round's base is then that merge commit, so `main`'s changes stay out of the diff and nothing is excluded by hand. "Look especially at X" contaminates it while it still looks independent. A disposition check (see "Routing findings") is a separate, later message to an axis reader, after its independent first reading, never part of the invocation.
 
 ## Full-auto, and what may leave the branch
 
@@ -109,7 +109,7 @@ Each ends the run and produces the brief early:
 
 **Budgets.** These rules create no numeric budget. If Salah set a specific review/fix budget, apply it, and if its consumption cannot be established, say so before the spending that depends on it. Unknown usage stays unknown.
 
-**Round 3 checkpoint.** If review round 3 ends with unresolved blockers, record a short internal checkpoint: which accepted requirements remain unmet, what changed, whether a regression is demonstrated, the bounded correction scope, the verification plan, and any unresolved owner decision. If the next correction remains within delegated authority and no floor applies, continue without asking for routine approval, up to round 5. The checkpoint uses the existing reports and state comment. It does not create another standing reviewer or a separate approval ceremony.
+**Round 3 checkpoint.** If review round 3 ends with unresolved blockers, record a short internal checkpoint: which accepted requirements remain unmet, and which earlier rounds had blockers citing the same requirement, what changed, whether a regression is demonstrated, the bounded correction scope, the verification plan, and any unresolved owner decision. If the next correction remains within delegated authority and no floor applies, continue without asking for routine approval, up to round 5. The checkpoint uses the existing reports and state comment. It does not create another standing reviewer or a separate approval ceremony.
 
 **Diagnostics, not floors.** Repeated file paths, counts that do not decrease, and lines that `git blame` attributes to the previous fix are recorded as signals. They can support the judgement-based floor above, with its evidence. None of them stops the run on its own.
 
@@ -117,7 +117,7 @@ Each ends the run and produces the brief early:
 
 A floor ends with the STOP brief and a concrete recommendation. It is never a request for Salah to debug.
 
-If Salah answers the brief with more work, add a row to the state comment with his decision, its date and the commits it allows. Steps 7 to 10 then run as usual, and the PR body names the floor.
+Every owner decision gets its own dated comment on the slice issue: his words quoted, its scope, any budget, and the commits it allows. The state comment links it. Steps 7 to 10 then run as usual, and the PR body names the floor.
 
 Review counters, fix attempts per check, open findings, unresolved decisions and floors survive resumes and history rewrites. A new review or a session restart cannot erase an earlier floor, and a later change to these rules does not lift a floor already reached: that needs Salah's explicit answer.
 
@@ -139,7 +139,7 @@ Ask when the choice touches a limit that is not delegated: product goal, scope, 
 
 When the same category of question recurs, propose a bounded delegation (its conditions and exclusions) inside a brief that is already due. It holds only after an explicit instruction. Once adopted, it saves asking the same permission for each occurrence. Silence is never authorisation.
 
-An owner-reserved decision is different from a learning suggestion. Salah reserves a choice explicitly, in a product instruction or a `before` session, with its scope. Record that scope and the answer required in the source issue's state comment. Stop before implementing work that depends on it, including under `merge` or `chain`. Continue independent work only within the already authorized slice. A reservation does not lapse with time or silence, and an Anki score or a completed lesson is never the answer. If the owner explicitly delegates the decision, record that delegation and apply the stated bounds.
+An owner-reserved decision is different from a learning suggestion. Salah reserves a choice explicitly, in a product instruction or a `before` session, with its scope. Record that scope and the answer required in its own dated comment on the source issue, linked from the state comment. Stop before implementing work that depends on it, including under `merge` or `chain`. Continue independent work only within the already authorized slice. A reservation does not lapse with time or silence, and an Anki score or a completed lesson is never the answer. If the owner explicitly delegates the decision, record that delegation and apply the stated bounds.
 
 Unsettled product semantics, public contracts or hard-to-reverse choices follow this owner-decision gate even if the owner did not reserve them for learning. Routine reversible choices do not acquire a new gate merely because they illustrate a concept.
 
@@ -225,9 +225,9 @@ Writing style, in French: descriptive and explicit, never condensed or literary.
 
 **Unconditional authority check, including resumes.** Before dependent implementation and again before merge, read the current source issue and parent, their new comments since the last verified state, the linked slice notes, selected learning objectives and relevant `before` records. If no reliable checkpoint exists, read all relevant comments. Reconcile newly reserved, decided or delegated choices with the current contract. Record the last checked owner evidence and source excerpts in the state comment. Reading only that comment or Git is insufficient. A preparation session can have added a reservation after the preceding execution stopped.
 
-The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
+The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Because it is edited, it is an index, never the only copy: a decision, a finding ID or a gate reading lives in its own comment and the state comment links it. Step lines are added, never merged. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
 
-From the first review of record on, the state comment also holds the compact **findings register** (see "Routing findings") and one line per review round:
+From the first review of record on, the state comment also lists the open IDs of the **findings register** (see "Routing findings") with links to the round comments that define them, and one line per review round:
 - the reviewed base and head;
 - raw and deduplicated finding counts by routing row, and the cited paths;
 - pre-existing defects, incomplete fixes and demonstrated regressions, and for rounds 4 and 5 the defects resolved and introduced;
@@ -279,7 +279,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 |---|---|---|---|
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
 | 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links | `slice-planner` | the tickets exist |
-| 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED` | `slice-gate`, fresh | its reading comes back |
+| 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED`. Then, across all tickets: name each parent amendment or specification rule that governs the slice's inputs or outcomes (for example "every abnormal outcome carries a **Reason**") and the ticket whose criteria witness it; a rule no ticket witnesses is `UNCOVERED` | `slice-gate`, fresh | its reading comes back, every governing rule mapped to a ticket or marked `UNCOVERED` |
 | 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, affected product documentation complete |
 | 5 | **Review of record, round 1**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports kept verbatim, each finding entered in the register |
 | 6 | Route each finding through the register (see "Routing findings"); fixes go to `slice-builder`. A correction followed by a review opens the next round: `/mattpocock-skills:code-review <head of the last reviewed round>`, bare. Checkpoint after round 3, plan before rounds 4 and 5, and stop at any floor (see "Review rounds") | you, then subagent | every finding fixed and verified, refuted with evidence, linked as a duplicate, or escalated; the accepted head is named |
@@ -291,6 +291,10 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`, close the slice, add the squash SHA to the note and any already linked selected objective. Give the ordinary brief now, or once at the end under `chain` | you | merged state and learning reference are truthful |
 
 Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments. A line without a quoted source is your decision: it goes to brief item 2, not into the ticket.
+
+An `UNCOVERED` rule is tightened into the ticket that owns the input it governs, quoting the rule. For a refusal rule, the tightened criteria list the neighbouring cases of "Fixing a family of defects".
+
+A tightened ticket goes back to its `slice-gate` (continued, otherwise fresh) with one question: does a Tightened line contradict the body or the source it quotes? Implementation waits for that reading. Body text a Tightened line replaces is struck through (`~~…~~`) with a pointer to the line, so the body never holds two live versions.
 
 Complete affected product documentation before the first review of record. Step 7 finalises learning notes and links. Any later change affecting product behaviour or its documented contract requires appropriate verification and review before acceptance.
 
@@ -320,7 +324,7 @@ Three readings of this table that it does not say on its face:
 
 Keep each original finding with a stable ID, its cited requirement, routing row, status and verification evidence. Link duplicates explicitly. Record reclassifications and their reasons. After its initial bare review, an axis reader must verify any disposition that dismisses or downgrades a potential row-1 or row-2 blocker. Drive cannot clear it alone.
 
-- **Where it lives.** A compact table in the state comment (`ID | round | axis | requirement | row | status | evidence`). An ID is assigned at first sighting and kept when a file is renamed or a remark is reworded.
+- **Where it lives.** Each round's "Review of record" comment assigns IDs in its routing table (`ID | round | axis | requirement | row | status | evidence`). The state comment lists the open IDs with their current status and links. An ID is assigned at first sighting and kept when a file is renamed or a remark is reworded.
 - **Statuses.** `open`, `confirmed`, `fixed-verified`, `refuted` (with its evidence), `duplicate of <ID>`, `disputed`.
 - **Disposition checks.** They go to the axis reader that raised the finding, continued when possible, otherwise a fresh `slice-gate` given that axis. They belong to the round in progress. Add no standing third reviewer and no chain of appeals: a dispute that the reader does not settle stays a blocker. If the contract itself is undecided, the owner-decision gate applies.
 
@@ -329,6 +333,8 @@ Record the reviewed base and head, raw and deduplicated counts by routing row, c
 For a suspected regression, distinguish demonstrated before/after failure, an older defect newly discovered, an incomplete fix, and unknown origin. Use reproducible checks where possible, otherwise a concrete contract-based causal explanation.
 
 Before rounds 4 and 5, record the outstanding requirements, bounded correction scope and verification plan. Include tests for the relevant failure class. Do not add unrelated refactoring or change product scope.
+
+When one requirement has produced row-1 blockers in two or more rounds, the plan sets a structural option (one that removes the class of defect, such as reading input once into typed objects) beside the point fix, and says why the chosen one converges. If only the structural option is credible, that is the judgement floor, with this record as its evidence.
 
 Incremental review includes affected dependencies and verification of earlier blockers. From round 2 on, the Spec reader's sources include the register's open entries as written (finding and cited requirement), without your disposition. Both readers start from the diff since the last reviewed head, and may read the callers, dependencies, tests and requirements a fix affects. Acceptance names the exact reviewed head and requires all blockers to be resolved, required checks to pass, and no later unreviewed change affecting behaviour or the accepted contract.
 
