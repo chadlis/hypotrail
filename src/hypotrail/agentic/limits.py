@@ -54,7 +54,10 @@ def eval_options(limits: EpisodeLimits) -> dict:
 
 
 def read_back(location: str) -> dict:
-    """The values that took effect, as the log records them (public log API)."""
+    """The values that took effect, as the log records them (public log API).
+
+    `query_caps` holds the four per-query caps of the SQL tool (None for a log made before they existed).
+    """
     log = read_eval_log(location, header_only=True)
     config = log.eval.config
     # Generation settings passed to `eval` are recorded in the plan; those set on
@@ -73,6 +76,8 @@ def read_back(location: str) -> dict:
         "response_cache": generate.cache,
         "sample_retries": config.retry_on_error,
         "transport_retries": generate.max_retries,
+        # the per-query caps of `query_readonly`, recorded in the task metadata
+        "query_caps": (log.eval.metadata or {}).get("query_caps"),
     }
 
 

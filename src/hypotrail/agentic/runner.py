@@ -13,10 +13,10 @@ from inspect_ai.solver import generate, use_tools
 
 from hypotrail.agentic.cases import model_input
 from hypotrail.agentic.limits import EpisodeLimits, eval_options
-from hypotrail.agentic.sql_tool import query_readonly
+from hypotrail.agentic.sql_tool import QueryCaps, query_readonly
 
 
-def build_task(cases: list[dict], database: Path, scorer=None) -> Task:
+def build_task(cases: list[dict], database: Path, scorer=None, query_caps: QueryCaps | None = None) -> Task:
     """The spike task: the model may call `query_readonly`, then answers."""
     samples = []
     for case in cases:
@@ -27,11 +27,13 @@ def build_task(cases: list[dict], database: Path, scorer=None) -> Task:
                 input=[ChatMessageSystem(content=system_text), ChatMessageUser(content=user_text)],
             )
         )
+    query_caps = query_caps or QueryCaps()
     return Task(
         dataset=MemoryDataset(samples, name="chinook-spike"),
-        solver=[use_tools(query_readonly(database)), generate()],
+        solver=[use_tools(query_readonly(database, query_caps)), generate()],
         scorer=scorer,
         name="chinook_spike",
+        metadata={"query_caps": query_caps.as_dict()},
         fail_on_error=False,
     )
 
@@ -63,11 +65,12 @@ def run_episodes(
     log_dir: Path,
     scorer=None,
     limits: EpisodeLimits | None = None,
+    query_caps: QueryCaps | None = None,
     **overrides,
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
-        build_task(cases, database, scorer),
+        build_task(cases, database, scorer, query_caps),
         model=model,
         epochs=repeats,
         log_dir=str(log_dir),

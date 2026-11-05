@@ -17,15 +17,42 @@ mechanisms do the work:
 - `execute` accepts a single statement.
 
 A refused or failed statement comes back as a structured tool error whose `code`
-tells a denied action from a SQL error and from a call holding several
-statements. Row, size and time caps are another ticket.
+tells a denied action from a SQL error, from a call holding several statements,
+and from a query stopped by a cap.
+
+Four caps bound each query (`QueryCaps`, AG-04). SQLite's progress handler
+watches the first two on every 1000 VM instructions; the other two apply to the
+fetched rows:
+
+- watched time: 1 s of wall clock, code `TIME_LIMIT`;
+- an instruction ceiling, code `INSTRUCTION_LIMIT`. AG-04 gives no number. The
+  declared default is 100,000,000 VM instructions: the 1 s time stays the
+  spec's primary cap, and the ceiling is a machine-independent backstop set near
+  it (about 0.7 s at the ~138M instructions per second measured here), about
+  3,000 times the heaviest of the 16 oracle statements (~32,000). It does not
+  refuse a read the time cap would allow on this machine. The value is recorded
+  among the effective limits and changes only by a new value in the record;
+- at most 200 rows returned, at most 201 fetched to detect more;
+- at most 64 KiB of serialized content (the JSON of columns and rows).
+
+A cap that is reached shows as `truncated: true` (rows, size) or as an error
+naming the limit (time, instructions), with no rows. It is never turned into a
+complete result.
+
+The query runs in a worker thread, so Inspect's event loop stays free and the
+Episode time limit keeps control. If the awaiting task is cancelled, the
+progress handler sees a stop flag and interrupts the statement.
 """
 
 import json
 import sqlite3
+import threading
+import time
 import uuid
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import anyio
 from inspect_ai.tool import Tool, tool
 
 from hypotrail.core.data import open_sqlite_readonly
@@ -34,6 +61,21 @@ from hypotrail.core.data import open_sqlite_readonly
 DENIED_ACTION = "DENIED_ACTION"
 SQL_ERROR = "SQL_ERROR"
 MULTIPLE_STATEMENTS = "MULTIPLE_STATEMENTS"
+TIME_LIMIT = "TIME_LIMIT"
+INSTRUCTION_LIMIT = "INSTRUCTION_LIMIT"
+
+PROGRESS_INTERVAL = 1000  # VM instructions between two calls of the progress handler
+
+
+@dataclass(frozen=True)
+class QueryCaps:
+    time_seconds: float = 1.0
+    max_instructions: int = 100_000_000
+    max_rows: int = 200
+    max_bytes: int = 64 * 1024
+
+    def as_dict(self) -> dict:
+        return asdict(self)
 
 ALLOWED_FUNCTIONS = frozenset(
     {"count", "sum", "avg", "min", "max", "round", "lower", "upper", "coalesce", "ifnull", "strftime"}
@@ -75,8 +117,31 @@ def restrict_connection(connection: sqlite3.Connection) -> _Authorizer:
     return authorizer
 
 
-def _error(error: Exception, authorizer: _Authorizer) -> dict:
-    if authorizer.denied:
+class _Watcher:
+    """SQLite's progress handler: stops the statement at a cap or when asked to."""
+
+    def __init__(self, caps: QueryCaps, stop: threading.Event | None):
+        self.caps = caps
+        self.stop = stop
+        self.started = time.monotonic()
+        self.instructions = 0
+        self.reason = None
+
+    def __call__(self):
+        self.instructions += PROGRESS_INTERVAL
+        if self.stop is not None and self.stop.is_set():
+            self.reason = "stopped"
+        elif self.instructions > self.caps.max_instructions:
+            self.reason = INSTRUCTION_LIMIT
+        elif time.monotonic() - self.started > self.caps.time_seconds:
+            self.reason = TIME_LIMIT
+        return 1 if self.reason else 0
+
+
+def _error(error: Exception, authorizer: _Authorizer, watcher: _Watcher) -> dict:
+    if watcher.reason in (TIME_LIMIT, INSTRUCTION_LIMIT):
+        code = watcher.reason
+    elif authorizer.denied:
         code = DENIED_ACTION
     elif isinstance(error, sqlite3.ProgrammingError):
         code = MULTIPLE_STATEMENTS
@@ -85,8 +150,27 @@ def _error(error: Exception, authorizer: _Authorizer) -> dict:
     return {"code": code, "type": type(error).__name__, "message": str(error)}
 
 
-def run_query(database: Path, sql: str) -> dict:
-    """Run one statement and return the tool result.
+def _within_size(columns: list, rows: list, max_bytes: int) -> list:
+    """The longest prefix of the rows whose serialized content fits `max_bytes`."""
+    size = len(json.dumps({"columns": columns, "rows": []}, default=str).encode())
+    kept = []
+    for row in rows:
+        size += len(json.dumps(row, default=str).encode()) + 2  # separator
+        if size > max_bytes:
+            break
+        kept.append(row)
+    return kept
+
+
+def run_query(
+    database: Path,
+    sql: str,
+    caps: QueryCaps = QueryCaps(),
+    *,
+    stop: threading.Event | None = None,
+    cursor_factory: type = sqlite3.Cursor,
+) -> dict:
+    """Run one statement under the caps and return the tool result.
 
     The `tool_call_id` is minted here: Inspect exposes no public way to read its
     own tool-call ID while a tool runs. The projection keeps the mapping to the
@@ -102,30 +186,44 @@ def run_query(database: Path, sql: str) -> dict:
     }
     connection = open_sqlite_readonly(database)
     authorizer = None
+    watcher = _Watcher(caps, stop)
     try:
         authorizer = restrict_connection(connection)
-        cursor = connection.execute(sql)
-        result["columns"] = [d[0] for d in cursor.description or []]
-        result["rows"] = [list(row) for row in cursor.fetchall()]
-        result["row_count"] = len(result["rows"])
+        connection.set_progress_handler(watcher, PROGRESS_INTERVAL)
+        cursor = connection.cursor(cursor_factory)
+        cursor.execute(sql)
+        columns = [d[0] for d in cursor.description or []]
+        fetched = [list(row) for row in cursor.fetchmany(caps.max_rows + 1)]
+        rows = fetched[: caps.max_rows]
+        truncated = len(fetched) > caps.max_rows
+        fitting = _within_size(columns, rows, caps.max_bytes)
+        truncated = truncated or len(fitting) < len(rows)
+        result.update(columns=columns, rows=fitting, row_count=len(fitting), truncated=truncated)
     except (sqlite3.Error, ValueError) as error:
-        result["error"] = _error(error, authorizer)
+        result["error"] = _error(error, authorizer, watcher)
     finally:
         connection.close()
     return result
 
 
 @tool
-def query_readonly(database: Path) -> Tool:
+def query_readonly(database: Path, caps: QueryCaps = QueryCaps()) -> Tool:
     async def execute(sql: str) -> str:
         """Run one read-only SQL SELECT statement on the Chinook database.
 
         Args:
             sql: A single SQL SELECT statement.
         """
-        return json.dumps(run_query(database, sql), default=str)
+        stop = threading.Event()
+        try:
+            result = await anyio.to_thread.run_sync(
+                lambda: run_query(database, sql, caps, stop=stop), abandon_on_cancel=True
+            )
+        finally:
+            stop.set()  # a cancelled await interrupts the statement
+        return json.dumps(result, default=str)
 
     return execute
 
 
-__all__ = ["open_sqlite_readonly", "query_readonly", "run_query"]
+__all__ = ["QueryCaps", "open_sqlite_readonly", "query_readonly", "run_query"]
