@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, CHINOOK, DATABASE, REFERENCES, ScriptedModel, read_jsonl
+from _agent_helpers import CASES, CHINOOK, DATABASE, REFERENCES, WORKLOAD, ScriptedModel, read_jsonl
 
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import rescore, runner
@@ -266,7 +266,8 @@ def kept_log(tmp_path):
     cases = case_module.load_cases(CASES, SPIKE)
     return runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(ScriptedModel(cases)),
         repeats=2,
         log_dir=tmp_path / "logs",

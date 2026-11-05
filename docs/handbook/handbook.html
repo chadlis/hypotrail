@@ -176,7 +176,7 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <div class="prose">
 <p>The agentic side lives in <code>src/hypotrail/agentic/</code>; the core never imports Inspect (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Inspect owns the agent loop, the tool calls, its limits and its log; Hypotrail owns the scoring function and reads the log only through Inspect's public log API.</p>
 <ul>
-<li><b>Task</b> (<code>runner.py</code>): a system message and a user message per Case, the read-only tool, then Inspect's own generate-and-call-tools loop. The model is sent the question, the requested columns and the unit and nothing else; the renderer takes those three arguments only (<code>prompt.py</code>).</li>
+<li><b>Task</b> (<code>runner.py</code>): a system message and a user message per Case, the tools, then Inspect's own generate-and-call-tools loop. The task is now built from the Workload declaration; see the chapter on the agentic Track.</li>
 <li><b>Tool</b> (<code>sql_tool.py</code>): <code>query_readonly(sql)</code> opens the Chinook file read-only at a path fixed by the application, one connection per execution, <code>execute</code> and never <code>executescript</code>, extensions disabled. <code>mode=ro</code> covers only the main database, so three native SQLite mechanisms decide what runs, and no SQL text is inspected (no regular expression, no <code>SELECT</code> test): the limit on attached databases is 0; <code>execute</code> takes one statement; and an authorizer holds the allow-list, which is <code>SELECT</code>, reads of the tables the file itself declares (read from the file, never named in code, so its system tables such as <code>sqlite_master</code> stay refused) and the functions <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>round</code>, <code>lower</code>, <code>upper</code>, <code>coalesce</code>, <code>ifnull</code> and <code>strftime</code>. Everything else is denied: writes and DDL, <code>ATTACH</code>, <code>DETACH</code>, <code>PRAGMA</code>, transactions, <code>VACUUM</code> (also <code>INTO</code>), extension loading, recursive queries and any other function, so a statement that starts with <code>WITH</code> or <code>SELECT</code> but needs a denied action is refused. It returns <code>columns</code>, <code>rows</code>, <code>row_count</code>, <code>truncated</code>, <code>error</code> and a <code>tool_call_id</code>. A refused or failed statement sets <code>error</code> to a <code>code</code> (<code>DENIED_ACTION</code>, <code>SQL_ERROR</code> or <code>MULTIPLE_STATEMENTS</code>), a <code>type</code> and a <code>message</code>; the code is what to rely on. The row, size and time caps are not built yet; they belong to issue #8.</li>
 <li><b>Projection</b> (<code>projection.py</code>): one record per Case x Repeat, in the order model turn, tool call, tool result, model turn, final answer. A Repeat is 0-based; Inspect's epoch is 1-based. An Episode is <code>produced</code>, <code>failed</code> (execution stopped with an error) or <code>missing</code> (absent from the log).</li>
 <li><b>Scoring</b> (<code>core/answer_scoring.py</code>): compares status, reason, columns, rows and unit with the frozen Reference. An answer missing one of the six required fields (<code>status</code>, <code>reason_code</code>, <code>columns</code>, <code>rows</code>, <code>unit</code>, <code>evidence</code>) is malformed: <code>parsed</code> is false and every component is false, even when the Reference holds null there. No string-to-number conversion, a boolean is not an integer, NULL stays NULL, non-finite numbers are refused, and the Reference's absolute tolerance applies. <code>agentic/rescore.py</code> rescores a kept log without the model, the tool or the Chinook file; since ticket #45 it goes through the <code>chinook_contract_v1</code> Scorer (see the agentic Track chapter).</li>
@@ -243,7 +243,7 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <div class="card" style="--c:var(--gold)"><h3>Tool-call IDs</h3><p>Inspect gives a tool no public way to read its own call ID while it runs. The tool mints an application ID, puts it in the result the model sees, and the projection keeps the mapping to the native ID.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Scripted runs</h3><p>Offline runs use Inspect's mock model, recorded as <code>mockllm/model</code>, so no projection of such a log can be taken for a live model.</p></div>
 <div class="card" style="--c:var(--teal)"><h3>Rehearsal</h3><p>The live path is exercised in the suite against a fake endpoint on loopback, so the real Anthropic client, the key header and the key scan are tested without a real call.</p></div>
-<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The row, size and time caps of the SQL tool, <code>describe_schema</code>, the <code>plain</code> and <code>verify</code> prompts, the evidence Criterion, and the Import and Assessment contracts.</p></div>
+<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The row, size and time caps of the SQL tool, the evidence Criterion, and the Import and Assessment contracts.</p></div>
 </div>
 </section>
 <section id="temporal-regression-track" style="--ac:var(--teal)"><div class="sh"><div class="n">02</div><div><p class="k">Track</p><h2>Temporal regression Track</h2></div></div>
@@ -382,7 +382,7 @@ print(result["delta_mae"]["value"])</pre>
 </tbody></table></div>
 </section>
 <section id="agentic-track" style="--ac:var(--violet)"><div class="sh"><div class="n">03</div><div><p class="k">Track</p><h2>Agentic Track</h2></div></div>
-<p class="lead">The agentic Track asks a model Chinook questions and scores the answer it keeps. This chapter describes the part that exists: the <code>chinook_contract_v1</code> Scorer, which turns one Episode's raw final answer and its Reference into two Criteria, <code>exact_table</code> and <code>format_valid</code>, and keeps failures of the instrument apart from failures of the evaluated system. The spike chapter covers the runs and the log projection.</p>
+<p class="lead">The agentic Track asks a model Chinook questions and scores the answer it keeps. This chapter describes the part that exists: the Workload declaration and the task built from it, and the <code>chinook_contract_v1</code> Scorer, which turns one Episode's raw final answer and its Reference into two Criteria, <code>exact_table</code> and <code>format_valid</code>, and keeps failures of the instrument apart from failures of the evaluated system. The spike chapter covers the runs and the log projection.</p>
 
 <div class="prose">
 <h3>Where the Scorer lives</h3>
@@ -390,9 +390,57 @@ print(result["delta_mae"]["value"])</pre>
 <p>The Scorer takes the raw final answer unchanged and keeps it unchanged in its output, whether or not it respects the schema.</p>
 </div>
 
+<div class="prose">
+<h3>The Workload declaration</h3>
+<p>The Workload is declarative and holds no Python (<a href="../adr/0002-workloads-are-declarative.md">ADR 0002</a>). <code>examples/chinook/workload.json</code> is checked as a whole against one JSON Schema, <code>src/hypotrail/agentic/workload.schema.json</code>, by <code>jsonschema</code>. <code>declaration.load_workload(directory)</code> reads and checks it and returns a <code>Workload</code>; it imports neither Inspect nor any Reference, so a refusal comes before Inspect runs. Every key is required, and every object is closed.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agentic-declaration"><thead><tr><th>Key</th><th>Value for <code>chinook</code></th><th>Used for</th></tr></thead><tbody>
+<tr><td><code>schema_version</code>, <code>track</code>, <code>workload_id</code></td><td><code>workload/1</code>, <code>tool_using_agent</code>, <code>chinook</code></td><td>Descriptive, except <code>workload_id</code>, which names the task (<code>chinook_plain</code>).</td></tr>
+<tr><td><code>licence_notice</code></td><td><code>licenses/Chinook-MIT.txt</code></td><td>The licence notice of the database.</td></tr>
+<tr><td><code>database</code></td><td><code>file</code>: <code>data/Chinook_Sqlite.sqlite</code>; <code>dataset_id</code></td><td>The one database path both tools use. The model never chooses a path.</td></tr>
+<tr><td><code>cases</code></td><td><code>dev</code> and <code>public_check</code>, each a JSON Lines file</td><td>The Cases of each named group. The builder takes <code>dev</code> unless told otherwise.</td></tr>
+<tr><td><code>references</code></td><td><code>references/chinook-references.jsonl</code></td><td>Names the References file. The task builder never reads it. The numeric tolerance (E08) is held by the References, not repeated here.</td></tr>
+<tr><td><code>configurations</code></td><td><code>plain</code>, <code>verify</code></td><td>Either a full <code>system_text</code>, or <code>extends</code> another Configuration with an <code>added_instruction</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="tblwrap"><table class="tbl" id="agentic-refusals"><thead><tr><th>Case</th><th>Code</th></tr></thead><tbody>
+<tr><td>A required key is missing</td><td><code>DECLARATION_INCOMPLETE</code></td></tr>
+<tr><td>A key the Track does not know, in a closed object</td><td><code>DECLARATION_KEY_UNKNOWN</code></td></tr>
+<tr><td>A value of the wrong JSON type</td><td><code>DECLARATION_WRONG_TYPE</code></td></tr>
+<tr><td>A value of the right type that the schema does not allow (an empty string, a Configuration that is neither a full text nor an extension)</td><td><code>DECLARATION_VALUE_NOT_ALLOWED</code></td></tr>
+<tr><td>A Configuration that extends, or is asked for as, a Configuration that is not declared</td><td><code>CONFIGURATION_NOT_DECLARED</code></td></tr>
+<tr><td>Configurations that extend each other in a loop</td><td><code>CONFIGURATION_CYCLE</code></td></tr>
+<tr><td>A group of Cases that is not declared</td><td><code>PARTITION_NOT_DECLARED</code></td></tr>
+<tr><td><code>workload.json</code> absent, or not JSON</td><td><code>FILE_NOT_FOUND</code>, <code>FILE_NOT_JSON</code></td></tr>
+</tbody></table></div>
+<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a code, a message, the stage <code>declaration</code> and details giving the <code>key</code> and the <code>path</code>. The codes <code>CONFIGURATION_NOT_DECLARED</code>, <code>CONFIGURATION_CYCLE</code> and <code>PARTITION_NOT_DECLARED</code> relate values to each other or to the declaration, which JSON Schema cannot express, so they stay in Track code (ADR 0002, clarification of 2026-11-04).</p>
+
+<p class="sub2">The two Configurations</p>
+<div class="prose">
+<ul>
+<li><b><code>plain</code></b> carries the system text in full. It tells the model to answer with the available tools and not to guess, to answer in the requested schema <code>table-answer/1</code>, and to distinguish an answer, an ambiguity and unavailable information. It states the common format rules: one JSON object and nothing else, no Markdown fence, no extra prose, the six fields, the three statuses and their <code>reason_code</code>s (<code>criterion_undefined</code> for <code>needs_clarification</code>, <code>field_not_available</code> for <code>not_answerable</code>), with <code>columns</code> and <code>rows</code> empty and <code>unit</code> null for the last two.</li>
+<li><b><code>verify</code></b> is <code>plain</code> (<code>extends</code>) followed by a declared <code>added_instruction</code> and nothing else: check the scope, the joins, the units and the result before concluding. Its resolved text is exactly <code>plain</code>'s text plus the instruction. No Reference value is in either text.</li>
+</ul>
+</div>
+
+<p class="sub2">The task</p>
+<div class="prose">
+<p><code>runner.build_task(workload, configuration, cases=None, partition="dev")</code> returns the Inspect task. <code>runner.run_episodes(cases, workload=..., configuration=..., model=..., repeats=..., log_dir=...)</code> runs it. The task replaces the spike's single prompt and its <code>chinook_spike</code> task.</p>
+<ul>
+<li>Each Case is one sample. Its input is two messages: the Configuration's system text, and a user message rendered from the question, the requested columns and the unit only (<code>prompt.render_user_message</code>). A Case with no unit goes through the same rendering (<code>Unit: none</code>), so the system text is identical for every Case of a Configuration. The Case identifier, the group, the family, the Reference rows, the oracle SQL, the expected status and the tolerance never reach the model.</li>
+<li>The model gets exactly two tools, <code>describe_schema</code> and <code>query_readonly</code>, both bound to the database path of the declaration. <code>describe_schema</code> takes no argument and returns the eleven tables with their columns, types and foreign-key relations, read from SQLite itself (<code>PRAGMA</code>); it holds no row, Reference or oracle SQL.</li>
+<li>Both Configurations run with the same tools, limits and generation settings; only the system text differs.</li>
+<li>The log header keeps the Configuration name and its exact system text (<code>eval.metadata</code>), and the live run record (<code>run.json</code>) repeats them.</li>
+<li>The References are not an input of the builder: a task built from the declaration runs when the References file is absent.</li>
+</ul>
+</div>
+
+<div class="note"><span class="t">Open point</span><span>The builder can build a task on any declared group of Cases, <code>public_check</code> included. Refusing it before the Exposure journal exists is not decided here.</span></div>
+
 <p class="sub2">The read-only SQL tool</p>
 <div class="prose">
-<p>The evaluated model reaches Chinook through one tool, <code>query_readonly(sql)</code> (<code>agentic/sql_tool.py</code>; the connection details are in the spike chapter). No SQL text is inspected: three native SQLite mechanisms decide what runs. The limit on attached databases is 0, <code>execute</code> takes a single statement, and an authorizer holds the allow-list.</p>
+<p>The evaluated model reaches Chinook through two tools, <code>describe_schema</code> (see above) and <code>query_readonly(sql)</code> (<code>agentic/sql_tool.py</code>; the connection details are in the spike chapter). No SQL text is inspected: three native SQLite mechanisms decide what runs. The limit on attached databases is 0, <code>execute</code> takes a single statement, and an authorizer holds the allow-list.</p>
 <ul>
 <li><b>Allowed:</b> <code>SELECT</code>, reads of the tables the Chinook file itself declares, and eleven functions: <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>round</code>, <code>lower</code>, <code>upper</code>, <code>coalesce</code>, <code>ifnull</code> and <code>strftime</code>.</li>
 <li><b>Tables read from the file:</b> the table names are never written in the code, so a table the file does not declare is not readable, and the system tables such as <code>sqlite_master</code> stay refused.</li>
@@ -436,6 +484,13 @@ print(result["delta_mae"]["value"])</pre>
 <div class="card" style="--c:var(--gold)"><h3>The schema is an input</h3><p>The Scorer is given the Workload's <code>table-answer/1</code> schema; it does not read it from disk, so rescoring opens no Workload file.</p></div>
 <div class="card" style="--c:var(--pink)"><h3>Not built</h3><p><code>evidence_link_valid</code> and contract success, counts per Criterion, the Assessment contract and a closed Scorer registry, and an Inspect adapter (ADR 0001's parity test applies if one is built).</p></div>
 </div>
+
+<p class="sub2">Where the decisions are</p>
+<div class="tblwrap"><table class="tbl" id="agentic-adr-map"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the database, Cases, References and prompts are data in <code>workload.json</code>, and why the schema lives in the Track.</td></tr>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the declaration code imports no Inspect: only the runner, the tools and the projection do.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter is updated in the pull request that changes the behaviour.</td></tr>
+</tbody></table></div>
 </section>
 <footer><span>Hypotrail &middot; handbook</span><div class="pj"><span>ADRs in docs/adr</span><span>Vocabulary in GLOSSARY.md</span></div></footer>
 </div>

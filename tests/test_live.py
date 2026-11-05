@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, REFERENCES, oracle_sql, read_jsonl
+from _agent_helpers import CASES, CHINOOK, REFERENCES, WORKLOAD, oracle_sql, read_jsonl
 
 from hypotrail import cli
 from hypotrail.agentic import cases as case_module
@@ -255,8 +255,7 @@ def rehearsal(tmp_path, clean_env):
         record = agentic_live.run_live(
             model_id=MODEL_ID,
             api_key=FAKE_KEY,
-            cases_path=CASES,
-            database=DATABASE,
+            workload_dir=CHINOOK,
             case_ids=["D03", "D05"],
             repeats=1,
             out_dir=tmp_path / "out",
@@ -327,7 +326,7 @@ def test_the_scan_finds_a_key_in_a_plain_file_and_inside_a_compressed_log(tmp_pa
     script.unit_by_question = {leaky[0]["question"]: "count"}
     script.case_by_question = {leaky[0]["question"]: "D03"}
     location = runner.run_episodes(
-        leaky, database=DATABASE, model=runner.mock_model(script), repeats=1, log_dir=tmp_path / "logs"
+        leaky, workload=WORKLOAD, configuration="plain", model=runner.mock_model(script), repeats=1, log_dir=tmp_path / "logs"
     )
     assert FAKE_KEY.encode() not in Path(location).read_bytes()
     assert agentic_live.scan_for_secret(tmp_path / "logs", FAKE_KEY) == [Path(location).name]
@@ -431,7 +430,7 @@ def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, m
 
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
@@ -443,7 +442,7 @@ def test_a_non_empty_output_directory_is_refused(tmp_path):
     (tmp_path / "out" / "earlier.txt").write_text("x")
     with pytest.raises(Exception, match="not empty"):
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
         )
 
@@ -508,7 +507,7 @@ def test_a_relative_output_directory_works(tmp_path, clean_env):
     clean_env.chdir(tmp_path)
     with FakeAnthropic() as fake:
         record = agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url,
         )
     assert record["inspect_log"].startswith("inspect/")
@@ -622,7 +621,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
 
     with pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=out,
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
@@ -635,6 +634,13 @@ def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, m
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails)
     with pytest.raises(RuntimeError, match="the run stopped"):
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
         )
+
+
+def test_the_run_record_keeps_the_exact_prompt_text_of_its_configuration(rehearsal):
+    _, record, out = rehearsal
+    assert record["configuration"] == "plain"
+    assert record["system_text"] == WORKLOAD.system_text("plain")
+    assert json.loads((out / "run.json").read_text())["system_text"] == WORKLOAD.system_text("plain")

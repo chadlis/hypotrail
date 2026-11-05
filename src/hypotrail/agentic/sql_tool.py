@@ -85,6 +85,41 @@ def _error(error: Exception, authorizer: _Authorizer) -> dict:
     return {"code": code, "type": type(error).__name__, "message": str(error)}
 
 
+def schema_description(database: Path) -> dict:
+    """The tables of the file with their columns, types and foreign keys, read from SQLite itself.
+
+    The application reads the schema (`PRAGMA` on a read-only connection); the model supplies
+    nothing. It holds no row, no Reference and no oracle SQL.
+    """
+    connection = open_sqlite_readonly(database)
+    try:
+        names = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        ]
+        tables = []
+        for name in names:
+            quoted = '"' + name.replace('"', '""') + '"'
+            tables.append(
+                {
+                    "name": name,
+                    "columns": [
+                        {"name": c[1], "type": c[2], "not_null": bool(c[3]), "primary_key_position": c[5]}
+                        for c in connection.execute(f"PRAGMA table_info({quoted})")
+                    ],
+                    "foreign_keys": [
+                        {"from": f[3], "table": f[2], "to": f[4]}
+                        for f in connection.execute(f"PRAGMA foreign_key_list({quoted})")
+                    ],
+                }
+            )
+        return {"tables": tables}
+    finally:
+        connection.close()
+
+
 def run_query(database: Path, sql: str) -> dict:
     """Run one statement and return the tool result.
 
@@ -116,6 +151,15 @@ def run_query(database: Path, sql: str) -> dict:
 
 
 @tool
+def describe_schema(database: Path) -> Tool:
+    async def execute() -> str:
+        """Describe the database: its tables, their columns and types, and their foreign-key relations."""
+        return json.dumps(schema_description(database))
+
+    return execute
+
+
+@tool
 def query_readonly(database: Path) -> Tool:
     async def execute(sql: str) -> str:
         """Run one read-only SQL SELECT statement on the Chinook database.
@@ -128,4 +172,4 @@ def query_readonly(database: Path) -> Tool:
     return execute
 
 
-__all__ = ["open_sqlite_readonly", "query_readonly", "run_query"]
+__all__ = ["describe_schema", "open_sqlite_readonly", "query_readonly", "run_query", "schema_description"]

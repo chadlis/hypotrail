@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, REFERENCES, ScriptedModel, read_jsonl
+from _agent_helpers import CASES, DATABASE, REFERENCES, WORKLOAD, ScriptedModel, read_jsonl
 
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import projection, runner, sql_tool
@@ -44,7 +44,8 @@ def test_a_scripted_join_episode_projects_the_call_then_the_same_rows_with_the_t
     cases = case_module.load_cases(CASES, ["D03"])
     location = runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(ScriptedModel(cases)),
         repeats=1,
         log_dir=tmp_path / "logs",
@@ -117,7 +118,8 @@ def test_the_error_is_structured_and_the_trace_keeps_it(tmp_path):
     script.sql_by_question = {q: "DELETE FROM Genre" for q in script.sql_by_question}
     location = runner.run_episodes(
         cases,
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=1,
         log_dir=tmp_path / "logs",
