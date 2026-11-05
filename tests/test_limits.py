@@ -252,6 +252,7 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
+        "query_caps": {"time_seconds": 1.0, "max_instructions": 100_000_000, "max_rows": 200, "max_bytes": 65536},
     }
 
 

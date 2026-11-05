@@ -70,8 +70,19 @@
 <tr><td><code>SQL_ERROR</code></td><td>SQLite failed the statement for another reason (syntax, unknown table or column).</td></tr>
 <tr><td><code>MULTIPLE_STATEMENTS</code></td><td>The text holds more than one statement.</td></tr>
 </tbody></table></div>
+<p class="sub2">Four caps per query</p>
 <div class="prose">
-<p>The row, size and time caps of the tool are not built yet; they belong to issue #8.</p>
+<p>Every call is also bounded by four caps (<code>QueryCaps</code> in <code>agentic/sql_tool.py</code>, AG-04). A cap that is reached is never turned into a complete result: it shows as <code>truncated: true</code>, or as an error that names the limit and comes with no rows.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="sql-tool-caps"><thead><tr><th>Cap</th><th>Default</th><th>When reached</th></tr></thead><tbody>
+<tr><td>Watched time</td><td>1 s of wall clock</td><td>Error code <code>TIME_LIMIT</code>, no rows.</td></tr>
+<tr><td>Instruction ceiling</td><td>100,000,000 SQLite VM instructions</td><td>Error code <code>INSTRUCTION_LIMIT</code>, no rows.</td></tr>
+<tr><td>Rows</td><td>200 returned, 201 fetched</td><td>The first 200 rows in the query's order, <code>truncated: true</code>.</td></tr>
+<tr><td>Serialized size</td><td>64 KiB (the JSON of columns and rows)</td><td>The longest prefix of rows that fits, <code>truncated: true</code>, and a <code>row_count</code> that matches the rows returned.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>SQLite's progress handler, called every 1000 instructions, watches the first two caps. The fetch stops at 201 rows through <code>fetchmany</code>, so the extra row only tells that more exist. AG-04 gives no number for the instruction ceiling, so 100,000,000 is a declared default: the 1 s time stays the primary cap, and the ceiling is a machine-independent backstop set near it (about 0.7 s at the roughly 138 million instructions per second measured on the development machine). It is about 3,000 times the heaviest of the 16 oracle statements (about 32,000), so it does not refuse a read the time cap would allow on this machine. It changes only by a new value in the record. The two time mechanisms are witnessed apart: each test puts the other cap out of reach.</p>
+<p>The query runs in a worker thread (<code>anyio.to_thread</code>), not on Inspect's event loop. A slow query therefore does not stop the Episode time limit from taking control: when that limit cancels the call, a stop flag read by the progress handler interrupts the statement. The four caps are recorded in the task metadata and read back with the Episode limits, under <code>query_caps</code> (<code>read_back</code> in <code>agentic/limits.py</code>).</p>
 </div>
 
 <p class="sub2">The four Criteria</p>

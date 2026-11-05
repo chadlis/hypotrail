@@ -14,7 +14,7 @@ from inspect_ai.solver import generate, use_tools
 from hypotrail.agentic.cases import user_message
 from hypotrail.agentic.declaration import Workload
 from hypotrail.agentic.limits import EpisodeLimits, eval_options
-from hypotrail.agentic.sql_tool import describe_schema, query_readonly
+from hypotrail.agentic.sql_tool import QueryCaps, describe_schema, query_readonly
 
 
 def build_task(
@@ -24,6 +24,7 @@ def build_task(
     cases: list[dict] | None = None,
     partition: str = "dev",
     scorer=None,
+    query_caps: QueryCaps | None = None,
 ) -> Task:
     """The Inspect task of a Workload under one Configuration.
 
@@ -40,13 +41,14 @@ def build_task(
         for case in (cases if cases is not None else workload.cases(partition))
     ]
     database = workload.database_path
+    query_caps = query_caps or QueryCaps()
     return Task(
         dataset=MemoryDataset(samples, name=workload.workload_id),
-        solver=[use_tools(describe_schema(database), query_readonly(database)), generate()],
+        solver=[use_tools(describe_schema(database), query_readonly(database, query_caps)), generate()],
         scorer=scorer,
         name=f"{workload.workload_id}_{configuration}",
         # the exact prompt text of the Configuration is kept in the log header
-        metadata={"configuration": configuration, "system_text": system_text},
+        metadata={"configuration": configuration, "system_text": system_text, "query_caps": query_caps.as_dict()},
         fail_on_error=False,
     )
 
@@ -79,11 +81,12 @@ def run_episodes(
     log_dir: Path,
     scorer=None,
     limits: EpisodeLimits | None = None,
+    query_caps: QueryCaps | None = None,
     **overrides,
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
-        build_task(workload, configuration, cases=cases, scorer=scorer),
+        build_task(workload, configuration, cases=cases, scorer=scorer, query_caps=query_caps),
         model=model,
         epochs=repeats,
         log_dir=str(log_dir),
