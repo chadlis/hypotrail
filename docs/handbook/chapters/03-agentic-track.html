@@ -7,6 +7,25 @@
 <p>The Scorer takes the raw final answer unchanged and keeps it unchanged in its output, whether or not it respects the schema.</p>
 </div>
 
+<p class="sub2">The read-only SQL tool</p>
+<div class="prose">
+<p>The evaluated model reaches Chinook through one tool, <code>query_readonly(sql)</code> (<code>agentic/sql_tool.py</code>; the connection details are in the spike chapter). No SQL text is inspected: three native SQLite mechanisms decide what runs. The limit on attached databases is 0, <code>execute</code> takes a single statement, and an authorizer holds the allow-list.</p>
+<ul>
+<li><b>Allowed:</b> <code>SELECT</code>, reads of the tables the Chinook file itself declares, and eleven functions: <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>round</code>, <code>lower</code>, <code>upper</code>, <code>coalesce</code>, <code>ifnull</code> and <code>strftime</code>.</li>
+<li><b>Tables read from the file:</b> the table names are never written in the code, so a table the file does not declare is not readable, and the system tables such as <code>sqlite_master</code> stay refused.</li>
+<li><b>Denied:</b> writes and DDL, <code>ATTACH</code>, <code>DETACH</code>, <code>PRAGMA</code>, transactions, <code>VACUUM</code> (also <code>INTO</code>), extension loading, recursive queries and any other function. A statement that starts with <code>WITH</code> or <code>SELECT</code> but needs a denied action is refused.</li>
+</ul>
+<p>A refused or failed statement sets <code>error</code> to a <code>code</code>, a <code>type</code> and a <code>message</code>; the code is what to rely on.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="sql-tool-error-codes"><thead><tr><th>Code</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>DENIED_ACTION</code></td><td>The authorizer refused an action outside the allow-list.</td></tr>
+<tr><td><code>SQL_ERROR</code></td><td>SQLite failed the statement for another reason (syntax, unknown table or column).</td></tr>
+<tr><td><code>MULTIPLE_STATEMENTS</code></td><td>The text holds more than one statement.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The row, size and time caps of the tool are not built yet; they belong to issue #8.</p>
+</div>
+
 <p class="sub2">The two Criteria</p>
 <div class="tblwrap"><table class="tbl" id="chinook-criteria"><thead><tr><th>Criterion</th><th>Scored true when</th><th>Scored false when</th></tr></thead><tbody>
 <tr><td><code>exact_table</code></td><td>Status, <code>reason_code</code>, columns in order, rows in the requested order, types and unit all equal the Reference.</td><td>Any of them differs, or the answer is malformed (then every component is false).</td></tr>
