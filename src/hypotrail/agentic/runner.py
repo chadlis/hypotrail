@@ -25,6 +25,7 @@ def build_task(
     partition: str = "dev",
     scorer=None,
     query_caps: QueryCaps | None = None,
+    metadata: dict | None = None,
 ) -> Task:
     """The Inspect task of a Workload under one Configuration.
 
@@ -48,7 +49,12 @@ def build_task(
         scorer=scorer,
         name=f"{workload.workload_id}_{configuration}",
         # the exact prompt text of the Configuration is kept in the log header
-        metadata={"configuration": configuration, "system_text": system_text, "query_caps": query_caps.as_dict()},
+        metadata={
+            "configuration": configuration,
+            "system_text": system_text,
+            "query_caps": query_caps.as_dict(),
+            **(metadata or {}),
+        },
         fail_on_error=False,
     )
 
@@ -82,11 +88,12 @@ def run_episodes(
     scorer=None,
     limits: EpisodeLimits | None = None,
     query_caps: QueryCaps | None = None,
+    metadata: dict | None = None,
     **overrides,
 ) -> str:
     """Run every Case `repeats` times and return the location of the Inspect log."""
     logs = eval(
-        build_task(workload, configuration, cases=cases, scorer=scorer, query_caps=query_caps),
+        build_task(workload, configuration, cases=cases, scorer=scorer, query_caps=query_caps, metadata=metadata),
         model=model,
         epochs=repeats,
         log_dir=str(log_dir),

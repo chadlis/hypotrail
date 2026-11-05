@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/agentic/workload.schema.json",
   "title": "workload.json of the tool-using agent Track",
-  "description": "The whole shape of a Workload declaration of the agentic Track. Every key is required: the one entry point that reads it builds a task from all of them. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
+  "description": "The whole shape of a Workload declaration of the agentic Track. Every key is required except `scenarios` (the technical scenarios of the `scripted_fixture` Mode, kept as data): the one entry point that reads it builds a task from all of them. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "configurations"],
@@ -26,6 +26,7 @@
       "additionalProperties": {"$ref": "#/$defs/name"}
     },
     "references": {"$ref": "#/$defs/name"},
+    "scenarios": {"$ref": "#/$defs/name"},
     "configurations": {
       "type": "object",
       "minProperties": 1,

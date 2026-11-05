@@ -152,6 +152,12 @@ class Workload:
     def database_path(self) -> Path:
         return self.directory / self.declaration["database"]["file"]
 
+    @property
+    def scenarios_path(self) -> Path | None:
+        """The scenarios file of the `scripted_fixture` Mode, or None when the Workload declares none."""
+        declared = self.declaration.get("scenarios")
+        return None if declared is None else self.directory / declared
+
     def system_text(self, configuration: str) -> str:
         """The exact system text of a Configuration: the extended text, then its added instruction."""
         configurations = self.declaration["configurations"]
