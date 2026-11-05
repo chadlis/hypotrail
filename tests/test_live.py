@@ -56,7 +56,7 @@ def never_runs(monkeypatch):
 
 
 def live_args(tmp_path, *extra):
-    return ["spike", "live", "--out", str(tmp_path / "out"), "--json", *extra]
+    return ["spike", "live", "--config", "plain", "--out", str(tmp_path / "out"), "--json", *extra]
 
 
 # --- the key ------------------------------------------------------------------------------------
@@ -193,6 +193,7 @@ class FakeAnthropic:
         self.sql = {c["question"]: oracle_sql(c["case_id"]) for c in cases if c["case_id"] in ("D03", "D05")}
         self.units = {c["question"]: c["unit"] for c in cases}
         self.requests = []
+        self.cut_answers = False  # reply to the second call with a text cut by the output cap
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -243,6 +244,8 @@ class FakeAnthropic:
         result = json.loads(self._text_of(results[0]["content"]))
         answer = {"status": "answered", "reason_code": None, "columns": result["columns"],
                   "rows": result["rows"], "unit": self.units[question], "evidence": [result["tool_call_id"]]}
+        if self.cut_answers:
+            return {**message, "stop_reason": "max_tokens", "content": [{"type": "text", "text": json.dumps(answer)[:40]}]}
         return {**message, "stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(answer)}]}
 
 
@@ -477,7 +480,7 @@ def test_the_command_reaches_the_missing_key_without_importing_inspect(tmp_path)
     )
     env = {k: v for k, v in __import__("os").environ.items() if "ANTHROPIC" not in k}
     result = subprocess.run(
-        [sys.executable, "-c", probe, "spike", "live", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"],
+        [sys.executable, "-c", probe, "spike", "live", "--config", "plain", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"],
         capture_output=True, text=True, env=env, check=True,
     )
     report = json.loads(result.stdout.strip().splitlines()[-1])
@@ -526,7 +529,7 @@ def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tm
         case_ids=["D03", "D05"],
         repeats=1,
     )
-    assert again == record
+    assert again == {**record, "database_sha256": None}
     assert (out / "run.json").is_file()
 
 
@@ -644,3 +647,172 @@ def test_the_run_record_keeps_the_exact_prompt_text_of_its_configuration(rehears
     assert record["configuration"] == "plain"
     assert record["system_text"] == WORKLOAD.system_text("plain")
     assert json.loads((out / "run.json").read_text())["system_text"] == WORKLOAD.system_text("plain")
+
+
+# --- ticket #49: one named Configuration, an explicit reasoning setting, a fuller record ------------------------------
+
+
+def test_the_command_names_a_declared_configuration(tmp_path, clean_env, monkeypatch):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    seen = []
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: seen.append(kw) or {
+        "model": kw["model_id"], "tool_loop_observed": False, "episodes": []
+    })
+    args = ["spike", "live", "--config", "verify", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"]
+    assert run_cli(*args)[0] == 0
+    assert seen[0]["configuration"] == "verify"
+
+
+def test_without_config_the_command_is_refused_before_anything_starts(tmp_path, clean_env, never_runs):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    code, out, _ = run_cli("spike", "live", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json")
+    assert code == 2 and json.loads(out)["error"]["code"] == "INVALID_ARGUMENTS"
+    assert never_runs == []
+
+
+def test_an_unknown_configuration_is_refused_with_a_code_before_the_key_is_read_and_before_inspect_is_imported(
+    tmp_path,
+):
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, json, io\n"
+        "from contextlib import redirect_stdout\n"
+        "from hypotrail import cli\n"
+        "out = io.StringIO()\n"
+        "with redirect_stdout(out):\n"
+        "    code = cli.main(sys.argv[1:])\n"
+        "print(json.dumps({'code': code, 'inspect': 'inspect_ai' in sys.modules, 'out': out.getvalue()}))\n"
+    )
+    env = {k: v for k, v in __import__("os").environ.items() if "ANTHROPIC" not in k}
+    env["HYPOTRAIL_ANTHROPIC_API_KEY"] = FAKE_KEY
+    result = subprocess.run(
+        [sys.executable, "-c", probe, "spike", "live", "--config", "nope", "--model", MODEL_ID,
+         "--out", str(tmp_path / "o"), "--json"],
+        capture_output=True, text=True, env=env, check=True,
+    )
+    report = json.loads(result.stdout)
+    assert report["code"] == 2 and report["inspect"] is False
+    assert json.loads(report["out"])["error"]["code"] == "CONFIGURATION_NOT_DECLARED"
+    assert FAKE_KEY not in result.stdout + result.stderr
+
+
+def test_an_unknown_configuration_is_refused_before_the_missing_key_is_reported(tmp_path, clean_env, never_runs):
+    code, out, _ = run_cli("spike", "live", "--config", "nope", "--model", MODEL_ID,
+                           "--out", str(tmp_path / "o"), "--json")
+    assert code == 2 and json.loads(out)["error"]["code"] == "CONFIGURATION_NOT_DECLARED"
+
+
+@pytest.fixture
+def both_rehearsals(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    runs = {}
+    with FakeAnthropic() as fake:
+        for configuration in ("plain", "verify"):
+            first = len(fake.requests)
+            record = agentic_live.run_live(
+                model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03", "D05"],
+                repeats=1, out_dir=tmp_path / configuration, base_url=fake.url, configuration=configuration,
+            )
+            runs[configuration] = (fake.requests[first:], record, tmp_path / configuration)
+        yield runs
+
+
+def _system_text(body):
+    system = body["system"]
+    return system if isinstance(system, str) else "".join(b["text"] for b in system)
+
+
+def test_both_configurations_send_the_same_explicit_reasoning_setting_and_the_1024_token_cap(both_rehearsals):
+    sent = {}
+    for configuration, (requests, _, _) in both_rehearsals.items():
+        assert len(requests) == 4
+        for request in requests:
+            assert request["body"]["max_tokens"] == 1024
+            assert request["body"]["thinking"] == {"type": "disabled"}
+        sent[configuration] = {(r["body"]["max_tokens"], json.dumps(r["body"]["thinking"])) for r in requests}
+    assert sent["plain"] == sent["verify"] and len(sent["plain"]) == 1
+    # the Configurations differ by their prompt only
+    plain, verify = (_system_text(both_rehearsals[c][0][0]["body"]) for c in ("plain", "verify"))
+    assert plain == WORKLOAD.system_text("plain") and verify == WORKLOAD.system_text("verify")
+
+
+def test_the_record_holds_the_reasoning_setting_and_the_output_cap_as_sent(both_rehearsals):
+    for configuration, (_, record, out) in both_rehearsals.items():
+        assert record["reasoning"] == {"setting": "disabled", "requested": "none", "sent": {"type": "disabled"}}
+        assert record["output_cap"] == {"requested": 1024, "sent": 1024}
+        assert record["configuration"] == configuration
+        assert record["system_text"] == WORKLOAD.system_text(configuration)
+        assert record["mode"] == "llm_live" and record["provider"] == "anthropic"
+        assert record["model"] == MODEL_ID and record["served_models"] == ["claude-test-1-20261101"]
+        assert json.loads((out / "run.json").read_text())["reasoning"] == record["reasoning"]
+
+
+def test_the_record_names_the_cases_it_ran_and_the_chinook_hash_before_and_after(both_rehearsals):
+    import hashlib
+
+    expected = hashlib.sha256((CHINOOK / "data" / "Chinook_Sqlite.sqlite").read_bytes()).hexdigest()
+    for _, record, _ in both_rehearsals.values():
+        assert record["cases"] == [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]
+        assert record["database_sha256"] == {"before": expected, "after": expected}
+
+
+def test_the_record_reads_back_the_limits_and_names_what_cannot_be_enforced(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        limits = record["effective_limits"]
+        assert limits["model_turns"] == 6 and limits["max_output_tokens"] == 1024
+        assert set(limits["query_caps"]) == {"max_rows", "max_bytes", "max_seconds", "max_instructions"} or limits["query_caps"]
+        notes = record["limit_notes"]
+        assert "no limit on the number of tool calls" in notes["tool_calls"]
+        assert notes["provider_calls"] == "6 model turns allow 7 provider calls"
+
+
+def test_for_each_configuration_the_join_case_shows_model_tool_model_answer_and_the_record_reports_it(both_rehearsals):
+    for _, record, out in both_rehearsals.values():
+        assert record["tool_loop_observed"] is True
+        episodes = json.loads((out / "projection.json").read_text())
+        d03 = next(e for e in episodes if e["case_id"] == "D03")
+        assert [s["kind"] for s in d03["steps"]] == agentic_live.EXPECTED_SEQUENCE
+
+
+def test_every_model_call_records_why_it_stopped(both_rehearsals):
+    for _, _, out in both_rehearsals.values():
+        for episode in json.loads((out / "projection.json").read_text()):
+            turns = [s for s in episode["steps"] if s["kind"] == "model_turn"]
+            assert [t["stop_reason"] for t in turns] == ["tool_calls", "stop"]
+
+
+def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with FakeAnthropic() as fake:
+        fake.cut_answers = True
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+        )
+    (episode,) = json.loads((tmp_path / "out" / "projection.json").read_text())
+    assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
+
+
+def test_tokens_and_cost_the_log_does_not_give_are_null_never_zero_and_calls_and_latency_are_descriptive(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        for episode in record["episodes"]:
+            assert episode["model_calls"] == 2
+            assert isinstance(episode["latency_seconds"], float) and episode["latency_seconds"] >= 0
+            assert episode["input_tokens"] == 240 and episode["output_tokens"] == 60  # as the endpoint reported
+            assert episode["cost"] is None
+
+
+def test_an_episode_with_no_usage_in_the_log_has_null_tokens_not_zero():
+    class Sample:
+        model_usage = {}
+        total_time = 1.5
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage == {"model_calls": 0, "latency_seconds": 1.5, "input_tokens": None, "output_tokens": None, "cost": None}

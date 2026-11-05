@@ -5,6 +5,7 @@ the tool and uses its result. The key is passed explicitly to the provider and i
 never logged or persisted; the output is scanned for it before the run reports.
 """
 
+import hashlib
 import json
 import platform
 from importlib import metadata
@@ -19,6 +20,11 @@ from hypotrail.agentic.declaration import load_workload
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+# Reasoning is disabled, for both Configurations (owner decision 1 on #8). A level would draw its
+# thinking from the same 1,024-token output cap as the answer, so an answer could be cut by our own
+# setting; disabled keeps the whole cap for the answer. Inspect's name for it is "none".
+REASONING_EFFORT = "none"
+REASONING_SETTING = "disabled"
 EXPECTED_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]
 
 
@@ -137,6 +143,37 @@ def request_parameters(log) -> dict | None:
     return None
 
 
+def usage_of(sample) -> dict:
+    """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
+
+    A figure the log does not give is None, never zero (CMP-06).
+    """
+    usage = list((sample.model_usage or {}).values())
+
+    def total(field):
+        values = [getattr(u, field) for u in usage if getattr(u, field, None) is not None]
+        return sum(values) if values else None
+
+    return {
+        "model_calls": sum(1 for e in sample.events or [] if e.event == "model"),
+        "latency_seconds": None if sample.total_time is None else float(sample.total_time),
+        "input_tokens": total("input_tokens"),
+        "output_tokens": total("output_tokens"),
+        "cost": total("total_cost"),
+    }
+
+
+def _read_back_reasoning(location: str) -> str | None:
+    """The reasoning effort that took effect, as the log header records it (public log API)."""
+    log = read_eval_log(location, header_only=True)
+    generate = log.eval.model_generate_config.model_copy(update=log.plan.config.model_dump(exclude_none=True))
+    return generate.reasoning_effort
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 def run_live(
     *,
     model_id: str,
@@ -160,6 +197,7 @@ def run_live(
 
     def work() -> dict:
         workload = load_workload(workload_dir)
+        before = _sha256(workload.database_path)
         location = runner.run_episodes(
             workload.cases("dev", case_ids),
             workload=workload,
@@ -168,9 +206,15 @@ def run_live(
             repeats=repeats,
             log_dir=out_dir / "inspect",
             limits=limits_module.EpisodeLimits(),
+            reasoning_effort=REASONING_EFFORT,
         )
         return _record(
-            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+            location=location,
+            out_dir=out_dir,
+            model_id=model_id,
+            case_ids=case_ids,
+            repeats=repeats,
+            database_sha256={"before": before, "after": _sha256(workload.database_path)},
         )
 
     return _scanned(out_dir, api_key, work)
@@ -184,28 +228,46 @@ def summarize(
     api_key: str,
     case_ids: list[str],
     repeats: int,
+    database_sha256: dict | None = None,
 ) -> dict:
     """Project a kept log, write the run record, and scan the output for the key.
 
     It reads the log only; it calls neither the model nor any tool, so it can be
-    run again on a kept log. The scan runs even if a step fails.
+    run again on a kept log. The scan runs even if a step fails. The database hashes
+    belong to the run, so they are recorded only if given (None otherwise).
     """
     out_dir = Path(out_dir).resolve()
     return _scanned(
         out_dir,
         api_key,
         lambda: _record(
-            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+            location=location,
+            out_dir=out_dir,
+            model_id=model_id,
+            case_ids=case_ids,
+            repeats=repeats,
+            database_sha256=database_sha256,
         ),
     )
 
 
-def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str], repeats: int) -> dict:
+def _record(
+    *,
+    location: str,
+    out_dir: Path,
+    model_id: str,
+    case_ids: list[str],
+    repeats: int,
+    database_sha256: dict | None,
+) -> dict:
     out_dir = Path(out_dir).resolve()
     limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
     episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
+    parameters = request_parameters(log)
+    effective = limits_module.read_back(location)
+    samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {
         "mode": "llm_live",
@@ -217,13 +279,26 @@ def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str],
         "served_models": sorted(
             {s.output.model for s in (log.samples or []) if s.output and s.output.model}
         ),
-        "request_parameters": request_parameters(log),
+        "request_parameters": parameters,
+        # reasoning and the output cap: what was asked, and what the request carried
+        "reasoning": {
+            "setting": REASONING_SETTING,
+            "requested": _read_back_reasoning(location),
+            "sent": (parameters or {}).get("thinking"),
+        },
+        "output_cap": {"requested": limits.max_output_tokens, "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
         "python": platform.python_version(),
         "hardware": platform.platform(),
         "machine": platform.machine(),
-        "effective_limits": limits_module.read_back(location),
+        "effective_limits": effective,
         "requested_limits": limits.as_dict(),
+        "limit_notes": {
+            "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
+            "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",
+        },
+        "cases": [{"case_id": c, "repeat": r} for c, r in expected],
+        "database_sha256": database_sha256,
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
         "episodes": [
@@ -233,6 +308,7 @@ def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str],
                 "status": e["status"],
                 "stopped_by_limit": e["stopped_by_limit"],
                 "uses_tool_result": _uses_result(e),
+                **(usage_of(samples[(e["case_id"], e["repeat"])]) if (e["case_id"], e["repeat"]) in samples else {}),
             }
             for e in episodes
         ],

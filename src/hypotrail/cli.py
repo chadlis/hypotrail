@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="opt-in, paid: run the spike task against a real Anthropic model "
         "(at most 2 Episodes on dev Cases)",
     )
+    live.add_argument(
+        "--config",
+        required=True,
+        metavar="NAME",
+        help="the declared Configuration to run, one per invocation (chinook: plain or verify)",
+    )
     live.add_argument("--model", help="explicit model identifier, as anthropic/<model>; no default")
     live.add_argument(
         "--case",
@@ -104,9 +110,13 @@ def _spike_live(args) -> int:
     model = live.require_model(args.model)
     examples = data.default_examples_dir()
     workload_dir = examples / "chinook"
+    workload = load_workload(workload_dir)
+    # An undeclared Configuration is refused here, before the key is read and before Inspect is
+    # imported.
+    workload.system_text(args.config)
     # Neither the declaration nor `hypotrail.agentic.cases` imports Inspect, so they are read
     # here, before the key.
-    dev_ids = {case["case_id"] for case in cases.load_cases(load_workload(workload_dir).cases_path("dev"))}
+    dev_ids = {case["case_id"] for case in cases.load_cases(workload.cases_path("dev"))}
     case_ids = args.case or ["D03", "D05"]
     live.check_bounds(case_ids, args.repeats, dev_ids)
     # The key is read last among the cheap checks and before Inspect is imported:
@@ -120,12 +130,13 @@ def _spike_live(args) -> int:
         model_id=model,
         api_key=api_key,
         workload_dir=workload_dir,
+        configuration=args.config,
         case_ids=case_ids,
         repeats=args.repeats,
         out_dir=args.out,
     )
     lines = [
-        f"live run recorded in {args.out} (model {record['model']}, "
+        f"live run recorded in {args.out} (configuration {args.config}, model {record['model']}, "
         f"tool loop observed: {record['tool_loop_observed']})"
     ] + [
         f"  {e['case_id']} repeat {e['repeat']}: {e['status']}" for e in record["episodes"]
