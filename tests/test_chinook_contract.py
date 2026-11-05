@@ -177,7 +177,7 @@ def test_an_invalid_reference_leaves_exact_table_unscored_with_a_reason(broken):
 
 
 def test_a_crash_inside_the_scorer_leaves_every_criterion_errored_with_the_exception_type():
-    def broken(answer, reference, schema):
+    def broken(answer, reference, schema, steps):
         raise ZeroDivisionError("secret message that must not be parsed")
 
     result = chinook_contract.apply_scorer(
@@ -186,6 +186,8 @@ def test_a_crash_inside_the_scorer_leaves_every_criterion_errored_with_the_excep
     assert [(c["name"], c["state"], c["score"], c["reason"]) for c in result["criteria"]] == [
         ("exact_table", "errored", None, "scoring_failed"),
         ("format_valid", "errored", None, "scoring_failed"),
+        ("evidence_link_valid", "errored", None, "scoring_failed"),
+        ("contract_success", "errored", None, "scoring_failed"),
     ]
     assert result["error_type"] == "ZeroDivisionError"
     assert result["scorer"] == {"name": "chinook_contract_v1", "version": chinook_contract.SCORER_VERSION}
@@ -278,12 +280,12 @@ def test_a_core_scorer_crash_on_one_episode_errors_only_that_episode(kept_log):
 
     d05_calls = []
 
-    def explodes_on_the_second_d05(answer, reference, schema):
+    def explodes_on_the_second_d05(answer, reference, schema, steps):
         if reference["case_id"] == "D05":
             d05_calls.append(1)
             if len(d05_calls) == 2:
                 raise KeyError("lost")
-        return chinook_contract.score_episode(answer, reference, schema)
+        return chinook_contract.score_episode(answer, reference, schema, steps)
 
     verdicts = rescore.rescore_log(
         kept_log, REFS, schema=SCHEMA, expected=expected, scorer=explodes_on_the_second_d05
