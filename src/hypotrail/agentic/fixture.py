@@ -148,7 +148,6 @@ def run_fixture(*, workload_dir: Path, out_dir: Path, limits: limits_module.Epis
         "business_case_outputs": 0,
         "counts": tally["criteria"],
         "tool_errors": tally["tool_errors"],
-        "awaiting_criteria_decision": tally["awaiting_criteria_decision"],
         "effective_limits": effective,
         "requested_limits": limits.as_dict(),
         "limits_not_enforceable": limits_module.NOT_ENFORCEABLE,

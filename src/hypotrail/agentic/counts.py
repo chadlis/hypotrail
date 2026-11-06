@@ -5,15 +5,16 @@ from the log), N_produced (those with an answer), then N_scored, N_correct, N_in
 N_unscored and N_errored over the Criterion states, with N_scored = N_correct + N_incorrect.
 Tool errors are counted apart, by structured code, never as Criterion states.
 
-An Episode whose Criteria are not decided yet (`criteria` is None, see
-`rescore.criteria_for_limit_stop`) is counted in N_expected and N_attempted like any other, and
-is listed in `awaiting_criteria_decision`, so it cannot drop silently out of a denominator.
+An Episode stopped by one of our limits has a state for every Criterion (`rescore.criteria_for_limit_stop`),
+so it is counted in N_expected and N_attempted like any other and cannot drop silently out of a denominator.
+`public_check` Items are refused until #9's Exposure journal exists.
 The shares of CMP-04 and CMP-05 and the Assessment contract belong to #9.
 """
 
 from collections import Counter
 
 from hypotrail.core.chinook_contract import CRITERIA
+from hypotrail.ml.partitions import require_dev
 
 
 def _counters(verdicts: list[dict], name: str) -> dict:
@@ -37,12 +38,16 @@ def _counters(verdicts: list[dict], name: str) -> dict:
     }
 
 
-def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA) -> dict:
+def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, partition: str = "dev") -> dict:
+    require_dev(
+        partition,
+        public_check_code="PUBLIC_CHECK_COUNTS_REFUSED",
+        not_dev_code="COUNTS_PARTITION_NOT_DEV",
+        what="counts",
+        stage="counts",
+    )
     tool_errors = Counter(code for v in verdicts for code in v["tool_error_codes"])
     return {
         "criteria": {name: _counters(verdicts, name) for name in criteria},
         "tool_errors": {"total": sum(tool_errors.values()), "by_code": dict(sorted(tool_errors.items()))},
-        "awaiting_criteria_decision": [
-            [v["case_id"], v["repeat"]] for v in verdicts if v["criteria"] is None
-        ],
     }

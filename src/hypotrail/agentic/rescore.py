@@ -10,7 +10,7 @@ Criterion and a Reason for every non-score (CMP-03):
 - `produced` with an answer: scored by the Scorer;
 - `failed` by an execution error: every Criterion `unscored`, Reason `execution_failed`;
 - `missing` from the log: every Criterion `unscored`, Reason `observation_missing`;
-- `failed` at one of our limits before any final answer: see `criteria_for_limit_stop`.
+- `failed` at one of our limits, or by the output cap: see `criteria_for_limit_stop`.
 
 Neither a failed nor a missing Episode is ever scored false.
 """
@@ -19,31 +19,53 @@ from collections.abc import Callable, Iterable
 
 from hypotrail.agentic.projection import project_log
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
+from hypotrail.ml.partitions import require_dev
 
 EXECUTION_FAILED = "execution_failed"
 OBSERVATION_MISSING = "observation_missing"
+
+
+AGENT_RESPONSIBLE = ("turn_limit", "token_limit")
+STOPPED_BY_US = AGENT_RESPONSIBLE + ("time_limit", "output_cap")
+
+
+def _require_dev(partition: str) -> None:
+    """Until #9's Exposure journal exists, rescoring is on `dev` (or scenario) Items only, as #7 does for metrics."""
+    require_dev(
+        partition,
+        public_check_code="PUBLIC_CHECK_RESCORING_REFUSED",
+        not_dev_code="RESCORING_PARTITION_NOT_DEV",
+        what="rescoring",
+        stage="rescore",
+    )
 
 
 def _all_unscored(reason: str) -> list[dict]:
     return [{"name": name, "state": "unscored", "score": None, "reason": reason} for name in CRITERIA]
 
 
-def criteria_for_limit_stop(episode: dict) -> list[dict] | None:
-    """The Criteria of an Episode stopped by one of our limits (turns, time, tokens) before a final answer.
+def _scored_false(reason: str) -> list[dict]:
+    return [{"name": name, "state": "scored", "score": False, "reason": reason} for name in CRITERIA]
 
-    PENDING OWNER DECISION D1 (chadlis/hypotrail#48, Tightened T3). Until the owner decides what
-    state these Criteria take, and whether an answer cut by the output cap is `failed` or
-    `produced`, this returns None: "not decided", neither a state nor an empty list. The Episode
-    itself is settled and does not wait: it is `failed`, its Reason names the limit, and it stays
-    in N_expected and N_attempted. D1 plugs in here, and only here.
+
+def criteria_for_limit_stop(episode: dict) -> list[dict]:
+    """The Criteria of an Episode `failed` at one of our limits, by who is responsible for the stop (owner decision D1).
+
+    - `turn_limit`, `token_limit`: the agent's own failure, every Criterion scored false;
+    - `time_limit` (wall time mixes agent and provider latency), `output_cap` (our setting):
+      every Criterion `unscored`, an Instrument failure never held against the system.
+    The Reason is kept on every Criterion, so a rescoring can revise the choice.
     """
-    return None
+    reason = episode["reason"]
+    if reason in AGENT_RESPONSIBLE:
+        return _scored_false(reason)
+    return _all_unscored(reason)
 
 
-def _criteria_of_unproduced(episode: dict) -> list[dict] | None:
+def _criteria_of_unproduced(episode: dict) -> list[dict]:
     if episode["status"] == "missing":
         return _all_unscored(OBSERVATION_MISSING)
-    if episode["stopped_by_limit"] is not None:
+    if episode["reason"] in STOPPED_BY_US:
         return criteria_for_limit_stop(episode)
     return _all_unscored(EXECUTION_FAILED)
 
@@ -68,8 +90,10 @@ def rescore_episodes(
     *,
     schema: dict,
     scorer: Callable = score_episode,
+    partition: str = "dev",
 ) -> list[dict]:
-    """One verdict per projected Episode, in the order given."""
+    """One verdict per projected Episode, in the order given. Refuses `public_check` Items (owner decision D2)."""
+    _require_dev(partition)
     verdicts = []
     for episode in episodes:
         verdict = {
@@ -95,10 +119,14 @@ def rescore_log(
     schema: dict,
     expected: Iterable[tuple[str, int]],
     scorer: Callable = score_episode,
+    partition: str = "dev",
 ) -> list[dict]:
-    """One verdict per expected (case_id, repeat).
+    """One verdict per expected (case_id, repeat). Refuses `public_check` Items before the log is read.
 
     `schema` is the Workload's `table-answer/1` schema. A Case without a Reference
     in `references` is not an error: its `exact_table` is left `unscored`.
     """
-    return rescore_episodes(project_log(location, expected=expected), references, schema=schema, scorer=scorer)
+    _require_dev(partition)
+    return rescore_episodes(
+        project_log(location, expected=expected), references, schema=schema, scorer=scorer, partition=partition
+    )
