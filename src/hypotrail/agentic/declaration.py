@@ -16,7 +16,8 @@ this module imports none of it. The codes:
 The last three relate values to each other, so they stay in Track code, next to their use.
 `PARTITIONS_NOT_DISJOINT` is checked when a `Workload` is constructed, which reads each declared
 Cases file once with `cases.load_cases`: an unreadable file or an unparsable line is refused there
-too (`FILE_NOT_FOUND`, `FILE_NOT_JSON`).
+too (`FILE_NOT_FOUND`, `FILE_NOT_JSON`), and so is a Case ID repeated inside one file
+(`CASE_ID_NOT_UNIQUE`; a Case ID in two files is `PARTITIONS_NOT_DISJOINT`).
 
 Whether a key is required is also Track code. The schema leaves `scenarios`, `answer_schema` and
 each Partition under `cases` optional, and the entry point that reads one refuses its absence:

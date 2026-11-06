@@ -344,6 +344,33 @@ def test_a_cases_line_that_cannot_be_parsed_is_refused_when_the_declaration_is_l
     assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_JSON"
 
 
+def with_repeated_first_case(tmp_path, partition):
+    """A copy of the Chinook Workload whose `partition` file ends with a second copy of its first Case."""
+    target = chinook_copy(tmp_path)
+    path = target / "cases" / ("chinook-dev.jsonl" if partition == "dev" else "chinook-public-check.jsonl")
+    first = path.read_text().splitlines()[0]
+    path.write_text(path.read_text() + first + "\n")
+    return target, path, json.loads(first)["case_id"]
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check"])
+def test_a_case_id_repeated_inside_one_cases_file_is_refused_when_the_declaration_is_loaded(tmp_path, partition):
+    target, _, case_id = with_repeated_first_case(tmp_path, partition)
+    error = refused_by(lambda: load_workload(target))
+    assert (error.code, error.stage, error.details["case_id"]) == ("CASE_ID_NOT_UNIQUE", "declaration", case_id)
+
+
+def test_a_case_id_in_both_partitions_is_still_not_disjoint_not_a_repeat(tmp_path):
+    # once in each file: a repeat in no single file
+    assert refused_by(lambda: load_workload(overlapping(tmp_path, "D03"))).code == "PARTITIONS_NOT_DISJOINT"
+
+
+def test_an_unparsable_line_is_still_refused_before_a_repeat(tmp_path):
+    target, path, _ = with_repeated_first_case(tmp_path, "dev")
+    path.write_text(path.read_text() + "{not json\n")
+    assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_JSON"
+
+
 def test_a_malformed_line_hides_no_overlap(tmp_path):
     target = overlapping(tmp_path, "D03")
     path = target / "cases" / "chinook-public-check.jsonl"
