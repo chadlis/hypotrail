@@ -3,8 +3,11 @@
 `dev` and `public_check` are protocol vocabulary (GLOSSARY: a Partition has a fixed role in the
 protocol; Exposure), defined once, here (ADR 0002, amendment of 2026-11-04). A Workload sets which
 file holds the Cases of each role, but it cannot add a role: `workload.schema.json` closes `cases`
-to these names. No score is computed on `public_check` Items before the Exposure journal that #9 builds; the Case IDs of
-each Partition are read, to check that the Partitions are disjoint.
+to these names.
+
+Before the Exposure journal that #9 builds, counting and rescoring refuse `public_check` Items.
+Scoring one answer against one Reference stays allowed (owner decision D2). Building a Workload
+reads every declared Cases file in full, to check that the Partitions are disjoint.
 """
 
 from hypotrail.core.errors import InvalidInputError
