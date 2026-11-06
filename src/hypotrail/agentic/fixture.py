@@ -27,14 +27,13 @@ from inspect_ai.log import read_eval_log
 from inspect_ai.model import ModelOutput
 
 from hypotrail.agentic import counts, limits as limits_module, projection, rescore, runner
-from hypotrail.agentic.declaration import load_workload
+from hypotrail.agentic.declaration import SCENARIOS, check_document, load_workload, read_json
 from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 MODE = "scripted_fixture"
 BANNER = "simulation, no LLM evaluated"
 MODEL = "mockllm/model"
-CONFIGURATION = "plain"
 
 
 class ScenarioScript:
@@ -87,7 +86,8 @@ def load_scenarios(workload) -> list[dict]:
             stage="fixture",
             details={"path": "scenarios"},
         )
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = read_json(path, stage="fixture", noun="scenarios file", key="scenarios")
+    check_document(document, SCENARIOS)
     return document["scenarios"]
 
 
@@ -96,8 +96,12 @@ def _write(out_dir: Path, name: str, body: dict) -> None:
     (out_dir / name).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")
 
 
-def run_fixture(*, workload_dir: Path, out_dir: Path, limits: limits_module.EpisodeLimits | None = None) -> dict:
-    """Run every scenario once and write the projection, the verdicts and the run record."""
+def run_fixture(
+    *, workload_dir: Path, out_dir: Path, configuration: str, limits: limits_module.EpisodeLimits | None = None
+) -> dict:
+    """Run every scenario once, under a declared Configuration, and write the projection, the verdicts and the run record."""
+    workload = load_workload(workload_dir)
+    workload.system_text(configuration)  # an undeclared Configuration is refused before anything is written
     out_dir = Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
@@ -106,8 +110,7 @@ def run_fixture(*, workload_dir: Path, out_dir: Path, limits: limits_module.Epis
     out_dir.mkdir(parents=True, exist_ok=True)
     limits = limits or limits_module.EpisodeLimits()
 
-    workload = load_workload(workload_dir)
-    schema = json.loads((Path(workload_dir) / "schemas" / "table-answer.schema.json").read_text(encoding="utf-8"))
+    schema = workload.answer_schema()
     scenarios = load_scenarios(workload)
     scenario_of = {s["case"]["case_id"]: s["scenario_id"] for s in scenarios}
     references = {s["case"]["case_id"]: s["reference"] for s in scenarios if "reference" in s}
@@ -116,7 +119,7 @@ def run_fixture(*, workload_dir: Path, out_dir: Path, limits: limits_module.Epis
     location = runner.run_episodes(
         [s["case"] for s in scenarios if s["script"] is not None],
         workload=workload,
-        configuration=CONFIGURATION,
+        configuration=configuration,
         model=runner.mock_model(ScenarioScript(scenarios)),
         repeats=1,
         log_dir=out_dir / "inspect",
@@ -134,7 +137,7 @@ def run_fixture(*, workload_dir: Path, out_dir: Path, limits: limits_module.Epis
     effective = limits_module.read_back(location)
 
     record = {
-        "configuration": CONFIGURATION,
+        "configuration": configuration,
         "model": log.eval.model,
         "provider": log.eval.model.split("/", 1)[0],
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},

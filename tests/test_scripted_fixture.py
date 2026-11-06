@@ -139,7 +139,7 @@ BANNER = "simulation, no LLM evaluated"
 @pytest.fixture(scope="module")
 def fixture_run(tmp_path_factory):
     out = tmp_path_factory.mktemp("fixture-run")
-    record = fixture.run_fixture(workload_dir=CHINOOK, out_dir=out)
+    record = fixture.run_fixture(workload_dir=CHINOOK, out_dir=out, configuration="plain")
     return out, record
 
 
@@ -359,3 +359,115 @@ def test_the_scenario_scripts_are_data_and_the_workload_holds_no_python():
     path = WORKLOAD.scenarios_path
     assert path.suffix == ".json" and isinstance(json.loads(path.read_text()), dict)
     assert not [p for p in CHINOOK.rglob("*.py")]
+
+
+# --- R1-S2: the Configuration is an argument, and scenarios.json has one JSON Schema -----------------------
+
+import copy
+
+from hypotrail.core.errors import InvalidInputError
+
+SCENARIOS = CHINOOK / "fixtures" / "scenarios.json"
+
+
+def scenarios_workload(tmp_path, edit):
+    import shutil
+
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=shutil.ignore_patterns("data", "inspect"))
+    (target / "data").symlink_to(CHINOOK / "data")
+    document = json.loads(SCENARIOS.read_text())
+    edit(document)
+    (target / "fixtures" / "scenarios.json").write_text(json.dumps(document))
+    return fixture.load_workload(target)
+
+
+def refused_scenarios(tmp_path, edit):
+    workload = scenarios_workload(tmp_path, edit)
+    with pytest.raises(InvalidInputError) as caught:
+        fixture.load_scenarios(workload)
+    return caught.value
+
+
+def test_the_real_scenarios_match_their_schema():
+    assert len(fixture.load_scenarios(WORKLOAD)) == 7
+
+
+@pytest.mark.parametrize("key", ["schema_version", "mode", "scenarios"])
+def test_a_missing_key_of_the_scenarios_document_is_refused_with_a_code(tmp_path, key):
+    error = refused_scenarios(tmp_path, lambda d: d.pop(key))
+    assert (error.code, error.details["key"]) == ("SCENARIOS_INCOMPLETE", key)
+
+
+@pytest.mark.parametrize("key", ["scenario_id", "case", "script"])
+def test_a_missing_key_of_a_scenario_is_refused_with_its_path(tmp_path, key):
+    error = refused_scenarios(tmp_path, lambda d: d["scenarios"][0].pop(key))
+    assert (error.code, error.details["key"], error.details["path"]) == ("SCENARIOS_INCOMPLETE", key, "scenarios.0")
+
+
+def test_an_unknown_key_is_refused_in_the_document_a_scenario_its_case_and_a_turn(tmp_path):
+    for where, edit in {
+        "": lambda d: d.__setitem__("surprise", 1),
+        "scenarios.0": lambda d: d["scenarios"][0].__setitem__("surprise", 1),
+        "scenarios.0.case": lambda d: d["scenarios"][0]["case"].__setitem__("surprise", 1),
+        "scenarios.0.script.0": lambda d: d["scenarios"][0]["script"][0].__setitem__("surprise", 1),
+    }.items():
+        error = refused_scenarios(tmp_path / (where or "root"), edit)
+        assert (error.code, error.details["key"], error.details["path"]) == ("SCENARIOS_KEY_UNKNOWN", "surprise", where)
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda d: d["scenarios"][0].__setitem__("script", "go"),
+        lambda d: d["scenarios"][0]["case"].__setitem__("answer_columns", "track_count"),
+        lambda d: d["scenarios"][0]["script"][0]["tool_call"].__setitem__("arguments", []),
+        lambda d: d.__setitem__("scenarios", {}),
+    ],
+)
+def test_a_value_of_the_wrong_type_is_refused_with_a_code(tmp_path, edit):
+    assert refused_scenarios(tmp_path, edit).code == "SCENARIOS_WRONG_TYPE"
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda d: d.__setitem__("mode", "llm_live"),
+        lambda d: d["scenarios"][0]["script"].__setitem__(0, {}),
+        lambda d: d["scenarios"][0]["script"].__setitem__(0, {"raw_answer": "x", "answer_from_last_result": {"unit": "count"}}),
+        lambda d: d["scenarios"][0]["script"][1]["answer_from_last_result"].pop("unit"),
+    ],
+)
+def test_a_value_the_schema_does_not_allow_is_refused_with_a_code(tmp_path, edit):
+    assert refused_scenarios(tmp_path, edit).code in {"SCENARIOS_VALUE_NOT_ALLOWED", "SCENARIOS_INCOMPLETE"}
+
+
+def test_a_scenario_without_a_script_or_a_reference_is_still_valid(tmp_path):
+    scenarios = fixture.load_scenarios(scenarios_workload(tmp_path, lambda d: None))
+    assert any(s["script"] is None for s in scenarios) and any("reference" not in s for s in scenarios)
+
+
+def test_scenarios_that_are_absent_or_not_json_are_refused_with_a_code(tmp_path):
+    workload = scenarios_workload(tmp_path, lambda d: None)
+    workload.scenarios_path.write_text("{no")
+    with pytest.raises(InvalidInputError) as caught:
+        fixture.load_scenarios(workload)
+    assert caught.value.code == "FILE_NOT_JSON"
+    workload.scenarios_path.unlink()
+    with pytest.raises(InvalidInputError) as caught:
+        fixture.load_scenarios(workload)
+    assert caught.value.code == "FILE_NOT_FOUND"
+
+
+@pytest.mark.parametrize("configuration", sorted(WORKLOAD.declaration["configurations"]))
+def test_the_fixture_runs_each_declared_configuration_it_is_given(tmp_path, configuration):
+    record = fixture.run_fixture(workload_dir=CHINOOK, out_dir=tmp_path, configuration=configuration)
+    assert record["configuration"] == configuration
+    log = read_eval_log(str(tmp_path / record["inspect_log"]), header_only=True)
+    assert log.eval.metadata["configuration"] == configuration
+
+
+def test_the_fixture_refuses_a_configuration_the_workload_does_not_declare(tmp_path):
+    with pytest.raises(InvalidInputError) as caught:
+        fixture.run_fixture(workload_dir=CHINOOK, out_dir=tmp_path / "x", configuration="nope")
+    assert caught.value.code == "CONFIGURATION_NOT_DECLARED"

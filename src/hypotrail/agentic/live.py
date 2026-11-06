@@ -223,7 +223,7 @@ def run_live(
     repeats: int,
     out_dir: Path,
     base_url: str = ANTHROPIC_BASE_URL,
-    configuration: str = "plain",
+    configuration: str,
 ) -> dict:
     out_dir = Path(out_dir)
     model = live_model(model_id, api_key, base_url)

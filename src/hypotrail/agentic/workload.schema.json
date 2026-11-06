@@ -5,7 +5,7 @@
   "description": "The whole shape of a Workload declaration of the agentic Track. Every key is required except `scenarios` (the technical scenarios of the `scripted_fixture` Mode, kept as data): the one entry point that reads it builds a task from all of them. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "configurations"],
+  "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "answer_schema", "configurations"],
   "properties": {
     "schema_version": {"type": "string"},
     "track": {"type": "string", "enum": ["tool_using_agent"]},
@@ -21,11 +21,17 @@
       }
     },
     "cases": {
+      "description": "The file of the Cases of each Partition role. The roles are the Track's (hypotrail.agentic.partitions); a Workload cannot add one.",
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": {"$ref": "#/$defs/name"}
+      "additionalProperties": false,
+      "properties": {
+        "dev": {"$ref": "#/$defs/name"},
+        "public_check": {"$ref": "#/$defs/name"}
+      }
     },
     "references": {"$ref": "#/$defs/name"},
+    "answer_schema": {"$ref": "#/$defs/name"},
     "scenarios": {"$ref": "#/$defs/name"},
     "configurations": {
       "type": "object",

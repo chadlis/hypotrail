@@ -12,6 +12,7 @@
     "public_check": "cases/chinook-public-check.jsonl"
   },
   "references": "references/chinook-references.jsonl",
+  "answer_schema": "schemas/table-answer.schema.json",
   "scenarios": "fixtures/scenarios.json",
   "configurations": {
     "plain": {

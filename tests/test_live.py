@@ -263,7 +263,7 @@ def rehearsal(tmp_path, clean_env):
             case_ids=["D03", "D05"],
             repeats=1,
             out_dir=tmp_path / "out",
-            base_url=fake.url,
+            base_url=fake.url, configuration="plain",
         )
         yield fake, record, tmp_path / "out"
 
@@ -435,7 +435,7 @@ def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, m
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
     assert FAKE_KEY not in str(caught.value)
@@ -447,7 +447,7 @@ def test_a_non_empty_output_directory_is_refused(tmp_path):
     with pytest.raises(Exception, match="not empty"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
 
 
@@ -512,7 +512,7 @@ def test_a_relative_output_directory_works(tmp_path, clean_env):
     with FakeAnthropic() as fake:
         record = agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url,
+            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url, configuration="plain",
         )
     assert record["inspect_log"].startswith("inspect/")
     assert (tmp_path / "relative-out" / "run.json").is_file()
@@ -626,7 +626,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
     with pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=out,
+            case_ids=["D03"], repeats=1, out_dir=out, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
 
@@ -639,7 +639,7 @@ def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, m
     with pytest.raises(RuntimeError, match="the run stopped"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
 
 
@@ -796,7 +796,7 @@ def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_p
         fake.cut_answers = True
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
-            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     (episode,) = json.loads((tmp_path / "out" / "projection.json").read_text())
     assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
@@ -844,7 +844,7 @@ def test_a_model_whose_request_would_not_state_reasoning_is_refused_and_nothing_
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=model, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
-            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     assert caught.value.code == "REASONING_NOT_EXPLICIT" and caught.value.exit_code == 2
     assert fake.requests == []

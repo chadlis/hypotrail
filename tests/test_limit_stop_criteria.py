@@ -192,7 +192,7 @@ def test_the_counters_tell_a_scored_false_stop_from_an_unscored_one(tmp_path):
 @pytest.fixture(scope="module")
 def fixture_run(tmp_path_factory):
     out = tmp_path_factory.mktemp("d1d2-run")
-    return out, fixture.run_fixture(workload_dir=CHINOOK, out_dir=out)
+    return out, fixture.run_fixture(workload_dir=CHINOOK, out_dir=out, configuration="plain")
 
 
 def test_the_budget_exhausted_scenario_has_every_criterion_scored_false(fixture_run):
