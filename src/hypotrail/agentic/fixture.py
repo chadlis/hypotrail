@@ -102,6 +102,8 @@ def run_fixture(
     """Run every scenario once, under a declared Configuration, and write the projection, the verdicts and the run record."""
     workload = load_workload(workload_dir)
     workload.system_text(configuration)  # an undeclared Configuration is refused before anything is written
+    schema = workload.answer_schema()  # the keys this entry point reads are refused before anything is written
+    scenarios = load_scenarios(workload)
     out_dir = Path(out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
@@ -110,8 +112,6 @@ def run_fixture(
     out_dir.mkdir(parents=True, exist_ok=True)
     limits = limits or limits_module.EpisodeLimits()
 
-    schema = workload.answer_schema()
-    scenarios = load_scenarios(workload)
     scenario_of = {s["case"]["case_id"]: s["scenario_id"] for s in scenarios}
     references = {s["case"]["case_id"]: s["reference"] for s in scenarios if "reference" in s}
 
