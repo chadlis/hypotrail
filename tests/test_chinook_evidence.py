@@ -313,7 +313,7 @@ def test_the_id_of_another_case_or_another_repeat_is_not_a_valid_link(episodes):
 def test_rescoring_a_kept_log_carries_the_new_criteria(episodes):
     location, _ = episodes
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
-    verdicts = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=expected)
+    verdicts = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
     assert all(contract(v) == ("scored", True, None) for v in verdicts)
 
 

@@ -129,10 +129,10 @@ def run_fixture(
     hash_after = sha256_file(workload.database_path)
 
     episodes = projection.project_log(location, expected=[(s["case"]["case_id"], 0) for s in scenarios])
-    verdicts = rescore.rescore_episodes(episodes, references, schema=schema)
+    verdicts = rescore.rescore_episodes(episodes, references, schema=schema, workload=workload)
     for verdict in verdicts:
         verdict["scenario_id"] = scenario_of[verdict["case_id"]]
-    tally = counts.tally(verdicts)
+    tally = counts.tally(verdicts, workload=workload)
     log = read_eval_log(location, header_only=True)
     effective = limits_module.read_back(location)
 

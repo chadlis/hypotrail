@@ -33,7 +33,7 @@ def run(tmp_path, model, *, limits=None):
 
 
 def verdict_of(location):
-    (verdict,) = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=[("D03", 0)])
+    (verdict,) = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=[("D03", 0)], workload=WORKLOAD)
     return verdict
 
 
@@ -171,7 +171,7 @@ def test_a_limit_stopped_episode_has_a_state_for_every_criterion_and_stays_attem
 
         verdict = verdict_of(run(tmp_path, slow, limits=EpisodeLimits(time_seconds=1)))
     assert [c["name"] for c in verdict["criteria"]] == list(CRITERIA)
-    tally = counts.tally([verdict])
+    tally = counts.tally([verdict], workload=WORKLOAD)
     assert "awaiting_criteria_decision" not in tally
     for name in CRITERIA:
         c = tally["criteria"][name]
@@ -182,7 +182,7 @@ def test_a_limit_stopped_episode_has_a_state_for_every_criterion_and_stays_attem
 def test_the_counters_tell_a_scored_false_stop_from_an_unscored_one(tmp_path):
     turn = verdict_of(run(tmp_path / "a", ScriptedModel(CASES, always_call_tool=True)))
     cap = verdict_of(run(tmp_path / "b", cut_answer()))
-    c = counts.tally([turn, cap])["criteria"]["exact_table"]
+    c = counts.tally([turn, cap], workload=WORKLOAD)["criteria"]["exact_table"]
     assert (c["N_incorrect"], c["N_unscored"], c["N_correct"]) == (1, 1, 0)
 
 
@@ -205,36 +205,73 @@ def test_the_budget_exhausted_scenario_has_every_criterion_scored_false(fixture_
 
 
 # --- T4' / D2: the counting and rescoring entry points refuse public_check Items ---------------------
+#
+# The refusal reads the Partition of each Item from the Workload declaration (R1-P4), never a label the
+# caller passes: E01 is a public_check Case, D03 a dev Case, SCN-01 a technical scenario Case.
+
+PUBLIC = "E01"
+assert WORKLOAD.partition_of(PUBLIC) == "public_check" and WORKLOAD.partition_of("D03") == "dev"
 
 
-def test_rescore_episodes_refuses_public_check_before_any_computation():
+def refused(call):
     with pytest.raises(InvalidInputError) as caught:
-        rescore.rescore_episodes([{"not": "even looked at"}], {}, schema=SCHEMA, partition="public_check")
-    assert caught.value.code == "PUBLIC_CHECK_RESCORING_REFUSED"
+        call()
+    return caught.value
 
 
-def test_rescore_log_refuses_public_check_before_the_log_is_read():
-    with pytest.raises(InvalidInputError) as caught:
-        rescore.rescore_log("no/such/log.eval", {}, schema=SCHEMA, expected=[("D03", 0)], partition="public_check")
-    assert caught.value.code == "PUBLIC_CHECK_RESCORING_REFUSED"
+def test_rescore_episodes_refuses_a_public_check_item_before_any_computation():
+    error = refused(lambda: rescore.rescore_episodes([{"case_id": PUBLIC}], {}, schema=SCHEMA, workload=WORKLOAD))
+    assert error.code == "PUBLIC_CHECK_RESCORING_REFUSED"
+    assert error.details["partition"] == "public_check" and error.details["case_ids"] == [PUBLIC]
 
 
-def test_tally_refuses_public_check_before_any_computation():
-    with pytest.raises(InvalidInputError) as caught:
-        counts.tally([{"not": "even looked at"}], partition="public_check")
-    assert caught.value.code == "PUBLIC_CHECK_COUNTS_REFUSED"
+def test_one_public_check_item_among_dev_items_refuses_the_whole_call():
+    episodes = [{"case_id": "D03"}, {"case_id": PUBLIC}, {"case_id": "D05"}]
+    error = refused(lambda: rescore.rescore_episodes(episodes, {}, schema=SCHEMA, workload=WORKLOAD))
+    assert (error.code, error.details["case_ids"]) == ("PUBLIC_CHECK_RESCORING_REFUSED", [PUBLIC])
 
 
-def test_another_partition_is_refused_with_its_own_code():
-    with pytest.raises(InvalidInputError) as caught:
-        counts.tally([], partition="train")
-    assert caught.value.code == "COUNTS_PARTITION_NOT_DEV"
+def test_rescore_log_refuses_a_public_check_item_before_the_log_is_read():
+    error = refused(
+        lambda: rescore.rescore_log("no/such/log.eval", {}, schema=SCHEMA, expected=[("D03", 0), (PUBLIC, 0)], workload=WORKLOAD)
+    )
+    assert error.code == "PUBLIC_CHECK_RESCORING_REFUSED"
 
 
-def test_dev_and_scenario_runs_are_unaffected(tmp_path):
+def test_tally_refuses_a_public_check_verdict_before_any_computation():
+    error = refused(lambda: counts.tally([{"case_id": "D03"}, {"case_id": PUBLIC}], workload=WORKLOAD))
+    assert error.code == "PUBLIC_CHECK_COUNTS_REFUSED"
+
+
+def test_the_refusal_does_not_depend_on_a_partition_label_because_there_is_none_to_pass():
+    import inspect
+
+    for function in (rescore.rescore_episodes, rescore.rescore_log, counts.tally):
+        assert "partition" not in inspect.signature(function).parameters, function.__name__
+
+
+def test_dev_scenario_and_unlisted_items_are_not_refused(tmp_path):
     verdict = verdict_of(run(tmp_path, ScriptedModel(CASES)))
     assert verdict["status"] == "produced"
-    assert counts.tally([verdict], partition="dev")["criteria"]["exact_table"]["N_expected"] == 1
+    for case_id in ("D03", "SCN-01", "NOT-A-CASE"):
+        assert counts.tally([{**verdict, "case_id": case_id}], workload=WORKLOAD)["criteria"]["exact_table"]["N_expected"] == 1
+    assert rescore.rescore_episodes([], {}, schema=SCHEMA, workload=WORKLOAD) == []
+
+
+def test_a_workload_with_only_a_dev_partition_refuses_nothing_it_does_not_hold(tmp_path):
+    verdict = verdict_of(run(tmp_path / "run", ScriptedModel(CASES)))
+    import shutil
+
+    from hypotrail.agentic.declaration import load_workload
+
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=shutil.ignore_patterns("data"))
+    declaration = json.loads((target / "workload.json").read_text())
+    del declaration["cases"]["public_check"]
+    (target / "workload.json").write_text(json.dumps(declaration))
+    dev_only = load_workload(target)
+    assert dev_only.partition_of(PUBLIC) is None
+    assert counts.tally([{**verdict, "case_id": PUBLIC}], workload=dev_only)["criteria"]["exact_table"]["N_expected"] == 1
 
 
 def test_scoring_one_answer_against_one_reference_stays_allowed():

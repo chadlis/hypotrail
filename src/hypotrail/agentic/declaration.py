@@ -233,6 +233,13 @@ class Workload:
             )
         return self.directory / files[partition]
 
+    def partition_of(self, case_id: str) -> str | None:
+        """The Partition role the declaration gives a Case, or None for a Case it does not list."""
+        for partition in self.declaration["cases"]:
+            if any(case["case_id"] == case_id for case in self.cases(partition)):
+                return partition
+        return None
+
     def cases(self, partition: str = "dev", case_ids: list[str] | None = None) -> list[dict]:
         """The Cases of a declared Partition. Nothing here reads the References."""
         return load_cases(self.cases_path(partition), case_ids)

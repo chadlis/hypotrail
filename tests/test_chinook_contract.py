@@ -307,7 +307,7 @@ def test_a_core_scorer_crash_on_one_episode_errors_only_that_episode(kept_log):
         return chinook_contract.score_episode(answer, reference, schema, steps)
 
     verdicts = rescore.rescore_log(
-        kept_log, REFS, schema=SCHEMA, expected=expected, scorer=explodes_on_the_second_d05
+        kept_log, REFS, schema=SCHEMA, expected=expected, scorer=explodes_on_the_second_d05, workload=WORKLOAD
     )
     by_key = {(v["case_id"], v["repeat"]): v for v in verdicts}
     broken = [v for v in verdicts if v["criteria"][0]["state"] == "errored"]
@@ -328,7 +328,7 @@ def test_a_core_scorer_crash_on_one_episode_errors_only_that_episode(kept_log):
 
 def test_rescoring_a_kept_log_goes_through_the_scorer_and_records_it(kept_log):
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
-    verdicts = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
+    verdicts = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
     assert all(v["scorer"]["name"] == "chinook_contract_v1" for v in verdicts)
     assert all(v["status"] == "produced" for v in verdicts)
     assert all(criteria(v)["exact_table"]["score"] is True for v in verdicts)
@@ -338,7 +338,7 @@ def test_rescoring_a_kept_log_goes_through_the_scorer_and_records_it(kept_log):
 def test_a_missing_reference_in_a_rescoring_is_unscored_not_a_key_error(kept_log):
     refs = {k: v for k, v in REFS.items() if k != "D05"}
     verdicts = rescore.rescore_log(
-        kept_log, refs, schema=SCHEMA, expected=[("D03", 0), ("D05", 0)]
+        kept_log, refs, schema=SCHEMA, expected=[("D03", 0), ("D05", 0)], workload=WORKLOAD
     )
     assert criteria(verdicts[0])["exact_table"]["score"] is True
     assert criteria(verdicts[1])["exact_table"]["reason"] == "reference_missing"
