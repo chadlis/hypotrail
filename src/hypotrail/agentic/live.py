@@ -35,7 +35,6 @@ REASONING_NOTE = (
     "and the model's lowest setting. Inspect's source does not say whether thinking may still happen "
     "between tool calls."
 )
-EXPECTED_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]
 
 
 def live_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) -> Model:
@@ -107,11 +106,30 @@ def _scanned(out_dir: Path, api_key: str, work):
         _raise_if_leaked(out_dir, api_key)
 
 
-def _tool_loop_observed(episodes: list[dict]) -> bool:
-    return any(
-        e["status"] == "produced" and [s["kind"] for s in e["steps"]] == EXPECTED_SEQUENCE
-        for e in episodes
+def _succeeded(step: dict) -> bool:
+    body = step["result"]
+    return step["tool_error"] is None and not (isinstance(body, dict) and body.get("error") is not None)
+
+
+def _has_tool_loop(episode: dict) -> bool:
+    """A produced Episode: a successful `query_readonly` call, then a model turn, then the final answer."""
+    steps = episode["steps"]
+    if episode["status"] != "produced" or not steps or steps[-1]["kind"] != "final_answer":
+        return False
+    queries = {s["native_tool_call_id"] for s in steps if s["kind"] == "tool_call" and s["function"] == "query_readonly"}
+    answered_after = next((i for i in range(len(steps) - 1, -1, -1) if steps[i]["kind"] == "model_turn"), None)
+    return answered_after is not None and any(
+        s["kind"] == "tool_result" and s["native_tool_call_id"] in queries and _succeeded(s)
+        for s in steps[:answered_after]
     )
+
+
+def tool_loop_observed(episodes: list[dict]) -> bool:
+    """AG-10: at least one Episode shows model, a successful `query_readonly`, model, final answer.
+
+    `describe_schema` calls and further queries may come anywhere in the loop.
+    """
+    return any(_has_tool_loop(e) for e in episodes)
 
 
 def _uses_result(episode: dict) -> bool | None:
@@ -344,7 +362,7 @@ def _record(
             }
             for e in episodes
         ],
-        "tool_loop_observed": _tool_loop_observed(episodes),
+        "tool_loop_observed": tool_loop_observed(episodes),
     }
     (out_dir / "projection.json").write_text(json.dumps(episodes, indent=2, sort_keys=True) + "\n")
     (out_dir / "run.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")

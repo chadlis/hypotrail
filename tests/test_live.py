@@ -25,6 +25,7 @@ from hypotrail.core import live as core_live
 ROOT = Path(__file__).resolve().parent.parent
 FAKE_KEY = "sk-ant-FAKE-live-key-0123456789abcdef"
 MODEL_ID = "anthropic/claude-test-1"
+JOIN_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]  # what the rehearsal on D03 shows
 PROXY_VARIABLES = ["http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
 
 
@@ -274,7 +275,7 @@ def test_a_rehearsal_shows_a_real_client_carrying_model_tool_model_answer(rehear
     assert [e["uses_tool_result"] for e in record["episodes"]] == [True, True]
     assert len(fake.requests) == 4  # two generations per Episode
     episodes = json.loads((out / "projection.json").read_text())
-    assert all([s["kind"] for s in e["steps"]] == agentic_live.EXPECTED_SEQUENCE for e in episodes)
+    assert all([s["kind"] for s in e["steps"]] == JOIN_SEQUENCE for e in episodes)
 
 
 def test_the_key_is_sent_only_in_the_authorization_header(rehearsal):
@@ -777,7 +778,7 @@ def test_for_each_configuration_the_join_case_shows_model_tool_model_answer_and_
         assert record["tool_loop_observed"] is True
         episodes = json.loads((out / "projection.json").read_text())
         d03 = next(e for e in episodes if e["case_id"] == "D03")
-        assert [s["kind"] for s in d03["steps"]] == agentic_live.EXPECTED_SEQUENCE
+        assert [s["kind"] for s in d03["steps"]] == JOIN_SEQUENCE
 
 
 def test_every_model_call_records_why_it_stopped(both_rehearsals):
