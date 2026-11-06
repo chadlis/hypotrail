@@ -7,6 +7,7 @@ client, the key header, the logs and the key scan are all the real ones.
 
 import io
 import json
+import shutil
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,6 +22,7 @@ from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import live as agentic_live
 from hypotrail.agentic import projection, runner
 from hypotrail.core import live as core_live
+from hypotrail.core.errors import InvalidInputError
 
 ROOT = Path(__file__).resolve().parent.parent
 FAKE_KEY = "sk-ant-FAKE-live-key-0123456789abcdef"
@@ -856,3 +858,42 @@ def test_the_record_explains_between_tools_for_disabled_reasoning(both_rehearsal
     for _, record, _ in both_rehearsals.values():
         assert "between_tools" in record["reasoning"]["note"]
         assert "no up-front thinking" in record["reasoning"]["note"]
+
+
+def dev_less(tmp_path):
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=shutil.ignore_patterns("data"))
+    declaration = json.loads((target / "workload.json").read_text())
+    declaration["cases"].pop("dev")
+    (target / "workload.json").write_text(json.dumps(declaration))
+    return target
+
+
+def _refused(call):
+    with pytest.raises(InvalidInputError) as caught:
+        call()
+    return caught.value
+
+
+# --- R2-P3: a Workload without `dev` is refused by run_live before anything is written ---------------------
+
+
+def test_run_live_refuses_a_workload_without_dev_before_creating_its_output(tmp_path):
+    out = tmp_path / "o"
+    error = _refused(
+        lambda: agentic_live.run_live(
+            model_id="anthropic/claude-test-1",
+            api_key="sk-ant-FAKE-live-key-0123456789abcdef",
+            workload_dir=dev_less(tmp_path),
+            configuration="plain",
+            case_ids=["D03"],
+            repeats=1,
+            out_dir=out,
+        )
+    )
+    assert error.code == "PARTITION_NOT_DECLARED"
+    assert not out.exists()
+
+
+
+

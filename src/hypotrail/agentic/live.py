@@ -235,6 +235,7 @@ def run_live(
             stage="live",
             details={"model": model_id},
         )
+    load_workload(workload_dir).cases_path("dev")  # a Workload without `dev` is refused before anything is written
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
             "OUTPUT_NOT_EMPTY",

@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/agentic/workload.schema.json",
   "title": "workload.json of the tool-using agent Track",
-  "description": "The whole shape of a Workload declaration of the agentic Track. Every key is required except `scenarios` (the technical scenarios of the `scripted_fixture` Mode, kept as data): the one entry point that reads it builds a task from all of them. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
+  "description": "The whole shape of a Workload declaration of the agentic Track. Requiredness is split (ADR 0002, clarification of 2026-11-04). The schema requires the keys every entry point reads. It does not require `scenarios` (the technical scenarios of the `scripted_fixture` Mode), `answer_schema` (read only by the Scorer's entry points) or a Partition under `cases` (read by the entry points that need that Partition): each of those entry points refuses the key's absence, with a code, in Track code. The rule that a Configuration may extend only a declared Configuration, without a cycle, relates values to each other and stays in Track code (hypotrail.agentic.declaration).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "answer_schema", "configurations"],
+  "required": ["schema_version", "track", "workload_id", "licence_notice", "database", "cases", "references", "configurations"],
   "properties": {
     "schema_version": {"type": "string"},
     "track": {"type": "string", "enum": ["tool_using_agent"]},

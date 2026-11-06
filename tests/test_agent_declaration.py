@@ -178,12 +178,6 @@ def test_the_answer_schema_is_read_from_the_declared_path_not_a_fixed_one(tmp_pa
     assert load_workload(target).answer_schema()["type"] == "object"
 
 
-def test_a_missing_or_mistyped_answer_schema_key_is_refused_with_a_code(tmp_path):
-    error = refusal(workload_with(tmp_path, lambda d: d.pop("answer_schema")))
-    assert (error.code, error.details["key"]) == ("DECLARATION_INCOMPLETE", "answer_schema")
-    assert refusal(workload_with(tmp_path / "b", lambda d: d.__setitem__("answer_schema", 3))).code == "DECLARATION_WRONG_TYPE"
-
-
 def test_an_answer_schema_file_that_is_absent_or_not_json_is_refused_with_a_code(tmp_path):
     def point_to(name):
         return lambda d: d.__setitem__("answer_schema", name)
@@ -208,3 +202,135 @@ def test_no_configuration_name_is_a_default_of_the_track():
         parameter = inspect.signature(function).parameters["configuration"]
         assert parameter.default is inspect.Parameter.empty, function.__name__
     assert not hasattr(fixture, "CONFIGURATION")
+
+
+# --- R2-S1, R2-P3, R2-P5: requiredness belongs to the entry point that reads a key; Partitions are disjoint --
+
+
+def chinook_copy(tmp_path, edit=lambda d: None, *, data=False):
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=None if data else shutil.ignore_patterns("data"))
+    declaration = json.loads((target / "workload.json").read_text())
+    edit(declaration)
+    (target / "workload.json").write_text(json.dumps(declaration))
+    return target
+
+
+def refused_by(call):
+    with pytest.raises(InvalidInputError) as caught:
+        call()
+    return caught.value
+
+
+def test_answer_schema_is_not_required_by_the_schema_but_its_reader_refuses_its_absence(tmp_path):
+    workload = load_workload(chinook_copy(tmp_path, lambda d: d.pop("answer_schema")))
+    assert refused_by(workload.answer_schema).code == "ANSWER_SCHEMA_NOT_DECLARED"
+    assert refused_by(lambda: workload.answer_schema_path).code == "ANSWER_SCHEMA_NOT_DECLARED"
+    assert workload.cases("dev") and workload.system_text("plain")  # what the live path reads still works
+
+
+def test_a_present_answer_schema_key_is_still_checked(tmp_path):
+    assert refusal(workload_with(tmp_path, lambda d: d.__setitem__("answer_schema", 3))).code == "DECLARATION_WRONG_TYPE"
+    assert refusal(workload_with(tmp_path / "b", lambda d: d.__setitem__("answer_schema", ""))).code == "DECLARATION_VALUE_NOT_ALLOWED"
+
+
+def test_the_fixture_refuses_a_missing_answer_schema_before_any_effect(tmp_path):
+    from hypotrail.agentic import fixture
+
+    out = tmp_path / "out"
+    error = refused_by(
+        lambda: fixture.run_fixture(workload_dir=chinook_copy(tmp_path, lambda d: d.pop("answer_schema")), out_dir=out, configuration="plain")
+    )
+    assert error.code == "ANSWER_SCHEMA_NOT_DECLARED"
+    assert not out.exists()
+
+
+def test_the_live_command_accepts_a_declaration_without_an_answer_schema(tmp_path, monkeypatch):
+    from hypotrail import cli
+    from hypotrail.agentic import live as agentic_live
+    from hypotrail.core import data
+
+    examples = tmp_path / "examples"
+    examples.mkdir()
+    chinook_copy(examples, lambda d: d.pop("answer_schema"), data=True)
+    monkeypatch.setattr(data, "default_examples_dir", lambda: examples)
+    seen = []
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: seen.append(kw) or {"model": "m", "tool_loop_observed": False, "episodes": []})
+    for name in ("HYPOTRAIL_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", "sk-ant-FAKE-live-key-0123456789abcdef")
+    code = cli.main(["spike", "live", "--config", "plain", "--model", "anthropic/claude-test-1", "--out", str(tmp_path / "o"), "--json"])
+    assert code == 0 and len(seen) == 1
+
+
+def no_dev(d):
+    d["cases"].pop("dev")
+
+
+def test_a_declaration_with_public_check_alone_loads_but_dev_readers_refuse_it(tmp_path):
+    from hypotrail.agentic import runner
+
+    workload = load_workload(chinook_copy(tmp_path, no_dev))
+    assert set(workload.declaration["cases"]) == {"public_check"}
+    assert refused_by(lambda: workload.cases_path("dev")).code == "PARTITION_NOT_DECLARED"
+    assert refused_by(lambda: workload.cases("dev")).code == "PARTITION_NOT_DECLARED"
+    assert refused_by(lambda: runner.build_task(workload, "plain")).code == "PARTITION_NOT_DECLARED"
+    assert refused_by(lambda: runner.build_task(workload, "plain", partition="dev")).code == "PARTITION_NOT_DECLARED"
+
+
+def test_a_declaration_with_dev_alone_builds_the_dev_task(tmp_path):
+    from hypotrail.agentic import runner
+
+    workload = load_workload(chinook_copy(tmp_path, lambda d: d["cases"].pop("public_check")))
+    assert len(runner.build_task(workload, "plain").dataset) == len(workload.cases("dev"))
+
+
+def test_the_live_command_refuses_a_workload_without_dev_before_the_key_and_any_run(tmp_path, monkeypatch):
+    from hypotrail import cli
+    from hypotrail.agentic import live as agentic_live
+    from hypotrail.core import data
+
+    examples = tmp_path / "examples"
+    examples.mkdir()
+    chinook_copy(examples, no_dev, data=True)
+    monkeypatch.setattr(data, "default_examples_dir", lambda: examples)
+    for name in ("HYPOTRAIL_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+    started = []
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: started.append(kw))
+    out = tmp_path / "o"
+    code = cli.main(["spike", "live", "--config", "plain", "--model", "anthropic/claude-test-1", "--out", str(out), "--json"])
+    assert code == 2 and started == [] and not out.exists()
+
+
+def overlapping(tmp_path, extra_id):
+    target = chinook_copy(tmp_path)
+    path = target / "cases" / "chinook-public-check.jsonl"
+    first = json.loads(path.read_text().splitlines()[0])
+    path.write_text(path.read_text() + json.dumps({**first, "case_id": extra_id}) + "\n")
+    return target
+
+
+def test_a_case_id_listed_in_two_partitions_is_refused_when_the_declaration_is_loaded(tmp_path):
+    error = refused_by(lambda: load_workload(overlapping(tmp_path, "D03")))
+    assert (error.code, error.details["case_ids"]) == ("PARTITIONS_NOT_DISJOINT", ["D03"])
+
+
+def test_two_partitions_pointing_at_one_file_are_not_disjoint(tmp_path):
+    target = chinook_copy(tmp_path, lambda d: d["cases"].__setitem__("public_check", d["cases"]["dev"]))
+    assert refused_by(lambda: load_workload(target)).code == "PARTITIONS_NOT_DISJOINT"
+
+
+def test_distinct_case_ids_and_single_partitions_still_load(tmp_path):
+    load_workload(overlapping(tmp_path / "a", "d03"))  # IDs are compared exactly
+    load_workload(overlapping(tmp_path / "b", "E99"))
+    load_workload(chinook_copy(tmp_path / "c", lambda d: d["cases"].pop("public_check")))
+    load_workload(CHINOOK)
+
+
+def test_a_partition_file_that_is_absent_is_left_to_the_reader_that_opens_it(tmp_path):
+    # the reader that opens a missing Cases file refuses it; the load does not guess
+    target = chinook_copy(tmp_path)
+    (target / "cases" / "chinook-public-check.jsonl").unlink()
+    workload = load_workload(target)
+    assert workload.cases("dev")

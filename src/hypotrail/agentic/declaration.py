@@ -10,9 +10,13 @@ this module imports none of it. The codes:
 - `DECLARATION_WRONG_TYPE`: a value of the wrong JSON type;
 - `DECLARATION_VALUE_NOT_ALLOWED`: a value of the right type the schema does not allow;
 - `CONFIGURATION_NOT_DECLARED`: a Configuration extends, or is asked for as, one that is not declared;
-- `CONFIGURATION_CYCLE`: Configurations extend each other in a loop.
+- `CONFIGURATION_CYCLE`: Configurations extend each other in a loop;
+- `PARTITIONS_NOT_DISJOINT`: a Case ID is listed in two Partitions.
 
-The last two relate values to each other, so they stay in Track code, next to their use.
+The last three relate values to each other, so they stay in Track code, next to their use. So does
+whether a key is required: `answer_schema` is read by the Scorer's entry points, which refuse its
+absence with `ANSWER_SCHEMA_NOT_DECLARED`, and a Partition under `cases` by the entry points that
+read it, which refuse its absence with `PARTITION_NOT_DECLARED`.
 
 The Partition roles (`dev`, `public_check`) are the Track's (`hypotrail.agentic.partitions`): the
 schema closes `cases` to them. The answer schema is a file the declaration names (`answer_schema`).
@@ -206,7 +210,15 @@ class Workload:
 
     @property
     def answer_schema_path(self) -> Path:
-        return self.directory / self.declaration["answer_schema"]
+        """The answer schema file. Optional in the declaration: its readers refuse its absence (ANSWER_SCHEMA_NOT_DECLARED)."""
+        declared = self.declaration.get("answer_schema")
+        if declared is None:
+            raise _refuse(
+                "ANSWER_SCHEMA_NOT_DECLARED",
+                f"the Workload {self.workload_id!r} declares no answer schema",
+                path="answer_schema",
+            )
+        return self.directory / declared
 
     def answer_schema(self) -> dict:
         """The Workload's answer schema, read from the path its declaration gives."""
@@ -245,9 +257,44 @@ class Workload:
         return load_cases(self.cases_path(partition), case_ids)
 
 
+def _listed_case_ids(path: Path) -> set[str]:
+    """The Case IDs a Cases file lists. A file that is absent or unreadable lists none here: its reader refuses it."""
+    ids = set()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, ValueError):
+        return ids
+    for line in lines:
+        try:
+            case = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(case, dict) and isinstance(case.get("case_id"), str):
+            ids.add(case["case_id"])
+    return ids
+
+
+def check_partitions_disjoint(directory: Path, declaration) -> None:
+    """Refuse a Case ID listed in two Partitions (GLOSSARY: a Partition is a named, disjoint subset)."""
+    owners: dict[str, list[str]] = {}
+    for partition, file in declaration["cases"].items():
+        for case_id in _listed_case_ids(directory / file):
+            owners.setdefault(case_id, []).append(partition)
+    shared = {case_id: roles for case_id, roles in owners.items() if len(roles) > 1}
+    if shared:
+        raise _refuse(
+            "PARTITIONS_NOT_DISJOINT",
+            f"a Case is listed in two Partitions: {sorted(shared)}",
+            path="cases",
+            case_ids=sorted(shared),
+            partitions=sorted({role for roles in shared.values() for role in roles}),
+        )
+
+
 def load_workload(workload_dir: Path) -> Workload:
     directory = Path(workload_dir)
     declaration = read_json(directory / DECLARATION_NAME, stage="declaration", noun="declaration", key=DECLARATION_NAME)
     check_schema(declaration)
     check_configurations(declaration)
+    check_partitions_disjoint(directory, declaration)
     return Workload(directory, declaration)
