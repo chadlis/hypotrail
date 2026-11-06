@@ -7,14 +7,14 @@ Tool errors are counted apart, by structured code, never as Criterion states.
 
 An Episode stopped by one of our limits has a state for every Criterion (`rescore.criteria_for_limit_stop`),
 so it is counted in N_expected and N_attempted like any other and cannot drop silently out of a denominator.
-`public_check` Items are refused until #9's Exposure journal exists.
+`public_check` Items, by the Partition the Workload declares for their Case, are refused until #9's Exposure journal exists.
 The shares of CMP-04 and CMP-05 and the Assessment contract belong to #9.
 """
 
 from collections import Counter
 
 from hypotrail.core.chinook_contract import CRITERIA
-from hypotrail.ml.partitions import require_dev
+from hypotrail.agentic.partitions import refuse_public_check
 
 
 def _counters(verdicts: list[dict], name: str) -> dict:
@@ -38,13 +38,10 @@ def _counters(verdicts: list[dict], name: str) -> dict:
     }
 
 
-def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, partition: str = "dev") -> dict:
-    require_dev(
-        partition,
-        public_check_code="PUBLIC_CHECK_COUNTS_REFUSED",
-        not_dev_code="COUNTS_PARTITION_NOT_DEV",
-        what="counts",
-        stage="counts",
+def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, workload) -> dict:
+    """The counters over verdicts. Refuses a `public_check` Item, by the Partition the Workload declares for it."""
+    refuse_public_check(
+        workload, [v["case_id"] for v in verdicts], code="PUBLIC_CHECK_COUNTS_REFUSED", what="counts", stage="counts"
     )
     tool_errors = Counter(code for v in verdicts for code in v["tool_error_codes"])
     return {

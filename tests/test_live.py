@@ -25,6 +25,7 @@ from hypotrail.core import live as core_live
 ROOT = Path(__file__).resolve().parent.parent
 FAKE_KEY = "sk-ant-FAKE-live-key-0123456789abcdef"
 MODEL_ID = "anthropic/claude-test-1"
+JOIN_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]  # what the rehearsal on D03 shows
 PROXY_VARIABLES = ["http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
 
 
@@ -262,7 +263,7 @@ def rehearsal(tmp_path, clean_env):
             case_ids=["D03", "D05"],
             repeats=1,
             out_dir=tmp_path / "out",
-            base_url=fake.url,
+            base_url=fake.url, configuration="plain",
         )
         yield fake, record, tmp_path / "out"
 
@@ -274,7 +275,7 @@ def test_a_rehearsal_shows_a_real_client_carrying_model_tool_model_answer(rehear
     assert [e["uses_tool_result"] for e in record["episodes"]] == [True, True]
     assert len(fake.requests) == 4  # two generations per Episode
     episodes = json.loads((out / "projection.json").read_text())
-    assert all([s["kind"] for s in e["steps"]] == agentic_live.EXPECTED_SEQUENCE for e in episodes)
+    assert all([s["kind"] for s in e["steps"]] == JOIN_SEQUENCE for e in episodes)
 
 
 def test_the_key_is_sent_only_in_the_authorization_header(rehearsal):
@@ -434,7 +435,7 @@ def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, m
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
     assert FAKE_KEY not in str(caught.value)
@@ -446,7 +447,7 @@ def test_a_non_empty_output_directory_is_refused(tmp_path):
     with pytest.raises(Exception, match="not empty"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
 
 
@@ -511,7 +512,7 @@ def test_a_relative_output_directory_works(tmp_path, clean_env):
     with FakeAnthropic() as fake:
         record = agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url,
+            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url, configuration="plain",
         )
     assert record["inspect_log"].startswith("inspect/")
     assert (tmp_path / "relative-out" / "run.json").is_file()
@@ -625,7 +626,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
     with pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=out,
+            case_ids=["D03"], repeats=1, out_dir=out, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
 
@@ -638,7 +639,7 @@ def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, m
     with pytest.raises(RuntimeError, match="the run stopped"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
 
 
@@ -777,7 +778,7 @@ def test_for_each_configuration_the_join_case_shows_model_tool_model_answer_and_
         assert record["tool_loop_observed"] is True
         episodes = json.loads((out / "projection.json").read_text())
         d03 = next(e for e in episodes if e["case_id"] == "D03")
-        assert [s["kind"] for s in d03["steps"]] == agentic_live.EXPECTED_SEQUENCE
+        assert [s["kind"] for s in d03["steps"]] == JOIN_SEQUENCE
 
 
 def test_every_model_call_records_why_it_stopped(both_rehearsals):
@@ -795,7 +796,7 @@ def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_p
         fake.cut_answers = True
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
-            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     (episode,) = json.loads((tmp_path / "out" / "projection.json").read_text())
     assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
@@ -843,7 +844,7 @@ def test_a_model_whose_request_would_not_state_reasoning_is_refused_and_nothing_
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
             model_id=model, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
-            repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     assert caught.value.code == "REASONING_NOT_EXPLICIT" and caught.value.exit_code == 2
     assert fake.requests == []

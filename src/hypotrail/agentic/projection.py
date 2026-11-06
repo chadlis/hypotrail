@@ -107,15 +107,14 @@ def _episode(sample, model: str) -> dict:
             ]
         else:
             status, reason, final = "failed", "execution_failed", None
-    elif sample.limit is not None and (final is None or _final_stop_reason(steps) == "max_tokens"):
-        # Stopped by one of our limits before any usable final answer: the Episode is `failed`
-        # (GLOSSARY, Observation set), never `produced` with no answer. The Reason names the limit.
-        # Precedence (D1): a sample limit Inspect recorded decides; output_cap only when none was recorded and the final call stopped on max_tokens.
-        status, reason, final = "failed", f"{sample.limit.type}_limit", None
-    elif _final_stop_reason(steps) == "max_tokens":
-        # No limit recorded and the final answer was cut by the output cap (our setting): `failed`, Reason
-        # `output_cap`; the cut text stays in the steps.
+    elif final is not None and _final_stop_reason(steps) == "max_tokens":
+        # A final answer is in the state and was cut by the output cap (our setting): `failed`, Reason
+        # `output_cap`, whatever limit Inspect recorded (D1); the cut text stays in the steps.
         status, reason, final = "failed", "output_cap", None
+    elif sample.limit is not None and final is None:
+        # No final answer, and Inspect recorded a limit: the Episode is `failed` (GLOSSARY, Observation set),
+        # never `produced` with no answer. The Reason names the limit.
+        status, reason = "failed", f"{sample.limit.type}_limit"
     return {
         "case_id": str(sample.id),
         "repeat": sample.epoch - 1,

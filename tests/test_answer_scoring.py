@@ -212,8 +212,8 @@ def test_rescoring_a_kept_log_twice_gives_identical_verdicts_and_calls_nothing(
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
     calls = _forbid(monkeypatch)
 
-    first = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
-    second = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
+    first = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
+    second = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
 
     assert first == second
     assert [(v["case_id"], v["repeat"]) for v in first] == expected

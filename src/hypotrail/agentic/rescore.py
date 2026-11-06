@@ -12,14 +12,15 @@ Criterion and a Reason for every non-score (CMP-03):
 - `missing` from the log: every Criterion `unscored`, Reason `observation_missing`;
 - `failed` at one of our limits, or by the output cap: see `criteria_for_limit_stop`.
 
-Neither a failed nor a missing Episode is ever scored false.
+A missing Episode, and one that failed by an execution error, a time limit or the output cap, is never
+scored false. Only the agent's own `turn_limit` and `token_limit` are (owner decision D1).
 """
 
 from collections.abc import Callable, Iterable
 
 from hypotrail.agentic.projection import project_log
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
-from hypotrail.ml.partitions import require_dev
+from hypotrail.agentic.partitions import refuse_public_check
 
 EXECUTION_FAILED = "execution_failed"
 OBSERVATION_MISSING = "observation_missing"
@@ -29,15 +30,9 @@ AGENT_RESPONSIBLE = ("turn_limit", "token_limit")
 STOPPED_BY_US = AGENT_RESPONSIBLE + ("time_limit", "output_cap")
 
 
-def _require_dev(partition: str) -> None:
-    """Until #9's Exposure journal exists, rescoring is on `dev` (or scenario) Items only, as #7 does for metrics."""
-    require_dev(
-        partition,
-        public_check_code="PUBLIC_CHECK_RESCORING_REFUSED",
-        not_dev_code="RESCORING_PARTITION_NOT_DEV",
-        what="rescoring",
-        stage="rescore",
-    )
+def _refuse_public_check(workload, case_ids) -> None:
+    """Until #9's Exposure journal exists, rescoring refuses `public_check` Items (owner decision D2)."""
+    refuse_public_check(workload, case_ids, code="PUBLIC_CHECK_RESCORING_REFUSED", what="rescoring", stage="rescore")
 
 
 def _all_unscored(reason: str) -> list[dict]:
@@ -89,11 +84,14 @@ def rescore_episodes(
     references: dict[str, dict],
     *,
     schema: dict,
+    workload,
     scorer: Callable = score_episode,
-    partition: str = "dev",
 ) -> list[dict]:
-    """One verdict per projected Episode, in the order given. Refuses `public_check` Items (owner decision D2)."""
-    _require_dev(partition)
+    """One verdict per projected Episode, in the order given.
+
+    Refuses `public_check` Items (owner decision D2), by the Partition the Workload declares for each Case.
+    """
+    _refuse_public_check(workload, [episode["case_id"] for episode in episodes])
     verdicts = []
     for episode in episodes:
         verdict = {
@@ -118,15 +116,16 @@ def rescore_log(
     *,
     schema: dict,
     expected: Iterable[tuple[str, int]],
+    workload,
     scorer: Callable = score_episode,
-    partition: str = "dev",
 ) -> list[dict]:
     """One verdict per expected (case_id, repeat). Refuses `public_check` Items before the log is read.
 
     `schema` is the Workload's `table-answer/1` schema. A Case without a Reference
     in `references` is not an error: its `exact_table` is left `unscored`.
     """
-    _require_dev(partition)
+    expected = list(expected)
+    _refuse_public_check(workload, [case_id for case_id, _ in expected])
     return rescore_episodes(
-        project_log(location, expected=expected), references, schema=schema, scorer=scorer, partition=partition
+        project_log(location, expected=expected), references, schema=schema, workload=workload, scorer=scorer
     )

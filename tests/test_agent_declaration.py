@@ -21,7 +21,7 @@ DECLARATION = json.loads((CHINOOK / "workload.json").read_text(encoding="utf-8")
 
 def workload_with(tmp_path, edit):
     target = tmp_path / "chinook"
-    target.mkdir()
+    target.mkdir(parents=True)
     declaration = copy.deepcopy(DECLARATION)
     edit(declaration)
     (target / "workload.json").write_text(json.dumps(declaration), encoding="utf-8")
@@ -128,3 +128,83 @@ def test_a_refusal_comes_before_inspect_is_imported(tmp_path):
     )
     result = subprocess.run([sys.executable, "-c", program], capture_output=True, text=True, check=True)
     assert result.stdout.split("\n")[:2] == ["DECLARATION_INCOMPLETE", "[]"]
+
+
+# --- R1-S1: the agentic Track fixes its own Partition roles; the Workload cannot add one -----------------
+
+
+def test_the_schema_closes_cases_to_the_roles_the_track_defines():
+    from hypotrail.agentic import partitions, declaration
+    from importlib import resources
+
+    schema = json.loads(resources.files("hypotrail.agentic").joinpath(declaration.SCHEMA_NAME).read_text(encoding="utf-8"))
+    assert set(schema["properties"]["cases"]["properties"]) == set(partitions.ROLES) == {"dev", "public_check"}
+    assert schema["properties"]["cases"]["additionalProperties"] is False
+
+
+@pytest.mark.parametrize("role", ["train", "test", "holdout", "Dev", ""])
+def test_a_workload_cannot_name_a_partition_the_track_does_not_define(tmp_path, role):
+    error = refusal(workload_with(tmp_path, lambda d: d["cases"].__setitem__(role, "cases/chinook-dev.jsonl")))
+    assert (error.code, error.details["key"], error.details["path"]) == ("DECLARATION_KEY_UNKNOWN", role, "cases")
+
+
+def test_a_workload_may_declare_dev_alone_or_both_roles(tmp_path):
+    load_workload(workload_with(tmp_path, lambda d: d["cases"].pop("public_check")))
+    assert set(load_workload(CHINOOK).declaration["cases"]) == {"dev", "public_check"}
+
+
+def test_a_partition_file_must_be_a_string_and_cases_must_not_be_empty(tmp_path):
+    assert refusal(workload_with(tmp_path, lambda d: d["cases"].__setitem__("dev", 3))).code == "DECLARATION_WRONG_TYPE"
+    assert refusal(workload_with(tmp_path / "b", lambda d: d.__setitem__("cases", {}))).code == "DECLARATION_VALUE_NOT_ALLOWED"
+
+
+# --- R1-S2: the answer schema is declared, and the Track names no Configuration -------------------------
+
+
+def test_the_declaration_names_the_answer_schema_and_the_workload_reads_it_from_there():
+    workload = load_workload(CHINOOK)
+    assert workload.declaration["answer_schema"] == "schemas/table-answer.schema.json"
+    assert workload.answer_schema_path == CHINOOK / "schemas" / "table-answer.schema.json"
+    assert workload.answer_schema() == json.loads(workload.answer_schema_path.read_text(encoding="utf-8"))
+
+
+def test_the_answer_schema_is_read_from_the_declared_path_not_a_fixed_one(tmp_path):
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=shutil.ignore_patterns("data"))
+    (target / "schemas" / "table-answer.schema.json").rename(target / "schemas" / "renamed.json")
+    declaration = json.loads((target / "workload.json").read_text())
+    declaration["answer_schema"] = "schemas/renamed.json"
+    (target / "workload.json").write_text(json.dumps(declaration))
+    assert load_workload(target).answer_schema()["type"] == "object"
+
+
+def test_a_missing_or_mistyped_answer_schema_key_is_refused_with_a_code(tmp_path):
+    error = refusal(workload_with(tmp_path, lambda d: d.pop("answer_schema")))
+    assert (error.code, error.details["key"]) == ("DECLARATION_INCOMPLETE", "answer_schema")
+    assert refusal(workload_with(tmp_path / "b", lambda d: d.__setitem__("answer_schema", 3))).code == "DECLARATION_WRONG_TYPE"
+
+
+def test_an_answer_schema_file_that_is_absent_or_not_json_is_refused_with_a_code(tmp_path):
+    def point_to(name):
+        return lambda d: d.__setitem__("answer_schema", name)
+
+    absent = load_workload(workload_with(tmp_path / "a", point_to("schemas/nowhere.json")))
+    with pytest.raises(InvalidInputError) as caught:
+        absent.answer_schema()
+    assert caught.value.code == "FILE_NOT_FOUND"
+    broken = load_workload(workload_with(tmp_path / "b", point_to("workload.json")))
+    (broken.directory / "workload.json").write_text("{not json")
+    with pytest.raises(InvalidInputError) as caught:
+        broken.answer_schema()
+    assert caught.value.code == "FILE_NOT_JSON"
+
+
+def test_no_configuration_name_is_a_default_of_the_track():
+    import inspect
+
+    from hypotrail.agentic import fixture, live
+
+    for function in (live.run_live, fixture.run_fixture):
+        parameter = inspect.signature(function).parameters["configuration"]
+        assert parameter.default is inspect.Parameter.empty, function.__name__
+    assert not hasattr(fixture, "CONFIGURATION")

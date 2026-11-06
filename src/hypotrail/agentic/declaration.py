@@ -14,6 +14,12 @@ this module imports none of it. The codes:
 
 The last two relate values to each other, so they stay in Track code, next to their use.
 
+The Partition roles (`dev`, `public_check`) are the Track's (`hypotrail.agentic.partitions`): the
+schema closes `cases` to them. The answer schema is a file the declaration names (`answer_schema`).
+The scenarios file of the `scripted_fixture` Mode is checked the same way against
+`scenarios.schema.json`, with the codes `SCENARIOS_INCOMPLETE`, `SCENARIOS_KEY_UNKNOWN`,
+`SCENARIOS_WRONG_TYPE` and `SCENARIOS_VALUE_NOT_ALLOWED`, stage `fixture`.
+
 A Configuration is a full `system_text`, or `extends` another Configuration with an
 `added_instruction`. Its resolved text is the extended text followed by the instruction and
 nothing else, so `verify` differs from `plain` only by the instruction. The References are named
@@ -41,13 +47,31 @@ _ARTICLE = {
     "boolean": "a boolean",
     "object": "an object",
     "array": "a list",
+    "null": "null",
 }
 # The most specific refusal first when a declaration has several faults.
 _KEY_UNKNOWN, _MISSING, _WRONG_TYPE, _NOT_ALLOWED = range(4)
 
 
-def _refuse(code, message, **details):
-    return InvalidInputError(code, message, stage="declaration", details=details)
+@dataclass(frozen=True)
+class Document:
+    """A JSON document the Track checks against one JSON Schema, and how it refuses it."""
+
+    schema_name: str
+    code_prefix: str
+    stage: str
+    noun: str
+
+    def code(self, kind: str) -> str:
+        return f"{self.code_prefix}_{kind}"
+
+
+DECLARATION = Document(SCHEMA_NAME, "DECLARATION", "declaration", "declaration")
+SCENARIOS = Document("scenarios.schema.json", "SCENARIOS", "fixture", "scenarios file")
+
+
+def _refuse(code, message, *, stage="declaration", **details):
+    return InvalidInputError(code, message, stage=stage, details=details)
 
 
 def _dotted(path) -> str:
@@ -55,28 +79,43 @@ def _dotted(path) -> str:
 
 
 @cache
-def _validator() -> Draft202012Validator:
-    schema = json.loads(resources.files(__package__).joinpath(SCHEMA_NAME).read_text(encoding="utf-8"))
+def _validator(schema_name: str) -> Draft202012Validator:
+    schema = json.loads(resources.files(__package__).joinpath(schema_name).read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
 
 
-def _refusals(error):
+def read_json(path: Path, *, stage: str, noun: str, key: str | None = None):
+    """The JSON in a file, or a coded refusal: FILE_NOT_FOUND, FILE_NOT_JSON."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise _refuse("FILE_NOT_FOUND", f"{noun} not found: {path}", stage=stage, key=key, path="", file=str(path)) from None
+    except ValueError:
+        raise _refuse("FILE_NOT_JSON", f"{noun} is not valid JSON: {path}", stage=stage, key=key, path="", file=str(path)) from None
+
+
+def _refusals(error, document):
     path = tuple(error.absolute_path)
     where = _dotted(path)
+    noun = document.noun
+
+    def refuse(kind, message, **details):
+        return _refuse(document.code(kind), message, stage=document.stage, **details)
+
     if error.validator == "required":
         for key in error.validator_value:
             if key not in error.instance:
-                yield _MISSING, path + (key,), _refuse(
-                    "DECLARATION_INCOMPLETE", f"declaration lacks {_dotted(path + (key,))!r}", key=key, path=where
+                yield _MISSING, path + (key,), refuse(
+                    "INCOMPLETE", f"{noun} lacks {_dotted(path + (key,))!r}", key=key, path=where
                 )
     elif error.validator == "additionalProperties":
         known = error.schema.get("properties", {})
         for key in error.instance:
             if key not in known:
-                yield _KEY_UNKNOWN, path + (key,), _refuse(
-                    "DECLARATION_KEY_UNKNOWN",
-                    f"declaration has a key the Track does not know: {_dotted(path + (key,))!r}",
+                yield _KEY_UNKNOWN, path + (key,), refuse(
+                    "KEY_UNKNOWN",
+                    f"{noun} has a key the Track does not know: {_dotted(path + (key,))!r}",
                     key=key,
                     path=where,
                 )
@@ -84,29 +123,36 @@ def _refusals(error):
         expected = error.validator_value
         expected = _ARTICLE[expected] if isinstance(expected, str) else " or ".join(_ARTICLE[t] for t in expected)
         names = [s for s in path if isinstance(s, str)]
-        yield _WRONG_TYPE, path, _refuse(
-            "DECLARATION_WRONG_TYPE",
-            f"{where or 'the declaration'} must be {expected}",
+        yield _WRONG_TYPE, path, refuse(
+            "WRONG_TYPE",
+            f"{where or 'the ' + noun} must be {expected}",
             key=names[-1] if names else None,
             path=where,
             expected=expected,
         )
     else:
         names = [s for s in path if isinstance(s, str)]
-        yield _NOT_ALLOWED, path, _refuse(
-            "DECLARATION_VALUE_NOT_ALLOWED",
-            f"{where or 'the declaration'} is not allowed: {error.message}",
+        yield _NOT_ALLOWED, path, refuse(
+            "VALUE_NOT_ALLOWED",
+            f"{where or 'the ' + noun} is not allowed: {error.message}",
             key=names[-1] if names else None,
             path=where,
         )
 
 
-def check_schema(declaration) -> None:
-    """Refuse a declaration that does not match the schema, with the most specific fault first."""
-    found = [item for error in _validator().iter_errors(declaration) for item in _refusals(error)]
+def check_document(document_value, document: Document) -> None:
+    """Refuse a document that does not match its schema, with the most specific fault first."""
+    found = [
+        item for error in _validator(document.schema_name).iter_errors(document_value) for item in _refusals(error, document)
+    ]
     if found:
         found.sort(key=lambda item: (item[0], _dotted(item[1])))
         raise found[0][2]
+
+
+def check_schema(declaration) -> None:
+    """Refuse a declaration that does not match the schema, with the most specific fault first."""
+    check_document(declaration, DECLARATION)
 
 
 def _not_declared(name, path, declared):
@@ -158,6 +204,14 @@ class Workload:
         declared = self.declaration.get("scenarios")
         return None if declared is None else self.directory / declared
 
+    @property
+    def answer_schema_path(self) -> Path:
+        return self.directory / self.declaration["answer_schema"]
+
+    def answer_schema(self) -> dict:
+        """The Workload's answer schema, read from the path its declaration gives."""
+        return read_json(self.answer_schema_path, stage="declaration", noun="answer schema", key="answer_schema")
+
     def system_text(self, configuration: str) -> str:
         """The exact system text of a Configuration: the extended text, then its added instruction."""
         configurations = self.declaration["configurations"]
@@ -179,6 +233,13 @@ class Workload:
             )
         return self.directory / files[partition]
 
+    def partition_of(self, case_id: str) -> str | None:
+        """The Partition role the declaration gives a Case, or None for a Case it does not list."""
+        for partition in self.declaration["cases"]:
+            if any(case["case_id"] == case_id for case in self.cases(partition)):
+                return partition
+        return None
+
     def cases(self, partition: str = "dev", case_ids: list[str] | None = None) -> list[dict]:
         """The Cases of a declared Partition. Nothing here reads the References."""
         return load_cases(self.cases_path(partition), case_ids)
@@ -186,13 +247,7 @@ class Workload:
 
 def load_workload(workload_dir: Path) -> Workload:
     directory = Path(workload_dir)
-    path = directory / DECLARATION_NAME
-    try:
-        declaration = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        raise _refuse("FILE_NOT_FOUND", f"declaration not found: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
-    except ValueError:
-        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
+    declaration = read_json(directory / DECLARATION_NAME, stage="declaration", noun="declaration", key=DECLARATION_NAME)
     check_schema(declaration)
     check_configurations(declaration)
     return Workload(directory, declaration)

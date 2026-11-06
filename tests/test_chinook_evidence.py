@@ -130,13 +130,16 @@ def test_without_a_trace_evidence_link_valid_stays_unscored():
     assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
 
 
-def test_a_malformed_answer_leaves_evidence_link_valid_unscored():
-    link = criteria(score("not json", steps=good_trace()))["evidence_link_valid"]
-    assert (link["state"], link["score"], link["reason"]) == (
-        "unscored",
-        None,
-        "invalid_response_format",
-    )
+@pytest.mark.parametrize("raw", ["not json", "[1]", json.dumps({"status": "answered"})])
+@pytest.mark.parametrize("trace", [True, False])
+def test_a_malformed_answer_scores_evidence_link_valid_false_with_invalid_response_format(raw, trace):
+    link = criteria(score(raw, steps=good_trace() if trace else None))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("scored", False, "invalid_response_format")
+
+
+def test_a_well_formed_answer_without_a_trace_still_leaves_the_link_unscored():
+    link = criteria(score(answer_for("D05", ["hypotrail-aaa"])))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
 
 
 # --- contract success --------------------------------------------------------------------
@@ -310,7 +313,7 @@ def test_the_id_of_another_case_or_another_repeat_is_not_a_valid_link(episodes):
 def test_rescoring_a_kept_log_carries_the_new_criteria(episodes):
     location, _ = episodes
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
-    verdicts = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=expected)
+    verdicts = rescore.rescore_log(location, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
     assert all(contract(v) == ("scored", True, None) for v in verdicts)
 
 

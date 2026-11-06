@@ -106,7 +106,6 @@ MALFORMED = {
     "fenced object": "```json\n" + json.dumps(correct_answer("D03")) + "\n```",
     "prose around": "Here you go: " + json.dumps(correct_answer("D03")) + " Hope it helps.",
     "missing field": json.dumps(_without("D03", "evidence")),
-    "extra field": json.dumps(_with("D03", comment="hi")),
     "clarification with rows": json.dumps(
         _with("D08", rows=[[1]])
     ),
@@ -124,8 +123,27 @@ def test_a_malformed_answer_is_format_invalid_with_its_reason_and_never_exact(na
     assert format_valid["score"] is False
     assert format_valid["reason"] == "invalid_response_format"
     exact = criteria(result)["exact_table"]
-    assert exact["state"] == "scored"
-    assert exact["score"] is False
+    assert (exact["state"], exact["score"]) == ("scored", False)
+
+
+@pytest.mark.parametrize("name", ["not json", "fenced object", "prose around", "missing field", "a json array"])
+def test_exact_table_false_for_an_unreadable_answer_carries_invalid_response_format(name):
+    exact = criteria(score(MALFORMED[name], "D03"))["exact_table"]
+    assert (exact["state"], exact["score"], exact["reason"]) == ("scored", False, "invalid_response_format")
+
+
+def test_an_extra_field_makes_format_invalid_but_leaves_exact_table_to_the_comparison():
+    result = score(json.dumps(_with("D03", comment="hi")), "D03")
+    by = criteria(result)
+    assert (by["format_valid"]["score"], by["format_valid"]["reason"]) == (False, "invalid_response_format")
+    assert (by["exact_table"]["state"], by["exact_table"]["score"], by["exact_table"]["reason"]) == ("scored", True, None)
+    assert (by["contract_success"]["score"], by["contract_success"]["reason"]) == (False, "invalid_response_format")
+
+
+def test_an_extra_field_on_a_wrong_table_is_still_an_incorrect_table():
+    wrong = _with("D03", comment="hi", rows=[[1]])
+    exact = criteria(score(json.dumps(wrong), "D03"))["exact_table"]
+    assert (exact["score"], exact["reason"]) == (False, None)
 
 
 def test_the_scorer_does_not_alter_the_raw_answer():
@@ -289,7 +307,7 @@ def test_a_core_scorer_crash_on_one_episode_errors_only_that_episode(kept_log):
         return chinook_contract.score_episode(answer, reference, schema, steps)
 
     verdicts = rescore.rescore_log(
-        kept_log, REFS, schema=SCHEMA, expected=expected, scorer=explodes_on_the_second_d05
+        kept_log, REFS, schema=SCHEMA, expected=expected, scorer=explodes_on_the_second_d05, workload=WORKLOAD
     )
     by_key = {(v["case_id"], v["repeat"]): v for v in verdicts}
     broken = [v for v in verdicts if v["criteria"][0]["state"] == "errored"]
@@ -310,7 +328,7 @@ def test_a_core_scorer_crash_on_one_episode_errors_only_that_episode(kept_log):
 
 def test_rescoring_a_kept_log_goes_through_the_scorer_and_records_it(kept_log):
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
-    verdicts = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected)
+    verdicts = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
     assert all(v["scorer"]["name"] == "chinook_contract_v1" for v in verdicts)
     assert all(v["status"] == "produced" for v in verdicts)
     assert all(criteria(v)["exact_table"]["score"] is True for v in verdicts)
@@ -320,7 +338,7 @@ def test_rescoring_a_kept_log_goes_through_the_scorer_and_records_it(kept_log):
 def test_a_missing_reference_in_a_rescoring_is_unscored_not_a_key_error(kept_log):
     refs = {k: v for k, v in REFS.items() if k != "D05"}
     verdicts = rescore.rescore_log(
-        kept_log, refs, schema=SCHEMA, expected=[("D03", 0), ("D05", 0)]
+        kept_log, refs, schema=SCHEMA, expected=[("D03", 0), ("D05", 0)], workload=WORKLOAD
     )
     assert criteria(verdicts[0])["exact_table"]["score"] is True
     assert criteria(verdicts[1])["exact_table"]["reason"] == "reference_missing"
