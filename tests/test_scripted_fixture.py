@@ -288,7 +288,9 @@ def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_dif
     assert (exact["N_correct"], exact["N_incorrect"], exact["N_unscored"], exact["N_errored"]) == (2, 3, 2, 0)  # + budget_exhausted: scored false
     assert t["criteria"]["format_valid"]["N_incorrect"] == 2
     assert t["criteria"]["format_valid"]["N_correct"] == 4
-    assert t["criteria"]["evidence_link_valid"]["N_unscored"] == 2  # invalid_format, absent_from_log
+    # invalid_format is scored false (invalid_response_format); only absent_from_log is unscored
+    link = t["criteria"]["evidence_link_valid"]
+    assert (link["N_incorrect"], link["N_unscored"]) == (2, 1)  # + budget_exhausted: scored false
 
 
 # --- Mode, banner, model, business Cases ------------------------------------------------------------

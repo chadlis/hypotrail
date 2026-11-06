@@ -130,13 +130,16 @@ def test_without_a_trace_evidence_link_valid_stays_unscored():
     assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
 
 
-def test_a_malformed_answer_leaves_evidence_link_valid_unscored():
-    link = criteria(score("not json", steps=good_trace()))["evidence_link_valid"]
-    assert (link["state"], link["score"], link["reason"]) == (
-        "unscored",
-        None,
-        "invalid_response_format",
-    )
+@pytest.mark.parametrize("raw", ["not json", "[1]", json.dumps({"status": "answered"})])
+@pytest.mark.parametrize("trace", [True, False])
+def test_a_malformed_answer_scores_evidence_link_valid_false_with_invalid_response_format(raw, trace):
+    link = criteria(score(raw, steps=good_trace() if trace else None))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("scored", False, "invalid_response_format")
+
+
+def test_a_well_formed_answer_without_a_trace_still_leaves_the_link_unscored():
+    link = criteria(score(answer_for("D05", ["hypotrail-aaa"])))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
 
 
 # --- contract success --------------------------------------------------------------------

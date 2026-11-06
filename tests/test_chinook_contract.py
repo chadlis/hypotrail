@@ -106,7 +106,6 @@ MALFORMED = {
     "fenced object": "```json\n" + json.dumps(correct_answer("D03")) + "\n```",
     "prose around": "Here you go: " + json.dumps(correct_answer("D03")) + " Hope it helps.",
     "missing field": json.dumps(_without("D03", "evidence")),
-    "extra field": json.dumps(_with("D03", comment="hi")),
     "clarification with rows": json.dumps(
         _with("D08", rows=[[1]])
     ),
@@ -124,8 +123,27 @@ def test_a_malformed_answer_is_format_invalid_with_its_reason_and_never_exact(na
     assert format_valid["score"] is False
     assert format_valid["reason"] == "invalid_response_format"
     exact = criteria(result)["exact_table"]
-    assert exact["state"] == "scored"
-    assert exact["score"] is False
+    assert (exact["state"], exact["score"]) == ("scored", False)
+
+
+@pytest.mark.parametrize("name", ["not json", "fenced object", "prose around", "missing field", "a json array"])
+def test_exact_table_false_for_an_unreadable_answer_carries_invalid_response_format(name):
+    exact = criteria(score(MALFORMED[name], "D03"))["exact_table"]
+    assert (exact["state"], exact["score"], exact["reason"]) == ("scored", False, "invalid_response_format")
+
+
+def test_an_extra_field_makes_format_invalid_but_leaves_exact_table_to_the_comparison():
+    result = score(json.dumps(_with("D03", comment="hi")), "D03")
+    by = criteria(result)
+    assert (by["format_valid"]["score"], by["format_valid"]["reason"]) == (False, "invalid_response_format")
+    assert (by["exact_table"]["state"], by["exact_table"]["score"], by["exact_table"]["reason"]) == ("scored", True, None)
+    assert (by["contract_success"]["score"], by["contract_success"]["reason"]) == (False, "invalid_response_format")
+
+
+def test_an_extra_field_on_a_wrong_table_is_still_an_incorrect_table():
+    wrong = _with("D03", comment="hi", rows=[[1]])
+    exact = criteria(score(json.dumps(wrong), "D03"))["exact_table"]
+    assert (exact["score"], exact["reason"]) == (False, None)
 
 
 def test_the_scorer_does_not_alter_the_raw_answer():

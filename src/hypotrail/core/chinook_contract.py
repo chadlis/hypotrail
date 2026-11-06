@@ -10,7 +10,7 @@ steps (plain records) into four Criteria, `exact_table`, `format_valid`,
   trace, designates a call that failed (a tool-level error or a structured `error` in
   the result), comes after the final answer, or has a native ID matching no tool-call event;
   or when an `answered` answer cites nothing. Without a trace it is `unscored`
-  (`trace_missing`), as it is for a malformed answer.
+  (`trace_missing`).
 - `contract_success`: for `answered`, `exact_table` AND `format_valid` AND
   `evidence_link_valid`; for the other statuses, `format_valid` and the exact status and
   reason, with no tool call required. It is false as soon as one dependency is false; only
@@ -18,7 +18,9 @@ steps (plain records) into four Criteria, `exact_table`, `format_valid`,
 
 - `invalid_response_format`: the raw answer is not one JSON object valid against the
   Workload's `table-answer/1` schema. `format_valid` is scored false; this counts
-  against the evaluated system.
+  against the evaluated system. When the answer is not even one JSON object with the six
+  fields, `exact_table` and `evidence_link_valid` are scored false with this Reason too. An
+  extra field alone makes `format_valid` false and leaves `exact_table` to the comparison.
 - `reference_missing` / `reference_invalid`: the Reference is absent or unusable.
   `exact_table` is `unscored`. This is an Instrument failure.
 - `scoring_failed`: the scoring machinery raised. Every Criterion is `errored` and
@@ -31,7 +33,7 @@ import math
 
 from jsonschema import Draft202012Validator
 
-from hypotrail.core.answer_scoring import COMPONENTS, parse_answer, score_answer
+from hypotrail.core.answer_scoring import parse_answer, score_answer
 
 SCORER_NAME = "chinook_contract_v1"
 SCORER_VERSION = "1"
@@ -89,16 +91,15 @@ def _format_valid(raw_answer, schema):
     return _criterion("format_valid", "scored", False, INVALID_RESPONSE_FORMAT)
 
 
-def _exact_table(raw_answer, reference, format_ok):
+def _exact_table(raw_answer, reference):
     problem = reference_problem(reference)
     if problem is not None:
         return _criterion("exact_table", "unscored", None, problem)
-    if not format_ok:
-        # A malformed answer is never a correct table, as in the spike's rule that a
-        # missing field makes every component false; format_valid carries the Reason.
-        components = {name: False for name in COMPONENTS}
-        return _criterion("exact_table", "scored", False, components=components)
     verdict = score_answer(raw_answer, reference)
+    if not verdict["parsed"]:
+        # Not one JSON object with the six fields: never a correct table. It is the system's
+        # failure, so it is scored false with its Reason, as format_valid is.
+        return _criterion("exact_table", "scored", False, INVALID_RESPONSE_FORMAT, components=verdict["components"])
     return _criterion("exact_table", "scored", verdict["correct"], components=verdict["components"])
 
 
@@ -130,11 +131,12 @@ def _link_problem(cited, steps):
 def _evidence_link_valid(answer, format_ok, steps):
     """Do the IDs the answer cites designate successful calls of this Episode, made earlier?
 
-    Read from the projected steps only. Without a trace the link cannot be judged
-    (`trace_missing`), and a malformed answer has no readable `evidence`.
+    Read from the projected steps only. A malformed answer has no usable `evidence`: it is
+    scored false with `invalid_response_format`, trace or not. Without a trace a well-formed
+    answer's link cannot be judged (`trace_missing`).
     """
     if not format_ok:
-        return _criterion("evidence_link_valid", "unscored", None, INVALID_RESPONSE_FORMAT)
+        return _criterion("evidence_link_valid", "scored", False, INVALID_RESPONSE_FORMAT)
     if steps is None:
         return _criterion("evidence_link_valid", "unscored", None, TRACE_MISSING)
     cited = answer["evidence"]
@@ -184,7 +186,7 @@ def _contract_success(answer, exact_table, format_valid, evidence_link_valid):
 def score_episode(raw_answer, reference, schema, steps=None) -> dict:
     """The Criteria of one Episode's raw final answer. Pure; may raise."""
     format_valid = _format_valid(raw_answer, schema)
-    exact_table = _exact_table(raw_answer, reference, format_valid["score"])
+    exact_table = _exact_table(raw_answer, reference)
     evidence_link_valid = _evidence_link_valid(
         parse_answer(raw_answer), format_valid["score"], steps
     )
