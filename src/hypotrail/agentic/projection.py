@@ -1,8 +1,8 @@
 """Projecting an Inspect eval log into one record per Episode (Case x Repeat).
 
 The log is read through Inspect's public log API only. An Episode is `produced`
-when it ran to an answer, `failed` when its execution stopped with an error or at one of our
-limits (turns, time, tokens) before any final answer, and `missing` when the log holds nothing for it. Inspect's
+when it ran to an answer, `failed` when its execution stopped with an error, at one of our
+limits (turns, time, tokens) before any final answer, or with its answer cut by the output cap, and `missing` when the log holds nothing for it. Inspect's
 `epoch` is 1-based; a Repeat is 0-based, as in the kit's fixture.
 """
 
@@ -68,6 +68,14 @@ def _steps(messages, stop_reasons=()) -> list[dict]:
     return steps
 
 
+def _final_stop_reason(steps: list[dict]) -> str | None:
+    """Why the model call that gave the final answer stopped (None without a final answer)."""
+    for before, step in zip(steps, steps[1:]):
+        if step["kind"] == "final_answer":
+            return before["stop_reason"]
+    return None
+
+
 def _scoring_events(sample):
     """Span events of the scoring phase: structured fields only, never error text."""
     spans = [e for e in (sample.events or []) if e.event == "span_begin"]
@@ -99,11 +107,15 @@ def _episode(sample, model: str) -> dict:
             ]
         else:
             status, reason, final = "failed", "execution_failed", None
-    elif sample.limit is not None and final is None:
-        # Stopped by one of our limits before any final answer: no output exists, so the Episode
-        # is `failed` (GLOSSARY, Observation set), never `produced` with no answer. The Reason
-        # names the limit that stopped it.
-        status, reason = "failed", f"{sample.limit.type}_limit"
+    elif sample.limit is not None and (final is None or _final_stop_reason(steps) == "max_tokens"):
+        # Stopped by one of our limits before any usable final answer: the Episode is `failed`
+        # (GLOSSARY, Observation set), never `produced` with no answer. The Reason names the limit.
+        # Precedence (D1): a sample limit Inspect recorded decides; output_cap only when none was recorded and the final call stopped on max_tokens.
+        status, reason, final = "failed", f"{sample.limit.type}_limit", None
+    elif _final_stop_reason(steps) == "max_tokens":
+        # No limit recorded and the final answer was cut by the output cap (our setting): `failed`, Reason
+        # `output_cap`; the cut text stays in the steps.
+        status, reason, final = "failed", "output_cap", None
     return {
         "case_id": str(sample.id),
         "repeat": sample.epoch - 1,

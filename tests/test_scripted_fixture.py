@@ -279,15 +279,14 @@ def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_dif
     assert combos["recovered_tool_error"] == combos["good_result"]
     others = [s for s in produced if s != "recovered_tool_error"]
     assert len({combos[s] for s in others}) == len(others)
-    # the counters over every scenario except the budget-exhausted one, whose Criteria wait for D1
-    settled = [v for v in json.loads((out / "verdicts.json").read_text())["verdicts"]
-               if v["scenario_id"] != "budget_exhausted"]
+    # the counters over every scenario: budget_exhausted (turn limit) is scored false on every Criterion
+    settled = json.loads((out / "verdicts.json").read_text())["verdicts"]
     t = counts.tally(settled)
     exact = t["criteria"]["exact_table"]
     # good_result and recovered_tool_error correct; wrong_result and invalid_format incorrect;
     # missing_reference (reference_missing) and absent_from_log (observation_missing) unscored
-    assert (exact["N_correct"], exact["N_incorrect"], exact["N_unscored"], exact["N_errored"]) == (2, 2, 2, 0)
-    assert t["criteria"]["format_valid"]["N_incorrect"] == 1
+    assert (exact["N_correct"], exact["N_incorrect"], exact["N_unscored"], exact["N_errored"]) == (2, 3, 2, 0)  # + budget_exhausted: scored false
+    assert t["criteria"]["format_valid"]["N_incorrect"] == 2
     assert t["criteria"]["format_valid"]["N_correct"] == 4
     assert t["criteria"]["evidence_link_valid"]["N_unscored"] == 2  # invalid_format, absent_from_log
 
