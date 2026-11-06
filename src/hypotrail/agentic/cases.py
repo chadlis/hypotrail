@@ -16,7 +16,7 @@ def load_cases(path: Path, case_ids: list[str] | None = None) -> list[dict]:
 
     The one reader of Cases files. It refuses a file that cannot be read (FILE_NOT_FOUND) and a line
     that is not a JSON object with a string `case_id` (FILE_NOT_JSON), then a `case_id` that appears on
-    two lines of the file (CASE_ID_NOT_UNIQUE; GLOSSARY Item: a stable ID that never depends on file order).
+    two lines of the file (CASE_ID_NOT_UNIQUE; GLOSSARY Episode: the Item of an agentic Track, identified by Case and Repeat).
     """
     try:
         lines = Path(path).read_text(encoding="utf-8").splitlines()
