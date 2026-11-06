@@ -9,7 +9,7 @@
 
 <div class="prose">
 <h3>The Workload declaration</h3>
-<p>The Workload is declarative and holds no Python (<a href="../adr/0002-workloads-are-declarative.md">ADR 0002</a>). <code>examples/chinook/workload.json</code> is checked as a whole against one JSON Schema, <code>src/hypotrail/agentic/workload.schema.json</code>, by <code>jsonschema</code>. <code>declaration.load_workload(directory)</code> reads and checks it and returns a <code>Workload</code>; it imports neither Inspect nor any Reference, so a refusal comes before Inspect runs. The schema requires every key except <code>scenarios</code>, <code>answer_schema</code> and the Partitions under <code>cases</code>, which it leaves optional (<code>cases</code> must hold at least one); the entry point that reads one of those refuses its absence with a code (ADR 0002, clarification of 2026-11-04): the Scorer's entry points need <code>answer_schema</code>, the entry points that read <code>dev</code> need <code>dev</code>, the <code>scripted_fixture</code> Mode needs <code>scenarios</code>. Every object is closed, except <code>configurations</code>, whose keys are the Workload's own Configuration names; the Partition names under <code>cases</code> are closed to the Track's two roles.</p>
+<p>The Workload is declarative and holds no Python (<a href="../adr/0002-workloads-are-declarative.md">ADR 0002</a>). <code>examples/chinook/workload.json</code> is checked as a whole against one JSON Schema, <code>src/hypotrail/agentic/workload.schema.json</code>, by <code>jsonschema</code>. <code>declaration.load_workload(directory)</code> reads and checks it and returns a <code>Workload</code>; it imports neither Inspect nor any Reference, so a refusal comes before Inspect runs. The schema requires every key except <code>scenarios</code>, <code>answer_schema</code> and the Partitions under <code>cases</code> (<code>cases</code> must hold at least one); the table below says which entry point refuses each absent key (ADR 0002, clarification of 2026-11-04). Every object is closed, except <code>configurations</code>, whose keys are the Workload's own Configuration names; the Partition names under <code>cases</code> are closed to the Track's two roles.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="agentic-declaration"><thead><tr><th>Key</th><th>Value for <code>chinook</code></th><th>Used for</th></tr></thead><tbody>
 <tr><td><code>schema_version</code>, <code>track</code>, <code>workload_id</code></td><td><code>workload/1</code>, <code>tool_using_agent</code>, <code>chinook</code></td><td>Descriptive, except <code>workload_id</code>, which names the task (<code>chinook_plain</code>).</td></tr>
@@ -22,6 +22,14 @@
 <tr><td><code>configurations</code></td><td><code>plain</code>, <code>verify</code></td><td>Either a full <code>system_text</code>, or <code>extends</code> another Configuration with an <code>added_instruction</code>.</td></tr>
 </tbody></table></div>
 
+<p class="sub2">Keys the schema leaves optional</p>
+<div class="tblwrap"><table class="tbl" id="agentic-optional-keys"><thead><tr><th>Key</th><th>Entry point that refuses its absence</th><th>Code</th></tr></thead><tbody>
+<tr><td><code>answer_schema</code></td><td><code>fixture.run_fixture</code> (the <code>scripted_fixture</code> Mode), before anything is written. Rescoring takes the schema as an argument and reads none from the declaration.</td><td><code>ANSWER_SCHEMA_NOT_DECLARED</code></td></tr>
+<tr><td><code>scenarios</code></td><td><code>fixture.run_fixture</code>, before anything is written</td><td><code>SCENARIOS_NOT_DECLARED</code></td></tr>
+<tr><td><code>cases.dev</code></td><td>the task builder and the live run, which read <code>dev</code></td><td><code>PARTITION_NOT_DECLARED</code></td></tr>
+<tr><td><code>cases.public_check</code></td><td>any reader asking for that Partition</td><td><code>PARTITION_NOT_DECLARED</code></td></tr>
+</tbody></table></div>
+
 <p class="sub2">Refusals</p>
 <div class="tblwrap"><table class="tbl" id="agentic-refusals"><thead><tr><th>Case</th><th>Code</th></tr></thead><tbody>
 <tr><td>A required key is missing</td><td><code>DECLARATION_INCOMPLETE</code></td></tr>
@@ -30,13 +38,11 @@
 <tr><td>A value of the right type that the schema does not allow (an empty string, a Configuration that is neither a full text nor an extension)</td><td><code>DECLARATION_VALUE_NOT_ALLOWED</code></td></tr>
 <tr><td>A Configuration that extends, or is asked for as, a Configuration that is not declared</td><td><code>CONFIGURATION_NOT_DECLARED</code></td></tr>
 <tr><td>Configurations that extend each other in a loop</td><td><code>CONFIGURATION_CYCLE</code></td></tr>
-<tr><td>A group of Cases that is not declared, asked for by an entry point that reads it (<code>dev</code> for the task builder and the live run)</td><td><code>PARTITION_NOT_DECLARED</code></td></tr>
-<tr><td>The answer schema is not declared, asked for by the <code>scripted_fixture</code> Mode, before anything is written</td><td><code>ANSWER_SCHEMA_NOT_DECLARED</code></td></tr>
-<tr><td>A Case ID listed in two Partitions, refused when the declaration is loaded (a Partition is a disjoint subset)</td><td><code>PARTITIONS_NOT_DISJOINT</code></td></tr>
-<tr><td><code>workload.json</code>, the answer schema or the scenarios file absent, or not JSON</td><td><code>FILE_NOT_FOUND</code>, <code>FILE_NOT_JSON</code></td></tr>
+<tr><td>A Case ID listed in two Partitions, refused whenever a <code>Workload</code> is constructed (a Partition is a disjoint subset)</td><td><code>PARTITIONS_NOT_DISJOINT</code></td></tr>
+<tr><td><code>workload.json</code>, the answer schema, the scenarios file or a declared Cases file absent, or not JSON (a Cases line that is not a JSON object with a <code>case_id</code> is <code>FILE_NOT_JSON</code>)</td><td><code>FILE_NOT_FOUND</code>, <code>FILE_NOT_JSON</code></td></tr>
 <tr><td>The scenarios file does not match its schema</td><td><code>SCENARIOS_INCOMPLETE</code>, <code>SCENARIOS_KEY_UNKNOWN</code>, <code>SCENARIOS_WRONG_TYPE</code>, <code>SCENARIOS_VALUE_NOT_ALLOWED</code> (stage <code>fixture</code>)</td></tr>
 </tbody></table></div>
-<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a code, a message, the stage <code>declaration</code> and details giving the <code>key</code> and the <code>path</code>. The codes <code>CONFIGURATION_NOT_DECLARED</code>, <code>CONFIGURATION_CYCLE</code> and <code>PARTITION_NOT_DECLARED</code> relate values to each other or to the declaration, which JSON Schema cannot express, so they stay in Track code (ADR 0002, clarification of 2026-11-04).</p>
+<p class="prose">Each refusal is an <code>InvalidInputError</code> (exit code 2 once a command line exists) with a code, a message, the stage <code>declaration</code> and details giving the <code>key</code> and the <code>path</code>. The codes <code>CONFIGURATION_NOT_DECLARED</code>, <code>CONFIGURATION_CYCLE</code>, <code>PARTITION_NOT_DECLARED</code> and <code>PARTITIONS_NOT_DISJOINT</code> relate values to each other or to the declaration, which JSON Schema cannot express, so they stay in Track code (ADR 0002, clarification of 2026-11-04).</p>
 
 <p class="sub2">The two Configurations</p>
 <div class="prose">

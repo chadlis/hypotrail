@@ -13,10 +13,17 @@ this module imports none of it. The codes:
 - `CONFIGURATION_CYCLE`: Configurations extend each other in a loop;
 - `PARTITIONS_NOT_DISJOINT`: a Case ID is listed in two Partitions.
 
-The last three relate values to each other, so they stay in Track code, next to their use. So does
-whether a key is required: `answer_schema` is read by the Scorer's entry points, which refuse its
-absence with `ANSWER_SCHEMA_NOT_DECLARED`, and a Partition under `cases` by the entry points that
-read it, which refuse its absence with `PARTITION_NOT_DECLARED`.
+The last three relate values to each other, so they stay in Track code, next to their use.
+`PARTITIONS_NOT_DISJOINT` is checked when a `Workload` is constructed, which reads each declared
+Cases file once with `cases.load_cases`: an unreadable file or an unparsable line is refused there
+too (`FILE_NOT_FOUND`, `FILE_NOT_JSON`).
+
+Whether a key is required is also Track code. The schema leaves `scenarios`, `answer_schema` and
+each Partition under `cases` optional, and the entry point that reads one refuses its absence:
+`run_fixture` (the `scripted_fixture` Mode) refuses `answer_schema` with
+`ANSWER_SCHEMA_NOT_DECLARED` and `scenarios` with its own code, and the readers of a Partition
+refuse it with `PARTITION_NOT_DECLARED`. `rescore_log` and `rescore_episodes` take the answer
+schema as an argument and read none from the declaration.
 
 The Partition roles (`dev`, `public_check`) are the Track's (`hypotrail.agentic.partitions`): the
 schema closes `cases` to them. The answer schema is a file the declaration names (`answer_schema`).
@@ -31,7 +38,7 @@ by the declaration but never read here: they are not an input of the task builde
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -193,6 +200,31 @@ class Workload:
 
     directory: Path
     declaration: dict
+    _owner: dict = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        """Read each declared Cases file once; refuse an unreadable file, an unparsable line, a shared Case ID.
+
+        No Workload exists with overlapping or unreadable Partitions (GLOSSARY: a Partition is a
+        named, disjoint subset), so `partition_of` has no precondition.
+        """
+        owner: dict[str, str] = {}
+        shared: dict[str, set[str]] = {}
+        for partition, file in self.declaration["cases"].items():
+            for case_id in {case["case_id"] for case in load_cases(self.directory / file)}:
+                if case_id in owner:
+                    shared.setdefault(case_id, {owner[case_id]}).add(partition)
+                else:
+                    owner[case_id] = partition
+        if shared:
+            raise _refuse(
+                "PARTITIONS_NOT_DISJOINT",
+                f"a Case is listed in two Partitions: {sorted(shared)}",
+                path="cases",
+                case_ids=sorted(shared),
+                partitions=sorted({role for roles in shared.values() for role in roles}),
+            )
+        object.__setattr__(self, "_owner", owner)
 
     @property
     def workload_id(self) -> str:
@@ -247,48 +279,11 @@ class Workload:
 
     def partition_of(self, case_id: str) -> str | None:
         """The Partition role the declaration gives a Case, or None for a Case it does not list."""
-        for partition in self.declaration["cases"]:
-            if any(case["case_id"] == case_id for case in self.cases(partition)):
-                return partition
-        return None
+        return self._owner.get(case_id)
 
     def cases(self, partition: str = "dev", case_ids: list[str] | None = None) -> list[dict]:
         """The Cases of a declared Partition. Nothing here reads the References."""
         return load_cases(self.cases_path(partition), case_ids)
-
-
-def _listed_case_ids(path: Path) -> set[str]:
-    """The Case IDs a Cases file lists. A file that is absent or unreadable lists none here: its reader refuses it."""
-    ids = set()
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, ValueError):
-        return ids
-    for line in lines:
-        try:
-            case = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(case, dict) and isinstance(case.get("case_id"), str):
-            ids.add(case["case_id"])
-    return ids
-
-
-def check_partitions_disjoint(directory: Path, declaration) -> None:
-    """Refuse a Case ID listed in two Partitions (GLOSSARY: a Partition is a named, disjoint subset)."""
-    owners: dict[str, list[str]] = {}
-    for partition, file in declaration["cases"].items():
-        for case_id in _listed_case_ids(directory / file):
-            owners.setdefault(case_id, []).append(partition)
-    shared = {case_id: roles for case_id, roles in owners.items() if len(roles) > 1}
-    if shared:
-        raise _refuse(
-            "PARTITIONS_NOT_DISJOINT",
-            f"a Case is listed in two Partitions: {sorted(shared)}",
-            path="cases",
-            case_ids=sorted(shared),
-            partitions=sorted({role for roles in shared.values() for role in roles}),
-        )
 
 
 def load_workload(workload_dir: Path) -> Workload:
@@ -296,5 +291,4 @@ def load_workload(workload_dir: Path) -> Workload:
     declaration = read_json(directory / DECLARATION_NAME, stage="declaration", noun="declaration", key=DECLARATION_NAME)
     check_schema(declaration)
     check_configurations(declaration)
-    check_partitions_disjoint(directory, declaration)
     return Workload(directory, declaration)

@@ -22,6 +22,7 @@ DECLARATION = json.loads((CHINOOK / "workload.json").read_text(encoding="utf-8")
 def workload_with(tmp_path, edit):
     target = tmp_path / "chinook"
     target.mkdir(parents=True)
+    shutil.copytree(CHINOOK / "cases", target / "cases")  # a Workload reads its Cases files when it is built
     declaration = copy.deepcopy(DECLARATION)
     edit(declaration)
     (target / "workload.json").write_text(json.dumps(declaration), encoding="utf-8")
@@ -328,9 +329,50 @@ def test_distinct_case_ids_and_single_partitions_still_load(tmp_path):
     load_workload(CHINOOK)
 
 
-def test_a_partition_file_that_is_absent_is_left_to_the_reader_that_opens_it(tmp_path):
-    # the reader that opens a missing Cases file refuses it; the load does not guess
+def test_a_declared_cases_file_that_is_absent_is_refused_when_the_declaration_is_loaded(tmp_path):
     target = chinook_copy(tmp_path)
     (target / "cases" / "chinook-public-check.jsonl").unlink()
+    assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_FOUND"
+
+
+def test_a_cases_line_that_cannot_be_parsed_is_refused_when_the_declaration_is_loaded(tmp_path):
+    target = chinook_copy(tmp_path)
+    path = target / "cases" / "chinook-public-check.jsonl"
+    path.write_text(path.read_text() + "{not json\n")
+    assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_JSON"
+    path.write_text("[1, 2]\n")  # JSON, but not a Case
+    assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_JSON"
+
+
+def test_a_malformed_line_hides_no_overlap(tmp_path):
+    target = overlapping(tmp_path, "D03")
+    path = target / "cases" / "chinook-public-check.jsonl"
+    path.write_text(path.read_text() + "{not json\n")
+    assert refused_by(lambda: load_workload(target)).code == "FILE_NOT_JSON"
+
+
+def test_a_workload_built_directly_is_checked_like_a_loaded_one(tmp_path):
+    from hypotrail.agentic.declaration import Workload
+
+    overlap = overlapping(tmp_path / "a", "D03")
+    declaration = json.loads((overlap / "workload.json").read_text())
+    assert refused_by(lambda: Workload(overlap, declaration)).code == "PARTITIONS_NOT_DISJOINT"
+
+    missing = chinook_copy(tmp_path / "b")
+    (missing / "cases" / "chinook-dev.jsonl").unlink()
+    assert refused_by(lambda: Workload(missing, json.loads((missing / "workload.json").read_text()))).code == "FILE_NOT_FOUND"
+
+
+def test_partition_of_answers_for_every_listed_case_of_the_real_declaration():
+    workload = load_workload(CHINOOK)
+    for partition in ("dev", "public_check"):
+        for case in workload.cases(partition):
+            assert workload.partition_of(case["case_id"]) == partition
+    assert workload.partition_of("NOT-A-CASE") is None
+
+
+def test_dev_only_workload_reads_only_its_declared_file(tmp_path):
+    target = chinook_copy(tmp_path, lambda d: d["cases"].pop("public_check"))
+    (target / "cases" / "chinook-public-check.jsonl").unlink()
     workload = load_workload(target)
-    assert workload.cases("dev")
+    assert workload.partition_of(workload.cases("dev")[0]["case_id"]) == "dev"
