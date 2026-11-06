@@ -16,6 +16,7 @@ from hypotrail.agentic import counts, fixture, projection, rescore, runner
 from hypotrail.agentic.limits import EpisodeLimits
 from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.core.errors import InvalidInputError
+from inspect_ai.log import EvalSampleLimit, read_eval_log, write_eval_log
 from inspect_ai.model import ModelOutput, ModelUsage
 
 SCHEMA = json.loads((CHINOOK / "schemas" / "table-answer.schema.json").read_text())
@@ -112,13 +113,44 @@ def test_a_complete_answer_is_still_produced(tmp_path):
     assert episode["status"] == "produced" and episode["reason"] is None
 
 
-def test_a_sample_limit_decides_over_the_output_cap_when_both_apply(tmp_path):
-    # the final call is cut at max_tokens and its usage also exhausts the token budget
-    model = with_usage(cut_answer(), ModelUsage(input_tokens=11_000, output_tokens=1_024, total_tokens=12_024))
-    location = run(tmp_path, model)
+def with_recorded_limit(location, kind="token", limit=12_000):
+    """The same kept log, with Inspect's record of a sample limit added to its only sample.
+
+    Inspect drops the generation that crosses a limit, so a final answer and a recorded limit seldom
+    meet in a log it writes itself; this makes them meet, in the log API's own format.
+    """
+    log = read_eval_log(location)
+    log.samples[0].limit = EvalSampleLimit(type=kind, limit=limit)
+    write_eval_log(log, location)
+    return location
+
+
+@pytest.mark.parametrize("kind", ["token", "time", "message"])
+def test_a_cut_final_answer_is_output_cap_whatever_limit_is_recorded(tmp_path, kind):
+    # D1: a final answer present in the state and cut by max_tokens is output_cap
+    location = with_recorded_limit(run(tmp_path, cut_answer()), kind)
     (episode,) = projection.project_log(location, expected=[("D03", 0)])
+    assert (episode["status"], episode["reason"]) == ("failed", "output_cap")
+    assert [s["text"] for s in episode["steps"] if s["kind"] == "final_answer"] == ['{"status": "answered", "colu']
+    assert states(verdict_of(location)) == {name: ("unscored", None, "output_cap") for name in CRITERIA}
+
+
+def test_a_recorded_limit_decides_when_there_is_no_final_answer(tmp_path):
+    model = with_usage(ScriptedModel(CASES, always_call_tool=True), ModelUsage(input_tokens=4000, output_tokens=1000, total_tokens=5000))
+    (episode,) = projection.project_log(run(tmp_path, model), expected=[("D03", 0)])
     assert (episode["status"], episode["reason"]) == ("failed", "token_limit")
-    assert states(verdict_of(location)) == {name: ("scored", False, "token_limit") for name in CRITERIA}
+
+
+def test_the_generation_that_crosses_the_token_budget_leaves_no_final_answer_so_the_limit_decides(tmp_path):
+    model = with_usage(cut_answer(), ModelUsage(input_tokens=11_000, output_tokens=1_024, total_tokens=12_024))
+    (episode,) = projection.project_log(run(tmp_path, model), expected=[("D03", 0)])
+    assert (episode["status"], episode["reason"], episode["final_answer"]) == ("failed", "token_limit", None)
+
+
+def test_a_complete_final_answer_with_a_recorded_limit_stays_produced(tmp_path):
+    location = with_recorded_limit(run(tmp_path, ScriptedModel(CASES)))
+    (episode,) = projection.project_log(location, expected=[("D03", 0)])
+    assert (episode["status"], episode["reason"]) == ("produced", None)
 
 
 # --- all of them stay in the denominators, and the interim list is gone ---------------------------
