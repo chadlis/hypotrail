@@ -16,7 +16,7 @@ uv run --locked --all-extras pytest           # offline: no network, no model ca
 uv run python -m hypotrail data verify        # check the public datasets
 ```
 
-A live model run is opt-in and paid, never part of the tests: `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). It is prepared and rehearsed offline; no live run has been made with it, and the References review of D07, D08, E11 and E12 comes first.
+A live model run is opt-in and paid, never part of the tests: `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). It was rehearsed offline, and one run per Configuration (`plain`, `verify`; Cases D03 and D05, one Repeat each, on `anthropic/claude-sonnet-5-5`) is recorded under `docs/handbook/traces/live-l12-plain/` and `live-l12-verify/`; they are not scored against References, and the References review of D07, D08, E11 and E12 comes first.
 
 ## Where to look
 
