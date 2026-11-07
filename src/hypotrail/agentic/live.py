@@ -194,6 +194,22 @@ def reasoning_in_request(model: Model) -> dict | None:
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
 
 
+def budget_of(sample) -> dict | None:
+    """The Episode token budget as Inspect recorded it on the sample: the limit, which tokens it metered, and the metered usage.
+
+    `metering` is Inspect's `token_limit_type` ("output" for the budget in force; None in a log made before
+    metering types existed reads "all"); `metered_usage` is what the limit counted, to be read next to the
+    Episode's `output_tokens`. A sample absent from the log has no figures (None).
+    """
+    if sample is None:
+        return None
+    return {
+        "limit": sample.token_limit,
+        "metering": None if sample.token_limit is None else (sample.token_limit_type or "all"),
+        "metered_usage": sample.token_limit_usage,
+    }
+
+
 def usage_of(sample) -> dict:
     """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
 
@@ -380,6 +396,7 @@ def _record(
                 "status": e["status"],
                 "stopped_by_limit": e["stopped_by_limit"],
                 **dict(zip(("uses_tool_result", "uses_tool_result_reason"), _uses_result_with_reason(e))),
+                "output_token_budget": budget_of(samples.get((e["case_id"], e["repeat"]))),
                 **usage_of(samples.get((e["case_id"], e["repeat"]))),
             }
             for e in episodes
