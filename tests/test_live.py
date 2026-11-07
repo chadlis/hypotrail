@@ -899,11 +899,9 @@ def test_two_models_in_one_sample_are_kept_apart_and_summed_as_inspect_sums_them
     assert (usage["input_tokens"], usage["input_tokens_cache_write"], usage["input_tokens_cache_read"], usage["total_tokens"]) == (11, 40, 67, 118)
 
 
-def test_the_five_token_figures_of_the_kept_live_log_come_from_the_public_log_api_offline(tmp_path, network_guard):
-    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
-    shutil.copytree(kept, tmp_path / "inspect")  # a copy: the kept trace is not touched
+def test_the_five_token_figures_of_the_kept_live_log_come_from_the_public_log_api_offline(tmp_path, kept_all_token_log):
     record = agentic_live.summarize(
-        location=str(next((tmp_path / "inspect").glob("*.eval"))), out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        location=kept_all_token_log, out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
         api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
     )
     figures = {e["case_id"]: tuple(e[f] for f in TOKEN_FIELDS) for e in record["episodes"]}
@@ -993,12 +991,9 @@ def test_run_live_refuses_a_workload_without_dev_before_creating_its_output(tmp_
 
 
 
-def test_the_run_record_carries_the_reason_next_to_the_value(tmp_path):
-    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain"
-    (tmp_path / "inspect").mkdir()
-    log = Path(shutil.copy(next((kept / "inspect").glob("*.eval")), tmp_path / "inspect"))
+def test_the_run_record_carries_the_reason_next_to_the_value(tmp_path, kept_all_token_log):
     record = agentic_live.summarize(
-        location=str(log), out_dir=tmp_path, model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+        location=kept_all_token_log, out_dir=tmp_path, model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
     )
     by_case = {e["case_id"]: e for e in record["episodes"]}
     # D05's final answer has prose before the JSON object: unreadable, so unknown (not false)
@@ -1039,22 +1034,29 @@ def test_a_budget_stopped_episode_records_the_limit_its_metering_and_the_output_
     assert episode["output_tokens"] == 4500  # three generations of 1,500; the third crossed the budget
     for limits in (record["requested_limits"], record["effective_limits"]):
         assert limits["output_token_budget"] == 4000 and limits["token_budget_metering"] == "output"
-        assert "total_tokens" not in limits
+        assert "total_token_budget" not in limits
 
 
-def test_the_kept_all_token_log_is_read_back_as_an_all_token_budget_offline(tmp_path, network_guard):
-    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
-    shutil.copytree(kept, tmp_path / "inspect")
+def test_the_kept_all_token_log_is_read_back_as_an_all_token_budget_offline(tmp_path, kept_all_token_log):
     record = agentic_live.summarize(
-        location=str(next((tmp_path / "inspect").glob("*.eval"))), out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        location=kept_all_token_log, out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
         api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
     )
     effective = record["effective_limits"]
-    assert effective["total_tokens"] == 12000 and effective["token_budget_metering"] == "all"
+    assert effective["total_token_budget"] == 12000 and effective["token_budget_metering"] == "all"
     assert "output_token_budget" not in effective
     budgets = {e["case_id"]: e["token_budget"] for e in record["episodes"]}
-    assert budgets["D03"] == {"total_tokens": 12000, "token_budget_metering": "all", "metered_usage": 15736}
+    assert budgets["D03"] == {"total_token_budget": 12000, "token_budget_metering": "all", "metered_usage": 15736}
     assert "output_token_budget" not in record["episodes"][0]
+
+
+def test_an_episode_with_no_token_limit_records_the_metering_as_null_beside_its_usage():
+    class Sample:
+        token_limit = None
+        token_limit_type = None
+        token_limit_usage = 321
+
+    assert agentic_live.budget_of(Sample()) == {"token_budget_metering": None, "metered_usage": 321}
 
 
 def test_an_episode_absent_from_the_log_has_no_budget_figures():

@@ -173,16 +173,8 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     """T1'': a two-way check. The non-superseded rows plus the keys that superseded rows name are the current enforcement keys."""
     from hypotrail.agentic.limits import ENFORCEMENT
 
-    rows = {
-        row["attrs"]["data-limit"]: row
-        for row in parse(page).tables["effective-limits"]
-        if "data-limit" in row["attrs"]
-    }
-
-    def cells(row):
-        return {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]}
-
-    superseded = {limit: row for limit, row in rows.items() if cells(row)["data-state"] == "superseded"}
+    rows = table_rows(page, "effective-limits", "data-limit")
+    superseded = {limit: row for limit, row in rows.items() if row["cells"]["data-state"] == "superseded"}
     current = set(rows) - set(superseded)
     named = {row["attrs"]["data-replaced-by"] for row in superseded.values()}
     assert current | named == set(ENFORCEMENT)
@@ -191,7 +183,7 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     tests_source = (ROOT / "tests" / "test_limits.py").read_text()
 
     for limit in current:
-        by_attr = cells(rows[limit])
+        by_attr = rows[limit]["cells"]
         label, witness = ENFORCEMENT[limit]
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
         assert by_attr["data-state"] == label, limit
@@ -199,12 +191,12 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
         assert f"def {witness}(" in tests_source
 
     for limit, row in superseded.items():
-        by_attr = cells(row)
+        by_attr = row["cells"]
         replacement = row["attrs"]["data-replaced-by"]
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
         assert replacement in ENFORCEMENT
         assert f"def {ENFORCEMENT[replacement][1]}(" in tests_source
-        text = " ".join(c["text"] for c in row["cells"])
+        text = " ".join(c["text"] for r in parse(page).tables["effective-limits"] if r["attrs"].get("data-limit") == limit for c in r["cells"])
         assert f"{replacement}" in text and "#50" in text and "chapter 03" in text, limit
 
 
@@ -239,22 +231,23 @@ def shown(value):
     return str(value)
 
 
-def test_the_current_limits_table_equals_the_episode_limits_and_their_states(page):
-    """R1-S1: chapter 03 states the limits in force once, as a table compared with the code."""
-    from hypotrail.agentic.limits import ENFORCEMENT, EpisodeLimits, requested_limits
+def test_the_current_limits_table_equals_the_episode_limits_their_states_and_witnesses(page):
+    """R1-S1, R2-S4, R2-P7: the limits in force once, as a table compared with the code; the metering is a column."""
+    from hypotrail.agentic.limits import ENFORCEMENT, TOKEN_BUDGET_METERING, EpisodeLimits
 
     rows = table_rows(page, "current-limits", "data-limit")
-    requested = requested_limits(EpisodeLimits())
-    assert set(rows) == set(requested)
+    limits = EpisodeLimits().as_dict()
+    assert set(rows) == set(limits)
+    tests_source = "".join(path.read_text() for path in sorted((ROOT / "tests").glob("test_*.py")))
     for limit, row in rows.items():
-        assert row["cells"]["data-value"] == shown(requested[limit]), limit
-        if limit in ENFORCEMENT:
-            label, witness = ENFORCEMENT[limit]
-            assert row["cells"]["data-state"] == label, limit
-            assert f"<code>{witness}</code>" in page, witness
-        else:
-            assert limit == "token_budget_metering"  # the metering of the budget: a setting, not a limit
-            assert row["cells"]["data-state"] == "setting"
+        label, witness = ENFORCEMENT[limit]
+        assert row["cells"]["data-value"] == shown(limits[limit]), limit
+        assert row["cells"]["data-state"] == label, limit
+        assert row["cells"]["data-witness"] == witness, limit
+        assert f"def {witness}(" in tests_source, witness
+    # the metering belongs to the budget alone
+    assert {limit for limit, row in rows.items() if "data-metering" in row["cells"]} == {"output_token_budget"}
+    assert rows["output_token_budget"]["cells"]["data-metering"] == TOKEN_BUDGET_METERING
 
 
 def test_the_superseded_spike_row_names_a_key_that_has_a_row_in_the_current_limits_table(page):
@@ -277,19 +270,28 @@ def test_the_budget_key_table_equals_the_keys_the_record_uses(page):
         assert row["cells"]["data-key"] == key, metering
 
 
-def test_chapter_03_describes_the_output_budget_and_the_two_kept_attempts_keep_the_earlier_one(page):
-    """Criterion 7: the limit-stop table, the live-command text, D1's `token_limit`, the kept Attempts' 12,000."""
-    chapter = page
+def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_row(page):
+    """Criterion 7, read with the table rule: the limit-stop row and the live-command text carry the metering and a link to the row."""
+    link = 'href="#limit-output_token_budget"'
+    assert 'id="limit-output_token_budget"' in page
+    live_text = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>spike live</code> runs one declared" in p)
+    for place in (page[page.index("<tr><td>Turn limit;") :].split("</tr>", 1)[0], live_text):
+        assert 'TokenLimit(type="output")' in place and link in place
     for text in (
-        'TokenLimit(type="output")',
-        "<code>token_limit</code> means the output-token budget of the table of current limits",
+        "<code>token_limit</code> means that budget, whose value is the row of the table of current limits",
         "input history and the cached tokens resent at every call no longer weigh on the budget",
         "both Attempts were made under the earlier 12,000 all-token budget",
     ):
-        assert text in chapter, text
-    assert "Turn limit, total token budget" not in chapter
-    # R1-S1: the prose around the table does not restate the value
+        assert text in page, text
+    assert "Turn limit, total token budget" not in page
+    # the prose around the table does not restate the value
     assert "4,000" not in CHAPTER_03.read_text(encoding="utf-8")
+
+
+def test_chapter_03_names_the_refusal_of_another_metering_type(page):
+    from hypotrail.agentic.limits import TOKEN_METERING_UNSUPPORTED
+
+    assert f"<code>{TOKEN_METERING_UNSUPPORTED}</code>" in CHAPTER_03.read_text(encoding="utf-8")
 
 
 def test_the_reason_table_equals_the_codes_of_a_null_uses_tool_result(page):
@@ -346,7 +348,7 @@ def test_the_allow_list_table_equals_the_allowed_functions_and_no_other_chapter_
 
 
 def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(page):
-    chapter = (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
     from hypotrail.agentic.live import TOKEN_FIELDS
 
     for field in TOKEN_FIELDS:

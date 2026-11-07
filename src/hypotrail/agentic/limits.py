@@ -13,8 +13,14 @@ from inspect_ai.util import TokenLimit
 
 from hypotrail.core.errors import InvalidInputError
 
-# which tokens the Episode token budget meters: Inspect's "output" (reasoning tokens included), never "all"
-TOKEN_BUDGET_METERING = "output"
+# the two meterings of a token budget the record can state: Inspect's "output" (reasoning tokens included)
+# and "all" (a log made before metering types existed)
+OUTPUT_METERING = "output"
+ALL_METERING = "all"
+# which tokens the Episode token budget meters: never "all"
+TOKEN_BUDGET_METERING = OUTPUT_METERING
+# the code of the refusal of any other metering type
+TOKEN_METERING_UNSUPPORTED = "TOKEN_METERING_UNSUPPORTED"
 
 
 @dataclass(frozen=True)
@@ -42,20 +48,21 @@ def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
     """The token budget as the record states it: its key names its metering, and the metering stands beside it.
 
     Inspect records "output" for the budget in force and None for "all" tokens (a log made before
-    metering types existed). The key is `output_token_budget` for "output" and `total_tokens` for "all".
-    With no limit there is nothing to state: the dict is empty. Another type (an Inspect formula) is refused.
+    metering types existed). The key is `output_token_budget` for "output" and `total_token_budget` for "all".
+    With no limit there is no key for it, and `token_budget_metering` is present and null, so the absence
+    is visible. Another type (an Inspect formula) is refused.
     """
     if limit is None:
-        return {}
-    metering = limit_type or "all"
-    if metering not in ("output", "all"):
+        return {"token_budget_metering": None}
+    metering = limit_type or ALL_METERING
+    if metering not in (OUTPUT_METERING, ALL_METERING):
         raise InvalidInputError(
-            "TOKEN_METERING_UNSUPPORTED",
+            TOKEN_METERING_UNSUPPORTED,
             f"the token limit type {limit_type!r} is neither 'output' nor 'all'",
             stage="limits",
             details={"token_limit_type": limit_type},
         )
-    key = "output_token_budget" if metering == "output" else "total_tokens"
+    key = "output_token_budget" if metering == OUTPUT_METERING else "total_token_budget"
     return {key: limit, "token_budget_metering": metering}
 
 

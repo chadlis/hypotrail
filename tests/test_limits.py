@@ -330,10 +330,10 @@ def test_the_metering_of_the_budget_is_a_constant_not_a_limit():
     ("limit", "limit_type", "expected"),
     [
         (4000, "output", {"output_token_budget": 4000, "token_budget_metering": "output"}),
-        (12000, "all", {"total_tokens": 12000, "token_budget_metering": "all"}),
-        (12000, None, {"total_tokens": 12000, "token_budget_metering": "all"}),  # a log made before metering types existed
-        (None, None, {}),
-        (None, "output", {}),
+        (12000, "all", {"total_token_budget": 12000, "token_budget_metering": "all"}),
+        (12000, None, {"total_token_budget": 12000, "token_budget_metering": "all"}),  # a log made before metering types existed
+        (None, None, {"token_budget_metering": None}),  # no limit: the absence is stated, not silent (AG-11)
+        (None, "output", {"token_budget_metering": None}),
     ],
 )
 def test_the_budget_key_follows_the_metering(limit, limit_type, expected):
@@ -346,9 +346,15 @@ def test_a_metering_type_other_than_output_or_all_is_refused_by_name():
     assert caught.value.code == "TOKEN_METERING_UNSUPPORTED" and "input" in str(caught.value)
 
 
-def test_read_back_of_an_all_token_log_keys_the_budget_total_tokens(tmp_path):
-    kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
-    shutil.copytree(kept, tmp_path / "inspect")
-    effective = read_back(str(next((tmp_path / "inspect").glob("*.eval"))))
-    assert effective["total_tokens"] == 12000 and effective["token_budget_metering"] == "all"
+def test_read_back_of_an_all_token_log_keys_the_budget_total_token_budget(kept_all_token_log):
+    effective = read_back(kept_all_token_log)
+    assert effective["total_token_budget"] == 12000 and effective["token_budget_metering"] == "all"
     assert "output_token_budget" not in effective
+
+
+def test_with_no_token_limit_the_metering_is_present_and_null_in_the_read_back(tmp_path):
+    script = ScriptedModel(cases())
+    location, _ = run(tmp_path, script, token_limit=None)
+    effective = read_back(location)
+    assert "token_budget_metering" in effective and effective["token_budget_metering"] is None
+    assert "output_token_budget" not in effective and "total_token_budget" not in effective
