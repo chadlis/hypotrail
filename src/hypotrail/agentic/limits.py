@@ -49,8 +49,8 @@ def requested_limits(limits: EpisodeLimits) -> dict:
 def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
     """The token budget as the record states it: its key names its metering, and the metering stands beside it.
 
-    Inspect's metering types are "output" and "all". A log with no type (None, made before metering types
-    existed) is read as Inspect's default, "all". The key is `TOKEN_BUDGET_KEYS[metering]`.
+    `TOKEN_BUDGET_KEYS` lists the meterings accepted. A log with no type (None) is read as Inspect's
+    default all-token metering. The key is `TOKEN_BUDGET_KEYS[metering]`.
     With no limit there is no key for it, and `token_budget_metering` is present and null, so the absence
     is visible. Another type (an Inspect formula) is refused.
     """
