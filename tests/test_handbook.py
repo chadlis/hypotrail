@@ -459,7 +459,9 @@ def test_chapter_03_says_where_requested_limits_come_from_in_each_case(page):
     from hypotrail.agentic import live
 
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>run.json</code> holds:" in p)
-    assert f"<code>{live.THIS_ATTEMPT}</code>" in paragraph and f"<code>{live.KEPT_LOG}</code>" in paragraph
+    rows = table_rows(page, "run-request-source", "data-request-source")
+    assert set(rows) == {live.THIS_ATTEMPT, live.KEPT_LOG}
+    assert "<code>this_attempt</code>" not in paragraph and "#run-request-source" in paragraph
     assert "<code>request_source</code>" in paragraph and "<code>tool_calls</code> null" in paragraph
     assert "the requested and effective limits read back from the log" not in paragraph
     assert "The effective limits are read back from the log and include the per-query caps" in paragraph
@@ -497,6 +499,7 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     chinook_contract, schema, reference, answer = _scorer_inputs()
     text = json.dumps(answer)
     samples = {
+        "exact_object": [text],
         "wrapped": ["Voici. " + text, text + "\nFin.", "```json\n" + text + "\n```", "[" + text + "]"],
         "nothing_read": ["The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```"],
     }
@@ -509,12 +512,18 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
             result = chinook_contract.score_episode(raw, reference, schema)
             by = {c["name"]: c for c in result["criteria"]}
             falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
-            if name == "wrapped":
+            if name != "nothing_read":
                 assert falsified == set(listed), raw
             else:
                 assert set(listed) == set(chinook_contract.CRITERIA) == falsified, raw
             assert all(by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT for n in listed), raw
             assert str(result["answer_read_from"]).replace("None", "null") == attrs["data-read-from"], raw
+    # the three values of answer_read_from are exactly the rows' data-read-from
+    assert {r["attrs"]["data-read-from"] for r in rows.values()} == {
+        chinook_contract.READ_FROM_RAW_ANSWER,
+        chinook_contract.READ_FROM_EMBEDDED_OBJECT,
+        "null",
+    }
     wrapped = chinook_contract.score_episode(samples["wrapped"][0], reference, schema)
     alone = chinook_contract.score_episode(text, reference, schema)
     assert [c for c in wrapped["criteria"] if c["name"] in ("exact_table", "evidence_link_valid")] == [
@@ -522,12 +531,11 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     ]
 
 
-def test_chapter_03_states_the_scorer_version_and_the_three_values_of_answer_read_from():
+def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
     chinook_contract = _scorer_inputs()[0]
     chapter = CHAPTER_03.read_text(encoding="utf-8")
     assert f"version is {chinook_contract.SCORER_VERSION}" in chapter
     assert "<code>answer_read_from</code>" in chapter
     for value in (chinook_contract.READ_FROM_RAW_ANSWER, chinook_contract.READ_FROM_EMBEDDED_OBJECT):
         assert f"<code>{value}</code>" in chapter
-    assert "<code>null</code> (nothing read)" in chapter
     assert "unscored</code> with <code>invalid_response_format</code>" not in chapter  # the corrected sentence (T6)

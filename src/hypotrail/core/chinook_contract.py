@@ -35,14 +35,15 @@ steps (plain records) into four Criteria, `exact_table`, `format_valid`,
 
 The raw answer is never altered. The record says what `exact_table` and `evidence_link_valid`
 were scored on, in its top-level `answer_read_from`: `"raw_answer"`, `"embedded_object"` or
-`None` (nothing read). Nothing here reads a file, calls a model or a tool.
+`None` (nothing read). A `scoring_failed` record has no such field: nobody established what was read.
+Nothing here reads a file, calls a model or a tool.
 """
 
 import math
 
 from jsonschema import Draft202012Validator
 
-from hypotrail.core.answer_scoring import parse_answer, score_answer, single_embedded_object
+from hypotrail.core.answer_scoring import find_embedded_object, parse_answer, score_object
 
 SCORER_NAME = "chinook_contract_v1"
 SCORER_VERSION = "2"
@@ -96,34 +97,34 @@ def reference_problem(reference):
     return None
 
 
-def _format_valid(raw_answer, schema):
+def _read_answer(raw_answer):
+    """What the content Criteria read: (where from, the object read).
+
+    The raw answer's own object when it is exactly one JSON object; else the one object it
+    contains; else nothing (`None`, `None`). The raw text is decoded here once.
+    """
     answer = parse_answer(raw_answer)
-    if answer is not None and Draft202012Validator(schema).is_valid(answer):
+    if answer is not None:
+        return READ_FROM_RAW_ANSWER, answer
+    found = find_embedded_object(raw_answer)
+    if found is not None:
+        return READ_FROM_EMBEDDED_OBJECT, found[1]
+    return None, None
+
+
+def _format_valid(object_valid, read_from):
+    """Valid only when the raw answer is itself the object and the object is schema-valid."""
+    if read_from == READ_FROM_RAW_ANSWER and object_valid:
         return _criterion("format_valid", "scored", True)
     return _criterion("format_valid", "scored", False, INVALID_RESPONSE_FORMAT)
 
 
-def _read_answer(raw_answer):
-    """What the content Criteria read: (where from, the text to read, the object).
-
-    The raw answer when it is exactly one JSON object; else the one object it contains, as the
-    slice of the raw text it was found in; else nothing (`None`, the raw text, `None`).
-    """
-    answer = parse_answer(raw_answer)
-    if answer is not None:
-        return READ_FROM_RAW_ANSWER, raw_answer, answer
-    embedded = single_embedded_object(raw_answer)
-    if embedded is not None:
-        return READ_FROM_EMBEDDED_OBJECT, embedded, parse_answer(embedded)
-    return None, raw_answer, None
-
-
-def _exact_table(text, reference):
-    """`text` is what `_read_answer` chose: the whole answer or its one object."""
+def _exact_table(answer, reference):
+    """`answer` is the object `_read_answer` chose, or None when nothing was read."""
     problem = reference_problem(reference)
     if problem is not None:
         return _criterion("exact_table", "unscored", None, problem)
-    verdict = score_answer(text, reference)
+    verdict = score_object(answer, reference)
     if not verdict["parsed"]:
         # Not one JSON object with the six fields: never a correct table. It is the system's
         # failure, so it is scored false with its Reason, as format_valid is.
@@ -216,13 +217,14 @@ def _contract_success(answer, exact_table, format_valid, evidence_link_valid):
 
 def score_episode(raw_answer, reference, schema, steps=None) -> dict:
     """The Criteria of one Episode's raw final answer. Pure; may raise."""
-    read_from, text, read = _read_answer(raw_answer)
-    format_valid = _format_valid(raw_answer, schema)
-    exact_table = _exact_table(text, reference)
+    read_from, read = _read_answer(raw_answer)
     object_valid = read is not None and Draft202012Validator(schema).is_valid(read)
+    format_valid = _format_valid(object_valid, read_from)
+    exact_table = _exact_table(read, reference)
     evidence_link_valid = _evidence_link_valid(read, object_valid, steps)
     # contract success depends on the raw answer alone: a wrapped answer is not a success
-    contract_success = _contract_success(parse_answer(raw_answer), exact_table, format_valid, evidence_link_valid)
+    raw_object = read if read_from == READ_FROM_RAW_ANSWER else None
+    contract_success = _contract_success(raw_object, exact_table, format_valid, evidence_link_valid)
     return {
         "scorer": _scorer_record(),
         "raw_answer": raw_answer,
@@ -243,7 +245,6 @@ def apply_scorer(scorer, raw_answer, reference, schema, steps=None) -> dict:
         return {
             "scorer": _scorer_record(),
             "raw_answer": raw_answer,
-            "answer_read_from": None,
             "criteria": [_criterion(name, "errored", None, SCORING_FAILED) for name in CRITERIA],
             "error_type": type(error).__name__,
         }
