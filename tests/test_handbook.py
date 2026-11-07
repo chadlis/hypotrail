@@ -219,3 +219,19 @@ def test_the_report_has_the_six_checks_the_live_line_and_existing_witnesses(page
         assert RUN["model"] in live
     else:
         assert "LIVE_NOT_VALIDATED" in live
+
+
+# --- ticket #51: the allow-list statement names the thirteen functions -------------------------
+
+
+def test_the_handbook_states_the_thirteen_allowed_functions_and_never_the_eleven():
+    from hypotrail.agentic.sql_tool import ALLOWED_FUNCTIONS
+
+    chapter = (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    statement = chapter[chapter.index("<b>Allowed:</b>") :].split("</li>", 1)[0]
+    assert "thirteen functions" in statement
+    assert all(f"<code>{name}</code>" in statement for name in ALLOWED_FUNCTIONS)
+    assert "#51" in statement and "AG-03" in statement
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        assert "eleven functions" not in path.read_text(encoding="utf-8"), path.name
+    assert "eleven functions" not in BUILT.read_text(encoding="utf-8")
