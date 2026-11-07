@@ -10,10 +10,14 @@ mechanisms do the work:
 - the number of attached databases is limited to 0 (`mode=ro` covers the main
   database only);
 - an authorizer holds the AG-03 allow-list: SELECT, reads of the tables the file
-  itself declares (so never its system tables), and the functions `count`,
-  `sum`, `avg`, `min`, `max`, `round`, `lower`, `upper`, `coalesce`, `ifnull`
-  and `strftime`. Every other action is denied: writes, DDL, ATTACH, DETACH,
-  PRAGMA, transactions, VACUUM, extension loading, any other function;
+  itself declares (so never its system tables), and thirteen functions:
+  `count`, `sum`, `avg`, `min`, `max`, `round`, `lower`, `upper`, `coalesce`,
+  `ifnull`, `strftime`, `like` and `glob`. The last two are how SQLite reports
+  the operators LIKE (also NOT LIKE and LIKE ... ESCAPE) and GLOB, added to the
+  eleven of AG-03 by the owner's revision of 2026-11-07 (#51); they only compare
+  text. `PRAGMA case_sensitive_like` stays refused, like every PRAGMA. Every
+  other action is denied: writes, DDL, ATTACH, DETACH, PRAGMA, transactions,
+  VACUUM, extension loading, any other function;
 - `execute` accepts a single statement.
 
 A refused or failed statement comes back as a structured tool error whose `code`
@@ -77,9 +81,14 @@ class QueryCaps:
     def as_dict(self) -> dict:
         return asdict(self)
 
+# The eleven functions of AG-03 and, added by the owner's revision of 2026-11-07 (#51), `like`
+# and `glob`: SQLite's authorizer reports the operators LIKE and GLOB under these names.
 ALLOWED_FUNCTIONS = frozenset(
-    {"count", "sum", "avg", "min", "max", "round", "lower", "upper", "coalesce", "ifnull", "strftime"}
-)
+    {
+        "count", "sum", "avg", "min", "max", "round", "lower", "upper", "coalesce", "ifnull", "strftime",
+        "like", "glob",
+    }
+)  # fmt: skip
 
 
 def declared_tables(connection: sqlite3.Connection) -> frozenset[str]:

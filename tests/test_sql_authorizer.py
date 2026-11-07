@@ -81,6 +81,7 @@ REFUSED_AS_DENIED = [
     "SELECT load_extension('x')",
     "SELECT length(Name) FROM Genre",
     "SELECT abs(-1)",
+    "PRAGMA case_sensitive_like = 1",
     "VACUUM",
     "VACUUM INTO '{path}'",
     "WITH x AS (SELECT 1) DELETE FROM Genre",
@@ -163,6 +164,8 @@ def test_a_valid_read_passes_whatever_its_case_or_leading_comment(statement):
         "coalesce(max(Composer), 'none')",
         "ifnull(max(Composer), 'none')",
         "max(strftime('%Y', '2020-05-06'))",
+        "max(Name LIKE '%a%')",
+        "max(Name GLOB '*a*')",
     ],
 )
 def test_each_allowed_function_works_through_the_tool(expression):
@@ -171,7 +174,64 @@ def test_each_allowed_function_works_through_the_tool(expression):
     assert result["row_count"] == 1
 
 
-@pytest.mark.parametrize("function", ["length(Name)", "abs(-1)", "typeof(1)", "date('now')"])
+def test_the_allow_list_is_the_thirteen_functions_of_ag_03_as_revised_by_51():
+    assert sql_tool.ALLOWED_FUNCTIONS == {
+        "count", "sum", "avg", "min", "max", "round", "lower", "upper",
+        "coalesce", "ifnull", "strftime", "like", "glob",
+    }  # fmt: skip
+
+
+# --- LIKE and GLOB (#51) ----------------------------------------------------------------------
+
+D03_FIRST_QUERY = (
+    "SELECT g.GenreId, g.Name, COUNT(t.TrackId) AS n FROM Genre g LEFT JOIN Track t "
+    "ON t.GenreId = g.GenreId WHERE g.Name LIKE '%Rock%' GROUP BY g.GenreId, g.Name"
+)
+
+
+def test_the_first_query_of_d03_in_the_kept_live_trace_now_succeeds():
+    result = sql_tool.run_query(DATABASE, D03_FIRST_QUERY)
+    assert result["error"] is None
+    assert [row[:2] for row in result["rows"]] == [[1, "Rock"], [5, "Rock And Roll"]]
+
+
+@pytest.mark.parametrize(
+    ("where", "expected"),
+    [
+        ("Name LIKE 'rock'", ["Rock"]),  # SQLite's default: case-insensitive for ASCII
+        ("Name LIKE '%Rock%'", ["Rock", "Rock And Roll"]),
+        ("Name LIKE 'Rock%' AND Name NOT LIKE '%Roll'", ["Rock"]),
+        ("Name LIKE 'Rock!%' ESCAPE '!'", []),
+        ("Name LIKE 'Rock%' ESCAPE '!'", ["Rock", "Rock And Roll"]),
+        ("Name GLOB 'Rock'", ["Rock"]),
+        ("Name GLOB 'rock'", []),  # GLOB is case-sensitive
+        ("Name GLOB '[RJ]*z'", ["Jazz"]),
+        ("Name GLOB 'R*' AND Name NOT GLOB '* *'", ["Rock", "Reggae", "R&B/Soul"]),
+    ],
+)
+def test_like_and_glob_return_their_rows_with_no_error(where, expected):
+    result = sql_tool.run_query(DATABASE, f"SELECT Name FROM Genre WHERE {where} ORDER BY GenreId")
+    assert result["error"] is None
+    assert [row[0] for row in result["rows"]] == expected
+    assert result["truncated"] is False
+
+
+def test_like_escape_matches_a_literal_percent_sign():
+    result = sql_tool.run_query(DATABASE, "SELECT Name FROM Track WHERE Name LIKE '%!%%' ESCAPE '!'")
+    assert result["error"] is None
+    assert result["row_count"] == 2
+    assert all("%" in row[0] for row in result["rows"])
+
+
+@pytest.mark.parametrize("statement", ["PRAGMA case_sensitive_like", "PRAGMA case_sensitive_like = 1"])
+def test_the_pragma_that_changes_like_matching_stays_refused(statement):
+    assert sql_tool.run_query(DATABASE, statement)["error"]["code"] == DENIED
+
+
+@pytest.mark.parametrize(
+    "function",
+    ["length(Name)", "abs(-1)", "typeof(1)", "date('now')", "substr(Name, 1, 2)", "instr(Name, 'a')"],
+)
 def test_a_function_outside_the_list_is_denied(function):
     result = sql_tool.run_query(DATABASE, f"SELECT {function} FROM Genre")
     assert result["error"]["code"] == DENIED
