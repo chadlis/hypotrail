@@ -264,9 +264,10 @@ class Request:
     """The limits a record's `requested_limits` holds, with where they came from.
 
     The only ways to build one are `Request.this_attempt(limits)` and `Request.from_log(location)`: each ties the
-    source to how the limits were obtained, so a source cannot be paired with the other one's limits. Frozen means
-    the fields `limits` and `source` cannot be reassigned afterwards, and that only those two constructors build one.
-    It does not protect the `limits` mapping: that dict is the record's own copy and can still be changed in place.
+    source to how the limits were obtained, so a source cannot be paired with the other one's limits. Frozen only means
+    the fields `limits` and `source` cannot be reassigned afterwards. That only those two constructors build one comes
+    from the check in `__post_init__`. The `limits` dict is the one the run record stores, and it is not protected
+    against changes in place.
     """
 
     limits: dict
