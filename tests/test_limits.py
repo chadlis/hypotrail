@@ -314,7 +314,7 @@ def test_the_limit_values_are_the_ag_11_proposals_but_the_token_budget():
     assert limits_module.eval_options(EpisodeLimits())["turn_limit"] == 6
 
 
-# --- the token budget's key follows its metering (R1-P3, R1-S5, R1-S8) ---------------------------------------
+# --- the token budget's key follows its metering ---------------------------------------
 
 
 def test_the_metering_of_the_budget_is_a_constant_not_a_limit():
