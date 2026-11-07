@@ -99,6 +99,10 @@ _Avoid_: grade, mark, verdict (for numeric values)
 The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing`, `reference_invalid` or `scoring_failed`.
 _Avoid_: error message, explanation (for the code)
 
+**Wrapped answer**:
+A final answer that is not exactly one JSON object but contains exactly one, with prose before or after it or a Markdown fence around it. It fails `format_valid` and contract success; `exact_table` and `evidence_link_valid` are scored on its one object (#58).
+_Avoid_: embedded answer, extracted answer
+
 **Instrument failure**:
 A Criterion left `unscored` (the Scorer ran but had no usable reading) or `errored` (the scoring machinery broke); it is never held against the evaluated system.
 _Avoid_: grader error, harness error
