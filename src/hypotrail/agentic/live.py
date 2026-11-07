@@ -183,12 +183,25 @@ def reasoning_in_request(model: Model) -> dict | None:
     return model.api.completion_config(config)[0].get("thinking")
 
 
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
+
+
 def usage_of(sample) -> dict:
     """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
 
-    A figure the log does not give is None, never zero (CMP-06).
+    The five token figures are Inspect's `ModelUsage` fields of the sample, summed over its models
+    the way `ModelUsage.__add__` sums them (a field is None when every model leaves it None);
+    `model_usage` keeps each model's entry as the log gives it. `total_tokens` includes the cached
+    input tokens. A figure the log does not give is None, never zero (CMP-06); `sample` None is an
+    expected Episode absent from the log.
     """
-    usage = list((sample.model_usage or {}).values())
+    if sample is None:
+        return {
+            "model_calls": None, "latency_seconds": None, "cost": None, "model_usage": None,
+            **{field: None for field in TOKEN_FIELDS},
+        }
+    per_model = sample.model_usage or {}
+    usage = list(per_model.values())
 
     def total(field):
         values = [getattr(u, field) for u in usage if getattr(u, field, None) is not None]
@@ -197,9 +210,9 @@ def usage_of(sample) -> dict:
     return {
         "model_calls": sum(1 for e in sample.events or [] if e.event == "model"),
         "latency_seconds": None if sample.total_time is None else float(sample.total_time),
-        "input_tokens": total("input_tokens"),
-        "output_tokens": total("output_tokens"),
+        **{field: total(field) for field in TOKEN_FIELDS},
         "cost": total("total_cost"),
+        "model_usage": {name: u.model_dump(mode="json") for name, u in per_model.items()} or None,
     }
 
 
@@ -359,7 +372,7 @@ def _record(
                 "status": e["status"],
                 "stopped_by_limit": e["stopped_by_limit"],
                 "uses_tool_result": _uses_result(e),
-                **(usage_of(samples[(e["case_id"], e["repeat"])]) if (e["case_id"], e["repeat"]) in samples else {}),
+                **usage_of(samples.get((e["case_id"], e["repeat"]))),
             }
             for e in episodes
         ],
