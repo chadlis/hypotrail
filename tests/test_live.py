@@ -20,6 +20,7 @@ from _agent_helpers import CASES, CHINOOK, REFERENCES, WORKLOAD, oracle_sql, rea
 from hypotrail import cli
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import live as agentic_live
+from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.live import TOKEN_FIELDS
 from hypotrail.core import live as core_live
@@ -533,7 +534,17 @@ def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tm
         case_ids=["D03", "D05"],
         repeats=1,
     )
-    assert again == {**record, "database_sha256": None}
+    # a re-summary differs from the live record in the database hashes (as before), in saying where its request
+    # came from (#57 T3), and in the 8 tool calls, which the log cannot hold (T1')
+    assert record["request_source"] == "this_attempt" and again["request_source"] == "kept_log"
+    assert record["requested_limits"]["tool_calls"] == 8 and again["requested_limits"]["tool_calls"] is None
+    expected = {
+        **record,
+        "database_sha256": None,
+        "request_source": "kept_log",
+        "requested_limits": {**record["requested_limits"], "tool_calls": None},
+    }
+    assert again == expected
     assert (out / "run.json").is_file()
 
 
@@ -1061,3 +1072,87 @@ def test_an_episode_with_no_token_limit_records_the_metering_as_null_beside_its_
 
 def test_an_episode_absent_from_the_log_has_no_budget_figures():
     assert agentic_live.budget_of(None) is None
+
+
+# --- #57: a re-summary records the request the kept log holds, not today's code ---------------------------------------------
+
+
+def _resummary(tmp_path, location):
+    return agentic_live.summarize(
+        location=location, out_dir=tmp_path, model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1
+    )
+
+
+def _mock_log(tmp_path, **limit_overrides):
+    from _agent_helpers import ScriptedModel
+
+    cases = WORKLOAD.cases("dev", ["D03"])
+    return runner.run_episodes(
+        cases, workload=WORKLOAD, configuration="plain", model=runner.mock_model(ScriptedModel(cases)),
+        repeats=1, log_dir=tmp_path / "out" / "inspect", limits=limits_module.EpisodeLimits(**limit_overrides),
+    )
+
+
+def test_a_re_summary_takes_the_request_from_the_log(tmp_path, kept_all_token_log):
+    record = _resummary(tmp_path, kept_all_token_log)
+    requested = record["requested_limits"]
+    assert requested["total_token_budget"] == 12000 and requested["token_budget_metering"] == "all"
+    assert "output_token_budget" not in requested  # not today's 4,000 output budget
+    assert (requested["model_turns"], requested["time_seconds"], requested["max_output_tokens"]) == (6, 60, 1024)
+    # the same header, the same reader: requested and effective agree wherever the log records the limit (T1')
+    effective = record["effective_limits"]
+    assert {k: v for k, v in requested.items() if k != "tool_calls"} == {
+        k: effective[k] for k in requested if k != "tool_calls"
+    }
+
+
+def test_a_re_summary_has_null_for_what_the_log_does_not_hold(tmp_path, kept_all_token_log):
+    requested = _resummary(tmp_path, kept_all_token_log)["requested_limits"]
+    assert requested["tool_calls"] is None
+    # a live Attempt's keys, but the budget key follows the log's metering; no per-query caps (T1')
+    live_keys = set(limits_module.requested_limits(limits_module.EpisodeLimits()))
+    assert set(requested) == (live_keys - {"output_token_budget"}) | {"total_token_budget"}
+
+
+def test_the_output_cap_requested_is_the_one_the_log_holds_in_a_re_summary(tmp_path, kept_all_token_log):
+    record = _resummary(tmp_path, kept_all_token_log)
+    assert record["output_cap"]["requested"] == record["requested_limits"]["max_output_tokens"] == 1024
+
+
+def test_a_re_summary_of_a_log_with_other_limits_records_those_not_todays(tmp_path):
+    location = _mock_log(tmp_path, model_turns=3, time_seconds=30, max_output_tokens=512)
+    record = agentic_live.summarize(
+        location=location, out_dir=tmp_path / "out", model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03"], repeats=1
+    )
+    requested = record["requested_limits"]
+    assert (requested["model_turns"], requested["time_seconds"], requested["max_output_tokens"]) == (3, 30, 512)
+    assert record["output_cap"]["requested"] == 512
+
+
+def test_a_log_with_no_token_limit_re_summarises_without_a_budget_key(tmp_path):
+    from inspect_ai.log import read_eval_log, write_eval_log
+
+    location = _mock_log(tmp_path)
+    log = read_eval_log(location)
+    log.eval.config.token_limit = None
+    log.eval.config.token_limit_type = None
+    write_eval_log(log, location)
+    requested = agentic_live.summarize(
+        location=location, out_dir=tmp_path / "out", model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03"], repeats=1
+    )["requested_limits"]
+    assert requested["token_budget_metering"] is None
+    assert not {"output_token_budget", "total_token_budget"} & set(requested)
+
+
+def test_a_live_attempt_records_its_own_request_with_todays_keys(rehearsal):
+    _, record, _ = rehearsal
+    assert record["requested_limits"] == limits_module.requested_limits(limits_module.EpisodeLimits())
+    assert record["requested_limits"]["tool_calls"] == 8
+    assert record["output_cap"]["requested"] == 1024
+
+
+def test_the_record_says_where_its_request_came_from(rehearsal, tmp_path, kept_all_token_log):
+    _, record, _ = rehearsal
+    assert record["request_source"] == "this_attempt"
+    _resummary(tmp_path, kept_all_token_log)
+    assert json.loads((tmp_path / "run.json").read_text())["request_source"] == "kept_log"
