@@ -439,5 +439,16 @@ def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
             assert (episode["status"], episode["model_calls"]) == ("produced", 3)
             assert episode["uses_tool_result"] is None and episode["uses_tool_result_reason"] == "answer_unreadable"
             assert (episode["output_tokens"], episode["total_tokens"]) == expected[episode["case_id"]]
+        projection = json.loads((HANDBOOK / "traces" / name / "projection.json").read_text())
+        for episode in projection:
+            steps = episode["steps"]
+            assert [s.get("function") or s["kind"] for s in steps if s["kind"] != "tool_result" and s["kind"] != "model_turn"] == ["describe_schema", "query_readonly", "final_answer"], (name, episode["case_id"])
+            assert [s["kind"] for s in steps] == ["model_turn", "tool_call", "tool_result", "model_turn", "tool_call", "tool_result", "model_turn", "final_answer"], (name, episode["case_id"])
+            results = [s for s in steps if s["kind"] == "tool_result"]
+            assert results[1]["result"]["error"] is None and not results[1]["tool_error"], (name, episode["case_id"])
+            if episode["case_id"] == "D03":
+                sql = next(s["arguments"]["sql"] for s in steps if s.get("function") == "query_readonly")
+                assert re.search(r"\bLIKE\b", sql), name
+    assert "```json" in paragraph and "limits their <code>run.json</code> records" in paragraph and "under the current limits" not in paragraph
     for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
         assert f"{out} and {total:,}" in paragraph
