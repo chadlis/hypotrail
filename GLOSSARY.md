@@ -100,8 +100,8 @@ The machine-readable code attached to every abnormal outcome, such as `invalid_r
 _Avoid_: error message, explanation (for the code)
 
 **Wrapped answer**:
-A final answer that is not exactly one JSON object but contains exactly one: with prose before or after it, a Markdown fence around it, an array holding it, or braces around it that are not JSON. It fails `format_valid` and `contract_success`; `exact_table` and `evidence_link_valid` are scored on its one object, the embedded object.
-_Avoid_: extracted answer
+A final answer that is not exactly one JSON object but contains exactly one: with prose before or after it, a Markdown fence around it, an array holding it, or braces around it that are not JSON. It fails `format_valid` and `contract_success`; `exact_table` and `evidence_link_valid` are scored on its one object.
+_Avoid_: embedded answer, extracted answer
 
 **Instrument failure**:
 A Criterion left `unscored` (the Scorer ran but had no usable reading) or `errored` (the scoring machinery broke); it is never held against the evaluated system.
