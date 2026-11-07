@@ -1156,3 +1156,13 @@ def test_the_record_says_where_its_request_came_from(rehearsal, tmp_path, kept_a
     assert record["request_source"] == "this_attempt"
     _resummary(tmp_path, kept_all_token_log)
     assert json.loads((tmp_path / "run.json").read_text())["request_source"] == "kept_log"
+
+
+def test_a_request_is_built_only_by_its_two_constructors():
+    from hypotrail.agentic import limits as limits_module
+
+    limits = limits_module.EpisodeLimits()
+    attempt = agentic_live.Request.this_attempt(limits)
+    assert (attempt.limits, attempt.source) == (limits_module.requested_limits(limits), agentic_live.THIS_ATTEMPT)
+    with pytest.raises(TypeError):
+        agentic_live.Request({}, agentic_live.THIS_ATTEMPT)

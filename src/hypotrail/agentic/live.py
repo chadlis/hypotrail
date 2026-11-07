@@ -10,7 +10,6 @@ import json
 import platform
 from importlib import metadata
 from pathlib import Path
-from typing import NamedTuple
 
 from inspect_ai.log import read_eval_log
 from inspect_ai.model import GenerateConfig, Model, get_model
@@ -253,11 +252,31 @@ THIS_ATTEMPT = "this_attempt"
 KEPT_LOG = "kept_log"
 
 
-class Request(NamedTuple):
-    """The limits a record's `requested_limits` holds, with where they came from (`THIS_ATTEMPT` or `KEPT_LOG`)."""
+_BUILT_BY_A_CONSTRUCTOR = object()
 
-    limits: dict
-    source: str
+
+class Request:
+    """The limits a record's `requested_limits` holds, with where they came from (`THIS_ATTEMPT` or `KEPT_LOG`).
+
+    The only ways to build one are `Request.this_attempt(limits)` and `Request.from_log(location)`: each ties the
+    source to how the limits were obtained, so a source cannot be paired with the other one's limits.
+    """
+
+    __slots__ = ("limits", "source")
+
+    def __init__(self, limits: dict, source: str, *, _key: object = None):
+        if _key is not _BUILT_BY_A_CONSTRUCTOR:
+            raise TypeError("build a Request with Request.this_attempt or Request.from_log")
+        self.limits = limits
+        self.source = source
+
+    @classmethod
+    def this_attempt(cls, limits: limits_module.EpisodeLimits) -> "Request":
+        return cls(limits_module.requested_limits(limits), THIS_ATTEMPT, _key=_BUILT_BY_A_CONSTRUCTOR)
+
+    @classmethod
+    def from_log(cls, location) -> "Request":
+        return cls(limits_module.requested_from_log(location), KEPT_LOG, _key=_BUILT_BY_A_CONSTRUCTOR)
 
 
 def _sha256(path: Path) -> str:
@@ -310,7 +329,7 @@ def run_live(
             reasoning_effort=REASONING_EFFORT,
         )
         return _record(
-            request=Request(limits_module.requested_limits(limits), THIS_ATTEMPT),
+            request=Request.this_attempt(limits),
             limits=limits,
             location=location,
             out_dir=out_dir,
@@ -344,7 +363,7 @@ def summarize(
         out_dir,
         api_key,
         lambda: _record(
-            request=Request(limits_module.requested_from_log(location), KEPT_LOG),
+            request=Request.from_log(location),
             limits=limits_module.EpisodeLimits(),
             location=location,
             out_dir=out_dir,
