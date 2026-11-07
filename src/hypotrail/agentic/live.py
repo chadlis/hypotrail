@@ -247,6 +247,11 @@ def _read_back_reasoning(location: str) -> str | None:
     return generate.reasoning_effort
 
 
+# where a record's `requested_limits` came from: the Attempt that made the request, or a kept log read again
+THIS_ATTEMPT = "this_attempt"
+KEPT_LOG = "kept_log"
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -296,6 +301,7 @@ def run_live(
             reasoning_effort=REASONING_EFFORT,
         )
         return _record(
+            request_source=THIS_ATTEMPT,
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -328,6 +334,7 @@ def summarize(
         out_dir,
         api_key,
         lambda: _record(
+            request_source=KEPT_LOG,
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -354,6 +361,7 @@ def _episode_entry(episode: dict, sample) -> dict:
 
 def _record(
     *,
+    request_source: str,
     location: str,
     out_dir: Path,
     model_id: str,
@@ -368,6 +376,11 @@ def _record(
     log = read_eval_log(location)
     parameters = request_parameters(log)
     effective = limits_module.read_back(location)
+    # the request: made by this Attempt, or (in a re-summary) the one the kept log holds, never today's code (#57)
+    if request_source == THIS_ATTEMPT:
+        requested = limits_module.requested_limits(limits)
+    else:
+        requested = limits_module.requested_from_log(location)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {
@@ -388,13 +401,14 @@ def _record(
             "sent": (parameters or {}).get("thinking"),
             "note": REASONING_NOTE,
         },
-        "output_cap": {"requested": limits.max_output_tokens, "sent": (parameters or {}).get("max_tokens")},
+        "output_cap": {"requested": requested["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
         "python": platform.python_version(),
         "hardware": platform.platform(),
         "machine": platform.machine(),
         "effective_limits": effective,
-        "requested_limits": limits_module.requested_limits(limits),
+        "requested_limits": requested,
+        "request_source": request_source,
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
             "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",

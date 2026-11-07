@@ -452,3 +452,14 @@ def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
     assert "```json" in paragraph and "limits their <code>run.json</code> records" in paragraph and "under the current limits" not in paragraph
     for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
         assert f"{out} and {total:,}" in paragraph
+
+
+def test_chapter_03_says_where_requested_limits_come_from_in_each_case(page):
+    """#57 T5: the run.json paragraph names request_source's two values as the code writes them, and no longer says the requested limits are read back."""
+    from hypotrail.agentic import live
+
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>run.json</code> holds:" in p)
+    assert f"<code>{live.THIS_ATTEMPT}</code>" in paragraph and f"<code>{live.KEPT_LOG}</code>" in paragraph
+    assert "<code>request_source</code>" in paragraph and "<code>tool_calls</code> null" in paragraph
+    assert "the requested and effective limits read back from the log" not in paragraph
+    assert "The effective limits are read back from the log and include the per-query caps" in paragraph
