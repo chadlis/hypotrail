@@ -37,7 +37,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
-**A reviewer never runs on a weaker model than the author.** Before execution, verify the required named types exist. If one is missing, stop execution under the apparatus floor and propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice.
+**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice.
 
 **Reaching Matt Pocock's user-invoked skills.** `to-tickets`, `implement`, `implement-spec` and `retro` cannot be invoked through the Skill tool. Tell the subagent to read the file and follow it:
 
@@ -87,7 +87,7 @@ By default the run **stops at the open PR**:
 
 Each ends the run and produces the brief early:
 
-- review round 5 ends with an unresolved finding routed to row 1 or 2, or an unresolved dispute about whether a finding belongs to either row. Stop after that review, before another correction. A fifth review with no unresolved blocker does not itself trigger a floor;
+- review round 5 ends with an unresolved finding routed to row 1 or 2, or an unresolved dispute about whether a finding belongs to either row. Stop after that review, before another correction. A fifth review with no unresolved blocker does not itself trigger a floor. A documentation-only finding follows "Documentation findings from round 5 on" and does not trigger this floor;
 - the same preserved acceptance or regression check, tied to an accepted requirement, still fails after two consecutive completed fix attempts explicitly intended to satisfy it. Changing or deleting the check is not a fix. If the requirement or check is disputed, resolve that dispute rather than treating the result as evidence of non-convergence;
 - an explicitly owner-set review/fix budget is exhausted;
 - drive identifies a concrete reason why another bounded correction is not justified, such as incompatible requirements, repairs that reverse an earlier accepted decision, or an expanding change with no credible verification plan. Record the evidence and the decision needed. No numeric threshold must be reached before invoking this floor;
@@ -113,6 +113,8 @@ Each ends the run and produces the brief early:
 
 **Diagnostics, not floors.** Repeated file paths, counts that do not decrease, and lines that `git blame` attributes to the previous fix are recorded as signals. They can support the judgement-based floor above, with its evidence. None of them stops the run on its own.
 
+**Documentation findings from round 5 on.** Bounded delegation adopted by Salah on 2026-11-06 (chadlis/hypotrail#8, comment 6690134319, point 4; readings confirmed on 2026-11-07). From review round 5 on, a finding that touches documentation only (handbook, docstrings, README), with no behaviour change, is fixed by a `slice-builder` and verified by the axis reader that raised it (continued, otherwise a fresh `slice-gate` given that axis). The verification also confirms that the fix diff changes no behaviour. No new full round runs and the floor is not triggered. It never covers a code finding, `GLOSSARY.md` or an ADR line. The PR body names the commits verified this way, apart from those a review of record covered.
+
 ### After a floor
 
 A floor ends with the STOP brief and a concrete recommendation. It is never a request for Salah to debug.
@@ -126,6 +128,8 @@ Under `chain`, finish the slice in hand if it can be finished honestly, then sto
 ## Who decides: delegated choices, owner decisions, learning occasions
 
 Salah wants system-wide orientation, participation in consequential choices, and deep practice on a few transferable mechanisms. He does not follow every implementation detail. Keep the delivery and learning loops separate. A lesson, chapter or unanswered recall exercise never becomes a merge gate. Every choice is either delegated to you or an owner decision. A few choices are also learning occasions, which changes neither who decides nor when.
+
+**Inspect first** (owner instruction, chadlis/hypotrail#8 comment 6677520862). Before you recommend a design choice, to Salah or as a delegated decision, read how the pinned `inspect-ai` (version in `pyproject.toml`) implements the same thing, in its installed source. State in the recommendation what it does, with the file, and whether you follow it or depart from it, and why. When Inspect has no counterpart, say so. Inspect's behaviour is an input, never a binding rule: ADR 0001 keeps scoring in Hypotrail.
 
 ### Delegated implementation choices
 
@@ -205,17 +209,17 @@ If learning-repository access fails, keep the short note in a preparation/delive
 - Running a command, even a long one that can fail, is EXÉCUTION.
 - Only these qualify for a STOP: an owner decision as defined in "Who decides" (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. A choice inside the delegation is not a STOP. Optional learning preparation ends normally and is not a STOP.
 
-A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn. **Every doubt carries at least two options and an argued recommendation.** Never infer PASS from a missing option or an absent answer. Distinguish a routine information brief from a STOP that requires an owner decision.
+A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn, decision or slice. **Every doubt carries at least two options and an argued recommendation.** Never infer PASS from a missing option or an absent answer. Distinguish a routine information brief from a STOP that requires an owner decision.
 
 ### How a STOP is written
 
 Salah asked for this level of explanation for every decision he is asked to take. Each decision point is self-contained, in this order, each part a short labelled paragraph or a short list:
 
-- *Contexte*: what the thing is, where it comes from (issue, amendment, specification section, ADR) and why it matters to the project. Define every term on first use: spike, scorer, Inspect, a check's number, a limit's purpose. Never point back to an earlier turn.
+- *Contexte*: what the thing is, where it comes from (issue, amendment, specification section, ADR) and why it matters to the project. Define every term on first use: spike, scorer, Inspect, a check's number, a limit's purpose. Never point back to an earlier turn, decision or slice: quote the decision with its date and link.
 - *Ce qui a été fait*: what the code, the ticket or you did, and what you checked yourself.
 - *Le problème*: the gap and its consequence, by its mechanism (what goes wrong, for whom, when).
 - *Options*: at least two, each with what it costs.
-- *Recommandation*: one option, argued from the sources.
+- *Recommandation*: one option, argued from the sources, with what Inspect does for the same thing (see "Inspect first").
 
 A decision brief opens with a framing section: what the slice is for, what was done, and why he is being asked now.
 
@@ -260,6 +264,13 @@ With `/drive #n`, the slice is `#n`. With a bare `/drive`:
 
 Announce the pick in an EXÉCUTION turn: « je prends #n (<titre>), parce que <raison> ; pour une autre : `/drive #m` ». Never ask him to choose. Picking by size or by what looks easiest is not a reason.
 
+## Preflight: before step 0 and on every resume
+
+1. The checkout is `chadlis/hypotrail` (`git remote get-url origin`, or the fallback push in "Where the state lives").
+2. `slice-planner`, `slice-gate` and `slice-builder` are among the subagent types this session offers.
+
+If either fails, stop under the apparatus floor before reading the slice. The STOP says that agent types load from the checkout's `.claude/agents/` when a session starts, so the remedy is a new session opened on `chadlis/hypotrail`. `prepare` needs only point 1.
+
 ## Step 0: briefing
 
 When there is no state comment yet, read the following yourself and say what each told you:
@@ -278,7 +289,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | # | Step | Who | Done when |
 |---|---|---|---|
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
-| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links | `slice-planner` | the tickets exist |
+| 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links; each ticket that changes behaviour has a criterion that the handbook chapter describes the change, and that any README line it affects is updated, in the same pull request (ADR 0003, AGENTS.md) | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED`. Then, across all tickets: name each parent amendment or specification rule that governs the slice's inputs or outcomes (for example "every abnormal outcome carries a **Reason**") and the ticket whose criteria witness it; a rule no ticket witnesses is `UNCOVERED` | `slice-gate`, fresh | its reading comes back, every governing rule mapped to a ticket or marked `UNCOVERED` |
 | 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, affected product documentation complete |
 | 5 | **Review of record, round 1**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports kept verbatim, each finding entered in the register |
@@ -296,7 +307,7 @@ An `UNCOVERED` rule is tightened into the ticket that owns the input it governs,
 
 A tightened ticket goes back to its `slice-gate` (continued, otherwise fresh) with one question: does a Tightened line contradict the body or the source it quotes? Implementation waits for that reading. Body text a Tightened line replaces is struck through (`~~…~~`) with a pointer to the line, so the body never holds two live versions.
 
-Complete affected product documentation before the first review of record. Step 7 finalises learning notes and links. Any later change affecting product behaviour or its documented contract requires appropriate verification and review before acceptance.
+Complete affected product documentation before the first review of record. When the handbook lists what the code defines (codes and the details each carries, declaration keys, limits, which entry point reads what), it is a table whose rows carry data attributes, and a test in `tests/test_handbook.py` compares each row with the code that defines it, as `test_the_sheet_limits_are_the_effective_values_with_their_state` does for the spike's limits. The prose around such a table does not restate it. Step 7 finalises learning notes and links. Any later change affecting product behaviour or its documented contract requires appropriate verification and review before acceptance.
 
 `implement-spec` runs its own `code-review` from the author's side. That is hygiene. Step 5 is the review of record.
 
@@ -371,10 +382,14 @@ Under `chain`, this is one brief for the whole chain, numbered continuously, eac
 
 Salah asked for every brief, STOP or ordinary, to also reach him as one self-contained HTML page. Publish it with the Artifact tool (private), starting from its quickstart, and give its link in the turn beside the numbered decision list. If the Artifact tool is unavailable, write the page in the session's scratchpad and send it as a file.
 
-- **Same explanation as the turn**, section by section: framing, each decision point in the order of "How a STOP is written", then *L'ordre recommandé*. French, the writing style above, cosmic-couture charter, light by default.
-- **One diagram or animation per decision point** that shows its mechanism: what flows where, what is refused, what changes from one option to the other. Options whose consequence is visible get a toggle that shows each one. A finding is replayed on its real input (the JSON, the command, the dates). An information brief illustrates what shipped the same way.
+**The reference level** is the D1/D2 brief of chadlis/hypotrail#8 from its version 4 (https://claude.ai/artifact/55j5JT8Rd1ipufSq1FC5xM; owner instruction, #8 comment 6677416282: « partir de 0 à chaque fois … animation ou schémas »). Read it before writing a session's first brief and match its depth.
+
+- **From zero.** The page opens with what Hypotrail is and what this slice is for. Then comes a glossary of every term the page uses: the `GLOSSARY.md` definition quoted, then its plain-French meaning. Then each earlier decision the page relies on, quoted with its date and link.
+- **Same explanation as the turn**, section by section: framing, each decision point in the order of "How a STOP is written", then *L'ordre recommandé*. French, the writing style above.
+- **Charter.** Load the `anthropic-skills:cosmic-couture` skill and build from its document template, including its « Navigation du document » block. Its design overrides the quickstart's. Light by default.
+- **One animated or interactive diagram per decision point** that shows its mechanism: what flows where, what is refused, what changes from one option to the other. Options whose consequence is visible get a toggle that shows each one. A finding is replayed on its real input (the JSON, the command, the dates). An information brief illustrates what shipped the same way.
 - **True numbers.** Charts are drawn to scale, from the repository or from a run you made. Illustrative values are labelled as such.
-- **Checked once** before the link is given: load it headless at phone width, with no script error and no horizontal overflow.
+- **Checked once** before the link is given: load it headless at phone width, with no script error and no horizontal overflow, and run the navigation checks the cosmic-couture skill lists.
 
 ## The trail
 
