@@ -415,3 +415,29 @@ def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(p
     assert "not a cost" in chapter
     assert "before the record kept the cache figures" in chapter and "15,736" in chapter
     assert "15,736" in page
+
+
+LIVE_L12B = {
+    "live-l12b-plain": {"D03": (361, 10274), "D05": (400, 10501)},
+    "live-l12b-verify": {"D03": (384, 10481), "D05": (393, 10631)},
+}
+
+
+def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
+    """Chapter 03 states each Episode's output and total tokens as the two kept live-l12b run.json files record them, and the null uses_tool_result with its Reason."""
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Two further Attempts were kept on 2026-11-07" in p)
+    assert 'href="#current-limits"' in paragraph and "4000" not in paragraph and "4,000" not in paragraph  # the value is the row's
+    for name, expected in LIVE_L12B.items():
+        kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
+        assert f'href="traces/{name}/run.json"' in paragraph and f'href="traces/{name}/projection.json"' in paragraph
+        assert (HANDBOOK / "traces" / name / "projection.json").is_file()
+        assert kept["model"] == "anthropic/claude-sonnet-5-5"
+        assert [(c["case_id"], c["repeat"]) for c in kept["cases"]] == [("D03", 0), ("D05", 0)]
+        assert (HANDBOOK / "traces" / name / kept["inspect_log"]).is_file()
+        assert f'href="traces/{name}/{kept["inspect_log"]}"' in paragraph
+        for episode in kept["episodes"]:
+            assert (episode["status"], episode["model_calls"]) == ("produced", 3)
+            assert episode["uses_tool_result"] is None and episode["uses_tool_result_reason"] == "answer_unreadable"
+            assert (episode["output_tokens"], episode["total_tokens"]) == expected[episode["case_id"]]
+    for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
+        assert f"{out} and {total:,}" in paragraph
