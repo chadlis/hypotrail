@@ -460,7 +460,7 @@ def test_chapter_03_says_where_requested_limits_come_from_in_each_case(page):
 
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>run.json</code> holds:" in p)
     rows = table_rows(page, "run-request-source", "data-request-source")
-    assert set(rows) == {live.THIS_ATTEMPT, live.KEPT_LOG}
+    assert set(rows) == {source.value for source in live.RequestSource}
     assert "<code>this_attempt</code>" not in paragraph and "#run-request-source" in paragraph
     # the table sits after the list its sentence introduces: "The cause is one of:" is followed by the reasons
     assert page.index("The cause is one of:") < page.index('id="uses-tool-result-reasons"') < page.index('id="run-request-source"')
@@ -502,37 +502,46 @@ def test_the_criteria_table_names_the_scorers_criteria_and_its_evidence_reasons(
 def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     chinook_contract, schema, reference, answer = _scorer_inputs()
     text = json.dumps(answer)
-    off = json.dumps(answer | {"comment": "hi"})
-    samples = {
-        "exact_object": [text],
-        "exact_object_off_schema": [off],
-        "wrapped": ["Voici. " + text, text + "\nFin.", "```json\n" + text + "\n```", "[" + text + "]"],
-        "wrapped_off_schema": ["Voici. " + off, off + "\nFin.", "```json\n" + off + "\n```", "[" + off + "]"],
-        "non_json_wrapper": ['{"answer": ' + text + ', "note": NaN}', '{"answer": ' + text, "x {oops " + text],
-        "non_json_wrapper_off_schema": ['{"answer": ' + off + ', "note": NaN}', '{"answer": ' + off, "x {oops " + off],
-        "nothing_read": ["The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```"],
+    # one object per kind of off-schema answer: an extra field keeps the six fields, a missing one loses a field
+    off_objects = [json.dumps(answer | {"comment": "hi"}), json.dumps({k: v for k, v in answer.items() if k != "unit"})]
+    shapes = {
+        "exact_object": ["OBJ"],
+        "wrapped": ["Voici. OBJ", "OBJ\nFin.", "```json\nOBJ\n```", "[OBJ]"],
+        "non_json_wrapper": ['{"answer": OBJ, "note": NaN}', '{"answer": OBJ', "x {oops OBJ"],
     }
-    alone_of = {"exact_object": text, "wrapped": text, "non_json_wrapper": text}
-    alone_of |= {k: off for k in ("exact_object_off_schema", "wrapped_off_schema", "non_json_wrapper_off_schema")}
+
+    def holding(shape, obj):
+        return shape.replace("OBJ", obj)
+
+    # (raw answer, the object it holds): the valid object, and each off-schema object for the *_off_schema rows
+    samples = {name: [(holding(sh, text), text) for sh in group] for name, group in shapes.items()}
+    samples |= {f"{name}_off_schema": [(holding(sh, o), o) for sh in group for o in off_objects] for name, group in shapes.items()}
+    samples["nothing_read"] = [
+        (raw, None)
+        for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
+    ]
     rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
     assert set(rows) == set(samples)
     kept = ("exact_table", "evidence_link_valid")
     for name, row in rows.items():
         attrs = row["attrs"]
-        listed = attrs["data-false"].split()
-        for raw in samples[name]:
+        listed = set(attrs["data-false"].split())
+        for raw, held in samples[name]:
             result = chinook_contract.score_episode(raw, reference, schema)
             by = {c["name"]: c for c in result["criteria"]}
             falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
-            if name != "nothing_read":
-                assert falsified == set(listed), raw
+            if name.endswith("_off_schema"):
+                # only what is false for every such object is listed: exact_table depends on the object
+                assert listed <= falsified and "exact_table" not in listed, raw
+            elif name == "nothing_read":
+                assert listed == set(chinook_contract.CRITERIA) == falsified, raw
             else:
-                assert set(listed) == set(chinook_contract.CRITERIA) == falsified, raw
+                assert falsified == listed, raw
             assert all(by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT for n in listed), raw
             assert str(result["answer_read_from"]).replace("None", "null") == attrs["data-read-from"], raw
-            if name != "nothing_read":
-                # "scored on": exact_table and evidence_link_valid are those of the object scored alone
-                alone = {c["name"]: c for c in chinook_contract.score_episode(alone_of[name], reference, schema)["criteria"]}
+            if attrs["data-read-from"] == chinook_contract.READ_FROM_EMBEDDED_OBJECT:
+                # "as for that object alone": exact_table and evidence_link_valid are those of the held object scored alone
+                alone = {c["name"]: c for c in chinook_contract.score_episode(held, reference, schema)["criteria"]}
                 assert [by[n] for n in kept] == [alone[n] for n in kept], raw
     # the three values of answer_read_from are exactly the rows' data-read-from
     assert {r["attrs"]["data-read-from"] for r in rows.values()} == {
@@ -553,9 +562,8 @@ def test_chapter_03_states_both_halves_of_the_non_json_wrapper_rule_once(page):
 
     assert exact_table('{"answer": ' + text + ', "note": NaN}') == (chinook_contract.READ_FROM_EMBEDDED_OBJECT, True)
     assert exact_table('{"answer": ' + text + ', "note": 1}') == (chinook_contract.READ_FROM_RAW_ANSWER, False)
-    sentence = "the same wrapper made valid JSON is itself the one object, and is judged as such"
-    assert page.count(sentence) == 1
-    assert "read on that object, and the wrapper is not judged" in page
+    assert page.count("is itself the one object, and is judged as such") == 1
+    assert "read on the whole wrapper, which lacks the six fields" in page
 
 
 def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
