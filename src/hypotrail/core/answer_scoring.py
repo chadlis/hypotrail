@@ -11,6 +11,7 @@ Reference's absolute tolerance applies to numbers; it is 0 for exact comparison.
 import json
 import math
 from decimal import Decimal
+from typing import NamedTuple
 
 COMPONENTS = ("status", "reason_code", "columns", "rows", "unit")
 REQUIRED_FIELDS = (*COMPONENTS, "evidence")
@@ -31,8 +32,15 @@ def parse_answer(text):
     return value if isinstance(value, dict) else None
 
 
+class EmbeddedObject(NamedTuple):
+    """The one JSON object an answer contains: the exact slice it was read from, and its decoded dict."""
+
+    text: str
+    value: dict
+
+
 def find_embedded_object(text):
-    """The one JSON object an answer contains, as `(its text, the decoded dict)`, or None.
+    """The one JSON object an answer contains, as an `EmbeddedObject`, or None.
 
     The text is scanned left to right. At each `{` the standard decoder tries to read one value
     (refusing `NaN`, `Infinity` and `-Infinity`, as `parse_answer` does); a read that gives an
@@ -55,19 +63,12 @@ def find_embedded_object(text):
         except ValueError:
             position = text.find("{", position + 1)
             continue
-        else:
-            if isinstance(value, dict):
-                if found is not None:
-                    return None
-                found = (text[position:end], value)
+        if isinstance(value, dict):
+            if found is not None:
+                return None
+            found = EmbeddedObject(text[position:end], value)
         position = text.find("{", end)
     return found
-
-
-def single_embedded_object(text):
-    """The text of the one JSON object an answer contains, or None (see `find_embedded_object`)."""
-    found = find_embedded_object(text)
-    return found[0] if found else None
 
 
 def _is_number(value):
@@ -123,7 +124,3 @@ def score_object(answer, reference: dict) -> dict:
     }
     return {"parsed": True, "correct": all(components.values()), "components": components}
 
-
-def score_answer(answer_text, reference: dict) -> dict:
-    """Compare an answer (raw text) with a Reference record: `score_object` on `parse_answer`'s dict."""
-    return score_object(parse_answer(answer_text), reference)
