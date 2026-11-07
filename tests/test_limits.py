@@ -6,7 +6,6 @@ generation completes, so the generation that exceeds the limit is still made
 """
 
 import inspect
-import shutil
 import time
 from pathlib import Path
 
@@ -343,7 +342,7 @@ def test_the_budget_key_follows_the_metering(limit, limit_type, expected):
 def test_a_metering_type_other_than_output_or_all_is_refused_by_name():
     with pytest.raises(InvalidInputError) as caught:
         limits_module.token_budget_fields(4000, "input")
-    assert caught.value.code == "TOKEN_METERING_UNSUPPORTED" and "input" in str(caught.value)
+    assert caught.value.code == limits_module.TOKEN_METERING_UNSUPPORTED and "input" in str(caught.value)
 
 
 def test_read_back_of_an_all_token_log_keys_the_budget_total_token_budget(kept_all_token_log):

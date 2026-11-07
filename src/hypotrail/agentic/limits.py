@@ -17,6 +17,8 @@ from hypotrail.core.errors import InvalidInputError
 # and "all" (a log made before metering types existed)
 OUTPUT_METERING = "output"
 ALL_METERING = "all"
+# the key of the token budget in the record for each metering: the key names its metering
+TOKEN_BUDGET_KEYS = {OUTPUT_METERING: "output_token_budget", ALL_METERING: "total_token_budget"}
 # which tokens the Episode token budget meters: never "all"
 TOKEN_BUDGET_METERING = OUTPUT_METERING
 # the code of the refusal of any other metering type
@@ -48,22 +50,21 @@ def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
     """The token budget as the record states it: its key names its metering, and the metering stands beside it.
 
     Inspect records "output" for the budget in force and None for "all" tokens (a log made before
-    metering types existed). The key is `output_token_budget` for "output" and `total_token_budget` for "all".
+    metering types existed). The key is `TOKEN_BUDGET_KEYS[metering]`.
     With no limit there is no key for it, and `token_budget_metering` is present and null, so the absence
     is visible. Another type (an Inspect formula) is refused.
     """
     if limit is None:
         return {"token_budget_metering": None}
     metering = limit_type or ALL_METERING
-    if metering not in (OUTPUT_METERING, ALL_METERING):
+    if metering not in TOKEN_BUDGET_KEYS:
         raise InvalidInputError(
             TOKEN_METERING_UNSUPPORTED,
             f"the token limit type {limit_type!r} is neither 'output' nor 'all'",
             stage="limits",
             details={"token_limit_type": limit_type},
         )
-    key = "output_token_budget" if metering == OUTPUT_METERING else "total_token_budget"
-    return {key: limit, "token_budget_metering": metering}
+    return {TOKEN_BUDGET_KEYS[metering]: limit, "token_budget_metering": metering}
 
 
 # Limits for which Inspect 0.3.287 offers no control of its own.
