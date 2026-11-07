@@ -6,6 +6,7 @@ generation completes, so the generation that exceeds the limit is still made
 """
 
 import inspect
+import shutil
 import time
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.limits import ENFORCEMENT, NOT_ENFORCEABLE, EpisodeLimits, read_back
+from hypotrail.core.errors import InvalidInputError
 
 D03 = ["D03"]
 
@@ -132,8 +134,8 @@ def test_input_and_cached_tokens_do_not_count_toward_the_budget(tmp_path):
     assert episode["final_answer"] is not None
 
 
-def test_the_same_usage_under_total_metering_would_have_stopped_the_run(tmp_path):
-    # the probe: Inspect's "all" metering at 4,000 stops the very usage above, so that run passes
+def test_the_same_usage_under_total_metering_would_have_stopped_the_episode(tmp_path):
+    # the probe: Inspect's "all" metering at 4,000 stops the very usage above, so that Episode passes
     # because of the metering type and not because the numbers are small
     heavy = ModelUsage(input_tokens=2000, output_tokens=100, input_tokens_cache_read=30_000, total_tokens=32_100)
     _, (episode,) = run(tmp_path, with_usage(ScriptedModel(cases()), heavy), token_limit=4000)
@@ -291,7 +293,7 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
 
 
 def test_every_limit_has_a_label_and_a_witness_that_exists():
-    assert set(ENFORCEMENT) == set(EpisodeLimits().as_dict()) - {"token_budget_metering"}
+    assert set(ENFORCEMENT) == set(EpisodeLimits().as_dict())
     source = Path(__file__).read_text()
     for limit, (label, witness) in ENFORCEMENT.items():
         assert label in {"shown enforced", "configured, not witnessed", "not enforceable"}, limit
@@ -309,6 +311,44 @@ def test_the_limit_values_are_the_ag_11_proposals_but_the_token_budget():
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
-        "token_budget_metering": "output",
     }
     assert limits_module.eval_options(EpisodeLimits())["turn_limit"] == 6
+
+
+# --- the token budget's key follows its metering (R1-P3, R1-S5, R1-S8) ---------------------------------------
+
+
+def test_the_metering_of_the_budget_is_a_constant_not_a_limit():
+    assert limits_module.TOKEN_BUDGET_METERING == "output"
+    assert not hasattr(EpisodeLimits(), "token_budget_metering")
+    requested = limits_module.requested_limits(EpisodeLimits())
+    assert requested["output_token_budget"] == 4000 and requested["token_budget_metering"] == "output"
+    assert limits_module.eval_options(EpisodeLimits())["token_limit"].type == "output"
+
+
+@pytest.mark.parametrize(
+    ("limit", "limit_type", "expected"),
+    [
+        (4000, "output", {"output_token_budget": 4000, "token_budget_metering": "output"}),
+        (12000, "all", {"total_tokens": 12000, "token_budget_metering": "all"}),
+        (12000, None, {"total_tokens": 12000, "token_budget_metering": "all"}),  # a log made before metering types existed
+        (None, None, {}),
+        (None, "output", {}),
+    ],
+)
+def test_the_budget_key_follows_the_metering(limit, limit_type, expected):
+    assert limits_module.token_budget_fields(limit, limit_type) == expected
+
+
+def test_a_metering_type_other_than_output_or_all_is_refused_by_name():
+    with pytest.raises(InvalidInputError) as caught:
+        limits_module.token_budget_fields(4000, "input")
+    assert caught.value.code == "TOKEN_METERING_UNSUPPORTED" and "input" in str(caught.value)
+
+
+def test_read_back_of_an_all_token_log_keys_the_budget_total_tokens(tmp_path):
+    kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
+    shutil.copytree(kept, tmp_path / "inspect")
+    effective = read_back(str(next((tmp_path / "inspect").glob("*.eval"))))
+    assert effective["total_tokens"] == 12000 and effective["token_budget_metering"] == "all"
+    assert "output_token_budget" not in effective

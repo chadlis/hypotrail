@@ -21,6 +21,7 @@ from hypotrail import cli
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import live as agentic_live
 from hypotrail.agentic import projection, runner
+from hypotrail.agentic.live import TOKEN_FIELDS
 from hypotrail.core import live as core_live
 from hypotrail.core.errors import InvalidInputError
 
@@ -546,12 +547,12 @@ def _episode(answer, tool_rows):
 def test_uses_result_means_every_answer_row_is_a_row_the_tool_returned():
     tool_rows = [["Iron Maiden", 21], ["Led Zeppelin", 14], ["Deep Purple", 11], ["Metallica", 10]]
     # the model may fetch more rows than it reports (for example to check ties)
-    assert agentic_live._uses_result(_episode({"rows": tool_rows[:3]}, tool_rows)) is True
-    assert agentic_live._uses_result(_episode({"rows": tool_rows}, tool_rows)) is True
+    assert agentic_live._uses_result_with_reason(_episode({"rows": tool_rows[:3]}, tool_rows)) == (True, None)
+    assert agentic_live._uses_result_with_reason(_episode({"rows": tool_rows}, tool_rows)) == (True, None)
     # a value the tool never returned is not "using its result"
-    assert agentic_live._uses_result(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) is False
-    assert agentic_live._uses_result(_episode({"rows": []}, tool_rows)) is False
-    assert agentic_live._uses_result(_episode(None, tool_rows)) is None
+    assert agentic_live._uses_result_with_reason(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) == (False, None)
+    assert agentic_live._uses_result_with_reason(_episode({"rows": []}, tool_rows)) == (False, None)
+    assert agentic_live._uses_result_with_reason(_episode(None, tool_rows)) == (None, "no_final_answer")
 
 
 def _reading(final_answer, results=({"rows": [["Iron Maiden", 21]]},)):
@@ -592,13 +593,13 @@ def test_a_tool_result_that_is_not_json_does_not_count_as_a_returned_row():
         "final_answer": json.dumps({"rows": [["Iron Maiden", 21]]}),
         "steps": [{"kind": "tool_result", "result": None}],
     }
-    assert agentic_live._uses_result(episode) is False
+    assert agentic_live._uses_result_with_reason(episode) == (False, None)
     odd = {"final_answer": json.dumps({"rows": [["x", 1]]}), "steps": [
         {"kind": "tool_result", "result": {"rows": "not a list"}},
         {"kind": "tool_result", "result": {"columns": []}},
         {"kind": "tool_result", "result": ["a", "list"]},
     ]}
-    assert agentic_live._uses_result(odd) is False
+    assert agentic_live._uses_result_with_reason(odd) == (False, None)
 
 
 def test_a_non_json_tool_message_still_gives_a_summary_and_both_files(rehearsal, monkeypatch):
@@ -834,9 +835,6 @@ def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_p
     assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
 
 
-TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
-
-
 def test_calls_and_latency_are_descriptive_and_the_rehearsal_reports_no_cache_figures_so_they_are_null(both_rehearsals):
     for _, record, _ in both_rehearsals.values():
         for episode in record["episodes"]:
@@ -1035,11 +1033,28 @@ def test_a_budget_stopped_episode_records_the_limit_its_metering_and_the_output_
     )
     (episode,) = record["episodes"]
     assert (episode["status"], episode["stopped_by_limit"]) == ("failed", {"type": "token", "limit": 4000})
-    assert episode["output_token_budget"] == {"limit": 4000, "metering": "output", "metered_usage": episode["output_tokens"]}
+    assert episode["token_budget"] == {
+        "output_token_budget": 4000, "token_budget_metering": "output", "metered_usage": episode["output_tokens"]
+    }
     assert episode["output_tokens"] == 4500  # three generations of 1,500; the third crossed the budget
     for limits in (record["requested_limits"], record["effective_limits"]):
         assert limits["output_token_budget"] == 4000 and limits["token_budget_metering"] == "output"
         assert "total_tokens" not in limits
+
+
+def test_the_kept_all_token_log_is_read_back_as_an_all_token_budget_offline(tmp_path, network_guard):
+    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
+    shutil.copytree(kept, tmp_path / "inspect")
+    record = agentic_live.summarize(
+        location=str(next((tmp_path / "inspect").glob("*.eval"))), out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    effective = record["effective_limits"]
+    assert effective["total_tokens"] == 12000 and effective["token_budget_metering"] == "all"
+    assert "output_token_budget" not in effective
+    budgets = {e["case_id"]: e["token_budget"] for e in record["episodes"]}
+    assert budgets["D03"] == {"total_tokens": 12000, "token_budget_metering": "all", "metered_usage": 15736}
+    assert "output_token_budget" not in record["episodes"][0]
 
 
 def test_an_episode_absent_from_the_log_has_no_budget_figures():

@@ -152,7 +152,7 @@ def run_fixture(
         "counts": tally["criteria"],
         "tool_errors": tally["tool_errors"],
         "effective_limits": effective,
-        "requested_limits": limits.as_dict(),
+        "requested_limits": limits_module.requested_limits(limits),
         "limits_not_enforceable": limits_module.NOT_ENFORCEABLE,
         "provider_calls_allowed": {
             "model_turns": effective["model_turns"],

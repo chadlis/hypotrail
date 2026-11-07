@@ -178,7 +178,7 @@ def test_the_allow_list_is_the_thirteen_functions_of_ag_03_as_revised_by_51():
     assert sql_tool.ALLOWED_FUNCTIONS == {
         "count", "sum", "avg", "min", "max", "round", "lower", "upper",
         "coalesce", "ifnull", "strftime", "like", "glob",
-    }  # fmt: skip
+    }
 
 
 # --- LIKE and GLOB (#51) ----------------------------------------------------------------------
