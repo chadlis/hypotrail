@@ -17,6 +17,7 @@ from inspect_ai.model import GenerateConfig, Model, get_model
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.declaration import load_workload
+from hypotrail.core.answer_scoring import parse_answer
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -132,20 +133,22 @@ def tool_loop_observed(episodes: list[dict]) -> bool:
     return any(_has_tool_loop(e) for e in episodes)
 
 
-def _uses_result(episode: dict) -> bool | None:
-    """True when every row of the final answer is a row the tool returned.
+def _uses_result_with_reason(episode: dict) -> tuple[bool | None, str | None]:
+    """Whether every row of the final answer is a row the tool returned, and why not when unknown.
 
-    The model may fetch more rows than it reports (for example to check ties).
+    The value is `True` or `False` only for a readable answer (exactly one JSON object, as
+    `parse_answer` decides). Otherwise it is `None` with a Reason: `no_final_answer`,
+    `no_tool_result`, or `answer_unreadable`. The model may fetch more rows than it reports
+    (for example to check ties).
     """
     results = [s for s in episode["steps"] if s["kind"] == "tool_result"]
-    if episode["final_answer"] is None or not results:
-        return None
-    try:
-        answer = json.loads(episode["final_answer"])
-    except json.JSONDecodeError:
-        return False
-    if not isinstance(answer, dict):
-        return False
+    if episode["final_answer"] is None:
+        return None, "no_final_answer"
+    if not results:
+        return None, "no_tool_result"
+    answer = parse_answer(episode["final_answer"])
+    if answer is None:
+        return None, "answer_unreadable"
     rows = answer.get("rows")
     # A tool message that is not JSON has no result (None); it returned no row.
     returned = [
@@ -154,7 +157,12 @@ def _uses_result(episode: dict) -> bool | None:
         if isinstance(result["result"], dict) and isinstance(result["result"].get("rows"), list)
         for row in result["result"]["rows"]
     ]
-    return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows)
+    return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows), None
+
+
+def _uses_result(episode: dict) -> bool | None:
+    """The value of `_uses_result_with_reason`, without its Reason."""
+    return _uses_result_with_reason(episode)[0]
 
 
 def request_parameters(log) -> dict | None:
@@ -358,7 +366,7 @@ def _record(
                 "repeat": e["repeat"],
                 "status": e["status"],
                 "stopped_by_limit": e["stopped_by_limit"],
-                "uses_tool_result": _uses_result(e),
+                **dict(zip(("uses_tool_result", "uses_tool_result_reason"), _uses_result_with_reason(e))),
                 **(usage_of(samples[(e["case_id"], e["repeat"])]) if (e["case_id"], e["repeat"]) in samples else {}),
             }
             for e in episodes

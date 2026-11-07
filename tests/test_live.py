@@ -552,7 +552,36 @@ def test_uses_result_means_every_answer_row_is_a_row_the_tool_returned():
     assert agentic_live._uses_result(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) is False
     assert agentic_live._uses_result(_episode({"rows": []}, tool_rows)) is False
     assert agentic_live._uses_result(_episode(None, tool_rows)) is None
-    assert agentic_live._uses_result({"final_answer": "not json", "steps": [{"kind": "tool_result", "result": {"rows": []}}]}) is False
+
+
+def _reading(final_answer, results=({"rows": [["Iron Maiden", 21]]},)):
+    episode = {"final_answer": final_answer, "steps": [{"kind": "tool_result", "result": r} for r in results]}
+    return agentic_live._uses_result_with_reason(episode)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        'Here you go: {"rows": [["Iron Maiden", 21]]}',  # prose before the object, as in D05 of the kept traces
+        "not json",
+        "[1, 2]",  # a JSON value that is not an object
+        '{"rows": [["x", NaN]]}',  # parse_answer refuses NaN
+        '{"rows": [["x", Infinity]]}',
+        '{"rows": []} {"rows": []}',
+    ],
+)
+def test_an_unreadable_answer_gives_null_with_a_reason_never_false(answer):
+    assert _reading(answer) == (None, "answer_unreadable")
+
+
+def test_a_readable_answer_keeps_true_and_false_and_has_no_reason():
+    assert _reading(json.dumps({"rows": [["Iron Maiden", 21]]})) == (True, None)
+    assert _reading(json.dumps({"rows": [["Iron Maiden", 22]]})) == (False, None)
+
+
+def test_the_other_nulls_name_their_cause():
+    assert _reading(None) == (None, "no_final_answer")
+    assert _reading(json.dumps({"rows": []}), results=()) == (None, "no_tool_result")
 
 
 # --- review findings: a non-JSON tool message, and the key scan on a failing run ------------------------------
@@ -591,6 +620,7 @@ def test_a_non_json_tool_message_still_gives_a_summary_and_both_files(rehearsal,
         api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
     )
     assert again["episodes"][0]["uses_tool_result"] is False
+    assert again["episodes"][0]["uses_tool_result_reason"] is None
     assert again["episodes"][1]["uses_tool_result"] is True
     assert (out / "run.json").is_file() and (out / "projection.json").is_file()
 
@@ -897,3 +927,19 @@ def test_run_live_refuses_a_workload_without_dev_before_creating_its_output(tmp_
 
 
 
+
+
+def test_the_run_record_carries_the_reason_next_to_the_value(tmp_path):
+    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain"
+    (tmp_path / "inspect").mkdir()
+    log = Path(shutil.copy(next((kept / "inspect").glob("*.eval")), tmp_path / "inspect"))
+    record = agentic_live.summarize(
+        location=str(log), out_dir=tmp_path, model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    by_case = {e["case_id"]: e for e in record["episodes"]}
+    # D05's final answer has prose before the JSON object: unreadable, so unknown (not false)
+    assert by_case["D05"]["uses_tool_result"] is None
+    assert by_case["D05"]["uses_tool_result_reason"] == "answer_unreadable"
+    # D03 failed with no final answer
+    assert by_case["D03"]["uses_tool_result"] is None
+    assert by_case["D03"]["uses_tool_result_reason"] == "no_final_answer"
