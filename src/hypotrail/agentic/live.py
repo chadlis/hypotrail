@@ -249,7 +249,6 @@ def _read_back_reasoning(location: str) -> str | None:
     return generate.reasoning_effort
 
 
-# where a record's `requested_limits` came from: the Attempt that made the request, or a kept log read again
 class RequestSource(Enum):
     """Where a record's requested limits came from; the value is the string `run.json` writes as `request_source`."""
 
@@ -265,8 +264,9 @@ class Request:
     """The limits a record's `requested_limits` holds, with where they came from.
 
     The only ways to build one are `Request.this_attempt(limits)` and `Request.from_log(location)`: each ties the
-    source to how the limits were obtained, so a source cannot be paired with the other one's limits. It is frozen,
-    so neither can be reassigned afterwards.
+    source to how the limits were obtained, so a source cannot be paired with the other one's limits. Frozen means
+    the fields `limits` and `source` cannot be reassigned afterwards, and that only those two constructors build one.
+    It does not protect the `limits` mapping: that dict is the record's own copy and can still be changed in place.
     """
 
     limits: dict
