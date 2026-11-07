@@ -235,3 +235,15 @@ def test_the_handbook_states_the_thirteen_allowed_functions_and_never_the_eleven
     for path in sorted((HANDBOOK / "chapters").glob("*.html")):
         assert "eleven functions" not in path.read_text(encoding="utf-8"), path.name
     assert "eleven functions" not in BUILT.read_text(encoding="utf-8")
+
+
+def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(page):
+    chapter = (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    for field in ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens"):
+        assert f"<code>{field}</code>" in chapter, field
+    assert "includes the provider's cache reads and writes" in chapter or "include the provider's cache reads and writes" in chapter
+    assert "an all-token limit is checked against" in chapter
+    assert "so a 0 there may not be the provider's count" in chapter
+    assert "not a cost" in chapter
+    assert "before the record kept the cache figures" in chapter and "15,736" in chapter
+    assert "15,736" in page

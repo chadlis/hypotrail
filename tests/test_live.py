@@ -834,12 +834,16 @@ def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_p
     assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
 
 
-def test_tokens_and_cost_the_log_does_not_give_are_null_never_zero_and_calls_and_latency_are_descriptive(both_rehearsals):
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
+
+
+def test_calls_and_latency_are_descriptive_and_the_rehearsal_reports_no_cache_figures_so_they_are_null(both_rehearsals):
     for _, record, _ in both_rehearsals.values():
         for episode in record["episodes"]:
             assert episode["model_calls"] == 2
             assert isinstance(episode["latency_seconds"], float) and episode["latency_seconds"] >= 0
             assert episode["input_tokens"] == 240 and episode["output_tokens"] == 60  # as the endpoint reported
+            assert episode["input_tokens_cache_write"] is None and episode["input_tokens_cache_read"] is None
             assert episode["cost"] is None
 
 
@@ -850,7 +854,69 @@ def test_an_episode_with_no_usage_in_the_log_has_null_tokens_not_zero():
         events = []
 
     usage = agentic_live.usage_of(Sample())
-    assert usage == {"model_calls": 0, "latency_seconds": 1.5, "input_tokens": None, "output_tokens": None, "cost": None}
+    assert usage == {
+        "model_calls": 0, "latency_seconds": 1.5, "cost": None, "model_usage": None,
+        **{field: None for field in TOKEN_FIELDS},
+    }
+
+
+def test_an_expected_episode_absent_from_the_log_records_each_token_field_as_null_not_omitted():
+    usage = agentic_live.usage_of(None)
+    assert all(field in usage and usage[field] is None for field in TOKEN_FIELDS)
+    assert usage["model_usage"] is None and usage["cost"] is None
+
+
+def test_a_field_inspect_leaves_none_is_null_and_a_real_zero_is_kept():
+    from inspect_ai.model import ModelUsage
+
+    class Sample:
+        model_usage = {"m": ModelUsage(input_tokens=3, output_tokens=0, total_tokens=3)}
+        total_time = None
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage["input_tokens"] == 3 and usage["output_tokens"] == 0 and usage["total_tokens"] == 3
+    assert usage["input_tokens_cache_write"] is None and usage["input_tokens_cache_read"] is None
+    assert usage["latency_seconds"] is None
+
+
+def test_two_models_in_one_sample_are_kept_apart_and_summed_as_inspect_sums_them():
+    from inspect_ai.model import ModelUsage
+
+    a = ModelUsage(input_tokens=10, output_tokens=5, total_tokens=115, input_tokens_cache_write=40, input_tokens_cache_read=60)
+    b = ModelUsage(input_tokens=1, output_tokens=2, total_tokens=3, input_tokens_cache_read=7)
+
+    class Sample:
+        model_usage = {"anthropic/a": a, "anthropic/b": b}
+        total_time = 1.0
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage["model_usage"] == {"anthropic/a": a.model_dump(mode="json"), "anthropic/b": b.model_dump(mode="json")}
+    assert usage["model_usage"]["anthropic/a"]["input_tokens_cache_write"] == 40
+    assert usage["model_usage"]["anthropic/b"]["input_tokens_cache_write"] is None
+    summed = a + b  # Inspect's own sum
+    for field in TOKEN_FIELDS:
+        assert usage[field] == getattr(summed, field)
+    assert (usage["input_tokens"], usage["input_tokens_cache_write"], usage["input_tokens_cache_read"], usage["total_tokens"]) == (11, 40, 67, 118)
+
+
+def test_the_five_token_figures_of_the_kept_live_log_come_from_the_public_log_api_offline(tmp_path, network_guard):
+    kept = ROOT / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
+    shutil.copytree(kept, tmp_path / "inspect")  # a copy: the kept trace is not touched
+    record = agentic_live.summarize(
+        location=str(next((tmp_path / "inspect").glob("*.eval"))), out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    figures = {e["case_id"]: tuple(e[f] for f in TOKEN_FIELDS) for e in record["episodes"]}
+    assert figures == {"D03": (10, 557, 5234, 9935, 15736), "D05": (8, 406, 3869, 6204, 10487)}
+
+
+def test_the_token_figures_are_read_from_log_objects_never_from_the_file_by_hand():
+    source = (ROOT / "src" / "hypotrail" / "agentic" / "live.py").read_text()
+    assert "read_eval_log" in source
+    for hand in ("zipfile", "ZipFile", "open(location", "json.load(", "json.loads(Path(location"):
+        assert hand not in source
 
 
 # --- the reasoning setting must be stated by the request, or nothing is sent ---------------------------------------------
