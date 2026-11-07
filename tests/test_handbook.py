@@ -190,13 +190,6 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     assert superseded, "the spike's 12,000 all-token budget is shown as superseded"
     tests_source = (ROOT / "tests" / "test_limits.py").read_text()
 
-    def shown(value):
-        if value is None:
-            return "none"
-        if isinstance(value, bool):
-            return "on" if value else "off"
-        return str(value)
-
     for limit in current:
         by_attr = cells(rows[limit])
         label, witness = ENFORCEMENT[limit]
@@ -223,19 +216,89 @@ def test_the_spike_report_no_longer_lists_the_token_budget_as_shown_enforced(pag
     assert "superseded by #50" in outcome and "chapter 03" in outcome
 
 
-def test_chapter_03_describes_the_output_budget_and_the_two_kept_runs_keep_the_earlier_one(page):
-    """Criterion 7: the limit-stop table, the live-command text, D1's `token_limit`, the kept runs' 12,000."""
+CHAPTER_03 = HANDBOOK / "chapters" / "03-agentic-track.html"
+
+
+def table_rows(page, table_id, attribute):
+    """The rows of one table keyed by a data attribute of the row, each with its cells' data attributes."""
+    rows = {}
+    for row in parse(page).tables[table_id]:
+        if attribute in row["attrs"]:
+            rows[row["attrs"][attribute]] = {
+                "attrs": row["attrs"],
+                "cells": {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]},
+            }
+    return rows
+
+
+def shown(value):
+    if value is None:
+        return "none"
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    return str(value)
+
+
+def test_the_current_limits_table_equals_the_episode_limits_and_their_states(page):
+    """R1-S1: chapter 03 states the limits in force once, as a table compared with the code."""
+    from hypotrail.agentic.limits import ENFORCEMENT, EpisodeLimits, requested_limits
+
+    rows = table_rows(page, "current-limits", "data-limit")
+    requested = requested_limits(EpisodeLimits())
+    assert set(rows) == set(requested)
+    for limit, row in rows.items():
+        assert row["cells"]["data-value"] == shown(requested[limit]), limit
+        if limit in ENFORCEMENT:
+            label, witness = ENFORCEMENT[limit]
+            assert row["cells"]["data-state"] == label, limit
+            assert f"<code>{witness}</code>" in page, witness
+        else:
+            assert limit == "token_budget_metering"  # the metering of the budget: a setting, not a limit
+            assert row["cells"]["data-state"] == "setting"
+
+
+def test_the_superseded_spike_row_names_a_key_that_has_a_row_in_the_current_limits_table(page):
+    superseded = [
+        row["attrs"]["data-replaced-by"]
+        for row in parse(page).tables["effective-limits"]
+        if "data-replaced-by" in row["attrs"]
+    ]
+    assert superseded
+    assert set(superseded) <= set(table_rows(page, "current-limits", "data-limit"))
+
+
+def test_the_budget_key_table_equals_the_keys_the_record_uses(page):
+    from hypotrail.agentic.limits import token_budget_fields
+
+    rows = table_rows(page, "token-budget-keys", "data-metering")
+    assert set(rows) == {"output", "all"}
+    for metering, row in rows.items():
+        (key,) = set(token_budget_fields(1, metering)) - {"token_budget_metering"}
+        assert row["cells"]["data-key"] == key, metering
+
+
+def test_chapter_03_describes_the_output_budget_and_the_two_kept_attempts_keep_the_earlier_one(page):
+    """Criterion 7: the limit-stop table, the live-command text, D1's `token_limit`, the kept Attempts' 12,000."""
     chapter = page
     for text in (
         'TokenLimit(type="output")',
-        "4,000 output tokens",
-        "<code>token_limit</code> means the 4,000 output-token budget",
+        "<code>token_limit</code> means the output-token budget of the table of current limits",
         "input history and the cached tokens resent at every call no longer weigh on the budget",
-        "both runs ran under the earlier 12,000 all-token budget",
-        "a budget of 4,000 output tokens per Episode",
+        "both Attempts were made under the earlier 12,000 all-token budget",
     ):
         assert text in chapter, text
     assert "Turn limit, total token budget" not in chapter
+    # R1-S1: the prose around the table does not restate the value
+    assert "4,000" not in CHAPTER_03.read_text(encoding="utf-8")
+
+
+def test_the_reason_table_equals_the_codes_of_a_null_uses_tool_result(page):
+    from hypotrail.agentic import live
+
+    rows = table_rows(page, "uses-tool-result-reasons", "data-reason")
+    assert set(rows) == {live.NO_FINAL_ANSWER, live.NO_TOOL_RESULT, live.ANSWER_UNREADABLE}
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    assert "<code>uses_tool_result_reason</code>" in chapter
 
 
 # --- the report -----------------------------------------------------------------------------------------------------
@@ -263,25 +326,30 @@ def test_the_report_has_the_six_checks_the_live_line_and_existing_witnesses(page
         assert "LIVE_NOT_VALIDATED" in live
 
 
-# --- ticket #51: the allow-list statement names the thirteen functions -------------------------
+# --- ticket #51: the allow-list is a table compared with the code --------------------------------------------
 
 
-def test_the_handbook_states_the_thirteen_allowed_functions_and_never_the_eleven():
+def test_the_allow_list_table_equals_the_allowed_functions_and_no_other_chapter_lists_them(page):
     from hypotrail.agentic.sql_tool import ALLOWED_FUNCTIONS
 
-    chapter = (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    assert set(table_rows(page, "sql-allow-list", "data-function")) == set(ALLOWED_FUNCTIONS)
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
     statement = chapter[chapter.index("<b>Allowed:</b>") :].split("</li>", 1)[0]
-    assert "thirteen functions" in statement
-    assert all(f"<code>{name}</code>" in statement for name in ALLOWED_FUNCTIONS)
     assert "#51" in statement and "AG-03" in statement
     for path in sorted((HANDBOOK / "chapters").glob("*.html")):
-        assert "eleven functions" not in path.read_text(encoding="utf-8"), path.name
+        text = path.read_text(encoding="utf-8")
+        assert "eleven functions" not in text, path.name
+        if path != CHAPTER_03:
+            # chapter 01 points to chapter 03 instead of listing the functions
+            assert not all(f"<code>{name}</code>" in text for name in ALLOWED_FUNCTIONS), path.name
     assert "eleven functions" not in BUILT.read_text(encoding="utf-8")
 
 
 def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(page):
     chapter = (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
-    for field in ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens"):
+    from hypotrail.agentic.live import TOKEN_FIELDS
+
+    for field in TOKEN_FIELDS:
         assert f"<code>{field}</code>" in chapter, field
     assert "includes the provider's cache reads and writes" in chapter or "include the provider's cache reads and writes" in chapter
     assert "an all-token limit is checked against" in chapter

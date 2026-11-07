@@ -311,8 +311,8 @@ def test_the_model_can_call_describe_schema_through_the_task(tmp_path):
     assert [t["name"] for t in json.loads(tool_events[0].result)["tables"]] == ELEVEN
 
 
-def test_plain_and_verify_runs_both_carry_the_4000_output_token_budget(tmp_path):
-    # T2 (AG-12: same budgets): both Configurations' runs record Inspect's native output-metered limit
+def test_plain_and_verify_attempts_both_carry_the_4000_output_token_budget(tmp_path):
+    # T2 (AG-12: same budgets): both Configurations' Attempts record Inspect's native output-metered limit
     for configuration in ("plain", "verify"):
         _, location = run(configuration, tmp_path)
         config = read_eval_log(location, header_only=True).eval.config

@@ -11,6 +11,11 @@ from dataclasses import asdict, dataclass
 from inspect_ai.log import read_eval_log
 from inspect_ai.util import TokenLimit
 
+from hypotrail.core.errors import InvalidInputError
+
+# which tokens the Episode token budget meters: Inspect's "output" (reasoning tokens included), never "all"
+TOKEN_BUDGET_METERING = "output"
+
 
 @dataclass(frozen=True)
 class EpisodeLimits:
@@ -23,11 +28,35 @@ class EpisodeLimits:
     response_cache: bool = False
     sample_retries: int = 0
     transport_retries: int = 0
-    # which tokens `output_token_budget` meters: Inspect's "output" (reasoning tokens included), never "all"
-    token_budget_metering: str = "output"
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+def requested_limits(limits: EpisodeLimits) -> dict:
+    """The limits asked for, with the metering of the token budget beside it (the metering is not a limit)."""
+    return {**limits.as_dict(), "token_budget_metering": TOKEN_BUDGET_METERING}
+
+
+def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
+    """The token budget as the record states it: its key names its metering, and the metering stands beside it.
+
+    Inspect records "output" for the budget in force and None for "all" tokens (a log made before
+    metering types existed). The key is `output_token_budget` for "output" and `total_tokens` for "all".
+    With no limit there is nothing to state: the dict is empty. Another type (an Inspect formula) is refused.
+    """
+    if limit is None:
+        return {}
+    metering = limit_type or "all"
+    if metering not in ("output", "all"):
+        raise InvalidInputError(
+            "TOKEN_METERING_UNSUPPORTED",
+            f"the token limit type {limit_type!r} is neither 'output' nor 'all'",
+            stage="limits",
+            details={"token_limit_type": limit_type},
+        )
+    key = "output_token_budget" if metering == "output" else "total_tokens"
+    return {key: limit, "token_budget_metering": metering}
 
 
 # Limits for which Inspect 0.3.287 offers no control of its own.
@@ -45,7 +74,7 @@ def eval_options(limits: EpisodeLimits) -> dict:
     return {
         "turn_limit": limits.model_turns,
         "time_limit": limits.time_seconds,
-        "token_limit": TokenLimit(tokens=limits.output_token_budget, type=limits.token_budget_metering),
+        "token_limit": TokenLimit(tokens=limits.output_token_budget, type=TOKEN_BUDGET_METERING),
         "max_samples": limits.concurrency,
         "max_tasks": 1,
         "retry_on_error": limits.sample_retries,
@@ -74,9 +103,7 @@ def read_back(location: str) -> dict:
         "model_turns": config.turn_limit,
         "tool_calls": None,
         "time_seconds": config.time_limit,
-        "output_token_budget": config.token_limit,
-        # Inspect records None for "all"
-        "token_budget_metering": config.token_limit_type or "all",
+        **token_budget_fields(config.token_limit, config.token_limit_type),
         "max_output_tokens": generate.max_tokens,
         "concurrency": config.max_samples,
         "max_connections": generate.max_connections,

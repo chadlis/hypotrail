@@ -88,7 +88,7 @@ ALLOWED_FUNCTIONS = frozenset(
         "count", "sum", "avg", "min", "max", "round", "lower", "upper", "coalesce", "ifnull", "strftime",
         "like", "glob",
     }
-)  # fmt: skip
+)
 
 
 def declared_tables(connection: sqlite3.Connection) -> frozenset[str]:
