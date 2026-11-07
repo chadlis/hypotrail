@@ -103,13 +103,18 @@ def _without(case_id, field):
 
 MALFORMED = {
     "not json": "The answer is 1297.",
-    "fenced object": "```json\n" + json.dumps(correct_answer("D03")) + "\n```",
-    "prose around": "Here you go: " + json.dumps(correct_answer("D03")) + " Hope it helps.",
     "missing field": json.dumps(_without("D03", "evidence")),
     "clarification with rows": json.dumps(
         _with("D08", rows=[[1]])
     ),
     "a json array": "[1297]",
+}
+
+
+WRAPPED = {
+    "prose before": "Here you go: " + json.dumps(correct_answer("D03")),
+    "prose after": json.dumps(correct_answer("D03")) + " Hope it helps.",
+    "fenced object": "```json\n" + json.dumps(correct_answer("D03")) + "\n```",
 }
 
 
@@ -126,7 +131,7 @@ def test_a_malformed_answer_is_format_invalid_with_its_reason_and_never_exact(na
     assert (exact["state"], exact["score"]) == ("scored", False)
 
 
-@pytest.mark.parametrize("name", ["not json", "fenced object", "prose around", "missing field", "a json array"])
+@pytest.mark.parametrize("name", ["not json", "missing field", "a json array"])
 def test_exact_table_false_for_an_unreadable_answer_carries_invalid_response_format(name):
     exact = criteria(score(MALFORMED[name], "D03"))["exact_table"]
     assert (exact["state"], exact["score"], exact["reason"]) == ("scored", False, "invalid_response_format")
@@ -147,14 +152,189 @@ def test_an_extra_field_on_a_wrong_table_is_still_an_incorrect_table():
 
 
 def test_the_scorer_does_not_alter_the_raw_answer():
-    raw = MALFORMED["fenced object"]
+    raw = WRAPPED["fenced object"]
     result = score(raw, "D03")
     assert result["raw_answer"] == raw
 
 
-def test_an_object_with_prose_is_not_rescued_by_picking_the_number():
-    raw = MALFORMED["prose around"]
-    assert criteria(score(raw, "D03"))["exact_table"]["score"] is False
+def test_an_object_with_prose_is_scored_as_that_object_not_by_picking_the_number():
+    # #58 (was: not rescued): the one object is read whole; a number in the prose is never picked.
+    raw = "The answer is 1298. " + json.dumps(correct_answer("D03")) + " Not 1296."
+    assert criteria(score(raw, "D03"))["exact_table"]["score"] is True
+    wrong = "The answer is 1297. " + json.dumps(_with("D03", rows=[[1298]]))
+    assert criteria(score(wrong, "D03"))["exact_table"]["score"] is False
+
+
+# --- #58: a wrapped answer keeps its format penalty, its content is scored on its one object -------------------------------
+
+
+def wrapped_forms(obj):
+    text = json.dumps(obj)
+    return {
+        "prose before": "Le top 3 est sans égalité. " + text,
+        "prose after": text + "\n\nVoilà le résultat.",
+        "fenced object": "Voici :\n```json\n" + text + "\n```",
+        "array holding the object": "[" + text + "]",
+    }
+
+
+@pytest.mark.parametrize("form", ["prose before", "prose after", "fenced object"])
+def test_a_wrapped_answer_keeps_its_format_penalty(form):
+    """Criterion 1."""
+    by = criteria(score(wrapped_forms(correct_answer("D03"))[form], "D03"))
+    assert (by["format_valid"]["state"], by["format_valid"]["score"], by["format_valid"]["reason"]) == (
+        "scored",
+        False,
+        "invalid_response_format",
+    )
+    assert (by["contract_success"]["state"], by["contract_success"]["score"], by["contract_success"]["reason"]) == (
+        "scored",
+        False,
+        "invalid_response_format",
+    )
+
+
+@pytest.mark.parametrize("form", ["prose before", "prose after", "fenced object", "array holding the object"])
+@pytest.mark.parametrize(
+    "answer",
+    [
+        _with("D03"),  # a right table
+        _with("D03", rows=[[1298]]),  # a wrong table
+        _with("D03", comment="hi"),  # an extra field: format-invalid alone, table still compared
+        _without("D03", "evidence"),  # a missing field: not a table
+        _with("D03", status="needs_clarification"),  # a schema-invalid object (rows with a clarification)
+    ],
+    ids=["right", "wrong", "extra field", "missing field", "clarification with rows"],
+)
+def test_a_wrapped_answer_scores_exact_table_and_evidence_as_its_object_alone(answer, form):
+    """Criterion 2: state, score, Reason and components equal those of the object alone."""
+    alone = criteria(score(answer, "D03"))
+    wrapped = criteria(score(wrapped_forms(answer)[form], "D03"))
+    assert wrapped["exact_table"] == alone["exact_table"]
+    assert wrapped["evidence_link_valid"] == alone["evidence_link_valid"]
+
+
+def test_a_wrapped_right_table_is_exact_and_a_wrong_one_is_not():
+    right = criteria(score(wrapped_forms(correct_answer("D03"))["prose before"], "D03"))["exact_table"]
+    assert (right["state"], right["score"], right["reason"]) == ("scored", True, None)
+    wrong = criteria(score(wrapped_forms(_with("D03", rows=[[1298]]))["fenced object"], "D03"))["exact_table"]
+    assert (wrong["score"], wrong["reason"], wrong["components"]["rows"]) == (False, None, False)
+
+
+def test_without_a_trace_a_wrapped_schema_valid_object_leaves_the_link_unscored():
+    link = criteria(score(wrapped_forms(correct_answer("D03"))["prose before"], "D03"))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
+
+
+@pytest.mark.parametrize("trace", [True, False])
+def test_a_wrapped_object_that_is_not_schema_valid_scores_the_link_false_trace_or_not(trace):
+    steps = [] if trace else None
+    raw = wrapped_forms(_with("D03", comment="hi"))["prose after"]
+    link = criteria(chinook_contract.score_episode(raw, REFS["D03"], SCHEMA, steps))["evidence_link_valid"]
+    assert (link["state"], link["score"], link["reason"]) == ("scored", False, "invalid_response_format")
+
+
+TWO = json.dumps(correct_answer("D03"))
+NOTHING_READ = {
+    "plain text": "The answer is 1297.",
+    "a bare number": "1297",
+    "an array without an object": "[1297]",
+    "an array of arrays": "[[1297]]",
+    "an empty answer": "",
+    "two objects in prose": "A " + TWO + " B " + TWO,
+    "two in one fence": "```json\n" + TWO + "\n" + TWO + "\n```",
+    "one in each of two fences": "```json\n" + TWO + "\n```\nor\n```json\n" + TWO + "\n```",
+    "the same object repeated": TWO + TWO,
+    "two in an array": "[" + TWO + "," + TWO + "]",
+    "a non-finite number": '{"status": "answered", "rows": [[NaN]]}',
+    "a truncated object": TWO[:-5],
+}
+
+
+@pytest.mark.parametrize("name", sorted(NOTHING_READ))
+@pytest.mark.parametrize("trace", [True, False])
+def test_no_object_or_several_reads_nothing_and_every_criterion_is_false(name, trace):
+    """Criterion 3."""
+    steps = [] if trace else None
+    result = chinook_contract.score_episode(NOTHING_READ[name], REFS["D03"], SCHEMA, steps)
+    assert [(c["name"], c["state"], c["score"], c["reason"]) for c in result["criteria"]] == [
+        (n, "scored", False, "invalid_response_format") for n in chinook_contract.CRITERIA
+    ]
+    assert result["answer_read_from"] is None
+
+
+# --- #58 T4, T8: the record says what was scored ---------------------------------------------------------------------
+
+
+def test_the_scorer_version_changes_because_the_same_answer_now_scores_differently():
+    assert chinook_contract.SCORER_VERSION == "2"
+    assert chinook_contract.SCORER_NAME == "chinook_contract_v1"
+    assert score(correct_answer("D03"), "D03")["scorer"] == {"name": "chinook_contract_v1", "version": "2"}
+
+
+def test_the_record_says_whether_the_answer_was_read_from_the_raw_answer_or_an_embedded_object():
+    assert score(correct_answer("D03"), "D03")["answer_read_from"] == "raw_answer"
+    # a malformed raw answer that is still exactly one object is read from the raw answer
+    assert score(_with("D03", comment="hi"), "D03")["answer_read_from"] == "raw_answer"
+    for raw in wrapped_forms(correct_answer("D03")).values():
+        assert score(raw, "D03")["answer_read_from"] == "embedded_object"
+    assert score("The answer is 1297.", "D03")["answer_read_from"] is None
+
+
+def test_the_provenance_is_a_top_level_field_and_the_scorer_record_keeps_its_shape():
+    result = score(wrapped_forms(correct_answer("D03"))["prose before"], "D03")
+    assert set(result) == {"scorer", "raw_answer", "criteria", "answer_read_from"}
+    assert set(result["scorer"]) == {"name", "version"}
+
+
+def test_the_error_record_has_the_field_too_and_it_is_null():
+    def broken(*args):
+        raise ValueError("x")
+
+    result = chinook_contract.apply_scorer(broken, correct_answer_text("D03"), REFS["D03"], SCHEMA)
+    assert result["answer_read_from"] is None
+    assert set(result) == {"scorer", "raw_answer", "criteria", "error_type", "answer_read_from"}
+
+
+def test_a_verdict_carries_the_field_without_clashing_and_an_episode_without_answer_does_not():
+    wrapped = wrapped_forms(correct_answer("D03"))["prose before"]
+    episodes = [
+        {"case_id": "D03", "repeat": 0, "status": "produced", "reason": None, "final_answer": wrapped, "steps": []},
+        {"case_id": "D03", "repeat": 1, "status": "failed", "reason": "boom", "final_answer": None, "steps": []},
+    ]
+    produced, failed = rescore.rescore_episodes(episodes, REFS, schema=SCHEMA, workload=WORKLOAD)
+    assert produced["answer_read_from"] == "embedded_object"
+    assert produced["raw_answer"] == wrapped
+    assert {"case_id", "repeat", "status", "reason", "tool_error_codes"} <= set(produced)
+    assert "answer_read_from" not in failed
+
+
+def test_a_wrapped_answer_stays_raw_in_the_record_and_nothing_is_written_back():
+    """Criterion 6."""
+    for raw in wrapped_forms(correct_answer("D03")).values():
+        result = score(raw, "D03")
+        assert result["raw_answer"] == raw
+        assert result["raw_answer"] != json.dumps(correct_answer("D03"))  # not replaced by the object
+
+
+def test_a_well_formed_answer_is_scored_as_before():
+    """Criterion 4: the four Criteria of an answer that is exactly one object, on a right and a wrong table."""
+    right = score(correct_answer("D03"), "D03")
+    assert [(c["name"], c["state"], c["score"], c["reason"]) for c in right["criteria"]] == [
+        ("exact_table", "scored", True, None),
+        ("format_valid", "scored", True, None),
+        ("evidence_link_valid", "unscored", None, "trace_missing"),
+        ("contract_success", "unscored", None, "trace_missing"),
+    ]
+    wrong = score(_with("D03", rows=[[1298]]), "D03")
+    assert [(c["name"], c["state"], c["score"], c["reason"]) for c in wrong["criteria"]] == [
+        ("exact_table", "scored", False, None),
+        ("format_valid", "scored", True, None),
+        ("evidence_link_valid", "unscored", None, "trace_missing"),
+        ("contract_success", "scored", False, None),
+    ]
+    # surrounding whitespace is not a wrapping
+    assert score("\n " + json.dumps(correct_answer("D03")) + " \n", "D03")["answer_read_from"] == "raw_answer"
 
 
 # --- Reference problems ---------------------------------------------------------------------

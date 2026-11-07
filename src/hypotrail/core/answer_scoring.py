@@ -31,6 +31,36 @@ def parse_answer(text):
     return value if isinstance(value, dict) else None
 
 
+def single_embedded_object(text):
+    """The text of the one JSON object an answer contains, or None.
+
+    The text is scanned left to right. At each `{` the standard decoder tries to read one value
+    (refusing `NaN`, `Infinity` and `-Infinity`, as `parse_answer` does); a read that gives an
+    object is a candidate and the scan resumes after its last character, so an object nested in a
+    candidate is not another one. A failed read (a stray brace, a truncated object) is skipped.
+    Numbers, strings and arrays are never candidates, and a Markdown fence needs no special case.
+    Exactly one candidate is returned, as the exact slice of `text` it was read from; none, or
+    several, give None. Nothing is converted or picked out of prose.
+    """
+    if not isinstance(text, str):
+        return None
+    decoder = json.JSONDecoder(parse_constant=_refuse_constant)
+    candidates = []
+    position = text.find("{")
+    while position != -1:
+        try:
+            value, end = decoder.raw_decode(text, position)
+        except ValueError:
+            position = text.find("{", position + 1)
+            continue
+        if isinstance(value, dict):
+            candidates.append(text[position:end])
+            if len(candidates) > 1:
+                return None
+        position = text.find("{", end)
+    return candidates[0] if candidates else None
+
+
 def _is_number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 

@@ -452,3 +452,71 @@ def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
     assert "```json" in paragraph and "limits their <code>run.json</code> records" in paragraph and "under the current limits" not in paragraph
     for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
         assert f"{out} and {total:,}" in paragraph
+
+
+# --- #58: chapter 03's Criteria and wrapped-answer tables are pinned against the Scorer ---------------------------------
+
+
+def _scorer_inputs():
+    from hypotrail.core import chinook_contract
+
+    chinook = ROOT / "examples" / "chinook"
+    schema = json.loads((chinook / "schemas" / "table-answer.schema.json").read_text())
+    reference = next(
+        json.loads(line)
+        for line in (chinook / "references" / "chinook-references.jsonl").read_text().splitlines()
+        if json.loads(line)["case_id"] == "D03"
+    )
+    answer = {k: reference[k] for k in ("status", "reason_code", "columns", "rows", "unit")} | {"evidence": []}
+    return chinook_contract, schema, reference, answer
+
+
+def test_the_criteria_table_names_the_scorers_criteria_and_its_evidence_reasons(page):
+    chinook_contract = _scorer_inputs()[0]
+    rows = table_rows(page, "chinook-criteria", "data-criterion")
+    assert tuple(rows) == chinook_contract.CRITERIA
+    evidence = rows["evidence_link_valid"]["text"]
+    for name in dir(chinook_contract):
+        if name.startswith("EVIDENCE_"):
+            assert getattr(chinook_contract, name) in evidence, name
+    assert chinook_contract.INVALID_RESPONSE_FORMAT in evidence
+
+
+def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
+    chinook_contract, schema, reference, answer = _scorer_inputs()
+    text = json.dumps(answer)
+    samples = {
+        "wrapped": ["Voici. " + text, text + "\nFin.", "```json\n" + text + "\n```", "[" + text + "]"],
+        "nothing_read": ["The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```"],
+    }
+    rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
+    assert set(rows) == set(samples)
+    for name, row in rows.items():
+        attrs = row["attrs"]
+        listed = attrs["data-false"].split()
+        for raw in samples[name]:
+            result = chinook_contract.score_episode(raw, reference, schema)
+            by = {c["name"]: c for c in result["criteria"]}
+            falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
+            if name == "wrapped":
+                assert falsified == set(listed), raw
+            else:
+                assert set(listed) == set(chinook_contract.CRITERIA) == falsified, raw
+            assert all(by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT for n in listed), raw
+            assert str(result["answer_read_from"]).replace("None", "null") == attrs["data-read-from"], raw
+    wrapped = chinook_contract.score_episode(samples["wrapped"][0], reference, schema)
+    alone = chinook_contract.score_episode(text, reference, schema)
+    assert [c for c in wrapped["criteria"] if c["name"] in ("exact_table", "evidence_link_valid")] == [
+        c for c in alone["criteria"] if c["name"] in ("exact_table", "evidence_link_valid")
+    ]
+
+
+def test_chapter_03_states_the_scorer_version_and_the_three_values_of_answer_read_from():
+    chinook_contract = _scorer_inputs()[0]
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    assert f"version is {chinook_contract.SCORER_VERSION}" in chapter
+    assert "<code>answer_read_from</code>" in chapter
+    for value in (chinook_contract.READ_FROM_RAW_ANSWER, chinook_contract.READ_FROM_EMBEDDED_OBJECT):
+        assert f"<code>{value}</code>" in chapter
+    assert "<code>null</code> (nothing read)" in chapter
+    assert "unscored</code> with <code>invalid_response_format</code>" not in chapter  # the corrected sentence (T6)

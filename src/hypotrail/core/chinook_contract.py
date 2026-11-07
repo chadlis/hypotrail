@@ -17,27 +17,39 @@ steps (plain records) into four Criteria, `exact_table`, `format_valid`,
   otherwise does an `unscored` or `errored` dependency give its state and Reason.
 
 - `invalid_response_format`: the raw answer is not one JSON object valid against the
-  Workload's `table-answer/1` schema. `format_valid` is scored false; this counts
-  against the evaluated system. When the answer is not even one JSON object with the six
-  fields, `exact_table` and `evidence_link_valid` are scored false with this Reason too. An
-  extra field alone makes `format_valid` false and leaves `exact_table` to the comparison.
+  Workload's `table-answer/1` schema. `format_valid` and `contract_success` are scored
+  false; this counts against the evaluated system. What `exact_table` and
+  `evidence_link_valid` read depends on the answer (owner decision of 2026-11-07, #58):
+  an answer that is exactly one JSON object is read as it is; an answer that is not, but
+  contains exactly one JSON object (prose before or after it, a Markdown fence around it),
+  is judged as that object alone; an answer from which nothing is read (no JSON object, or
+  more than one) has every Criterion scored false with this Reason, trace or not. An extra
+  field alone makes `format_valid` false and leaves `exact_table` to the comparison. A
+  wrapped answer with one object, without a trace, has `evidence_link_valid` `unscored`
+  (`trace_missing`) when that object alone is schema-valid, and scored false with this
+  Reason, trace or not, when it is not.
 - `reference_missing` / `reference_invalid`: the Reference is absent or unusable.
   `exact_table` is `unscored`. This is an Instrument failure.
 - `scoring_failed`: the scoring machinery raised. Every Criterion is `errored` and
   the exception's type is kept in `error_type`. This is an Instrument failure.
 
-The raw answer is never altered. Nothing here reads a file, calls a model or a tool.
+The raw answer is never altered. The record says what `exact_table` and `evidence_link_valid`
+were scored on, in its top-level `answer_read_from`: `"raw_answer"`, `"embedded_object"` or
+`None` (nothing read). Nothing here reads a file, calls a model or a tool.
 """
 
 import math
 
 from jsonschema import Draft202012Validator
 
-from hypotrail.core.answer_scoring import parse_answer, score_answer
+from hypotrail.core.answer_scoring import parse_answer, score_answer, single_embedded_object
 
 SCORER_NAME = "chinook_contract_v1"
-SCORER_VERSION = "1"
+SCORER_VERSION = "2"
 CRITERIA = ("exact_table", "format_valid", "evidence_link_valid", "contract_success")
+
+READ_FROM_RAW_ANSWER = "raw_answer"
+READ_FROM_EMBEDDED_OBJECT = "embedded_object"
 
 INVALID_RESPONSE_FORMAT = "invalid_response_format"
 REFERENCE_MISSING = "reference_missing"
@@ -91,11 +103,27 @@ def _format_valid(raw_answer, schema):
     return _criterion("format_valid", "scored", False, INVALID_RESPONSE_FORMAT)
 
 
-def _exact_table(raw_answer, reference):
+def _read_answer(raw_answer):
+    """What the content Criteria read: (where from, the text to read, the object).
+
+    The raw answer when it is exactly one JSON object; else the one object it contains, as the
+    slice of the raw text it was found in; else nothing (`None`, the raw text, `None`).
+    """
+    answer = parse_answer(raw_answer)
+    if answer is not None:
+        return READ_FROM_RAW_ANSWER, raw_answer, answer
+    embedded = single_embedded_object(raw_answer)
+    if embedded is not None:
+        return READ_FROM_EMBEDDED_OBJECT, embedded, parse_answer(embedded)
+    return None, raw_answer, None
+
+
+def _exact_table(text, reference):
+    """`text` is what `_read_answer` chose: the whole answer or its one object."""
     problem = reference_problem(reference)
     if problem is not None:
         return _criterion("exact_table", "unscored", None, problem)
-    verdict = score_answer(raw_answer, reference)
+    verdict = score_answer(text, reference)
     if not verdict["parsed"]:
         # Not one JSON object with the six fields: never a correct table. It is the system's
         # failure, so it is scored false with its Reason, as format_valid is.
@@ -131,9 +159,12 @@ def _link_problem(cited, steps):
 def _evidence_link_valid(answer, format_ok, steps):
     """Do the IDs the answer cites designate successful calls of this Episode, made earlier?
 
-    Read from the projected steps only. A malformed answer has no usable `evidence`: it is
-    scored false with `invalid_response_format`, trace or not. Without a trace a well-formed
-    answer's link cannot be judged (`trace_missing`).
+    Read from the projected steps only. `answer` is the object read (the raw answer, or the one
+    object a wrapped answer contains; None when nothing is read) and `format_ok` whether that
+    object alone is valid against the schema. An answer from which nothing is read, or an object
+    that is not valid, has no usable `evidence`: it is scored false with `invalid_response_format`,
+    trace or not. Without a trace a schema-valid object's link cannot be judged (`trace_missing`),
+    a wrapped answer's included.
     """
     if not format_ok:
         return _criterion("evidence_link_valid", "scored", False, INVALID_RESPONSE_FORMAT)
@@ -185,17 +216,17 @@ def _contract_success(answer, exact_table, format_valid, evidence_link_valid):
 
 def score_episode(raw_answer, reference, schema, steps=None) -> dict:
     """The Criteria of one Episode's raw final answer. Pure; may raise."""
+    read_from, text, read = _read_answer(raw_answer)
     format_valid = _format_valid(raw_answer, schema)
-    exact_table = _exact_table(raw_answer, reference)
-    evidence_link_valid = _evidence_link_valid(
-        parse_answer(raw_answer), format_valid["score"], steps
-    )
-    contract_success = _contract_success(
-        parse_answer(raw_answer), exact_table, format_valid, evidence_link_valid
-    )
+    exact_table = _exact_table(text, reference)
+    object_valid = read is not None and Draft202012Validator(schema).is_valid(read)
+    evidence_link_valid = _evidence_link_valid(read, object_valid, steps)
+    # contract success depends on the raw answer alone: a wrapped answer is not a success
+    contract_success = _contract_success(parse_answer(raw_answer), exact_table, format_valid, evidence_link_valid)
     return {
         "scorer": _scorer_record(),
         "raw_answer": raw_answer,
+        "answer_read_from": read_from,
         "criteria": [exact_table, format_valid, evidence_link_valid, contract_success],
     }
 
@@ -212,6 +243,7 @@ def apply_scorer(scorer, raw_answer, reference, schema, steps=None) -> dict:
         return {
             "scorer": _scorer_record(),
             "raw_answer": raw_answer,
+            "answer_read_from": None,
             "criteria": [_criterion(name, "errored", None, SCORING_FAILED) for name in CRITERIA],
             "error_type": type(error).__name__,
         }

@@ -154,6 +154,78 @@ def test_a_missing_answer_is_incorrect():
     assert answer_scoring.score_answer(None, REFS["D03"])["correct"] is False
 
 
+# --- #58 T1, T2', T3: the one JSON object an answer contains ---------------------------
+
+
+OBJ = json.dumps({"a": 1, "b": {"c": [1, 2]}})
+OTHER = json.dumps({"d": 2})
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Prose before. " + OBJ,
+        OBJ + " Prose after.",
+        "```json\n" + OBJ + "\n```",
+        "Before.\n\n" + OBJ + "\n\nAfter.",
+        "[" + OBJ + "]",
+        "A {stray brace} in prose, then " + OBJ,
+        '{"truncated": [1, 2 then ' + OBJ,
+    ],
+)
+def test_exactly_one_embedded_object_is_found_and_returned_as_its_own_text(text):
+    assert answer_scoring.single_embedded_object(text) == OBJ
+
+
+def test_an_object_nested_in_the_candidate_is_not_another_candidate():
+    assert answer_scoring.single_embedded_object("x " + OBJ) == OBJ  # OBJ holds a nested object
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "The answer is 1297.",
+        "1297",
+        '"a string"',
+        "[1297]",
+        "[1, [2, 3]]",
+        "{not json}",
+        '{"truncated": [1, 2',
+        '{"rows": [[NaN]]}',
+        '{"rows": [[Infinity]]}',
+        '{"rows": [[-Infinity]]}',
+    ],
+)
+def test_no_object_means_nothing_is_found(text):
+    assert answer_scoring.single_embedded_object(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        OBJ + " " + OTHER,
+        "```json\n" + OBJ + "\n" + OTHER + "\n```",
+        "```json\n" + OBJ + "\n```\nthen\n```json\n" + OTHER + "\n```",
+        OBJ + "\n" + OBJ,
+        "[" + OBJ + ", " + OBJ + "]",
+    ],
+)
+def test_two_objects_anywhere_mean_nothing_is_found(text):
+    assert answer_scoring.single_embedded_object(text) is None
+
+
+def test_a_value_that_is_not_text_finds_nothing():
+    assert answer_scoring.single_embedded_object(None) is None
+    assert answer_scoring.single_embedded_object(OBJ.encode()) is None
+
+
+def test_parse_answer_still_reads_only_an_answer_that_is_exactly_one_object():
+    assert answer_scoring.parse_answer(OBJ) == json.loads(OBJ)
+    for text in ("x " + OBJ, "```json\n" + OBJ + "\n```", "[" + OBJ + "]"):
+        assert answer_scoring.parse_answer(text) is None
+
+
 # --- check 2: rescoring a kept log calls neither the model nor the tools ----------
 
 
