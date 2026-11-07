@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -10,6 +11,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+
+from hypotrail.core.errors import InvalidInputError
 
 ROOT = Path(__file__).resolve().parent.parent
 HANDBOOK = ROOT / "docs" / "handbook"
@@ -170,30 +173,190 @@ def test_the_sheet_model_is_the_one_the_live_run_recorded(page):
 
 
 def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
+    """T1'': a two-way check. The non-superseded rows plus the keys that superseded rows name are the current enforcement keys."""
     from hypotrail.agentic.limits import ENFORCEMENT
 
-    rows = {
-        row["attrs"]["data-limit"]: row
-        for row in parse(page).tables["effective-limits"]
-        if "data-limit" in row["attrs"]
-    }
-    assert set(rows) == set(ENFORCEMENT)
+    rows = table_rows(page, "effective-limits", "data-limit")
+    superseded = {limit: row for limit, row in rows.items() if row["cells"]["data-state"] == "superseded"}
+    current = set(rows) - set(superseded)
+    named = {row["attrs"]["data-replaced-by"] for row in superseded.values()}
+    assert current | named == set(ENFORCEMENT)
+    assert not current & named  # a replacing key has no row of its own: the superseded row stands for it
+    assert superseded, "the spike's 12,000 all-token budget is shown as superseded"
 
-    def shown(value):
-        if value is None:
-            return "none"
-        if isinstance(value, bool):
-            return "on" if value else "off"
-        return str(value)
-
-    for limit, row in rows.items():
-        by_attr = {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]}
-        effective = RUN["effective_limits"][limit]
-        assert by_attr["data-effective"] == shown(effective), limit
+    for limit in current:
+        by_attr = rows[limit]["cells"]
         label, witness = ENFORCEMENT[limit]
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
         assert by_attr["data-state"] == label, limit
-        assert f"<code>{witness}</code>" in page, witness
-        assert f"def {witness}(" in (ROOT / "tests" / "test_limits.py").read_text()
+        assert by_attr["data-witness"] == witness, limit  # the cell itself, compared with the code's witness for this key
+        assert defines(by_attr["data-file"], witness), witness
+
+    current_rows = table_rows(page, "current-limits", "data-limit")
+    for limit, row in superseded.items():
+        by_attr = row["cells"]
+        replacement = row["attrs"]["data-replaced-by"]
+        assert replacement in current_rows, limit  # the key it names is a current enforcement key with a row
+        witness_file = current_rows[replacement]["cells"]["data-file"]
+        assert defines(witness_file, ENFORCEMENT[replacement][1]), replacement  # and its witness test exists
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
+        assert replacement in ENFORCEMENT
+        assert "data-file" not in by_attr  # a superseded row claims no witness of its own
+        text = row["text"]
+        assert f"{replacement}" in text and "#50" in text and "chapter 03" in text, limit
+
+
+def test_the_spike_report_no_longer_lists_the_token_budget_as_shown_enforced(page):
+    """T4: check 3 agrees with the amended sheet."""
+    check = next(r for r in parse(page).tables["spike-report"] if r["attrs"].get("data-check") == "3")
+    outcome = check["cells"][2]["text"]
+    assert "Turns, tokens, concurrency" not in outcome
+    assert "superseded by #50" in outcome and "chapter 03" in outcome
+
+
+CHAPTER_03 = HANDBOOK / "chapters" / "03-agentic-track.html"
+
+
+def table_rows(page, table_id, attribute):
+    """The rows of one table keyed by a data attribute of the row, each with its cells' data attributes."""
+    rows = {}
+    for row in parse(page).tables[table_id]:
+        if attribute in row["attrs"]:
+            rows[row["attrs"][attribute]] = {
+                "attrs": row["attrs"],
+                "text": " ".join(c["text"] for c in row["cells"]),
+                "cells": {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]},
+            }
+    return rows
+
+
+def defines(path, name):
+    """Whether the test file at `path` (relative to the repository) defines a function called `name`."""
+    return f"def {name}(" in (ROOT / path).read_text()
+
+
+def shown(value):
+    if value is None:
+        return "none"
+    if isinstance(value, bool):
+        return "on" if value else "off"
+    return str(value)
+
+
+def test_the_current_limits_table_equals_the_episode_limits_their_states_and_witnesses(page):
+    """The limits in force, listed once as a table, equal the code's limits, states and witnesses; the metering is a column."""
+    from hypotrail.agentic.limits import ENFORCEMENT, TOKEN_BUDGET_METERING, EpisodeLimits
+
+    rows = table_rows(page, "current-limits", "data-limit")
+    limits = EpisodeLimits().as_dict()
+    assert set(rows) == set(limits)
+    for limit, row in rows.items():
+        label, witness = ENFORCEMENT[limit]
+        assert row["cells"]["data-value"] == shown(limits[limit]), limit
+        assert row["cells"]["data-state"] == label, limit
+        assert row["cells"]["data-witness"] == witness, limit
+        assert defines(row["cells"]["data-file"], witness), (limit, witness)  # the table names the file
+    # the metering belongs to the budget alone
+    assert {limit for limit, row in rows.items() if "data-metering" in row["cells"]} == {"output_token_budget"}
+    assert rows["output_token_budget"]["cells"]["data-metering"] == TOKEN_BUDGET_METERING
+
+
+def test_the_superseded_spike_row_names_a_key_that_has_a_row_in_the_current_limits_table(page):
+    superseded = [
+        row["attrs"]["data-replaced-by"]
+        for row in parse(page).tables["effective-limits"]
+        if "data-replaced-by" in row["attrs"]
+    ]
+    assert superseded
+    assert set(superseded) <= set(table_rows(page, "current-limits", "data-limit"))
+
+
+def test_the_budget_key_table_equals_what_token_budget_fields_returns_or_raises(page):
+    """Each row of the table gives the inputs it covers; the helper is called with them and must return or raise what the row says."""
+    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS, TOKEN_METERING_UNSUPPORTED, token_budget_fields
+
+    def value(text):
+        return None if text == "null" else int(text) if text.isdigit() else text
+
+    rows = table_rows(page, "token-budget-keys", "data-metering")
+    assert set(rows) == {"output", "all", "none", "other"}
+    assert {row["cells"]["data-key"] for m, row in rows.items() if m in TOKEN_BUDGET_KEYS} == set(TOKEN_BUDGET_KEYS.values())
+    inputs = {}
+    for row in parse(page).tables["token-budget-keys"]:
+        if "data-metering" in row["attrs"]:
+            first = row["cells"][0]["attrs"]
+            inputs[row["attrs"]["data-metering"]] = (value(first["data-limit"]), [value(t) for t in first["data-type"].split()])
+    assert set(inputs) == set(rows)
+    assert inputs["all"][1] == ["all", None]  # an explicit "all" and a missing type both reach the row
+    for case, (limit, limit_types) in inputs.items():
+        cells = rows[case]["cells"]
+        key, recorded, refusal = (cells.get(k, "") for k in ("data-key", "data-recorded", "data-refusal"))  # absent: none
+        for limit_type in limit_types:
+            if refusal:
+                with pytest.raises(InvalidInputError) as caught:
+                    token_budget_fields(limit, limit_type)
+                assert caught.value.code == refusal == TOKEN_METERING_UNSUPPORTED
+                assert "data-key" not in cells and "data-recorded" not in cells
+                continue
+            returned = token_budget_fields(limit, limit_type)
+            metering = returned.pop("token_budget_metering")
+            assert recorded == ("null" if metering is None else metering), (case, limit_type)
+            assert list(returned) == ([key] if key else []), (case, limit_type)
+            if metering is not None:
+                assert key == TOKEN_BUDGET_KEYS[metering], (case, limit_type)
+
+
+def test_the_kept_logs_record_the_all_token_budget_under_the_earlier_key(page, tmp_path):
+    """Both kept run.json files hold the 12,000 budget as total_tokens, requested and effective; a re-summary of each log gives the all-token key of the table, which chapter 03 links."""
+    from hypotrail.agentic import live
+    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS
+
+    all_token_key = next(r["cells"]["data-key"] for r in table_rows(page, "token-budget-keys", "data-metering").values() if r["cells"].get("data-recorded") == "all")
+    assert all_token_key in TOKEN_BUDGET_KEYS.values()
+    for name in ("live-l12-plain", "live-l12-verify"):
+        kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
+        assert kept["requested_limits"]["total_tokens"] == 12000, name
+        assert kept["effective_limits"]["total_tokens"] == 12000, name
+        copy = tmp_path / name  # the kept trace is not touched
+        shutil.copytree(HANDBOOK / "traces" / name / "inspect", copy / "inspect")
+        again = live.summarize(
+            location=str(next((copy / "inspect").glob("*.eval"))), out_dir=copy,
+            model_id="anthropic/claude-sonnet-5-5", api_key="not-a-key-for-an-offline-summary",
+            case_ids=["D03", "D05"], repeats=1,
+        )
+        assert again["effective_limits"][all_token_key] == 12000, name
+        assert again["effective_limits"]["token_budget_metering"] == "all", name
+        assert "total_tokens" not in again["effective_limits"], name
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "under the earlier key <code>total_tokens</code>" in p)
+    assert 'href="#token-budget-keys"' in paragraph and "requested_limits" in paragraph and "effective_limits" in paragraph
+    assert f"<code>{all_token_key}</code>" not in paragraph  # the prose points to the row; it does not spell the key
+
+
+def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_row(page):
+    """Criterion 7, read with the table rule: the limit-stop row and the live-command text carry the metering and a link to the row."""
+    link = 'href="#limit-output_token_budget"'
+    assert 'id="limit-output_token_budget"' in page
+    live_text = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>spike live</code> runs one declared" in p)
+    for place in (page[page.index("<tr><td>Turn limit;") :].split("</tr>", 1)[0], live_text):
+        assert 'TokenLimit(type="output")' in place and link in place
+    for text in (
+        "<code>token_limit</code> means that budget, whose value is the row of the table of current limits",
+        "input history and the cached tokens resent at every call no longer weigh on the budget",
+        "both Attempts were made under the earlier 12,000 all-token budget",
+    ):
+        assert text in page, text
+    assert "Turn limit, total token budget" not in page
+    # the prose around the table does not restate the value
+    assert "4,000" not in CHAPTER_03.read_text(encoding="utf-8")
+
+
+def test_the_reason_table_equals_the_codes_of_a_null_uses_tool_result(page):
+    from hypotrail.agentic import live
+
+    rows = table_rows(page, "uses-tool-result-reasons", "data-reason")
+    assert set(rows) == {live.NO_FINAL_ANSWER, live.NO_TOOL_RESULT, live.ANSWER_UNREADABLE}
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    assert "<code>uses_tool_result_reason</code>" in chapter
 
 
 # --- the report -----------------------------------------------------------------------------------------------------
@@ -211,7 +374,7 @@ def test_the_report_has_the_six_checks_the_live_line_and_existing_witnesses(page
     witnesses = re.findall(r"tests/(test_\w+\.py)::(test_\w+)", page)
     assert len(witnesses) >= 5
     for filename, name in witnesses:
-        assert f"def {name}(" in (ROOT / "tests" / filename).read_text(), (filename, name)
+        assert defines(f"tests/{filename}", name), (filename, name)
 
     live = rows["live"]["cells"][2]["text"]
     if RUN["tool_loop_observed"]:
@@ -219,3 +382,73 @@ def test_the_report_has_the_six_checks_the_live_line_and_existing_witnesses(page
         assert RUN["model"] in live
     else:
         assert "LIVE_NOT_VALIDATED" in live
+
+
+# --- ticket #51: the allow-list is a table compared with the code --------------------------------------------
+
+
+def test_the_allow_list_table_equals_the_allowed_functions_and_no_other_chapter_lists_them(page):
+    from hypotrail.agentic.sql_tool import ALLOWED_FUNCTIONS
+
+    assert set(table_rows(page, "sql-allow-list", "data-function")) == set(ALLOWED_FUNCTIONS)
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    statement = chapter[chapter.index("<b>Allowed:</b>") :].split("</li>", 1)[0]
+    assert "#51" in statement and "AG-03" in statement
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        assert "eleven functions" not in text, path.name
+        if path != CHAPTER_03:
+            # chapter 01 points to chapter 03 instead of listing the functions
+            assert not all(f"<code>{name}</code>" in text for name in ALLOWED_FUNCTIONS), path.name
+    assert "eleven functions" not in BUILT.read_text(encoding="utf-8")
+
+
+def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(page):
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    from hypotrail.agentic.live import TOKEN_FIELDS
+
+    for field in TOKEN_FIELDS:
+        assert f"<code>{field}</code>" in chapter, field
+    assert "includes the provider's cache reads and writes" in chapter or "include the provider's cache reads and writes" in chapter
+    assert "an all-token limit is checked against" in chapter
+    assert "so a 0 there may not be the provider's count" in chapter
+    assert "not a cost" in chapter
+    assert "before the record kept the cache figures" in chapter and "15,736" in chapter
+    assert "15,736" in page
+
+
+LIVE_L12B = {
+    "live-l12b-plain": {"D03": (361, 10274), "D05": (400, 10501)},
+    "live-l12b-verify": {"D03": (384, 10481), "D05": (393, 10631)},
+}
+
+
+def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
+    """Chapter 03 states each Episode's output and total tokens as the two kept live-l12b run.json files record them, and the null uses_tool_result with its Reason."""
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Two further Attempts were kept on 2026-11-07" in p)
+    assert 'href="#current-limits"' in paragraph and "4000" not in paragraph and "4,000" not in paragraph  # the value is the row's
+    for name, expected in LIVE_L12B.items():
+        kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
+        assert f'href="traces/{name}/run.json"' in paragraph and f'href="traces/{name}/projection.json"' in paragraph
+        assert (HANDBOOK / "traces" / name / "projection.json").is_file()
+        assert kept["model"] == "anthropic/claude-sonnet-5-5"
+        assert [(c["case_id"], c["repeat"]) for c in kept["cases"]] == [("D03", 0), ("D05", 0)]
+        assert (HANDBOOK / "traces" / name / kept["inspect_log"]).is_file()
+        assert f'href="traces/{name}/{kept["inspect_log"]}"' in paragraph
+        for episode in kept["episodes"]:
+            assert (episode["status"], episode["model_calls"]) == ("produced", 3)
+            assert episode["uses_tool_result"] is None and episode["uses_tool_result_reason"] == "answer_unreadable"
+            assert (episode["output_tokens"], episode["total_tokens"]) == expected[episode["case_id"]]
+        projection = json.loads((HANDBOOK / "traces" / name / "projection.json").read_text())
+        for episode in projection:
+            steps = episode["steps"]
+            assert [s.get("function") or s["kind"] for s in steps if s["kind"] != "tool_result" and s["kind"] != "model_turn"] == ["describe_schema", "query_readonly", "final_answer"], (name, episode["case_id"])
+            assert [s["kind"] for s in steps] == ["model_turn", "tool_call", "tool_result", "model_turn", "tool_call", "tool_result", "model_turn", "final_answer"], (name, episode["case_id"])
+            results = [s for s in steps if s["kind"] == "tool_result"]
+            assert results[1]["result"]["error"] is None and not results[1]["tool_error"], (name, episode["case_id"])
+            if episode["case_id"] == "D03":
+                sql = next(s["arguments"]["sql"] for s in steps if s.get("function") == "query_readonly")
+                assert re.search(r"\bLIKE\b", sql), name
+    assert "```json" in paragraph and "limits their <code>run.json</code> records" in paragraph and "under the current limits" not in paragraph
+    for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
+        assert f"{out} and {total:,}" in paragraph

@@ -16,7 +16,7 @@ uv run --locked --all-extras pytest           # offline: no network, no model ca
 uv run python -m hypotrail data verify        # check the public datasets
 ```
 
-A live model run is opt-in and paid, never part of the tests: `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). It was rehearsed offline, and one run per Configuration (`plain`, `verify`; Cases D03 and D05, one Repeat each, on `anthropic/claude-sonnet-5-5`) is recorded under `docs/handbook/traces/live-l12-plain/` and `live-l12-verify/`; they are not scored against References, and the owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before these runs (chadlis/hypotrail#8); that review precedes any live run.
+A live Attempt is opt-in and paid, never part of the tests: `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The command was rehearsed offline, and one Attempt per Configuration (`plain`, `verify`; Cases D03 and D05, one Repeat each, on `anthropic/claude-sonnet-5-5`) is recorded under `docs/handbook/traces/live-l12-plain/` and `live-l12-verify/`, and a second Attempt per Configuration (2026-11-07, under the limits their `run.json` records) under `live-l12b-plain/` and `live-l12b-verify/`; they are not scored against References, and the owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before these Attempts (chadlis/hypotrail#8); that review precedes any live Attempt.
 
 ## Where to look
 

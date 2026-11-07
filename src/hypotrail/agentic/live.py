@@ -17,6 +17,7 @@ from inspect_ai.model import GenerateConfig, Model, get_model
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.declaration import load_workload
+from hypotrail.core.answer_scoring import parse_answer
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -132,20 +133,28 @@ def tool_loop_observed(episodes: list[dict]) -> bool:
     return any(_has_tool_loop(e) for e in episodes)
 
 
-def _uses_result(episode: dict) -> bool | None:
-    """True when every row of the final answer is a row the tool returned.
+# The Reasons of a null `uses_tool_result` (GLOSSARY: Reason).
+NO_FINAL_ANSWER = "no_final_answer"
+NO_TOOL_RESULT = "no_tool_result"
+ANSWER_UNREADABLE = "answer_unreadable"
 
-    The model may fetch more rows than it reports (for example to check ties).
+
+def _uses_result_with_reason(episode: dict) -> tuple[bool | None, str | None]:
+    """Whether every row of the final answer is a row the tool returned, and why not when unknown.
+
+    The value is `True` or `False` only for a readable answer (exactly one JSON object, as
+    `parse_answer` decides). Otherwise it is `None` with a Reason: NO_FINAL_ANSWER,
+    NO_TOOL_RESULT or ANSWER_UNREADABLE. The model may fetch more rows than it reports
+    (for example to check ties).
     """
     results = [s for s in episode["steps"] if s["kind"] == "tool_result"]
-    if episode["final_answer"] is None or not results:
-        return None
-    try:
-        answer = json.loads(episode["final_answer"])
-    except json.JSONDecodeError:
-        return False
-    if not isinstance(answer, dict):
-        return False
+    if episode["final_answer"] is None:
+        return None, NO_FINAL_ANSWER
+    if not results:
+        return None, NO_TOOL_RESULT
+    answer = parse_answer(episode["final_answer"])
+    if answer is None:
+        return None, ANSWER_UNREADABLE
     rows = answer.get("rows")
     # A tool message that is not JSON has no result (None); it returned no row.
     returned = [
@@ -154,7 +163,7 @@ def _uses_result(episode: dict) -> bool | None:
         if isinstance(result["result"], dict) and isinstance(result["result"].get("rows"), list)
         for row in result["result"]["rows"]
     ]
-    return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows)
+    return isinstance(rows, list) and bool(rows) and all(row in returned for row in rows), None
 
 
 def request_parameters(log) -> dict | None:
@@ -183,12 +192,40 @@ def reasoning_in_request(model: Model) -> dict | None:
     return model.api.completion_config(config)[0].get("thinking")
 
 
+TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
+
+
+def budget_of(sample) -> dict | None:
+    """The Episode token budget as Inspect recorded it on the sample, and what it metered.
+
+    The budget is stated as the run record states it (`limits.token_budget_fields`: its key names its
+    metering); `metered_usage` is what the limit counted, to be read next to the Episode's
+    `output_tokens`. A sample absent from the log has no figures (None).
+    """
+    if sample is None:
+        return None
+    return {
+        **limits_module.token_budget_fields(sample.token_limit, sample.token_limit_type),
+        "metered_usage": sample.token_limit_usage,
+    }
+
+
 def usage_of(sample) -> dict:
     """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
 
-    A figure the log does not give is None, never zero (CMP-06).
+    The five token figures are Inspect's `ModelUsage` fields of the sample, summed over its models
+    the way `ModelUsage.__add__` sums them (a field is None when every model leaves it None);
+    `model_usage` keeps each model's entry as the log gives it. `total_tokens` includes the cached
+    input tokens. A figure the log does not give is None, never zero (CMP-06); `sample` None is an
+    expected Episode absent from the log.
     """
-    usage = list((sample.model_usage or {}).values())
+    if sample is None:
+        return {
+            "model_calls": None, "latency_seconds": None, "cost": None, "model_usage": None,
+            **{field: None for field in TOKEN_FIELDS},
+        }
+    per_model = sample.model_usage or {}
+    usage = list(per_model.values())
 
     def total(field):
         values = [getattr(u, field) for u in usage if getattr(u, field, None) is not None]
@@ -197,9 +234,9 @@ def usage_of(sample) -> dict:
     return {
         "model_calls": sum(1 for e in sample.events or [] if e.event == "model"),
         "latency_seconds": None if sample.total_time is None else float(sample.total_time),
-        "input_tokens": total("input_tokens"),
-        "output_tokens": total("output_tokens"),
+        **{field: total(field) for field in TOKEN_FIELDS},
         "cost": total("total_cost"),
+        "model_usage": {name: u.model_dump(mode="json") for name, u in per_model.items()} or None,
     }
 
 
@@ -301,6 +338,20 @@ def summarize(
     )
 
 
+def _episode_entry(episode: dict, sample) -> dict:
+    uses_tool_result, uses_tool_result_reason = _uses_result_with_reason(episode)
+    return {
+        "case_id": episode["case_id"],
+        "repeat": episode["repeat"],
+        "status": episode["status"],
+        "stopped_by_limit": episode["stopped_by_limit"],
+        "uses_tool_result": uses_tool_result,
+        "uses_tool_result_reason": uses_tool_result_reason,
+        "token_budget": budget_of(sample),
+        **usage_of(sample),
+    }
+
+
 def _record(
     *,
     location: str,
@@ -343,7 +394,7 @@ def _record(
         "hardware": platform.platform(),
         "machine": platform.machine(),
         "effective_limits": effective,
-        "requested_limits": limits.as_dict(),
+        "requested_limits": limits_module.requested_limits(limits),
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
             "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",
@@ -352,17 +403,7 @@ def _record(
         "database_sha256": database_sha256,
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
-        "episodes": [
-            {
-                "case_id": e["case_id"],
-                "repeat": e["repeat"],
-                "status": e["status"],
-                "stopped_by_limit": e["stopped_by_limit"],
-                "uses_tool_result": _uses_result(e),
-                **(usage_of(samples[(e["case_id"], e["repeat"])]) if (e["case_id"], e["repeat"]) in samples else {}),
-            }
-            for e in episodes
-        ],
+        "episodes": [_episode_entry(e, samples.get((e["case_id"], e["repeat"]))) for e in episodes],
         "tool_loop_observed": tool_loop_observed(episodes),
     }
     (out_dir / "projection.json").write_text(json.dumps(episodes, indent=2, sort_keys=True) + "\n")

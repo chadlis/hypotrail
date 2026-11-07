@@ -6,6 +6,7 @@ import sqlite3
 import time
 
 import anyio
+import pytest
 from inspect_ai.model import ModelOutput
 
 from _agent_helpers import CASES, DATABASE, MODEL, WORKLOAD, ScriptedModel
@@ -17,6 +18,8 @@ from hypotrail.agentic.sql_tool import QueryCaps
 
 CONFIGURATION = "plain"
 CROSS_JOIN = "SELECT count(*) FROM InvoiceLine, PlaylistTrack, Track"
+CROSS_JOIN_LIKE = "SELECT count(*) FROM InvoiceLine, PlaylistTrack, Track WHERE (Track.Name || PlaylistTrack.PlaylistId || InvoiceLine.InvoiceLineId) LIKE '%zzz%'"
+CROSS_JOIN_GLOB = "SELECT count(*) FROM InvoiceLine, PlaylistTrack, Track WHERE (Track.Name || PlaylistTrack.PlaylistId || InvoiceLine.InvoiceLineId) GLOB '*zzz*'"
 OUT_OF_REACH_INSTRUCTIONS = 10**13
 OUT_OF_REACH_SECONDS = 600.0
 
@@ -120,6 +123,45 @@ def test_the_default_caps_stop_the_costly_query_with_a_code_naming_a_limit_in_bo
     assert result["error"]["code"] in {"TIME_LIMIT", "INSTRUCTION_LIMIT"}
     assert result["rows"] == [] and result["row_count"] == 0
     assert time.monotonic() - started < 1.0 + 1.5
+
+
+# --- the caps bound a LIKE or GLOB query (#51) ------------------------------------------------
+
+
+@pytest.mark.parametrize("sql", [CROSS_JOIN_LIKE, CROSS_JOIN_GLOB], ids=["like", "glob"])
+def test_a_pattern_query_over_the_instruction_ceiling_is_stopped_with_that_code(sql):
+    caps = QueryCaps(time_seconds=OUT_OF_REACH_SECONDS, max_instructions=5_000_000)
+    result = sql_tool.run_query(DATABASE, sql, caps=caps)
+    assert result["error"]["code"] == "INSTRUCTION_LIMIT"
+    assert result["rows"] == [] and result["row_count"] == 0
+
+
+@pytest.mark.parametrize("sql", [CROSS_JOIN_LIKE, CROSS_JOIN_GLOB], ids=["like", "glob"])
+def test_a_pattern_query_over_the_time_cap_is_stopped_with_that_code(sql):
+    caps = QueryCaps(time_seconds=0.3, max_instructions=OUT_OF_REACH_INSTRUCTIONS)
+    started = time.monotonic()
+    result = sql_tool.run_query(DATABASE, sql, caps=caps)
+    assert result["error"]["code"] == "TIME_LIMIT"
+    assert result["rows"] == [] and result["row_count"] == 0
+    assert time.monotonic() - started < 0.3 + 1.5
+
+
+def test_a_like_query_matching_more_than_200_rows_returns_200_and_is_flagged():
+    result = sql_tool.run_query(DATABASE, "SELECT TrackId FROM Track WHERE Name LIKE '%a%' ORDER BY TrackId")
+    assert result["error"] is None
+    assert result["truncated"] is True
+    assert result["row_count"] == 200
+
+
+def test_a_like_result_over_64_kib_is_cut_and_flagged():
+    sql = "SELECT TrackId, " + " || ".join(["Name"] * 40) + " FROM Track WHERE Name LIKE '%a%' LIMIT 150"
+    full = sql_tool.run_query(DATABASE, sql, caps=QueryCaps(max_bytes=10**9))
+    assert len(json.dumps(full["rows"])) > 64 * 1024  # the case is real
+    result = sql_tool.run_query(DATABASE, sql)
+    assert result["error"] is None
+    assert result["truncated"] is True
+    assert 0 < result["row_count"] < 150
+    assert len(json.dumps({"columns": result["columns"], "rows": result["rows"]}).encode()) <= 64 * 1024
 
 
 # --- the event loop stays free -----------------------------------------------------------------

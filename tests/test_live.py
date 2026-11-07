@@ -21,6 +21,7 @@ from hypotrail import cli
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import live as agentic_live
 from hypotrail.agentic import projection, runner
+from hypotrail.agentic.live import TOKEN_FIELDS
 from hypotrail.core import live as core_live
 from hypotrail.core.errors import InvalidInputError
 
@@ -546,13 +547,42 @@ def _episode(answer, tool_rows):
 def test_uses_result_means_every_answer_row_is_a_row_the_tool_returned():
     tool_rows = [["Iron Maiden", 21], ["Led Zeppelin", 14], ["Deep Purple", 11], ["Metallica", 10]]
     # the model may fetch more rows than it reports (for example to check ties)
-    assert agentic_live._uses_result(_episode({"rows": tool_rows[:3]}, tool_rows)) is True
-    assert agentic_live._uses_result(_episode({"rows": tool_rows}, tool_rows)) is True
+    assert agentic_live._uses_result_with_reason(_episode({"rows": tool_rows[:3]}, tool_rows)) == (True, None)
+    assert agentic_live._uses_result_with_reason(_episode({"rows": tool_rows}, tool_rows)) == (True, None)
     # a value the tool never returned is not "using its result"
-    assert agentic_live._uses_result(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) is False
-    assert agentic_live._uses_result(_episode({"rows": []}, tool_rows)) is False
-    assert agentic_live._uses_result(_episode(None, tool_rows)) is None
-    assert agentic_live._uses_result({"final_answer": "not json", "steps": [{"kind": "tool_result", "result": {"rows": []}}]}) is False
+    assert agentic_live._uses_result_with_reason(_episode({"rows": [["Iron Maiden", 22]]}, tool_rows)) == (False, None)
+    assert agentic_live._uses_result_with_reason(_episode({"rows": []}, tool_rows)) == (False, None)
+    assert agentic_live._uses_result_with_reason(_episode(None, tool_rows)) == (None, "no_final_answer")
+
+
+def _reading(final_answer, results=({"rows": [["Iron Maiden", 21]]},)):
+    episode = {"final_answer": final_answer, "steps": [{"kind": "tool_result", "result": r} for r in results]}
+    return agentic_live._uses_result_with_reason(episode)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        'Here you go: {"rows": [["Iron Maiden", 21]]}',  # prose before the object, as in D05 of the kept traces
+        "not json",
+        "[1, 2]",  # a JSON value that is not an object
+        '{"rows": [["x", NaN]]}',  # parse_answer refuses NaN
+        '{"rows": [["x", Infinity]]}',
+        '{"rows": []} {"rows": []}',
+    ],
+)
+def test_an_unreadable_answer_gives_null_with_a_reason_never_false(answer):
+    assert _reading(answer) == (None, "answer_unreadable")
+
+
+def test_a_readable_answer_keeps_true_and_false_and_has_no_reason():
+    assert _reading(json.dumps({"rows": [["Iron Maiden", 21]]})) == (True, None)
+    assert _reading(json.dumps({"rows": [["Iron Maiden", 22]]})) == (False, None)
+
+
+def test_the_other_nulls_name_their_cause():
+    assert _reading(None) == (None, "no_final_answer")
+    assert _reading(json.dumps({"rows": []}), results=()) == (None, "no_tool_result")
 
 
 # --- review findings: a non-JSON tool message, and the key scan on a failing run ------------------------------
@@ -563,13 +593,13 @@ def test_a_tool_result_that_is_not_json_does_not_count_as_a_returned_row():
         "final_answer": json.dumps({"rows": [["Iron Maiden", 21]]}),
         "steps": [{"kind": "tool_result", "result": None}],
     }
-    assert agentic_live._uses_result(episode) is False
+    assert agentic_live._uses_result_with_reason(episode) == (False, None)
     odd = {"final_answer": json.dumps({"rows": [["x", 1]]}), "steps": [
         {"kind": "tool_result", "result": {"rows": "not a list"}},
         {"kind": "tool_result", "result": {"columns": []}},
         {"kind": "tool_result", "result": ["a", "list"]},
     ]}
-    assert agentic_live._uses_result(odd) is False
+    assert agentic_live._uses_result_with_reason(odd) == (False, None)
 
 
 def test_a_non_json_tool_message_still_gives_a_summary_and_both_files(rehearsal, monkeypatch):
@@ -591,6 +621,7 @@ def test_a_non_json_tool_message_still_gives_a_summary_and_both_files(rehearsal,
         api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
     )
     assert again["episodes"][0]["uses_tool_result"] is False
+    assert again["episodes"][0]["uses_tool_result_reason"] is None
     assert again["episodes"][1]["uses_tool_result"] is True
     assert (out / "run.json").is_file() and (out / "projection.json").is_file()
 
@@ -804,12 +835,13 @@ def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_p
     assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
 
 
-def test_tokens_and_cost_the_log_does_not_give_are_null_never_zero_and_calls_and_latency_are_descriptive(both_rehearsals):
+def test_calls_and_latency_are_descriptive_and_the_rehearsal_reports_no_cache_figures_so_they_are_null(both_rehearsals):
     for _, record, _ in both_rehearsals.values():
         for episode in record["episodes"]:
             assert episode["model_calls"] == 2
             assert isinstance(episode["latency_seconds"], float) and episode["latency_seconds"] >= 0
             assert episode["input_tokens"] == 240 and episode["output_tokens"] == 60  # as the endpoint reported
+            assert episode["input_tokens_cache_write"] is None and episode["input_tokens_cache_read"] is None
             assert episode["cost"] is None
 
 
@@ -820,7 +852,67 @@ def test_an_episode_with_no_usage_in_the_log_has_null_tokens_not_zero():
         events = []
 
     usage = agentic_live.usage_of(Sample())
-    assert usage == {"model_calls": 0, "latency_seconds": 1.5, "input_tokens": None, "output_tokens": None, "cost": None}
+    assert usage == {
+        "model_calls": 0, "latency_seconds": 1.5, "cost": None, "model_usage": None,
+        **{field: None for field in TOKEN_FIELDS},
+    }
+
+
+def test_an_expected_episode_absent_from_the_log_records_each_token_field_as_null_not_omitted():
+    usage = agentic_live.usage_of(None)
+    assert all(field in usage and usage[field] is None for field in TOKEN_FIELDS)
+    assert usage["model_usage"] is None and usage["cost"] is None
+
+
+def test_a_field_inspect_leaves_none_is_null_and_a_real_zero_is_kept():
+    from inspect_ai.model import ModelUsage
+
+    class Sample:
+        model_usage = {"m": ModelUsage(input_tokens=3, output_tokens=0, total_tokens=3)}
+        total_time = None
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage["input_tokens"] == 3 and usage["output_tokens"] == 0 and usage["total_tokens"] == 3
+    assert usage["input_tokens_cache_write"] is None and usage["input_tokens_cache_read"] is None
+    assert usage["latency_seconds"] is None
+
+
+def test_two_models_in_one_sample_are_kept_apart_and_summed_as_inspect_sums_them():
+    from inspect_ai.model import ModelUsage
+
+    a = ModelUsage(input_tokens=10, output_tokens=5, total_tokens=115, input_tokens_cache_write=40, input_tokens_cache_read=60)
+    b = ModelUsage(input_tokens=1, output_tokens=2, total_tokens=3, input_tokens_cache_read=7)
+
+    class Sample:
+        model_usage = {"anthropic/a": a, "anthropic/b": b}
+        total_time = 1.0
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage["model_usage"] == {"anthropic/a": a.model_dump(mode="json"), "anthropic/b": b.model_dump(mode="json")}
+    assert usage["model_usage"]["anthropic/a"]["input_tokens_cache_write"] == 40
+    assert usage["model_usage"]["anthropic/b"]["input_tokens_cache_write"] is None
+    summed = a + b  # Inspect's own sum
+    for field in TOKEN_FIELDS:
+        assert usage[field] == getattr(summed, field)
+    assert (usage["input_tokens"], usage["input_tokens_cache_write"], usage["input_tokens_cache_read"], usage["total_tokens"]) == (11, 40, 67, 118)
+
+
+def test_the_five_token_figures_of_the_kept_live_log_come_from_the_public_log_api_offline(tmp_path, kept_all_token_log):
+    record = agentic_live.summarize(
+        location=kept_all_token_log, out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    figures = {e["case_id"]: tuple(e[f] for f in TOKEN_FIELDS) for e in record["episodes"]}
+    assert figures == {"D03": (10, 557, 5234, 9935, 15736), "D05": (8, 406, 3869, 6204, 10487)}
+
+
+def test_the_token_figures_are_read_from_log_objects_never_from_the_file_by_hand():
+    source = (ROOT / "src" / "hypotrail" / "agentic" / "live.py").read_text()
+    assert "read_eval_log" in source
+    for hand in ("zipfile", "ZipFile", "open(location", "json.load(", "json.loads(Path(location"):
+        assert hand not in source
 
 
 # --- the reasoning setting must be stated by the request, or nothing is sent ---------------------------------------------
@@ -897,3 +989,75 @@ def test_run_live_refuses_a_workload_without_dev_before_creating_its_output(tmp_
 
 
 
+
+
+def test_the_run_record_carries_the_reason_next_to_the_value(tmp_path, kept_all_token_log):
+    record = agentic_live.summarize(
+        location=kept_all_token_log, out_dir=tmp_path, model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    by_case = {e["case_id"]: e for e in record["episodes"]}
+    # D05's final answer has prose before the JSON object: unreadable, so unknown (not false)
+    assert by_case["D05"]["uses_tool_result"] is None
+    assert by_case["D05"]["uses_tool_result_reason"] == "answer_unreadable"
+    # D03 failed with no final answer
+    assert by_case["D03"]["uses_tool_result"] is None
+    assert by_case["D03"]["uses_tool_result_reason"] == "no_final_answer"
+
+
+# --- #50: the budget is 4,000 output tokens, and the record says what it counted --------------------------------------------
+
+
+def test_a_budget_stopped_episode_records_the_limit_its_metering_and_the_output_tokens(tmp_path):
+    from _agent_helpers import ScriptedModel
+    from inspect_ai.model import ModelUsage
+
+    run_cases = WORKLOAD.cases("dev", ["D03"])
+    inner = ScriptedModel(run_cases, always_call_tool=True)
+
+    def over_budget(input, tools, tool_choice, config):
+        output = inner(input, tools, tool_choice, config)
+        output.usage = ModelUsage(input_tokens=500, output_tokens=1500, total_tokens=2000)
+        return output
+
+    location = runner.run_episodes(
+        run_cases, workload=WORKLOAD, configuration="plain", model=runner.mock_model(over_budget), repeats=1,
+        log_dir=tmp_path / "out" / "inspect",
+    )
+    record = agentic_live.summarize(
+        location=location, out_dir=tmp_path / "out", model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03"], repeats=1
+    )
+    (episode,) = record["episodes"]
+    assert (episode["status"], episode["stopped_by_limit"]) == ("failed", {"type": "token", "limit": 4000})
+    assert episode["token_budget"] == {
+        "output_token_budget": 4000, "token_budget_metering": "output", "metered_usage": episode["output_tokens"]
+    }
+    assert episode["output_tokens"] == 4500  # three generations of 1,500; the third crossed the budget
+    for limits in (record["requested_limits"], record["effective_limits"]):
+        assert limits["output_token_budget"] == 4000 and limits["token_budget_metering"] == "output"
+        assert "total_token_budget" not in limits
+
+
+def test_the_kept_all_token_log_is_read_back_as_an_all_token_budget_offline(tmp_path, kept_all_token_log):
+    record = agentic_live.summarize(
+        location=kept_all_token_log, out_dir=tmp_path, model_id="anthropic/claude-sonnet-5-5",
+        api_key=FAKE_KEY, case_ids=["D03", "D05"], repeats=1,
+    )
+    effective = record["effective_limits"]
+    assert effective["total_token_budget"] == 12000 and effective["token_budget_metering"] == "all"
+    assert "output_token_budget" not in effective
+    budgets = {e["case_id"]: e["token_budget"] for e in record["episodes"]}
+    assert budgets["D03"] == {"total_token_budget": 12000, "token_budget_metering": "all", "metered_usage": 15736}
+    assert "output_token_budget" not in record["episodes"][0]
+
+
+def test_an_episode_with_no_token_limit_records_the_metering_as_null_beside_its_usage():
+    class Sample:
+        token_limit = None
+        token_limit_type = None
+        token_limit_usage = 321
+
+    assert agentic_live.budget_of(Sample()) == {"token_budget_metering": None, "metered_usage": 321}
+
+
+def test_an_episode_absent_from_the_log_has_no_budget_figures():
+    assert agentic_live.budget_of(None) is None

@@ -8,7 +8,9 @@ opt-in and never run in CI). Proxy variables are removed for the same reason:
 a proxy on loopback is a way out the loopback allowance would not see.
 """
 
+import shutil
 import socket
+from pathlib import Path
 
 import pytest
 
@@ -69,3 +71,11 @@ def network_guard(monkeypatch):
     yield guard
     if guard.attempts and not guard.acknowledged:
         pytest.fail(f"network access attempted: {guard.attempts}")
+
+
+@pytest.fixture
+def kept_all_token_log(tmp_path):
+    """The Inspect log of the kept `live-l12-plain` Attempt, copied (the kept trace is not touched)."""
+    kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
+    shutil.copytree(kept, tmp_path / "inspect")
+    return str(next((tmp_path / "inspect").glob("*.eval")))

@@ -22,6 +22,8 @@ from inspect_ai.model import ModelOutput, ModelUsage
 SCHEMA = json.loads((CHINOOK / "schemas" / "table-answer.schema.json").read_text())
 REFS = {r["case_id"]: r for r in read_jsonl(REFERENCES)}
 CASES = WORKLOAD.cases("dev", ["D03"])
+# 1,500 output tokens per generation: the output budget (4,000) is crossed on the third; the large input is no part of it
+OVER_BUDGET = ModelUsage(input_tokens=4000, output_tokens=1500, total_tokens=5500)
 
 
 def run(tmp_path, model, *, limits=None):
@@ -71,7 +73,7 @@ def test_a_turn_limit_stop_scores_every_criterion_false_with_the_reason_turn_lim
 
 
 def test_a_token_limit_stop_scores_every_criterion_false_with_the_reason_token_limit(tmp_path):
-    model = with_usage(ScriptedModel(CASES, always_call_tool=True), ModelUsage(input_tokens=4000, output_tokens=1000, total_tokens=5000))
+    model = with_usage(ScriptedModel(CASES, always_call_tool=True), OVER_BUDGET)
     verdict = verdict_of(run(tmp_path, model))
     assert (verdict["status"], verdict["reason"]) == ("failed", "token_limit")
     assert states(verdict) == {name: ("scored", False, "token_limit") for name in CRITERIA}
@@ -113,7 +115,7 @@ def test_a_complete_answer_is_still_produced(tmp_path):
     assert episode["status"] == "produced" and episode["reason"] is None
 
 
-def with_recorded_limit(location, kind="token", limit=12_000):
+def with_recorded_limit(location, kind="token", limit=4_000):
     """The same kept log, with Inspect's record of a sample limit added to its only sample.
 
     Inspect drops the generation that crosses a limit, so a final answer and a recorded limit seldom
@@ -136,13 +138,13 @@ def test_a_cut_final_answer_is_output_cap_whatever_limit_is_recorded(tmp_path, k
 
 
 def test_a_recorded_limit_decides_when_there_is_no_final_answer(tmp_path):
-    model = with_usage(ScriptedModel(CASES, always_call_tool=True), ModelUsage(input_tokens=4000, output_tokens=1000, total_tokens=5000))
+    model = with_usage(ScriptedModel(CASES, always_call_tool=True), OVER_BUDGET)
     (episode,) = projection.project_log(run(tmp_path, model), expected=[("D03", 0)])
     assert (episode["status"], episode["reason"]) == ("failed", "token_limit")
 
 
 def test_the_generation_that_crosses_the_token_budget_leaves_no_final_answer_so_the_limit_decides(tmp_path):
-    model = with_usage(cut_answer(), ModelUsage(input_tokens=11_000, output_tokens=1_024, total_tokens=12_024))
+    model = with_usage(cut_answer(), ModelUsage(input_tokens=1_000, output_tokens=4_001, total_tokens=5_001))
     (episode,) = projection.project_log(run(tmp_path, model), expected=[("D03", 0)])
     assert (episode["status"], episode["reason"], episode["final_answer"]) == ("failed", "token_limit", None)
 
@@ -156,9 +158,11 @@ def test_a_complete_final_answer_with_a_recorded_limit_stays_produced(tmp_path):
 # --- all of them stay in the denominators, and the interim list is gone ---------------------------
 
 
-@pytest.mark.parametrize("kind", ["turn", "time", "cap"])
+@pytest.mark.parametrize("kind", ["turn", "token", "time", "cap"])
 def test_a_limit_stopped_episode_has_a_state_for_every_criterion_and_stays_attempted(tmp_path, kind):
-    if kind == "turn":
+    if kind == "token":
+        verdict = verdict_of(run(tmp_path, with_usage(ScriptedModel(CASES, always_call_tool=True), OVER_BUDGET)))
+    elif kind == "turn":
         verdict = verdict_of(run(tmp_path, ScriptedModel(CASES, always_call_tool=True)))
     elif kind == "cap":
         verdict = verdict_of(run(tmp_path, cut_answer()))
@@ -177,6 +181,24 @@ def test_a_limit_stopped_episode_has_a_state_for_every_criterion_and_stays_attem
         c = tally["criteria"][name]
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (1, 1, 0)
         assert c["N_scored"] + c["N_unscored"] + c["N_errored"] == 1
+
+
+def test_an_output_budget_stop_counts_every_criterion_incorrect_and_a_time_stop_leaves_it_unscored(tmp_path):
+    # T3: both stay expected and attempted and out of N_produced; the budget stop is scored false, the time stop is not
+    token = verdict_of(run(tmp_path / "a", with_usage(ScriptedModel(CASES, always_call_tool=True), OVER_BUDGET)))
+    inner = ScriptedModel(CASES)
+
+    def slow(input, tools, tool_choice, config):
+        time.sleep(1.5)
+        return inner(input, tools, tool_choice, config)
+
+    time_stop = verdict_of(run(tmp_path / "b", slow, limits=EpisodeLimits(time_seconds=1)))
+    assert (token["reason"], time_stop["reason"]) == ("token_limit", "time_limit")
+    tally = counts.tally([token, time_stop], workload=WORKLOAD)["criteria"]
+    for name in CRITERIA:
+        c = tally[name]
+        assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (2, 2, 0)
+        assert (c["N_incorrect"], c["N_unscored"], c["N_correct"]) == (1, 1, 0)
 
 
 def test_the_counters_tell_a_scored_false_stop_from_an_unscored_one(tmp_path):

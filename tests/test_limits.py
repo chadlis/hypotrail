@@ -12,6 +12,7 @@ from pathlib import Path
 import anyio
 import pytest
 from inspect_ai import eval as inspect_eval
+from inspect_ai.log import read_eval_log
 from inspect_ai.model import CachePolicy, ModelAPI, ModelOutput, ModelUsage, modelapi
 from tenacity import wait_none
 
@@ -21,6 +22,7 @@ from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.limits import ENFORCEMENT, NOT_ENFORCEABLE, EpisodeLimits, read_back
+from hypotrail.core.errors import InvalidInputError
 
 D03 = ["D03"]
 
@@ -91,20 +93,52 @@ def test_the_time_limit_stops_a_slow_episode(tmp_path):
     assert episode["final_answer"] is None
 
 
-def test_the_token_limit_stops_the_episode(tmp_path):
-    script = ScriptedModel(cases(), always_call_tool=True)
+def with_usage(script, usage):
     inner = script.__call__
 
-    def with_usage(input, tools, tool_choice, config):
+    def call(input, tools, tool_choice, config):
         output = inner(input, tools, tool_choice, config)
-        output.usage = ModelUsage(input_tokens=4000, output_tokens=1000, total_tokens=5000)
+        output.usage = usage
         return output
 
-    _, (episode,) = run(tmp_path, with_usage)
+    return call
 
-    assert episode["stopped_by_limit"] == {"type": "token", "limit": 12000.0}
+
+def test_the_output_token_budget_stops_the_episode(tmp_path):
+    # output tokens cross 4,000 on the third generation (3 x 1,500); inputs alone (3 x 4,000) would not matter
+    script = ScriptedModel(cases(), always_call_tool=True)
+    location, (episode,) = run(tmp_path, with_usage(script, ModelUsage(input_tokens=4000, output_tokens=1500, total_tokens=5500)))
+
+    assert episode["stopped_by_limit"] == {"type": "token", "limit": 4000}
+    assert (episode["status"], episode["reason"]) == ("failed", "token_limit")
     assert episode["final_answer"] is None
     assert kinds(episode).count("model_turn") < 6
+    # the budget is Inspect's native output-metered limit, read back from the log header (public log API)
+    config = read_eval_log(location, header_only=True).eval.config
+    assert (config.token_limit, config.token_limit_type) == (4000, "output")
+    (sample,) = read_eval_log(location).samples
+    assert (sample.token_limit, sample.token_limit_type) == (4000, "output")
+    assert sample.token_limit_usage > 4000
+
+
+def test_input_and_cached_tokens_do_not_count_toward_the_budget(tmp_path):
+    # a total far above the former 12,000 all-token budget, but 100 output tokens per call
+    heavy = ModelUsage(
+        input_tokens=2000, output_tokens=100, input_tokens_cache_read=30_000, input_tokens_cache_write=9_000, total_tokens=41_100
+    )
+    _, (episode,) = run(tmp_path, with_usage(ScriptedModel(cases()), heavy))
+
+    assert (episode["status"], episode["reason"]) == ("produced", None)
+    assert episode["stopped_by_limit"] is None
+    assert episode["final_answer"] is not None
+
+
+def test_the_same_usage_under_total_metering_would_have_stopped_the_episode(tmp_path):
+    # the probe: Inspect's "all" metering at 4,000 stops the very usage above, so that Episode passes
+    # because of the metering type and not because the numbers are small
+    heavy = ModelUsage(input_tokens=2000, output_tokens=100, input_tokens_cache_read=30_000, total_tokens=32_100)
+    _, (episode,) = run(tmp_path, with_usage(ScriptedModel(cases()), heavy), token_limit=4000)
+    assert episode["stopped_by_limit"] == {"type": "token", "limit": 4000}
 
 
 # --- per-call output cap ------------------------------------------------------------------
@@ -245,7 +279,8 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
         "model_turns": 6,
         "tool_calls": None,
         "time_seconds": 60,
-        "total_tokens": 12000,
+        "output_token_budget": 4000,
+        "token_budget_metering": "output",
         "max_output_tokens": 1024,
         "concurrency": 1,
         "max_connections": 1,
@@ -264,12 +299,12 @@ def test_every_limit_has_a_label_and_a_witness_that_exists():
         assert f"def {witness}(" in source, witness
 
 
-def test_the_limit_values_are_the_ag_11_proposals():
+def test_the_limit_values_are_the_ag_11_proposals_but_the_token_budget():
     assert EpisodeLimits().as_dict() == {
         "model_turns": 6,
         "tool_calls": 8,
         "time_seconds": 60,
-        "total_tokens": 12000,
+        "output_token_budget": 4000,
         "max_output_tokens": 1024,
         "concurrency": 1,
         "response_cache": False,
@@ -277,3 +312,48 @@ def test_the_limit_values_are_the_ag_11_proposals():
         "transport_retries": 0,
     }
     assert limits_module.eval_options(EpisodeLimits())["turn_limit"] == 6
+
+
+# --- the token budget's key follows its metering ---------------------------------------
+
+
+def test_the_metering_of_the_budget_is_a_constant_not_a_limit():
+    assert limits_module.TOKEN_BUDGET_METERING == "output"
+    assert not hasattr(EpisodeLimits(), "token_budget_metering")
+    requested = limits_module.requested_limits(EpisodeLimits())
+    assert requested["output_token_budget"] == 4000 and requested["token_budget_metering"] == "output"
+    assert limits_module.eval_options(EpisodeLimits())["token_limit"].type == "output"
+
+
+@pytest.mark.parametrize(
+    ("limit", "limit_type", "expected"),
+    [
+        (4000, "output", {"output_token_budget": 4000, "token_budget_metering": "output"}),
+        (12000, "all", {"total_token_budget": 12000, "token_budget_metering": "all"}),
+        (12000, None, {"total_token_budget": 12000, "token_budget_metering": "all"}),  # a log made before metering types existed
+        (None, None, {"token_budget_metering": None}),  # no limit: the absence is stated, not silent (AG-11)
+        (None, "output", {"token_budget_metering": None}),
+    ],
+)
+def test_the_budget_key_follows_the_metering(limit, limit_type, expected):
+    assert limits_module.token_budget_fields(limit, limit_type) == expected
+
+
+def test_a_metering_type_other_than_output_or_all_is_refused_by_name():
+    with pytest.raises(InvalidInputError) as caught:
+        limits_module.token_budget_fields(4000, "input")
+    assert caught.value.code == limits_module.TOKEN_METERING_UNSUPPORTED and "input" in str(caught.value)
+
+
+def test_read_back_of_an_all_token_log_keys_the_budget_total_token_budget(kept_all_token_log):
+    effective = read_back(kept_all_token_log)
+    assert effective["total_token_budget"] == 12000 and effective["token_budget_metering"] == "all"
+    assert "output_token_budget" not in effective
+
+
+def test_with_no_token_limit_the_metering_is_present_and_null_in_the_read_back(tmp_path):
+    script = ScriptedModel(cases())
+    location, _ = run(tmp_path, script, token_limit=None)
+    effective = read_back(location)
+    assert "token_budget_metering" in effective and effective["token_budget_metering"] is None
+    assert "output_token_budget" not in effective and "total_token_budget" not in effective

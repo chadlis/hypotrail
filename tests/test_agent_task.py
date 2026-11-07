@@ -309,3 +309,12 @@ def test_the_model_can_call_describe_schema_through_the_task(tmp_path):
     tool_events = [e for s in log.samples for e in s.events if e.event == "tool"]
     assert [e.function for e in tool_events] == ["describe_schema"]
     assert [t["name"] for t in json.loads(tool_events[0].result)["tables"]] == ELEVEN
+
+
+def test_plain_and_verify_attempts_both_carry_the_4000_output_token_budget(tmp_path):
+    # T2 (AG-12: same budgets): both Configurations' Attempts record Inspect's native output-metered limit
+    for configuration in ("plain", "verify"):
+        _, location = run(configuration, tmp_path)
+        config = read_eval_log(location, header_only=True).eval.config
+        assert (config.token_limit, config.token_limit_type) == (4000, "output"), configuration
+        assert limits_module.read_back(location)["output_token_budget"] == 4000
