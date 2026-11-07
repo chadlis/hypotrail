@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from hypotrail.core.errors import InvalidInputError
+
 ROOT = Path(__file__).resolve().parent.parent
 HANDBOOK = ROOT / "docs" / "handbook"
 BUILT = HANDBOOK / "handbook.html"
@@ -196,7 +198,7 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
         assert replacement in ENFORCEMENT
         assert f"def {ENFORCEMENT[replacement][1]}(" in tests_source
-        text = " ".join(c["text"] for r in parse(page).tables["effective-limits"] if r["attrs"].get("data-limit") == limit for c in r["cells"])
+        text = row["text"]
         assert f"{replacement}" in text and "#50" in text and "chapter 03" in text, limit
 
 
@@ -218,6 +220,7 @@ def table_rows(page, table_id, attribute):
         if attribute in row["attrs"]:
             rows[row["attrs"][attribute]] = {
                 "attrs": row["attrs"],
+                "text": " ".join(c["text"] for c in row["cells"]),
                 "cells": {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]},
             }
     return rows
@@ -238,13 +241,13 @@ def test_the_current_limits_table_equals_the_episode_limits_their_states_and_wit
     rows = table_rows(page, "current-limits", "data-limit")
     limits = EpisodeLimits().as_dict()
     assert set(rows) == set(limits)
-    tests_source = "".join(path.read_text() for path in sorted((ROOT / "tests").glob("test_*.py")))
     for limit, row in rows.items():
         label, witness = ENFORCEMENT[limit]
         assert row["cells"]["data-value"] == shown(limits[limit]), limit
         assert row["cells"]["data-state"] == label, limit
         assert row["cells"]["data-witness"] == witness, limit
-        assert f"def {witness}(" in tests_source, witness
+        witness_file = ROOT / row["cells"]["data-file"]  # the table names the file; the witness is looked for there only
+        assert f"def {witness}(" in witness_file.read_text(), (limit, witness)
     # the metering belongs to the budget alone
     assert {limit for limit, row in rows.items() if "data-metering" in row["cells"]} == {"output_token_budget"}
     assert rows["output_token_budget"]["cells"]["data-metering"] == TOKEN_BUDGET_METERING
@@ -260,14 +263,41 @@ def test_the_superseded_spike_row_names_a_key_that_has_a_row_in_the_current_limi
     assert set(superseded) <= set(table_rows(page, "current-limits", "data-limit"))
 
 
-def test_the_budget_key_table_equals_the_keys_the_record_uses(page):
-    from hypotrail.agentic.limits import token_budget_fields
+def test_the_budget_key_table_equals_what_token_budget_fields_returns_or_raises(page):
+    """R3-S1, R3-S6: one row per case of the helper, each compared with what it returns or raises."""
+    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS, TOKEN_METERING_UNSUPPORTED, token_budget_fields
 
+    # the arguments (limit, limit type in the log) of each row
+    cases = {"output": (1, "output"), "all": (1, None), "none": (None, None), "other": (1, "input")}
     rows = table_rows(page, "token-budget-keys", "data-metering")
-    assert set(rows) == {"output", "all"}
-    for metering, row in rows.items():
-        (key,) = set(token_budget_fields(1, metering)) - {"token_budget_metering"}
-        assert row["cells"]["data-key"] == key, metering
+    assert set(rows) == set(cases)
+    assert {row["cells"]["data-key"] for m, row in rows.items() if m in TOKEN_BUDGET_KEYS} == set(TOKEN_BUDGET_KEYS.values())
+    for case, (limit, limit_type) in cases.items():
+        cells = rows[case]["cells"]
+        if case == "other":
+            with pytest.raises(InvalidInputError) as caught:
+                token_budget_fields(limit, limit_type)
+            assert caught.value.code == cells["data-refusal"] == TOKEN_METERING_UNSUPPORTED
+            assert cells["data-key"] == "" and cells["data-recorded"] == ""
+            continue
+        assert cells["data-refusal"] == ""
+        returned = token_budget_fields(limit, limit_type)
+        metering = returned.pop("token_budget_metering")
+        assert cells["data-recorded"] == ("null" if metering is None else metering), case
+        assert list(returned) == ([cells["data-key"]] if cells["data-key"] else []), case
+        if metering is not None:
+            assert cells["data-key"] == TOKEN_BUDGET_KEYS[metering], case
+
+
+def test_the_kept_logs_record_the_all_token_budget_under_the_earlier_key(page):
+    """R3-P4: the kept run.json files say total_tokens; a re-summary of their logs gives total_token_budget, as chapter 03 says."""
+    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS, ALL_METERING
+
+    for name in ("live-l12-plain", "live-l12-verify"):
+        kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
+        assert kept["effective_limits"]["total_tokens"] == 12000, name
+    assert TOKEN_BUDGET_KEYS[ALL_METERING] == "total_token_budget"
+    assert "under the earlier key <code>total_tokens</code>" in page and "<code>total_token_budget</code>" in page
 
 
 def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_row(page):
@@ -286,12 +316,6 @@ def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_ro
     assert "Turn limit, total token budget" not in page
     # the prose around the table does not restate the value
     assert "4,000" not in CHAPTER_03.read_text(encoding="utf-8")
-
-
-def test_chapter_03_names_the_refusal_of_another_metering_type(page):
-    from hypotrail.agentic.limits import TOKEN_METERING_UNSUPPORTED
-
-    assert f"<code>{TOKEN_METERING_UNSUPPORTED}</code>" in CHAPTER_03.read_text(encoding="utf-8")
 
 
 def test_the_reason_table_equals_the_codes_of_a_null_uses_tool_result(page):
