@@ -8,6 +8,8 @@ never logged or persisted; the output is scanned for it before the run reports.
 import hashlib
 import json
 import platform
+from dataclasses import InitVar, dataclass
+from enum import Enum
 from importlib import metadata
 from pathlib import Path
 
@@ -248,35 +250,40 @@ def _read_back_reasoning(location: str) -> str | None:
 
 
 # where a record's `requested_limits` came from: the Attempt that made the request, or a kept log read again
-THIS_ATTEMPT = "this_attempt"
-KEPT_LOG = "kept_log"
+class RequestSource(Enum):
+    """Where a record's requested limits came from; the value is the string `run.json` writes as `request_source`."""
+
+    THIS_ATTEMPT = "this_attempt"
+    KEPT_LOG = "kept_log"
 
 
 _BUILT_BY_A_CONSTRUCTOR = object()
 
 
+@dataclass(frozen=True)
 class Request:
-    """The limits a record's `requested_limits` holds, with where they came from (`THIS_ATTEMPT` or `KEPT_LOG`).
+    """The limits a record's `requested_limits` holds, with where they came from.
 
     The only ways to build one are `Request.this_attempt(limits)` and `Request.from_log(location)`: each ties the
-    source to how the limits were obtained, so a source cannot be paired with the other one's limits.
+    source to how the limits were obtained, so a source cannot be paired with the other one's limits. It is frozen,
+    so neither can be reassigned afterwards.
     """
 
-    __slots__ = ("limits", "source")
+    limits: dict
+    source: RequestSource
+    _key: InitVar[object] = None
 
-    def __init__(self, limits: dict, source: str, *, _key: object = None):
+    def __post_init__(self, _key: object) -> None:
         if _key is not _BUILT_BY_A_CONSTRUCTOR:
             raise TypeError("build a Request with Request.this_attempt or Request.from_log")
-        self.limits = limits
-        self.source = source
 
     @classmethod
     def this_attempt(cls, limits: limits_module.EpisodeLimits) -> "Request":
-        return cls(limits_module.requested_limits(limits), THIS_ATTEMPT, _key=_BUILT_BY_A_CONSTRUCTOR)
+        return cls(limits_module.requested_limits(limits), RequestSource.THIS_ATTEMPT, _BUILT_BY_A_CONSTRUCTOR)
 
     @classmethod
-    def from_log(cls, location) -> "Request":
-        return cls(limits_module.requested_from_log(location), KEPT_LOG, _key=_BUILT_BY_A_CONSTRUCTOR)
+    def from_log(cls, location: str) -> "Request":
+        return cls(limits_module.requested_from_log(location), RequestSource.KEPT_LOG, _BUILT_BY_A_CONSTRUCTOR)
 
 
 def _sha256(path: Path) -> str:
@@ -434,7 +441,7 @@ def _record(
         "machine": platform.machine(),
         "effective_limits": effective,
         "requested_limits": request.limits,
-        "request_source": request.source,
+        "request_source": request.source.value,
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
             "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",

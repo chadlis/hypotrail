@@ -6,6 +6,7 @@ client, the key header, the logs and the key scan are all the real ones.
 """
 
 import io
+import dataclasses
 import json
 import shutil
 import threading
@@ -1159,10 +1160,21 @@ def test_the_record_says_where_its_request_came_from(rehearsal, tmp_path, kept_a
 
 
 def test_a_request_is_built_only_by_its_two_constructors():
-    from hypotrail.agentic import limits as limits_module
-
     limits = limits_module.EpisodeLimits()
     attempt = agentic_live.Request.this_attempt(limits)
-    assert (attempt.limits, attempt.source) == (limits_module.requested_limits(limits), agentic_live.THIS_ATTEMPT)
+    assert (attempt.limits, attempt.source) == (limits_module.requested_limits(limits), agentic_live.RequestSource.THIS_ATTEMPT)
+    assert attempt == agentic_live.Request.this_attempt(limits)
     with pytest.raises(TypeError):
-        agentic_live.Request({}, agentic_live.THIS_ATTEMPT)
+        agentic_live.Request({}, agentic_live.RequestSource.THIS_ATTEMPT)
+
+
+def test_a_request_from_a_log_holds_that_logs_limits(kept_all_token_log):
+    request = agentic_live.Request.from_log(str(kept_all_token_log))
+    assert request.source is agentic_live.RequestSource.KEPT_LOG and request.source.value == "kept_log"
+    assert request.limits == limits_module.requested_from_log(str(kept_all_token_log))
+
+
+def test_a_request_cannot_be_reassigned():
+    request = agentic_live.Request.this_attempt(limits_module.EpisodeLimits())
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        request.source = agentic_live.RequestSource.KEPT_LOG
