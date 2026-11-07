@@ -479,4 +479,4 @@ def test_the_record_gives_the_requested_and_the_effective_budget_as_4000_output_
     for limits in (record["requested_limits"], record["effective_limits"]):
         assert limits["output_token_budget"] == 4000
         assert limits["token_budget_metering"] == "output"
-        assert "total_tokens" not in limits
+        assert "total_token_budget" not in limits
