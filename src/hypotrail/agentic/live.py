@@ -290,6 +290,7 @@ def run_live(
     def work() -> dict:
         workload = load_workload(workload_dir)
         before = _sha256(workload.database_path)
+        limits = limits_module.EpisodeLimits()
         location = runner.run_episodes(
             workload.cases("dev", case_ids),
             workload=workload,
@@ -297,10 +298,11 @@ def run_live(
             model=model,
             repeats=repeats,
             log_dir=out_dir / "inspect",
-            limits=limits_module.EpisodeLimits(),
+            limits=limits,
             reasoning_effort=REASONING_EFFORT,
         )
         return _record(
+            requested=limits_module.requested_limits(limits),
             request_source=THIS_ATTEMPT,
             location=location,
             out_dir=out_dir,
@@ -334,6 +336,7 @@ def summarize(
         out_dir,
         api_key,
         lambda: _record(
+            requested=limits_module.requested_from_log(location),
             request_source=KEPT_LOG,
             location=location,
             out_dir=out_dir,
@@ -361,6 +364,7 @@ def _episode_entry(episode: dict, sample) -> dict:
 
 def _record(
     *,
+    requested: dict,
     request_source: str,
     location: str,
     out_dir: Path,
@@ -376,11 +380,7 @@ def _record(
     log = read_eval_log(location)
     parameters = request_parameters(log)
     effective = limits_module.read_back(location)
-    # the request: made by this Attempt, or (in a re-summary) the one the kept log holds, never today's code (#57)
-    if request_source == THIS_ATTEMPT:
-        requested = limits_module.requested_limits(limits)
-    else:
-        requested = limits_module.requested_from_log(location)
+    # `requested` is the request its caller names: this Attempt's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {

@@ -132,9 +132,9 @@ def requested_from_log(location: str) -> dict:
     per-query caps and `max_connections` are not part of a request, as in `requested_limits`.
     """
     effective = read_back(location)
-    keys = set(EpisodeLimits().as_dict()) - {"output_token_budget"}
-    budget = set(TOKEN_BUDGET_KEYS.values()) | {"token_budget_metering"}
-    return {k: v for k, v in effective.items() if k in keys | budget} | {"tool_calls": None}
+    # the shape of a request, whichever metering the log's budget has
+    keys = set(requested_limits(EpisodeLimits())) | set(TOKEN_BUDGET_KEYS.values())
+    return {k: v for k, v in effective.items() if k in keys} | {"tool_calls": None}
 
 
 # How each limit stands, and the test that witnesses it (spike check 3).

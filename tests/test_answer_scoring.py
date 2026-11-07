@@ -170,11 +170,38 @@ OTHER = json.dumps({"d": 2})
         "Before.\n\n" + OBJ + "\n\nAfter.",
         "[" + OBJ + "]",
         "A {stray brace} in prose, then " + OBJ,
-        '{"truncated": [1, 2 then ' + OBJ,
     ],
 )
 def test_exactly_one_embedded_object_is_found_and_returned_as_its_own_text(text):
     assert answer_scoring.single_embedded_object(text) == OBJ
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '{"status": NaN, "x": ' + OBJ + "}",
+        "A stray { in prose, then " + OBJ,
+        "Prices are in {USD. " + OBJ,
+        '{"truncated": [1, 2 then ' + OBJ,
+        '{"status": "answered", "x": ' + OBJ,
+        'He wrote "{" then ' + OBJ,
+    ],
+)
+def test_a_failed_read_skips_only_its_brace_so_a_later_object_still_counts(text):
+    assert answer_scoring.single_embedded_object(text) == OBJ
+
+
+def test_a_failed_read_does_not_hide_a_nested_object_it_is_the_one_candidate():
+    assert answer_scoring.single_embedded_object('{"status": NaN, "x": {"a": 1}}') == '{"a": 1}'
+
+
+def test_a_balanced_stray_brace_pair_before_the_object_is_skipped():
+    assert answer_scoring.single_embedded_object("Voir {approximatif} puis " + OBJ) == OBJ
+
+
+def test_the_finder_returns_the_decoded_object_with_its_text():
+    assert answer_scoring.find_embedded_object("x " + OBJ + " y") == (OBJ, json.loads(OBJ))
+    assert answer_scoring.find_embedded_object("none") is None
 
 
 def test_an_object_nested_in_the_candidate_is_not_another_candidate():

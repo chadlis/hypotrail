@@ -287,13 +287,12 @@ def test_the_provenance_is_a_top_level_field_and_the_scorer_record_keeps_its_sha
     assert set(result["scorer"]) == {"name", "version"}
 
 
-def test_the_error_record_has_the_field_too_and_it_is_null():
+def test_the_error_record_has_no_such_field_since_nobody_established_what_was_read():
     def broken(*args):
         raise ValueError("x")
 
     result = chinook_contract.apply_scorer(broken, correct_answer_text("D03"), REFS["D03"], SCHEMA)
-    assert result["answer_read_from"] is None
-    assert set(result) == {"scorer", "raw_answer", "criteria", "error_type", "answer_read_from"}
+    assert set(result) == {"scorer", "raw_answer", "criteria", "error_type"}
 
 
 def test_a_verdict_carries_the_field_without_clashing_and_an_episode_without_answer_does_not():
