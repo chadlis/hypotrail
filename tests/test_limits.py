@@ -12,6 +12,7 @@ from pathlib import Path
 import anyio
 import pytest
 from inspect_ai import eval as inspect_eval
+from inspect_ai.log import read_eval_log
 from inspect_ai.model import CachePolicy, ModelAPI, ModelOutput, ModelUsage, modelapi
 from tenacity import wait_none
 
@@ -91,20 +92,52 @@ def test_the_time_limit_stops_a_slow_episode(tmp_path):
     assert episode["final_answer"] is None
 
 
-def test_the_token_limit_stops_the_episode(tmp_path):
-    script = ScriptedModel(cases(), always_call_tool=True)
+def with_usage(script, usage):
     inner = script.__call__
 
-    def with_usage(input, tools, tool_choice, config):
+    def call(input, tools, tool_choice, config):
         output = inner(input, tools, tool_choice, config)
-        output.usage = ModelUsage(input_tokens=4000, output_tokens=1000, total_tokens=5000)
+        output.usage = usage
         return output
 
-    _, (episode,) = run(tmp_path, with_usage)
+    return call
 
-    assert episode["stopped_by_limit"] == {"type": "token", "limit": 12000.0}
+
+def test_the_output_token_budget_stops_the_episode(tmp_path):
+    # output tokens cross 4,000 on the third generation (3 x 1,500); inputs alone (3 x 4,000) would not matter
+    script = ScriptedModel(cases(), always_call_tool=True)
+    location, (episode,) = run(tmp_path, with_usage(script, ModelUsage(input_tokens=4000, output_tokens=1500, total_tokens=5500)))
+
+    assert episode["stopped_by_limit"] == {"type": "token", "limit": 4000}
+    assert (episode["status"], episode["reason"]) == ("failed", "token_limit")
     assert episode["final_answer"] is None
     assert kinds(episode).count("model_turn") < 6
+    # the budget is Inspect's native output-metered limit, read back from the log header (public log API)
+    config = read_eval_log(location, header_only=True).eval.config
+    assert (config.token_limit, config.token_limit_type) == (4000, "output")
+    (sample,) = read_eval_log(location).samples
+    assert (sample.token_limit, sample.token_limit_type) == (4000, "output")
+    assert sample.token_limit_usage > 4000
+
+
+def test_input_and_cached_tokens_do_not_count_toward_the_budget(tmp_path):
+    # a total far above the former 12,000 all-token budget, but 100 output tokens per call
+    heavy = ModelUsage(
+        input_tokens=2000, output_tokens=100, input_tokens_cache_read=30_000, input_tokens_cache_write=9_000, total_tokens=41_100
+    )
+    _, (episode,) = run(tmp_path, with_usage(ScriptedModel(cases()), heavy))
+
+    assert (episode["status"], episode["reason"]) == ("produced", None)
+    assert episode["stopped_by_limit"] is None
+    assert episode["final_answer"] is not None
+
+
+def test_the_same_usage_under_total_metering_would_have_stopped_the_run(tmp_path):
+    # the probe: Inspect's "all" metering at 4,000 stops the very usage above, so that run passes
+    # because of the metering type and not because the numbers are small
+    heavy = ModelUsage(input_tokens=2000, output_tokens=100, input_tokens_cache_read=30_000, total_tokens=32_100)
+    _, (episode,) = run(tmp_path, with_usage(ScriptedModel(cases()), heavy), token_limit=4000)
+    assert episode["stopped_by_limit"] == {"type": "token", "limit": 4000}
 
 
 # --- per-call output cap ------------------------------------------------------------------
@@ -245,7 +278,8 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
         "model_turns": 6,
         "tool_calls": None,
         "time_seconds": 60,
-        "total_tokens": 12000,
+        "output_token_budget": 4000,
+        "token_budget_metering": "output",
         "max_output_tokens": 1024,
         "concurrency": 1,
         "max_connections": 1,
@@ -257,23 +291,24 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
 
 
 def test_every_limit_has_a_label_and_a_witness_that_exists():
-    assert set(ENFORCEMENT) == set(EpisodeLimits().as_dict())
+    assert set(ENFORCEMENT) == set(EpisodeLimits().as_dict()) - {"token_budget_metering"}
     source = Path(__file__).read_text()
     for limit, (label, witness) in ENFORCEMENT.items():
         assert label in {"shown enforced", "configured, not witnessed", "not enforceable"}, limit
         assert f"def {witness}(" in source, witness
 
 
-def test_the_limit_values_are_the_ag_11_proposals():
+def test_the_limit_values_are_the_ag_11_proposals_but_the_token_budget():
     assert EpisodeLimits().as_dict() == {
         "model_turns": 6,
         "tool_calls": 8,
         "time_seconds": 60,
-        "total_tokens": 12000,
+        "output_token_budget": 4000,
         "max_output_tokens": 1024,
         "concurrency": 1,
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
+        "token_budget_metering": "output",
     }
     assert limits_module.eval_options(EpisodeLimits())["turn_limit"] == 6

@@ -170,6 +170,7 @@ def test_the_sheet_model_is_the_one_the_live_run_recorded(page):
 
 
 def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
+    """T1'': a two-way check. The non-superseded rows plus the keys that superseded rows name are the current enforcement keys."""
     from hypotrail.agentic.limits import ENFORCEMENT
 
     rows = {
@@ -177,7 +178,17 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
         for row in parse(page).tables["effective-limits"]
         if "data-limit" in row["attrs"]
     }
-    assert set(rows) == set(ENFORCEMENT)
+
+    def cells(row):
+        return {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]}
+
+    superseded = {limit: row for limit, row in rows.items() if cells(row)["data-state"] == "superseded"}
+    current = set(rows) - set(superseded)
+    named = {row["attrs"]["data-replaced-by"] for row in superseded.values()}
+    assert current | named == set(ENFORCEMENT)
+    assert not current & named  # a replacing key has no row of its own: the superseded row stands for it
+    assert superseded, "the spike's 12,000 all-token budget is shown as superseded"
+    tests_source = (ROOT / "tests" / "test_limits.py").read_text()
 
     def shown(value):
         if value is None:
@@ -186,14 +197,45 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
             return "on" if value else "off"
         return str(value)
 
-    for limit, row in rows.items():
-        by_attr = {k: c["text"].strip() for c in row["cells"] for k in c["attrs"]}
-        effective = RUN["effective_limits"][limit]
-        assert by_attr["data-effective"] == shown(effective), limit
+    for limit in current:
+        by_attr = cells(rows[limit])
         label, witness = ENFORCEMENT[limit]
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
         assert by_attr["data-state"] == label, limit
         assert f"<code>{witness}</code>" in page, witness
-        assert f"def {witness}(" in (ROOT / "tests" / "test_limits.py").read_text()
+        assert f"def {witness}(" in tests_source
+
+    for limit, row in superseded.items():
+        by_attr = cells(row)
+        replacement = row["attrs"]["data-replaced-by"]
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
+        assert replacement in ENFORCEMENT
+        assert f"def {ENFORCEMENT[replacement][1]}(" in tests_source
+        text = " ".join(c["text"] for c in row["cells"])
+        assert f"{replacement}" in text and "#50" in text and "chapter 03" in text, limit
+
+
+def test_the_spike_report_no_longer_lists_the_token_budget_as_shown_enforced(page):
+    """T4: check 3 agrees with the amended sheet."""
+    check = next(r for r in parse(page).tables["spike-report"] if r["attrs"].get("data-check") == "3")
+    outcome = check["cells"][2]["text"]
+    assert "Turns, tokens, concurrency" not in outcome
+    assert "superseded by #50" in outcome and "chapter 03" in outcome
+
+
+def test_chapter_03_describes_the_output_budget_and_the_two_kept_runs_keep_the_earlier_one(page):
+    """Criterion 7: the limit-stop table, the live-command text, D1's `token_limit`, the kept runs' 12,000."""
+    chapter = page
+    for text in (
+        'TokenLimit(type="output")',
+        "4,000 output tokens",
+        "<code>token_limit</code> means the 4,000 output-token budget",
+        "input history and the cached tokens resent at every call no longer weigh on the budget",
+        "both runs ran under the earlier 12,000 all-token budget",
+        "a budget of 4,000 output tokens per Episode",
+    ):
+        assert text in chapter, text
+    assert "Turn limit, total token budget" not in chapter
 
 
 # --- the report -----------------------------------------------------------------------------------------------------

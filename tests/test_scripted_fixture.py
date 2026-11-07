@@ -471,3 +471,12 @@ def test_the_fixture_refuses_a_configuration_the_workload_does_not_declare(tmp_p
     with pytest.raises(InvalidInputError) as caught:
         fixture.run_fixture(workload_dir=CHINOOK, out_dir=tmp_path / "x", configuration="nope")
     assert caught.value.code == "CONFIGURATION_NOT_DECLARED"
+
+
+def test_the_record_gives_the_requested_and_the_effective_budget_as_4000_output_tokens(fixture_run):
+    # criterion 6: no field presents the 4,000 as a total-token limit; the effective one is read back from the log header
+    _, record = fixture_run
+    for limits in (record["requested_limits"], record["effective_limits"]):
+        assert limits["output_token_budget"] == 4000
+        assert limits["token_budget_metering"] == "output"
+        assert "total_tokens" not in limits

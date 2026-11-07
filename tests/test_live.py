@@ -1009,3 +1009,38 @@ def test_the_run_record_carries_the_reason_next_to_the_value(tmp_path):
     # D03 failed with no final answer
     assert by_case["D03"]["uses_tool_result"] is None
     assert by_case["D03"]["uses_tool_result_reason"] == "no_final_answer"
+
+
+# --- #50: the budget is 4,000 output tokens, and the record says what it counted --------------------------------------------
+
+
+def test_a_budget_stopped_episode_records_the_limit_its_metering_and_the_output_tokens(tmp_path):
+    from _agent_helpers import ScriptedModel
+    from inspect_ai.model import ModelUsage
+
+    run_cases = WORKLOAD.cases("dev", ["D03"])
+    inner = ScriptedModel(run_cases, always_call_tool=True)
+
+    def over_budget(input, tools, tool_choice, config):
+        output = inner(input, tools, tool_choice, config)
+        output.usage = ModelUsage(input_tokens=500, output_tokens=1500, total_tokens=2000)
+        return output
+
+    location = runner.run_episodes(
+        run_cases, workload=WORKLOAD, configuration="plain", model=runner.mock_model(over_budget), repeats=1,
+        log_dir=tmp_path / "out" / "inspect",
+    )
+    record = agentic_live.summarize(
+        location=location, out_dir=tmp_path / "out", model_id=MODEL_ID, api_key=FAKE_KEY, case_ids=["D03"], repeats=1
+    )
+    (episode,) = record["episodes"]
+    assert (episode["status"], episode["stopped_by_limit"]) == ("failed", {"type": "token", "limit": 4000})
+    assert episode["output_token_budget"] == {"limit": 4000, "metering": "output", "metered_usage": episode["output_tokens"]}
+    assert episode["output_tokens"] == 4500  # three generations of 1,500; the third crossed the budget
+    for limits in (record["requested_limits"], record["effective_limits"]):
+        assert limits["output_token_budget"] == 4000 and limits["token_budget_metering"] == "output"
+        assert "total_tokens" not in limits
+
+
+def test_an_episode_absent_from_the_log_has_no_budget_figures():
+    assert agentic_live.budget_of(None) is None

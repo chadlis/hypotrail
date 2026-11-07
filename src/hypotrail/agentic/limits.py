@@ -1,12 +1,15 @@
 """Episode limits, set through Inspect's own options and read back from the log.
 
-AG-11 proposes the values below. Nothing here re-implements a limit: each field
-maps to an Inspect option, or is reported as having no native control.
+AG-11 proposes the values below; the Episode token budget was revised by owner decision on #50 (2026-11-07):
+4,000 output tokens, metered by Inspect's own `TokenLimit(type="output")`, not 12,000 tokens in total.
+Nothing here re-implements a limit: each field maps to an Inspect option, or is reported as having no
+native control.
 """
 
 from dataclasses import asdict, dataclass
 
 from inspect_ai.log import read_eval_log
+from inspect_ai.util import TokenLimit
 
 
 @dataclass(frozen=True)
@@ -14,12 +17,14 @@ class EpisodeLimits:
     model_turns: int = 6
     tool_calls: int = 8
     time_seconds: int = 60
-    total_tokens: int = 12_000
+    output_token_budget: int = 4_000
     max_output_tokens: int = 1_024
     concurrency: int = 1
     response_cache: bool = False
     sample_retries: int = 0
     transport_retries: int = 0
+    # which tokens `output_token_budget` meters: Inspect's "output" (reasoning tokens included), never "all"
+    token_budget_metering: str = "output"
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -40,7 +45,7 @@ def eval_options(limits: EpisodeLimits) -> dict:
     return {
         "turn_limit": limits.model_turns,
         "time_limit": limits.time_seconds,
-        "token_limit": limits.total_tokens,
+        "token_limit": TokenLimit(tokens=limits.output_token_budget, type=limits.token_budget_metering),
         "max_samples": limits.concurrency,
         "max_tasks": 1,
         "retry_on_error": limits.sample_retries,
@@ -69,7 +74,9 @@ def read_back(location: str) -> dict:
         "model_turns": config.turn_limit,
         "tool_calls": None,
         "time_seconds": config.time_limit,
-        "total_tokens": config.token_limit,
+        "output_token_budget": config.token_limit,
+        # Inspect records None for "all"
+        "token_budget_metering": config.token_limit_type or "all",
         "max_output_tokens": generate.max_tokens,
         "concurrency": config.max_samples,
         "max_connections": generate.max_connections,
@@ -87,7 +94,7 @@ ENFORCEMENT = {
     "model_turns": ("shown enforced", "test_the_turn_limit_stops_the_episode_at_the_configured_count"),
     "tool_calls": ("not enforceable", "test_inspect_has_no_tool_call_limit"),
     "time_seconds": ("configured, not witnessed", "test_the_time_limit_stops_a_slow_episode"),
-    "total_tokens": ("shown enforced", "test_the_token_limit_stops_the_episode"),
+    "output_token_budget": ("shown enforced", "test_the_output_token_budget_stops_the_episode"),
     "max_output_tokens": ("configured, not witnessed", "test_the_output_token_cap_reaches_every_model_call"),
     "concurrency": ("shown enforced", "test_one_episode_runs_at_a_time"),
     "response_cache": ("shown enforced", "test_the_response_cache_is_off"),
