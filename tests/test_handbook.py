@@ -520,6 +520,11 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
         (raw, None)
         for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
     ]
+    for name, group in samples.items():
+        if name.endswith("_off_schema"):
+            # each off-schema row is exercised with an object that keeps the six fields and one that misses a field
+            missing = [set(answer) <= set(json.loads(held)) for _, held in group]
+            assert True in missing and False in missing, name
     rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
     assert set(rows) == set(samples)
     kept = ("exact_table", "evidence_link_valid")
@@ -530,14 +535,22 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
             result = chinook_contract.score_episode(raw, reference, schema)
             by = {c["name"]: c for c in result["criteria"]}
             falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
-            if name.endswith("_off_schema"):
-                # only what is false for every such object is listed: exact_table depends on the object
-                assert listed <= falsified and "exact_table" not in listed, raw
-            elif name == "nothing_read":
+            if name == "nothing_read":
                 assert listed == set(chinook_contract.CRITERIA) == falsified, raw
-            else:
+            elif not name.endswith("_off_schema"):
                 assert falsified == listed, raw
-            assert all(by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT for n in listed), raw
+            # the Criteria scored false with invalid_response_format are exactly the row's data-false list, except that
+            # exact_table is false with it too exactly when the held object misses a field
+            invalid = {n for n in falsified if by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT}
+            misses_a_field = held is not None and not set(answer) <= set(json.loads(held))
+            assert invalid == listed | ({"exact_table"} if misses_a_field else set()), raw
+            if name == "exact_object_off_schema":
+                # an extra field keeps the six fields, so exact_table holds against the right Reference; a missing one fails it
+                exact = by["exact_table"]
+                if misses_a_field:
+                    assert exact["score"] is False and exact["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT, raw
+                else:
+                    assert exact["score"] is True, raw
             assert str(result["answer_read_from"]).replace("None", "null") == attrs["data-read-from"], raw
             if attrs["data-read-from"] == chinook_contract.READ_FROM_EMBEDDED_OBJECT:
                 # "as for that object alone": exact_table and evidence_link_valid are those of the held object scored alone
@@ -551,8 +564,8 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     }
 
 
-def test_chapter_03_states_both_halves_of_the_non_json_wrapper_rule_once(page):
-    """#58 T9'': a non-JSON wrapper around one object is read on that object; made valid JSON, it is itself the one object."""
+def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_as_the_one_object(page):
+    """#58 T9'': the Scorer reads a non-JSON wrapper on the object it holds and a JSON wrapper as the one object, and the chapter states the JSON half once."""
     chinook_contract, schema, reference, answer = _scorer_inputs()
     text = json.dumps(answer)
 

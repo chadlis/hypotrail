@@ -5,8 +5,8 @@ speaks the Messages API well enough to carry a tool call, so the provider
 client, the key header, the logs and the key scan are all the real ones.
 """
 
-import io
 import dataclasses
+import io
 import json
 import shutil
 import threading
