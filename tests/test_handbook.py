@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -182,7 +183,6 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     assert current | named == set(ENFORCEMENT)
     assert not current & named  # a replacing key has no row of its own: the superseded row stands for it
     assert superseded, "the spike's 12,000 all-token budget is shown as superseded"
-    tests_source = (ROOT / "tests" / "test_limits.py").read_text()
 
     for limit in current:
         by_attr = rows[limit]["cells"]
@@ -190,14 +190,14 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
         assert by_attr["data-state"] == label, limit
         assert f"<code>{witness}</code>" in page, witness
-        assert f"def {witness}(" in tests_source
+        assert defines(by_attr["data-file"], witness), witness
 
     for limit, row in superseded.items():
         by_attr = row["cells"]
         replacement = row["attrs"]["data-replaced-by"]
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
         assert replacement in ENFORCEMENT
-        assert f"def {ENFORCEMENT[replacement][1]}(" in tests_source
+        assert "data-file" not in by_attr  # a superseded row claims no witness of its own
         text = row["text"]
         assert f"{replacement}" in text and "#50" in text and "chapter 03" in text, limit
 
@@ -226,6 +226,11 @@ def table_rows(page, table_id, attribute):
     return rows
 
 
+def defines(path, name):
+    """Whether the test file at `path` (relative to the repository) defines a function called `name`."""
+    return f"def {name}(" in (ROOT / path).read_text()
+
+
 def shown(value):
     if value is None:
         return "none"
@@ -235,7 +240,7 @@ def shown(value):
 
 
 def test_the_current_limits_table_equals_the_episode_limits_their_states_and_witnesses(page):
-    """R1-S1, R2-S4, R2-P7: the limits in force once, as a table compared with the code; the metering is a column."""
+    """The limits in force, listed once as a table, equal the code's limits, states and witnesses; the metering is a column."""
     from hypotrail.agentic.limits import ENFORCEMENT, TOKEN_BUDGET_METERING, EpisodeLimits
 
     rows = table_rows(page, "current-limits", "data-limit")
@@ -246,8 +251,7 @@ def test_the_current_limits_table_equals_the_episode_limits_their_states_and_wit
         assert row["cells"]["data-value"] == shown(limits[limit]), limit
         assert row["cells"]["data-state"] == label, limit
         assert row["cells"]["data-witness"] == witness, limit
-        witness_file = ROOT / row["cells"]["data-file"]  # the table names the file; the witness is looked for there only
-        assert f"def {witness}(" in witness_file.read_text(), (limit, witness)
+        assert defines(row["cells"]["data-file"], witness), (limit, witness)  # the table names the file
     # the metering belongs to the budget alone
     assert {limit for limit, row in rows.items() if "data-metering" in row["cells"]} == {"output_token_budget"}
     assert rows["output_token_budget"]["cells"]["data-metering"] == TOKEN_BUDGET_METERING
@@ -264,40 +268,64 @@ def test_the_superseded_spike_row_names_a_key_that_has_a_row_in_the_current_limi
 
 
 def test_the_budget_key_table_equals_what_token_budget_fields_returns_or_raises(page):
-    """R3-S1, R3-S6: one row per case of the helper, each compared with what it returns or raises."""
+    """Each row of the table gives the inputs it covers; the helper is called with them and must return or raise what the row says."""
     from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS, TOKEN_METERING_UNSUPPORTED, token_budget_fields
 
-    # the arguments (limit, limit type in the log) of each row
-    cases = {"output": (1, "output"), "all": (1, None), "none": (None, None), "other": (1, "input")}
+    def value(text):
+        return None if text == "null" else int(text) if text.isdigit() else text
+
     rows = table_rows(page, "token-budget-keys", "data-metering")
-    assert set(rows) == set(cases)
+    assert set(rows) == {"output", "all", "none", "other"}
     assert {row["cells"]["data-key"] for m, row in rows.items() if m in TOKEN_BUDGET_KEYS} == set(TOKEN_BUDGET_KEYS.values())
-    for case, (limit, limit_type) in cases.items():
+    inputs = {}
+    for row in parse(page).tables["token-budget-keys"]:
+        if "data-metering" in row["attrs"]:
+            first = row["cells"][0]["attrs"]
+            inputs[row["attrs"]["data-metering"]] = (value(first["data-limit"]), [value(t) for t in first["data-type"].split()])
+    assert set(inputs) == set(rows)
+    assert inputs["all"][1] == ["all", None]  # an explicit "all" and a missing type both reach the row
+    for case, (limit, limit_types) in inputs.items():
         cells = rows[case]["cells"]
-        if case == "other":
-            with pytest.raises(InvalidInputError) as caught:
-                token_budget_fields(limit, limit_type)
-            assert caught.value.code == cells["data-refusal"] == TOKEN_METERING_UNSUPPORTED
-            assert cells["data-key"] == "" and cells["data-recorded"] == ""
-            continue
-        assert cells["data-refusal"] == ""
-        returned = token_budget_fields(limit, limit_type)
-        metering = returned.pop("token_budget_metering")
-        assert cells["data-recorded"] == ("null" if metering is None else metering), case
-        assert list(returned) == ([cells["data-key"]] if cells["data-key"] else []), case
-        if metering is not None:
-            assert cells["data-key"] == TOKEN_BUDGET_KEYS[metering], case
+        key, recorded, refusal = (cells.get(k, "") for k in ("data-key", "data-recorded", "data-refusal"))  # absent: none
+        for limit_type in limit_types:
+            if refusal:
+                with pytest.raises(InvalidInputError) as caught:
+                    token_budget_fields(limit, limit_type)
+                assert caught.value.code == refusal == TOKEN_METERING_UNSUPPORTED
+                assert "data-key" not in cells and "data-recorded" not in cells
+                continue
+            returned = token_budget_fields(limit, limit_type)
+            metering = returned.pop("token_budget_metering")
+            assert recorded == ("null" if metering is None else metering), (case, limit_type)
+            assert list(returned) == ([key] if key else []), (case, limit_type)
+            if metering is not None:
+                assert key == TOKEN_BUDGET_KEYS[metering], (case, limit_type)
 
 
-def test_the_kept_logs_record_the_all_token_budget_under_the_earlier_key(page):
-    """R3-P4: the kept run.json files say total_tokens; a re-summary of their logs gives total_token_budget, as chapter 03 says."""
-    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS, ALL_METERING
+def test_the_kept_logs_record_the_all_token_budget_under_the_earlier_key(page, tmp_path):
+    """Both kept run.json files hold the 12,000 budget as total_tokens, requested and effective; a re-summary of each log gives the all-token key of the table, which chapter 03 links."""
+    from hypotrail.agentic import live
+    from hypotrail.agentic.limits import TOKEN_BUDGET_KEYS
 
+    all_token_key = next(r["cells"]["data-key"] for r in table_rows(page, "token-budget-keys", "data-metering").values() if r["cells"].get("data-recorded") == "all")
+    assert all_token_key in TOKEN_BUDGET_KEYS.values()
     for name in ("live-l12-plain", "live-l12-verify"):
         kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
+        assert kept["requested_limits"]["total_tokens"] == 12000, name
         assert kept["effective_limits"]["total_tokens"] == 12000, name
-    assert TOKEN_BUDGET_KEYS[ALL_METERING] == "total_token_budget"
-    assert "under the earlier key <code>total_tokens</code>" in page and "<code>total_token_budget</code>" in page
+        copy = tmp_path / name  # the kept trace is not touched
+        shutil.copytree(HANDBOOK / "traces" / name / "inspect", copy / "inspect")
+        again = live.summarize(
+            location=str(next((copy / "inspect").glob("*.eval"))), out_dir=copy,
+            model_id="anthropic/claude-sonnet-5-5", api_key="not-a-key-for-an-offline-summary",
+            case_ids=["D03", "D05"], repeats=1,
+        )
+        assert again["effective_limits"][all_token_key] == 12000, name
+        assert again["effective_limits"]["token_budget_metering"] == "all", name
+        assert "total_tokens" not in again["effective_limits"], name
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "under the earlier key <code>total_tokens</code>" in p)
+    assert 'href="#token-budget-keys"' in paragraph and "requested_limits" in paragraph and "effective_limits" in paragraph
+    assert f"<code>{all_token_key}</code>" not in paragraph  # the prose points to the row; it does not spell the key
 
 
 def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_row(page):
@@ -342,7 +370,7 @@ def test_the_report_has_the_six_checks_the_live_line_and_existing_witnesses(page
     witnesses = re.findall(r"tests/(test_\w+\.py)::(test_\w+)", page)
     assert len(witnesses) >= 5
     for filename, name in witnesses:
-        assert f"def {name}(" in (ROOT / "tests" / filename).read_text(), (filename, name)
+        assert defines(f"tests/{filename}", name), (filename, name)
 
     live = rows["live"]["cells"][2]["text"]
     if RUN["tool_loop_observed"]:

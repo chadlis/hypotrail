@@ -49,8 +49,8 @@ def requested_limits(limits: EpisodeLimits) -> dict:
 def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
     """The token budget as the record states it: its key names its metering, and the metering stands beside it.
 
-    Inspect records "output" for the budget in force and None for "all" tokens (a log made before
-    metering types existed). The key is `TOKEN_BUDGET_KEYS[metering]`.
+    Inspect's metering types are "output" and "all". A log with no type (None, made before metering types
+    existed) is read as Inspect's default, "all". The key is `TOKEN_BUDGET_KEYS[metering]`.
     With no limit there is no key for it, and `token_budget_metering` is present and null, so the absence
     is visible. Another type (an Inspect formula) is refused.
     """
@@ -60,7 +60,7 @@ def token_budget_fields(limit: int | None, limit_type: str | None) -> dict:
     if metering not in TOKEN_BUDGET_KEYS:
         raise InvalidInputError(
             TOKEN_METERING_UNSUPPORTED,
-            f"the token limit type {limit_type!r} is neither 'output' nor 'all'",
+            f"the token limit type {limit_type!r} is neither " + " nor ".join(repr(m) for m in TOKEN_BUDGET_KEYS),
             stage="limits",
             details={"token_limit_type": limit_type},
         )
