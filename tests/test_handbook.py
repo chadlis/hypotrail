@@ -189,12 +189,16 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
         label, witness = ENFORCEMENT[limit]
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
         assert by_attr["data-state"] == label, limit
-        assert f"<code>{witness}</code>" in page, witness
+        assert by_attr["data-witness"] == witness, limit  # the cell itself, compared with the code's witness for this key
         assert defines(by_attr["data-file"], witness), witness
 
+    current_rows = table_rows(page, "current-limits", "data-limit")
     for limit, row in superseded.items():
         by_attr = row["cells"]
         replacement = row["attrs"]["data-replaced-by"]
+        assert replacement in current_rows, limit  # the key it names is a current enforcement key with a row
+        witness_file = current_rows[replacement]["cells"]["data-file"]
+        assert defines(witness_file, ENFORCEMENT[replacement][1]), replacement  # and its witness test exists
         assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit  # what the spike trace recorded, under its own key
         assert replacement in ENFORCEMENT
         assert "data-file" not in by_attr  # a superseded row claims no witness of its own
