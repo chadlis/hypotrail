@@ -5,21 +5,36 @@ the tool and uses its result. The key is passed explicitly to the provider and i
 never logged or persisted; the output is scanned for it before the run reports.
 """
 
+import hashlib
 import json
 import platform
 from importlib import metadata
 from pathlib import Path
 
 from inspect_ai.log import read_eval_log
-from inspect_ai.model import Model, get_model
+from inspect_ai.model import GenerateConfig, Model, get_model
 
-from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
+from hypotrail.agentic.declaration import load_workload
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
-EXPECTED_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]
+# Reasoning is disabled, for both Configurations (owner decision 1 on #8). A level would draw its
+# thinking from the same 1,024-token output cap as the answer, so an answer could be cut by our own
+# setting; disabled keeps the whole cap for the answer. Inspect's name for it is "none".
+REASONING_EFFORT = "none"
+REASONING_SETTING = "disabled"
+# From Inspect's Anthropic provider (`completion_config` and `_supports_disabling_thinking`): for
+# reasoning_effort="none" it sends thinking {"type": "disabled"}; Sonnet 5.5 rejects "disabled" and
+# is sent {"type": "between_tools"} instead, which its source calls "no up-front thinking" and the
+# model's lowest setting. Its source does not say whether thinking may still occur between tool calls.
+REASONING_NOTE = (
+    'reasoning_effort "none" is sent as thinking {"type": "disabled"}; for Sonnet 5.5, which rejects '
+    '"disabled", Inspect sends {"type": "between_tools"}, described in its source as no up-front thinking '
+    "and the model's lowest setting. Inspect's source does not say whether thinking may still happen "
+    "between tool calls."
+)
 
 
 def live_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) -> Model:
@@ -91,11 +106,30 @@ def _scanned(out_dir: Path, api_key: str, work):
         _raise_if_leaked(out_dir, api_key)
 
 
-def _tool_loop_observed(episodes: list[dict]) -> bool:
-    return any(
-        e["status"] == "produced" and [s["kind"] for s in e["steps"]] == EXPECTED_SEQUENCE
-        for e in episodes
+def _succeeded(step: dict) -> bool:
+    body = step["result"]
+    return step["tool_error"] is None and not (isinstance(body, dict) and body.get("error") is not None)
+
+
+def _has_tool_loop(episode: dict) -> bool:
+    """A produced Episode: a successful `query_readonly` call, then a model turn, then the final answer."""
+    steps = episode["steps"]
+    if episode["status"] != "produced" or not steps or steps[-1]["kind"] != "final_answer":
+        return False
+    queries = {s["native_tool_call_id"] for s in steps if s["kind"] == "tool_call" and s["function"] == "query_readonly"}
+    answered_after = next((i for i in range(len(steps) - 1, -1, -1) if steps[i]["kind"] == "model_turn"), None)
+    return answered_after is not None and any(
+        s["kind"] == "tool_result" and s["native_tool_call_id"] in queries and _succeeded(s)
+        for s in steps[:answered_after]
     )
+
+
+def tool_loop_observed(episodes: list[dict]) -> bool:
+    """AG-10: at least one Episode shows model, a successful `query_readonly`, model, final answer.
+
+    `describe_schema` calls and further queries may come anywhere in the loop.
+    """
+    return any(_has_tool_loop(e) for e in episodes)
 
 
 def _uses_result(episode: dict) -> bool | None:
@@ -137,18 +171,71 @@ def request_parameters(log) -> dict | None:
     return None
 
 
+def reasoning_in_request(model: Model) -> dict | None:
+    """The `thinking` field Inspect's own request building gives this model, with no network.
+
+    It asks the provider's `completion_config` for the parameters it would send for the run's
+    generation settings. None means the request would not state the reasoning setting.
+    """
+    config = GenerateConfig(
+        max_tokens=limits_module.EpisodeLimits().max_output_tokens, reasoning_effort=REASONING_EFFORT
+    )
+    return model.api.completion_config(config)[0].get("thinking")
+
+
+def usage_of(sample) -> dict:
+    """Descriptive numbers of one Episode: calls and latency, and the tokens and cost the log gives.
+
+    A figure the log does not give is None, never zero (CMP-06).
+    """
+    usage = list((sample.model_usage or {}).values())
+
+    def total(field):
+        values = [getattr(u, field) for u in usage if getattr(u, field, None) is not None]
+        return sum(values) if values else None
+
+    return {
+        "model_calls": sum(1 for e in sample.events or [] if e.event == "model"),
+        "latency_seconds": None if sample.total_time is None else float(sample.total_time),
+        "input_tokens": total("input_tokens"),
+        "output_tokens": total("output_tokens"),
+        "cost": total("total_cost"),
+    }
+
+
+def _read_back_reasoning(location: str) -> str | None:
+    """The reasoning effort that took effect, as the log header records it (public log API)."""
+    log = read_eval_log(location, header_only=True)
+    generate = log.eval.model_generate_config.model_copy(update=log.plan.config.model_dump(exclude_none=True))
+    return generate.reasoning_effort
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 def run_live(
     *,
     model_id: str,
     api_key: str,
-    cases_path: Path,
-    database: Path,
+    workload_dir: Path,
     case_ids: list[str],
     repeats: int,
     out_dir: Path,
     base_url: str = ANTHROPIC_BASE_URL,
+    configuration: str,
 ) -> dict:
     out_dir = Path(out_dir)
+    model = live_model(model_id, api_key, base_url)
+    if reasoning_in_request(model) is None:
+        raise InvalidInputError(
+            "REASONING_NOT_EXPLICIT",
+            f"the request for {model_id} would not state the reasoning setting; "
+            "a live run needs it explicit, so nothing was sent",
+            stage="live",
+            details={"model": model_id},
+        )
+    load_workload(workload_dir).cases_path("dev")  # a Workload without `dev` is refused before anything is written
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
             "OUTPUT_NOT_EMPTY",
@@ -159,17 +246,25 @@ def run_live(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     def work() -> dict:
-        cases = case_module.load_cases(cases_path, case_ids)
+        workload = load_workload(workload_dir)
+        before = _sha256(workload.database_path)
         location = runner.run_episodes(
-            cases,
-            database=database,
-            model=live_model(model_id, api_key, base_url),
+            workload.cases("dev", case_ids),
+            workload=workload,
+            configuration=configuration,
+            model=model,
             repeats=repeats,
             log_dir=out_dir / "inspect",
             limits=limits_module.EpisodeLimits(),
+            reasoning_effort=REASONING_EFFORT,
         )
         return _record(
-            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+            location=location,
+            out_dir=out_dir,
+            model_id=model_id,
+            case_ids=case_ids,
+            repeats=repeats,
+            database_sha256={"before": before, "after": _sha256(workload.database_path)},
         )
 
     return _scanned(out_dir, api_key, work)
@@ -183,43 +278,78 @@ def summarize(
     api_key: str,
     case_ids: list[str],
     repeats: int,
+    database_sha256: dict | None = None,
 ) -> dict:
     """Project a kept log, write the run record, and scan the output for the key.
 
     It reads the log only; it calls neither the model nor any tool, so it can be
-    run again on a kept log. The scan runs even if a step fails.
+    run again on a kept log. The scan runs even if a step fails. The database hashes
+    belong to the run, so they are recorded only if given (None otherwise).
     """
     out_dir = Path(out_dir).resolve()
     return _scanned(
         out_dir,
         api_key,
         lambda: _record(
-            location=location, out_dir=out_dir, model_id=model_id, case_ids=case_ids, repeats=repeats
+            location=location,
+            out_dir=out_dir,
+            model_id=model_id,
+            case_ids=case_ids,
+            repeats=repeats,
+            database_sha256=database_sha256,
         ),
     )
 
 
-def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str], repeats: int) -> dict:
+def _record(
+    *,
+    location: str,
+    out_dir: Path,
+    model_id: str,
+    case_ids: list[str],
+    repeats: int,
+    database_sha256: dict | None,
+) -> dict:
     out_dir = Path(out_dir).resolve()
     limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
     episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
+    parameters = request_parameters(log)
+    effective = limits_module.read_back(location)
+    samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {
         "mode": "llm_live",
         "provider": "anthropic",
+        # the exact prompt text of the Configuration, as the log header kept it
+        "configuration": (log.eval.metadata or {}).get("configuration"),
+        "system_text": (log.eval.metadata or {}).get("system_text"),
         "model": model_id,
         "served_models": sorted(
             {s.output.model for s in (log.samples or []) if s.output and s.output.model}
         ),
-        "request_parameters": request_parameters(log),
+        "request_parameters": parameters,
+        # reasoning and the output cap: what was asked, and what the request carried
+        "reasoning": {
+            "setting": REASONING_SETTING,
+            "requested": _read_back_reasoning(location),
+            "sent": (parameters or {}).get("thinking"),
+            "note": REASONING_NOTE,
+        },
+        "output_cap": {"requested": limits.max_output_tokens, "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
         "python": platform.python_version(),
         "hardware": platform.platform(),
         "machine": platform.machine(),
-        "effective_limits": limits_module.read_back(location),
+        "effective_limits": effective,
         "requested_limits": limits.as_dict(),
+        "limit_notes": {
+            "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
+            "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",
+        },
+        "cases": [{"case_id": c, "repeat": r} for c, r in expected],
+        "database_sha256": database_sha256,
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
         "episodes": [
@@ -229,10 +359,11 @@ def _record(*, location: str, out_dir: Path, model_id: str, case_ids: list[str],
                 "status": e["status"],
                 "stopped_by_limit": e["stopped_by_limit"],
                 "uses_tool_result": _uses_result(e),
+                **(usage_of(samples[(e["case_id"], e["repeat"])]) if (e["case_id"], e["repeat"]) in samples else {}),
             }
             for e in episodes
         ],
-        "tool_loop_observed": _tool_loop_observed(episodes),
+        "tool_loop_observed": tool_loop_observed(episodes),
     }
     (out_dir / "projection.json").write_text(json.dumps(episodes, indent=2, sort_keys=True) + "\n")
     (out_dir / "run.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")

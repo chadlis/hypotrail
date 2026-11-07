@@ -7,6 +7,7 @@ client, the key header, the logs and the key scan are all the real ones.
 
 import io
 import json
+import shutil
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,17 +15,19 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, REFERENCES, oracle_sql, read_jsonl
+from _agent_helpers import CASES, CHINOOK, REFERENCES, WORKLOAD, oracle_sql, read_jsonl
 
 from hypotrail import cli
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import live as agentic_live
 from hypotrail.agentic import projection, runner
 from hypotrail.core import live as core_live
+from hypotrail.core.errors import InvalidInputError
 
 ROOT = Path(__file__).resolve().parent.parent
 FAKE_KEY = "sk-ant-FAKE-live-key-0123456789abcdef"
 MODEL_ID = "anthropic/claude-test-1"
+JOIN_SEQUENCE = ["model_turn", "tool_call", "tool_result", "model_turn", "final_answer"]  # what the rehearsal on D03 shows
 PROXY_VARIABLES = ["http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
 
 
@@ -56,7 +59,7 @@ def never_runs(monkeypatch):
 
 
 def live_args(tmp_path, *extra):
-    return ["spike", "live", "--out", str(tmp_path / "out"), "--json", *extra]
+    return ["spike", "live", "--config", "plain", "--out", str(tmp_path / "out"), "--json", *extra]
 
 
 # --- the key ------------------------------------------------------------------------------------
@@ -193,6 +196,7 @@ class FakeAnthropic:
         self.sql = {c["question"]: oracle_sql(c["case_id"]) for c in cases if c["case_id"] in ("D03", "D05")}
         self.units = {c["question"]: c["unit"] for c in cases}
         self.requests = []
+        self.cut_answers = False  # reply to the second call with a text cut by the output cap
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -243,6 +247,8 @@ class FakeAnthropic:
         result = json.loads(self._text_of(results[0]["content"]))
         answer = {"status": "answered", "reason_code": None, "columns": result["columns"],
                   "rows": result["rows"], "unit": self.units[question], "evidence": [result["tool_call_id"]]}
+        if self.cut_answers:
+            return {**message, "stop_reason": "max_tokens", "content": [{"type": "text", "text": json.dumps(answer)[:40]}]}
         return {**message, "stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(answer)}]}
 
 
@@ -255,12 +261,11 @@ def rehearsal(tmp_path, clean_env):
         record = agentic_live.run_live(
             model_id=MODEL_ID,
             api_key=FAKE_KEY,
-            cases_path=CASES,
-            database=DATABASE,
+            workload_dir=CHINOOK,
             case_ids=["D03", "D05"],
             repeats=1,
             out_dir=tmp_path / "out",
-            base_url=fake.url,
+            base_url=fake.url, configuration="plain",
         )
         yield fake, record, tmp_path / "out"
 
@@ -272,7 +277,7 @@ def test_a_rehearsal_shows_a_real_client_carrying_model_tool_model_answer(rehear
     assert [e["uses_tool_result"] for e in record["episodes"]] == [True, True]
     assert len(fake.requests) == 4  # two generations per Episode
     episodes = json.loads((out / "projection.json").read_text())
-    assert all([s["kind"] for s in e["steps"]] == agentic_live.EXPECTED_SEQUENCE for e in episodes)
+    assert all([s["kind"] for s in e["steps"]] == JOIN_SEQUENCE for e in episodes)
 
 
 def test_the_key_is_sent_only_in_the_authorization_header(rehearsal):
@@ -327,7 +332,7 @@ def test_the_scan_finds_a_key_in_a_plain_file_and_inside_a_compressed_log(tmp_pa
     script.unit_by_question = {leaky[0]["question"]: "count"}
     script.case_by_question = {leaky[0]["question"]: "D03"}
     location = runner.run_episodes(
-        leaky, database=DATABASE, model=runner.mock_model(script), repeats=1, log_dir=tmp_path / "logs"
+        leaky, workload=WORKLOAD, configuration="plain", model=runner.mock_model(script), repeats=1, log_dir=tmp_path / "logs"
     )
     assert FAKE_KEY.encode() not in Path(location).read_bytes()
     assert agentic_live.scan_for_secret(tmp_path / "logs", FAKE_KEY) == [Path(location).name]
@@ -431,8 +436,8 @@ def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, m
 
     with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
     assert FAKE_KEY not in str(caught.value)
@@ -443,8 +448,8 @@ def test_a_non_empty_output_directory_is_refused(tmp_path):
     (tmp_path / "out" / "earlier.txt").write_text("x")
     with pytest.raises(Exception, match="not empty"):
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
 
 
@@ -478,7 +483,7 @@ def test_the_command_reaches_the_missing_key_without_importing_inspect(tmp_path)
     )
     env = {k: v for k, v in __import__("os").environ.items() if "ANTHROPIC" not in k}
     result = subprocess.run(
-        [sys.executable, "-c", probe, "spike", "live", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"],
+        [sys.executable, "-c", probe, "spike", "live", "--config", "plain", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"],
         capture_output=True, text=True, env=env, check=True,
     )
     report = json.loads(result.stdout.strip().splitlines()[-1])
@@ -508,8 +513,8 @@ def test_a_relative_output_directory_works(tmp_path, clean_env):
     clean_env.chdir(tmp_path)
     with FakeAnthropic() as fake:
         record = agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
-            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
+            case_ids=["D03"], repeats=1, out_dir=Path("relative-out"), base_url=fake.url, configuration="plain",
         )
     assert record["inspect_log"].startswith("inspect/")
     assert (tmp_path / "relative-out" / "run.json").is_file()
@@ -527,7 +532,7 @@ def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tm
         case_ids=["D03", "D05"],
         repeats=1,
     )
-    assert again == record
+    assert again == {**record, "database_sha256": None}
     assert (out / "run.json").is_file()
 
 
@@ -622,8 +627,8 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
 
     with pytest.raises(HypotrailError) as caught:
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
-            case_ids=["D03"], repeats=1, out_dir=out,
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
+            case_ids=["D03"], repeats=1, out_dir=out, configuration="plain",
         )
     assert caught.value.code == "SECRET_IN_OUTPUT"
 
@@ -635,6 +640,260 @@ def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, m
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails)
     with pytest.raises(RuntimeError, match="the run stopped"):
         agentic_live.run_live(
-            model_id=MODEL_ID, api_key=FAKE_KEY, cases_path=CASES, database=DATABASE,
-            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out",
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
+            case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
         )
+
+
+def test_the_run_record_keeps_the_exact_prompt_text_of_its_configuration(rehearsal):
+    _, record, out = rehearsal
+    assert record["configuration"] == "plain"
+    assert record["system_text"] == WORKLOAD.system_text("plain")
+    assert json.loads((out / "run.json").read_text())["system_text"] == WORKLOAD.system_text("plain")
+
+
+# --- ticket #49: one named Configuration, an explicit reasoning setting, a fuller record ------------------------------
+
+
+def test_the_command_names_a_declared_configuration(tmp_path, clean_env, monkeypatch):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    seen = []
+    monkeypatch.setattr(agentic_live, "run_live", lambda **kw: seen.append(kw) or {
+        "model": kw["model_id"], "tool_loop_observed": False, "episodes": []
+    })
+    args = ["spike", "live", "--config", "verify", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json"]
+    assert run_cli(*args)[0] == 0
+    assert seen[0]["configuration"] == "verify"
+
+
+def test_without_config_the_command_is_refused_before_anything_starts(tmp_path, clean_env, never_runs):
+    clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
+    code, out, _ = run_cli("spike", "live", "--model", MODEL_ID, "--out", str(tmp_path / "o"), "--json")
+    assert code == 2 and json.loads(out)["error"]["code"] == "INVALID_ARGUMENTS"
+    assert never_runs == []
+
+
+def test_an_unknown_configuration_is_refused_with_a_code_before_the_key_is_read_and_before_inspect_is_imported(
+    tmp_path,
+):
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, json, io\n"
+        "from contextlib import redirect_stdout\n"
+        "from hypotrail import cli\n"
+        "out = io.StringIO()\n"
+        "with redirect_stdout(out):\n"
+        "    code = cli.main(sys.argv[1:])\n"
+        "print(json.dumps({'code': code, 'inspect': 'inspect_ai' in sys.modules, 'out': out.getvalue()}))\n"
+    )
+    env = {k: v for k, v in __import__("os").environ.items() if "ANTHROPIC" not in k}
+    env["HYPOTRAIL_ANTHROPIC_API_KEY"] = FAKE_KEY
+    result = subprocess.run(
+        [sys.executable, "-c", probe, "spike", "live", "--config", "nope", "--model", MODEL_ID,
+         "--out", str(tmp_path / "o"), "--json"],
+        capture_output=True, text=True, env=env, check=True,
+    )
+    report = json.loads(result.stdout)
+    assert report["code"] == 2 and report["inspect"] is False
+    assert json.loads(report["out"])["error"]["code"] == "CONFIGURATION_NOT_DECLARED"
+    assert FAKE_KEY not in result.stdout + result.stderr
+
+
+def test_an_unknown_configuration_is_refused_before_the_missing_key_is_reported(tmp_path, clean_env, never_runs):
+    code, out, _ = run_cli("spike", "live", "--config", "nope", "--model", MODEL_ID,
+                           "--out", str(tmp_path / "o"), "--json")
+    assert code == 2 and json.loads(out)["error"]["code"] == "CONFIGURATION_NOT_DECLARED"
+
+
+@pytest.fixture
+def both_rehearsals(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    runs = {}
+    with FakeAnthropic() as fake:
+        for configuration in ("plain", "verify"):
+            first = len(fake.requests)
+            record = agentic_live.run_live(
+                model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03", "D05"],
+                repeats=1, out_dir=tmp_path / configuration, base_url=fake.url, configuration=configuration,
+            )
+            runs[configuration] = (fake.requests[first:], record, tmp_path / configuration)
+        yield runs
+
+
+def _system_text(body):
+    system = body["system"]
+    return system if isinstance(system, str) else "".join(b["text"] for b in system)
+
+
+def test_both_configurations_send_the_same_explicit_reasoning_setting_and_the_1024_token_cap(both_rehearsals):
+    sent = {}
+    for configuration, (requests, _, _) in both_rehearsals.items():
+        assert len(requests) == 4
+        for request in requests:
+            assert request["body"]["max_tokens"] == 1024
+            assert request["body"]["thinking"] == {"type": "disabled"}
+        sent[configuration] = {(r["body"]["max_tokens"], json.dumps(r["body"]["thinking"])) for r in requests}
+    assert sent["plain"] == sent["verify"] and len(sent["plain"]) == 1
+    # the Configurations differ by their prompt only
+    plain, verify = (_system_text(both_rehearsals[c][0][0]["body"]) for c in ("plain", "verify"))
+    assert plain == WORKLOAD.system_text("plain") and verify == WORKLOAD.system_text("verify")
+
+
+def test_the_record_holds_the_reasoning_setting_and_the_output_cap_as_sent(both_rehearsals):
+    for configuration, (_, record, out) in both_rehearsals.items():
+        assert {k: v for k, v in record["reasoning"].items() if k != "note"} == {
+            "setting": "disabled", "requested": "none", "sent": {"type": "disabled"}
+        }
+        assert record["output_cap"] == {"requested": 1024, "sent": 1024}
+        assert record["configuration"] == configuration
+        assert record["system_text"] == WORKLOAD.system_text(configuration)
+        assert record["mode"] == "llm_live" and record["provider"] == "anthropic"
+        assert record["model"] == MODEL_ID and record["served_models"] == ["claude-test-1-20261101"]
+        assert json.loads((out / "run.json").read_text())["reasoning"] == record["reasoning"]
+
+
+def test_the_record_names_the_cases_it_ran_and_the_chinook_hash_before_and_after(both_rehearsals):
+    import hashlib
+
+    expected = hashlib.sha256((CHINOOK / "data" / "Chinook_Sqlite.sqlite").read_bytes()).hexdigest()
+    for _, record, _ in both_rehearsals.values():
+        assert record["cases"] == [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]
+        assert record["database_sha256"] == {"before": expected, "after": expected}
+
+
+def test_the_record_reads_back_the_limits_and_names_what_cannot_be_enforced(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        limits = record["effective_limits"]
+        assert limits["model_turns"] == 6 and limits["max_output_tokens"] == 1024
+        assert set(limits["query_caps"]) == {"max_rows", "max_bytes", "max_seconds", "max_instructions"} or limits["query_caps"]
+        notes = record["limit_notes"]
+        assert "no limit on the number of tool calls" in notes["tool_calls"]
+        assert notes["provider_calls"] == "6 model turns allow 7 provider calls"
+
+
+def test_for_each_configuration_the_join_case_shows_model_tool_model_answer_and_the_record_reports_it(both_rehearsals):
+    for _, record, out in both_rehearsals.values():
+        assert record["tool_loop_observed"] is True
+        episodes = json.loads((out / "projection.json").read_text())
+        d03 = next(e for e in episodes if e["case_id"] == "D03")
+        assert [s["kind"] for s in d03["steps"]] == JOIN_SEQUENCE
+
+
+def test_every_model_call_records_why_it_stopped(both_rehearsals):
+    for _, _, out in both_rehearsals.values():
+        for episode in json.loads((out / "projection.json").read_text()):
+            turns = [s for s in episode["steps"] if s["kind"] == "model_turn"]
+            assert [t["stop_reason"] for t in turns] == ["tool_calls", "stop"]
+
+
+def test_an_answer_cut_by_the_output_cap_is_told_apart_from_a_complete_one(tmp_path, clean_env):
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with FakeAnthropic() as fake:
+        fake.cut_answers = True
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
+        )
+    (episode,) = json.loads((tmp_path / "out" / "projection.json").read_text())
+    assert [s["stop_reason"] for s in episode["steps"] if s["kind"] == "model_turn"] == ["tool_calls", "max_tokens"]
+
+
+def test_tokens_and_cost_the_log_does_not_give_are_null_never_zero_and_calls_and_latency_are_descriptive(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        for episode in record["episodes"]:
+            assert episode["model_calls"] == 2
+            assert isinstance(episode["latency_seconds"], float) and episode["latency_seconds"] >= 0
+            assert episode["input_tokens"] == 240 and episode["output_tokens"] == 60  # as the endpoint reported
+            assert episode["cost"] is None
+
+
+def test_an_episode_with_no_usage_in_the_log_has_null_tokens_not_zero():
+    class Sample:
+        model_usage = {}
+        total_time = 1.5
+        events = []
+
+    usage = agentic_live.usage_of(Sample())
+    assert usage == {"model_calls": 0, "latency_seconds": 1.5, "input_tokens": None, "output_tokens": None, "cost": None}
+
+
+# --- the reasoning setting must be stated by the request, or nothing is sent ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("model", "thinking"),
+    [("anthropic/claude-sonnet-5", {"type": "disabled"}), ("anthropic/claude-sonnet-5-5", {"type": "between_tools"})],
+)
+def test_the_request_inspect_would_build_states_the_reasoning_setting(model, thinking):
+    assert agentic_live.reasoning_in_request(agentic_live.live_model(model, FAKE_KEY)) == thinking
+
+
+@pytest.mark.parametrize("model", ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-5-5"])
+def test_a_model_whose_request_would_not_state_reasoning_is_refused_and_nothing_is_sent(
+    tmp_path, clean_env, model
+):
+    from hypotrail.core.errors import HypotrailError
+
+    for name in PROXY_VARIABLES:
+        clean_env.delenv(name, raising=False)
+    clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
+    with FakeAnthropic() as fake, pytest.raises(HypotrailError) as caught:
+        agentic_live.run_live(
+            model_id=model, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"],
+            repeats=1, out_dir=tmp_path / "out", base_url=fake.url, configuration="plain",
+        )
+    assert caught.value.code == "REASONING_NOT_EXPLICIT" and caught.value.exit_code == 2
+    assert fake.requests == []
+    assert not (tmp_path / "out").exists()
+    assert FAKE_KEY not in str(caught.value)
+
+
+def test_the_record_explains_between_tools_for_disabled_reasoning(both_rehearsals):
+    for _, record, _ in both_rehearsals.values():
+        assert "between_tools" in record["reasoning"]["note"]
+        assert "no up-front thinking" in record["reasoning"]["note"]
+
+
+def dev_less(tmp_path):
+    target = tmp_path / "chinook"
+    shutil.copytree(CHINOOK, target, ignore=shutil.ignore_patterns("data"))
+    declaration = json.loads((target / "workload.json").read_text())
+    declaration["cases"].pop("dev")
+    (target / "workload.json").write_text(json.dumps(declaration))
+    return target
+
+
+def _refused(call):
+    with pytest.raises(InvalidInputError) as caught:
+        call()
+    return caught.value
+
+
+# --- R2-P3: a Workload without `dev` is refused by run_live before anything is written ---------------------
+
+
+def test_run_live_refuses_a_workload_without_dev_before_creating_its_output(tmp_path):
+    out = tmp_path / "o"
+    error = _refused(
+        lambda: agentic_live.run_live(
+            model_id="anthropic/claude-test-1",
+            api_key="sk-ant-FAKE-live-key-0123456789abcdef",
+            workload_dir=dev_less(tmp_path),
+            configuration="plain",
+            case_ids=["D03"],
+            repeats=1,
+            out_dir=out,
+        )
+    )
+    assert error.code == "PARTITION_NOT_DECLARED"
+    assert not out.exists()
+
+
+
+

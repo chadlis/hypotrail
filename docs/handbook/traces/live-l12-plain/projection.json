@@ -1,0 +1,1367 @@
+[
+  {
+    "case_id": "D03",
+    "criteria": [],
+    "final_answer": null,
+    "input": [
+      {
+        "content": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n",
+        "role": "system"
+      },
+      {
+        "content": "Question: Combien de pistes appartiennent au genre Rock ?\nRequested columns: track_count\nUnit: count",
+        "role": "user"
+      }
+    ],
+    "model": "anthropic/claude-sonnet-5-5",
+    "provider": "anthropic",
+    "reason": "token_limit",
+    "repeat": 0,
+    "status": "failed",
+    "steps": [
+      {
+        "kind": "model_turn",
+        "stop_reason": "tool_calls",
+        "turn": 1
+      },
+      {
+        "arguments": {},
+        "function": "describe_schema",
+        "kind": "tool_call",
+        "native_tool_call_id": "toolu_014tbsKDdrRcr9NKFa7cdQh6"
+      },
+      {
+        "app_tool_call_id": null,
+        "kind": "tool_result",
+        "native_tool_call_id": "toolu_014tbsKDdrRcr9NKFa7cdQh6",
+        "result": {
+          "tables": [
+            {
+              "columns": [
+                {
+                  "name": "AlbumId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Title",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(160)"
+                },
+                {
+                  "name": "ArtistId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "ArtistId",
+                  "table": "Artist",
+                  "to": "ArtistId"
+                }
+              ],
+              "name": "Album"
+            },
+            {
+              "columns": [
+                {
+                  "name": "ArtistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Artist"
+            },
+            {
+              "columns": [
+                {
+                  "name": "CustomerId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "FirstName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "LastName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "Company",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(80)"
+                },
+                {
+                  "name": "Address",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "City",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "State",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "Country",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "PostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Phone",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Fax",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Email",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(60)"
+                },
+                {
+                  "name": "SupportRepId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "SupportRepId",
+                  "table": "Employee",
+                  "to": "EmployeeId"
+                }
+              ],
+              "name": "Customer"
+            },
+            {
+              "columns": [
+                {
+                  "name": "EmployeeId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "LastName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "FirstName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "Title",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(30)"
+                },
+                {
+                  "name": "ReportsTo",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "BirthDate",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "HireDate",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "Address",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "City",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "State",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "Country",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "PostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Phone",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Fax",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Email",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(60)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "ReportsTo",
+                  "table": "Employee",
+                  "to": "EmployeeId"
+                }
+              ],
+              "name": "Employee"
+            },
+            {
+              "columns": [
+                {
+                  "name": "GenreId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Genre"
+            },
+            {
+              "columns": [
+                {
+                  "name": "InvoiceId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "CustomerId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "InvoiceDate",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "BillingAddress",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "BillingCity",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingState",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingCountry",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingPostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Total",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "CustomerId",
+                  "table": "Customer",
+                  "to": "CustomerId"
+                }
+              ],
+              "name": "Invoice"
+            },
+            {
+              "columns": [
+                {
+                  "name": "InvoiceLineId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "InvoiceId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "UnitPrice",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                },
+                {
+                  "name": "Quantity",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "TrackId",
+                  "table": "Track",
+                  "to": "TrackId"
+                },
+                {
+                  "from": "InvoiceId",
+                  "table": "Invoice",
+                  "to": "InvoiceId"
+                }
+              ],
+              "name": "InvoiceLine"
+            },
+            {
+              "columns": [
+                {
+                  "name": "MediaTypeId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "MediaType"
+            },
+            {
+              "columns": [
+                {
+                  "name": "PlaylistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Playlist"
+            },
+            {
+              "columns": [
+                {
+                  "name": "PlaylistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 2,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "TrackId",
+                  "table": "Track",
+                  "to": "TrackId"
+                },
+                {
+                  "from": "PlaylistId",
+                  "table": "Playlist",
+                  "to": "PlaylistId"
+                }
+              ],
+              "name": "PlaylistTrack"
+            },
+            {
+              "columns": [
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(200)"
+                },
+                {
+                  "name": "AlbumId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "MediaTypeId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "GenreId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Composer",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(220)"
+                },
+                {
+                  "name": "Milliseconds",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Bytes",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "UnitPrice",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "MediaTypeId",
+                  "table": "MediaType",
+                  "to": "MediaTypeId"
+                },
+                {
+                  "from": "GenreId",
+                  "table": "Genre",
+                  "to": "GenreId"
+                },
+                {
+                  "from": "AlbumId",
+                  "table": "Album",
+                  "to": "AlbumId"
+                }
+              ],
+              "name": "Track"
+            }
+          ]
+        },
+        "tool_error": null
+      },
+      {
+        "kind": "model_turn",
+        "stop_reason": "tool_calls",
+        "turn": 2
+      },
+      {
+        "arguments": {
+          "sql": "SELECT g.GenreId, g.Name, COUNT(t.TrackId) AS n FROM Genre g LEFT JOIN Track t ON t.GenreId = g.GenreId WHERE g.Name LIKE '%Rock%' GROUP BY g.GenreId, g.Name"
+        },
+        "function": "query_readonly",
+        "kind": "tool_call",
+        "native_tool_call_id": "toolu_01G79atobGxd33XZrK5bNzRr"
+      },
+      {
+        "app_tool_call_id": "hypotrail-7154c6c23d43409193a81109becbe001",
+        "kind": "tool_result",
+        "native_tool_call_id": "toolu_01G79atobGxd33XZrK5bNzRr",
+        "result": {
+          "columns": [],
+          "error": {
+            "code": "DENIED_ACTION",
+            "message": "not authorized to use function: LIKE",
+            "type": "OperationalError"
+          },
+          "row_count": 0,
+          "rows": [],
+          "tool_call_id": "hypotrail-7154c6c23d43409193a81109becbe001",
+          "truncated": false
+        },
+        "tool_error": null
+      },
+      {
+        "kind": "model_turn",
+        "stop_reason": "tool_calls",
+        "turn": 3
+      },
+      {
+        "arguments": {
+          "sql": "SELECT g.GenreId, g.Name, COUNT(t.TrackId) AS n FROM Genre g LEFT JOIN Track t ON t.GenreId = g.GenreId GROUP BY g.GenreId, g.Name ORDER BY g.GenreId"
+        },
+        "function": "query_readonly",
+        "kind": "tool_call",
+        "native_tool_call_id": "toolu_016BSeUpBGVnKCfikfBjfcLC"
+      },
+      {
+        "app_tool_call_id": "hypotrail-542c57a78e544719b68fa0101dc14749",
+        "kind": "tool_result",
+        "native_tool_call_id": "toolu_016BSeUpBGVnKCfikfBjfcLC",
+        "result": {
+          "columns": [
+            "GenreId",
+            "Name",
+            "n"
+          ],
+          "error": null,
+          "row_count": 25,
+          "rows": [
+            [
+              1,
+              "Rock",
+              1297
+            ],
+            [
+              2,
+              "Jazz",
+              130
+            ],
+            [
+              3,
+              "Metal",
+              374
+            ],
+            [
+              4,
+              "Alternative & Punk",
+              332
+            ],
+            [
+              5,
+              "Rock And Roll",
+              12
+            ],
+            [
+              6,
+              "Blues",
+              81
+            ],
+            [
+              7,
+              "Latin",
+              579
+            ],
+            [
+              8,
+              "Reggae",
+              58
+            ],
+            [
+              9,
+              "Pop",
+              48
+            ],
+            [
+              10,
+              "Soundtrack",
+              43
+            ],
+            [
+              11,
+              "Bossa Nova",
+              15
+            ],
+            [
+              12,
+              "Easy Listening",
+              24
+            ],
+            [
+              13,
+              "Heavy Metal",
+              28
+            ],
+            [
+              14,
+              "R&B/Soul",
+              61
+            ],
+            [
+              15,
+              "Electronica/Dance",
+              30
+            ],
+            [
+              16,
+              "World",
+              28
+            ],
+            [
+              17,
+              "Hip Hop/Rap",
+              35
+            ],
+            [
+              18,
+              "Science Fiction",
+              13
+            ],
+            [
+              19,
+              "TV Shows",
+              93
+            ],
+            [
+              20,
+              "Sci Fi & Fantasy",
+              26
+            ],
+            [
+              21,
+              "Drama",
+              64
+            ],
+            [
+              22,
+              "Comedy",
+              17
+            ],
+            [
+              23,
+              "Alternative",
+              40
+            ],
+            [
+              24,
+              "Classical",
+              74
+            ],
+            [
+              25,
+              "Opera",
+              1
+            ]
+          ],
+          "tool_call_id": "hypotrail-542c57a78e544719b68fa0101dc14749",
+          "truncated": false
+        },
+        "tool_error": null
+      }
+    ],
+    "stopped_by_limit": {
+      "limit": 12000.0,
+      "type": "token"
+    },
+    "turn_count": 3
+  },
+  {
+    "case_id": "D05",
+    "criteria": [],
+    "final_answer": "Le top 3 est sans \u00e9galit\u00e9 \u00e0 la fronti\u00e8re (le 3\u1d49 a 11 albums, le 4\u1d49 10).\n\n{\"status\":\"answered\",\"reason_code\":null,\"columns\":[\"artist_name\",\"album_count\"],\"rows\":[[\"Iron Maiden\",21],[\"Led Zeppelin\",14],[\"Deep Purple\",11]],\"unit\":\"count\",\"evidence\":[\"hypotrail-e2fdbb3eb44a47b5b604edbe5034d5a3\"]}",
+    "input": [
+      {
+        "content": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n",
+        "role": "system"
+      },
+      {
+        "content": "Question: Quels sont les trois artistes ayant le plus d\u2019albums ? Trier par nombre d\u00e9croissant, puis nom croissant en cas d\u2019\u00e9galit\u00e9.\nRequested columns: artist_name, album_count\nUnit: count",
+        "role": "user"
+      }
+    ],
+    "model": "anthropic/claude-sonnet-5-5",
+    "provider": "anthropic",
+    "reason": null,
+    "repeat": 0,
+    "status": "produced",
+    "steps": [
+      {
+        "kind": "model_turn",
+        "stop_reason": "tool_calls",
+        "turn": 1
+      },
+      {
+        "arguments": {},
+        "function": "describe_schema",
+        "kind": "tool_call",
+        "native_tool_call_id": "toolu_01YcBVjdvnQiiw4Nk416xTQn"
+      },
+      {
+        "app_tool_call_id": null,
+        "kind": "tool_result",
+        "native_tool_call_id": "toolu_01YcBVjdvnQiiw4Nk416xTQn",
+        "result": {
+          "tables": [
+            {
+              "columns": [
+                {
+                  "name": "AlbumId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Title",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(160)"
+                },
+                {
+                  "name": "ArtistId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "ArtistId",
+                  "table": "Artist",
+                  "to": "ArtistId"
+                }
+              ],
+              "name": "Album"
+            },
+            {
+              "columns": [
+                {
+                  "name": "ArtistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Artist"
+            },
+            {
+              "columns": [
+                {
+                  "name": "CustomerId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "FirstName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "LastName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "Company",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(80)"
+                },
+                {
+                  "name": "Address",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "City",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "State",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "Country",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "PostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Phone",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Fax",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Email",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(60)"
+                },
+                {
+                  "name": "SupportRepId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "SupportRepId",
+                  "table": "Employee",
+                  "to": "EmployeeId"
+                }
+              ],
+              "name": "Customer"
+            },
+            {
+              "columns": [
+                {
+                  "name": "EmployeeId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "LastName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "FirstName",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(20)"
+                },
+                {
+                  "name": "Title",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(30)"
+                },
+                {
+                  "name": "ReportsTo",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "BirthDate",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "HireDate",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "Address",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "City",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "State",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "Country",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "PostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Phone",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Fax",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(24)"
+                },
+                {
+                  "name": "Email",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(60)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "ReportsTo",
+                  "table": "Employee",
+                  "to": "EmployeeId"
+                }
+              ],
+              "name": "Employee"
+            },
+            {
+              "columns": [
+                {
+                  "name": "GenreId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Genre"
+            },
+            {
+              "columns": [
+                {
+                  "name": "InvoiceId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "CustomerId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "InvoiceDate",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "DATETIME"
+                },
+                {
+                  "name": "BillingAddress",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(70)"
+                },
+                {
+                  "name": "BillingCity",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingState",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingCountry",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(40)"
+                },
+                {
+                  "name": "BillingPostalCode",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(10)"
+                },
+                {
+                  "name": "Total",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "CustomerId",
+                  "table": "Customer",
+                  "to": "CustomerId"
+                }
+              ],
+              "name": "Invoice"
+            },
+            {
+              "columns": [
+                {
+                  "name": "InvoiceLineId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "InvoiceId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "UnitPrice",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                },
+                {
+                  "name": "Quantity",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "TrackId",
+                  "table": "Track",
+                  "to": "TrackId"
+                },
+                {
+                  "from": "InvoiceId",
+                  "table": "Invoice",
+                  "to": "InvoiceId"
+                }
+              ],
+              "name": "InvoiceLine"
+            },
+            {
+              "columns": [
+                {
+                  "name": "MediaTypeId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "MediaType"
+            },
+            {
+              "columns": [
+                {
+                  "name": "PlaylistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(120)"
+                }
+              ],
+              "foreign_keys": [],
+              "name": "Playlist"
+            },
+            {
+              "columns": [
+                {
+                  "name": "PlaylistId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 2,
+                  "type": "INTEGER"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "TrackId",
+                  "table": "Track",
+                  "to": "TrackId"
+                },
+                {
+                  "from": "PlaylistId",
+                  "table": "Playlist",
+                  "to": "PlaylistId"
+                }
+              ],
+              "name": "PlaylistTrack"
+            },
+            {
+              "columns": [
+                {
+                  "name": "TrackId",
+                  "not_null": true,
+                  "primary_key_position": 1,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Name",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(200)"
+                },
+                {
+                  "name": "AlbumId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "MediaTypeId",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "GenreId",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Composer",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "NVARCHAR(220)"
+                },
+                {
+                  "name": "Milliseconds",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "Bytes",
+                  "not_null": false,
+                  "primary_key_position": 0,
+                  "type": "INTEGER"
+                },
+                {
+                  "name": "UnitPrice",
+                  "not_null": true,
+                  "primary_key_position": 0,
+                  "type": "NUMERIC(10,2)"
+                }
+              ],
+              "foreign_keys": [
+                {
+                  "from": "MediaTypeId",
+                  "table": "MediaType",
+                  "to": "MediaTypeId"
+                },
+                {
+                  "from": "GenreId",
+                  "table": "Genre",
+                  "to": "GenreId"
+                },
+                {
+                  "from": "AlbumId",
+                  "table": "Album",
+                  "to": "AlbumId"
+                }
+              ],
+              "name": "Track"
+            }
+          ]
+        },
+        "tool_error": null
+      },
+      {
+        "kind": "model_turn",
+        "stop_reason": "tool_calls",
+        "turn": 2
+      },
+      {
+        "arguments": {
+          "sql": "SELECT ar.Name AS artist_name, COUNT(al.AlbumId) AS album_count FROM Artist ar JOIN Album al ON al.ArtistId = ar.ArtistId GROUP BY ar.ArtistId, ar.Name ORDER BY album_count DESC, artist_name ASC LIMIT 5"
+        },
+        "function": "query_readonly",
+        "kind": "tool_call",
+        "native_tool_call_id": "toolu_01S3utjtK7YSbEr3Y5huYfar"
+      },
+      {
+        "app_tool_call_id": "hypotrail-e2fdbb3eb44a47b5b604edbe5034d5a3",
+        "kind": "tool_result",
+        "native_tool_call_id": "toolu_01S3utjtK7YSbEr3Y5huYfar",
+        "result": {
+          "columns": [
+            "artist_name",
+            "album_count"
+          ],
+          "error": null,
+          "row_count": 5,
+          "rows": [
+            [
+              "Iron Maiden",
+              21
+            ],
+            [
+              "Led Zeppelin",
+              14
+            ],
+            [
+              "Deep Purple",
+              11
+            ],
+            [
+              "Metallica",
+              10
+            ],
+            [
+              "U2",
+              10
+            ]
+          ],
+          "tool_call_id": "hypotrail-e2fdbb3eb44a47b5b604edbe5034d5a3",
+          "truncated": false
+        },
+        "tool_error": null
+      },
+      {
+        "kind": "model_turn",
+        "stop_reason": "stop",
+        "turn": 3
+      },
+      {
+        "kind": "final_answer",
+        "text": "Le top 3 est sans \u00e9galit\u00e9 \u00e0 la fronti\u00e8re (le 3\u1d49 a 11 albums, le 4\u1d49 10).\n\n{\"status\":\"answered\",\"reason_code\":null,\"columns\":[\"artist_name\",\"album_count\"],\"rows\":[[\"Iron Maiden\",21],[\"Led Zeppelin\",14],[\"Deep Purple\",11]],\"unit\":\"count\",\"evidence\":[\"hypotrail-e2fdbb3eb44a47b5b604edbe5034d5a3\"]}"
+      }
+    ],
+    "stopped_by_limit": null,
+    "turn_count": 3
+  }
+]

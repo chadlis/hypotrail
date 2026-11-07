@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, REFERENCES, ScriptedModel, read_jsonl
+from _agent_helpers import CASES, DATABASE, REFERENCES, WORKLOAD, ScriptedModel, read_jsonl
 
 from inspect_ai.scorer import Score, Target, accuracy, scorer
 from inspect_ai.solver import TaskState
@@ -20,6 +20,7 @@ from hypotrail.agentic import projection, rescore, runner, sql_tool
 from hypotrail.core import answer_scoring
 
 ROOT = Path(__file__).resolve().parent.parent
+SCHEMA = json.loads((ROOT / "examples" / "chinook" / "schemas" / "table-answer.schema.json").read_text())
 REFS = {r["case_id"]: r for r in read_jsonl(REFERENCES)}
 SPIKE = ["D03", "D05"]
 
@@ -161,7 +162,8 @@ def kept_log(tmp_path):
     script = ScriptedModel(spike_cases())
     return runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=2,
         log_dir=tmp_path / "logs",
@@ -210,12 +212,21 @@ def test_rescoring_a_kept_log_twice_gives_identical_verdicts_and_calls_nothing(
     expected = [(c, r) for c in SPIKE for r in (0, 1)]
     calls = _forbid(monkeypatch)
 
-    first = rescore.rescore_log(kept_log, REFS, expected=expected)
-    second = rescore.rescore_log(kept_log, REFS, expected=expected)
+    first = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
+    second = rescore.rescore_log(kept_log, REFS, schema=SCHEMA, expected=expected, workload=WORKLOAD)
 
     assert first == second
     assert [(v["case_id"], v["repeat"]) for v in first] == expected
-    assert all(v["correct"] is True for v in first)
+    assert all(
+        {c["name"]: c["score"] for c in v["criteria"]} == {
+                "exact_table": True,
+                "format_valid": True,
+                "evidence_link_valid": True,
+                "contract_success": True,
+            }
+        for v in first
+    )
+    assert all(v["scorer"]["name"] == "chinook_contract_v1" for v in first)
     assert calls == []
 
 
@@ -253,7 +264,8 @@ def run_with(tmp_path, *, scorer_, error_on=None, error_message="scripted model 
     script = ScriptedModel(spike_cases(), error_on=error_on, error_message=error_message)
     return runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=1,
         log_dir=tmp_path / "logs",

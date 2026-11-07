@@ -15,7 +15,7 @@ from inspect_ai import eval as inspect_eval
 from inspect_ai.model import CachePolicy, ModelAPI, ModelOutput, ModelUsage, modelapi
 from tenacity import wait_none
 
-from _agent_helpers import CASES, DATABASE, MODEL, ScriptedModel
+from _agent_helpers import CASES, MODEL, WORKLOAD, ScriptedModel
 
 from hypotrail.agentic import cases as case_module
 from hypotrail.agentic import limits as limits_module
@@ -32,7 +32,8 @@ def cases(ids=D03):
 def run(tmp_path, script, *, ids=D03, repeats=1, limits=None, model=None, **overrides):
     location = runner.run_episodes(
         cases(ids),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=model or runner.mock_model(script),
         repeats=repeats,
         log_dir=tmp_path / "logs",
@@ -251,6 +252,7 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
+        "query_caps": {"time_seconds": 1.0, "max_instructions": 100_000_000, "max_rows": 200, "max_bytes": 65536},
     }
 
 

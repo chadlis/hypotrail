@@ -56,6 +56,10 @@ _Avoid_: variant, model (when the whole setup is meant)
 How an Attempt's outputs came to exist: `native_ml`, `scripted_fixture`, `llm_live` or `external_unknown`.
 _Avoid_: profile, backend
 
+**Scenario**:
+A technical script of the `scripted_fixture` Mode, kept as Workload data, that drives a mock model through the real tools to exercise one outcome (good result, wrong result, invalid format, recovered tool error, budget exhausted, missing Reference); its Episodes are never outputs of a Workload's Cases.
+_Avoid_: test case, fixture case
+
 **Attempt**:
 One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs.
 _Avoid_: run, job, execution record
@@ -70,6 +74,7 @@ _Avoid_: batch, eval set
 
 **Observation set**:
 The outputs of one Attempt, one per Item, each marked `produced`, `failed` (execution stopped without an output) or `missing` (absent from imported outputs); this execution status is separate from how the Item is scored.
+Clarification, 2026-11-06: a final answer cut by the output cap is not an output, so its Episode is `failed` with the Reason `output_cap`, and the cut raw text stays in the trace (owner decision D1 on chadlis/hypotrail#8).
 _Avoid_: results, predictions (as a generic term), log
 
 ### Scoring and comparing
@@ -91,7 +96,7 @@ The value a scored Criterion gives one Item: a boolean (correct or incorrect) or
 _Avoid_: grade, mark, verdict (for numeric values)
 
 **Reason**:
-The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing` or `scoring_failed`.
+The machine-readable code attached to every abnormal outcome, such as `invalid_response_format`, `reference_missing`, `reference_invalid` or `scoring_failed`.
 _Avoid_: error message, explanation (for the code)
 
 **Instrument failure**:

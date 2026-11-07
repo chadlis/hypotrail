@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from _agent_helpers import CASES, DATABASE, MODEL, REFERENCES, ScriptedModel, oracle_sql, read_jsonl
+from _agent_helpers import CASES, DATABASE, MODEL, REFERENCES, WORKLOAD, ScriptedModel, oracle_sql, read_jsonl
 
 from inspect_ai.log import read_eval_log
 
 from hypotrail.agentic import cases as case_module
-from hypotrail.agentic import prompt, projection, runner, sql_tool
+from hypotrail.agentic import projection, runner, sql_tool
 
 ROOT = Path(__file__).resolve().parent.parent
 SPIKE_CASE_IDS = ["D03", "D05"]
@@ -31,7 +31,8 @@ def scripted_run(tmp_path):
     script = ScriptedModel(spike_cases())
     location = runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=2,
         log_dir=tmp_path / "logs",
@@ -91,7 +92,8 @@ def test_an_episode_that_errors_is_still_one_record_marked_failed(tmp_path):
     script = ScriptedModel(spike_cases(), error_on=("D05", 2))
     location = runner.run_episodes(
         spike_cases(),
-        database=DATABASE,
+        workload=WORKLOAD,
+        configuration="plain",
         model=runner.mock_model(script),
         repeats=2,
         log_dir=tmp_path / "logs",
@@ -164,7 +166,7 @@ def test_the_tool_cannot_create_a_file_through_vacuum_into_or_attach(tmp_path, t
     before = sha(DATABASE)
     result = sql_tool.run_query(DATABASE, template.format(path=target))
     assert isinstance(result["error"], dict)
-    assert set(result["error"]) == {"type", "message"}
+    assert set(result["error"]) == {"code", "type", "message"}
     assert result["rows"] == [] and result["columns"] == []
     assert list(tmp_path.iterdir()) == []
     assert sha(DATABASE) == before
@@ -219,56 +221,7 @@ def test_each_execution_opens_its_own_connection(monkeypatch):
     assert len(opened) == 2 and opened[0] is not opened[1]
 
 
-# --- what the model is sent --------------------------------------------------------
-
-
-def test_the_model_input_is_exactly_the_allow_listed_rendering(scripted_run):
-    script, location = scripted_run
-    cases = {c["case_id"]: c for c in spike_cases()}
-    episodes = projection.project_log(location, expected=expected_episodes())
-    for episode in episodes:
-        case = cases[episode["case_id"]]
-        system_text, user_text = prompt.render_model_input(
-            question=case["question"], columns=case["answer_columns"], unit=case["unit"]
-        )
-        assert episode["input"] == [
-            {"role": "system", "content": system_text},
-            {"role": "user", "content": user_text},
-        ]
-    # and that is what the mock model actually received on its first generate call
-    first_calls = [c for c in script.calls if c[-1][0] == "user"]
-    assert len(first_calls) == 4
-    for call in first_calls:
-        assert [role for role, _ in call] == ["system", "user"]
-
-
-def test_no_other_case_field_can_reach_the_model(tmp_path):
-    # Poison every field the renderer must not use; the rendering must not change.
-    case = spike_cases()[0]
-    poisoned = {**case, **POISON, "oracle_sql": "SELECT POISON", "status": "POISON-STATUS"}
-    clean = case_module.model_input(case)
-    assert case_module.model_input(poisoned) == clean
-    flat = " ".join(clean)
-    for sentinel in POISON.values():
-        assert sentinel not in flat
-    assert "family" not in flat.lower().replace("familiar", "")
-
-
-def test_the_model_input_holds_no_reference_value_sql_status_tolerance_or_family(scripted_run):
-    _, location = scripted_run
-    references = {r["case_id"]: r for r in read_jsonl(REFERENCES)}
-    cases = {c["case_id"]: c for c in spike_cases()}
-    for episode in projection.project_log(location, expected=expected_episodes()):
-        text = "\n".join(m["content"] for m in episode["input"])
-        reference, case = references[episode["case_id"]], cases[episode["case_id"]]
-        assert reference["oracle_sql"] not in text
-        assert case["family"] not in text
-        assert case["case_id"] not in text
-        assert case["split"] not in text
-        assert "numeric_absolute_tolerance" not in text
-        assert reference["reference_version"] not in text
-        for row in reference["rows"]:
-            assert json.dumps(row) not in text
+# What the model is sent is tested in test_agent_task.py (ticket #44).
 
 
 # --- structure ----------------------------------------------------------------------
