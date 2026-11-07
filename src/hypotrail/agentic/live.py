@@ -10,6 +10,7 @@ import json
 import platform
 from importlib import metadata
 from pathlib import Path
+from typing import NamedTuple
 
 from inspect_ai.log import read_eval_log
 from inspect_ai.model import GenerateConfig, Model, get_model
@@ -252,6 +253,13 @@ THIS_ATTEMPT = "this_attempt"
 KEPT_LOG = "kept_log"
 
 
+class Request(NamedTuple):
+    """The limits a record's `requested_limits` holds, with where they came from (`THIS_ATTEMPT` or `KEPT_LOG`)."""
+
+    limits: dict
+    source: str
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -302,8 +310,8 @@ def run_live(
             reasoning_effort=REASONING_EFFORT,
         )
         return _record(
-            requested=limits_module.requested_limits(limits),
-            request_source=THIS_ATTEMPT,
+            request=Request(limits_module.requested_limits(limits), THIS_ATTEMPT),
+            limits=limits,
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -336,8 +344,8 @@ def summarize(
         out_dir,
         api_key,
         lambda: _record(
-            requested=limits_module.requested_from_log(location),
-            request_source=KEPT_LOG,
+            request=Request(limits_module.requested_from_log(location), KEPT_LOG),
+            limits=limits_module.EpisodeLimits(),
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -364,8 +372,8 @@ def _episode_entry(episode: dict, sample) -> dict:
 
 def _record(
     *,
-    requested: dict,
-    request_source: str,
+    request: Request,
+    limits: limits_module.EpisodeLimits,
     location: str,
     out_dir: Path,
     model_id: str,
@@ -374,13 +382,12 @@ def _record(
     database_sha256: dict | None,
 ) -> dict:
     out_dir = Path(out_dir).resolve()
-    limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
     episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
     parameters = request_parameters(log)
     effective = limits_module.read_back(location)
-    # `requested` is the request its caller names: this Attempt's, or the kept log's, never today's code (#57)
+    # `request` is what its caller names: this Attempt's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {
@@ -401,14 +408,14 @@ def _record(
             "sent": (parameters or {}).get("thinking"),
             "note": REASONING_NOTE,
         },
-        "output_cap": {"requested": requested["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
+        "output_cap": {"requested": request.limits["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
         "python": platform.python_version(),
         "hardware": platform.platform(),
         "machine": platform.machine(),
         "effective_limits": effective,
-        "requested_limits": requested,
-        "request_source": request_source,
+        "requested_limits": request.limits,
+        "request_source": request.source,
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
             "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",

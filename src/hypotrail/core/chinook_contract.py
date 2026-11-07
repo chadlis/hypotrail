@@ -40,6 +40,7 @@ Nothing here reads a file, calls a model or a tool.
 """
 
 import math
+from typing import NamedTuple
 
 from jsonschema import Draft202012Validator
 
@@ -97,24 +98,33 @@ def reference_problem(reference):
     return None
 
 
-def _read_answer(raw_answer):
-    """What the content Criteria read: (where from, the object read).
+class _Read(NamedTuple):
+    """What the content Criteria read: where from (`READ_FROM_*`, or None) and the object."""
 
-    The raw answer's own object when it is exactly one JSON object; else the one object it
-    contains; else nothing (`None`, `None`). The raw text is decoded here once.
-    """
+    source: str | None
+    answer: dict | None
+
+    @property
+    def raw_object(self):
+        """The object when the raw answer is itself that object: the only read a success may rest on."""
+        return self.answer if self.source == READ_FROM_RAW_ANSWER else None
+
+
+def _read_answer(raw_answer):
+    """The raw answer's own object when it is exactly one JSON object; else the one object it contains;
+    else nothing. The raw text is decoded here once."""
     answer = parse_answer(raw_answer)
     if answer is not None:
-        return READ_FROM_RAW_ANSWER, answer
+        return _Read(READ_FROM_RAW_ANSWER, answer)
     found = find_embedded_object(raw_answer)
     if found is not None:
-        return READ_FROM_EMBEDDED_OBJECT, found[1]
-    return None, None
+        return _Read(READ_FROM_EMBEDDED_OBJECT, found.value)
+    return _Read(None, None)
 
 
-def _format_valid(object_valid, read_from):
+def _format_valid(read, object_valid):
     """Valid only when the raw answer is itself the object and the object is schema-valid."""
-    if read_from == READ_FROM_RAW_ANSWER and object_valid:
+    if read.raw_object is not None and object_valid:
         return _criterion("format_valid", "scored", True)
     return _criterion("format_valid", "scored", False, INVALID_RESPONSE_FORMAT)
 
@@ -217,18 +227,17 @@ def _contract_success(answer, exact_table, format_valid, evidence_link_valid):
 
 def score_episode(raw_answer, reference, schema, steps=None) -> dict:
     """The Criteria of one Episode's raw final answer. Pure; may raise."""
-    read_from, read = _read_answer(raw_answer)
-    object_valid = read is not None and Draft202012Validator(schema).is_valid(read)
-    format_valid = _format_valid(object_valid, read_from)
-    exact_table = _exact_table(read, reference)
-    evidence_link_valid = _evidence_link_valid(read, object_valid, steps)
+    read = _read_answer(raw_answer)
+    object_valid = read.answer is not None and Draft202012Validator(schema).is_valid(read.answer)
+    format_valid = _format_valid(read, object_valid)
+    exact_table = _exact_table(read.answer, reference)
+    evidence_link_valid = _evidence_link_valid(read.answer, object_valid, steps)
     # contract success depends on the raw answer alone: a wrapped answer is not a success
-    raw_object = read if read_from == READ_FROM_RAW_ANSWER else None
-    contract_success = _contract_success(raw_object, exact_table, format_valid, evidence_link_valid)
+    contract_success = _contract_success(read.raw_object, exact_table, format_valid, evidence_link_valid)
     return {
         "scorer": _scorer_record(),
         "raw_answer": raw_answer,
-        "answer_read_from": read_from,
+        "answer_read_from": read.source,
         "criteria": [exact_table, format_valid, evidence_link_valid, contract_success],
     }
 

@@ -462,6 +462,9 @@ def test_chapter_03_says_where_requested_limits_come_from_in_each_case(page):
     rows = table_rows(page, "run-request-source", "data-request-source")
     assert set(rows) == {live.THIS_ATTEMPT, live.KEPT_LOG}
     assert "<code>this_attempt</code>" not in paragraph and "#run-request-source" in paragraph
+    # the table sits after the list its sentence introduces: "The cause is one of:" is followed by the reasons
+    assert page.index("The cause is one of:") < page.index('id="uses-tool-result-reasons"') < page.index('id="run-request-source"')
+    assert not re.search(r"The cause is one of:</p>\s*<div class=\"tblwrap\"><table class=\"tbl\" id=\"run-request-source\"", page)
     assert "<code>request_source</code>" in paragraph and "<code>tool_calls</code> null" in paragraph
     assert "the requested and effective limits read back from the log" not in paragraph
     assert "The effective limits are read back from the log and include the per-query caps" in paragraph
@@ -500,7 +503,9 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     text = json.dumps(answer)
     samples = {
         "exact_object": [text],
+        "exact_object_off_schema": [json.dumps(answer | {"comment": "hi"})],
         "wrapped": ["Voici. " + text, text + "\nFin.", "```json\n" + text + "\n```", "[" + text + "]"],
+        "non_json_wrapper": ['{"answer": ' + text + ', "note": NaN}', '{"answer": ' + text, "x {oops " + text],
         "nothing_read": ["The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```"],
     }
     rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
