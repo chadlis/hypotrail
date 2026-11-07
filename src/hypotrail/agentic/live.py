@@ -8,6 +8,8 @@ never logged or persisted; the output is scanned for it before the run reports.
 import hashlib
 import json
 import platform
+from dataclasses import InitVar, dataclass
+from enum import Enum
 from importlib import metadata
 from pathlib import Path
 
@@ -247,6 +249,44 @@ def _read_back_reasoning(location: str) -> str | None:
     return generate.reasoning_effort
 
 
+class RequestSource(Enum):
+    """Where a record's requested limits came from; the value is the string `run.json` writes as `request_source`."""
+
+    THIS_ATTEMPT = "this_attempt"
+    KEPT_LOG = "kept_log"
+
+
+_BUILT_BY_A_CONSTRUCTOR = object()
+
+
+@dataclass(frozen=True)
+class Request:
+    """The limits a record's `requested_limits` holds, with where they came from.
+
+    The only ways to build one are `Request.this_attempt(limits)` and `Request.from_log(location)`: each ties the
+    source to how the limits were obtained, so a source cannot be paired with the other one's limits. Frozen only means
+    the fields `limits` and `source` cannot be reassigned afterwards. That only those two constructors build one comes
+    from the check in `__post_init__`. The `limits` dict is the one the run record stores, and it is not protected
+    against changes in place.
+    """
+
+    limits: dict
+    source: RequestSource
+    _key: InitVar[object] = None
+
+    def __post_init__(self, _key: object) -> None:
+        if _key is not _BUILT_BY_A_CONSTRUCTOR:
+            raise TypeError("build a Request with Request.this_attempt or Request.from_log")
+
+    @classmethod
+    def this_attempt(cls, limits: limits_module.EpisodeLimits) -> "Request":
+        return cls(limits_module.requested_limits(limits), RequestSource.THIS_ATTEMPT, _BUILT_BY_A_CONSTRUCTOR)
+
+    @classmethod
+    def from_log(cls, location: str) -> "Request":
+        return cls(limits_module.requested_from_log(location), RequestSource.KEPT_LOG, _BUILT_BY_A_CONSTRUCTOR)
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -285,6 +325,7 @@ def run_live(
     def work() -> dict:
         workload = load_workload(workload_dir)
         before = _sha256(workload.database_path)
+        limits = limits_module.EpisodeLimits()
         location = runner.run_episodes(
             workload.cases("dev", case_ids),
             workload=workload,
@@ -292,10 +333,12 @@ def run_live(
             model=model,
             repeats=repeats,
             log_dir=out_dir / "inspect",
-            limits=limits_module.EpisodeLimits(),
+            limits=limits,
             reasoning_effort=REASONING_EFFORT,
         )
         return _record(
+            request=Request.this_attempt(limits),
+            limits=limits,
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -328,6 +371,8 @@ def summarize(
         out_dir,
         api_key,
         lambda: _record(
+            request=Request.from_log(location),
+            limits=limits_module.EpisodeLimits(),
             location=location,
             out_dir=out_dir,
             model_id=model_id,
@@ -354,6 +399,8 @@ def _episode_entry(episode: dict, sample) -> dict:
 
 def _record(
     *,
+    request: Request,
+    limits: limits_module.EpisodeLimits,
     location: str,
     out_dir: Path,
     model_id: str,
@@ -362,12 +409,12 @@ def _record(
     database_sha256: dict | None,
 ) -> dict:
     out_dir = Path(out_dir).resolve()
-    limits = limits_module.EpisodeLimits()
     expected = [(c, r) for c in case_ids for r in range(repeats)]
     episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
     parameters = request_parameters(log)
     effective = limits_module.read_back(location)
+    # `request` is what its caller names: this Attempt's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
 
     record = {
@@ -388,13 +435,14 @@ def _record(
             "sent": (parameters or {}).get("thinking"),
             "note": REASONING_NOTE,
         },
-        "output_cap": {"requested": limits.max_output_tokens, "sent": (parameters or {}).get("max_tokens")},
+        "output_cap": {"requested": request.limits["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
         "python": platform.python_version(),
         "hardware": platform.platform(),
         "machine": platform.machine(),
         "effective_limits": effective,
-        "requested_limits": limits_module.requested_limits(limits),
+        "requested_limits": request.limits,
+        "request_source": request.source.value,
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
             "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",

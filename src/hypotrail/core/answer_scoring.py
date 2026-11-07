@@ -11,6 +11,7 @@ Reference's absolute tolerance applies to numbers; it is 0 for exact comparison.
 import json
 import math
 from decimal import Decimal
+from typing import NamedTuple
 
 COMPONENTS = ("status", "reason_code", "columns", "rows", "unit")
 REQUIRED_FIELDS = (*COMPONENTS, "evidence")
@@ -29,6 +30,45 @@ def parse_answer(text):
     except ValueError:
         return None
     return value if isinstance(value, dict) else None
+
+
+class EmbeddedObject(NamedTuple):
+    """The one JSON object an answer contains: the exact slice it was read from, and its decoded dict."""
+
+    text: str
+    value: dict
+
+
+def find_embedded_object(text):
+    """The one JSON object an answer contains, as an `EmbeddedObject`, or None.
+
+    The text is scanned left to right. At each `{` the standard decoder tries to read one value
+    (refusing `NaN`, `Infinity` and `-Infinity`, as `parse_answer` does); a read that gives an
+    object is a candidate and the scan resumes after its last character, so an object nested in a
+    candidate is not another one. A failed read (a stray brace, a truncated object, a non-finite
+    number) skips only its `{`: an object that decodes further on, even inside the text of a failed
+    read, is a candidate.
+    Numbers, strings and arrays are never candidates, and a Markdown fence needs no special case.
+    Exactly one candidate is returned, with the exact slice of `text` it was read from; none, or
+    several, give None. Nothing is converted or picked out of prose.
+    """
+    if not isinstance(text, str):
+        return None
+    decoder = json.JSONDecoder(parse_constant=_refuse_constant)
+    found = None
+    position = text.find("{")
+    while position != -1:
+        try:
+            value, end = decoder.raw_decode(text, position)
+        except ValueError:
+            position = text.find("{", position + 1)
+            continue
+        if isinstance(value, dict):
+            if found is not None:
+                return None
+            found = EmbeddedObject(text[position:end], value)
+        position = text.find("{", end)
+    return found
 
 
 def _is_number(value):
@@ -60,13 +100,12 @@ def _same_rows(expected, actual, tolerance):
     return True
 
 
-def score_answer(answer_text, reference: dict) -> dict:
-    """Compare an answer (raw text) with a Reference record.
+def score_object(answer, reference: dict) -> dict:
+    """Compare an answer already decoded (a dict, or None when nothing was read) with a Reference record.
 
-    An answer that is not a JSON object, or that lacks one of the six required
-    fields, is malformed: `parsed` is False and every component is False.
+    An answer that is not a dict, or that lacks one of the six required fields, is malformed:
+    `parsed` is False and every component is False.
     """
-    answer = parse_answer(answer_text)
     # An answer without a required field is malformed, whatever the Reference holds:
     # a missing field must not read as the null a Reference may hold (AG-08).
     if answer is None or any(field not in answer for field in REQUIRED_FIELDS):
@@ -84,3 +123,4 @@ def score_answer(answer_text, reference: dict) -> dict:
         "unit": answer.get("unit") == reference["unit"],
     }
     return {"parsed": True, "correct": all(components.values()), "components": components}
+

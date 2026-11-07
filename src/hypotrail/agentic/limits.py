@@ -123,6 +123,20 @@ def read_back(location: str) -> dict:
     }
 
 
+def requested_from_log(location: str) -> dict:
+    """The request a kept log holds, in the shape of `requested_limits` (what a re-summary records).
+
+    Each value is what `read_back` reads from the log header, so requested and effective agree wherever
+    the log records the limit. The budget is keyed by the log's metering (no key, metering null, when the
+    log has no token limit). `tool_calls` is null: Inspect cannot enforce it, so no log holds it. The
+    per-query caps and `max_connections` are not part of a request, as in `requested_limits`.
+    """
+    effective = read_back(location)
+    # the shape of a request, whichever metering the log's budget has
+    keys = set(requested_limits(EpisodeLimits())) | set(TOKEN_BUDGET_KEYS.values())
+    return {k: v for k, v in effective.items() if k in keys} | {"tool_calls": None}
+
+
 # How each limit stands, and the test that witnesses it (spike check 3).
 # Labels: "shown enforced", "configured, not witnessed", "not enforceable".
 ENFORCEMENT = {

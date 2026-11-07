@@ -452,3 +452,138 @@ def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
     assert "```json" in paragraph and "limits their <code>run.json</code> records" in paragraph and "under the current limits" not in paragraph
     for out, total in (v for e in LIVE_L12B.values() for v in e.values()):
         assert f"{out} and {total:,}" in paragraph
+
+
+def test_chapter_03_says_where_requested_limits_come_from_in_each_case(page):
+    """#57 T5: the run.json paragraph names request_source's two values as the code writes them, and no longer says the requested limits are read back."""
+    from hypotrail.agentic import live
+
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "<code>run.json</code> holds:" in p)
+    rows = table_rows(page, "run-request-source", "data-request-source")
+    assert set(rows) == {source.value for source in live.RequestSource}
+    assert "<code>this_attempt</code>" not in paragraph and "#run-request-source" in paragraph
+    # the table sits after the list its sentence introduces: "The cause is one of:" is followed by the reasons
+    assert page.index("The cause is one of:") < page.index('id="uses-tool-result-reasons"') < page.index('id="run-request-source"')
+    lead_in = page.index("<code>requested_limits</code> comes from")
+    assert page.index('id="uses-tool-result-reasons"') < lead_in < page.index('id="run-request-source"')
+    assert "<code>request_source</code>" in paragraph and "<code>tool_calls</code> null" in paragraph
+    assert "the requested and effective limits read back from the log" not in paragraph
+    assert "The effective limits are read back from the log and include the per-query caps" in paragraph
+
+
+# --- #58: chapter 03's Criteria and wrapped-answer tables are pinned against the Scorer ---------------------------------
+
+
+def _scorer_inputs():
+    from hypotrail.core import chinook_contract
+
+    chinook = ROOT / "examples" / "chinook"
+    schema = json.loads((chinook / "schemas" / "table-answer.schema.json").read_text())
+    reference = next(
+        json.loads(line)
+        for line in (chinook / "references" / "chinook-references.jsonl").read_text().splitlines()
+        if json.loads(line)["case_id"] == "D03"
+    )
+    answer = {k: reference[k] for k in ("status", "reason_code", "columns", "rows", "unit")} | {"evidence": []}
+    return chinook_contract, schema, reference, answer
+
+
+def test_the_criteria_table_names_the_scorers_criteria_and_its_evidence_reasons(page):
+    chinook_contract = _scorer_inputs()[0]
+    rows = table_rows(page, "chinook-criteria", "data-criterion")
+    assert tuple(rows) == chinook_contract.CRITERIA
+    evidence = rows["evidence_link_valid"]["text"]
+    for name in dir(chinook_contract):
+        if name.startswith("EVIDENCE_"):
+            assert getattr(chinook_contract, name) in evidence, name
+    assert chinook_contract.INVALID_RESPONSE_FORMAT in evidence
+
+
+def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
+    chinook_contract, schema, reference, answer = _scorer_inputs()
+    text = json.dumps(answer)
+    # one object per kind of off-schema answer: an extra field keeps the six fields, a missing one loses a field
+    off_objects = [json.dumps(answer | {"comment": "hi"}), json.dumps({k: v for k, v in answer.items() if k != "unit"})]
+    shapes = {
+        "exact_object": ["OBJ"],
+        "wrapped": ["Voici. OBJ", "OBJ\nFin.", "```json\nOBJ\n```", "[OBJ]"],
+        "non_json_wrapper": ['{"answer": OBJ, "note": NaN}', '{"answer": OBJ', "x {oops OBJ"],
+    }
+
+    def holding(shape, obj):
+        return shape.replace("OBJ", obj)
+
+    # (raw answer, the object it holds): the valid object, and each off-schema object for the *_off_schema rows
+    samples = {name: [(holding(sh, text), text) for sh in group] for name, group in shapes.items()}
+    samples |= {f"{name}_off_schema": [(holding(sh, o), o) for sh in group for o in off_objects] for name, group in shapes.items()}
+    samples["nothing_read"] = [
+        (raw, None)
+        for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
+    ]
+    for name, group in samples.items():
+        if name.endswith("_off_schema"):
+            # each off-schema row is exercised with an object that keeps the six fields and one that misses a field
+            missing = [set(answer) <= set(json.loads(held)) for _, held in group]
+            assert True in missing and False in missing, name
+    rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
+    assert set(rows) == set(samples)
+    kept = ("exact_table", "evidence_link_valid")
+    for name, row in rows.items():
+        attrs = row["attrs"]
+        listed = set(attrs["data-false"].split())
+        for raw, held in samples[name]:
+            result = chinook_contract.score_episode(raw, reference, schema)
+            by = {c["name"]: c for c in result["criteria"]}
+            falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
+            if name == "nothing_read":
+                assert listed == set(chinook_contract.CRITERIA) == falsified, raw
+            elif not name.endswith("_off_schema"):
+                assert falsified == listed, raw
+            # the Criteria scored false with invalid_response_format are exactly the row's data-false list, except that
+            # exact_table is false with it too exactly when the held object misses a field
+            invalid = {n for n in falsified if by[n]["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT}
+            misses_a_field = held is not None and not set(answer) <= set(json.loads(held))
+            assert invalid == listed | ({"exact_table"} if misses_a_field else set()), raw
+            if name == "exact_object_off_schema":
+                # an extra field keeps the six fields, so exact_table holds against the right Reference; a missing one fails it
+                exact = by["exact_table"]
+                if misses_a_field:
+                    assert exact["score"] is False and exact["reason"] == chinook_contract.INVALID_RESPONSE_FORMAT, raw
+                else:
+                    assert exact["score"] is True, raw
+            assert str(result["answer_read_from"]).replace("None", "null") == attrs["data-read-from"], raw
+            if attrs["data-read-from"] == chinook_contract.READ_FROM_EMBEDDED_OBJECT:
+                # "as for that object alone": exact_table and evidence_link_valid are those of the held object scored alone
+                alone = {c["name"]: c for c in chinook_contract.score_episode(held, reference, schema)["criteria"]}
+                assert [by[n] for n in kept] == [alone[n] for n in kept], raw
+    # the three values of answer_read_from are exactly the rows' data-read-from
+    assert {r["attrs"]["data-read-from"] for r in rows.values()} == {
+        chinook_contract.READ_FROM_RAW_ANSWER,
+        chinook_contract.READ_FROM_EMBEDDED_OBJECT,
+        "null",
+    }
+
+
+def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_as_the_one_object(page):
+    """#58 T9'': the Scorer reads a non-JSON wrapper on the object it holds and a JSON wrapper as the one object, and the chapter states the JSON half once."""
+    chinook_contract, schema, reference, answer = _scorer_inputs()
+    text = json.dumps(answer)
+
+    def exact_table(raw):
+        result = chinook_contract.score_episode(raw, reference, schema)
+        return result["answer_read_from"], next(c for c in result["criteria"] if c["name"] == "exact_table")["score"]
+
+    assert exact_table('{"answer": ' + text + ', "note": NaN}') == (chinook_contract.READ_FROM_EMBEDDED_OBJECT, True)
+    assert exact_table('{"answer": ' + text + ', "note": 1}') == (chinook_contract.READ_FROM_RAW_ANSWER, False)
+    assert page.count("is itself the one object, and is judged as such") == 1
+    assert "read on the whole wrapper, which lacks the six fields" in page
+
+
+def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
+    chinook_contract = _scorer_inputs()[0]
+    chapter = CHAPTER_03.read_text(encoding="utf-8")
+    assert f"version is {chinook_contract.SCORER_VERSION}" in chapter
+    assert "<code>answer_read_from</code>" in chapter
+    for value in (chinook_contract.READ_FROM_RAW_ANSWER, chinook_contract.READ_FROM_EMBEDDED_OBJECT):
+        assert f"<code>{value}</code>" in chapter
+    assert "unscored</code> with <code>invalid_response_format</code>" not in chapter  # the corrected sentence (T6)

@@ -43,7 +43,7 @@ def correct_answer(case_id):
 
 def score(answer, case_id="D05", reference=None):
     text = answer if isinstance(answer, str) else json.dumps(answer)
-    return answer_scoring.score_answer(text, reference or REFS[case_id])
+    return answer_scoring.score_object(answer_scoring.parse_answer(text), reference or REFS[case_id])
 
 
 # --- the scoring function, both ways ----------------------------------------------
@@ -151,7 +151,111 @@ def test_a_present_null_is_not_a_missing_field():
 
 
 def test_a_missing_answer_is_incorrect():
-    assert answer_scoring.score_answer(None, REFS["D03"])["correct"] is False
+    assert answer_scoring.score_object(answer_scoring.parse_answer(None), REFS["D03"])["correct"] is False
+
+
+# --- #58 T1, T2', T3: the one JSON object an answer contains ---------------------------
+
+
+def embedded_text(text):
+    found = answer_scoring.find_embedded_object(text)
+    return found.text if found else None
+
+
+OBJ = json.dumps({"a": 1, "b": {"c": [1, 2]}})
+OTHER = json.dumps({"d": 2})
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Prose before. " + OBJ,
+        OBJ + " Prose after.",
+        "```json\n" + OBJ + "\n```",
+        "Before.\n\n" + OBJ + "\n\nAfter.",
+        "[" + OBJ + "]",
+        "A {stray brace} in prose, then " + OBJ,
+    ],
+)
+def test_exactly_one_embedded_object_is_found_and_returned_as_its_own_text(text):
+    assert embedded_text(text) == OBJ
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '{"status": NaN, "x": ' + OBJ + "}",
+        "A stray { in prose, then " + OBJ,
+        "Prices are in {USD. " + OBJ,
+        '{"truncated": [1, 2 then ' + OBJ,
+        '{"status": "answered", "x": ' + OBJ,
+        'He wrote "{" then ' + OBJ,
+    ],
+)
+def test_a_failed_read_skips_only_its_brace_so_a_later_object_still_counts(text):
+    assert embedded_text(text) == OBJ
+
+
+def test_a_failed_read_does_not_hide_a_nested_object_it_is_the_one_candidate():
+    assert embedded_text('{"status": NaN, "x": {"a": 1}}') == '{"a": 1}'
+
+
+def test_a_balanced_stray_brace_pair_before_the_object_is_skipped():
+    assert embedded_text("Voir {approximatif} puis " + OBJ) == OBJ
+
+
+def test_the_finder_returns_the_decoded_object_with_its_text():
+    assert answer_scoring.find_embedded_object("x " + OBJ + " y") == (OBJ, json.loads(OBJ))
+    assert answer_scoring.find_embedded_object("none") is None
+
+
+def test_an_object_nested_in_the_candidate_is_not_another_candidate():
+    assert embedded_text("x " + OBJ) == OBJ  # OBJ holds a nested object
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "The answer is 1297.",
+        "1297",
+        '"a string"',
+        "[1297]",
+        "[1, [2, 3]]",
+        "{not json}",
+        '{"truncated": [1, 2',
+        '{"rows": [[NaN]]}',
+        '{"rows": [[Infinity]]}',
+        '{"rows": [[-Infinity]]}',
+    ],
+)
+def test_no_object_means_nothing_is_found(text):
+    assert embedded_text(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        OBJ + " " + OTHER,
+        "```json\n" + OBJ + "\n" + OTHER + "\n```",
+        "```json\n" + OBJ + "\n```\nthen\n```json\n" + OTHER + "\n```",
+        OBJ + "\n" + OBJ,
+        "[" + OBJ + ", " + OBJ + "]",
+    ],
+)
+def test_two_objects_anywhere_mean_nothing_is_found(text):
+    assert embedded_text(text) is None
+
+
+def test_a_value_that_is_not_text_finds_nothing():
+    assert embedded_text(None) is None
+    assert embedded_text(OBJ.encode()) is None
+
+
+def test_parse_answer_still_reads_only_an_answer_that_is_exactly_one_object():
+    assert answer_scoring.parse_answer(OBJ) == json.loads(OBJ)
+    for text in ("x " + OBJ, "```json\n" + OBJ + "\n```", "[" + OBJ + "]"):
+        assert answer_scoring.parse_answer(text) is None
 
 
 # --- check 2: rescoring a kept log calls neither the model nor the tools ----------

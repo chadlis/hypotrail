@@ -2,6 +2,7 @@
 
 import copy
 import json
+from pathlib import Path
 
 import pytest
 
@@ -140,6 +141,68 @@ def test_a_malformed_answer_scores_evidence_link_valid_false_with_invalid_respon
 def test_a_well_formed_answer_without_a_trace_still_leaves_the_link_unscored():
     link = criteria(score(answer_for("D05", ["hypotrail-aaa"])))["evidence_link_valid"]
     assert (link["state"], link["score"], link["reason"]) == ("unscored", None, "trace_missing")
+
+
+# --- #58: a wrapped answer's cited IDs are judged as its one object's ---------------------------------
+
+
+def wrapped(answer):
+    return ["Voici le résultat.\n" + json.dumps(answer), json.dumps(answer) + "\nFin.", "```json\n" + json.dumps(answer) + "\n```"]
+
+
+@pytest.mark.parametrize("cited", [["hypotrail-aaa"], ["hypotrail-zzz"], ["hypotrail-aaa", "hypotrail-zzz"], []])
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_a_wrapped_answers_link_is_what_its_object_alone_gives(cited, position):
+    answer = answer_for("D05", cited)
+    alone = criteria(score(answer, steps=good_trace()))["evidence_link_valid"]
+    got = criteria(score(wrapped(answer)[position], steps=good_trace()))["evidence_link_valid"]
+    assert got == alone
+
+
+def test_a_wrapped_answer_citing_a_valid_id_has_a_valid_link_and_one_citing_an_unknown_id_does_not():
+    ok = criteria(score(wrapped(answer_for("D05", ["hypotrail-aaa"]))[0], steps=good_trace()))["evidence_link_valid"]
+    assert (ok["state"], ok["score"], ok["reason"]) == ("scored", True, None)
+    bad = criteria(score(wrapped(answer_for("D05", ["hypotrail-zzz"]))[2], steps=good_trace()))["evidence_link_valid"]
+    assert (bad["state"], bad["score"], bad["reason"]) == ("scored", False, "evidence_unknown_id")
+
+
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_a_wrapped_answer_with_a_valid_link_and_the_right_table_still_is_no_contract_success(position):
+    verdict = score(wrapped(answer_for("D05", ["hypotrail-aaa"]))[position], steps=good_trace())
+    by = criteria(verdict)
+    assert (by["exact_table"]["score"], by["evidence_link_valid"]["score"]) == (True, True)
+    assert by["format_valid"]["score"] is False
+    assert contract(verdict) == ("scored", False, "invalid_response_format")
+
+
+@pytest.mark.parametrize("raw", ["The answer is 1297.", "{} {}"])
+def test_an_answer_with_no_object_or_two_reads_nothing_even_with_a_trace(raw):
+    by = criteria(score(raw, steps=good_trace()))
+    assert {(c["state"], c["score"], c["reason"]) for c in by.values()} == {("scored", False, "invalid_response_format")}
+
+
+# --- #58 criterion 5: the kept live answers ---------------------------------------------
+
+
+TRACES = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces"
+
+
+@pytest.mark.parametrize("name", ["live-l12b-plain", "live-l12b-verify"])
+def test_the_four_kept_live_answers_are_exact_and_linked_but_not_well_formed(name):
+    episodes = json.loads((TRACES / name / "projection.json").read_text())
+    assert [e["case_id"] for e in episodes] == ["D03", "D05"]
+    for episode in episodes:
+        raw = episode["final_answer"]
+        assert not raw.lstrip().startswith("{")  # each starts with prose
+        verdict = chinook_contract.score_episode(raw, REFS[episode["case_id"]], SCHEMA, episode["steps"])
+        by = criteria(verdict)
+        got = {n: (c["state"], c["score"], c["reason"]) for n, c in by.items()}
+        assert got["exact_table"] == ("scored", True, None), (name, episode["case_id"])
+        assert got["evidence_link_valid"] == ("scored", True, None), (name, episode["case_id"])
+        assert got["format_valid"] == ("scored", False, "invalid_response_format"), (name, episode["case_id"])
+        assert got["contract_success"] == ("scored", False, "invalid_response_format"), (name, episode["case_id"])
+        assert verdict["answer_read_from"] == "embedded_object"
+        assert verdict["raw_answer"] == raw
 
 
 # --- contract success --------------------------------------------------------------------
