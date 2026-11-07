@@ -520,6 +520,11 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
         (raw, None)
         for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
     ]
+    for name, group in samples.items():
+        if name.endswith("_off_schema"):
+            # each off-schema row is exercised with an object that keeps the six fields and one that misses a field
+            missing = [set(answer) <= set(json.loads(held)) for _, held in group]
+            assert True in missing and False in missing, name
     rows = table_rows(page, "chinook-wrapped-answers", "data-answer")
     assert set(rows) == set(samples)
     kept = ("exact_table", "evidence_link_valid")
