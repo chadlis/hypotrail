@@ -640,20 +640,24 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 </tbody></table></div>
 </section>
 <section id="study-and-attempts" style="--ac:var(--sky)"><div class="sh"><div class="n">04</div><div><p class="k">Core</p><h2>Study and Attempts</h2></div></div>
-<p class="lead">A Study is a folder that holds one Protocol and the Attempts run under it. <code>init</code> creates the Study of the bike Workload; <code>run ml</code> runs one Configuration on one Partition and records it as an Attempt: a manifest, an Observation set and the predictions, every artifact referenced by its digest and published atomically before the terminal manifest. A repeated <code>--request-id</code> returns the recorded Attempt or is refused. This chapter describes what exists; one writer per Study, interruption recovery, <code>status</code> and imports are later work (see Limits); scoring an Attempt is <a href="#assessments">chapter 05</a>.</p>
+<p class="lead">A Study is a folder that holds one Protocol and the Attempts run under it. <code>init</code> creates the Study of the bike Workload; <code>run ml</code> runs one Configuration on one Partition and records it as an Attempt: a manifest, an Observation set and the predictions, every artifact referenced by its digest and published atomically before the terminal manifest. A repeated <code>--request-id</code> returns the recorded Attempt or is refused. A Study admits one writer at a time (<code>init</code>, <code>run ml</code>, <code>recover</code> and <code>assess</code> take its lock); <code>status</code> shows its local state and <code>recover</code> records an Attempt left behind by a dead writer as <code>interrupted</code>. This chapter describes what exists; imports are later work (see Limits); scoring an Attempt is <a href="#assessments">chapter 05</a>.</p>
 
 <p class="sub2">Commands</p>
 <div class="prose">
-<p>Both commands are in <code>src/hypotrail/cli.py</code>. With <code>--json</code>, stdout holds exactly one JSON object (<code>{"ok": true, ...}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>) and the human diagnostic goes to stderr; no error carries a secret (an unexpected exception is reported by its type only). Without <code>--json</code>, stdout holds one line.</p>
+<p>The four commands are in <code>src/hypotrail/cli.py</code>. With <code>--json</code>, stdout holds exactly one JSON object (<code>{"ok": true, ...}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>) and the human diagnostic goes to stderr; no error carries a secret (an unexpected exception is reported by its type only). Without <code>--json</code>, stdout holds one line.</p>
 <ul>
 <li><code>init</code> verifies the Workload's data against its lock, then creates the Study: the StudySpec (<code>study.json</code>), a copy of the dataset, and the population (memberships) and the References set as Study artifacts, each with an ID. The Workload must be of the temporal regression Track. A Study folder that already holds a <code>study.json</code> is refused.</li>
 <li><code>run ml</code> runs one declared Configuration (<code>seasonal_7</code>, <code>ridge_v1</code>) on one declared Partition and records one Attempt. <code>--request-id</code> is required. Its output is <code>{"ok": true, "replayed": false, "attempt": MANIFEST}</code>; <code>replayed</code> is true when the request was already recorded and nothing was computed. It needs the <code>ml</code> extra only to run <code>ridge_v1</code>.</li>
+<li><code>status</code> only reads. It lists every Attempt of the Study with its <code>technical_status</code> and the artifacts found in its folder, the partial ones of an Attempt that never reached its terminal manifest included. It takes no lock.</li>
+<li><code>recover</code> is the explicit command that writes. It records as <code>interrupted</code>, with <code>finished_at</code> and a Reason, an Attempt that is <code>running</code> while no writer is alive, and keeps its artifacts. It resubmits nothing.</li>
 </ul>
 <p>The Workload stays where it is declared (<code>examples/&lt;name&gt;</code>, or the folder given by <code>--examples-dir</code>): a Configuration can change after the Study exists, and an Attempt records the Configuration it ran. The Study freezes the Protocol, not the Configurations.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="study-commands"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
 <tr data-command="init" data-required="--workload --study" data-optional="--examples-dir --json"><td><code>init</code></td><td><code>--workload NAME</code>, <code>--study DIR</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
 <tr data-command="run ml" data-required="--study --config --partition --request-id" data-optional="--retry-of --examples-dir --json"><td><code>run ml</code></td><td><code>--study DIR</code>, <code>--config NAME</code>, <code>--partition NAME</code>, <code>--request-id ID</code></td><td><code>--retry-of ATTEMPT_ID</code>, <code>--examples-dir DIR</code>, <code>--json</code></td></tr>
+<tr data-command="status" data-required="--study" data-optional="--json"><td><code>status</code></td><td><code>--study DIR</code></td><td><code>--json</code></td></tr>
+<tr data-command="recover" data-required="--study --attempt" data-optional="--json"><td><code>recover</code></td><td><code>--study DIR</code>, <code>--attempt ATTEMPT_ID</code></td><td><code>--json</code></td></tr>
 </tbody></table></div>
 
 <p class="sub2">The Study on disk</p>
@@ -665,6 +669,7 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-path="datasets/day.csv" data-written-by="init"><td><code>datasets/day.csv</code></td><td><code>init</code></td><td>The dataset, as it was at <code>init</code> (the StudySpec's <code>dataset_refs</code>).</td></tr>
 <tr data-path="artifacts/memberships.csv" data-written-by="init"><td><code>artifacts/memberships.csv</code></td><td><code>init</code></td><td>The population: one row per date, with its Partition or its exclusion reason. A Study artifact with an ID.</td></tr>
 <tr data-path="artifacts/references.csv" data-written-by="init"><td><code>artifacts/references.csv</code></td><td><code>init</code></td><td>The References set: one row per Item of every Partition. A Study artifact with an ID.</td></tr>
+<tr data-path="writer.lock" data-written-by="init run ml recover assess"><td><code>writer.lock</code></td><td><code>init</code>, <code>run ml</code>, <code>recover</code>, <code>assess</code></td><td>The writer lock: an empty file on which a writer holds an exclusive lock for the whole command. Taking the lock writes nothing to it.</td></tr>
 <tr data-path="attempts/ATTEMPT_ID/attempt.json" data-written-by="run ml"><td><code>attempts/ATTEMPT_ID/attempt.json</code></td><td><code>run ml</code></td><td>The Attempt manifest: written <code>running</code> first, replaced atomically by the terminal one last.</td></tr>
 <tr data-path="attempts/ATTEMPT_ID/workload.json" data-written-by="run ml"><td><code>attempts/ATTEMPT_ID/workload.json</code></td><td><code>run ml</code></td><td>The declaration as the Attempt read it, by its bytes (an input of the Attempt).</td></tr>
 <tr data-path="attempts/ATTEMPT_ID/predictions.csv" data-written-by="run ml"><td><code>attempts/ATTEMPT_ID/predictions.csv</code></td><td><code>run ml</code></td><td>Exactly the file the library writes for the same Configuration and Partition (<a href="#temporal-regression-track">chapter 02</a>).</td></tr>
@@ -687,7 +692,7 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-record="ArtifactRef" data-kind="" data-required="path sha256 size_bytes media_type role" data-optional=""><td>ArtifactRef</td><td><code>path</code>, <code>sha256</code>, <code>size_bytes</code>, <code>media_type</code>, <code>role</code></td><td>none</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="statuses"><thead><tr><th>Level</th><th>Values</th></tr></thead><tbody>
-<tr data-level="attempt" data-values="running completed failed interrupted"><td>Attempt (<code>technical_status</code>)</td><td><code>running</code>, <code>completed</code>, <code>failed</code>, <code>interrupted</code>. <code>run ml</code> writes <code>running</code> then <code>completed</code>; the other two belong to later tickets.</td></tr>
+<tr data-level="attempt" data-values="running completed failed interrupted"><td>Attempt (<code>technical_status</code>)</td><td><code>running</code>, <code>completed</code>, <code>failed</code>, <code>interrupted</code>. <code>run ml</code> writes <code>running</code>, then <code>completed</code>, or <code>failed</code> when an error stops it inside the live process; <code>recover</code> writes <code>interrupted</code>. Every non-completed terminal state has a Reason. A terminal manifest has <code>finished_at</code>; a <code>running</code> one does not.</td></tr>
 <tr data-level="item" data-values="produced failed missing"><td>Item (execution status)</td><td><code>produced</code>, <code>failed</code>, <code>missing</code>. Separate from how an Item is scored. A native run of a declared Configuration produces every Item.</td></tr>
 </tbody></table></div>
 
@@ -722,10 +727,39 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-element="retry_of" data-in-identity="no"><td><code>retry_of</code></td><td>no</td><td>Says why a request exists, not what it asks.</td></tr>
 </tbody></table></div>
 
-<p class="sub2">An interrupted write</p>
+<p class="sub2">One writer, interruption and retry</p>
 <div class="prose">
-<p>The manifest is written <code>running</code> before anything else, each artifact is published before the terminal manifest, and the terminal manifest replaces the running one atomically, last. A process killed in between leaves the artifacts it had published, no artifact under a final path it had not reached, and a manifest that is still <code>running</code>, without <code>finished_at</code>. No complete state is invented. The same <code>request_id</code> then returns that Attempt as it is; a rerun is a new <code>request_id</code> with <code>--retry-of</code>. Marking such an Attempt <code>interrupted</code>, <code>status</code> and the lock against a second writer are the next ticket.</p>
+<p><b>The lock.</b> <code>init</code>, <code>run ml</code>, <code>recover</code> and <code>assess</code> hold an exclusive, non-blocking lock on <code>writer.lock</code> (<code>core/lock.py</code>) for the whole command. A second writer does not wait: it is refused at once with <code>STUDY_LOCKED</code>, exit 6, and writes nothing. The operating system drops the lock when its holder ends, killed or not, so a dead writer never blocks the Study. <code>status</code> takes no lock; it probes whether one is held. The lock needs <code>fcntl</code> (Linux, macOS); elsewhere the writers are refused with <code>LOCKING_UNAVAILABLE</code> (exit 5). The lock mechanism was adapted from <code>framework/mlkit/study/lock.py</code> of <code>hypotrail/hypotrail</code> at commit <code>4ef4925</code> and is owned here.</p>
+<p><b>What an interruption leaves.</b> The manifest is written <code>running</code> before anything else, each artifact is published before the terminal manifest, and the terminal manifest replaces the running one atomically, last. A process killed in between leaves the artifacts it had published, no artifact under a final path it had not reached, and a manifest that is still <code>running</code>, without <code>finished_at</code>. No complete state is invented. An error that is raised inside a live process instead leaves the Attempt <code>failed</code>, with a Reason and <code>finished_at</code>, its artifacts kept, and the command exits 4.</p>
+<p><b>Looking and recovering.</b> <code>status</code> shows such an Attempt as it is: <code>running</code>, with <code>recoverable: true</code> when no writer is alive. <code>recover --attempt ID</code> records it as <code>interrupted</code>. It refuses an Attempt that is already terminal (<code>ATTEMPT_TERMINAL</code>, exit 3) and, while a writer is alive, the whole command (<code>STUDY_LOCKED</code>). An Attempt whose Mode calls a provider (<code>llm_live</code>) is recorded with <code>outcome_unknown: true</code>: a lock that is gone is never read as the cancellation of a remote call.</p>
+<p><b>Retry.</b> A retry is never implicit and nothing is resubmitted. The same <code>request_id</code> with the same request returns the recorded Attempt, whether it is <code>running</code>, <code>interrupted</code> or <code>failed</code>, with neither a fit nor a prediction. To run it again, use a new <code>--request-id</code> and <code>--retry-of ATTEMPT_ID</code>: it is a new Attempt, and the earlier one and its artifacts keep their digests.</p>
+<p><b>Immutability.</b> Once an Attempt is no longer <code>running</code>, a write that would change its manifest or its outputs, or add a file to its folder, is refused with <code>ATTEMPT_TERMINAL</code>.</p>
 </div>
+<div class="tblwrap"><table class="tbl" id="status-fields"><thead><tr><th>Field of an Attempt in <code>status</code></th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="attempt_id"><td><code>attempt_id</code></td><td>The Attempt.</td></tr>
+<tr data-field="request_id"><td><code>request_id</code></td><td>The request that created it.</td></tr>
+<tr data-field="operation"><td><code>operation</code></td><td>From the manifest.</td></tr>
+<tr data-field="mode"><td><code>mode</code></td><td>From the manifest.</td></tr>
+<tr data-field="technical_status"><td><code>technical_status</code></td><td><code>running</code>, <code>completed</code>, <code>failed</code> or <code>interrupted</code>, as recorded. Never inferred.</td></tr>
+<tr data-field="started_at"><td><code>started_at</code></td><td>From the manifest.</td></tr>
+<tr data-field="finished_at"><td><code>finished_at</code></td><td>Null while <code>running</code>.</td></tr>
+<tr data-field="outcome_unknown"><td><code>outcome_unknown</code></td><td>From the manifest.</td></tr>
+<tr data-field="retry_of"><td><code>retry_of</code></td><td>The Attempt this one repeats on purpose, or null.</td></tr>
+<tr data-field="reason"><td><code>reason</code></td><td>Why a <code>failed</code> or <code>interrupted</code> Attempt is not completed, or null.</td></tr>
+<tr data-field="item_counts"><td><code>item_counts</code></td><td>The Items by execution status of a completed Attempt, or null.</td></tr>
+<tr data-field="writer_alive"><td><code>writer_alive</code></td><td>True for a <code>running</code> Attempt while a writer holds the Study.</td></tr>
+<tr data-field="recoverable"><td><code>recoverable</code></td><td>True for a <code>running</code> Attempt while no writer holds the Study: <code>recover</code> can record it.</td></tr>
+<tr data-field="artifacts"><td><code>artifacts</code></td><td>Every file published in the Attempt's folder besides its manifest, with the fields below.</td></tr>
+<tr data-field="temporary_files"><td><code>temporary_files</code></td><td>Paths of temporary files a dead writer left (not artifacts).</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="status-artifact-fields"><thead><tr><th>Field of an artifact in <code>status</code></th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="path"><td><code>path</code></td><td>Relative to the Study.</td></tr>
+<tr data-field="sha256"><td><code>sha256</code></td><td>Of the bytes found now.</td></tr>
+<tr data-field="size_bytes"><td><code>size_bytes</code></td><td>Of the bytes found now.</td></tr>
+<tr data-field="media_type"><td><code>media_type</code></td><td>From the file name.</td></tr>
+<tr data-field="referenced"><td><code>referenced</code></td><td>True when the Attempt's manifest names it; false for the partial artifacts of an Attempt that never reached its terminal manifest.</td></tr>
+<tr data-field="role"><td><code>role</code></td><td>The role in the manifest's ArtifactRef, or null when not referenced.</td></tr>
+</tbody></table></div>
 
 <p class="sub2">Exit codes and refusals</p>
 <div class="tblwrap"><table class="tbl" id="exit-codes"><thead><tr><th>Exit</th><th>Meaning</th><th>Name in the code</th></tr></thead><tbody>
@@ -752,6 +786,10 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-code="ARTIFACT_IMMUTABLE" data-exit="3" data-stage="artifact" data-details="path"><td><code>ARTIFACT_IMMUTABLE</code></td><td>Other bytes published under the path of a published artifact (library only)</td><td>3</td><td><code>artifact</code></td><td><code>path</code></td></tr>
 <tr data-code="PROTOCOL_CHANGED" data-exit="3" data-stage="request" data-details="actual_protocol_digest expected_protocol_digest"><td><code>PROTOCOL_CHANGED</code></td><td>A new request on a Workload whose Protocol is no longer the Study's</td><td>3</td><td><code>request</code></td><td><code>expected_protocol_digest</code>, <code>actual_protocol_digest</code></td></tr>
 <tr data-code="CONTRACT_VIOLATION" data-exit="3" data-stage="contract" data-details="kind message path"><td><code>CONTRACT_VIOLATION</code></td><td>A record that does not match the contract schema, written or read</td><td>3</td><td><code>contract</code></td><td><code>kind</code>, <code>path</code>, <code>message</code></td></tr>
+<tr data-code="ATTEMPT_NOT_FOUND" data-exit="2" data-stage="attempt" data-details="attempt_id"><td><code>ATTEMPT_NOT_FOUND</code></td><td><code>recover</code> of an Attempt the Study does not hold</td><td>2</td><td><code>attempt</code></td><td><code>attempt_id</code></td></tr>
+<tr data-code="ATTEMPT_TERMINAL" data-exit="3" data-stage="attempt" data-details="attempt_id path technical_status"><td><code>ATTEMPT_TERMINAL</code></td><td>A write that would change a manifest or output of an Attempt that is no longer <code>running</code>; <code>recover</code> of such an Attempt</td><td>3</td><td><code>attempt</code></td><td><code>attempt_id</code>, <code>technical_status</code>, <code>path</code></td></tr>
+<tr data-code="LOCKING_UNAVAILABLE" data-exit="5" data-stage="lock" data-details="platform"><td><code>LOCKING_UNAVAILABLE</code></td><td>A writer on a platform without <code>fcntl</code></td><td>5</td><td><code>lock</code></td><td><code>platform</code></td></tr>
+<tr data-code="STUDY_LOCKED" data-exit="6" data-stage="lock" data-details="study"><td><code>STUDY_LOCKED</code></td><td>Any writer while another holds the Study's lock; nothing is written</td><td>6</td><td><code>lock</code></td><td><code>study</code></td></tr>
 <tr data-code="REQUEST_CONFLICT" data-exit="6" data-stage="request" data-details="attempt_id differs request_id"><td><code>REQUEST_CONFLICT</code></td><td>The same <code>request_id</code> with another request; nothing is written</td><td>6</td><td><code>request</code></td><td><code>request_id</code>, <code>attempt_id</code>, <code>differs</code></td></tr>
 </tbody></table></div>
 
@@ -761,12 +799,16 @@ uv run python -m hypotrail init --workload bike_day --study runs/bike
 uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition dev --request-id ml-dev-a
 uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partition dev --request-id ml-dev-b --json
 <span class="cm"># the same request_id and request again: the recorded Attempt, nothing recomputed</span>
-uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partition dev --request-id ml-dev-b --json</pre>
-<p class="prose">The tests are <code>tests/test_canonical_json.py</code>, <code>test_artifacts.py</code>, <code>test_contracts.py</code>, <code>test_study_init.py</code> and <code>test_run_ml.py</code>; like the rest of the suite they run offline and call no model. <code>run ml</code> may be run on any declared Partition, <code>public_check</code> included: there is no freeze record or Exposure journal yet.</p>
+uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partition dev --request-id ml-dev-b --json
+<span class="cm"># after a writer was killed: look, record the Attempt as interrupted, then repeat it on purpose</span>
+uv run python -m hypotrail status --study runs/bike --json
+uv run python -m hypotrail recover --study runs/bike --attempt ATTEMPT_ID
+uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partition dev --request-id ml-dev-c --retry-of ATTEMPT_ID</pre>
+<p class="prose">The tests are <code>tests/test_canonical_json.py</code>, <code>test_artifacts.py</code>, <code>test_contracts.py</code>, <code>test_study_init.py</code>, <code>test_run_ml.py</code> and <code>test_study_lock.py</code> (the lock, the killed writer, <code>status</code>, <code>recover</code>, the retry); like the rest of the suite they run offline and call no model. <code>run ml</code> may be run on any declared Partition, <code>public_check</code> included: there is no freeze record or Exposure journal yet.</p>
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>One writer, not yet</h3><p>Nothing stops two commands from writing to the same Study at once. The writer lock, the <code>interrupted</code> state recorded by an explicit command, <code>status</code> and a <code>failed</code> Attempt (exit 4) are the next ticket of issue #9.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>No resume engine, POSIX locking</h3><p>An interrupted or failed Attempt is never continued: a retry is a new Attempt (a generic resume engine is out of scope). The lock needs <code>fcntl</code>; on Windows the writers are refused. A <code>status</code> probe holds a shared lock for an instant, so a writer that starts at that very moment is refused (it writes nothing) and can simply be run again. <code>recover</code> leaves the unpublished scratch files of a dead writer in <code>.scratch/</code>.</p></div>
 <div class="card" style="--c:var(--violet)"><h3>No import, no Comparison</h3><p><code>run ml</code> does not score: <code>assess</code> does, in a separate step (<a href="#assessments">chapter 05</a>). Imports and Comparisons in a Study come later in issue #9. The schema already defines their fields.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>No freeze, no Exposure</h3><p>No freeze record and no Exposure journal (issue #9, later). A <code>run ml</code> on <code>public_check</code> is recorded like any other.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Bike only</h3><p><code>init</code> and <code>run ml</code> serve the temporal regression Track. A Study of the agentic Track comes with its own ticket.</p></div>
@@ -859,7 +901,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>No lock yet</h3><p><code>assess</code> writes into the Study like <code>run ml</code> does: the writer lock is a separate ticket of issue #9, and until it lands nothing stops two commands from writing at once.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>One writer</h3><p><code>assess</code> holds the Study's writer lock for the whole command, as <code>init</code>, <code>run ml</code> and <code>recover</code> do: while another writer holds it, <code>assess</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (<a href="#study-and-attempts">chapter 04</a>).</p></div>
 <div class="card" style="--c:var(--violet)"><h3>No Comparison, no report</h3><p>Two Assessments are not compared yet, and nothing summarises them: the Comparison and the report come later in issue #9. The record's <code>rescoring</code> field (the earlier Assessment and the cause) is defined by the schema but not written.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Dev only</h3><p>Items of <code>public_check</code> cannot be assessed until the Exposure journal exists; Items of <code>train</code> never can.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Regression only</h3><p>The agentic Scorer <code>chinook_contract_v1</code> joins the registry with the Chinook ticket; its Observation sets cannot be assessed before.</p></div>

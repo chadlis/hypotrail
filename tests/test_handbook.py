@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import unittest.mock
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -651,7 +652,12 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
         action = next(a for a in parent._actions if getattr(a, "choices", None) and name in a.choices)
         return action.choices[name]
 
-    parsers = {"init": subparser(parser, "init"), "run ml": subparser(subparser(parser, "run"), "ml")}
+    parsers = {
+        "init": subparser(parser, "init"),
+        "run ml": subparser(subparser(parser, "run"), "ml"),
+        "status": subparser(parser, "status"),
+        "recover": subparser(parser, "recover"),
+    }
     rows = attrs_of(page, "study-commands", "data-command")
     assert set(rows) == set(parsers)
     for command, row in rows.items():
@@ -676,7 +682,20 @@ def test_the_layout_table_equals_the_files_init_and_run_ml_write(page, tmp_path)
         generic.add(path)
     rows = attrs_of(page, "study-layout", "data-path")
     assert set(rows) == generic
-    assert {path for path, row in rows.items() if row["data-written-by"] == "init"} == after_init
+    assert {path for path, row in rows.items() if row["data-written-by"].split()[0] == "init"} == after_init
+    assert (study / "writer.lock").read_bytes() == b""  # taking the lock writes nothing to the Study
+
+
+def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tmp_path):
+    from _study_helpers import init_study, run_json, run_ml
+
+    study, _ = init_study(tmp_path)
+    run_ml(study, "seasonal_7", "dev", "a")
+    _, listing, _ = run_json("status", "--study", study)
+    (attempt,) = listing["attempts"]
+    assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
+    assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
+    assert set(listing) == {"ok", "study", "writer_alive", "attempts"}
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -734,7 +753,7 @@ def study_refusals(tmp_path):
     """Provoke each refusal of the table; return {code: (exit code, stage, set of details keys)}."""
     from _study_helpers import examples_copy, init_study, run_json, run_ml
 
-    from hypotrail.core import artifacts, canonical, contracts
+    from hypotrail.core import artifacts, canonical, contracts, lock
 
     found = {}
 
@@ -755,8 +774,14 @@ def study_refusals(tmp_path):
     record_cli(*run_ml(study, "seasonal_7", "dev", ""))
     record_cli(*run_ml(study, "seasonal_7", "dev", "r", "--retry-of", "nope"))
     record_cli(*run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev"))
-    run_ml(study, "seasonal_7", "dev", "first")
+    _, first, _ = run_ml(study, "seasonal_7", "dev", "first")
     record_cli(*run_ml(study, "ridge_v1", "dev", "first"))  # REQUEST_CONFLICT
+    record_cli(*run_json("recover", "--study", study, "--attempt", first["attempt"]["attempt_id"]))  # ATTEMPT_TERMINAL
+    record_cli(*run_json("recover", "--study", study, "--attempt", "none"))  # ATTEMPT_NOT_FOUND
+    with lock.writer_lock(study):
+        record_cli(*run_ml(study, "seasonal_7", "dev", "second"))  # STUDY_LOCKED
+    with unittest.mock.patch.object(lock, "_load_fcntl", side_effect=ImportError):
+        record_cli(*run_ml(study, "seasonal_7", "dev", "third"))  # LOCKING_UNAVAILABLE
 
     examples = examples_copy(tmp_path)
     flipped, _ = init_study(tmp_path, name="flipped", examples=examples)

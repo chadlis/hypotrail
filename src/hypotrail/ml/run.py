@@ -27,9 +27,9 @@ import shutil
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, requests
+from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
 from hypotrail.core import study as layout
-from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
 from hypotrail.ml.configuration import checked_configuration
 from hypotrail.ml.declaration import RidgeConfiguration, SeasonalConfiguration, load_declaration, plain
 from hypotrail.ml.metrics import declared_partition
@@ -73,6 +73,27 @@ def item_counts(normalized: bytes) -> dict:
     return counts
 
 
+def _record_failure(study: Path, manifest_path: str, running: dict, error: Exception) -> None:
+    """An error inside this live process: the Attempt is `failed`, with finished_at and a Reason.
+
+    Its published artifacts stay. If even this write fails, the manifest stays `running`: no state
+    is invented. The Reason names the error, never a secret: an OS error by its message, a Hypotrail
+    error by its code, anything else by its type only.
+    """
+    if isinstance(error, OSError):
+        reason = f"{type(error).__name__}: {error}"
+    elif isinstance(error, HypotrailError):
+        reason = f"{error.code}: {error.message}"
+    else:
+        reason = f"unexpected {type(error).__name__}"
+    failed = {**running, "technical_status": "failed", "finished_at": _now(), "reason": reason}
+    try:
+        contracts.validate(failed)
+        artifacts.replace_bytes(study, manifest_path, canonical.dumps(failed))
+    except Exception:
+        pass
+
+
 def _verify_recorded(study: Path, manifest: dict) -> None:
     for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
         artifacts.read_verified(study, ref)
@@ -87,10 +108,25 @@ def run_ml(
     retry_of: str | None = None,
     examples_dir: Path | None = None,
 ) -> tuple[dict, bool]:
-    """Run (or replay) one request; return the Attempt manifest and whether it was recorded already."""
+    """Run (or replay) one request under the Study's writer lock; a second writer is refused at once."""
     study = Path(study)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    with lock.writer_lock(study):
+        return _run_locked(study, config_id, partition, request_id, retry_of=retry_of, examples_dir=examples_dir)
+
+
+def _run_locked(
+    study: Path,
+    config_id: str,
+    partition: str,
+    request_id: str,
+    *,
+    retry_of: str | None = None,
+    examples_dir: Path | None = None,
+) -> tuple[dict, bool]:
+    """Run (or replay) one request; return the Attempt manifest and whether it was recorded already."""
     spec = layout.read_spec(study)
     examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
     workload = spec["workload"]
@@ -178,73 +214,77 @@ def run_ml(
     contracts.validate(manifest)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
 
-    declaration_ref = artifacts.publish_bytes(
-        study,
-        f"{folder}/workload.json",
-        (source / "workload.json").read_bytes(),
-        media_type="application/json",
-        role="workload_declaration",
-    )
-    scratch = study / layout.SCRATCH_DIR / attempt_id
     try:
-        if isinstance(configuration, SeasonalConfiguration):
-            from hypotrail.ml import baselines
+        declaration_ref = artifacts.publish_bytes(
+            study,
+            f"{folder}/workload.json",
+            (source / "workload.json").read_bytes(),
+            media_type="application/json",
+            role="workload_declaration",
+        )
+        scratch = study / layout.SCRATCH_DIR / attempt_id
+        try:
+            if isinstance(configuration, SeasonalConfiguration):
+                from hypotrail.ml import baselines
 
-            baselines.write_seasonal_baseline(source, scratch, config_id, partition)
-            parameters = {"fitted": False, "period_days": configuration.period_k.days}
-            raw_files = [(PREDICTIONS_NAME, "predictions")]
-        else:
-            assert isinstance(configuration, RidgeConfiguration)
-            from hypotrail.ml import ridge
+                baselines.write_seasonal_baseline(source, scratch, config_id, partition)
+                parameters = {"fitted": False, "period_days": configuration.period_k.days}
+                raw_files = [(PREDICTIONS_NAME, "predictions")]
+            else:
+                assert isinstance(configuration, RidgeConfiguration)
+                from hypotrail.ml import ridge
 
-            ridge.write_outputs(source, scratch, config_id, partition)
-            parameters = json.loads((scratch / PARAMETERS_NAME).read_text(encoding="utf-8"))
-            raw_files = [(PREDICTIONS_NAME, "predictions"), (PARAMETERS_NAME, "effective_parameters")]
-        raw_refs = [
-            artifacts.publish_file(
-                study, scratch / name, f"{folder}/{name}", media_type=layout.media_type_of(name), role=role
-            )
-            for name, role in raw_files
-        ]
-        predictions = _rows((scratch / PREDICTIONS_NAME).read_bytes())
-    finally:
-        shutil.rmtree(study / layout.SCRATCH_DIR / attempt_id, ignore_errors=True)
+                ridge.write_outputs(source, scratch, config_id, partition)
+                parameters = json.loads((scratch / PARAMETERS_NAME).read_text(encoding="utf-8"))
+                raw_files = [(PREDICTIONS_NAME, "predictions"), (PARAMETERS_NAME, "effective_parameters")]
+            raw_refs = [
+                artifacts.publish_file(
+                    study, scratch / name, f"{folder}/{name}", media_type=layout.media_type_of(name), role=role
+                )
+                for name, role in raw_files
+            ]
+            predictions = _rows((scratch / PREDICTIONS_NAME).read_bytes())
+        finally:
+            shutil.rmtree(study / layout.SCRATCH_DIR / attempt_id, ignore_errors=True)
 
-    items = [row["row_id"] for row in _rows(artifacts.read_verified(study, by_role["memberships"])) if row["partition"] == partition]
-    normalized = _normalized(items, predictions)
-    normalized_ref = artifacts.publish_bytes(
-        study, f"{folder}/observations.csv", normalized, media_type="text/csv", role="observations"
-    )
-    observation_set = {
-        "kind": "observations",
-        "schema_version": "observations/1",
-        "observation_set_id": str(uuid.uuid4()),
-        "attempt_id": attempt_id,
-        "domain": DOMAIN,
-        "origin": "generated",
-        "mode": MODE,
-        "population_ref": by_role["memberships"],
-        "raw_refs": raw_refs,
-        "normalized_ref": normalized_ref,
-        "provenance": {"produced_by": "hypotrail", "configuration": config_id, "partition": partition},
-        "unknown_fields": [],
-    }
-    contracts.validate(observation_set)
-    observation_set_ref = artifacts.publish_record(
-        study, f"{folder}/observation_set.json", observation_set, role="observation_set"
-    )
+        items = [row["row_id"] for row in _rows(artifacts.read_verified(study, by_role["memberships"])) if row["partition"] == partition]
+        normalized = _normalized(items, predictions)
+        normalized_ref = artifacts.publish_bytes(
+            study, f"{folder}/observations.csv", normalized, media_type="text/csv", role="observations"
+        )
+        observation_set = {
+            "kind": "observations",
+            "schema_version": "observations/1",
+            "observation_set_id": str(uuid.uuid4()),
+            "attempt_id": attempt_id,
+            "domain": DOMAIN,
+            "origin": "generated",
+            "mode": MODE,
+            "population_ref": by_role["memberships"],
+            "raw_refs": raw_refs,
+            "normalized_ref": normalized_ref,
+            "provenance": {"produced_by": "hypotrail", "configuration": config_id, "partition": partition},
+            "unknown_fields": [],
+        }
+        contracts.validate(observation_set)
+        observation_set_ref = artifacts.publish_record(
+            study, f"{folder}/observation_set.json", observation_set, role="observation_set"
+        )
 
-    effective_config = {**effective_config, "effective_parameters": parameters}
-    terminal = {
-        **manifest,
-        "technical_status": "completed",
-        "finished_at": _now(),
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": [*study_refs, declaration_ref],
-        "output_refs": [*raw_refs, normalized_ref, observation_set_ref],
-        "item_counts": item_counts(normalized),
-    }
-    contracts.validate(terminal)
-    artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
-    return terminal, False
+        effective_config = {**effective_config, "effective_parameters": parameters}
+        terminal = {
+            **manifest,
+            "technical_status": "completed",
+            "finished_at": _now(),
+            "effective_config": effective_config,
+            "effective_config_digest": canonical.digest(effective_config),
+            "input_refs": [*study_refs, declaration_ref],
+            "output_refs": [*raw_refs, normalized_ref, observation_set_ref],
+            "item_counts": item_counts(normalized),
+        }
+        contracts.validate(terminal)
+        artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
+        return terminal, False
+    except Exception as error:
+        _record_failure(study, manifest_path, manifest, error)
+        raise

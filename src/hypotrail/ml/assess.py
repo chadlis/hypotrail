@@ -24,7 +24,7 @@ import math
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, scorers
+from hypotrail.core import artifacts, canonical, contracts, lock, scorers
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.partitions import require_dev
@@ -105,8 +105,17 @@ def _per_item_csv(entries) -> bytes:
 
 
 def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
-    """Write and return a new Assessment of the Observation set by the Scorer, against the References set."""
+    """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
+
+    Holds the Study's writer lock for the whole command: a second writer is refused at once.
+    """
     study = Path(study)
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    with lock.writer_lock(study):
+        return _assess_locked(study, observation_set_id, scorer_id, references_id)
+
+
+def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
