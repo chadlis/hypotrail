@@ -14,12 +14,13 @@
     "id_prefix": {"$ref": "#/$defs/name"},
     "date_column": {"$ref": "#/$defs/name"},
     "target_column": {"$ref": "#/$defs/name"},
-    "target_unit": {"type": "string"},
+    "target_unit": {"$ref": "#/$defs/name"},
     "period_k": {"type": "integer", "minimum": 1},
     "forbidden_features": {"$ref": "#/$defs/names"},
     "allowed_target_features": {"type": "array", "items": {"$ref": "#/$defs/target_feature"}},
     "partitions": {
       "type": "object",
+      "propertyNames": {"$ref": "#/$defs/name"},
       "additionalProperties": {
         "type": "array",
         "minItems": 2,
@@ -29,6 +30,7 @@
     },
     "configurations": {
       "type": "object",
+      "propertyNames": {"$ref": "#/$defs/name"},
       "additionalProperties": {"$ref": "#/$defs/configuration"}
     }
   },

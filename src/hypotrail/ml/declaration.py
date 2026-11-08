@@ -148,6 +148,14 @@ def _refusals(error):
         )
     elif error.validator == "enum" and _is_kind(path):
         yield _KIND_UNKNOWN, path, _kind_unknown(path[:-1], error.instance)
+    elif "propertyNames" in error.schema_path:
+        # An empty name of a Partition or of a Configuration: the key is the name, the path the object that holds it.
+        yield _NOT_ALLOWED, path + (error.instance,), _refuse(
+            "DECLARATION_VALUE_NOT_ALLOWED",
+            f"{where} has a name that is not allowed: {error.instance!r} ({error.message})",
+            key=error.instance,
+            path=where,
+        )
     else:
         yield _NOT_ALLOWED, path, _refuse(
             "DECLARATION_VALUE_NOT_ALLOWED",
