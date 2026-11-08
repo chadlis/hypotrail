@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import load_declaration, require_keys
+from hypotrail.ml.declaration import Declaration, load_declaration, require_keys, typed
 from hypotrail.ml.partitions import require_dev
 
 DIRECTION = "lower_is_better"
@@ -23,13 +23,15 @@ def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage="metrics", details=details)
 
 
-def declared_unit(declaration: dict) -> str:
+def declared_unit(declaration: Declaration) -> str:
+    typed(declaration, Declaration)
     require_keys(declaration, "target_unit")
-    return declaration["target_unit"]
+    return declaration.target_unit
 
 
-def declared_partition(declaration: dict, partition: str) -> None:
-    if partition not in declaration["partitions"]:
+def declared_partition(declaration: Declaration, partition: str) -> None:
+    typed(declaration, Declaration)
+    if partition not in [p.name for p in declaration.partitions]:
         raise _refuse("PARTITION_NOT_DECLARED", f"the Workload declares no Partition {partition!r}", partition=partition)
 
 

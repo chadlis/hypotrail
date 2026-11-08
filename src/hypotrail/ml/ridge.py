@@ -27,9 +27,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.configuration import load_configuration
+from hypotrail.ml.configuration import checked_configuration, load_configuration
+from hypotrail.ml.declaration import Declaration, RidgeConfiguration, load_declaration, typed
 from hypotrail.ml.lags import compute_lags
-from hypotrail.ml.memberships import derive_memberships
+from hypotrail.ml.memberships import memberships_of
 from hypotrail.ml.partitions import TRAIN
 from hypotrail.ml.predictions import write_predictions
 from hypotrail.ml.series import read_target_series
@@ -53,33 +54,37 @@ class ModelInputs:
 @dataclass
 class FittedConfiguration:
     workload_dir: Path
+    declaration: Declaration
     config_id: str
-    configuration: dict
+    configuration: RidgeConfiguration
     pipeline: Pipeline
     columns: list
     train_row_ids: list
 
 
-def _columns(configuration: dict) -> list:
-    return [f["name"] for f in configuration["lag_features"]] + list(configuration["calendar_columns"])
+def _columns(configuration: RidgeConfiguration) -> list:
+    return [f.name for f in configuration.lag_features] + list(configuration.calendar_columns)
 
 
 def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInputs:
-    loaded = load_configuration(workload_dir, config_id)
-    declaration, configuration = loaded["declaration"], loaded["configuration"]
-    rows = read_table(workload_dir, declaration, configuration["calendar_columns"])
+    return inputs_of(workload_dir, load_declaration(workload_dir), config_id, partition)
+
+
+def inputs_of(workload_dir: Path, declaration: Declaration, config_id: str, partition: str) -> ModelInputs:
+    """The model inputs of the Items of `partition`, from a declaration already loaded."""
+    typed(declaration, Declaration)
+    configuration = checked_configuration(declaration, config_id)
+    rows = read_table(workload_dir, declaration, configuration.calendar_columns)
     target = read_target_series(workload_dir, declaration)
-    lag_names = [f["name"] for f in configuration["lag_features"]]
+    lag_names = [f.name for f in configuration.lag_features]
 
     row_ids, dates, lines = [], [], []
-    for item in derive_memberships(workload_dir):
+    for item in memberships_of(workload_dir, declaration):
         if item["partition"] != partition:
             continue
         day = datetime.date.fromisoformat(item["date"])
-        lags = compute_lags(
-            target, day, configuration["lag_features"], where=f"configurations.{config_id}.lag_features"
-        )
-        calendar = [float(rows[day][c]) for c in configuration["calendar_columns"]]
+        lags = compute_lags(target, day, configuration.lag_features)
+        calendar = [float(rows[day][c]) for c in configuration.calendar_columns]
         row_ids.append(item["row_id"])
         dates.append(day)
         lines.append([lags[n] for n in lag_names] + calendar)
@@ -87,20 +92,21 @@ def build_inputs(workload_dir: Path, config_id: str, partition: str) -> ModelInp
     return ModelInputs(row_ids, dates, _columns(configuration), matrix)
 
 
-def build_pipeline(configuration: dict) -> Pipeline:
+def build_pipeline(configuration: RidgeConfiguration) -> Pipeline:
+    typed(configuration, RidgeConfiguration)
     columns = _columns(configuration)
-    encoder, scaler, ridge = configuration["encoder"], configuration["scaler"], configuration["ridge"]
+    encoder, scaler, ridge = configuration.encoder, configuration.scaler, configuration.ridge
     preprocessor = ColumnTransformer([
         (
             "encoder",
-            OneHotEncoder(handle_unknown=encoder["handle_unknown"], sparse_output=encoder["sparse_output"]),
-            [columns.index(c) for c in encoder["columns"]],
+            OneHotEncoder(handle_unknown=encoder.handle_unknown, sparse_output=encoder.sparse_output),
+            [columns.index(c) for c in encoder.columns],
         ),
-        ("scaler", StandardScaler(), [columns.index(c) for c in scaler["columns"]]),
+        ("scaler", StandardScaler(), [columns.index(c) for c in scaler.columns]),
     ])
     return Pipeline([
         ("preprocessor", preprocessor),
-        ("ridge", Ridge(alpha=ridge["alpha"], fit_intercept=ridge["fit_intercept"], solver=ridge["solver"])),
+        ("ridge", Ridge(alpha=ridge.alpha, fit_intercept=ridge.fit_intercept, solver=ridge.solver)),
     ])
 
 
@@ -108,13 +114,13 @@ def fit_configuration(workload_dir: Path, config_id: str) -> FittedConfiguration
     """Fit the declared pipeline once, on the Items of the `train` Partition."""
     loaded = load_configuration(workload_dir, config_id)
     declaration, configuration = loaded["declaration"], loaded["configuration"]
-    inputs = build_inputs(workload_dir, config_id, TRAIN)
+    inputs = inputs_of(workload_dir, declaration, config_id, TRAIN)
     target = read_target_series(workload_dir, declaration)
     y = np.array([target[day] for day in inputs.dates], dtype=np.float64)
     pipeline = build_pipeline(configuration)
     pipeline.fit(inputs.matrix, y)
     return FittedConfiguration(
-        Path(workload_dir), config_id, configuration, pipeline, inputs.columns, sorted(inputs.row_ids)
+        Path(workload_dir), declaration, config_id, configuration, pipeline, inputs.columns, sorted(inputs.row_ids)
     )
 
 
@@ -123,7 +129,7 @@ def predict_partition(fitted: FittedConfiguration, partition: str) -> list[dict]
 
     Clipping is applied once, when the predictions are written (`predictions.write_predictions`).
     """
-    inputs = build_inputs(fitted.workload_dir, fitted.config_id, partition)
+    inputs = inputs_of(fitted.workload_dir, fitted.declaration, fitted.config_id, partition)
     raw = fitted.pipeline.predict(inputs.matrix)
     return [{"row_id": row_id, "y_pred_raw": float(value)} for row_id, value in zip(inputs.row_ids, raw)]
 
@@ -170,7 +176,7 @@ def write_outputs(workload_dir: Path, out_dir: Path, config_id: str, partition: 
         config_id,
         [r["row_id"] for r in rows],
         [r["y_pred_raw"] for r in rows],
-        clip_min=fitted.configuration["post_processing"]["clip_min"],
+        clip_min=fitted.configuration.post_processing.clip_min,
     )
     (path.parent / PARAMETERS_NAME).write_text(
         json.dumps(effective_parameters(fitted), indent=2, sort_keys=True) + "\n", encoding="utf-8"

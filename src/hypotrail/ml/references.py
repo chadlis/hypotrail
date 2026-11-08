@@ -9,7 +9,7 @@ import csv
 import datetime
 from pathlib import Path
 
-from hypotrail.ml.memberships import derive_memberships, load_declaration
+from hypotrail.ml.memberships import load_declaration, memberships_of
 from hypotrail.ml.series import read_target_series
 
 REFERENCES_NAME = "references.csv"
@@ -21,7 +21,7 @@ def write_references(workload_dir: Path, out_dir: Path) -> Path:
     series = read_target_series(workload_dir, declaration)
     rows = [
         {"row_id": m["row_id"], "y_true": series[datetime.date.fromisoformat(m["date"])]}
-        for m in derive_memberships(workload_dir)
+        for m in memberships_of(workload_dir, declaration)
         if m["partition"]
     ]
     out_dir = Path(out_dir)

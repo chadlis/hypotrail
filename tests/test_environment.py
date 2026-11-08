@@ -105,3 +105,12 @@ def test_default_tests_make_no_live_call_even_with_a_model_key(
         socket.create_connection(("api.anthropic.com", 443), timeout=1)
     assert network_guard.attempts
     network_guard.acknowledge()
+
+
+def test_the_core_docstring_names_jsonschema_and_does_not_claim_the_standard_library_only():
+    # #40, I: core/chinook_contract.py imports jsonschema (ENV-02, pyproject.toml).
+    import hypotrail.core
+
+    assert "jsonschema" in hypotrail.core.__doc__
+    assert "standard library only" not in hypotrail.core.__doc__
+    assert "from jsonschema import" in (ROOT / "src" / "hypotrail" / "core" / "chinook_contract.py").read_text(encoding="utf-8")

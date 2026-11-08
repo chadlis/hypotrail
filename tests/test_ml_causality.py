@@ -77,7 +77,7 @@ def ridge_run(workload: Path, day: str) -> tuple[dict, dict]:
     with tempfile.TemporaryDirectory() as out_dir:  # y_pred is the clipped raw, written once
         path = write_predictions(
             out_dir, fitted.config_id, [r["row_id"] for r in rows], [r["y_pred_raw"] for r in rows],
-            clip_min=fitted.configuration["post_processing"]["clip_min"],
+            clip_min=fitted.configuration.post_processing.clip_min,
         )
         with path.open(newline="", encoding="utf-8") as handle:
             row = {r["row_id"]: r for r in csv.DictReader(handle)}[f"bike-day:{day}"]

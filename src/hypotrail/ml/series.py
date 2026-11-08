@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import require_keys
+from hypotrail.ml.declaration import Declaration, require_keys, typed
 from hypotrail.ml.table import read_table
 
 
@@ -25,9 +25,10 @@ def _number(cell: str, date: str, column: str):
     return value
 
 
-def read_target_series(workload_dir: Path, declaration: dict) -> dict:
+def read_target_series(workload_dir: Path, declaration: Declaration) -> dict:
     """The declared target column keyed by date, in date order."""
+    typed(declaration, Declaration)
     require_keys(declaration, "target_column")
-    target_column = declaration["target_column"]
+    target_column = declaration.target_column
     table = read_table(workload_dir, declaration, [target_column])
     return {date: _number(row[target_column], date.isoformat(), target_column) for date, row in table.items()}

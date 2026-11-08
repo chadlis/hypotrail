@@ -46,7 +46,7 @@ def refusal(workload, config_id="ridge_v1"):
 
 def test_unmodified_ridge_v1_is_accepted():
     loaded = load_configuration(BIKE, "ridge_v1")
-    assert loaded["configuration"]["kind"] == "ridge_pipeline"
+    assert loaded["configuration"].kind == "ridge_pipeline"
 
 
 # --- Partition roles are protocol vocabulary: fitting is on `train`, always ----------

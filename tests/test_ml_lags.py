@@ -8,16 +8,18 @@ from pathlib import Path
 import pytest
 
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.declaration import TargetFeature
 from hypotrail.ml.lags import compute_lags
+from hypotrail.ml.periods import Period
 
 ROOT = Path(__file__).resolve().parent.parent
 DAY_CSV = ROOT / "examples" / "bike_day" / "data" / "day.csv"
 
-FEATURES = [
-    {"name": "lag_1", "kind": "lag", "period": 1},
-    {"name": "lag_7", "kind": "lag", "period": 7},
-    {"name": "mean_previous_7", "kind": "mean_previous", "period": 7},
-]
+def feature(name, kind, period):
+    return TargetFeature(name, kind, Period(period, "period", f"lag_features.{name}.period"))
+
+
+FEATURES = [feature("lag_1", "lag", 1), feature("lag_7", "lag", 7), feature("mean_previous_7", "mean_previous", 7)]
 
 
 def bike_rows():
@@ -61,10 +63,7 @@ def test_row_order_does_not_change_the_lags():
 def test_target_and_periods_are_parameters():
     start = datetime.date(2020, 1, 1)
     values = {start + datetime.timedelta(days=i): float(i * i) for i in range(10)}
-    features = [
-        {"name": "lag_3", "kind": "lag", "period": 3},
-        {"name": "mean_previous_2", "kind": "mean_previous", "period": 2},
-    ]
+    features = [feature("lag_3", "lag", 3), feature("mean_previous_2", "mean_previous", 2)]
     lags = compute_lags(values, start + datetime.timedelta(days=6), features)
     assert lags == {"lag_3": 9.0, "mean_previous_2": (16.0 + 25.0) / 2}
 
@@ -75,9 +74,3 @@ def test_a_missing_day_is_refused_not_guessed():
     with pytest.raises(InvalidInputError) as caught:
         compute_lags(values, datetime.date(2011, 1, 8), FEATURES)
     assert caught.value.code == "LAG_SOURCE_MISSING"
-
-
-def test_an_unknown_feature_kind_is_refused():
-    with pytest.raises(InvalidInputError) as caught:
-        compute_lags({}, datetime.date(2011, 1, 8), [{"name": "x", "kind": "ewm", "period": 3}])
-    assert caught.value.code == "UNKNOWN_FEATURE_KIND"

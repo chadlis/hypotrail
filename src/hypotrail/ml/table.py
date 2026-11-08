@@ -9,19 +9,20 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import require_keys
+from hypotrail.ml.declaration import Declaration, require_keys, typed
 
 
 def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage="table", details=details)
 
 
-def read_table(workload_dir: Path, declaration: dict, columns=()) -> dict:
+def read_table(workload_dir: Path, declaration: Declaration, columns=()) -> dict:
     """The data rows keyed by date, in date order. `columns` must exist besides the date column."""
+    typed(declaration, Declaration)
     require_keys(declaration, "data_file", "date_column")
-    date_column = declaration["date_column"]
+    date_column = declaration.date_column
     rows = {}
-    with (Path(workload_dir) / declaration["data_file"]).open(newline="", encoding="utf-8") as handle:
+    with (Path(workload_dir) / declaration.data_file).open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         fieldnames = reader.fieldnames or []
         if date_column not in fieldnames:
