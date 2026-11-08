@@ -67,6 +67,31 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
 
+    run = commands.add_parser("run", help="run one Configuration as one Attempt of a Study")
+    run_commands = run.add_subparsers(dest="run_command", metavar="TRACK")
+    run_ml = run_commands.add_parser(
+        "ml", help="run a Configuration of the temporal regression Track (for example seasonal_7, ridge_v1)"
+    )
+    run_ml.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Attempt in")
+    run_ml.add_argument("--config", required=True, metavar="NAME", help="the declared Configuration to run")
+    run_ml.add_argument("--partition", required=True, metavar="NAME", help="the Partition to predict (for example dev)")
+    run_ml.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same request returns the recorded Attempt, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    run_ml.add_argument("--retry-of", metavar="ATTEMPT_ID", help="the Attempt this run repeats on purpose")
+    run_ml.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/)",
+    )
+    run_ml.add_argument("--json", action="store_true", help="print one JSON object")
+    run_ml.set_defaults(handler=_run_ml)
+
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
     live = spike_commands.add_parser(
@@ -121,6 +146,27 @@ def _init(args) -> int:
         f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
     )
     _emit({"ok": True, "study": spec}, args.json, human)
+    return EXIT_OK
+
+
+def _run_ml(args) -> int:
+    from hypotrail.ml import run
+
+    manifest, replayed = run.run_ml(
+        args.study,
+        args.config,
+        args.partition,
+        args.request_id,
+        retry_of=args.retry_of,
+        examples_dir=args.examples_dir,
+    )
+    counts = manifest.get("item_counts")
+    human = (
+        f"Attempt {manifest['attempt_id']} {manifest['technical_status']}"
+        + (f" ({counts['produced']} Items produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
+        + (" (recorded earlier: nothing was recomputed)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
     return EXIT_OK
 
 

@@ -1,9 +1,10 @@
 """`init` for the temporal regression Track: create a Study that holds the Bike Protocol.
 
-`init_study` verifies the Workload's data against its lock, copies the Workload into the Study
-(so every input is an artifact of the Study, referenced by its digest), derives the population and
-the References set with the Track's own writers, publishes them as Study artifacts with an ID each,
-and writes the StudySpec last, so a Study that was interrupted before that has no `study.json`.
+`init_study` verifies the Workload's data against its lock, keeps a copy of the dataset in the Study
+(an artifact referenced by its digest), derives the population and the References set with the
+Track's own writers, publishes them as Study artifacts with an ID each, and writes the StudySpec
+last, so a Study that was interrupted before that has no `study.json`. The Workload stays where it
+is declared: Configurations can change after the Study exists.
 
 The Protocol digest (`protocol_digest`) is the canonical digest of what binds every Attempt: the
 Partitions and their ranges, the population (memberships) and the References by their bytes, the
@@ -20,15 +21,14 @@ from hypotrail.core import artifacts, canonical, contracts, data
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
     ARTIFACTS_DIR,
+    DATASETS_DIR,
     SCRATCH_DIR,
     STUDY_FILE,
-    WORKLOAD_DIR,
     declared_track,
     media_type_of,
     short_id,
-    workload_path,
 )
-from hypotrail.ml.declaration import DECLARATION_NAME, Declaration, load_declaration, plain, require_keys
+from hypotrail.ml.declaration import Declaration, load_declaration, plain, require_keys
 from hypotrail.ml.memberships import MEMBERSHIPS_NAME, write_memberships
 from hypotrail.ml.metrics import DIRECTION, PRIMARY
 from hypotrail.ml.references import REFERENCES_NAME, write_references
@@ -71,25 +71,6 @@ def protocol_content(declaration: Declaration, *, dataset_sha256: str, membershi
     }
 
 
-def _copy_workload(source: Path, study: Path, name: str, data_file: str) -> list:
-    """Publish every file of the Workload under `workload/<name>/`; return their ArtifactRefs."""
-    refs = []
-    for path in sorted(p for p in source.rglob("*") if p.is_file()):
-        relative = path.relative_to(source).as_posix()
-        if relative == DECLARATION_NAME:
-            role = "workload_declaration"
-        elif relative == data_file:
-            role = "dataset"
-        else:
-            role = "workload_support"
-        refs.append(
-            artifacts.publish_bytes(
-                study, f"{WORKLOAD_DIR}/{name}/{relative}", path.read_bytes(), media_type=media_type_of(path), role=role
-            )
-        )
-    return refs
-
-
 def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
@@ -113,18 +94,19 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     require_keys(declaration, "data_file", "question", "objective", "limitations")
 
     study.mkdir(parents=True, exist_ok=True)
-    copies = _copy_workload(source, study, workload, declaration.data_file)
-    copied = workload_path(study, workload)
+    data_path = source / declaration.data_file
+    dataset = artifacts.publish_bytes(
+        study, f"{DATASETS_DIR}/{data_path.name}", data_path.read_bytes(), media_type=media_type_of(data_path), role="dataset"
+    )
     scratch = study / SCRATCH_DIR / "init"
     try:
-        write_memberships(copied, scratch)
-        write_references(copied, scratch)
+        write_memberships(source, scratch)
+        write_references(source, scratch)
         memberships = artifacts.publish_file(study, scratch / MEMBERSHIPS_NAME, MEMBERSHIPS_PATH, media_type="text/csv", role="memberships")
         references = artifacts.publish_file(study, scratch / REFERENCES_NAME, REFERENCES_PATH, media_type="text/csv", role="references")
     finally:
         shutil.rmtree(study / SCRATCH_DIR, ignore_errors=True)
 
-    dataset = next(ref for ref in copies if ref["role"] == "dataset")
     protocol = protocol_content(
         declaration,
         dataset_sha256=dataset["sha256"],
@@ -145,7 +127,6 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
         "primary_metric": {"id": PRIMARY, "direction": DIRECTION, "unit": declaration.target_unit},
         "limitations": list(declaration.limitations),
         "workload": workload,
-        "declaration_ref": next(ref for ref in copies if ref["role"] == "workload_declaration"),
         "artifacts": [
             {"artifact_id": short_id("memberships", memberships["sha256"]), "ref": memberships},
             {"artifact_id": short_id("references", references["sha256"]), "ref": references},

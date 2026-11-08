@@ -5,13 +5,17 @@ A Study is a folder named explicitly (`--study DIR`); it holds, all as artifacts
 ```
 DIR/
   study.json                         the StudySpec (canonical JSON)
-  workload/<name>/...                the Workload as it was at `init` (declaration, lock, data, licence)
+  datasets/<file>                    the dataset as it was at `init`
   artifacts/memberships.csv          the population, a Study artifact with an ID
   artifacts/references.csv           the References set, a Study artifact with an ID
   attempts/<attempt_id>/attempt.json the Attempt manifest (running, then terminal)
   attempts/<attempt_id>/...          the Attempt's predictions, parameters, Observation set
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
+
+The Workload itself (its declaration, its Configurations, its data and lock) stays where it is declared
+(`examples/<name>`): a Configuration can change after the Study exists, and an Attempt records the
+Configuration it ran. The Protocol is what the Study freezes of the Workload.
 """
 
 import json
@@ -21,8 +25,8 @@ from hypotrail.core import artifacts, canonical, contracts
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 STUDY_FILE = "study.json"
-WORKLOAD_DIR = "workload"
 ARTIFACTS_DIR = "artifacts"
+DATASETS_DIR = "datasets"
 ATTEMPTS_DIR = "attempts"
 SCRATCH_DIR = ".scratch"
 MANIFEST_NAME = "attempt.json"
@@ -47,10 +51,6 @@ def declared_track(workload_dir: Path):
 def short_id(prefix: str, sha256: str) -> str:
     """The ID of a Study artifact: its kind and the first 16 hex digits of its digest."""
     return f"{prefix}-{sha256[:16]}"
-
-
-def workload_path(study: Path, name: str) -> Path:
-    return Path(study) / WORKLOAD_DIR / name
 
 
 def attempt_manifest_path(attempt_id: str) -> str:
@@ -83,3 +83,23 @@ def read_record(study, relative: str) -> dict:
         ) from None
     contracts.validate(record)
     return record
+
+
+def read_manifest(study, attempt_id: str) -> dict:
+    return read_record(study, attempt_manifest_path(attempt_id))
+
+
+def attempt_ids(study) -> list:
+    folder = Path(study) / ATTEMPTS_DIR
+    if not folder.is_dir():
+        return []
+    return sorted(p.name for p in folder.iterdir() if (p / MANIFEST_NAME).is_file())
+
+
+def find_by_request(study, request_id: str):
+    """The Attempt recorded under `request_id`, or None. A request_id names at most one Attempt."""
+    for attempt_id in attempt_ids(study):
+        manifest = read_manifest(study, attempt_id)
+        if manifest["request_id"] == request_id:
+            return manifest
+    return None

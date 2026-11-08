@@ -56,14 +56,14 @@ def test_the_dataset_the_memberships_and_the_references_are_study_artifacts_with
     assert len(references) == 358 + 182 + 184 + 1  # one row per Item of every Partition
 
 
-def test_the_workload_is_copied_into_the_study_and_referenced(tmp_path):
+def test_the_study_names_its_workload_and_keeps_the_dataset_it_was_created_from(tmp_path):
     study, _ = init_study(tmp_path)
     spec = spec_of(study)
-    declaration = spec["declaration_ref"]
-    assert declaration["role"] == "workload_declaration"
-    assert artifacts.read_verified(study, declaration) == (EXAMPLES / "bike_day" / "workload.json").read_bytes()
     assert spec["workload"] == "bike_day"
-    assert (study / spec["dataset_refs"][0]["path"]).read_bytes() == (EXAMPLES / "bike_day" / "data" / "day.csv").read_bytes()
+    dataset = spec["dataset_refs"][0]
+    assert dataset["path"] == "datasets/day.csv"
+    assert artifacts.read_verified(study, dataset) == (EXAMPLES / "bike_day" / "data" / "day.csv").read_bytes()
+    assert not (study / "workload").exists()  # the Workload stays where it is declared
 
 
 def test_the_protocol_digest_is_stable_across_two_inits_and_across_the_key_order_of_a_configuration(tmp_path):

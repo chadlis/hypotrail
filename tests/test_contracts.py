@@ -21,7 +21,7 @@ SPEC_FIELDS = {
 
 # What the Tightened lines and acceptance criteria of #64 to #73 name, one entry each (A2).
 TICKET_FIELDS = {
-    "StudySpec": "workload declaration_ref artifacts",  # #64: the Workload copy and the Study artifacts, each with an ID
+    "StudySpec": "workload artifacts",  # #64: the Workload by name and the Study artifacts, each with an ID
     "AttemptManifest": "item_counts output_refs reason check_informed",  # #64 C; #65 B; #73
     "Assessment": "rescoring check_informed",  # #70: the earlier Assessment, the cause, the changed Items; #73
     "Comparison": "roles declared_factor descriptive check_informed",  # #71 Control and Candidate; #72 factor; CMP-06
