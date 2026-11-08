@@ -587,3 +587,44 @@ def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
     for value in (chinook_contract.READ_FROM_RAW_ANSWER, chinook_contract.READ_FROM_EMBEDDED_OBJECT):
         assert f"<code>{value}</code>" in chapter
     assert "unscored</code> with <code>invalid_response_format</code>" not in chapter  # the corrected sentence (T6)
+
+
+# --- chapter 02: the stage of a refusal at load and of a refusal when a date is shifted (#40, H4) -------------------
+
+
+def test_the_refusal_stage_table_equals_the_code_and_stage_of_each_refusal(page, tmp_path):
+    import copy
+    import datetime
+
+    from hypotrail.ml.declaration import load_declaration
+    from hypotrail.ml.periods import Period
+
+    bike = ROOT / "examples" / "bike_day"
+    declaration = json.loads((bike / "workload.json").read_text(encoding="utf-8"))
+
+    def load_refusal(name, edit):
+        edited = copy.deepcopy(declaration)
+        edit(edited)
+        directory = tmp_path / name
+        shutil.copytree(bike, directory)
+        (directory / "workload.json").write_text(json.dumps(edited), encoding="utf-8")
+        with pytest.raises(InvalidInputError) as caught:
+            load_declaration(directory)
+        return caught.value
+
+    def rename(d):
+        d["partitions"][""] = d["partitions"].pop("public_check")
+
+    with pytest.raises(InvalidInputError) as shift:
+        Period(10**6).earlier(datetime.date(2012, 1, 8))
+    actual = {
+        "load": load_refusal("load", lambda d: d.update(period_k=0)),
+        "empty-name": load_refusal("empty", rename),
+        "shift": shift.value,
+    }
+    rows = table_rows(page, "refusal-stages", "data-refusal")
+    assert set(rows) == set(actual)
+    for name, error in actual.items():
+        assert rows[name]["cells"]["data-code"] == error.code, name
+        assert rows[name]["cells"]["data-stage"] == error.stage, name
+    assert rows["load"]["cells"]["data-stage"] != rows["shift"]["cells"]["data-stage"]
