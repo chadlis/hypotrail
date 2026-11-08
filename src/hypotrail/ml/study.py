@@ -17,7 +17,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data
+from hypotrail.core import artifacts, canonical, contracts, data, lock
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
     ARTIFACTS_DIR,
@@ -71,14 +71,19 @@ def protocol_content(declaration: Declaration, *, dataset_sha256: str, membershi
     }
 
 
+def _exists(study: Path) -> InvalidInputError:
+    return InvalidInputError(
+        "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}
+    )
+
+
 def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
     examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
     if (study / STUDY_FILE).exists():
-        raise InvalidInputError(
-            "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}
-        )
+        with lock.writer_lock(study):  # a Study that has a writer answers with the lock first
+            raise _exists(study)
     # Nothing is created before the bytes match the lock (T01 at this entry point).
     data.verify_workloads(examples, [workload])
     source = examples / workload
@@ -94,45 +99,48 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     require_keys(declaration, "data_file", "question", "objective", "limitations")
 
     study.mkdir(parents=True, exist_ok=True)
-    data_path = source / declaration.data_file
-    dataset = artifacts.publish_bytes(
-        study, f"{DATASETS_DIR}/{data_path.name}", data_path.read_bytes(), media_type=media_type_of(data_path), role="dataset"
-    )
-    scratch = study / SCRATCH_DIR / "init"
-    try:
-        write_memberships(source, scratch)
-        write_references(source, scratch)
-        memberships = artifacts.publish_file(study, scratch / MEMBERSHIPS_NAME, MEMBERSHIPS_PATH, media_type="text/csv", role="memberships")
-        references = artifacts.publish_file(study, scratch / REFERENCES_NAME, REFERENCES_PATH, media_type="text/csv", role="references")
-    finally:
-        shutil.rmtree(study / SCRATCH_DIR, ignore_errors=True)
+    with lock.writer_lock(study):
+        if (study / STUDY_FILE).exists():
+            raise _exists(study)
+        data_path = source / declaration.data_file
+        dataset = artifacts.publish_bytes(
+            study, f"{DATASETS_DIR}/{data_path.name}", data_path.read_bytes(), media_type=media_type_of(data_path), role="dataset"
+        )
+        scratch = study / SCRATCH_DIR / "init"
+        try:
+            write_memberships(source, scratch)
+            write_references(source, scratch)
+            memberships = artifacts.publish_file(study, scratch / MEMBERSHIPS_NAME, MEMBERSHIPS_PATH, media_type="text/csv", role="memberships")
+            references = artifacts.publish_file(study, scratch / REFERENCES_NAME, REFERENCES_PATH, media_type="text/csv", role="references")
+        finally:
+            shutil.rmtree(study / SCRATCH_DIR, ignore_errors=True)
 
-    protocol = protocol_content(
-        declaration,
-        dataset_sha256=dataset["sha256"],
-        memberships_sha256=memberships["sha256"],
-        references_sha256=references["sha256"],
-    )
-    spec = {
-        "kind": "study",
-        "schema_version": SPEC_VERSION,
-        "study_id": str(uuid.uuid4()),
-        "revision": "0" * 64,
-        "question": declaration.question,
-        "domain": DOMAIN,
-        "objective": declaration.objective,
-        "protocol_id": protocol_id(workload),
-        "protocol_digest": canonical.digest(protocol),
-        "dataset_refs": [dataset],
-        "primary_metric": {"id": PRIMARY, "direction": DIRECTION, "unit": declaration.target_unit},
-        "limitations": list(declaration.limitations),
-        "workload": workload,
-        "artifacts": [
-            {"artifact_id": short_id("memberships", memberships["sha256"]), "ref": memberships},
-            {"artifact_id": short_id("references", references["sha256"]), "ref": references},
-        ],
-    }
-    spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
-    contracts.validate(spec)
-    artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
-    return spec
+        protocol = protocol_content(
+            declaration,
+            dataset_sha256=dataset["sha256"],
+            memberships_sha256=memberships["sha256"],
+            references_sha256=references["sha256"],
+        )
+        spec = {
+            "kind": "study",
+            "schema_version": SPEC_VERSION,
+            "study_id": str(uuid.uuid4()),
+            "revision": "0" * 64,
+            "question": declaration.question,
+            "domain": DOMAIN,
+            "objective": declaration.objective,
+            "protocol_id": protocol_id(workload),
+            "protocol_digest": canonical.digest(protocol),
+            "dataset_refs": [dataset],
+            "primary_metric": {"id": PRIMARY, "direction": DIRECTION, "unit": declaration.target_unit},
+            "limitations": list(declaration.limitations),
+            "workload": workload,
+            "artifacts": [
+                {"artifact_id": short_id("memberships", memberships["sha256"]), "ref": memberships},
+                {"artifact_id": short_id("references", references["sha256"]), "ref": references},
+            ],
+        }
+        spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
+        contracts.validate(spec)
+        artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
+        return spec

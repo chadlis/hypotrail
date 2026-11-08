@@ -92,6 +92,20 @@ def build_parser() -> argparse.ArgumentParser:
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
 
+    status = commands.add_parser("status", help="show the local state of a Study: its Attempts and their artifacts (read only)")
+    status.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to inspect")
+    status.add_argument("--json", action="store_true", help="print one JSON object")
+    status.set_defaults(handler=_status)
+
+    recover = commands.add_parser(
+        "recover",
+        help="record an Attempt left running by a writer that is gone as interrupted (nothing is resubmitted)",
+    )
+    recover.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study holding the Attempt")
+    recover.add_argument("--attempt", required=True, metavar="ATTEMPT_ID", help="the running Attempt to record as interrupted")
+    recover.add_argument("--json", action="store_true", help="print one JSON object")
+    recover.set_defaults(handler=_recover)
+
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
     live = spike_commands.add_parser(
@@ -167,6 +181,30 @@ def _run_ml(args) -> int:
         + (" (recorded earlier: nothing was recomputed)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    return EXIT_OK
+
+
+def _status(args) -> int:
+    from hypotrail.core import state
+
+    report = state.status(args.study)
+    lines = [f"Study {report['study']['study_id']} ({report['study']['workload']}); a writer is {'active' if report['writer_alive'] else 'not active'}"]
+    for attempt in report["attempts"]:
+        lines.append(
+            f"  {attempt['attempt_id']} {attempt['technical_status']} request {attempt['request_id']}, "
+            f"{len(attempt['artifacts'])} artifacts"
+            + (" (no live writer: `recover` can record it as interrupted)" if attempt["recoverable"] else "")
+        )
+    _emit({"ok": True, **report}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _recover(args) -> int:
+    from hypotrail.core import state
+
+    manifest = state.recover(args.study, args.attempt)
+    human = f"Attempt {manifest['attempt_id']} recorded as interrupted (partial artifacts kept; to repeat it, run again with a new --request-id and --retry-of)"
+    _emit({"ok": True, "attempt": manifest}, args.json, human)
     return EXIT_OK
 
 

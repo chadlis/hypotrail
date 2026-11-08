@@ -1,0 +1,118 @@
+"""The local state of a Study: `status` reads it, `recover` records an interrupted Attempt.
+
+`status` only reads (SPEC §5 « Une commande explicite inspecte/récupère l'état local »): it lists
+every Attempt with its `technical_status`, its artifacts (the partial ones of an Attempt that never
+reached its terminal manifest included, each with the digest of its bytes) and whether a live writer
+holds the Study. It takes no lock and writes nothing.
+
+`recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
+lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`
+while no writer is alive; the lock being taken is the proof that none is. It keeps every artifact
+the Attempt published and resubmits nothing. It refuses an Attempt that is already terminal
+(`ATTEMPT_TERMINAL`, exit 3), an Attempt the Study does not hold (`ATTEMPT_NOT_FOUND`, exit 2) and,
+while a writer is alive, the whole command (`STUDY_LOCKED`, exit 6).
+
+A lock that is gone never proves that a remote call was cancelled: an Attempt whose Mode calls a
+provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held before.
+"""
+
+import datetime
+from pathlib import Path
+
+from hypotrail.core import artifacts, canonical, contracts, lock
+from hypotrail.core import study as layout
+from hypotrail.core.errors import InvalidInputError
+
+PROVIDER_MODES = ("llm_live",)
+RECOVER_REASON = (
+    "the writer ended before the terminal manifest; recorded as interrupted by `recover` "
+    "(partial artifacts kept, nothing resubmitted)"
+)
+
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _listed_artifacts(study: Path, manifest: dict) -> tuple[list, list]:
+    """The artifacts found in the Attempt's folder, and the temporary files a dead writer left behind."""
+    folder = f"{layout.ATTEMPTS_DIR}/{manifest['attempt_id']}"
+    roles = {ref["path"]: ref["role"] for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]}
+    found, leftovers = [], []
+    for path in sorted(artifacts.resolve(study, folder).rglob("*")):
+        relative = path.relative_to(study.resolve()).as_posix()
+        if not path.is_file() or relative == f"{folder}/{layout.MANIFEST_NAME}":
+            continue
+        if path.name.endswith(artifacts.TEMP_SUFFIX):
+            leftovers.append(relative)
+            continue
+        data = artifacts.resolve(study, relative).read_bytes()
+        found.append(
+            {
+                "path": relative,
+                "sha256": canonical.sha256_hex(data),
+                "size_bytes": len(data),
+                "media_type": layout.media_type_of(relative),
+                "referenced": relative in roles,
+                "role": roles.get(relative),
+            }
+        )
+    return found, leftovers
+
+
+def status(study) -> dict:
+    """The Study's local state, read only."""
+    study = Path(study)
+    spec = layout.read_spec(study)
+    writer_alive = lock.is_held(study)  # probed before the state is read
+    attempts = []
+    for attempt_id in layout.attempt_ids(study):
+        manifest = layout.read_manifest(study, attempt_id)
+        found, leftovers = _listed_artifacts(study, manifest)
+        running = manifest["technical_status"] == "running"
+        attempts.append(
+            {
+                **{
+                    key: manifest[key]
+                    for key in ("attempt_id", "request_id", "operation", "mode", "technical_status", "started_at", "finished_at", "outcome_unknown", "retry_of")
+                },
+                "reason": manifest.get("reason"),
+                "item_counts": manifest.get("item_counts"),
+                "writer_alive": running and writer_alive,
+                "recoverable": running and not writer_alive,
+                "artifacts": found,
+                "temporary_files": leftovers,
+            }
+        )
+    return {
+        "study": {key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest")},
+        "writer_alive": writer_alive,
+        "attempts": attempts,
+    }
+
+
+def recover(study, attempt_id: str) -> dict:
+    """Record the Attempt `attempt_id`, running with no live writer, as interrupted; return its manifest."""
+    study = Path(study)
+    layout.read_spec(study)
+    with lock.writer_lock(study):
+        if attempt_id not in layout.attempt_ids(study):
+            raise InvalidInputError(
+                "ATTEMPT_NOT_FOUND",
+                f"the Study holds no Attempt {attempt_id!r}",
+                stage="attempt",
+                details={"attempt_id": attempt_id},
+            )
+        manifest = layout.read_manifest(study, attempt_id)
+        if manifest["technical_status"] != "running":
+            raise artifacts.terminal_attempt(attempt_id, manifest["technical_status"], layout.attempt_manifest_path(attempt_id))
+        interrupted = {
+            **manifest,
+            "technical_status": "interrupted",
+            "finished_at": _now(),
+            "reason": RECOVER_REASON,
+            "outcome_unknown": manifest["outcome_unknown"] or manifest["mode"] in PROVIDER_MODES,
+        }
+        contracts.validate(interrupted)
+        artifacts.replace_bytes(study, layout.attempt_manifest_path(attempt_id), canonical.dumps(interrupted))
+        return interrupted

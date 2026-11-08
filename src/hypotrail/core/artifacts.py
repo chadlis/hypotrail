@@ -12,12 +12,18 @@ path with `os.replace`; the directory is fsynced. Nothing appears under the fina
 rename. A published artifact is immutable: publishing other bytes under the same path is refused
 (`ARTIFACT_IMMUTABLE`); the same bytes are accepted as already published.
 
+An Attempt's folder (`attempts/<attempt_id>/`) is closed once its manifest is no longer `running`
+(completed, failed or interrupted): a write that would change a file there, or add one, is refused
+with `ATTEMPT_TERMINAL` (exit 3); republishing the same bytes changes nothing and is accepted.
+While it runs, its manifest is replaced atomically (chadlis/hypotrail#65, SPEC §5).
+
 The write helpers (`_fsync_dir`, the temporary-file-then-replace sequence of `publish_bytes`) are
 adapted from `atomic_write` in `framework/mlkit/study/store.py` of `hypotrail/hypotrail` at commit
 `4ef4925`, copied and owned here (chadlis/hypotrail#64, Tightened D); the Windows retry of that
 source is not copied.
 """
 
+import json
 import os
 import uuid
 from pathlib import Path, PurePosixPath
@@ -49,6 +55,28 @@ def resolve(study, relative) -> Path:
     if not target.is_relative_to(root):
         raise _outside(text, study, "goes through a symlink pointing outside the Study")
     return root / posix
+
+
+def terminal_attempt(attempt_id, status, path) -> IntegrityError:
+    return IntegrityError(
+        "ATTEMPT_TERMINAL",
+        f"Attempt {attempt_id} is {status}: its manifest and outputs can no longer change",
+        stage="attempt",
+        details={"attempt_id": attempt_id, "technical_status": status, "path": str(path)},
+    )
+
+
+def _refuse_if_terminal(study, relative) -> None:
+    """Refuse a write into the folder of an Attempt whose manifest is not `running`."""
+    parts = PurePosixPath(str(relative)).parts
+    if len(parts) < 3 or parts[0] != "attempts":
+        return
+    manifest = resolve(study, "/".join(parts[:2]) + "/attempt.json")
+    if not manifest.is_file():
+        return
+    status = json.loads(manifest.read_text(encoding="utf-8")).get("technical_status")
+    if status != "running":
+        raise terminal_attempt(parts[1], status, relative)
 
 
 def _fsync_dir(path: Path) -> None:
@@ -107,6 +135,8 @@ def _write_atomically(target: Path, data: bytes) -> None:
 def publish_bytes(study, relative, data: bytes, *, media_type: str, role: str) -> dict:
     """Publish `data` at `relative` atomically; return its ArtifactRef."""
     target = resolve(study, relative)
+    if not (target.exists() and target.read_bytes() == data):
+        _refuse_if_terminal(study, relative)
     if not _immutable(target, relative, data):
         target.parent.mkdir(parents=True, exist_ok=True)
         resolve(study, relative)  # the directories just created are checked again
@@ -116,6 +146,7 @@ def publish_bytes(study, relative, data: bytes, *, media_type: str, role: str) -
 
 def replace_bytes(study, relative, data: bytes) -> None:
     """Replace a file that is allowed to change (a running manifest) atomically; no ArtifactRef."""
+    _refuse_if_terminal(study, relative)
     _write_atomically(resolve(study, relative), data)
 
 
