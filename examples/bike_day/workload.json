@@ -3,6 +3,14 @@
   "track": "temporal_regression",
   "data_file": "data/day.csv",
   "licence_notice": "licenses/Bike-Sharing-attribution.md",
+  "question": "At the start of day t, estimate the total number of rentals cnt[t] of that day, assuming that cnt[t-1] is already available.",
+  "objective": "Compare ridge_v1 with the seasonal_7 baseline by MAE, in rentals per day, one day ahead on the dev Partition.",
+  "limitations": [
+    "The simulation is sequential at a one-day horizon; it is not a forecast of a whole semester made at a single date.",
+    "The dataset does not establish the real publication delay of the daily counts.",
+    "The public_check Partition names a role in the protocol, not a guarantee of novelty or secrecy: the file is public and known.",
+    "Daily observations are dependent: no iid interval is computed and no statistical significance is claimed."
+  ],
   "id_prefix": "bike-day",
   "date_column": "dteday",
   "target_column": "cnt",

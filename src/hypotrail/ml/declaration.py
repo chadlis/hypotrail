@@ -48,7 +48,7 @@ scaler covering the model inputs, and the Partition ranges.
 import datetime
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -261,10 +261,36 @@ class Declaration:
     date_column: Optional[str] = None
     target_column: Optional[str] = None
     target_unit: Optional[str] = None
+    question: Optional[str] = None
+    objective: Optional[str] = None
+    limitations: Optional[tuple] = None
     period_k: Optional[Period] = None
     forbidden_features: Optional[tuple] = None
     allowed_target_features: Optional[tuple] = None
     configurations: Optional[Mapping] = None
+
+
+def plain(value):
+    """The JSON content of a typed declaration object: what a record keeps of a Configuration or a Partition.
+
+    A `Period` is its number of days, a date its ISO text, a tuple a list and a read-only mapping a dict; a
+    dataclass is a dict of its fields, with the `kind` of a Configuration. The result is built from the
+    typed objects only, never from the file, so the order of the keys in the file does not reach it.
+    """
+    if isinstance(value, Period):
+        return value.days
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    if is_dataclass(value) and not isinstance(value, type):
+        content = {field.name: plain(getattr(value, field.name)) for field in fields(value)}
+        if isinstance(getattr(type(value), "kind", None), str):
+            content["kind"] = type(value).kind
+        return content
+    if isinstance(value, Mapping):
+        return {key: plain(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [plain(item) for item in value]
+    return value
 
 
 def typed(value, kind):
@@ -303,6 +329,9 @@ def _declaration(raw: dict) -> Declaration:
         for name, bounds in raw["partitions"].items()
     )
     optional = {key: raw[key] for key in ("data_file", "id_prefix", "date_column", "target_column", "target_unit") if key in raw}
+    optional.update({key: raw[key] for key in ("question", "objective") if key in raw})
+    if "limitations" in raw:
+        optional["limitations"] = tuple(raw["limitations"])
     if "period_k" in raw:
         optional["period_k"] = Period(raw["period_k"])
     if "forbidden_features" in raw:

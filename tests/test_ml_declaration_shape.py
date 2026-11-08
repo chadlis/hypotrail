@@ -28,6 +28,9 @@ OPTIONAL = {
     ("schema_version",): "descriptive: no Track code reads it",
     ("track",): "descriptive: no Track code reads it",
     ("licence_notice",): "descriptive: no Track code reads it",
+    ("question",): "read by `init` only (tests/test_study_init.py)",
+    ("objective",): "read by `init` only (tests/test_study_init.py)",
+    ("limitations",): "read by `init` only (tests/test_study_init.py)",
     **{
         (key,): "required by the entry points that read it, not by every entry point"
         for key in (

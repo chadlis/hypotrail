@@ -55,6 +55,18 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
+    init = commands.add_parser("init", help="create a Study for a Workload")
+    init.add_argument("--workload", required=True, metavar="NAME", help="the Workload to study (for example bike_day)")
+    init.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study folder to create")
+    init.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/)",
+    )
+    init.add_argument("--json", action="store_true", help="print one JSON object")
+    init.set_defaults(handler=_init)
+
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
     live = spike_commands.add_parser(
@@ -97,6 +109,18 @@ def _data_verify(args) -> int:
         for r in reports
     ]
     _emit({"ok": True, "datasets": reports}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _init(args) -> int:
+    from hypotrail.ml import study
+
+    spec = study.init_study(args.workload, args.study, args.examples_dir)
+    human = (
+        f"Study created in {args.study}: Workload {spec['workload']}, "
+        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
+    )
+    _emit({"ok": True, "study": spec}, args.json, human)
     return EXIT_OK
 
 

@@ -339,7 +339,7 @@ OPTIONAL_ROOT = sorted(set().union(*READS.values()))
 
 
 def test_only_the_partitions_are_required_by_the_schema(tmp_path):
-    for key in OPTIONAL_ROOT + ["schema_version", "track", "licence_notice"]:
+    for key in OPTIONAL_ROOT + ["schema_version", "track", "licence_notice", "question", "objective", "limitations"]:
         assert load_declaration(workload_with(tmp_path / key, lambda d: d.pop(key)))
     error = load_refusal(workload_with(tmp_path / "partitions", lambda d: d.pop("partitions")))
     assert (error.code, error.details["key"]) == ("DECLARATION_INCOMPLETE", "partitions")
