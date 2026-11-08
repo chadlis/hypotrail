@@ -806,3 +806,103 @@ def test_the_readme_and_chapter_02_no_longer_say_there_is_no_command_line_or_no_
     chapter = (HANDBOOK / "chapters" / "02-temporal-regression-track.html").read_text(encoding="utf-8")
     assert "There is no command for this Track yet" not in chapter
     assert "<h3>No Study</h3>" not in chapter
+
+
+# --- chapter 05: assess, the Scorer registry, the Criterion states and the Assessment record (#66) -------------------
+
+
+def test_the_assess_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    action = next(a for a in build_parser()._actions if getattr(a, "choices", None) and "assess" in a.choices)
+    options = {flag: a.required for a in action.choices["assess"]._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "assess-command", "data-command")
+    assert set(rows) == {"assess"}
+    assert words(rows["assess"]["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(rows["assess"]["data-optional"]) == {flag for flag, required in options.items() if not required}
+
+
+def test_the_scorer_table_equals_the_registry(page):
+    from hypotrail.core import scorers
+
+    rows = attrs_of(page, "scorers", "data-scorer")
+    assert set(rows) == set(scorers.REGISTRY)
+    for scorer_id, row in rows.items():
+        scorer = scorers.REGISTRY[scorer_id]
+        assert (row["data-version"], row["data-domain"], row["data-criterion"], row["data-metric"]) == (
+            scorer.version, scorer.domain, scorer.criterion, scorer.metric_id,
+        ), scorer_id
+
+
+def test_the_reason_table_equals_the_state_and_reason_the_code_gives_each_case(page):
+    from hypotrail.ml.assess import criterion
+
+    cases = {
+        "item_failed": criterion("failed", "", "1"),
+        "item_missing": criterion("missing", "", "1"),
+        "reference_missing": criterion("produced", "1", None),
+        "reference_invalid": criterion("produced", "1", "n/a"),
+        "prediction_invalid": criterion("produced", "n/a", "1"),
+        "scoring_failed": criterion("produced", "1e308", "-1e308"),
+    }
+    rows = attrs_of(page, "criterion-reasons", "data-reason")
+    assert set(rows) == set(cases)
+    for reason, (state, value, found) in cases.items():
+        assert (rows[reason]["data-state"], value, found) == (state, None, reason)
+    assert criterion("produced", "3", "5") == ("scored", 2.0, None)
+
+
+def test_the_assessment_record_tables_equal_the_contract_schema_and_a_numeric_loss_leaves_correct_and_incorrect_null(page, tmp_path):
+    from _assess_helpers import assess, fresh_study, observation_set_id, references_id
+
+    from hypotrail.core import contracts
+
+    definitions = contracts.schema()["$defs"]
+    rows = attrs_of(page, "assessment-fields", "data-record")
+    assert set(rows) == {"Assessment", "Counts", "Metric"}
+    for name, row in rows.items():
+        assert words(row["data-required"]) == set(definitions[name]["required"]), name
+        assert words(row["data-optional"]) == set(definitions[name]["properties"]) - set(definitions[name]["required"]), name
+    study, attempts = fresh_study(tmp_path, "seasonal_7")
+    _, payload, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
+    record = payload["assessment"]
+    assert set(record) - words(rows["Assessment"]["data-optional"]) == words(rows["Assessment"]["data-required"])
+    assert record["counts"]["correct"] is None and record["counts"]["incorrect"] is None
+    layout = attrs_of(page, "assessment-layout", "data-path")
+    written = {
+        p.relative_to(study).as_posix().replace(record["assessment_id"], "ASSESSMENT_ID")
+        for p in (study / "assessments").rglob("*")
+        if p.is_file()
+    }
+    assert set(layout) == written
+
+
+def test_the_assess_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _assess_helpers import assess, construct, fresh_study, observation_set_id, references_id
+
+    study, attempts = fresh_study(tmp_path, "seasonal_7")
+    attempt = attempts["seasonal_7"]
+    refs = references_id(study)
+    obs = observation_set_id(study, attempt)
+    public_study, public_attempts = fresh_study(tmp_path / "p", "seasonal_7", partition="public_check")
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    record(assess(study, obs, "nope", refs))
+    record(assess(study, construct(study, attempt, lambda rows: rows, domain="agentic"), "regression_mae_v1", refs))
+    record(assess(study, "nope", "regression_mae_v1", refs))
+    record(assess(study, obs, "regression_mae_v1", "nope"))
+    record(assess(study, construct(study, attempt, lambda rows: [*rows, rows[0]]), "regression_mae_v1", refs))
+    record(assess(study, construct(study, attempt, lambda rows: rows, provenance={"partition": "train"}), "regression_mae_v1", refs))
+    record(assess(public_study, observation_set_id(public_study, public_attempts["seasonal_7"]), "regression_mae_v1", references_id(public_study)))
+    rows = attrs_of(page, "assess-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code

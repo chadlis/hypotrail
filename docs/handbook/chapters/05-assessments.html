@@ -1,0 +1,93 @@
+<!-- chapter: id=assessments; kicker=Core; title=Assessments and Scorers; accent=amber -->
+<p class="lead"><code>assess</code> applies one registered Scorer version to one kept Observation set and one References set of a Study, and writes a new Assessment. It fits nothing, predicts nothing and calls no model or tool: it reads files the Study already keeps. Every expected Item gets a Criterion state, with a Reason for every non-score, and rescoring never changes an earlier Assessment: it writes another one. This chapter describes what exists (the temporal regression Track, on <code>dev</code>); the Comparison, the report and the Chinook Scorer are later work (see Limits).</p>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p><code>assess</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/ml/assess.py</code> and the registry in <code>src/hypotrail/core/scorers.py</code>. It follows the rules of chapter 04: with <code>--json</code>, stdout holds one JSON object, <code>{"ok": true, "assessment": RECORD}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>, and the diagnostic goes to stderr; without it, stdout holds one line. The three ids are the ones the Study keeps: the <code>observation_set_id</code> of an Observation set record (<code>run ml</code> prints it in <code>attempts/ATTEMPT_ID/observation_set.json</code>), a Scorer id from the registry, and the <code>artifact_id</code> of the References set in <code>study.json</code> (<code>references-</code> and 16 hex digits).</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="assess-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
+<tr data-command="assess" data-required="--study --observations --scorer --references" data-optional="--json"><td><code>assess</code></td><td><code>--study DIR</code>, <code>--observations OBSERVATION_SET_ID</code>, <code>--scorer SCORER_ID</code>, <code>--references REFERENCES_ID</code></td><td><code>--json</code></td></tr>
+</tbody></table></div>
+<pre class="code"><span class="cm"># the bike Study of chapter 04, after `run ml` on dev; ids come from the Study's files</span>
+uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references references-0123456789abcdef
+<span class="cm"># the same predictions, scored again: a second Assessment, the first one untouched</span>
+uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_rmse_v1 --references references-0123456789abcdef --json</pre>
+
+<p class="sub2">The Scorer registry</p>
+<div class="prose">
+<p>The registry is a static, closed table in the code. A <code>--scorer</code> value is a key of that table and nothing else: it is never imported, evaluated or looked up by name, so a string such as <code>package.module:function</code> loads no Python and is refused as a Scorer that is not registered. A Scorer belongs to one Track (its <code>domain</code>); one applied to an Observation set of another Track is refused. <code>chinook_contract_v1</code> is not registered yet (Chinook ticket).</p>
+<p>Both Scorers have the same Criterion, the absolute error of the day, and differ in the Metric they aggregate from it: <code>mae</code>, the mean of the absolute errors, and <code>rmse</code>, the square root of the mean of their squares. The Metric's unit is the one the StudySpec declares for the primary metric; its direction is <code>lower_is_better</code>. The <code>config_digest</code> is the digest of the Scorer's configuration (the Criterion, the Metric and the direction): another Metric is another digest.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="scorers"><thead><tr><th>Scorer id</th><th>Version</th><th>Track</th><th>Criterion</th><th>Metric</th></tr></thead><tbody>
+<tr data-scorer="regression_mae_v1" data-version="1" data-domain="regression" data-criterion="absolute_error" data-metric="mae"><td><code>regression_mae_v1</code></td><td>1</td><td>temporal regression</td><td><code>absolute_error</code></td><td><code>mae</code></td></tr>
+<tr data-scorer="regression_rmse_v1" data-version="1" data-domain="regression" data-criterion="absolute_error" data-metric="rmse"><td><code>regression_rmse_v1</code></td><td>1</td><td>temporal regression</td><td><code>absolute_error</code></td><td><code>rmse</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">What is checked, in order</p>
+<div class="prose">
+<ol>
+<li>The Study exists; the Scorer is in the registry.</li>
+<li>The Observation set and the References set exist in the Study, and the Scorer belongs to the Observation set's Track.</li>
+<li>Every artifact read is read back against its digest: the Observation set record, the normalized outputs, the raw predictions it was made from, the population and the References. One that no longer matches is an integrity refusal (chapter 04, <code>ARTIFACT_INTEGRITY</code>, exit 3) and nothing is written.</li>
+<li>The Partition of the Items is <code>dev</code>. An Assessment on <code>public_check</code> is refused with its own code until the Exposure journal exists; on any other Partition (<code>train</code>) with another. Running predictions on <code>public_check</code> with <code>run ml</code> is not an Exposure and stays allowed.</li>
+<li>The Items of the Observation set must be Items of that Partition, each once.</li>
+<li>Each expected Item (every Item the population holds for the Partition, whatever the outputs hold) gets its Criterion; the Metric is aggregated from the scored ones. <code>per_item.csv</code> is published, then <code>assessment.json</code>, last.</li>
+</ol>
+</div>
+
+<p class="sub2">Criterion states</p>
+<div class="prose">
+<p>A Criterion is <code>scored</code> (a number), <code>unscored</code> (the Scorer ran and had no usable reading) or <code>errored</code> (the scoring machinery broke). Neither of the last two is held against the evaluated system, and a null value is never zero: it is left out of the Metric and counted. The execution status of the Item (<code>produced</code>, <code>failed</code>, <code>missing</code>) stays separate, in its own column. An expected Item that the outputs do not hold at all is <code>missing</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="criterion-reasons"><thead><tr><th>Reason</th><th>State</th><th>When</th></tr></thead><tbody>
+<tr data-reason="item_failed" data-state="unscored"><td><code>item_failed</code></td><td><code>unscored</code></td><td>The Item's execution status is <code>failed</code>: there is no output to score.</td></tr>
+<tr data-reason="item_missing" data-state="unscored"><td><code>item_missing</code></td><td><code>unscored</code></td><td>The Item's execution status is <code>missing</code>, or the outputs hold no row for it.</td></tr>
+<tr data-reason="reference_missing" data-state="unscored"><td><code>reference_missing</code></td><td><code>unscored</code></td><td>The References set holds no row for the Item.</td></tr>
+<tr data-reason="reference_invalid" data-state="unscored"><td><code>reference_invalid</code></td><td><code>unscored</code></td><td>The Reference is not a finite number.</td></tr>
+<tr data-reason="prediction_invalid" data-state="unscored"><td><code>prediction_invalid</code></td><td><code>unscored</code></td><td>The Item is <code>produced</code> but its prediction is not a finite number.</td></tr>
+<tr data-reason="scoring_failed" data-state="errored"><td><code>scoring_failed</code></td><td><code>errored</code></td><td>Both numbers are finite but their difference is not (an overflow).</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The Assessment record</p>
+<div class="prose">
+<p><code>assessments/ASSESSMENT_ID/assessment.json</code> is canonical JSON, validated against the contract schema before it is written and when it is read. <code>assessment_id</code> is a UUID, new each time. <code>counts</code> holds one counter per key of the schema, named for the key (the specification's <code>N_expected</code> is <code>expected</code>). <code>attempted</code> is the Items that were produced or failed (a <code>missing</code> Item was never attempted). For a numeric loss, <code>correct</code> and <code>incorrect</code> are null: an absolute error is not a binary verdict; the other counters are filled. <code>scored + unscored + errored = expected</code>. The Metric has the number of scored Items as its <code>denominator</code>; with none, its value is null with the Reason <code>no_scored_item</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="assessment-fields"><thead><tr><th>Record</th><th>Required fields</th><th>Optional fields</th></tr></thead><tbody>
+<tr data-record="Assessment" data-required="kind schema_version assessment_id observation_set_id references_ref scorer counts per_item_ref metrics limitations" data-optional="rescoring check_informed"><td>Assessment</td><td><code>kind</code>, <code>schema_version</code>, <code>assessment_id</code>, <code>observation_set_id</code>, <code>references_ref</code>, <code>scorer</code> (<code>id</code>, <code>version</code>, <code>config_digest</code>), <code>counts</code>, <code>per_item_ref</code>, <code>metrics</code>, <code>limitations</code></td><td><code>rescoring</code>, <code>check_informed</code> (not written yet)</td></tr>
+<tr data-record="Counts" data-required="expected attempted produced scored correct incorrect unscored errored" data-optional=""><td>Counts</td><td><code>expected</code>, <code>attempted</code>, <code>produced</code>, <code>scored</code>, <code>correct</code>, <code>incorrect</code>, <code>unscored</code>, <code>errored</code></td><td>none</td></tr>
+<tr data-record="Metric" data-required="id value unit direction denominator status reason" data-optional=""><td>Metric</td><td><code>id</code>, <code>value</code>, <code>unit</code>, <code>direction</code>, <code>denominator</code>, <code>status</code>, <code>reason</code></td><td>none</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="assessment-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
+<tr data-path="assessments/ASSESSMENT_ID/per_item.csv" data-written-by="assess"><td><code>assessments/ASSESSMENT_ID/per_item.csv</code></td><td><code>assess</code>, first</td><td>One row per expected Item: <code>row_id</code>, <code>execution_status</code>, <code>criterion</code>, <code>state</code>, <code>value</code> (empty unless scored), <code>reason</code> (empty when scored).</td></tr>
+<tr data-path="assessments/ASSESSMENT_ID/assessment.json" data-written-by="assess"><td><code>assessments/ASSESSMENT_ID/assessment.json</code></td><td><code>assess</code>, last</td><td>The Assessment record. A folder without it is not an Assessment.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="prose">
+<p>Each refusal has the exit code, stage and <code>details</code> keys below. The integrity refusals (<code>ARTIFACT_INTEGRITY</code>, <code>ARTIFACT_MISSING</code>, <code>CONTRACT_VIOLATION</code>, exit 3), <code>STUDY_NOT_FOUND</code> and <code>INVALID_ARGUMENTS</code> are those of chapter 04. <code>UNSUPPORTED_CAPABILITY</code> is the code the specification gives to a combination the milestone does not support, with no fallback to another Track.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="assess-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="SCORER_NOT_REGISTERED" data-exit="2" data-stage="assess" data-details="registered scorer"><td><code>SCORER_NOT_REGISTERED</code></td><td>A Scorer id that is not a key of the registry; nothing is imported from it</td><td>2</td><td><code>assess</code></td><td><code>scorer</code>, <code>registered</code></td></tr>
+<tr data-code="UNSUPPORTED_CAPABILITY" data-exit="2" data-stage="assess" data-details="observation_set_domain scorer scorer_domain"><td><code>UNSUPPORTED_CAPABILITY</code></td><td>A Scorer of another Track than the Observation set's</td><td>2</td><td><code>assess</code></td><td><code>scorer</code>, <code>scorer_domain</code>, <code>observation_set_domain</code></td></tr>
+<tr data-code="OBSERVATION_SET_NOT_FOUND" data-exit="2" data-stage="assess" data-details="observation_set_id"><td><code>OBSERVATION_SET_NOT_FOUND</code></td><td>The Study keeps no Observation set with this id</td><td>2</td><td><code>assess</code></td><td><code>observation_set_id</code></td></tr>
+<tr data-code="REFERENCES_NOT_FOUND" data-exit="2" data-stage="assess" data-details="available references_id"><td><code>REFERENCES_NOT_FOUND</code></td><td>The StudySpec holds no References set with this id</td><td>2</td><td><code>assess</code></td><td><code>references_id</code>, <code>available</code></td></tr>
+<tr data-code="OBSERVATIONS_INVALID" data-exit="2" data-stage="assess" data-details="problem row_id"><td><code>OBSERVATIONS_INVALID</code></td><td>An Observation set that names no Partition, repeats an Item, holds an Item outside its Partition or has an unknown execution status (<code>problem</code>: <code>unknown_partition</code>, <code>duplicate_item</code>, <code>unexpected_item</code>, <code>bad_status</code>)</td><td>2</td><td><code>assess</code></td><td><code>problem</code>, <code>row_id</code></td></tr>
+<tr data-code="ASSESSMENT_PARTITION_NOT_DEV" data-exit="2" data-stage="assess" data-details="partition"><td><code>ASSESSMENT_PARTITION_NOT_DEV</code></td><td>An Assessment of Items of a Partition other than <code>dev</code> and <code>public_check</code> (<code>train</code>)</td><td>2</td><td><code>assess</code></td><td><code>partition</code></td></tr>
+<tr data-code="ASSESSMENT_PUBLIC_CHECK_REFUSED" data-exit="2" data-stage="assess" data-details="partition"><td><code>ASSESSMENT_PUBLIC_CHECK_REFUSED</code></td><td>An Assessment of <code>public_check</code> Items; lifted with the Exposure journal</td><td>2</td><td><code>assess</code></td><td><code>partition</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--coral)"><h3>No lock yet</h3><p><code>assess</code> writes into the Study like <code>run ml</code> does: the writer lock is a separate ticket of issue #9, and until it lands nothing stops two commands from writing at once.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>No Comparison, no report</h3><p>Two Assessments are not compared yet, and nothing summarises them: the Comparison and the report come later in issue #9. The record's <code>rescoring</code> field (the earlier Assessment and the cause) is defined by the schema but not written.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Dev only</h3><p>Items of <code>public_check</code> cannot be assessed until the Exposure journal exists; Items of <code>train</code> never can.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>Regression only</h3><p>The agentic Scorer <code>chinook_contract_v1</code> joins the registry with the Chinook ticket; its Observation sets cannot be assessed before.</p></div>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-assess"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the registry and the Assessment record are core contracts, and <code>assess</code> imports neither scikit-learn nor Inspect.</td></tr>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles: fit on <code>train</code>, measure on <code>dev</code>, keep <code>public_check</code> for the Exposure-tracked check.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
+<p class="prose">The tests are <code>tests/test_assess.py</code>, <code>test_assess_criteria.py</code> and <code>test_assess_refusals.py</code>; they run offline and call no model.</p>

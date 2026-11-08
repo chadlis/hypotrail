@@ -10,6 +10,8 @@ DIR/
   artifacts/references.csv           the References set, a Study artifact with an ID
   attempts/<attempt_id>/attempt.json the Attempt manifest (running, then terminal)
   attempts/<attempt_id>/...          the Attempt's predictions, parameters, Observation set
+  assessments/<assessment_id>/per_item.csv     an Assessment's Criterion state per Item
+  assessments/<assessment_id>/assessment.json  the Assessment record (written last)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 
@@ -29,6 +31,7 @@ ARTIFACTS_DIR = "artifacts"
 DATASETS_DIR = "datasets"
 ATTEMPTS_DIR = "attempts"
 SCRATCH_DIR = ".scratch"
+ASSESSMENTS_DIR = "assessments"
 MANIFEST_NAME = "attempt.json"
 
 _MEDIA_TYPES = {".csv": "text/csv", ".json": "application/json", ".md": "text/markdown", ".txt": "text/plain"}
@@ -97,4 +100,26 @@ def find_by_request(study, request_id: str):
         manifest = read_manifest(study, attempt_id)
         if manifest["request_id"] == request_id:
             return manifest
+    return None
+
+
+def find_observation_set(study, observation_set_id: str):
+    """The Observation set record of `observation_set_id` and the manifest of its Attempt, or None.
+
+    The record is found through the Attempts' manifests, which reference it by digest, and read back
+    against that digest once it is the one asked for.
+    """
+    for attempt_id in attempt_ids(study):
+        manifest = read_manifest(study, attempt_id)
+        for ref in manifest.get("output_refs", []):
+            if ref["role"] != "observation_set":
+                continue
+            try:
+                record = canonical.loads(artifacts.resolve(study, ref["path"]).read_bytes())
+            except (OSError, ValueError, InvalidInputError):
+                continue
+            if isinstance(record, dict) and record.get("observation_set_id") == observation_set_id:
+                artifacts.read_verified(study, ref)
+                contracts.validate(record)
+                return record, manifest
     return None

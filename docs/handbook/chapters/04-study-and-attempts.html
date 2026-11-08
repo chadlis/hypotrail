@@ -1,5 +1,5 @@
 <!-- chapter: id=study-and-attempts; kicker=Core; title=Study and Attempts; accent=sky -->
-<p class="lead">A Study is a folder that holds one Protocol and the Attempts run under it. <code>init</code> creates the Study of the bike Workload; <code>run ml</code> runs one Configuration on one Partition and records it as an Attempt: a manifest, an Observation set and the predictions, every artifact referenced by its digest and published atomically before the terminal manifest. A repeated <code>--request-id</code> returns the recorded Attempt or is refused. This chapter describes what exists; one writer per Study, interruption recovery, <code>status</code>, Assessments and imports are later work (see Limits).</p>
+<p class="lead">A Study is a folder that holds one Protocol and the Attempts run under it. <code>init</code> creates the Study of the bike Workload; <code>run ml</code> runs one Configuration on one Partition and records it as an Attempt: a manifest, an Observation set and the predictions, every artifact referenced by its digest and published atomically before the terminal manifest. A repeated <code>--request-id</code> returns the recorded Attempt or is refused. This chapter describes what exists; one writer per Study, interruption recovery, <code>status</code> and imports are later work (see Limits); scoring an Attempt is <a href="#assessments">chapter 05</a>.</p>
 
 <p class="sub2">Commands</p>
 <div class="prose">
@@ -126,7 +126,7 @@ uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partitio
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>One writer, not yet</h3><p>Nothing stops two commands from writing to the same Study at once. The writer lock, the <code>interrupted</code> state recorded by an explicit command, <code>status</code> and a <code>failed</code> Attempt (exit 4) are the next ticket of issue #9.</p></div>
-<div class="card" style="--c:var(--violet)"><h3>No Assessment, no import</h3><p>An Attempt is not scored: Assessments, the Scorer registry, imports and Comparisons in a Study come later in issue #9. The schema already defines their fields.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>No import, no Comparison</h3><p><code>run ml</code> does not score: <code>assess</code> does, in a separate step (<a href="#assessments">chapter 05</a>). Imports and Comparisons in a Study come later in issue #9. The schema already defines their fields.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>No freeze, no Exposure</h3><p>No freeze record and no Exposure journal (issue #9, later). A <code>run ml</code> on <code>public_check</code> is recorded like any other.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Bike only</h3><p><code>init</code> and <code>run ml</code> serve the temporal regression Track. A Study of the agentic Track comes with its own ticket.</p></div>
 </div>

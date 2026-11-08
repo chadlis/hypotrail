@@ -92,6 +92,16 @@ def build_parser() -> argparse.ArgumentParser:
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
 
+    assess = commands.add_parser("assess", help="apply one registered Scorer to one kept Observation set")
+    assess.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Observation set")
+    assess.add_argument("--observations", required=True, metavar="OBSERVATION_SET_ID", help="the Observation set to score")
+    assess.add_argument(
+        "--scorer", required=True, metavar="SCORER_ID", help="a registered Scorer (regression_mae_v1, regression_rmse_v1)"
+    )
+    assess.add_argument("--references", required=True, metavar="REFERENCES_ID", help="the References set of the Study to score against")
+    assess.add_argument("--json", action="store_true", help="print one JSON object")
+    assess.set_defaults(handler=_assess)
+
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
     live = spike_commands.add_parser(
@@ -167,6 +177,20 @@ def _run_ml(args) -> int:
         + (" (recorded earlier: nothing was recomputed)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    return EXIT_OK
+
+
+def _assess(args) -> int:
+    from hypotrail.ml import assess
+
+    record = assess.assess(args.study, args.observations, args.scorer, args.references)
+    counts, metric = record["counts"], record["metrics"][0]
+    value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
+    human = (
+        f"Assessment {record['assessment_id']}: {metric['id']} {value} over {counts['scored']} of "
+        f"{counts['expected']} expected Items ({counts['unscored']} unscored, {counts['errored']} errored)"
+    )
+    _emit({"ok": True, "assessment": record}, args.json, human)
     return EXIT_OK
 
 
