@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts
-from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.errors import InvalidInputError
 
 STUDY_FILE = "study.json"
 ARTIFACTS_DIR = "artifacts"
@@ -75,12 +75,7 @@ def read_spec(study) -> dict:
 def read_record(study, relative: str) -> dict:
     """A record kept in the Study, read back and validated."""
     path = artifacts.resolve(study, relative)
-    try:
-        record = canonical.loads(path.read_bytes())
-    except FileNotFoundError:
-        raise IntegrityError(
-            "RECORD_MISSING", f"record missing: {relative}", stage="study", details={"path": relative}
-        ) from None
+    record = canonical.loads(path.read_bytes())
     contracts.validate(record)
     return record
 

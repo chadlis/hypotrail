@@ -525,3 +525,14 @@ def test_the_same_request_id_after_an_interruption_returns_the_recorded_attempt_
     code, payload, _ = run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "killed")
     assert code == 0 and payload["replayed"] is True and payload["attempt"]["technical_status"] == "running"
     assert instruments.calls == [] and snapshot(study) == before
+
+
+def test_run_ml_reads_the_declaration_through_the_one_loader_and_refuses_what_the_schema_refuses(tmp_path):
+    study, _ = init_study(tmp_path)
+    examples = examples_copy(tmp_path, edit=lambda declaration: declaration.update(period_k=0))
+    before = snapshot(study)
+    code, payload, _ = run_ml(study, "seasonal_7", "dev", "r", "--examples-dir", examples)
+    assert code == EXIT_INVALID_INPUT
+    assert (payload["error"]["code"], payload["error"]["stage"]) == ("DECLARATION_VALUE_NOT_ALLOWED", "declaration")
+    assert payload["error"]["details"]["key"] == "period_k"
+    assert snapshot(study) == before

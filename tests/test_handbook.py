@@ -628,3 +628,181 @@ def test_the_refusal_stage_table_equals_the_code_and_stage_of_each_refusal(page,
         assert rows[name]["cells"]["data-code"] == error.code, name
         assert rows[name]["cells"]["data-stage"] == error.stage, name
     assert rows["load"]["cells"]["data-stage"] != rows["shift"]["cells"]["data-stage"]
+
+
+# --- chapter 04: the Study, the Attempt, the records, the request identity and the refusals (#64) -------------------
+
+
+def attrs_of(page, table_id, attribute):
+    """{key: the row's data attributes} of one table."""
+    return {key: row["attrs"] for key, row in table_rows(page, table_id, attribute).items()}
+
+
+def words(text):
+    return set(text.split())
+
+
+def test_the_commands_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+
+    def subparser(parent, name):
+        action = next(a for a in parent._actions if getattr(a, "choices", None) and name in a.choices)
+        return action.choices[name]
+
+    parsers = {"init": subparser(parser, "init"), "run ml": subparser(subparser(parser, "run"), "ml")}
+    rows = attrs_of(page, "study-commands", "data-command")
+    assert set(rows) == set(parsers)
+    for command, row in rows.items():
+        options = {flag: a.required for a in parsers[command]._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+        assert words(row["data-required"]) == {flag for flag, required in options.items() if required}, command
+        assert words(row["data-optional"]) == {flag for flag, required in options.items() if not required}, command
+
+
+def test_the_layout_table_equals_the_files_init_and_run_ml_write(page, tmp_path):
+    from _study_helpers import init_study, run_ml
+
+    study, _ = init_study(tmp_path)
+    after_init = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    _, seasonal, _ = run_ml(study, "seasonal_7", "dev", "a")
+    _, ridge, _ = run_ml(study, "ridge_v1", "dev", "b")
+    ids = {seasonal["attempt"]["attempt_id"], ridge["attempt"]["attempt_id"]}
+    everything = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    generic = set()
+    for path in everything:
+        for attempt_id in ids:
+            path = path.replace(attempt_id, "ATTEMPT_ID")
+        generic.add(path)
+    rows = attrs_of(page, "study-layout", "data-path")
+    assert set(rows) == generic
+    assert {path for path, row in rows.items() if row["data-written-by"] == "init"} == after_init
+
+
+def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
+    from hypotrail.core import contracts
+
+    definitions = contracts.schema()["$defs"]
+    rows = attrs_of(page, "record-fields", "data-record")
+    assert set(rows) == {"StudySpec", "AttemptManifest", "ObservationSet", "ArtifactRef"}
+    for name, row in rows.items():
+        definition = definitions[name]
+        assert words(row["data-required"]) == set(definition["required"]), name
+        assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"]), name
+        assert row["data-kind"] == definition["properties"].get("kind", {}).get("const", ""), name
+
+
+def test_the_status_table_equals_the_attempt_and_item_statuses_of_the_code(page):
+    from hypotrail.core import contracts
+    from hypotrail.ml.run import ITEM_STATUSES
+
+    rows = attrs_of(page, "statuses", "data-level")
+    definitions = contracts.schema()["$defs"]
+    assert words(rows["attempt"]["data-values"]) == set(definitions["AttemptManifest"]["properties"]["technical_status"]["enum"])
+    assert words(rows["item"]["data-values"]) == set(ITEM_STATUSES) == set(definitions["ItemCounts"]["properties"])
+
+
+def test_the_request_identity_table_equals_the_elements_the_code_compares(page):
+    from hypotrail.core import requests
+
+    effective = {
+        "command": "c", "workload": "w", "configuration": {"id": "i", "declared": {}}, "partition": "p",
+        "mode": "native_ml", "input_digests": {}, "effective_parameters": None,
+    }
+    environment = {"python": "3.13", "code_revision": {"commit": None, "dirty": False, "local_code_fingerprint": None}}
+    rows = attrs_of(page, "request-identity", "data-element")
+    in_identity = {element for element, row in rows.items() if row["data-in-identity"] == "yes"}
+    assert in_identity == set(requests.ELEMENTS) == set(requests.identity(effective, environment))
+    base = requests.identity(effective, environment)
+    for element in set(rows) - in_identity:  # an element the table says is not in the identity changes nothing
+        changed_effective = {**effective, "effective_parameters": {"x": 1}} if element == "effective_parameters" else effective
+        changed_environment = {**environment, "python": "3.14"} if element == "python" else environment
+        assert requests.differences(base, requests.identity(changed_effective, changed_environment)) == [], element
+    assert "retry_of" not in requests.ELEMENTS
+
+
+def test_the_exit_code_table_equals_the_constants_of_the_errors_module(page):
+    from hypotrail.core import errors
+
+    rows = attrs_of(page, "exit-codes", "data-exit")
+    assert {row["data-name"]: int(code) for code, row in rows.items()} == {
+        name: getattr(errors, name) for name in dir(errors) if name.startswith("EXIT_")
+    }
+
+
+def study_refusals(tmp_path):
+    """Provoke each refusal of the table; return {code: (exit code, stage, set of details keys)}."""
+    from _study_helpers import examples_copy, init_study, run_json, run_ml
+
+    from hypotrail.core import artifacts, canonical, contracts
+
+    found = {}
+
+    def record_cli(code, payload, *_):
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    def record_raised(call):
+        with pytest.raises(Exception) as caught:
+            call()
+        error = caught.value
+        found[error.code] = (error.exit_code, error.stage, set(error.details))
+
+    study, _ = init_study(tmp_path, name="base")
+    record_cli(*run_json("init", "--workload", "bike_day", "--study", study))  # STUDY_EXISTS
+    record_cli(*run_json("run", "ml", "--study", tmp_path / "none", "--config", "seasonal_7", "--partition", "dev", "--request-id", "r"))
+    record_cli(*run_json("init", "--workload", "chinook", "--study", tmp_path / "chinook"))
+    record_cli(*run_ml(study, "seasonal_7", "dev", ""))
+    record_cli(*run_ml(study, "seasonal_7", "dev", "r", "--retry-of", "nope"))
+    record_cli(*run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev"))
+    run_ml(study, "seasonal_7", "dev", "first")
+    record_cli(*run_ml(study, "ridge_v1", "dev", "first"))  # REQUEST_CONFLICT
+
+    examples = examples_copy(tmp_path)
+    flipped, _ = init_study(tmp_path, name="flipped", examples=examples)
+    data_file = examples / "bike_day" / "data" / "day.csv"
+    content = bytearray(data_file.read_bytes())
+    content[len(content) // 2] ^= 1
+    data_file.write_bytes(bytes(content))
+    record_cli(*run_ml(flipped, "seasonal_7", "dev", "r", "--examples-dir", examples))  # DATA_INTEGRITY
+
+    def shift(declaration):
+        declaration["partitions"]["dev"][1] = "2012-06-29"
+        declaration["partitions"]["public_check"][0] = "2012-06-30"
+
+    record_cli(*run_ml(study, "seasonal_7", "dev", "new", "--examples-dir", examples_copy(tmp_path, edit=shift, name="shifted")))
+
+    altered, _ = init_study(tmp_path, name="altered")
+    (altered / "artifacts" / "memberships.csv").write_bytes(b"x")
+    record_cli(*run_ml(altered, "seasonal_7", "dev", "r"))  # ARTIFACT_INTEGRITY
+    gone, _ = init_study(tmp_path, name="gone")
+    (gone / "artifacts" / "references.csv").unlink()
+    record_cli(*run_ml(gone, "seasonal_7", "dev", "r"))  # ARTIFACT_MISSING
+
+    record_raised(lambda: artifacts.publish_bytes(tmp_path, "../outside", b"x", media_type="text/plain", role="r"))
+    artifacts.publish_bytes(tmp_path, "published.txt", b"one", media_type="text/plain", role="r")
+    record_raised(lambda: artifacts.publish_bytes(tmp_path, "published.txt", b"two", media_type="text/plain", role="r"))
+    record_raised(lambda: canonical.dumps({"mae": float("nan")}))
+    record_raised(lambda: contracts.validate({"kind": "nothing"}))
+    return found
+
+
+def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    rows = attrs_of(page, "study-codes", "data-code")
+    found = study_refusals(tmp_path)
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+def test_the_readme_and_chapter_02_no_longer_say_there_is_no_command_line_or_no_study():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "no command line yet" not in readme
+    assert "There is no Study, run manifest" not in readme
+    assert "`init`" in readme and "`run ml`" in readme
+    chapter = (HANDBOOK / "chapters" / "02-temporal-regression-track.html").read_text(encoding="utf-8")
+    assert "There is no command for this Track yet" not in chapter
+    assert "<h3>No Study</h3>" not in chapter

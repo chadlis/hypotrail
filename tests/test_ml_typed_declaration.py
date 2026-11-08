@@ -25,6 +25,7 @@ from hypotrail.ml.periods import Period
 from hypotrail.ml.references import write_references
 from hypotrail.ml.ridge import build_pipeline, fit_configuration, inputs_of, predict_partition, write_outputs
 from hypotrail.ml.series import read_target_series
+from hypotrail.ml.study import protocol_content
 from hypotrail.ml.table import read_table
 
 from _ml_helpers import canonical_digest, write_small_workload
@@ -111,6 +112,8 @@ COMPUTATIONS = {
     "declared_unit": declared_unit,
     "declared_partition": lambda d: declared_partition(d, "dev"),
     "inputs_of": lambda d: inputs_of(BIKE, d, "ridge_v1", "dev"),
+    # `init` and `run ml` of the Study (#64)
+    "protocol_content": lambda d: protocol_content(d, dataset_sha256="a", memberships_sha256="b", references_sha256="c"),
 }
 
 
