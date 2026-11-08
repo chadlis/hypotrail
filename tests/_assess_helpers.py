@@ -47,7 +47,7 @@ def fresh_study(tmp_path, *configs, partition="dev"):
     return study, attempts
 
 
-def construct(study, attempt, edit, *, provenance=None, domain=None):
+def construct(study, attempt, edit, *, provenance=None, domain=None, mode=None):
     """A new kept Observation set built from `attempt`'s, whose normalized rows `edit` may change.
 
     `edit` receives the rows (dicts of observations.csv) and returns the rows to keep. The new
@@ -69,6 +69,8 @@ def construct(study, attempt, edit, *, provenance=None, domain=None):
         record["provenance"] = {**record["provenance"], **provenance}
     if domain:
         record["domain"] = domain
+    if mode:
+        record["mode"] = mode
     (new_folder / "observation_set.json").write_bytes(canonical.dumps(record))
     set_ref = artifacts.ref_of_existing(study, f"attempts/{new_id}/observation_set.json", media_type="application/json", role="observation_set")
     manifest = json.loads((folder / "attempt.json").read_text())

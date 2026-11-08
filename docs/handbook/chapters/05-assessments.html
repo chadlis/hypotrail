@@ -1,5 +1,5 @@
 <!-- chapter: id=assessments; kicker=Core; title=Assessments and Scorers; accent=amber -->
-<p class="lead"><code>assess</code> applies one registered Scorer version to one kept Observation set and one References set of a Study, and writes a new Assessment. It fits nothing, predicts nothing and calls no model or tool: it reads files the Study already keeps. Every expected Item gets a Criterion state, with a Reason for every non-score, and rescoring never changes an earlier Assessment: it writes another one. This chapter describes what exists (the temporal regression Track, on <code>dev</code>); the Comparison, the report and the Chinook Scorer are later work (see Limits).</p>
+<p class="lead"><code>assess</code> applies one registered Scorer version to one kept Observation set and one References set of a Study, and writes a new Assessment. It fits nothing, predicts nothing and calls no model or tool: it reads files the Study already keeps. Every expected Item gets a Criterion state, with a Reason for every non-score, and rescoring never changes an earlier Assessment: it writes another one. This chapter describes what exists (the temporal regression Track, on <code>dev</code>); the report and the Chinook Scorer are later work (see Limits).</p>
 
 <p class="sub2">The command</p>
 <div class="prose">
@@ -78,8 +78,8 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>One writer</h3><p><code>assess</code> holds the Study's writer lock for the whole command, as <code>init</code>, <code>run ml</code> and <code>recover</code> do: while another writer holds it, <code>assess</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (<a href="#study-and-attempts">chapter 04</a>).</p></div>
-<div class="card" style="--c:var(--violet)"><h3>No Comparison, no report</h3><p>Two Assessments are not compared yet, and nothing summarises them: the Comparison and the report come later in issue #9. The record's <code>rescoring</code> field (the earlier Assessment and the cause) is defined by the schema but not written.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>One writer</h3><p><code>assess</code> holds the Study's writer lock for the whole command, as <code>init</code>, <code>run ml</code>, <code>import ml</code>, <code>recover</code> and <code>compare</code> do: while another writer holds it, <code>assess</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (<a href="#study-and-attempts">chapter 04</a>).</p></div>
+<div class="card" style="--c:var(--violet)"><h3>No report</h3><p>Two Assessments are compared by <code>compare</code> (<a href="#comparison">chapter 07</a>), and nothing summarises them yet: the report comes later in issue #9. The record's <code>rescoring</code> field (the earlier Assessment and the cause) is defined by the schema but not written.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Dev only</h3><p>Items of <code>public_check</code> cannot be assessed until the Exposure journal exists; Items of <code>train</code> never can.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Regression only</h3><p>The agentic Scorer <code>chinook_contract_v1</code> joins the registry with the Chinook ticket; its Observation sets cannot be assessed before.</p></div>
 </div>

@@ -107,7 +107,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>Complete ML files only</h3><p>An incomplete file is refused, never imported with the gaps marked <code>missing</code>. An agent import (JSONL, Inspect logs) and the migration of old Studies are other tickets. Comparisons that involve an Import, the report and the Exposure journal come later in issue #9.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>Complete ML files only</h3><p>An incomplete file is refused, never imported with the gaps marked <code>missing</code>. An agent import (JSONL, Inspect logs) and the migration of old Studies are other tickets. A Comparison that involves an Import is descriptive, with a warning on its scope (<a href="#comparison">chapter 07</a>); the report and the Exposure journal come later in issue #9.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Claims are not checked</h3><p>The digest of the dataset is checked against the lock; the model, the date, the protocol and the tool use are only what the mapping says. A column whose name looks like a dotted name (<code>pred.v1</code>) cannot be mapped, because the same shape names a module.</p></div>
 </div>
 <p class="prose">The tests are <code>tests/test_import_ml.py</code> (every criterion of the ticket) and <code>tests/test_handbook.py</code> (the tables of this chapter against the code). They run offline and call no model.</p>

@@ -127,6 +127,13 @@ def build_parser() -> argparse.ArgumentParser:
     assess.add_argument("--json", action="store_true", help="print one JSON object")
     assess.set_defaults(handler=_assess)
 
+    compare = commands.add_parser("compare", help="compare two Assessments of a Study as Control and Candidate")
+    compare.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Assessments")
+    compare.add_argument("--control", required=True, metavar="ASSESSMENT_ID", help="the Assessment measured against (the Control)")
+    compare.add_argument("--candidate", required=True, metavar="ASSESSMENT_ID", help="the Assessment measured (the Candidate)")
+    compare.add_argument("--json", action="store_true", help="print one JSON object")
+    compare.set_defaults(handler=_compare)
+
     status = commands.add_parser("status", help="show the local state of a Study: its Attempts and their artifacts (read only)")
     status.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to inspect")
     status.add_argument("--json", action="store_true", help="print one JSON object")
@@ -246,6 +253,22 @@ def _assess(args) -> int:
         f"{counts['expected']} expected Items ({counts['unscored']} unscored, {counts['errored']} errored)"
     )
     _emit({"ok": True, "assessment": record}, args.json, human)
+    return EXIT_OK
+
+
+def _compare(args) -> int:
+    from hypotrail.core import comparison
+
+    record = comparison.compare(args.study, args.control, args.candidate)
+    delta, coverage = record["delta"], record["coverage"]
+    value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
+    human = (
+        f"Comparison {record['comparison_id']} ({record['comparability']['status']}): delta {delta['metric']} {value} "
+        f"(Candidate minus Control; positive means the Candidate is worse) over {coverage['paired']} of {coverage['expected']} paired Items"
+    )
+    for warning in record["warnings"]:
+        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
+    _emit({"ok": True, "comparison": record}, args.json, human)
     return EXIT_OK
 
 

@@ -1067,3 +1067,92 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code
         assert words(row["data-details"]) == details, code
+
+
+# --- chapter 07: compare, the comparability checks, strict against descriptive, the Comparison record (#71) ------------
+
+
+def test_the_compare_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    action = next(a for a in build_parser()._actions if getattr(a, "choices", None) and "compare" in a.choices)
+    options = {flag: a.required for a in action.choices["compare"]._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "compare-command", "data-command")
+    assert set(rows) == {"compare"}
+    assert words(rows["compare"]["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(rows["compare"]["data-optional"]) == {flag for flag, required in options.items() if not required}
+
+
+def test_the_comparability_check_table_equals_the_checks_the_code_runs_in_order(page):
+    from hypotrail.core import comparison
+
+    rows = table_rows(page, "comparability-checks", "data-check")
+    assert list(rows) == list(comparison.CHECKS)  # the table lists them in the order they run
+    for check, row in rows.items():
+        code, reason = comparison.REFUSALS[check]
+        assert (row["attrs"]["data-code"], row["attrs"]["data-reason"]) == (code, reason), check
+
+
+def test_the_comparison_record_tables_equal_the_contract_schema_and_the_layout_equals_the_files_written(page, tmp_path):
+    from _compare_helpers import assessed, compare
+
+    from hypotrail.core import contracts
+
+    definitions = contracts.schema()["$defs"]
+    rows = attrs_of(page, "comparison-fields", "data-record")
+    assert set(rows) == {"Comparison"}
+    assert words(rows["Comparison"]["data-required"]) == set(definitions["Comparison"]["required"])
+    assert words(rows["Comparison"]["data-optional"]) == set(definitions["Comparison"]["properties"]) - set(definitions["Comparison"]["required"])
+    study, _, a = assessed(tmp_path, "seasonal_7", "ridge_v1")
+    _, payload, _ = compare(study, a["seasonal_7"]["assessment_id"], a["ridge_v1"]["assessment_id"])
+    record = payload["comparison"]
+    assert set(record) - words(rows["Comparison"]["data-optional"]) == words(rows["Comparison"]["data-required"])
+    statuses = set(attrs_of(page, "comparison-statuses", "data-status"))
+    assert statuses == set(definitions["Comparison"]["properties"]["comparability"]["properties"]["status"]["enum"])
+    layout = attrs_of(page, "comparison-layout", "data-path")
+    written = {
+        p.relative_to(study).as_posix().replace(record["comparison_id"], "COMPARISON_ID")
+        for p in (study / "comparisons").rglob("*")
+        if p.is_file()
+    }
+    assert set(layout) == written
+
+
+def test_the_compare_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _assess_helpers import construct
+    from _compare_helpers import assessed, compare, forged
+
+    study, attempts, a = assessed(tmp_path, "seasonal_7", "ridge_v1")
+    control, candidate = a["seasonal_7"], a["ridge_v1"]
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    def against(other):
+        return compare(study, control["assessment_id"], other["assessment_id"])
+
+    train = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "train"})
+    public = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "public_check"})
+    record(compare(study, control["assessment_id"], "nope"))
+    record(against(forged(study, candidate, lambda r: r.update(observation_set_id="nope"))))
+    record(against(forged(study, candidate, lambda r: r.update(observation_set_id=public))))
+    record(against(forged(study, candidate, lambda r: r.update(observation_set_id=train))))
+    both = [forged(study, a[c], lambda r, t=t: r.update(observation_set_id=t)) for c, t in (("seasonal_7", train), ("ridge_v1", train))]
+    record(compare(study, both[0]["assessment_id"], both[1]["assessment_id"]))
+    record(against(forged(study, candidate, lambda r: r["references_ref"].update(sha256="b" * 64))))
+    record(against(forged(study, candidate, lambda r: r["scorer"].update(version="2"))))
+    record(against(forged(study, candidate, lambda r: r["metrics"][0].update(unit="visits per day"))))
+    record(against(forged(study, candidate, per_item=lambda rows: rows[:-1])))
+    record(against(forged(study, candidate, per_item=lambda rows: [{**rows[0], "state": "unscored", "value": "", "reason": "item_failed"}, *rows[1:]])))
+    scripted = construct(study, attempts["ridge_v1"], lambda rows: rows, mode="scripted_fixture")
+    record(against(forged(study, candidate, lambda r: r.update(observation_set_id=scripted))))
+    rows = attrs_of(page, "compare-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code

@@ -12,6 +12,9 @@ DIR/
   attempts/<attempt_id>/...          the Attempt's predictions, parameters, Observation set
   assessments/<assessment_id>/per_item.csv     an Assessment's Criterion state per Item
   assessments/<assessment_id>/assessment.json  the Assessment record (written last)
+  comparisons/<comparison_id>/population.json     a Comparison's population identity
+  comparisons/<comparison_id>/paired_deltas.csv   its absolute errors and their difference per row_id
+  comparisons/<comparison_id>/comparison.json     the Comparison record (written last)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 
@@ -32,6 +35,7 @@ DATASETS_DIR = "datasets"
 ATTEMPTS_DIR = "attempts"
 SCRATCH_DIR = ".scratch"
 ASSESSMENTS_DIR = "assessments"
+COMPARISONS_DIR = "comparisons"
 MANIFEST_NAME = "attempt.json"
 
 _MEDIA_TYPES = {".csv": "text/csv", ".json": "application/json", ".md": "text/markdown", ".txt": "text/plain"}
@@ -122,4 +126,15 @@ def find_observation_set(study, observation_set_id: str):
                 artifacts.read_verified(study, ref)
                 contracts.validate(record)
                 return record, manifest
+    return None
+
+
+def find_assessment(study, assessment_id: str):
+    """The Assessment record of `assessment_id`, or None; the ID is only compared, never made into a path."""
+    folder = Path(study) / ASSESSMENTS_DIR
+    if not folder.is_dir():
+        return None
+    for candidate in sorted(folder.iterdir()):
+        if candidate.name == assessment_id and (candidate / "assessment.json").is_file():
+            return read_record(study, f"{ASSESSMENTS_DIR}/{candidate.name}/assessment.json")
     return None
