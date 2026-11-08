@@ -655,6 +655,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
     parsers = {
         "init": subparser(parser, "init"),
         "run ml": subparser(subparser(parser, "run"), "ml"),
+        "import ml": subparser(subparser(parser, "import"), "ml"),
         "status": subparser(parser, "status"),
         "recover": subparser(parser, "recover"),
     }
@@ -927,6 +928,141 @@ def test_the_assess_refusal_table_equals_the_code_exit_stage_and_details_of_each
     rows = attrs_of(page, "assess-codes", "data-code")
     assert set(rows) == set(found)
     for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+# --- chapter 06: import ml, the mapping, the provenance fields and the refusals (#67) -----------------------------------
+
+
+def test_the_import_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    action = next(a for a in parser._actions if getattr(a, "choices", None) and "import" in a.choices)
+    sub = next(a for a in action.choices["import"]._actions if getattr(a, "choices", None) and "ml" in a.choices)
+    options = {flag: a.required for a in sub.choices["ml"]._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "import-command", "data-command")
+    assert set(rows) == {"import ml"}
+    assert words(rows["import ml"]["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(rows["import ml"]["data-optional"]) == {flag for flag, required in options.items() if not required}
+
+
+def test_the_mapping_table_equals_the_keys_the_code_accepts_and_what_each_does(page, tmp_path):
+    from _import_helpers import export, import_ml, population_of, write_json
+    from _study_helpers import init_study
+
+    from hypotrail.ml import imports
+
+    rows = attrs_of(page, "import-mapping", "data-key")
+    assert set(rows) == set(imports.MAPPING_KEYS)
+    for key, row in rows.items():
+        assert (row["data-required"] == "yes") == imports.MAPPING_KEYS[key], key
+        assert row["data-kind"] == ("column" if key in imports.COLUMN_KEYS else "claim"), key
+    assert {k for k, r in rows.items() if r["data-kind"] == "claim" and r["data-required"] == "no"} == set(imports.CLAIM_KEYS)
+    # the code refuses a key outside the table, and accepts a file with each optional key left out
+    study, _ = init_study(tmp_path)
+    source, digest = export(tmp_path)
+    required = {"row_id": "day_key", "y_pred": "forecast_rentals", "dataset_sha256": digest}
+    code, payload, _ = import_ml(study, source, write_json(tmp_path / "m.json", required), population_of(tmp_path, source), "ok")
+    assert code == 0, payload
+
+
+def test_the_producer_table_equals_the_fields_the_code_records_with_their_origin(page, tmp_path):
+    from _import_helpers import import_ml, ready
+    from _study_helpers import init_study
+
+    from hypotrail.ml import imports
+
+    rows = attrs_of(page, "import-producer", "data-field")
+    assert {field: row["data-declared-by"] for field, row in rows.items()} == {f: k or "" for f, k in imports.PRODUCER_FIELDS.items()}
+    study, _ = init_study(tmp_path)
+    source, mapping, population, _ = ready(tmp_path)
+    _, payload, _ = import_ml(study, source, mapping, population, "r")
+    producer = payload["attempt"]["effective_config"]["producer"]
+    assert set(producer) == set(rows)
+    assert {entry["origin"] for entry in producer.values()} == {"unknown"}
+
+
+def test_the_import_layout_table_equals_the_files_an_import_writes(page, tmp_path):
+    from _import_helpers import import_ml, ready
+    from _study_helpers import init_study
+
+    study, _ = init_study(tmp_path)
+    before = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    source, mapping, population, _ = ready(tmp_path)
+    _, payload, _ = import_ml(study, source, mapping, population, "r")
+    attempt_id = payload["attempt"]["attempt_id"]
+    written = {
+        p.relative_to(study).as_posix().replace(attempt_id, "ATTEMPT_ID").replace(f"source/{source.name}", "source/NAME")
+        for p in study.rglob("*")
+        if p.is_file()
+    } - before
+    rows = attrs_of(page, "import-layout", "data-path")
+    assert set(rows) == written
+    roles = {ref["path"].replace(attempt_id, "ATTEMPT_ID").replace(f"source/{source.name}", "source/NAME"): ref["role"]
+             for ref in [*payload["attempt"]["input_refs"], *payload["attempt"]["output_refs"]]}
+    for path, row in rows.items():
+        if path in roles:
+            assert row["data-role"] == roles[path], path
+
+
+def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _import_helpers import FIELDS, export, import_ml, mapping_of, population_of, ready, rows_of, write_json, write_rows
+    from _study_helpers import init_study
+
+    study, _ = init_study(tmp_path)
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    source, mapping, population, digest = ready(tmp_path)
+    ids = [r["day_key"] for r in rows_of(source)]
+    gone = tmp_path / "gone"
+    record(import_ml(study, gone, mapping, population, "r"))
+    record(import_ml(study, source, gone, population, "r"))
+    record(import_ml(study, source, mapping, gone, "r"))
+    pickle = tmp_path / "m.pkl"
+    pickle.write_bytes(b"\x80\x04N.")
+    record(import_ml(study, pickle, mapping, population, "r"))
+    latin = tmp_path / "latin.csv"
+    latin.write_bytes(b"day_key,forecast_rentals\n\xe9,1\n")
+    record(import_ml(study, latin, mapping, population, "r"))
+    empty = tmp_path / "empty.csv"
+    empty.write_bytes(b"")
+    record(import_ml(study, empty, mapping, population, "r"))
+
+    def with_mapping(content, name):
+        return write_json(tmp_path / name, content)
+
+    base = {"row_id": "day_key", "y_pred": "forecast_rentals", "dataset_sha256": digest}
+    record(import_ml(study, source, with_mapping([1], "m1.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({**base, "extra": "x"}, "m2.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({"row_id": "day_key", "y_pred": "forecast_rentals"}, "m3.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({**base, "y_pred": 1}, "m4.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({**base, "y_pred": "os.system"}, "m5.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({**base, "y_pred": "nope"}, "m6.json"), population, "r"))
+    record(import_ml(study, source, with_mapping({**base, "dataset_sha256": "0" * 64}, "m7.json"), population, "r"))
+    record(import_ml(study, source, mapping, write_json(tmp_path / "p1.json", ["x"]), "r"))
+    record(import_ml(study, source, mapping, write_json(tmp_path / "p2.json", {"item_ids": [*ids, "nope"]}), "r"))
+    record(import_ml(study, source, mapping, write_json(tmp_path / "p3.json", {"item_ids": [*ids, "bike-day:2012-07-01"]}), "r"))
+    rows = rows_of(source)
+    for name, edit in {
+        "ROW_ID_EMPTY": lambda r: [{**r[0], "day_key": ""}, *r[1:]],
+        "ROW_ID_DUPLICATE": lambda r: [*r, r[0]],
+        "ROW_ID_OUTSIDE_POPULATION": lambda r: [*r, {**r[0], "day_key": "bike-day:2030-01-01"}],
+        "PREDICTION_NOT_FINITE": lambda r: [{**r[0], "forecast_rentals": "nan"}, *r[1:]],
+        "POPULATION_ITEM_ABSENT": lambda r: r[1:],
+    }.items():
+        record(import_ml(study, write_rows(tmp_path / f"{name}.csv", edit(rows), FIELDS), mapping, population, "r"))
+    table = attrs_of(page, "import-codes", "data-code")
+    assert set(table) == set(found)
+    for code, row in table.items():
         exit_code, stage, details = found[code]
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code

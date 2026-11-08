@@ -19,12 +19,14 @@ different it is `REQUEST_CONFLICT`, exit 6, naming the elements that differ.
 from hypotrail.core import canonical
 from hypotrail.core.errors import EXIT_LOCK_OR_CONFLICT, HypotrailError
 
-IDENTITY_KEYS = ("command", "workload", "configuration", "partition", "mode", "input_digests")
+# `model` and `repeats` belong to the agent Track and to imports (where they are `unknown` unless the
+# mapping declares a model); a native ML request does not hold them, so both sides read them as absent.
+IDENTITY_KEYS = ("command", "workload", "configuration", "partition", "mode", "model", "repeats", "input_digests")
 ELEMENTS = IDENTITY_KEYS + ("code_revision",)
 
 
 def identity(effective_config: dict, code_environment: dict) -> dict:
-    request = {key: effective_config[key] for key in IDENTITY_KEYS}
+    request = {key: effective_config.get(key) for key in IDENTITY_KEYS}
     request["code_revision"] = code_environment["code_revision"]
     return request
 

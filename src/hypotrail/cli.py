@@ -92,6 +92,31 @@ def build_parser() -> argparse.ArgumentParser:
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
 
+    import_ = commands.add_parser("import", help="adopt outputs produced elsewhere as an Import Attempt of a Study")
+    import_commands = import_.add_subparsers(dest="import_command", metavar="TRACK")
+    import_ml = import_commands.add_parser(
+        "ml", help="import a complete predictions CSV of the temporal regression Track (from a program that never imports hypotrail)"
+    )
+    import_ml.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Import in")
+    import_ml.add_argument("--source", required=True, type=Path, metavar="CSV", help="the predictions file (UTF-8 CSV), kept as it is")
+    import_ml.add_argument("--mapping", required=True, type=Path, metavar="MAPPING", help="JSON: which columns are row_id and y_pred, and the dataset digest")
+    import_ml.add_argument("--population", required=True, type=Path, metavar="FILE", help='JSON {"item_ids": [...]}: the Items the file must hold, all of one Partition')
+    import_ml.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same request returns the recorded Import, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    import_ml.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/)",
+    )
+    import_ml.add_argument("--json", action="store_true", help="print one JSON object")
+    import_ml.set_defaults(handler=_import_ml)
+
     assess = commands.add_parser("assess", help="apply one registered Scorer to one kept Observation set")
     assess.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Observation set")
     assess.add_argument("--observations", required=True, metavar="OBSERVATION_SET_ID", help="the Observation set to score")
@@ -189,6 +214,22 @@ def _run_ml(args) -> int:
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']}"
         + (f" ({counts['produced']} Items produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
         + (" (recorded earlier: nothing was recomputed)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    return EXIT_OK
+
+
+def _import_ml(args) -> int:
+    from hypotrail.ml import imports
+
+    manifest, replayed = imports.import_ml(
+        args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir
+    )
+    counts = manifest["item_counts"]
+    human = (
+        f"Import {manifest['attempt_id']} {manifest['technical_status']} "
+        f"({counts['produced']} Items produced, Mode {manifest['mode']})"
+        + (" (recorded earlier: nothing was read again)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
     return EXIT_OK
