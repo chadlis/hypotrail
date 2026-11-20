@@ -1,4 +1,4 @@
-"""Ticket #20: the opt-in, bounded live run. Nothing here reaches a real provider.
+"""Ticket #20: the opt-in, bounded live execution. Nothing here reaches a real provider.
 
 The live path is exercised against a fake Anthropic endpoint on loopback, which
 speaks the Messages API well enough to carry a tool call, so the provider
@@ -55,7 +55,7 @@ def never_runs(monkeypatch):
 
     def fail(**kwargs):
         calls.append(kwargs)
-        raise AssertionError("the live run was started")
+        raise AssertionError("the live execution was started")
 
     monkeypatch.setattr(agentic_live, "run_live", fail)
     return calls
@@ -91,7 +91,7 @@ def test_the_old_variable_name_is_not_read(tmp_path, clean_env, never_runs, netw
     assert network_guard.attempts == []
 
 
-def test_a_bearer_token_in_the_environment_would_override_the_key_so_the_run_refuses(
+def test_a_bearer_token_in_the_environment_would_override_the_key_so_the_execution_refuses(
     tmp_path, clean_env, never_runs
 ):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
@@ -115,7 +115,7 @@ def test_the_key_is_never_echoed(tmp_path, clean_env, monkeypatch):
 # --- the model identifier ----------------------------------------------------------------------------
 
 
-def test_without_a_model_the_run_exits_before_inspect_starts(tmp_path, clean_env, never_runs):
+def test_without_a_model_the_execution_exits_before_inspect_starts(tmp_path, clean_env, never_runs):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
     code, out, _ = run_cli(*live_args(tmp_path))
     assert code == 2
@@ -156,7 +156,7 @@ def test_the_code_holds_no_default_model():
         ["--case", "NOPE"],
     ],
 )
-def test_the_run_refuses_non_dev_cases_and_more_than_two_episodes(tmp_path, clean_env, never_runs, extra):
+def test_the_execution_refuses_non_dev_cases_and_more_than_two_episodes(tmp_path, clean_env, never_runs, extra):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
     code, _, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID, *extra))
     assert code == 2
@@ -312,7 +312,7 @@ def test_the_record_holds_provider_model_revision_engine_parameters_and_hardware
     assert (out / "run.json").is_file() and (out / "projection.json").is_file()
 
 
-def test_the_key_appears_in_no_file_the_run_produced(rehearsal):
+def test_the_key_appears_in_no_file_the_execution_produced(rehearsal):
     _, _, out = rehearsal
     files = [p for p in out.rglob("*") if p.is_file()]
     assert files
@@ -414,7 +414,7 @@ def test_the_live_module_does_not_import_zipfile():
     assert not hasattr(agentic_live, "zipfile")
 
 
-def test_a_log_that_cannot_be_fully_scanned_fails_the_run_report(tmp_path):
+def test_a_log_that_cannot_be_fully_scanned_fails_the_execution_report(tmp_path):
     from hypotrail.core.errors import HypotrailError
 
     (tmp_path / "a.eval").write_bytes(b"not a log")
@@ -423,7 +423,7 @@ def test_a_log_that_cannot_be_fully_scanned_fails_the_run_report(tmp_path):
     assert caught.value.code == "LOG_NOT_FULLY_SCANNED"
 
 
-def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
+def test_an_execution_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
     for name in PROXY_VARIABLES:
         clean_env.delenv(name, raising=False)
     clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
@@ -496,7 +496,7 @@ def test_the_command_reaches_the_missing_key_without_importing_inspect(tmp_path)
 # --- opt-in --------------------------------------------------------------------------------------------------------
 
 
-def test_nothing_in_the_suite_starts_a_live_run_against_the_real_endpoint():
+def test_nothing_in_the_suite_starts_a_live_execution_against_the_real_endpoint():
     # The only run_live calls in tests pass a loopback base_url or are patched.
     for path in (ROOT / "tests").glob("test_*.py"):
         for number, line in enumerate(path.read_text().splitlines(), 1):
@@ -535,13 +535,20 @@ def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tm
         case_ids=["D03", "D05"],
         repeats=1,
     )
-    # a re-summary differs from the live record in the database hashes (as before), in saying where its request
-    # came from (#57 T3), and in the 8 tool calls, which the log cannot hold (T1')
+    # a re-summary differs from the live record in saying where its request came from (#57 T3), in the 8 tool
+    # calls, which the log cannot hold (T1'), and in what only the execution itself or the summarising machine
+    # can say (#62): the live record's own, null in a re-summary, which has them under `summarised_by`
     assert record["request_source"] == "this_attempt" and again["request_source"] == "kept_log"
     assert record["requested_limits"]["tool_calls"] == 8 and again["requested_limits"]["tool_calls"] is None
+    assert again["summarised_by"].keys() == {
+        "python", "hardware", "machine", "inspect_version", "reasoning_note", "database_sha256_given_by_caller"
+    }
     expected = {
         **record,
         "database_sha256": None,
+        "python": None, "hardware": None, "machine": None,
+        "reasoning": {**record["reasoning"], "note": None},
+        "summarised_by": again["summarised_by"],
         "request_source": "kept_log",
         "requested_limits": {**record["requested_limits"], "tool_calls": None},
     }
@@ -580,6 +587,8 @@ def _reading(final_answer, results=({"rows": [["Iron Maiden", 21]]},)):
         "[1, 2]",  # a JSON value that is not an object
         '{"rows": [["x", NaN]]}',  # parse_answer refuses NaN
         '{"rows": [["x", Infinity]]}',
+        '{"rows": [["Iron Maiden", 1e999]]}',  # a literal that decodes to a non-finite float (#61)
+        '{"rows": [["Iron Maiden", -1e999]]}',
         '{"rows": []} {"rows": []}',
     ],
 )
@@ -597,7 +606,7 @@ def test_the_other_nulls_name_their_cause():
     assert _reading(json.dumps({"rows": []}), results=()) == (None, "no_tool_result")
 
 
-# --- review findings: a non-JSON tool message, and the key scan on a failing run ------------------------------
+# --- review findings: a non-JSON tool message, and the key scan on a failing execution ------------------------------
 
 
 def test_a_tool_result_that_is_not_json_does_not_count_as_a_returned_row():
@@ -663,7 +672,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
 
     def fails_after_writing_the_key(cases, **kwargs):
         (kwargs["log_dir"].parent / "stray.txt").write_text(FAKE_KEY)
-        raise RuntimeError("the run stopped")
+        raise RuntimeError("the execution stopped")
 
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails_after_writing_the_key)
     from hypotrail.core.errors import HypotrailError
@@ -676,12 +685,12 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
     assert caught.value.code == "SECRET_IN_OUTPUT"
 
 
-def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
+def test_a_failing_execution_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
     def fails(cases, **kwargs):
-        raise RuntimeError("the run stopped")
+        raise RuntimeError("the execution stopped")
 
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails)
-    with pytest.raises(RuntimeError, match="the run stopped"):
+    with pytest.raises(RuntimeError, match="the execution stopped"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",
@@ -789,7 +798,7 @@ def test_both_configurations_send_the_same_explicit_reasoning_setting_and_the_10
 def test_the_record_holds_the_reasoning_setting_and_the_output_cap_as_sent(both_rehearsals):
     for configuration, (_, record, out) in both_rehearsals.items():
         assert {k: v for k, v in record["reasoning"].items() if k != "note"} == {
-            "setting": "disabled", "requested": "none", "sent": {"type": "disabled"}
+            "setting": "none", "requested": "none", "sent": {"type": "disabled"}
         }
         assert record["output_cap"] == {"requested": 1024, "sent": 1024}
         assert record["configuration"] == configuration

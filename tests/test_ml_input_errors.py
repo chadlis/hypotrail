@@ -66,3 +66,16 @@ def test_predictions_of_different_lengths_are_refused_with_a_code(tmp_path):
         write_predictions(tmp_path, "c", ["a", "b"], [1.0])
     assert caught.value.code == "PREDICTIONS_LENGTH_MISMATCH"
     assert caught.value.details == {"row_ids": 2, "raw_values": 1}
+
+
+def test_coded_error_keeps_a_hypotrail_error_and_reports_any_other_exception_by_its_type_only():
+    """R4-04: one function for `run_agent`, the CLI and the failure record of `run agent`."""
+    from hypotrail.core.errors import EXIT_INFRASTRUCTURE, HypotrailError, coded_error
+
+    own = HypotrailError("DATABASE_CHANGED", "changed", stage="run")
+    assert coded_error(own) is own
+    os_error = coded_error(OSError("disk gone sk-ant-secret"))
+    other = coded_error(RuntimeError("provider down sk-ant-secret"))
+    assert (os_error.code, os_error.exit_code, os_error.details) == ("INFRASTRUCTURE_FAILURE", EXIT_INFRASTRUCTURE, {"type": "OSError"})
+    assert (other.code, other.exit_code, other.details) == ("UNEXPECTED_ERROR", EXIT_INFRASTRUCTURE, {"type": "RuntimeError"})
+    assert "secret" not in repr(os_error.to_dict()) + repr(other.to_dict())

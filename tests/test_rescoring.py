@@ -201,7 +201,7 @@ def with_scorer(monkeypatch, **changes):
 @pytest.mark.parametrize(
     ("changes", "cause"),
     [
-        ({"version": "3"}, "scorer_version"),
+        ({"version": "4"}, "scorer_version"),
         ({"criteria": tuple(reversed(scorers.REGISTRY[SCORER].criteria))}, "scorer_config_digest"),
     ],
 )
@@ -214,11 +214,23 @@ def test_a_changed_scorer_version_or_configuration_is_named_as_the_cause(tmp_pat
     assert second["references_ref"] == first["references_ref"]
 
 
+def test_an_assessment_recorded_under_version_two_gives_the_cause_scorer_version_when_assessed_again(tmp_path, monkeypatch):
+    """#61 AC5 (Tightened D): the version moved from 2 to the current one."""
+    study, observation_set = imported(tmp_path)
+    with_scorer(monkeypatch, version="2")
+    first = assessed(study, observation_set)
+    assert first["scorer"]["version"] == "2"
+    monkeypatch.undo()
+    second = assessed(study, observation_set)
+    assert second["scorer"]["version"] == "3"
+    assert second["rescoring"] == {"earlier_assessment_id": first["assessment_id"], "cause": "scorer_version", "changed_items": []}
+
+
 def test_when_several_things_changed_the_first_is_the_cause_and_the_others_are_listed(tmp_path, monkeypatch):
     study, observation_set = imported(tmp_path)
     assessed(study, observation_set)
     revised(study, correct_d03, tmp_path, "corrected")
-    with_scorer(monkeypatch, version="3", criteria=tuple(reversed(scorers.REGISTRY[SCORER].criteria)))
+    with_scorer(monkeypatch, version="4", criteria=tuple(reversed(scorers.REGISTRY[SCORER].criteria)))
     rescoring = assessed(study, observation_set)["rescoring"]
     assert rescoring["cause"] == "references_version" and rescoring["other_changes"] == ["scorer_version", "scorer_config_digest"]
 

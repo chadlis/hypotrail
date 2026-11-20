@@ -21,7 +21,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, lock, revisions
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -93,7 +93,7 @@ def freeze_basis(spec: dict, source: Path) -> dict:
     return {
         "protocol_digest": canonical.digest(protocol),
         "dataset_source": "workload_file",
-        "configuration_digests": {name: canonical.digest(plain(c)) for name, c in sorted(declaration.configurations.items())},
+        "configuration_digests": {name: exposure.configuration_digest(plain(c)) for name, c in sorted(declaration.configurations.items())},
     }
 
 

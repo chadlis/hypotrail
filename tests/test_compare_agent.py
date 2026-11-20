@@ -278,6 +278,14 @@ def test_two_references_or_two_scorers_are_refused_as_for_the_bike(tmp_path, stu
         refused(study, a, rewritten(study, b, edit), code, check, reason)
 
 
+def test_an_assessment_under_scorer_version_two_does_not_compare_with_one_under_the_current_version(tmp_path, study):
+    """#61 Tightened D: CMP-01 strict comparison needs the same Scorer version."""
+    _, a = imported(tmp_path, study, "a", answer_lines())
+    _, b = imported(tmp_path, study, "b", answer_lines())
+    assert b["scorer"]["version"] == "3"
+    refused(study, a, rewritten(study, b, lambda r: r["scorer"].update(version="2")), "COMPARISON_SCORER_DIFFERS", "scorer", "scorer_differs")
+
+
 def rewritten(study, assessment, edit):
     """A new Assessment record that shares `assessment`'s per-Item file and whose record `edit` changes."""
     import uuid
@@ -352,23 +360,6 @@ def test_a_native_side_that_does_not_record_a_factor_makes_the_comparison_descri
     record = compare(study, full, without_tools)[1]["comparison"]
     assert record["comparability"]["status"] == "descriptive_only"
     assert [w["code"] for w in record["warnings"]] == ["COMPARISON_FACTOR_NOT_ESTABLISHED"] and "tools" in record["warnings"][0]["message"]
-
-
-def test_the_strict_path_of_two_native_attempts_is_compatible_and_carries_no_warning(tmp_path, study):
-    seed, _ = imported(tmp_path, study, "seed", answer_lines(wrong={("D01", 0)}))
-    _, plain = native(study, seed, configuration="plain")
-    other, _ = imported(tmp_path, study, "other", answer_lines())
-    _, verify = native(study, other, configuration="verify")
-    code, payload, err = compare(study, plain, verify)
-    assert code == 0 and err == ""
-    record = payload["comparison"]
-    assert record["comparability"]["status"] == "compatible" and record["warnings"] == []
-    assert [(c["check"], c["passed"]) for c in record["comparability"]["checks"]] == [
-        ("population", True), ("references", True), ("scorer", True), ("unit", True), ("repeats", True),
-        ("tools", True), ("model", True), ("budgets", True), ("mode", True),
-    ]
-    assert record["delta"]["value"] == pytest.approx(1 - (2 / 3 + 3) / 4)
-    assert record["delta"]["reason"] is None and record["coverage"]["complete"] is True
 
 
 # --- the environment, descriptive measures, --json ---------------------------------------------------------------------------------

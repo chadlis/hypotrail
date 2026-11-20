@@ -23,7 +23,11 @@ steps (plain records) into four Criteria, `exact_table`, `format_valid`,
   an answer that is exactly one JSON object is read as it is; an answer that is not, but
   contains exactly one JSON object (prose before or after it, a Markdown fence around it),
   is judged as that object alone; an answer from which nothing is read (no JSON object, or
-  more than one) has every Criterion scored false with this Reason, trace or not. An extra
+  more than one) has every Criterion scored false with this Reason, trace or not, except
+  `exact_table`, which is `unscored` with `reference_missing` or `reference_invalid` when the
+  Reference is absent or unusable. A number that decodes to a non-finite float (`1e999`), like
+  the tokens `NaN`, `Infinity` and `-Infinity`, makes the JSON value holding it unreadable; so does
+  an integer of more than 4,300 digits, which Python refuses to read. An extra
   field alone makes `format_valid` false and leaves `exact_table` to the comparison. A
   wrapped answer with one object, without a trace, has `evidence_link_valid` `unscored`
   (`trace_missing`) when that object alone is schema-valid, and scored false with this
@@ -47,7 +51,7 @@ from jsonschema import Draft202012Validator
 from hypotrail.core.answer_scoring import find_embedded_object, parse_answer, score_object
 
 SCORER_NAME = "chinook_contract_v1"
-SCORER_VERSION = "2"
+SCORER_VERSION = "3"
 CRITERIA = ("exact_table", "format_valid", "evidence_link_valid", "contract_success")
 
 READ_FROM_RAW_ANSWER = "raw_answer"

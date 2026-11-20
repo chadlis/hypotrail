@@ -1,6 +1,6 @@
 """Running the Workload task under Inspect, offline or live.
 
-One code path serves the scripted runs and the live run: only the model differs.
+One code path serves the scripted executions and the live execution: only the model differs.
 """
 
 from collections.abc import Callable
@@ -68,7 +68,7 @@ def mock_model(script: Callable) -> Model:
     """Inspect's built-in mock model driven by a scripted callable.
 
     The mock provider fills in token usage by counting with tiktoken, which
-    downloads its vocabulary on first use. A scripted run must work with the
+    downloads its vocabulary on first use. A scripted execution must work with the
     network off after installation (SPEC DATA-03), so the count is replaced by
     a local estimate and nothing is fetched.
     """

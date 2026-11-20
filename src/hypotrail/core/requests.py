@@ -1,8 +1,8 @@
 """The identity of a request, and the `REQUEST_CONFLICT` of a request_id reused for another request.
 
 A request is identified by its command, Workload, Configuration, Partition, Mode, the digests of
-its input files and the code revision (chadlis/hypotrail#1 amendment; model and repeats belong to
-the agent Track and are not part of a native ML request). The code revision is the one of the
+its input files and the code revision (chadlis/hypotrail#1 amendment); the agent Track adds the
+model, the Repeats and the Cases (chadlis/hypotrail#74), which a native ML request does not hold. The code revision is the one of the
 Attempt's `code_environment`: the commit, its dirty state and, for a dirty tree, the fingerprint
 of the local code (#64 Tightened B2).
 
@@ -19,9 +19,10 @@ different it is `REQUEST_CONFLICT`, exit 6, naming the elements that differ.
 from hypotrail.core import canonical
 from hypotrail.core.errors import EXIT_LOCK_OR_CONFLICT, HypotrailError
 
-# `model` and `repeats` belong to the agent Track and to imports (where they are `unknown` unless the
-# mapping declares a model); a native ML request does not hold them, so both sides read them as absent.
-IDENTITY_KEYS = ("command", "workload", "configuration", "partition", "mode", "model", "repeats", "input_digests")
+# `model`, `repeats` and `cases` belong to the agent Track (`model` and `repeats` also to imports, where they
+# are `unknown` unless the file declares them); a native ML request does not hold them, so both sides read
+# them as absent.
+IDENTITY_KEYS = ("command", "workload", "configuration", "partition", "cases", "mode", "model", "repeats", "input_digests")
 ELEMENTS = IDENTITY_KEYS + ("code_revision",)
 
 

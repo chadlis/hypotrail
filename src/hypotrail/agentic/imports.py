@@ -174,15 +174,15 @@ def is_log(source) -> bool:
     return Path(source).suffix.lower() == LOG_SUFFIX
 
 
-def _require_inspect() -> None:
-    """A log import needs the supported Inspect (ENV-02): refused before anything is read or written, exit 5."""
+def require_inspect(stage: str = STAGE, what: str = "importing an Inspect log") -> None:
+    """The supported Inspect must be importable (ENV-02): refused with `INSPECT_UNAVAILABLE`, exit 5, before anything is written."""
     try:
         import inspect_ai  # noqa: F401
     except ImportError:
         raise HypotrailError(
             INSPECT_UNAVAILABLE,
-            "importing an Inspect log needs the supported Inspect (the agent extra); it is not importable here",
-            stage=STAGE,
+            f"`{what}` needs the supported Inspect (the agent extra); it is not importable here",
+            stage=stage,
             details={"package": "inspect-ai"},
             exit_code=EXIT_CAPABILITY_UNAVAILABLE,
         ) from None
@@ -190,8 +190,8 @@ def _require_inspect() -> None:
     if installed != SUPPORTED_INSPECT:
         raise HypotrailError(
             INSPECT_UNAVAILABLE,
-            f"importing an Inspect log needs the supported Inspect {SUPPORTED_INSPECT}; {installed} is installed",
-            stage=STAGE,
+            f"`{what}` needs the supported Inspect {SUPPORTED_INSPECT}; {installed} is installed",
+            stage=stage,
             details={"package": "inspect-ai", "installed": installed, "supported": SUPPORTED_INSPECT},
             exit_code=EXIT_CAPABILITY_UNAVAILABLE,
         )
@@ -234,7 +234,7 @@ def _log_producer(header: dict) -> tuple:
     return producer, log
 
 
-def _log_entries(episodes: list, usage: dict) -> dict:
+def log_entries(episodes: list, usage: dict) -> dict:
     """The normalized Observations of projected Episodes: the answer text is the `raw_answer`, the steps are the trace.
 
     `usage` is what the log states for each Episode it holds (latency and tokens); an Episode it lacks has none.
@@ -396,7 +396,7 @@ def _producer(claims: list) -> dict:
     return producer
 
 
-def _normalized(entries: dict) -> bytes:
+def normalized(entries: dict) -> bytes:
     return b"".join(canonical.dumps(entries[key]) + b"\n" for key in sorted(entries))
 
 
@@ -441,7 +441,7 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if is_log(source):
-        _require_inspect()  # before the lock, and before anything is read or written
+        require_inspect()  # before the lock, and before anything is read or written
     with lock.writer_lock(study):
         return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir)
 
@@ -510,7 +510,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
 
         log = inspect_log.read(source)
         episodes, count = inspect_log.checked_episodes(log, keys, partition, partition_of)
-        entries = _log_entries(episodes, inspect_log.usage_by_key(log))
+        entries = log_entries(episodes, inspect_log.usage_by_key(log))
         producer, declared_log = _log_producer(inspect_log.header_of(log))
     else:
         entries, claims, count = _checked_lines(source_bytes, source, partition, keys, partition_of)
@@ -558,7 +558,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
             study, f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
         )
         normalized_ref = artifacts.publish_bytes(
-            study, f"{folder}/{OBSERVATIONS_NAME}", _normalized(entries), media_type="application/jsonl", role="observations"
+            study, f"{folder}/{OBSERVATIONS_NAME}", normalized(entries), media_type="application/jsonl", role="observations"
         )
         observation_set = {
             "kind": "observations",

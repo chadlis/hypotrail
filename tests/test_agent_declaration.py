@@ -286,7 +286,7 @@ def test_a_declaration_with_dev_alone_builds_the_dev_task(tmp_path):
     assert len(runner.build_task(workload, "plain").dataset) == len(workload.cases("dev"))
 
 
-def test_the_live_command_refuses_a_workload_without_dev_before_the_key_and_any_run(tmp_path, monkeypatch):
+def test_the_live_command_refuses_a_workload_without_dev_before_the_key_and_any_execution(tmp_path, monkeypatch):
     from hypotrail import cli
     from hypotrail.agentic import live as agentic_live
     from hypotrail.core import data

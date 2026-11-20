@@ -1,7 +1,7 @@
 """Ticket #48: the `scripted_fixture` Mode, its scenarios, the Criterion counts and the limit-stopped Episode.
 
 Seams: `projection.project_log` (execution status of an Episode), `rescore.rescore_log` (Criteria of every
-expected Episode), `counts.tally` (the counters per Criterion), `fixture.run_fixture` (the run and what it
+expected Episode), `counts.tally` (the counters per Criterion), `fixture.run_fixture` (the execution and what it
 writes). Inspect's mock model only: no network, no provider key.
 """
 
@@ -129,15 +129,15 @@ def test_a_limit_stopped_episode_stays_in_expected_and_attempted_and_out_of_prod
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (1, 1, 0)
 
 
-# --- the scripted_fixture run: six scenarios (+ one absent), each with its own outcome -------------
+# --- the scripted_fixture execution: six scenarios (+ one absent), each with its own outcome -------------
 
 from hypotrail.agentic import fixture
 
-BANNER = "simulation, no LLM evaluated"
+BANNER = "test simulation, no LLM evaluated"
 
 
 @pytest.fixture(scope="module")
-def fixture_run(tmp_path_factory):
+def fixture_execution(tmp_path_factory):
     out = tmp_path_factory.mktemp("fixture-run")
     record = fixture.run_fixture(workload_dir=CHINOOK, out_dir=out, configuration="plain")
     return out, record
@@ -152,29 +152,29 @@ def criteria_of(verdict):
     return {c["name"]: (c["state"], c["score"], c["reason"]) for c in verdict["criteria"]}
 
 
-def test_a_good_result_is_produced_with_every_criterion_scored_true(fixture_run):
-    verdict = verdicts_by_scenario(fixture_run[0])["good_result"]
+def test_a_good_result_is_produced_with_every_criterion_scored_true(fixture_execution):
+    verdict = verdicts_by_scenario(fixture_execution[0])["good_result"]
     assert verdict["status"] == "produced"
     assert criteria_of(verdict) == {name: ("scored", True, None) for name in CRITERIA}
 
 
-def test_a_wrong_result_is_produced_with_exact_table_and_contract_success_false(fixture_run):
-    criteria = criteria_of(verdicts_by_scenario(fixture_run[0])["wrong_result"])
-    assert verdicts_by_scenario(fixture_run[0])["wrong_result"]["status"] == "produced"
+def test_a_wrong_result_is_produced_with_exact_table_and_contract_success_false(fixture_execution):
+    criteria = criteria_of(verdicts_by_scenario(fixture_execution[0])["wrong_result"])
+    assert verdicts_by_scenario(fixture_execution[0])["wrong_result"]["status"] == "produced"
     assert criteria["exact_table"][:2] == ("scored", False)
     assert criteria["contract_success"][:2] == ("scored", False)
     assert criteria["format_valid"] == ("scored", True, None)
 
 
-def test_an_invalid_format_answer_fails_format_valid_with_its_reason_and_keeps_the_raw_answer(fixture_run):
-    verdict = verdicts_by_scenario(fixture_run[0])["invalid_format"]
+def test_an_invalid_format_answer_fails_format_valid_with_its_reason_and_keeps_the_raw_answer(fixture_execution):
+    verdict = verdicts_by_scenario(fixture_execution[0])["invalid_format"]
     assert verdict["status"] == "produced"
     assert criteria_of(verdict)["format_valid"] == ("scored", False, "invalid_response_format")
     assert verdict["raw_answer"] == "There are 25 genres in the catalogue."
 
 
-def test_a_recovered_tool_error_is_scored_as_usual_and_its_code_is_counted_apart(fixture_run):
-    out, record = fixture_run
+def test_a_recovered_tool_error_is_scored_as_usual_and_its_code_is_counted_apart(fixture_execution):
+    out, record = fixture_execution
     verdict = verdicts_by_scenario(out)["recovered_tool_error"]
     assert verdict["status"] == "produced"
     assert criteria_of(verdict) == {name: ("scored", True, None) for name in CRITERIA}
@@ -187,16 +187,16 @@ def test_a_recovered_tool_error_is_scored_as_usual_and_its_code_is_counted_apart
     assert record["tool_errors"] == {"total": 1, "by_code": {"SQL_ERROR": 1}}
 
 
-def test_a_missing_reference_leaves_the_criteria_that_need_it_unscored_not_false(fixture_run):
-    criteria = criteria_of(verdicts_by_scenario(fixture_run[0])["missing_reference"])
+def test_a_missing_reference_leaves_the_criteria_that_need_it_unscored_not_false(fixture_execution):
+    criteria = criteria_of(verdicts_by_scenario(fixture_execution[0])["missing_reference"])
     assert criteria["exact_table"] == ("unscored", None, "reference_missing")
     assert criteria["contract_success"] == ("unscored", None, "reference_missing")
     assert criteria["format_valid"] == ("scored", True, None)
     assert criteria["evidence_link_valid"] == ("scored", True, None)
 
 
-def test_a_budget_exhausted_episode_is_failed_with_the_limit_named_and_no_answer(fixture_run):
-    verdict = verdicts_by_scenario(fixture_run[0])["budget_exhausted"]
+def test_a_budget_exhausted_episode_is_failed_with_the_limit_named_and_no_answer(fixture_execution):
+    verdict = verdicts_by_scenario(fixture_execution[0])["budget_exhausted"]
     assert verdict["status"] == "failed"
     assert verdict["reason"] == "turn_limit"
     assert verdict.get("raw_answer") is None
@@ -214,8 +214,8 @@ def episodes_of(out):
     return json.loads((out / "projection.json").read_text())["episodes"]
 
 
-def test_each_scenario_calls_the_real_tools_and_every_tool_result_equals_the_same_sql_run_directly(fixture_run):
-    out, _ = fixture_run
+def test_each_scenario_calls_the_real_tools_and_every_tool_result_equals_the_same_sql_run_directly(fixture_execution):
+    out, _ = fixture_execution
     connection = sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True)
     checked = 0
     for episode in episodes_of(out):
@@ -235,8 +235,8 @@ def test_each_scenario_calls_the_real_tools_and_every_tool_result_equals_the_sam
     assert all(any(s["kind"] == "tool_call" for s in e["steps"]) for e in episodes_of(out) if e["status"] != "missing")
 
 
-def test_the_verdicts_are_those_a_rescoring_of_the_kept_log_gives(fixture_run):
-    out, record = fixture_run
+def test_the_verdicts_are_those_a_rescoring_of_the_kept_log_gives(fixture_execution):
+    out, record = fixture_execution
     written = json.loads((out / "verdicts.json").read_text())["verdicts"]
     scenarios = fixture.load_scenarios(WORKLOAD)
     references = {s["case"]["case_id"]: s["reference"] for s in scenarios if "reference" in s}
@@ -250,8 +250,8 @@ def test_the_verdicts_are_those_a_rescoring_of_the_kept_log_gives(fixture_run):
 # --- counts ---------------------------------------------------------------------------------------
 
 
-def test_at_least_six_scenarios_run_and_a_seventh_is_absent_from_the_log(fixture_run):
-    _, record = fixture_run
+def test_at_least_six_scenarios_run_and_a_seventh_is_absent_from_the_log(fixture_execution):
+    _, record = fixture_execution
     statuses = {s["scenario_id"]: s["status"] for s in record["scenarios"]}
     assert statuses == {
         "good_result": "produced", "wrong_result": "produced", "invalid_format": "produced",
@@ -260,8 +260,8 @@ def test_at_least_six_scenarios_run_and_a_seventh_is_absent_from_the_log(fixture
     }
 
 
-def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_different_combination(fixture_run):
-    out, record = fixture_run
+def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_different_combination(fixture_execution):
+    out, record = fixture_execution
     for name in CRITERIA:
         c = record["counts"][name]
         assert set(c) == set(COUNTERS)
@@ -298,8 +298,8 @@ def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_dif
 from inspect_ai.log import read_eval_log
 
 
-def test_every_artifact_names_the_mode_and_carries_the_banner(fixture_run):
-    out, record = fixture_run
+def test_every_artifact_names_the_mode_and_carries_the_banner(fixture_execution):
+    out, record = fixture_execution
     assert (record["mode"], record["banner"]) == ("scripted_fixture", BANNER)
     for name in ("run.json", "projection.json", "verdicts.json"):
         document = json.loads((out / name).read_text())
@@ -311,8 +311,8 @@ def test_every_artifact_names_the_mode_and_carries_the_banner(fixture_run):
     assert {p.name for p in out.iterdir()} == {"run.json", "projection.json", "verdicts.json", "inspect"}
 
 
-def test_the_recorded_model_is_inspects_mock_model_and_no_record_names_a_provider_model(fixture_run):
-    out, record = fixture_run
+def test_the_recorded_model_is_inspects_mock_model_and_no_record_names_a_provider_model(fixture_execution):
+    out, record = fixture_execution
     assert (record["model"], record["provider"]) == ("mockllm/model", "mockllm")
     assert {e["model"] for e in episodes_of(out)} == {"mockllm/model"}
     text = "".join((out / n).read_text().lower() for n in ("run.json", "projection.json", "verdicts.json"))
@@ -320,8 +320,8 @@ def test_the_recorded_model_is_inspects_mock_model_and_no_record_names_a_provide
         assert provider not in text, provider
 
 
-def test_the_scenario_episodes_are_never_outputs_of_the_twenty_business_cases(fixture_run):
-    out, record = fixture_run
+def test_the_scenario_episodes_are_never_outputs_of_the_twenty_business_cases(fixture_execution):
+    out, record = fixture_execution
     business = {c["case_id"] for partition in ("dev", "public_check") for c in WORKLOAD.cases(partition)}
     assert len(business) == 20
     run_ids = {e["case_id"] for e in episodes_of(out)}
@@ -337,8 +337,8 @@ def counts_case_ids(record):
 # --- limits, hash, offline ------------------------------------------------------------------------------
 
 
-def test_the_run_records_the_effective_limits_the_unenforceable_tool_call_limit_and_the_seven_calls(fixture_run):
-    _, record = fixture_run
+def test_the_execution_records_the_effective_limits_the_unenforceable_tool_call_limit_and_the_seven_calls(fixture_execution):
+    _, record = fixture_execution
     effective = record["effective_limits"]
     assert effective["model_turns"] == 6 and effective["time_seconds"] == 60
     assert effective["query_caps"] == {"time_seconds": 1.0, "max_instructions": 100_000_000, "max_rows": 200, "max_bytes": 65536}
@@ -348,8 +348,8 @@ def test_the_run_records_the_effective_limits_the_unenforceable_tool_call_limit_
     assert "6-turn limit allows 7 provider calls" in record["provider_calls_allowed"]["note"]
 
 
-def test_the_run_records_the_chinook_hash_before_and_after_and_they_are_equal(fixture_run):
-    _, record = fixture_run
+def test_the_execution_records_the_chinook_hash_before_and_after_and_they_are_equal(fixture_execution):
+    _, record = fixture_execution
     expected = hashlib.sha256(DATABASE.read_bytes()).hexdigest()
     assert record["database"]["sha256_before"] == record["database"]["sha256_after"] == expected
     assert record["database"]["unchanged"] is True
@@ -473,9 +473,9 @@ def test_the_fixture_refuses_a_configuration_the_workload_does_not_declare(tmp_p
     assert caught.value.code == "CONFIGURATION_NOT_DECLARED"
 
 
-def test_the_record_gives_the_requested_and_the_effective_budget_as_4000_output_tokens(fixture_run):
+def test_the_record_gives_the_requested_and_the_effective_budget_as_4000_output_tokens(fixture_execution):
     # criterion 6: no field presents the 4,000 as a total-token limit; the effective one is read back from the log header
-    _, record = fixture_run
+    _, record = fixture_execution
     for limits in (record["requested_limits"], record["effective_limits"]):
         assert limits["output_token_budget"] == 4000
         assert limits["token_budget_metering"] == "output"

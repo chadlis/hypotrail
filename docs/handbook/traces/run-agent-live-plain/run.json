@@ -1,0 +1,166 @@
+{
+  "cases": [
+    {
+      "case_id": "D03",
+      "repeat": 0
+    },
+    {
+      "case_id": "D05",
+      "repeat": 0
+    }
+  ],
+  "configuration": "plain",
+  "database_sha256": {
+    "after": "bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a",
+    "before": "bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a"
+  },
+  "effective_limits": {
+    "concurrency": 1,
+    "max_connections": 1,
+    "max_output_tokens": 1024,
+    "model_turns": 6,
+    "output_token_budget": 4000,
+    "query_caps": {
+      "max_bytes": 65536,
+      "max_instructions": 100000000,
+      "max_rows": 200,
+      "time_seconds": 1.0
+    },
+    "response_cache": false,
+    "sample_retries": 0,
+    "time_seconds": 60,
+    "token_budget_metering": "output",
+    "tool_calls": null,
+    "transport_retries": 0
+  },
+  "engine": {
+    "name": "inspect-ai",
+    "version": "0.3.287"
+  },
+  "episodes": [
+    {
+      "case_id": "D03",
+      "cost": null,
+      "input_tokens": 8,
+      "input_tokens_cache_read": 5286,
+      "input_tokens_cache_write": 4632,
+      "latency_seconds": 4.68,
+      "model_calls": 3,
+      "model_usage": {
+        "anthropic/claude-sonnet-5-5": {
+          "input_tokens": 8,
+          "input_tokens_cache_read": 5286,
+          "input_tokens_cache_write": 4632,
+          "output_tokens": 373,
+          "reasoning_tokens": null,
+          "total_cost": null,
+          "total_tokens": 10299
+        }
+      },
+      "output_tokens": 373,
+      "repeat": 0,
+      "status": "produced",
+      "stopped_by_limit": null,
+      "token_budget": {
+        "metered_usage": 373,
+        "output_token_budget": 4000,
+        "token_budget_metering": "output"
+      },
+      "total_tokens": 10299,
+      "uses_tool_result": null,
+      "uses_tool_result_reason": "answer_unreadable"
+    },
+    {
+      "case_id": "D05",
+      "cost": null,
+      "input_tokens": 8,
+      "input_tokens_cache_read": 6204,
+      "input_tokens_cache_write": 3875,
+      "latency_seconds": 9.376,
+      "model_calls": 3,
+      "model_usage": {
+        "anthropic/claude-sonnet-5-5": {
+          "input_tokens": 8,
+          "input_tokens_cache_read": 6204,
+          "input_tokens_cache_write": 3875,
+          "output_tokens": 385,
+          "reasoning_tokens": null,
+          "total_cost": null,
+          "total_tokens": 10472
+        }
+      },
+      "output_tokens": 385,
+      "repeat": 0,
+      "status": "produced",
+      "stopped_by_limit": null,
+      "token_budget": {
+        "metered_usage": 385,
+        "output_token_budget": 4000,
+        "token_budget_metering": "output"
+      },
+      "total_tokens": 10472,
+      "uses_tool_result": null,
+      "uses_tool_result_reason": "answer_unreadable"
+    }
+  ],
+  "hardware": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+  "inspect_log": "inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval",
+  "inspect_status": "success",
+  "limit_notes": {
+    "provider_calls": "6 model turns allow 7 provider calls",
+    "tool_calls": "Inspect has no limit on the number of tool calls (its limits are message, turn, token, time, working time and cost). It is bounded only indirectly: at most one call per model turn if the model makes no parallel tool calls."
+  },
+  "machine": "x86_64",
+  "mode": "llm_live",
+  "model": "anthropic/claude-sonnet-5-5",
+  "output_cap": {
+    "requested": 1024,
+    "sent": 1024
+  },
+  "provider": "anthropic",
+  "python": "3.13.18",
+  "reasoning": {
+    "note": "reasoning_effort \"none\" is sent as thinking {\"type\": \"disabled\"}; for Sonnet 5.5, which rejects \"disabled\", Inspect sends {\"type\": \"between_tools\"}, described in its source as no up-front thinking and the model's lowest setting. Inspect's source does not say whether thinking may still happen between tool calls.",
+    "requested": "none",
+    "sent": {
+      "type": "between_tools"
+    },
+    "setting": "none"
+  },
+  "request_parameters": {
+    "cache_control": {
+      "type": "ephemeral"
+    },
+    "extra_headers": {
+      "anthropic-beta": "thinking-binding-controls-2026-08-01",
+      "x-irid": "Ls5SwoSixwFSZzhZj9xvwq"
+    },
+    "max_tokens": 1024,
+    "model": "claude-sonnet-5-5",
+    "thinking": {
+      "type": "between_tools"
+    },
+    "tool_choice": {
+      "type": "auto"
+    }
+  },
+  "request_source": "this_attempt",
+  "requested_limits": {
+    "concurrency": 1,
+    "max_output_tokens": 1024,
+    "model_turns": 6,
+    "output_token_budget": 4000,
+    "response_cache": false,
+    "sample_retries": 0,
+    "time_seconds": 60,
+    "token_budget_metering": "output",
+    "tool_calls": 8,
+    "transport_retries": 0
+  },
+  "served_models": [
+    "claude-sonnet-5-5"
+  ],
+  "summarised_by": null,
+  "system_text": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n",
+  "tool_loop_observed": true
+}

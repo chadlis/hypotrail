@@ -27,7 +27,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import Workload, load_workload
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.core import artifacts, canonical, contracts, data, lock, revisions
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -114,7 +114,7 @@ def freeze_basis(spec: dict, source: Path) -> dict:
         "protocol_digest": canonical.digest(protocol),
         "dataset_source": "study_copy",
         "configuration_digests": {
-            name: canonical.digest({"declared": declared[name], "system_text": workload.system_text(name)}) for name in sorted(declared)
+            name: exposure.configuration_digest(declared[name], workload.system_text(name)) for name in sorted(declared)
         },
     }
 

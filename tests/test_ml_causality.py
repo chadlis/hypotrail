@@ -1,7 +1,7 @@
 """Ticket #35 (SPEC ML-05, T04): changing `cnt` at t or later changes neither the prediction for t
 nor the parameters `ridge_v1` fitted on `train`.
 
-Every run starts from a table on disk: the changed `day.csv` is written into a fresh copy of the
+Every Attempt starts from a table on disk: the changed `day.csv` is written into a fresh copy of the
 Workload, and lags, Partitions, fit and prediction are all recomputed from it. Nothing is edited
 after the features are built and no fitted pipeline is reused. "Unchanged" means exactly equal.
 Predictions at `public_check` dates are made here, and no metric is computed on that Partition.

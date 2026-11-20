@@ -234,7 +234,7 @@ def test_both_tools_work_on_the_database_path_the_declaration_fixes(tmp_path):
 
 
 @pytest.mark.parametrize("configuration", ["plain", "verify"])
-def test_a_run_keeps_the_exact_prompt_text_of_its_configuration_in_its_log(configuration, tmp_path):
+def test_an_execution_keeps_the_exact_prompt_text_of_its_configuration_in_its_log(configuration, tmp_path):
     _, location = run(configuration, tmp_path)
     metadata = read_eval_log(location, header_only=True).eval.metadata
     assert metadata["configuration"] == configuration

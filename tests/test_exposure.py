@@ -498,3 +498,30 @@ def test_a_comparison_reads_the_workload_basis_from_the_spec_it_read_under_the_w
 
     comparison.compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"], live_basis=basis)
     assert [spec["revision"] for spec in seen] == [spec_of(study)["revision"]]
+
+
+# --- #74 Tightened A: the digest an Attempt is judged by is the one the freeze record holds ----------------------------------
+
+
+def test_a_chinook_attempts_configuration_digest_is_the_one_the_freeze_record_holds_for_it():
+    """`{"declared", "system_text"}` without the id: the freeze basis and `check_informed` digest the same thing."""
+    from _study_helpers import EXAMPLES
+
+    from hypotrail.agentic import study as agentic_study
+    from hypotrail.agentic.declaration import load_workload
+    from hypotrail.core import exposure
+
+    workload = load_workload(EXAMPLES / "chinook")
+    spec = {"dataset_refs": [{"role": "dataset", "sha256": "0" * 64}]}
+    held = agentic_study.freeze_basis(spec, EXAMPLES / "chinook")["configuration_digests"]
+    for name in ("plain", "verify"):
+        manifest = {
+            "effective_config": {
+                "configuration": {
+                    "id": name,
+                    "declared": workload.declaration["configurations"][name],
+                    "system_text": workload.system_text(name),
+                }
+            }
+        }
+        assert exposure.configuration_digest_of(manifest) == held[name], name

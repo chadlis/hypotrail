@@ -1,4 +1,4 @@
-"""The counters per Criterion, over the verdicts of one scripted or live run (CMP-03).
+"""The counters per Criterion, over the verdicts of one scripted or live execution (CMP-03).
 
 For each Criterion: N_expected (every expected Episode), N_attempted (all but those `missing`
 from the log), N_produced (those with an answer), then N_scored, N_correct, N_incorrect,

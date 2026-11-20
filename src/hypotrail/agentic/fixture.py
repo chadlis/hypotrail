@@ -12,7 +12,7 @@ a list of model turns, each one of:
 
 A scenario whose `script` is null is expected but never run, so it stays absent from the log.
 
-The tools are the real ones, and the task, the projection and the Scorer are the code a live run
+The tools are the real ones, and the task, the projection and the Scorer are the code a live execution
 uses; only the model differs. Nothing here reads the network, a provider key or a Reference when it
 answers. The scenario Cases are technical: none of them is one of the Workload's business Cases.
 Everything written carries the Mode and the banner.
@@ -20,7 +20,6 @@ Everything written carries the Mode and the banner.
 
 import json
 import platform
-from importlib import metadata
 from pathlib import Path
 
 from inspect_ai.log import read_eval_log
@@ -32,7 +31,7 @@ from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 MODE = "scripted_fixture"
-BANNER = "simulation, no LLM evaluated"
+BANNER = "test simulation, no LLM evaluated"
 MODEL = "mockllm/model"
 
 
@@ -140,7 +139,7 @@ def run_fixture(
         "configuration": configuration,
         "model": log.eval.model,
         "provider": log.eval.model.split("/", 1)[0],
-        "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
+        "engine": {"name": "inspect-ai", "version": log.eval.packages.get("inspect_ai")},
         "python": platform.python_version(),
         "inspect_log": str(Path(location).resolve().relative_to(out_dir.resolve())),
         "inspect_status": log.status,
@@ -173,7 +172,7 @@ def run_fixture(
     if hash_before != hash_after:
         raise IntegrityError(
             "DATABASE_CHANGED",
-            "the Chinook file changed during the run",
+            "the Chinook file changed during the execution",
             stage="fixture",
             details={"sha256_before": hash_before, "sha256_after": hash_after},
         )

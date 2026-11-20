@@ -268,7 +268,7 @@ def test_every_error_has_code_message_stage_and_details_and_diagnostics_go_to_st
     assert code == EXIT_INVALID_INPUT and payload["error"]["code"] == "STUDY_NOT_FOUND"
 
 
-def test_a_successful_run_prints_exactly_one_json_object_on_stdout(tmp_path, capsys):
+def test_a_successful_run_ml_prints_exactly_one_json_object_on_stdout(tmp_path, capsys):
     from hypotrail import cli
 
     study, _ = init_study(tmp_path)
@@ -419,6 +419,7 @@ def test_the_request_identity_names_each_element_that_differs():
     for key, value in (
         ("command", "run agent"), ("workload", "other"), ("configuration", {"id": "a", "declared": {"k": 2}}),
         ("partition", "train"), ("mode", "scripted_fixture"), ("input_digests", {"dataset": "e"}),
+        ("cases", ["D03"]), ("model", "anthropic/other"), ("repeats", 2),
     ):
         assert requests.differences(base, requests.identity({**effective, key: value}, environment)) == [key]
     other = {**environment, "code_revision": {"commit": "b", "dirty": False, "local_code_fingerprint": None}}

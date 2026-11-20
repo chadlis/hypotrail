@@ -114,7 +114,7 @@ def test_the_bike_study_takes_a_corrected_day_as_a_new_revision_with_a_new_datas
     assert [i for i, (a, b) in enumerate(zip(old, new)) if a != b] and len(old) == len(new)
 
 
-def test_a_run_refused_for_a_changed_protocol_is_accepted_under_the_new_revision(tmp_path):
+def test_a_request_refused_for_a_changed_protocol_is_accepted_under_the_new_revision(tmp_path):
     study, _ = init_study(tmp_path)
     examples = examples_copy(tmp_path, rows=bike_rows_with_a_corrected_day)
     code, payload, _ = run_ml(study, "seasonal_7", "dev", "before", "--examples-dir", examples)

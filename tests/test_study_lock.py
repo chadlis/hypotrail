@@ -366,7 +366,7 @@ def test_while_an_attempt_runs_its_manifest_is_replaced_atomically(tmp_path, mon
 # --- Tightened B: an error inside a live process leaves the Attempt failed ---------------------------------------------
 
 
-def test_an_infrastructure_failure_inside_a_live_run_leaves_the_attempt_failed_with_a_reason_its_partial_artifacts_and_exit_4(tmp_path, monkeypatch):
+def test_an_infrastructure_failure_inside_a_live_execution_leaves_the_attempt_failed_with_a_reason_its_partial_artifacts_and_exit_4(tmp_path, monkeypatch):
     study, _ = init_study(tmp_path)
     real = artifacts.publish_bytes
 

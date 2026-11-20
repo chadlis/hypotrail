@@ -39,3 +39,17 @@ class InvalidInputError(HypotrailError):
 
 class IntegrityError(HypotrailError):
     exit_code = EXIT_INTEGRITY_REFUSED
+
+
+def coded_error(error: Exception) -> HypotrailError:
+    """The coded error any exception stands for: a Hypotrail error as it is, any other exception by its type only.
+
+    The text of a foreign exception can carry anything, a provider key included, so it is never reported: an OS error is
+    `INFRASTRUCTURE_FAILURE` and anything else `UNEXPECTED_ERROR`, each with the exception's type in `details.type`.
+    """
+    if isinstance(error, HypotrailError):
+        return error
+    name = type(error).__name__
+    if isinstance(error, OSError):
+        return HypotrailError("INFRASTRUCTURE_FAILURE", name, stage="infrastructure", details={"type": name}, exit_code=EXIT_INFRASTRUCTURE)
+    return HypotrailError("UNEXPECTED_ERROR", f"unexpected {name}", stage="infrastructure", details={"type": name}, exit_code=EXIT_INFRASTRUCTURE)

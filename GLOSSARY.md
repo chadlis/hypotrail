@@ -64,6 +64,7 @@ _Avoid_: test case, fixture case
 
 **Attempt**:
 One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs.
+Clarification, 2026-11-20: an Attempt is always recorded in a Study, with its manifest and Observation set. A `spike live` execution and the library fixture's execution (`fixture.run_fixture`) record nothing in a Study, so they are not Attempts; the command that records the live path as an Attempt is `run agent --mode llm_live`. The `mode` and `this_attempt` values those executions write in their records are format values, not claims that they are Attempts (owner decision by proxy D-011 on chadlis/hypotrail#75, ticket #77).
 _Avoid_: run, job, execution record
 
 **Import**:

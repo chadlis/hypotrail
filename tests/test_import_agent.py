@@ -246,7 +246,7 @@ def test_the_mode_the_file_states_is_a_declared_field_never_the_imports_mode(tmp
 # --- AC4: the kit's authored fixture ----------------------------------------------------------------------------------
 
 
-def test_the_kits_authored_fixture_imports_with_its_origin_declared_and_never_as_a_live_run(tmp_path, study):
+def test_the_kits_authored_fixture_imports_with_its_origin_declared_and_never_as_a_live_execution(tmp_path, study):
     _, payload, _ = import_agent(study, FIXTURE, fixture_population(tmp_path), "imp")
     attempt = payload["attempt"]
     assert attempt["effective_config"]["producer"]["file_origin"] == {"value": "authored_fixture", "origin": "declared"}

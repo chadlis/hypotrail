@@ -48,6 +48,7 @@ from hypotrail.agentic.study import live_basis as _live_basis
 from hypotrail.ml.partitions import requires_exposure
 
 STAGE = "assess"
+SCENARIO_MODE = "scripted_fixture"
 PER_ITEM_COLUMNS = ["case_id", "repeat", "execution_status", "answer_given_as", "answer_read_from", "criterion", "state", "score", "reason"]
 RATE_UNIT = "share of Episodes"
 QUALITY = "quality_among_scored"
@@ -157,6 +158,13 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
             "OBSERVATION_SET_NOT_FOUND", f"the Study keeps no Observation set {observation_set_id!r}", observation_set_id=str(observation_set_id)
         )
     observation_set, manifest = found
+    if observation_set["mode"] == SCENARIO_MODE:  # the first check once the Observation set is found: before any check on its content
+        raise _refuse(
+            "UNSUPPORTED_CAPABILITY",
+            "an Observation set of the scripted_fixture Mode records scenarios, not the Workload's Cases: it is neither assessed nor compared",
+            mode=observation_set["mode"],
+            observation_set_id=observation_set["observation_set_id"],
+        )
     references = next((e["ref"] for e in spec["artifacts"] if e["artifact_id"] == references_id and e["ref"]["role"] == "references"), None)
     if references is None:
         raise _refuse(

@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. There is no report yet. The handbook chapters give each capability in detail.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. There is no report yet. The handbook chapters give each capability in detail.
 
 ## Install
 
@@ -19,6 +19,8 @@ uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partit
 uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references REFERENCES_ID
 uv run python -m hypotrail import ml --study runs/bike --source predictions.csv --mapping mapping.json --population population.json --request-id import-a
 uv run python -m hypotrail init --workload chinook --study runs/chinook
+uv run python -m hypotrail run agent --study runs/chinook --mode scripted_fixture --config plain --request-id fixture-a    # the scenarios: mock model, no key
+uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --config plain --partition dev --cases D03 --cases D05 --repeats 1 --model anthropic/<model> --request-id live-a    # opt-in, paid, needs the key
 uv run python -m hypotrail import agent --study runs/chinook --source answers.jsonl --population population.json --request-id import-b   # or --source LOG.eval, an Inspect log
 uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
@@ -28,6 +30,8 @@ uv run python -m hypotrail status --study runs/bike --json                 # the
 ```
 
 `spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
+
+The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`.
 
 ## Where to look
 

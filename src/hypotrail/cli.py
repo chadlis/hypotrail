@@ -15,6 +15,7 @@ from hypotrail.core.errors import (
     EXIT_OK,
     HypotrailError,
     InvalidInputError,
+    coded_error,
 )
 from hypotrail.core.factors import FACTORS
 
@@ -98,6 +99,45 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
+
+    run_agent = run_commands.add_parser(
+        "agent",
+        help="run a Configuration of the tool-using agent Track: the scenarios (scripted_fixture) or a Partition against a model (llm_live, opt-in, paid)",
+    )
+    run_agent.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Attempt in")
+    run_agent.add_argument(
+        "--mode",
+        required=True,
+        choices=["scripted_fixture", "llm_live"],
+        help="scripted_fixture runs the Workload's scenarios with Inspect's mock model; llm_live runs one Partition against an explicit Anthropic model "
+        "(needs --partition, --repeats and --model, and HYPOTRAIL_ANTHROPIC_API_KEY)",
+    )
+    run_agent.add_argument("--config", required=True, metavar="NAME", help="the declared Configuration to run (one the Workload declares)")
+    run_agent.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same request returns the recorded Attempt, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    run_agent.add_argument("--partition", metavar="NAME", help="llm_live only: the Partition to run, dev or public_check")
+    run_agent.add_argument("--repeats", type=int, metavar="N", help="llm_live only: Repeats per Case, an integer from 1 to 3")
+    run_agent.add_argument("--model", metavar="MODEL", help="llm_live only: the explicit model identifier, as anthropic/<model>; no default")
+    run_agent.add_argument(
+        "--cases",
+        action="append",
+        metavar="CASE_ID",
+        help="llm_live only: a Case of the Partition (repeatable; default: every Case of the Partition)",
+    )
+    run_agent.add_argument("--retry-of", metavar="ATTEMPT_ID", help="the earlier Attempt this new Attempt is made after, on purpose")
+    run_agent.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/)",
+    )
+    run_agent.add_argument("--json", action="store_true", help="print one JSON object")
+    run_agent.set_defaults(handler=_run_agent)
 
     import_ = commands.add_parser("import", help="adopt outputs produced elsewhere as an Import Attempt of a Study")
     import_commands = import_.add_subparsers(dest="import_command", metavar="TRACK")
@@ -323,6 +363,37 @@ def _run_ml(args) -> int:
     return EXIT_OK
 
 
+def _run_agent(args) -> int:
+    from hypotrail.agentic import run
+
+    try:
+        manifest, replayed, warnings = run.run_agent(
+            args.study,
+            mode=args.mode,
+            config=args.config,
+            request_id=args.request_id,
+            partition=args.partition,
+            repeats=args.repeats,
+            model=args.model,
+            cases=args.cases,
+            retry_of=args.retry_of,
+            examples_dir=args.examples_dir,
+        )
+    except HypotrailError as error:  # a refusal, or an Attempt that failed (then the Study was scanned and `details.warnings` holds what it found)
+        _print_warnings(error.details.get("warnings", []))
+        raise
+    counts = manifest.get("item_counts")
+    human = (
+        f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"
+        f" (model {manifest['effective_config']['model']}, served_model {manifest['effective_config']['served_model']})"  # both, as recorded
+        + (f" ({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
+        + (" (recorded earlier: nothing was run again)" if replayed else "")
+    )
+    _print_warnings(warnings)
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "warnings": warnings}, args.json, human)
+    return EXIT_OK
+
+
 def _import_ml(args) -> int:
     from hypotrail.ml import imports
 
@@ -431,8 +502,7 @@ def _compare(args) -> int:
         f"Comparison {record['comparison_id']} ({record['comparability']['status']}): delta {delta['metric']} {value} "
         f"(Candidate minus Control; positive means the Candidate is {direction}) over {coverage['paired']} of {coverage['expected']} {unit}"
     )
-    for warning in record["warnings"]:
-        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
+    _print_warnings(record["warnings"])
     _emit({"ok": True, "comparison": record}, args.json, human)
     return EXIT_OK
 
@@ -502,7 +572,7 @@ def _spike_live(args) -> int:
         out_dir=args.out,
     )
     lines = [
-        f"live run recorded in {args.out} (configuration {args.config}, model {record['model']}, "
+        f"live execution recorded in {args.out} (configuration {args.config}, model {record['model']}, "
         f"tool loop observed: {record['tool_loop_observed']})"
     ] + [
         f"  {e['case_id']} repeat {e['repeat']}: {e['status']}" for e in record["episodes"]
@@ -525,26 +595,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_OK
     try:
         return handler(args)
-    except HypotrailError as error:
-        failure = error
-    except OSError as error:
-        failure = HypotrailError(
-            "INFRASTRUCTURE_FAILURE",
-            f"{type(error).__name__}: {error}",
-            stage="infrastructure",
-            exit_code=EXIT_INFRASTRUCTURE,
-        )
     except Exception as error:
-        # The text of an unexpected exception can carry anything, a provider key
-        # included, so only its type is reported.
-        failure = HypotrailError(
-            "UNEXPECTED_ERROR",
-            f"unexpected {type(error).__name__}",
-            stage="infrastructure",
-            details={"type": type(error).__name__},
-            exit_code=EXIT_INFRASTRUCTURE,
-        )
+        failure = coded_error(error)
+        if isinstance(error, OSError) and not isinstance(error, HypotrailError) and handler is not _run_agent:
+            # every other command keeps its earlier report (#81): only `run agent` reports an OS error by its type alone
+            failure = HypotrailError("INFRASTRUCTURE_FAILURE", f"{type(error).__name__}: {error}", stage="infrastructure", exit_code=EXIT_INFRASTRUCTURE)
     return _report(failure, getattr(args, "json", False))
+
+
+def _print_warnings(warnings) -> None:
+    for warning in warnings:
+        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
 
 
 def _report(failure: HypotrailError, as_json: bool) -> int:

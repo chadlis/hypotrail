@@ -165,7 +165,7 @@ def test_the_sheet_versions_equal_the_lock_and_the_interpreter_minor_and_record_
     assert re.fullmatch(r"\d+\.\d+\.\d+(\.\d+)?", values["sqlite"]), values["sqlite"]
 
 
-def test_the_sheet_model_is_the_one_the_live_run_recorded(page):
+def test_the_sheet_model_is_the_one_the_live_execution_recorded(page):
     values = sheet(page)
     assert values["model"] == RUN["model"] == "anthropic/claude-sonnet-5-5"
     assert values["served-model"] == RUN["served_models"][0]
@@ -508,7 +508,13 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     shapes = {
         "exact_object": ["OBJ"],
         "wrapped": ["Voici. OBJ", "OBJ\nFin.", "```json\nOBJ\n```", "[OBJ]"],
-        "non_json_wrapper": ['{"answer": OBJ, "note": NaN}', '{"answer": OBJ', "x {oops OBJ"],
+        "non_json_wrapper": [
+            '{"answer": OBJ, "note": NaN}',
+            '{"answer": OBJ, "note": 1e999}',  # #61: a number that decodes to a non-finite float is a failed read too
+            '{"answer": OBJ, "note": -1e999}',
+            '{"answer": OBJ',
+            "x {oops OBJ",
+        ],
     }
 
     def holding(shape, obj):
@@ -519,7 +525,15 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     samples |= {f"{name}_off_schema": [(holding(sh, o), o) for sh in group for o in off_objects] for name, group in shapes.items()}
     samples["nothing_read"] = [
         (raw, None)
-        for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
+        for raw in (
+            "The answer is 1297.",
+            "1297",
+            "[1297]",
+            text + text,
+            "```json\n" + text + "\n```\n```json\n" + text + "\n```",
+            text.replace("1297", "1e999"),  # #61: a bare answer holding a non-finite literal reads nothing
+            text.replace("1297", "9" * 4301),  # #61 B3: an integer beyond Python's parse limit reads nothing
+        )
     ]
     for name, group in samples.items():
         if name.endswith("_off_schema"):
@@ -538,6 +552,15 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
             falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
             if name == "nothing_read":
                 assert listed == set(chinook_contract.CRITERIA) == falsified, raw
+                # #61 A3: with the Reference absent or invalid, the Criterion named by data-without-reference is unscored
+                # with the Reference's Reason (an Instrument failure), and the others stay false
+                unscored = set(attrs["data-without-reference"].split())
+                for absent in (None, {}):
+                    gone = {c["name"]: c for c in chinook_contract.score_episode(raw, absent, schema)["criteria"]}
+                    reason = chinook_contract.reference_problem(absent)
+                    assert {n for n, c in gone.items() if c["state"] == "unscored"} == unscored, raw
+                    assert all(gone[n]["reason"] == reason for n in unscored), raw
+                    assert {n for n, c in gone.items() if c["score"] is False} == set(chinook_contract.CRITERIA) - unscored, raw
             elif not name.endswith("_off_schema"):
                 assert falsified == listed, raw
             # the Criteria scored false with invalid_response_format are exactly the row's data-false list, except that
@@ -565,6 +588,13 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     }
 
 
+def test_the_scorer_docstring_states_that_a_missing_reference_leaves_exact_table_unscored_when_nothing_is_read():
+    """#61 A3 (D-012 item 20): the module docstring no longer says every Criterion is false for an answer nothing is read from."""
+    doc = " ".join(_scorer_inputs()[0].__doc__.split())
+    assert "has every Criterion scored false with this Reason, trace or not." not in doc
+    assert "except `exact_table`, which is `unscored` with `reference_missing` or `reference_invalid` when the Reference is absent or unusable" in doc
+
+
 def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_as_the_one_object(page):
     """#58 T9'': the Scorer reads a non-JSON wrapper on the object it holds and a JSON wrapper as the one object, and the chapter states the JSON half once."""
     chinook_contract, schema, reference, answer = _scorer_inputs()
@@ -578,6 +608,26 @@ def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_a
     assert exact_table('{"answer": ' + text + ', "note": 1}') == (chinook_contract.READ_FROM_RAW_ANSWER, False)
     assert page.count("is itself the one object, and is judged as such") == 1
     assert "read on the whole wrapper, which lacks the six fields" in page
+
+
+def test_chapter_03_refuses_a_number_that_decodes_to_a_non_finite_float_like_nan_and_states_the_integer_limit():
+    """#61 AC7 (Tightened E), B3 (D-012 item 18): the chapter says what the Scorer does for both."""
+    chapter = " ".join(re.sub(r"<[^>]+>", "", CHAPTER_03.read_text(encoding="utf-8")).split())
+    assert "A number that decodes to a non-finite float, such as 1e999 or -1e999, is refused like NaN" in chapter
+    assert "An integer of more than 4,300 digits, which Python refuses to read, leaves the answer unreadable" in chapter
+
+
+def test_chapter_08_states_the_scorer_version_the_registry_holds():
+    chinook_contract = _scorer_inputs()[0]
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "08-agent-answers.html").read_text(encoding="utf-8")).split())
+    assert f"chinook_contract_v1 at version {chinook_contract.SCORER_VERSION} and its config_digest" in chapter
+
+
+def test_chapter_05_states_the_scorer_version_the_registry_holds_in_its_prose_too():
+    """#61 Tightened E: « every chapter sentence that states the current version gives the new one »; chapter 05's prose said 2."""
+    chinook_contract = _scorer_inputs()[0]
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "05-assessments.html").read_text(encoding="utf-8")).split())
+    assert f"chinook_contract_v1 is the Scorer of the agent Track (version {chinook_contract.SCORER_VERSION})" in chapter
 
 
 def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
@@ -655,6 +705,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
     parsers = {
         "init": subparser(parser, "init"),
         "run ml": subparser(subparser(parser, "run"), "ml"),
+        "run agent": subparser(subparser(parser, "run"), "agent"),
         "import ml": subparser(subparser(parser, "import"), "ml"),
         "import agent": subparser(subparser(parser, "import"), "agent"),
         "status": subparser(parser, "status"),
@@ -1813,3 +1864,455 @@ def test_the_readme_and_the_chapters_no_longer_say_public_check_waits_for_the_jo
             assert stale not in text or name.name.startswith("12-"), (name.name, stale)
     for name in ("02-temporal-regression-track.html", "03-agentic-track.html", "05-assessments.html", "07-comparison.html", "08-agent-answers.html"):
         assert 'href="#freeze-exposure"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
+
+
+# --- #62: chapter 03's table of the fields of run.json is pinned against the code that writes them ----------------------
+
+
+def _flattened(record):
+    """The fields of a run record as the table names them: the dicts the table splits are split into `parent.child`."""
+    split = {"engine", "reasoning", "output_cap", "limit_notes"}
+    return {f"{k}.{c}" if k in split else k for k, v in record.items() for c in (v if k in split else [None])}
+
+
+def _value(record, field):
+    for part in field.split("."):
+        record = record[part]
+    return record
+
+
+def _log_mutations():
+    """For each field whose source is the log: how to change that value in a log written offline, and what the record must then say."""
+    from inspect_ai.model import ModelCall
+
+    def request(log):
+        event = next(e for s in log.samples for e in s.events if e.event == "model")
+        event.call = ModelCall(request={"max_tokens": 77, "thinking": {"type": "mutated"}, "temperature": 0.5}, response={})
+
+    def served(log):
+        log.samples[0].output.model = "served-mutated"
+
+    def metadata(key):
+        return lambda log: log.eval.metadata.update({key: "mutated"})
+
+    def plan(log):
+        log.eval.dataset.sample_ids = ["D03", "D05"]
+        log.eval.config.epochs = 2
+
+    def no_samples(log):
+        log.samples = []
+
+    def latency(log):
+        log.samples[0].total_time = 12.5
+
+    def effort(log):
+        log.plan.config.reasoning_effort = "medium"
+
+    def turns(log):
+        log.eval.config.turn_limit = 5
+
+    def cap(log):
+        log.plan.config.max_tokens = 333
+
+    return {
+        "provider": (lambda log: setattr(log.eval, "model", "other/mutated"), lambda r: r["provider"] == "other"),
+        "model": (lambda log: setattr(log.eval, "model", "other/mutated"), lambda r: r["model"] == "other/mutated"),
+        "configuration": (metadata("configuration"), lambda r: r["configuration"] == "mutated"),
+        "system_text": (metadata("system_text"), lambda r: r["system_text"] == "mutated"),
+        "served_models": (served, lambda r: r["served_models"] == ["served-mutated"]),
+        "request_parameters": (request, lambda r: r["request_parameters"] == {"thinking": {"type": "mutated"}, "temperature": 0.5, "max_tokens": 77}),
+        "reasoning.sent": (request, lambda r: r["reasoning"]["sent"] == {"type": "mutated"}),
+        "output_cap.sent": (request, lambda r: r["output_cap"]["sent"] == 77),
+        "reasoning.setting": (effort, lambda r: r["reasoning"]["setting"] == "medium"),
+        "reasoning.requested": (effort, lambda r: r["reasoning"]["requested"] == "medium"),
+        "engine.version": (lambda log: log.eval.packages.update({"inspect_ai": "0.3.1"}), lambda r: r["engine"]["version"] == "0.3.1"),
+        "effective_limits": (turns, lambda r: r["effective_limits"]["model_turns"] == 5),
+        "requested_limits": (turns, lambda r: r["requested_limits"]["model_turns"] == 5),
+        "output_cap.requested": (cap, lambda r: r["output_cap"]["requested"] == 333),
+        "limit_notes.provider_calls": (turns, lambda r: r["limit_notes"]["provider_calls"] == "5 model turns allow 6 provider calls"),
+        "cases": (plan, lambda r: r["cases"] == [{"case_id": c, "repeat": n} for c in ("D03", "D05") for n in (0, 1)]),
+        "inspect_status": (lambda log: setattr(log, "status", "error"), lambda r: r["inspect_status"] == "error"),
+        "episodes": (latency, lambda r: r["episodes"][0]["latency_seconds"] == 12.5),
+        "tool_loop_observed": (no_samples, lambda r: r["tool_loop_observed"] is False),
+    }
+
+
+def test_chapter_03_run_record_table_matches_the_fields_the_code_writes_and_where_each_comes_from(page, tmp_path, monkeypatch):
+    """#62 Tightened F: the rows are the fields written; a row sourced from the log follows a change of that value in a log; a row sourced from the re-summary appears only under `summarised_by`."""
+    import platform
+    import types
+
+    from _record_helpers import live_record, make_log, resummary
+
+    from hypotrail.agentic import live as agentic_live
+
+    rows = table_rows(page, "run-record-fields", "data-field")
+    mutations = _log_mutations()
+    logs = {"baseline": make_log(tmp_path, "baseline")}
+    for field in {f for f, (e, _) in mutations.items()}:
+        logs[field] = make_log(tmp_path, field.replace(".", "-"), edit=mutations[field][0])
+    hashes = {"before": "b" * 64, "after": "b" * 64}
+    monkeypatch.setattr(platform, "python_version", lambda: "3.99.1")
+    monkeypatch.setattr(platform, "platform", lambda *a, **k: "SummariserOS-1")
+    monkeypatch.setattr(platform, "machine", lambda: "summ64")
+    monkeypatch.setattr(agentic_live, "metadata", types.SimpleNamespace(version=lambda name: "9.9.9"))
+    again = {k: resummary(out, location, database_sha256=hashes) for k, (out, location) in logs.items()}
+    live = {k: live_record(tmp_path, monkeypatch, location, name=f"live-{n}") for n, (k, (out, location)) in enumerate(logs.items())}
+
+    # the rows are the fields the code writes, in both kinds of record
+    assert set(rows) == _flattened(live["baseline"]) == _flattened(again["baseline"])
+    sources = {"run": {"log", "request", "run", "code", "null"}, "resummary": {"log", "code", "summarised_by"}}
+    for field, row in rows.items():
+        assert row["attrs"]["data-run"] in sources["run"] and row["attrs"]["data-resummary"] in sources["resummary"], field
+        for column, record in (("data-run", live), ("data-resummary", again)):
+            if row["attrs"][column] != "log":
+                continue
+            # a value the table says is the log's follows the log
+            assert field in mutations, f"{field} is sourced from the log but no test changes it in a log"
+            assert not mutations[field][1](record["baseline"]), (field, "the baseline already holds the mutated value")
+            assert mutations[field][1](record[field]), (column, field)
+
+    for field, row in rows.items():
+        attrs = row["attrs"]
+        if attrs["data-resummary"] == "summarised_by":
+            key = attrs["data-summarised-key"]
+            assert _value(again["baseline"], field) is None, field
+            assert again["baseline"]["summarised_by"][key] is not None, field
+            if field != "reasoning.note":
+                assert _value(live["baseline"], field) is not None, field  # the Attempt's own value, in a record the Attempt writes
+        if attrs["data-run"] == "null":
+            assert live["baseline"][field] is None, field
+    assert set(rows["summarised_by"]["attrs"]["data-keys"].split()) == set(again["baseline"]["summarised_by"])
+    assert again["baseline"]["summarised_by"] == {
+        "python": "3.99.1", "hardware": "SummariserOS-1", "machine": "summ64", "inspect_version": "9.9.9",
+        "reasoning_note": agentic_live.REASONING_NOTE, "database_sha256_given_by_caller": hashes,
+    }
+    assert live["baseline"]["reasoning"]["note"] == agentic_live.REASONING_NOTE and live["baseline"]["python"] == "3.99.1"
+
+
+def test_chapter_03_says_a_re_summary_keeps_the_logs_facts_and_that_the_licence_line_does_not_apply(page):
+    """#62 and D-012 items 4, 7 and 9: the prose around the table of run.json fields."""
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Where each field of <code>run.json</code> comes from" in p)
+    for text in ("<code>summarised_by</code>", "takes no model, Cases or Repeats from its caller", "calls no model and no tool", "the pinned Inspect's <code>EvalSpec</code> has no interpreter or platform field"):
+        assert text in paragraph
+    assert page.index('id="run-request-source"') < page.index("Where each field of <code>run.json</code> comes from") < page.index('id="run-record-fields"')
+    assert "The model licence line of the specification's §3 does not apply to a remote provider: the record has no field for it." in page
+    assert 'href="#run-record-fields"' in page
+
+
+# --- chapter 13: `run agent` (#74) ------------------------------------------------------------------------------------------------
+
+
+def run_agent_chapter() -> str:
+    return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
+
+
+def test_chapter_12_names_the_one_function_that_digests_a_configuration():
+    """R1-07: the handbook says where the Configuration digest is computed; the function exists in the core."""
+    from hypotrail.core import exposure
+
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "12-freeze-and-exposure.html").read_text(encoding="utf-8")).split())
+    assert callable(exposure.configuration_digest)
+    assert "one function of the core, exposure.configuration_digest" in chapter and "so the two cannot drift" in chapter
+
+
+def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_eval_name():
+    """R1-04: the handbook states where `served_model` comes from, as the code takes it."""
+    text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert "the one the provider reports in the Episodes' outputs (output.model" in text
+    assert "The model the log reports." not in text and "mockllm/model in every test" not in text
+
+
+def test_chapter_13_says_both_models_are_always_recorded_and_a_provider_prefix_alone_is_no_difference():
+    """R2-03, D-012 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
+    text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert "are always recorded side by side" in text and "a provider prefix alone is not a difference" in text
+    assert "when they differ, both are shown" not in text
+    assert "The output without --json shows both names on its first line, as recorded" in text and "computes no flag from them" in text  # R3-02
+
+
+def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_to_llm_live(page):
+    from hypotrail.agentic import run
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    run_parser = next(a for a in parser._actions if getattr(a, "choices", None) and "run" in a.choices).choices["run"]
+    agent = next(a for a in run_parser._actions if getattr(a, "choices", None) and "agent" in a.choices).choices["agent"]
+    options = {flag: action for action in agent._actions for flag in action.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "run-agent-flags", "data-flag")
+    assert set(rows) == set(options)
+    for flag, row in rows.items():
+        assert (row["data-required"] == "yes") == options[flag].required, flag
+        assert (row["data-mode"] == "llm_live") == (flag in run.FLAGS_OF_LIVE.values()), flag
+    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases"}
+
+
+def run_agent_refusals(tmp_path, monkeypatch):
+    """Provoke each refusal of the table; return {case: (exit code, stage, set of details keys)}."""
+    import sys
+
+    from _chinook_helpers import chinook_examples, database_of, init_chinook
+    from _exposure_helpers import edit_chinook_references
+    from _run_agent_helpers import FAKE_KEY, agent, answering_with, fixture, live, live_args, patch_model
+    from _study_helpers import init_study
+    from test_study_lock import held_by_another_process
+
+    from hypotrail.agentic import runner
+
+    found = {}
+
+    def record(case, result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[case] = (error["code"], code, error["stage"], set(error["details"]))
+
+    patch_model(monkeypatch)
+    study, _ = init_chinook(tmp_path, name="study")
+    bike, _ = init_study(tmp_path, name="bike")
+    record("request-id-empty", fixture(study, "plain", ""))
+    record("other-track", fixture(bike, "plain", "r"))
+    record("flag-of-the-other-mode", fixture(study, "plain", "r", "--partition", "dev"))
+    for case, flag in (("partition-required", "--partition"), ("repeats-required", "--repeats"), ("model-required", "--model")):
+        args = live_args("plain", "r")
+        at = args.index(flag)
+        del args[at : at + 2]
+        record(case, agent(study, *args))
+    record("configuration-not-declared", live(study, "nonesuch", "r"))
+    no_scenarios = chinook_examples(tmp_path, edit=lambda declaration: declaration.pop("scenarios"), name="no-scenarios")
+    record("scenarios-not-declared", fixture(study, "plain", "r", "--examples-dir", no_scenarios))
+    record("partition-not-allowed", live(study, "plain", "r", partition="train"))
+    record("repeats-out-of-bounds", live(study, "plain", "r", repeats=4))
+    record("case-repeated", live(study, "plain", "r", cases=["D03", "D03"]))
+    record("case-not-in-partition", live(study, "plain", "r", cases=["E01"]))
+    with held_by_another_process(study):
+        record("study-locked", live(study, "plain", "r"))
+    first = live(study, "plain", "first")[1]["attempt"]
+    record("retry-of-unknown", live(study, "plain", "r", "--retry-of", "nope"))
+    record("request-conflict", live(study, "verify", "first"))
+    examples = chinook_examples(tmp_path, name="altered-examples")
+    altered, _ = init_chinook(tmp_path, name="altered", examples=examples)
+    database_of(examples).write_bytes(database_of(examples).read_bytes() + b"x")
+    record("data-integrity", live(altered, "plain", "r", "--examples-dir", examples))
+    broken, _ = init_chinook(tmp_path, name="broken")
+    (broken / "artifacts" / "memberships.csv").write_bytes(b"x")
+    record("artifact-integrity", live(broken, "plain", "r"))
+    corrected = edit_chinook_references(tmp_path, lambda records: records["D01"].update(rows=[[0]]), name="corrected")
+    record("protocol-changed", live(study, "plain", "new", "--examples-dir", corrected))
+    inspect_ai = sys.modules["inspect_ai"]
+    monkeypatch.setitem(sys.modules, "inspect_ai", None)
+    record("inspect-unavailable", live(study, "plain", "new"))
+    sys.modules["inspect_ai"] = inspect_ai
+    patch_model(monkeypatch, key=None)
+    record("live-unavailable", live(study, "plain", "new"))
+    patch_model(monkeypatch)
+    real = runner.run_episodes
+
+    def changes_the_database(path):
+        def run(*args, **kwargs):
+            location = real(*args, **kwargs)
+            path.write_bytes(path.read_bytes() + b"\0")
+            return location
+
+        return run
+
+    for case, make in (("database-changed-live", live), ("database-changed-fixture", fixture)):
+        examples = chinook_examples(tmp_path, name=f"{case}-examples")
+        changing, _ = init_chinook(tmp_path, name=case, examples=examples)
+        monkeypatch.setattr(runner, "run_episodes", changes_the_database(database_of(examples)))
+        record(case, make(changing, "plain", "r", "--examples-dir", examples))
+    monkeypatch.setattr(runner, "run_episodes", real)
+    patch_model(monkeypatch, answering_with(FAKE_KEY))
+    leaky, _ = init_chinook(tmp_path, name="leaky")
+    record("secret-in-output", live(leaky, "plain", "r"))
+    early, _ = init_chinook(tmp_path, name="early")
+    patch_model(monkeypatch)
+    record("secret-in-output-before-running", live(early, "plain", FAKE_KEY))
+    assert first["technical_status"] == "completed"
+    return found
+
+
+def test_the_run_agent_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path, monkeypatch):
+    rows = attrs_of(page, "run-agent-codes", "data-case")
+    found = run_agent_refusals(tmp_path, monkeypatch)
+    assert set(rows) == set(found)
+    for case, row in rows.items():
+        code, exit_code, stage, details = found[case]
+        assert row["data-code"] == code, case
+        assert int(row["data-exit"]) == exit_code, case
+        assert row["data-stage"] == stage, case
+        assert words(row["data-details"]) == details, case
+
+
+def test_the_run_agent_refusal_table_shows_in_its_details_cell_the_keys_of_its_data_details(page):
+    """R4-03, ADR 0003: the table and its attributes agree, so a `warnings` key of the attributes is a word of the visible cell."""
+    for row in parse(page).tables["run-agent-codes"]:
+        if "data-case" in row["attrs"]:
+            visible = words(re.sub(r"[,\s]+", " ", row["cells"][-1]["text"]).strip()) - {"none"}  # « none » is how an empty cell reads
+            assert visible == words(row["attrs"]["data-details"]), row["attrs"]["data-case"]
+
+
+@pytest.fixture
+def run_agent_attempts(tmp_path, monkeypatch):
+    """One scenario Attempt, one `llm_live` Attempt, and the `running` manifest of a third that was stopped before its terminal one."""
+    from _chinook_helpers import init_chinook
+    from _run_agent_helpers import fixture, live, ok, patch_model
+
+    from hypotrail.core import artifacts
+
+    study, _ = init_chinook(tmp_path)
+    patch_model(monkeypatch)
+    scenario = ok(fixture(study, "plain", "fixture"))
+    native = ok(live(study, "plain", "live"))
+
+    class Stopped(BaseException):
+        pass
+
+    real = artifacts.replace_bytes
+    written = []
+
+    def stop_at_the_terminal_manifest(study_path, relative, data):
+        written.append(data)
+        if len(written) == 2:
+            raise Stopped
+        return real(study_path, relative, data)
+
+    monkeypatch.setattr(artifacts, "replace_bytes", stop_at_the_terminal_manifest)
+    with pytest.raises(Stopped):
+        live(study, "plain", "stopped")
+    monkeypatch.setattr(artifacts, "replace_bytes", real)
+    running = json.loads(written[0])
+    return study, {"scripted_fixture": scenario, "llm_live": native}, running
+
+
+def test_the_run_agent_config_and_digest_tables_equal_the_keys_a_running_and_a_terminal_manifest_hold(page, run_agent_attempts):
+    study, attempts, running = run_agent_attempts
+    config = attrs_of(page, "run-agent-config", "data-key")
+    assert set(config) == set(attempts["llm_live"]["effective_config"]) == set(attempts["scripted_fixture"]["effective_config"])
+    assert {key for key, row in config.items() if row["data-when"] == "running"} == set(running["effective_config"])
+    assert running["technical_status"] == "running"
+    digests = attrs_of(page, "run-agent-digests", "data-key")
+    for mode, attempt in attempts.items():
+        in_mode = {key for key, row in digests.items() if row["data-mode"] in ("both", mode)}
+        assert in_mode == set(attempt["effective_config"]["input_digests"]), mode
+
+
+def test_the_run_agent_file_table_equals_the_files_and_roles_an_attempt_of_each_mode_writes(page, run_agent_attempts):
+    study, attempts, _ = run_agent_attempts
+    rows = attrs_of(page, "run-agent-files", "data-path")
+    for mode, attempt in attempts.items():
+        folder = study / "attempts" / attempt["attempt_id"]
+        on_disk = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
+        on_disk = {"inspect/LOG.eval" if path.startswith("inspect/") else path for path in on_disk}
+        expected = {path for path, row in rows.items() if row["data-mode"] in ("both", mode)}
+        assert on_disk == expected, mode
+        listed = {"input_refs": attempt["input_refs"][-1:], "output_refs": attempt["output_refs"]}
+        for path, row in rows.items():
+            if row["data-mode"] not in ("both", mode) or row["data-listed"] == "no":
+                continue
+            refs = [ref for ref in listed[row["data-listed"]] if ref["role"] == row["data-role"]]
+            assert len(refs) == 1, (mode, path)
+            relative = refs[0]["path"].removeprefix(f"attempts/{attempt['attempt_id']}/")
+            assert ("inspect/LOG.eval" if relative.startswith("inspect/") else relative) == path, (mode, path)
+        assert {ref["role"] for ref in attempt["output_refs"]} == {row["data-role"] for row in rows.values() if row["data-mode"] in ("both", mode) and row["data-listed"] == "output_refs"}
+
+
+def test_the_readme_and_the_chapters_say_run_agent_records_a_native_attempt():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "`run agent`" in readme and "--mode scripted_fixture" in readme and "--mode llm_live" in readme
+    for name, stale in (
+        ("04-study-and-attempts.html", "no command runs the agent into a Study yet"),
+        ("11-agent-comparison.html", "nothing yet runs the agent Track into a Study"),
+        ("11-agent-comparison.html", "No native Chinook Attempt"),
+    ):
+        assert stale not in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), (name, stale)
+    for name in ("03-agentic-track.html", "04-study-and-attempts.html", "11-agent-comparison.html"):
+        assert 'href="#run-agent"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
+
+
+def test_chapter_13_says_the_banner_the_code_writes():
+    from hypotrail.agentic import fixture
+
+    chapter = run_agent_chapter()
+    assert f'"{fixture.BANNER}"' in chapter
+    assert f'"{fixture.BANNER}"' in (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    assert "It was not run in this step" not in chapter
+
+
+def test_chapter_13_describes_the_kept_paid_attempt_with_the_figures_its_run_json_records():
+    """#80: the one paid Attempt (2026-11-20) is kept under traces/run-agent-live-plain and the chapter states what its run.json records."""
+    kept = HANDBOOK / "traces" / "run-agent-live-plain"
+    record = json.loads((kept / "run.json").read_text())
+    manifest = json.loads((kept / "attempt.json").read_text())
+    chapter = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert manifest["technical_status"] == "completed" and manifest["mode"] == "llm_live" and manifest["request_id"] == "live-check-1"
+    assert record["model"] == "anthropic/claude-sonnet-5-5" and record["served_models"] == ["claude-sonnet-5-5"]
+    assert f"anthropic/claude-sonnet-5-5 and the served_model the outputs report is claude-sonnet-5-5" in chapter
+    for episode in record["episodes"]:
+        assert episode["status"] == "produced" and episode["cost"] is None
+        assert f"{episode['output_tokens']} output tokens and {episode['total_tokens']:,} total tokens" in chapter
+    assert [e["case_id"] for e in record["episodes"]] == ["D03", "D05"]
+    assert "The cost is not observable" in chapter and "docs/handbook/traces/run-agent-live-plain/" in chapter
+    for name in ("attempt.json", "observation_set.json", "observations.jsonl", "population.json", "run.json"):
+        assert (kept / name).is_file(), name
+    assert (kept / record["inspect_log"]).is_file()
+    assert f'href="traces/run-agent-live-plain/{record["inspect_log"]}"' in run_agent_chapter()
+
+
+def plain_chapter(name):
+    """A chapter as a reader reads it: its HTML tags removed and its whitespace collapsed."""
+    return " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")).split())
+
+
+# #77, D-011 and Tightened B2: each phrase named a `spike live` or library-fixture execution an Attempt; each becomes its reword.
+ATTEMPT_REWORDS = {
+    "01-feasibility-spike.html": {
+        "what the spike's own Attempt recorded": "what the spike's own execution recorded",
+    },
+    "03-agentic-track.html": {
+        "before and after the Attempt, which must be equal": "before and after the library fixture's execution, which must be equal",
+        "With no --case, the Attempt takes the two dev join Cases": "With no --case, the spike live execution takes the two dev join Cases",
+        "The output is scanned for the key before the Attempt reports": "The output is scanned for the key before the execution reports",
+        "Before any provider call, the Attempt asks Inspect's own request building": "Before any provider call, the execution asks Inspect's own request building",
+        "the Attempt is refused with REASONING_NOT_EXPLICIT": "the execution is refused with REASONING_NOT_EXPLICIT",
+        "the Cases of the Attempt": "the Cases of the execution",
+        "the SHA-256 of the Chinook file before and after the Attempt;": "the SHA-256 of the Chinook file before and after the execution;",
+        "the request the Attempt itself made": "the request of the execution that wrote the record",
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(ATTEMPT_REWORDS))
+def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(name):
+    text = plain_chapter(name)
+    for old, new in ATTEMPT_REWORDS[name].items():
+        assert old not in text, old
+        assert new in text, new
+
+
+def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_the_word_run():
+    """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
+    chapter = plain_chapter("03-agentic-track.html")
+    assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "an opt-in paid live Attempt" in readme  # the rule « run is not the noun » is guarded over the corpus by test_run_noun.py
+
+
+def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
+    """#77 AC2: what is left of the word in chapters 01 and 03 is the generic line, the two commands that record an Attempt in a Study and the row that says a spike live execution is not one."""
+    assert "Attempt" not in plain_chapter("01-feasibility-spike.html")
+    text = plain_chapter("03-agentic-track.html")
+    contexts = [text[max(0, m.start() - 30) : m.end() + 30] for m in re.finditer("Attempt", text)]
+    assert len(contexts) == 5, contexts
+    assert "to be checked on an Attempt." in contexts[0]  # the generic line
+    assert "as a scenario Attempt of a Study" in text and "records a native Attempt of the live Mode in a Study" in text
+    # the this_attempt row names the Attempt of run agent, and says in its own words that a spike live execution is not one
+    assert "llm_live Attempt (chapter 13)" in text and "a spike live execution is not an Attempt, since it records nothing in a Study" in text
+
+
+def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_that_wrote_the_record(page):
+    """#77 D-011 C: the value keeps its name; its row says what it means, for a `spike live` execution and for a `run agent` Attempt."""
+    rows = table_rows(page, "run-request-source", "data-request-source")
+    text = rows["this_attempt"]["text"]
+    assert "execution" in text and "the request the Attempt itself made" not in text
+    assert "spike live" in text and "run agent" in text
+
