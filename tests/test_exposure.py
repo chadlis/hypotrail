@@ -5,7 +5,6 @@ amendment on Exposure do): each criterion and each Tightened line of the ticket 
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -444,9 +443,11 @@ def test_status_marks_a_revision_created_after_the_first_exposure(tmp_path):
 # --- Tightened J: --json and errors --------------------------------------------------------------------------------------------
 
 
-def test_with_json_a_refusal_of_the_new_checks_is_one_object_with_code_message_stage_and_details(tmp_path, capsys):
+def test_with_json_a_refusal_of_the_new_checks_is_one_object_with_code_message_stage_and_details(tmp_path, capsys, monkeypatch):
     from hypotrail import cli
 
+    secret = "sk-ant-SENTINEL-4f9c1d7e-not-a-real-key"
+    monkeypatch.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", secret)
     study, _ = init_chinook(tmp_path)
     attempt = import_public(tmp_path, study, "imp")
     corrected = edit_chinook_references(tmp_path, correct_e01)
@@ -456,7 +457,8 @@ def test_with_json_a_refusal_of_the_new_checks_is_one_object_with_code_message_s
     out, err = capsys.readouterr()
     payload = json.loads(out)  # stdout holds exactly one JSON object
     assert code == 3 and payload["ok"] is False and error_of(payload)["code"] == "PROTOCOL_CHANGED"
-    assert "PROTOCOL_CHANGED" in err and os.environ.get("HYPOTRAIL_ANTHROPIC_API_KEY", "x") not in json.dumps(payload["error"]["details"])
+    assert "PROTOCOL_CHANGED" in err
+    assert secret not in out and secret not in err and secret not in json.dumps(payload)
 
 
 def observation_set_of_attempt(study, attempt):
