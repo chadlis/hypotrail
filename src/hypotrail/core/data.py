@@ -110,8 +110,10 @@ def _load_workload(examples_dir: Path, name: str) -> dict:
 # --- stages ---------------------------------------------------------------------
 
 
-def _verify_bytes(workload: dict) -> None:
+def _verify_bytes(workload: dict, *, skip_dataset: bool = False) -> None:
     for source in workload["lock_sources"]:
+        if skip_dataset and source["dataset_id"] == workload["source"]["dataset_id"]:
+            continue
         path = workload["directory"] / source["local_path"]
         details = {"workload": workload["name"], "file": source["local_path"]}
         if not path.is_file():
@@ -321,3 +323,24 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
             }
         )
     return reports
+
+
+def verify_workload_files(examples_dir: Path, name: str) -> None:
+    """Check the bytes of the named Workload's other files against its lock, and its licence notices; the dataset is not opened.
+
+    `verify_workloads` goes further and queries the content (the Chinook database is opened and its
+    tables counted). A command that must never open the database, as `import agent` and `assess` must
+    not, neither opens nor hashes it: `init` checked it, and the Study keeps a copy that every
+    command reads back against its digest.
+    """
+    examples_dir = Path(examples_dir)
+    if not examples_dir.is_dir():
+        raise InvalidInputError(
+            "EXAMPLES_DIR_NOT_FOUND",
+            f"examples directory not found: {examples_dir}",
+            stage="config",
+            details={"examples_dir": str(examples_dir)},
+        )
+    workload = _load_workload(examples_dir, name)
+    _verify_bytes(workload, skip_dataset=True)
+    _verify_licence(workload)

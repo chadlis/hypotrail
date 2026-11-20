@@ -13,8 +13,7 @@ import datetime
 from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.declaration import DECLARATION_NAME, load_declaration, require_keys  # noqa: F401
-from hypotrail.ml.periods import shift_back
+from hypotrail.ml.declaration import DECLARATION_NAME, Declaration, load_declaration, require_keys, typed  # noqa: F401
 from hypotrail.ml.table import read_table
 
 MEMBERSHIPS_NAME = "memberships.csv"
@@ -26,13 +25,12 @@ def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage="memberships", details=details)
 
 
-def _partition_ranges(declaration: dict) -> list:
+def _partition_ranges(declaration: Declaration) -> list:
     ranges = []
-    for name, bounds in declaration["partitions"].items():
-        first, last = (datetime.date.fromisoformat(bound) for bound in bounds)  # dates: guaranteed by the schema
-        if first > last:
-            raise _refuse("BAD_PARTITION_RANGE", f"range of {name} ends before it starts", partition=name)
-        ranges.append((first, last, name))
+    for partition in declaration.partitions:
+        if partition.first > partition.last:
+            raise _refuse("BAD_PARTITION_RANGE", f"range of {partition.name} ends before it starts", partition=partition.name)
+        ranges.append((partition.first, partition.last, partition.name))
     ranges.sort()
     for (_, previous_last, previous), (first, _, name) in zip(ranges, ranges[1:]):
         if first <= previous_last:
@@ -41,18 +39,18 @@ def _partition_ranges(declaration: dict) -> list:
 
 
 def derive_memberships(workload_dir: Path) -> list[dict]:
-    declaration = load_declaration(workload_dir)
+    return memberships_of(workload_dir, load_declaration(workload_dir))
+
+
+def memberships_of(workload_dir: Path, declaration: Declaration) -> list[dict]:
+    """One row per date of the data, from a declaration already loaded."""
+    typed(declaration, Declaration)
     require_keys(declaration, "data_file", "date_column", "id_prefix", "period_k")
     ranges = _partition_ranges(declaration)
     dates = list(read_table(workload_dir, declaration))
     present = set(dates)
-    k = declaration["period_k"]
     # A day has an incomplete history when any of the k dates before it is absent from the data.
-    incomplete = {
-        date
-        for date in dates
-        if any(shift_back(date, offset, key="period_k", path="period_k") not in present for offset in range(1, k + 1))
-    }
+    incomplete = {date for date in dates if any(earlier not in present for earlier in declaration.period_k.window(date))}
     for date in dates:
         if date not in incomplete:
             continue
@@ -82,7 +80,7 @@ def derive_memberships(workload_dir: Path) -> list[dict]:
                     date=date.isoformat(),
                 )
         rows.append({
-            "row_id": f"{declaration['id_prefix']}:{date.isoformat()}",
+            "row_id": f"{declaration.id_prefix}:{date.isoformat()}",
             "date": date.isoformat(),
             "partition": partition,
             "exclusion_reason": reason,

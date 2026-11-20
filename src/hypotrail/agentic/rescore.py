@@ -21,48 +21,19 @@ from collections.abc import Callable, Iterable
 from hypotrail.agentic.projection import project_log
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.agentic.partitions import refuse_public_check
-
-EXECUTION_FAILED = "execution_failed"
-OBSERVATION_MISSING = "observation_missing"
-
-
-AGENT_RESPONSIBLE = ("turn_limit", "token_limit")
-STOPPED_BY_US = AGENT_RESPONSIBLE + ("time_limit", "output_cap")
-
+from hypotrail.agentic.unproduced import (  # noqa: F401  (re-exported: the names the callers and the tests know)
+    AGENT_RESPONSIBLE,
+    EXECUTION_FAILED,
+    OBSERVATION_MISSING,
+    STOPPED_BY_US,
+    all_unscored,
+    criteria_of_unproduced,
+    criteria_for_limit_stop,
+)
 
 def _refuse_public_check(workload, case_ids) -> None:
-    """Until #9's Exposure journal exists, rescoring refuses `public_check` Items (owner decision D2)."""
+    """Rescoring through these library functions takes no Study, so it refuses `public_check` Items (owner decision D2); `assess` does it inside a Study."""
     refuse_public_check(workload, case_ids, code="PUBLIC_CHECK_RESCORING_REFUSED", what="rescoring", stage="rescore")
-
-
-def _all_unscored(reason: str) -> list[dict]:
-    return [{"name": name, "state": "unscored", "score": None, "reason": reason} for name in CRITERIA]
-
-
-def _scored_false(reason: str) -> list[dict]:
-    return [{"name": name, "state": "scored", "score": False, "reason": reason} for name in CRITERIA]
-
-
-def criteria_for_limit_stop(episode: dict) -> list[dict]:
-    """The Criteria of an Episode `failed` at one of our limits, by who is responsible for the stop (owner decision D1).
-
-    - `turn_limit`, `token_limit`: the agent's own failure, every Criterion scored false;
-    - `time_limit` (wall time mixes agent and provider latency), `output_cap` (our setting):
-      every Criterion `unscored`, an Instrument failure never held against the system.
-    The Reason is kept on every Criterion, so a rescoring can revise the choice.
-    """
-    reason = episode["reason"]
-    if reason in AGENT_RESPONSIBLE:
-        return _scored_false(reason)
-    return _all_unscored(reason)
-
-
-def _criteria_of_unproduced(episode: dict) -> list[dict]:
-    if episode["status"] == "missing":
-        return _all_unscored(OBSERVATION_MISSING)
-    if episode["reason"] in STOPPED_BY_US:
-        return criteria_for_limit_stop(episode)
-    return _all_unscored(EXECUTION_FAILED)
 
 
 def _tool_error_codes(steps: list[dict]) -> list[str]:
@@ -105,7 +76,7 @@ def rescore_episodes(
             reference = references.get(episode["case_id"])
             verdict.update(apply_scorer(scorer, episode["final_answer"], reference, schema, episode["steps"]))
         else:
-            verdict.update({"scorer": None, "criteria": _criteria_of_unproduced(episode)})
+            verdict.update({"scorer": None, "criteria": criteria_of_unproduced(episode)})
         verdicts.append(verdict)
     return verdicts
 

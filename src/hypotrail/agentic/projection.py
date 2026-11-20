@@ -135,7 +135,11 @@ def _episode(sample, model: str) -> dict:
 
 def project_log(location: str, *, expected: Iterable[tuple[str, int]]) -> list[dict]:
     """One record per expected (case_id, repeat), in the order given."""
-    log = read_eval_log(location)
+    return project_episodes(read_eval_log(location), expected=expected)
+
+
+def project_episodes(log, *, expected: Iterable[tuple[str, int]]) -> list[dict]:
+    """The same projection of a log already read through the public API (`import agent` reads it once)."""
     model = log.eval.model
     by_key = {(str(s.id), s.epoch - 1): s for s in (log.samples or [])}
     records = []

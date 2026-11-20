@@ -79,3 +79,44 @@ def kept_all_token_log(tmp_path):
     kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "live-l12-plain" / "inspect"
     shutil.copytree(kept, tmp_path / "inspect")
     return str(next((tmp_path / "inspect").glob("*.eval")))
+
+
+class LiveDatabaseUsed(BaseException):  # not an Exception: no `except Exception` or `except OSError` can swallow it
+    pass
+
+
+@pytest.fixture
+def guard(monkeypatch):
+    """Arm with `guard(examples)`: from then on any use of that Workload's database file raises."""
+    import builtins
+    import io
+    import os
+    import sqlite3
+
+    from _chinook_helpers import database_of
+
+    def arm(examples):
+        target = database_of(examples).resolve()
+
+        def is_target(file) -> bool:
+            if isinstance(file, int):
+                return False
+            try:
+                return Path(os.fsdecode(file).removeprefix("file:").split("?")[0]).resolve() == target
+            except (TypeError, ValueError):
+                return False
+
+        def guarded(real):
+            def wrapper(file, *args, **kwargs):
+                if is_target(file):
+                    raise LiveDatabaseUsed(str(target))
+                return real(file, *args, **kwargs)
+
+            return wrapper
+
+        monkeypatch.setattr(io, "open", guarded(io.open))
+        monkeypatch.setattr(builtins, "open", guarded(builtins.open))
+        monkeypatch.setattr(os, "open", guarded(os.open))
+        monkeypatch.setattr(sqlite3, "connect", guarded(sqlite3.connect))
+
+    return arm

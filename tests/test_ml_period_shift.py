@@ -15,7 +15,7 @@ from hypotrail.ml.baselines import write_seasonal_baseline
 from hypotrail.ml.memberships import write_memberships
 from hypotrail.ml.ridge import write_outputs
 
-from _ml_helpers import write_small_workload
+from _ml_helpers import fit_probe, write_small_workload
 from test_ml_declaration_schema import RIDGE, SEASONAL, at, workload_with
 
 BIG = 1_000_000
@@ -23,9 +23,19 @@ CODE = "DECLARATION_VALUE_NOT_ALLOWED"
 
 
 def refusal(run):
-    with pytest.raises(InvalidInputError) as caught:
-        run()
+    """The refusal `run` raises, with the T05 fit probe armed: no fit happens before it (#39 AC10, #40 H1)."""
+    with fit_probe() as probe:
+        with pytest.raises(InvalidInputError) as caught:
+            run()
+    assert probe.calls == []
     return caught.value
+
+
+def test_the_fit_probe_fires_when_the_same_ridge_declaration_is_valid(tmp_path):
+    # Positive control of the refusals below: an empty probe means something only if it fires here.
+    with fit_probe() as probe:
+        write_outputs(workload_with(tmp_path, lambda d: None), tmp_path / "out", "ridge_v1", "dev")
+    assert "Ridge.fit" in probe.calls
 
 
 @pytest.mark.parametrize("period", [BIG, 10**30])

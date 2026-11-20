@@ -1,0 +1,101 @@
+<!-- chapter: id=agent-comparison; kicker=Agent; title=Comparing two agent Assessments; accent=violet -->
+<p class="lead"><code>compare</code> on two Assessments of a Chinook Study works as it does on the bike (<a href="#comparison">chapter 07</a>), with what an agent adds: the Items are Episodes, aligned by Case and Repeat; the two sides must share their planned Repeats, tools, model and budgets, except for the factor the request declares as intentional; each side keeps its Case &times; Repeat matrix; and, when every Episode is scored on both sides, each Criterion is aggregated per Case first and every Case weighs the same. The main delta is that of the primary Criterion, <code>contract_success</code>. With one Episode missing, the Comparison shows the coverage and gives no main delta. In this slice both Chinook sides are Imports (<a href="#agent-answers">chapter 08</a>, <a href="#inspect-log-import">chapter 09</a>), so every Chinook Comparison written here is descriptive; the strict path is witnessed on native manifests built by hand, because nothing yet runs the agent Track into a Study.</p>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p>The command is the one of chapter 07, with one more flag. The work is in <code>src/hypotrail/core/agent_comparison.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>): it imports no Track, no scikit-learn, no NumPy and no Inspect, and <code>hypotrail.core.comparison</code> loads it for an Assessment of an <code>agentic</code> Observation set. <code>--factor</code> names the factor that is intentionally different between the two sides; it defaults to <code>configuration</code>, the factor of <code>plain</code> against <code>verify</code> (the <code>verify</code> Configuration adds one explicit instruction to <code>plain</code> and changes nothing else). On a Study of another Track it is refused with <code>UNSUPPORTED_CAPABILITY</code> (exit 2). The command holds the Study's writer lock for its whole run and follows the <code>--json</code> rules of chapter 04.</p>
+</div>
+<pre class="code"><span class="cm"># the Chinook Study of chapter 08: two imports, each assessed with chinook_contract_v1</span>
+uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_OF_PLAIN --candidate ASSESSMENT_ID_OF_VERIFY --json
+<span class="cm"># the two sides differ by their model on purpose</span>
+uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_A --candidate ASSESSMENT_ID_B --factor model</pre>
+
+<p class="sub2">What is checked, in order</p>
+<div class="prose">
+<p>The checks run in this order, and the first one that fails refuses the Comparison with its own code and exit 3; nothing is written. A Partition other than <code>dev</code> and <code>public_check</code> is refused right after the population (<code>COMPARISON_PARTITION_NOT_DEV</code>, exit 2), as in chapter 07; a <code>public_check</code> Comparison is journaled once every check has passed (<a href="#freeze-exposure">chapter 12</a>). The population of an agent Comparison is the Partition and the Cases; the Repeats have their own check, so that a difference in Repeats can be declared. The References, Scorer and unit checks are those of chapter 07, with the same codes. The refusal's <code>details</code> carry the <code>check</code>, its Reason, the values of both sides and the checks evaluated so far.</p>
+<p>For <code>tools</code>, <code>model</code> and <code>budgets</code>, each side establishes what it can: a native Attempt's manifest records them; an Import declares its model and tools in the lines of its file, and its budgets in the header of an Inspect log, or leaves them <code>unknown</code> (chapter 06). A check compares what both sides establish. When a side does not establish it, the check is recorded as failed with the Reason <code>not_established</code>, nothing is refused, and the Comparison is descriptive. An Import is never strict.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agent-comparability-checks"><thead><tr><th>Check</th><th>Passes when</th><th>Refusal code</th><th>Reason</th><th>Can be declared</th></tr></thead><tbody>
+<tr data-check="population" data-code="COMPARISON_POPULATION_DIFFERS" data-reason="population_differs" data-declarable="no"><td><code>population</code></td><td>The same Partition and the same Cases on both sides</td><td><code>COMPARISON_POPULATION_DIFFERS</code></td><td><code>population_differs</code></td><td>no</td></tr>
+<tr data-check="references" data-code="COMPARISON_REFERENCES_DIFFER" data-reason="references_differ" data-declarable="no"><td><code>references</code></td><td>The same References set (by digest)</td><td><code>COMPARISON_REFERENCES_DIFFER</code></td><td><code>references_differ</code></td><td>no</td></tr>
+<tr data-check="scorer" data-code="COMPARISON_SCORER_DIFFERS" data-reason="scorer_differs" data-declarable="no"><td><code>scorer</code></td><td>The same Scorer id, version and configuration digest</td><td><code>COMPARISON_SCORER_DIFFERS</code></td><td><code>scorer_differs</code></td><td>no</td></tr>
+<tr data-check="unit" data-code="COMPARISON_UNIT_DIFFERS" data-reason="unit_differs" data-declarable="no"><td><code>unit</code></td><td>The Metrics are in the same unit</td><td><code>COMPARISON_UNIT_DIFFERS</code></td><td><code>unit_differs</code></td><td>no</td></tr>
+<tr data-check="repeats" data-code="COMPARISON_REPEATS_DIFFER" data-reason="repeats_differ" data-declarable="yes"><td><code>repeats</code></td><td>Each Case has the same number of planned Repeats on both sides. When the request declares <code>repeats</code>, the Episodes of one side only are kept and shown in the coverage</td><td><code>COMPARISON_REPEATS_DIFFER</code></td><td><code>repeats_differ</code></td><td>yes</td></tr>
+<tr data-check="tools" data-code="COMPARISON_TOOLS_DIFFER" data-reason="tools_differ" data-declarable="yes"><td><code>tools</code></td><td>The same tools (compared as a set of names) where both sides establish them</td><td><code>COMPARISON_TOOLS_DIFFER</code></td><td><code>tools_differ</code></td><td>yes</td></tr>
+<tr data-check="model" data-code="COMPARISON_MODEL_DIFFERS" data-reason="model_differs" data-declarable="yes"><td><code>model</code></td><td>The same model where both sides establish it</td><td><code>COMPARISON_MODEL_DIFFERS</code></td><td><code>model_differs</code></td><td>yes</td></tr>
+<tr data-check="budgets" data-code="COMPARISON_BUDGETS_DIFFER" data-reason="budgets_differ" data-declarable="yes"><td><code>budgets</code></td><td>The same limits (turns, time, token budget) where both sides establish them</td><td><code>COMPARISON_BUDGETS_DIFFER</code></td><td><code>budgets_differ</code></td><td>yes</td></tr>
+<tr data-check="mode" data-code="COMPARISON_MODE_DIFFERS" data-reason="mode_differs" data-declarable="no"><td><code>mode</code></td><td>No <code>scripted_fixture</code> side against an <code>llm_live</code> side: there is no ranking between a simulation and a live model. An Import counts as the Mode its file or log declares; one that declares none is not refused. A side that is an Import records the check as failed with the Reason <code>provenance_unverified</code> and the Comparison is descriptive</td><td><code>COMPARISON_MODE_DIFFERS</code></td><td><code>mode_differs</code></td><td>no</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The Reasons a recorded check can carry besides the failures above are these. A declared factor is recorded as a passed check, so the record names what was allowed to differ, and <code>declared_factor</code> names it.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agent-check-reasons"><thead><tr><th>Reason</th><th>On a check that is</th><th>Meaning</th></tr></thead><tbody>
+<tr data-reason="declared_factor" data-passed="true"><td><code>declared_factor</code></td><td>passed</td><td>The sides differ and the request declared that factor as the intentional one.</td></tr>
+<tr data-reason="not_established" data-passed="false"><td><code>not_established</code></td><td>failed, not refused</td><td>A side does not establish the factor: it was not checked, and the Comparison is descriptive.</td></tr>
+<tr data-reason="provenance_unverified" data-passed="false"><td><code>provenance_unverified</code></td><td>failed, not refused</td><td>A side is an Import, whose producer is declared or unknown, never verified.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Strict against descriptive</p>
+<div class="prose">
+<p>A Comparison is <code>compatible</code> (strict) only when every check passed and both sides were produced by Hypotrail. It is <code>descriptive_only</code> when a side is an Import, whatever the origin of the fields the Import declares, or when a native side does not record a factor. The first case carries the warning <code>COMPARISON_DESCRIPTIVE_IMPORT</code> of chapter 07; the second, <code>COMPARISON_FACTOR_NOT_ESTABLISHED</code>, naming the factors. Both are in <code>warnings</code> and <code>limitations</code>, and the command prints them on stderr. As in chapter 07, the record compares the code environments of the two Attempts: when they differ it says so and never calls the executions identical, and when they are the same it still does not claim they were identical.</p>
+</div>
+
+<p class="sub2">Episodes, the matrix and the Case weight</p>
+<div class="prose">
+<p>Episodes are aligned by (<code>case_id</code>, <code>repeat</code>), never by position. The Comparison takes the union of the two sides' Episodes and drops none: an Episode on one side only (possible only when <code>repeats</code> is declared) and an Episode not scored for the primary Criterion on a side both show in <code>coverage</code>, as counts and as rates of the expected Episodes. <code>matrix.json</code> keeps each side's Cases &times; Repeats matrix: for each Case and Repeat, the execution status and, for each of the four Criteria, the state, the score and the Reason.</p>
+<p>With <strong>full coverage</strong>, every Episode scored for the primary Criterion on both sides, the Criterion is aggregated per Case first: a Case's share is the share of its Repeats scored true. The value of a side is the mean of the shares of its Cases, so every Case has the same weight and the three Repeats of a Case are never counted as three Cases (they are not independent). The delta is the value of the Candidate minus the value of the Control; a positive value means the Candidate is better, since the Criterion is higher-is-better. <code>paired_deltas.csv</code> holds one row per Case. The main delta, <code>delta</code>, is that of the primary Criterion (<code>contract_success</code>, declared by the Workload and frozen by the Study); <code>secondary_deltas</code> holds the other three Criteria, each with its own coverage rule.</p>
+<p>Without full coverage, <code>delta.value</code> is null and <code>delta.reason</code> is <code>coverage_incomplete</code>; <code>paired_deltas_ref</code> is null, so no per-Case table hides the gap. No binomial or other interval is computed over Episodes, and the limitations say so. A correct answer without a trace leaves <code>contract_success</code> <code>unscored</code> (<code>trace_missing</code>, chapter 05), so an import without traces gives no main delta unless every answer is wrong or needs no tool call.</p>
+</div>
+
+<p class="sub2">The rates, and what is only described</p>
+<div class="prose">
+<p><code>rates</code> repeats, for each side, the two named rates of its Assessment with the unknowns beside them: <code>quality_among_scored</code> (correct among scored) and <code>confirmed_share_of_expected</code> (correct among expected), the Episodes <code>unscored</code> or <code>errored</code> and their Reasons, and the failed and missing Episodes. A rate whose denominator is zero is null with a Reason, never 0. <code>descriptive</code> reports, for each side, latency, the numbers of model and tool calls, tokens and cost. These are descriptive only: no Criterion and no delta rests on them, and no cost is compared. Calls are counted from the kept traces and are null unless every Episode that ran has one; latency and tokens are the sums of what an Inspect log import kept for each Episode (chapter 09), and are null unless every Episode that ran has them, so a JSONL import or a partial log gives null; cost is always null, because no Observation set keeps it. None of them is ever filled with 0.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agent-coverage-keys"><thead><tr><th>Key of <code>coverage</code></th><th>Meaning</th></tr></thead><tbody>
+<tr data-key="unit"><td><code>unit</code></td><td>What is counted: Episodes.</td></tr>
+<tr data-key="criterion"><td><code>criterion</code></td><td>The primary Criterion the coverage is about.</td></tr>
+<tr data-key="expected"><td><code>expected</code></td><td>The Episodes of both sides, aligned by Case and Repeat.</td></tr>
+<tr data-key="control_scored"><td><code>control_scored</code></td><td>Episodes scored for the primary Criterion on the Control.</td></tr>
+<tr data-key="candidate_scored"><td><code>candidate_scored</code></td><td>Episodes scored for the primary Criterion on the Candidate.</td></tr>
+<tr data-key="paired"><td><code>paired</code></td><td>Episodes scored on both sides.</td></tr>
+<tr data-key="control_rate"><td><code>control_rate</code></td><td><code>control_scored</code> over <code>expected</code>.</td></tr>
+<tr data-key="candidate_rate"><td><code>candidate_rate</code></td><td><code>candidate_scored</code> over <code>expected</code>.</td></tr>
+<tr data-key="only_control"><td><code>only_control</code></td><td>Episodes present on the Control only.</td></tr>
+<tr data-key="only_candidate"><td><code>only_candidate</code></td><td>Episodes present on the Candidate only.</td></tr>
+<tr data-key="complete"><td><code>complete</code></td><td>True when every Episode is scored on both sides; only then is there a main delta.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What is written</p>
+<div class="tblwrap"><table class="tbl" id="agent-comparison-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
+<tr data-path="comparisons/COMPARISON_ID/population.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/population.json</code></td><td><code>compare</code>, first</td><td>The Partition, the Cases and the union of the Episodes: <code>partition</code>, <code>count</code>, <code>cases</code>, <code>episodes</code>.</td></tr>
+<tr data-path="comparisons/COMPARISON_ID/matrix.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/matrix.json</code></td><td><code>compare</code></td><td>The Criteria and, for the Control and the Candidate, each Case with each of its Episodes and the state, score and Reason of every Criterion.</td></tr>
+<tr data-path="comparisons/COMPARISON_ID/paired_deltas.csv" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/paired_deltas.csv</code></td><td><code>compare</code>, with full coverage only</td><td>One row per Case: <code>case_id</code>, <code>repeats</code>, <code>control_share</code>, <code>candidate_share</code>, <code>delta_share</code>.</td></tr>
+<tr data-path="comparisons/COMPARISON_ID/comparison.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/comparison.json</code></td><td><code>compare</code>, last</td><td>The Comparison record (chapter 07), with <code>matrix_ref</code>, <code>primary_criterion</code>, <code>delta</code>, <code>secondary_deltas</code>, <code>rates</code>, <code>declared_factor</code> and <code>descriptive</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="prose">
+<p>The refusals of chapter 07 apply, and the four below are new; they are exit 3 with the stage <code>compare</code> and the <code>details</code> of chapter 07. <code>COMPARISON_MODE_DIFFERS</code> also refuses a <code>scripted_fixture</code> side against an <code>llm_live</code> side here.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agent-compare-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="COMPARISON_REPEATS_DIFFER" data-exit="3" data-stage="compare" data-details="candidate check checks control reason"><td><code>COMPARISON_REPEATS_DIFFER</code></td><td>Different planned Repeats, and <code>repeats</code> not declared</td><td>3</td><td><code>compare</code></td><td><code>check</code>, <code>reason</code>, <code>control</code>, <code>candidate</code>, <code>checks</code></td></tr>
+<tr data-code="COMPARISON_TOOLS_DIFFER" data-exit="3" data-stage="compare" data-details="candidate check checks control reason"><td><code>COMPARISON_TOOLS_DIFFER</code></td><td>Different tools, and <code>tools</code> not declared</td><td>3</td><td><code>compare</code></td><td><code>check</code>, <code>reason</code>, <code>control</code>, <code>candidate</code>, <code>checks</code></td></tr>
+<tr data-code="COMPARISON_MODEL_DIFFERS" data-exit="3" data-stage="compare" data-details="candidate check checks control reason"><td><code>COMPARISON_MODEL_DIFFERS</code></td><td>Different models, and <code>model</code> not declared</td><td>3</td><td><code>compare</code></td><td><code>check</code>, <code>reason</code>, <code>control</code>, <code>candidate</code>, <code>checks</code></td></tr>
+<tr data-code="COMPARISON_BUDGETS_DIFFER" data-exit="3" data-stage="compare" data-details="candidate check checks control reason"><td><code>COMPARISON_BUDGETS_DIFFER</code></td><td>Different budgets, and <code>budgets</code> not declared</td><td>3</td><td><code>compare</code></td><td><code>check</code>, <code>reason</code>, <code>control</code>, <code>candidate</code>, <code>checks</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--coral)"><h3>No native Chinook Attempt</h3><p>Nothing in this slice runs the agent Track into a Study, so a strict Comparison is witnessed only on manifests built by hand. The keys such a manifest records (<code>configuration</code>, <code>model</code>, <code>tools</code>, <code>limits</code>, <code>repeats</code>) are this chapter's contract for the Attempt that will.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>Exposure</h3><p>A Comparison of <code>public_check</code> Episodes is an Exposure and has its journal entry (<a href="#freeze-exposure">chapter 12</a>).</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Primary Criterion</h3><p>The primary Criterion is the one of the Control's Assessment. Two Assessments scored under two primary Criteria are not told apart by a check; the Protocol of a Study freezes one.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>Latency and cost</h3><p>Latency and tokens come from an Inspect log import and are null for a JSONL import; cost is always null; no native Attempt records them yet.</p></div>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-agent-compare"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the agent Comparison is a core module that reads Assessments and never Inspect.</td></tr>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the primary Criterion is declared by the Workload and the main delta is on it.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
+<p class="prose">The tests are <code>tests/test_compare_agent.py</code> and, for the tables of this chapter, <code>tests/test_handbook.py</code>; they run offline and call no model. The Inspect logs they import are written by Inspect's mock model.</p>

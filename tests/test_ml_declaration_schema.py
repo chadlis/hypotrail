@@ -6,6 +6,7 @@ A refusal comes before any file is written and before anything is fitted.
 """
 
 import copy
+import csv
 import json
 import shutil
 from pathlib import Path
@@ -266,6 +267,57 @@ def test_the_probe_sees_the_fit_when_the_declaration_is_valid(tmp_path, artifact
     assert probe.calls
 
 
+# --- an empty name, and an empty unit, are not allowed (#40, H2, H2b, H2c) -----------------
+
+
+def rename(path, old, new):
+    def edit(d):
+        parent = at(d, path)
+        parent[new] = parent.pop(old)
+
+    return edit
+
+
+# (edit, key, path of the object that holds the empty name, or of the empty value)
+EMPTY = {
+    "configuration id": (rename(("configurations",), "seasonal_7", ""), "", "configurations"),
+    "partition name": (rename(("partitions",), "public_check", ""), "", "partitions"),
+    "target_unit": (setter(("target_unit",), ""), "target_unit", "target_unit"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(EMPTY))
+def test_an_empty_name_or_unit_is_refused_at_load_naming_the_value(tmp_path, case):
+    edit, key, path = EMPTY[case]
+    error = load_refusal(workload_with(tmp_path, edit))
+    assert (error.code, error.stage) == (NOT_ALLOWED, "declaration")
+    assert (error.details["key"], error.details["path"]) == (key, path)
+
+
+@pytest.mark.parametrize("case", sorted(EMPTY))
+@pytest.mark.parametrize("entry", ["memberships", "references", "seasonal_baseline", "ridge", "metrics", "comparison"])
+def test_an_empty_name_or_unit_is_refused_by_every_entry_point_and_nothing_is_written(tmp_path, artifacts, entry, case):
+    workload = workload_with(tmp_path, EMPTY[case][0])
+    out = tmp_path / "out"
+    with fit_probe() as probe:
+        with pytest.raises(InvalidInputError) as caught:
+            entry_points(artifacts, out)[entry](workload)
+    assert (caught.value.code, caught.value.stage) == (NOT_ALLOWED, "declaration")
+    assert probe.calls == []
+    assert not out.exists() or not list(out.rglob("*"))
+
+
+def test_references_has_one_row_per_item_of_every_partition(tmp_path):
+    path = write_references(BIKE, tmp_path)
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 724 == 358 + 182 + 184  # train, dev, public_check: no Item is dropped
+    write_memberships(BIKE, tmp_path)
+    with (tmp_path / "memberships.csv").open(newline="", encoding="utf-8") as handle:
+        items = {m["row_id"] for m in csv.DictReader(handle) if m["partition"]}
+    assert {r["row_id"] for r in rows} == items
+
+
 # --- a key is required by the schema only if every entry point reads it ----------------------
 
 # What each entry point reads of the optional root keys (the keys not listed are not read).
@@ -287,7 +339,7 @@ OPTIONAL_ROOT = sorted(set().union(*READS.values()))
 
 
 def test_only_the_partitions_are_required_by_the_schema(tmp_path):
-    for key in OPTIONAL_ROOT + ["schema_version", "track", "licence_notice"]:
+    for key in OPTIONAL_ROOT + ["schema_version", "track", "licence_notice", "question", "objective", "limitations"]:
         assert load_declaration(workload_with(tmp_path / key, lambda d: d.pop(key)))
     error = load_refusal(workload_with(tmp_path / "partitions", lambda d: d.pop("partitions")))
     assert (error.code, error.details["key"]) == ("DECLARATION_INCOMPLETE", "partitions")

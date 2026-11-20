@@ -1,0 +1,1311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hypotrail contracts: syntactic envelopes",
+  "description": "The syntactic envelope of each persisted record. Cross-file checks, units, integrity, coverage, provenance and the effective configuration stay mandatory in SPEC-LOT-1.md section 5 and in the code. Derived from the kit's schemas/contracts.schema.json: Criterion states renamed (unscored, errored), fields and record kinds added for chadlis/hypotrail#64 to #73 (see the handbook).",
+  "$defs": {
+    "ArtifactRef": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "media_type",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "StudySpec": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "study"
+        },
+        "schema_version": {
+          "const": "study/1"
+        },
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "enum": [
+            "regression",
+            "agentic"
+          ]
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          }
+        },
+        "primary_metric": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "direction": {
+              "enum": [
+                "higher_is_better",
+                "lower_is_better"
+              ]
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "direction",
+            "unit"
+          ],
+          "additionalProperties": false
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "workload": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ref": {
+                "$ref": "#/$defs/ArtifactRef"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "artifact_id",
+              "ref"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "revision_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "check_informed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "study_id",
+        "revision",
+        "question",
+        "domain",
+        "objective",
+        "protocol_id",
+        "protocol_digest",
+        "dataset_refs",
+        "primary_metric",
+        "limitations",
+        "workload",
+        "artifacts"
+      ],
+      "additionalProperties": false
+    },
+    "AttemptManifest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "attempt"
+        },
+        "schema_version": {
+          "const": "attempt/1"
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "enum": [
+            "execute",
+            "import"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "native_ml",
+            "scripted_fixture",
+            "llm_live",
+            "external_unknown"
+          ]
+        },
+        "technical_status": {
+          "enum": [
+            "running",
+            "completed",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "effective_config": {
+          "type": "object"
+        },
+        "effective_config_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "input_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          }
+        },
+        "code_environment": {
+          "type": "object"
+        },
+        "outcome_unknown": {
+          "type": "boolean"
+        },
+        "retry_of": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "item_counts": {
+          "$ref": "#/$defs/ItemCounts"
+        },
+        "output_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "check_informed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "attempt_id",
+        "request_id",
+        "operation",
+        "mode",
+        "technical_status",
+        "started_at",
+        "finished_at",
+        "effective_config",
+        "effective_config_digest",
+        "input_refs",
+        "code_environment",
+        "outcome_unknown",
+        "retry_of"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "technical_status": {
+                "const": "running"
+              }
+            },
+            "required": [
+              "technical_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "finished_at": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "finished_at": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "technical_status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "technical_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "item_counts",
+              "output_refs"
+            ]
+          }
+        }
+      ]
+    },
+    "ObservationSet": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "observations"
+        },
+        "schema_version": {
+          "const": "observations/1"
+        },
+        "observation_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "enum": [
+            "regression",
+            "agentic"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "generated",
+            "imported",
+            "authored_fixture"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "native_ml",
+            "scripted_fixture",
+            "llm_live",
+            "external_unknown"
+          ]
+        },
+        "population_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "raw_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          }
+        },
+        "normalized_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "provenance": {
+          "type": "object"
+        },
+        "unknown_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "observation_set_id",
+        "attempt_id",
+        "domain",
+        "origin",
+        "mode",
+        "population_ref",
+        "raw_refs",
+        "normalized_ref",
+        "provenance",
+        "unknown_fields"
+      ],
+      "additionalProperties": false
+    },
+    "Metric": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better",
+            "descriptive"
+          ]
+        },
+        "denominator": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "scored",
+            "unscored",
+            "errored"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "value",
+        "unit",
+        "direction",
+        "denominator",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "Counts": {
+      "type": "object",
+      "properties": {
+        "expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "produced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "correct": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "incorrect": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "unscored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errored": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "expected",
+        "attempted",
+        "produced",
+        "scored",
+        "correct",
+        "incorrect",
+        "unscored",
+        "errored"
+      ],
+      "additionalProperties": false
+    },
+    "Assessment": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "assessment"
+        },
+        "schema_version": {
+          "const": "assessment/1"
+        },
+        "assessment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_set_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "references_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "scorer": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "config_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "config_digest"
+          ],
+          "additionalProperties": false
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts"
+        },
+        "per_item_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Metric"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "rescoring": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "earlier_assessment_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cause": {
+                  "enum": [
+                    "references_version",
+                    "scorer_version",
+                    "scorer_config_digest"
+                  ]
+                },
+                "changed_items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "item_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "criterion": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "earlier": {},
+                      "now": {}
+                    },
+                    "required": [
+                      "item_id",
+                      "criterion",
+                      "earlier",
+                      "now"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "other_changes": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "references_version",
+                      "scorer_version",
+                      "scorer_config_digest"
+                    ]
+                  },
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "earlier_assessment_id",
+                "cause",
+                "changed_items"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "check_informed": {
+          "type": "boolean"
+        },
+        "primary_criterion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unknowns": {
+          "type": "object",
+          "properties": {
+            "unscored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "errored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reasons": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "required": [
+            "unscored",
+            "errored",
+            "reasons"
+          ],
+          "additionalProperties": false
+        },
+        "operational_errors": {
+          "type": "object",
+          "properties": {
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "failed",
+            "missing"
+          ],
+          "additionalProperties": false
+        },
+        "detailed_metrics_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "study_revision": {
+          "type": "object",
+          "properties": {
+            "number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "protocol_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "number",
+            "revision",
+            "protocol_digest"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "assessment_id",
+        "observation_set_id",
+        "references_ref",
+        "scorer",
+        "counts",
+        "per_item_ref",
+        "metrics",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "Comparison": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "comparison"
+        },
+        "schema_version": {
+          "const": "comparison/1"
+        },
+        "comparison_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "left_assessment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "right_assessment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparability": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "compatible",
+                "incompatible",
+                "descriptive_only"
+              ]
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "check": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "passed": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "check",
+                  "passed",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "checks"
+          ],
+          "additionalProperties": false
+        },
+        "population_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "paired_deltas_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverage": {
+          "type": "object"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "roles": {
+          "type": "object",
+          "properties": {
+            "control_assessment_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "candidate_assessment_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "control_assessment_id",
+            "candidate_assessment_id"
+          ],
+          "additionalProperties": false
+        },
+        "declared_factor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptive": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "$ref": "#/$defs/DescriptiveMeasures"
+            },
+            "candidate": {
+              "$ref": "#/$defs/DescriptiveMeasures"
+            }
+          },
+          "required": [
+            "control",
+            "candidate"
+          ],
+          "additionalProperties": false
+        },
+        "check_informed": {
+          "type": "boolean"
+        },
+        "delta": {
+          "$ref": "#/$defs/Delta"
+        },
+        "code_environment": {
+          "type": "object",
+          "properties": {
+            "same": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "differs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "control": {
+              "type": "object"
+            },
+            "candidate": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "same",
+            "differs",
+            "control",
+            "candidate"
+          ],
+          "additionalProperties": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "secondary_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Delta"
+          }
+        },
+        "primary_criterion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "matrix_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "rates": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "unknowns": {
+                  "type": "object"
+                },
+                "operational_errors": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "metrics",
+                "unknowns",
+                "operational_errors"
+              ],
+              "additionalProperties": false
+            },
+            "candidate": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "unknowns": {
+                  "type": "object"
+                },
+                "operational_errors": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "metrics",
+                "unknowns",
+                "operational_errors"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "control",
+            "candidate"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "comparison_id",
+        "left_assessment_id",
+        "right_assessment_id",
+        "comparability",
+        "population_ref",
+        "paired_deltas_ref",
+        "coverage",
+        "limitations"
+      ],
+      "additionalProperties": false
+    },
+    "ItemCounts": {
+      "type": "object",
+      "properties": {
+        "produced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "produced",
+        "failed",
+        "missing"
+      ],
+      "additionalProperties": false
+    },
+    "DescriptiveMeasures": {
+      "type": "object",
+      "properties": {
+        "latency_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "model_calls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tool_calls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "latency_seconds",
+        "model_calls",
+        "tool_calls",
+        "tokens",
+        "cost"
+      ],
+      "additionalProperties": false
+    },
+    "FreezeRecord": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "freeze"
+        },
+        "schema_version": {
+          "const": "freeze/1"
+        },
+        "freeze_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "study_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "protocol_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_source": {
+          "enum": [
+            "study_copy",
+            "workload_file"
+          ]
+        },
+        "configuration_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "python": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dependency_lock_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "python",
+            "dependency_lock_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "code": {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dirty": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "revision",
+            "dirty"
+          ],
+          "additionalProperties": false
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "freeze_id",
+        "study_id",
+        "revision_number",
+        "protocol_digest",
+        "dataset_source",
+        "configuration_digests",
+        "environment",
+        "code",
+        "recorded_at"
+      ],
+      "additionalProperties": false
+    },
+    "ExposureEntry": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "exposure"
+        },
+        "schema_version": {
+          "const": "exposure/1"
+        },
+        "entry_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "freeze_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attempt_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "assessment_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "comparison_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "entry_id",
+        "freeze_id",
+        "recorded_at",
+        "attempt_ids",
+        "assessment_ids",
+        "comparison_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Delta": {
+      "type": "object",
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "control": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "candidate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "unit",
+        "definition"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/StudySpec"
+    },
+    {
+      "$ref": "#/$defs/AttemptManifest"
+    },
+    {
+      "$ref": "#/$defs/ObservationSet"
+    },
+    {
+      "$ref": "#/$defs/Assessment"
+    },
+    {
+      "$ref": "#/$defs/Comparison"
+    },
+    {
+      "$ref": "#/$defs/FreezeRecord"
+    },
+    {
+      "$ref": "#/$defs/ExposureEntry"
+    }
+  ]
+}

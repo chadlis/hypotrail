@@ -28,6 +28,9 @@ OPTIONAL = {
     ("schema_version",): "descriptive: no Track code reads it",
     ("track",): "descriptive: no Track code reads it",
     ("licence_notice",): "descriptive: no Track code reads it",
+    ("question",): "read by `init` only (tests/test_study_init.py)",
+    ("objective",): "read by `init` only (tests/test_study_init.py)",
+    ("limitations",): "read by `init` only (tests/test_study_init.py)",
     **{
         (key,): "required by the entry points that read it, not by every entry point"
         for key in (
@@ -161,5 +164,12 @@ def test_the_optional_keys_are_exactly_those_listed(tmp_path):
     assert root == set(DECLARATION) - {p[0] for p in OPTIONAL}
 
 
-def test_the_unmodified_declaration_is_accepted():
-    assert load_declaration(BIKE) == DECLARATION
+def test_the_unmodified_declaration_is_accepted_and_typed_from_the_file():
+    declaration = load_declaration(BIKE)
+    assert [p.name for p in declaration.partitions] == list(DECLARATION["partitions"])
+    assert declaration.period_k.days == DECLARATION["period_k"]
+    assert list(declaration.configurations) == list(DECLARATION["configurations"])
+    assert (declaration.data_file, declaration.id_prefix, declaration.target_unit) == (
+        DECLARATION["data_file"], DECLARATION["id_prefix"], DECLARATION["target_unit"],
+    )
+    assert list(declaration.forbidden_features) == DECLARATION["forbidden_features"]

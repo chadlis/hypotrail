@@ -1,0 +1,113 @@
+<!-- chapter: id=import; kicker=Core; title=Importing predictions made elsewhere; accent=teal -->
+<p class="lead"><code>import ml</code> adopts a complete CSV of daily predictions, written by a program that never imports Hypotrail, as an Import Attempt of the Study that already holds the native Attempts. The original file, the mapping and a validation report are kept. Everything the import cannot establish about how the file was made is <code>unknown</code>; what the mapping claims is <code>declared</code>, never <code>verified</code>. <code>assess</code> then scores the Import like any Observation set (<a href="#assessments">chapter 05</a>). This chapter describes what exists: the temporal regression Track (the bike Workload), complete files only.</p>
+
+<p class="sub2">The stand-in exporter</p>
+<div class="prose">
+<p><code>examples/external/bike_trailing_mean.py</code> stands in for someone else's program (<a href="../adr/0002-workloads-are-declarative.md">ADR 0002</a> makes <code>examples/external/</code> the one place for Python that never imports <code>hypotrail</code>). It uses the standard library only. It reads the daily file, predicts every day of a window with the mean of the 28 days before the window, writes a CSV with its own column names (<code>day_key</code>, <code>forecast_rentals</code>, <code>forecast_unrounded</code>) and prints the sha256 of the data file it read. A test runs it in a subprocess where <code>hypotrail</code> cannot be imported.</p>
+</div>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p><code>import ml</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/ml/imports.py</code>. It follows the rules of chapter 04: <code>--request-id</code> is required, with <code>--json</code> stdout holds one object (<code>{"ok": true, "replayed": BOOL, "attempt": MANIFEST}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>) and the diagnostic goes to stderr, and the command holds the Study's writer lock for its whole run. It imports neither scikit-learn, NumPy nor Inspect, and reads no network: <code>import ml</code> and <code>assess</code> of the Import run where none of them is installed.</p>
+</div>
+<pre class="code"><span class="cm"># a program that never imports hypotrail writes its predictions; it prints the digest of the data it read</span>
+python examples/external/bike_trailing_mean.py --data examples/bike_day/data/day.csv --first 2012-01-01 --last 2012-06-30 --id-prefix bike-day --out predictions.csv
+<span class="cm"># mapping.json: {"row_id": "day_key", "y_pred": "forecast_rentals", "dataset_sha256": "&lt;that digest&gt;"}</span>
+<span class="cm"># population.json: {"item_ids": ["bike-day:2012-01-01", "bike-day:2012-01-02", "..."]}</span>
+uv run python -m hypotrail import ml --study runs/bike --source predictions.csv --mapping mapping.json --population population.json --request-id import-a
+uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references references-0123456789abcdef</pre>
+<div class="tblwrap"><table class="tbl" id="import-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
+<tr data-command="import ml" data-required="--study --source --mapping --population --request-id" data-optional="--examples-dir --json"><td><code>import ml</code></td><td><code>--study DIR</code>, <code>--source CSV</code>, <code>--mapping MAPPING</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">The mapping and the population</p>
+<div class="prose">
+<p>The mapping is a JSON object of strings. A key that is not in the table is refused, and so is a missing required key. The values of the three column keys must name columns of the source file; a value that names a callable or a module (<code>os.system</code>, <code>pickle:loads</code>, <code>f(x)</code>, a path) is refused, and a column whose name looks like a dotted name cannot be mapped. The claim keys are free text, kept as data and never read as code. The population is <code>{"item_ids": [...]}</code>: the Items the file must hold, all of one Partition of the Study's Protocol. The expected population comes from this file checked against the Protocol, never from the source file or its name; the source cannot add an Item to it.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="import-mapping"><thead><tr><th>Key</th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+<tr data-key="row_id" data-required="yes" data-kind="column"><td><code>row_id</code></td><td>yes</td><td>The column holding the Item ID. Rows are joined to the References by this ID, never by position.</td></tr>
+<tr data-key="y_pred" data-required="yes" data-kind="column"><td><code>y_pred</code></td><td>yes</td><td>The column holding the prediction: a finite number.</td></tr>
+<tr data-key="dataset_sha256" data-required="yes" data-kind="claim"><td><code>dataset_sha256</code></td><td>yes</td><td>The sha256 of the data file the predictions were made on (64 lowercase hexadecimal digits). It must equal the Workload lock's digest of that file.</td></tr>
+<tr data-key="y_pred_raw" data-required="no" data-kind="column"><td><code>y_pred_raw</code></td><td>no</td><td>The column holding the prediction before post-processing. A file without it is accepted.</td></tr>
+<tr data-key="model" data-required="no" data-kind="claim"><td><code>model</code></td><td>no</td><td>What the producer says its model is: <code>declared</code>.</td></tr>
+<tr data-key="generated_at" data-required="no" data-kind="claim"><td><code>generated_at</code></td><td>no</td><td>When the producer says the predictions were made: <code>declared</code>, as written.</td></tr>
+<tr data-key="historical_protocol" data-required="no" data-kind="claim"><td><code>historical_protocol</code></td><td>no</td><td>The protocol the producer says it followed: <code>declared</code>.</td></tr>
+<tr data-key="tool_use" data-required="no" data-kind="claim"><td><code>tool_use</code></td><td>no</td><td>What the producer says about its tool use: <code>declared</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What is checked, in order</p>
+<div class="prose">
+<ol>
+<li>The Study exists and the writer lock is free; the Workload's data is verified against its lock and the Study's artifacts are read back against their digests (chapter 04).</li>
+<li>The three files are read and their sha256 taken. The request is identified (below). The same <code>request_id</code> with the same request ends here with the recorded Import: the source is not validated again, and nothing is written or scored.</li>
+<li>The Protocol of the Workload is still the Study's (<code>PROTOCOL_CHANGED</code>, chapter 04).</li>
+<li>The mapping, then the source file (data and not a serialized object, valid UTF-8, a readable CSV that holds the mapped columns), then the population are checked. The dataset digest of the mapping is compared with the lock's.</li>
+<li>Every row of the source is joined to the population by ID: no empty ID, no repeated ID, no ID outside the population, a finite number in <code>y_pred</code>; every Item of the population must be present. A population smaller than its Partition is allowed: <code>assess</code> counts the Items of the Partition that the file does not hold as <code>missing</code>.</li>
+<li>Only then is anything written: the running manifest, the original files, the validation report, the normalized Observations and the Observation set, and the terminal manifest last. A refusal at steps 4 or 5 writes nothing at all. An error inside the process after the manifest is written leaves a <code>failed</code> Attempt with a Reason, as in chapter 04.</li>
+</ol>
+<p>Nothing in an import is executed or deserialised as code. A source with the extension of a pickle, joblib or array dump, or whose first byte is the pickle marker, is refused as <code>SOURCE_SERIALIZED</code> before it is read as text.</p>
+</div>
+
+<p class="sub2">What the Import keeps</p>
+<div class="prose">
+<p>The Import is an Attempt of the same Study as the native ones: its manifest has <code>operation: import</code> and Mode <code>external_unknown</code>, and its Observation set has <code>origin: imported</code>. The original source is copied under its own file name and referenced with its digest (role <code>import_source</code>), and it is the only raw output of the Observation set. The manifest's <code>started_at</code> and <code>finished_at</code> are import times; <code>effective_config.import_time</code> says so, and the time of generation is a separate field of <code>effective_config.producer</code>. The normalized Observations (<code>observations.csv</code>) are written in the same form as a native Attempt's, one line per Item of the population in ID order, every Item <code>produced</code>, so a permuted source gives the same bytes and the same measures. The Observation set's <code>population_ref</code> is the population file, so <code>assess</code> expects exactly those Items.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="import-layout"><thead><tr><th>Path</th><th>Role</th><th>What it holds</th></tr></thead><tbody>
+<tr data-path="attempts/ATTEMPT_ID/attempt.json" data-role=""><td><code>attempts/ATTEMPT_ID/attempt.json</code></td><td>manifest</td><td>The Attempt manifest (running, then terminal).</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/source/NAME" data-role="import_source"><td><code>attempts/ATTEMPT_ID/source/NAME</code></td><td><code>import_source</code></td><td>The original predictions file, byte for byte.</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/mapping.json" data-role="import_mapping"><td><code>attempts/ATTEMPT_ID/mapping.json</code></td><td><code>import_mapping</code></td><td>The mapping, byte for byte.</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/population.json" data-role="import_population"><td><code>attempts/ATTEMPT_ID/population.json</code></td><td><code>import_population</code></td><td>The population file, byte for byte.</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/validation_report.json" data-role="validation_report"><td><code>attempts/ATTEMPT_ID/validation_report.json</code></td><td><code>validation_report</code></td><td>The digests of the three inputs, the rows read, the columns used and not used, and the checks that passed.</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/observations.csv" data-role="observations"><td><code>attempts/ATTEMPT_ID/observations.csv</code></td><td><code>observations</code></td><td>The normalized Observations: <code>row_id, status, reason, y_pred_raw, y_pred</code>.</td></tr>
+<tr data-path="attempts/ATTEMPT_ID/observation_set.json" data-role="observation_set"><td><code>attempts/ATTEMPT_ID/observation_set.json</code></td><td><code>observation_set</code></td><td>The Observation set record; its <code>provenance</code> and <code>unknown_fields</code> are below.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What is known about the producer</p>
+<div class="prose">
+<p>Each producer field is <code>{"value": ..., "origin": ...}</code> in <code>effective_config.producer</code> and in the Observation set's <code>provenance</code>. The origin is <code>declared</code> when the mapping says it and <code>unknown</code> when it does not; no field is <code>verified</code>, because a claim in an external file is not checked by importing it. <code>unknown_fields</code> of the Observation set lists the fields whose origin is <code>unknown</code>. Whether the producer saw <code>public_check</code> values is always <code>unknown</code>: no mapping key can declare it. No record states that the producer worked independently. An Import whose fields are all unknown is scored like any other (descriptively); a later Comparison against it is descriptive with a warning.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="import-producer"><thead><tr><th>Field</th><th>Declared by</th><th>Otherwise</th></tr></thead><tbody>
+<tr data-field="model" data-declared-by="model"><td><code>model</code></td><td><code>model</code></td><td><code>unknown</code></td></tr>
+<tr data-field="generation_time" data-declared-by="generated_at"><td><code>generation_time</code></td><td><code>generated_at</code></td><td><code>unknown</code></td></tr>
+<tr data-field="historical_protocol" data-declared-by="historical_protocol"><td><code>historical_protocol</code></td><td><code>historical_protocol</code></td><td><code>unknown</code></td></tr>
+<tr data-field="tool_use" data-declared-by="tool_use"><td><code>tool_use</code></td><td><code>tool_use</code></td><td><code>unknown</code></td></tr>
+<tr data-field="saw_public_check" data-declared-by=""><td><code>saw_public_check</code></td><td>nothing</td><td><code>unknown</code>, always</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The request</p>
+<div class="prose">
+<p>The identity of an import holds every element of chapter 04's list, each with the import's value or <code>unknown</code> when the import does not establish it: the command (<code>import ml</code>), the Workload, the Configuration (<code>unknown</code>), the Partition of the population, the Mode (<code>external_unknown</code>), the model (the declared one, or <code>unknown</code>), the repeats (<code>unknown</code>), the digests of the dataset, the source, the mapping and the population, and the code revision (commit, dirty state, fingerprint of the local code). The same <code>request_id</code> with the same request returns the recorded Import: the digests are recomputed to compare the requests, and nothing is validated again, written or scored. With any element different, including a request id that names a native Attempt, it is <code>REQUEST_CONFLICT</code> (exit 6).</p>
+</div>
+
+<p class="sub2">Refusals</p>
+<p class="prose">Each refusal below has the stage and the <code>details</code> keys shown; the refusals of chapter 04 (<code>REQUEST_ID_EMPTY</code>, <code>REQUEST_CONFLICT</code>, <code>STUDY_LOCKED</code>, <code>DATA_INTEGRITY</code>, <code>PROTOCOL_CHANGED</code>, the contract and artifact refusals) apply to <code>import ml</code> as they do to <code>run ml</code>. A refusal publishes no Observation set.</p>
+<div class="tblwrap"><table class="tbl" id="import-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="SOURCE_NOT_FOUND" data-exit="2" data-stage="import" data-details="source"><td><code>SOURCE_NOT_FOUND</code></td><td>The source file cannot be read</td><td>2</td><td><code>import</code></td><td><code>source</code></td></tr>
+<tr data-code="MAPPING_NOT_FOUND" data-exit="2" data-stage="import" data-details="mapping"><td><code>MAPPING_NOT_FOUND</code></td><td>The mapping file cannot be read</td><td>2</td><td><code>import</code></td><td><code>mapping</code></td></tr>
+<tr data-code="POPULATION_NOT_FOUND" data-exit="2" data-stage="import" data-details="population"><td><code>POPULATION_NOT_FOUND</code></td><td>The population file cannot be read</td><td>2</td><td><code>import</code></td><td><code>population</code></td></tr>
+<tr data-code="SOURCE_SERIALIZED" data-exit="2" data-stage="import" data-details="source"><td><code>SOURCE_SERIALIZED</code></td><td>A pickle, joblib or array dump</td><td>2</td><td><code>import</code></td><td><code>source</code></td></tr>
+<tr data-code="SOURCE_NOT_UTF8" data-exit="2" data-stage="import" data-details="source"><td><code>SOURCE_NOT_UTF8</code></td><td>A source that is not valid UTF-8</td><td>2</td><td><code>import</code></td><td><code>source</code></td></tr>
+<tr data-code="SOURCE_UNREADABLE" data-exit="2" data-stage="import" data-details="problem source"><td><code>SOURCE_UNREADABLE</code></td><td>A source that is not a CSV with a header</td><td>2</td><td><code>import</code></td><td><code>source</code>, <code>problem</code></td></tr>
+<tr data-code="MAPPING_INVALID" data-exit="2" data-stage="import" data-details="mapping problem"><td><code>MAPPING_INVALID</code></td><td>A mapping that is not a JSON object</td><td>2</td><td><code>import</code></td><td><code>mapping</code>, <code>problem</code></td></tr>
+<tr data-code="MAPPING_KEY_UNKNOWN" data-exit="2" data-stage="import" data-details="allowed key"><td><code>MAPPING_KEY_UNKNOWN</code></td><td>A key that is not in the mapping table</td><td>2</td><td><code>import</code></td><td><code>key</code>, <code>allowed</code></td></tr>
+<tr data-code="MAPPING_KEY_MISSING" data-exit="2" data-stage="import" data-details="key required"><td><code>MAPPING_KEY_MISSING</code></td><td>No <code>row_id</code>, <code>y_pred</code> or <code>dataset_sha256</code></td><td>2</td><td><code>import</code></td><td><code>key</code>, <code>required</code></td></tr>
+<tr data-code="MAPPING_VALUE_INVALID" data-exit="2" data-stage="import" data-details="key"><td><code>MAPPING_VALUE_INVALID</code></td><td>A value that is not a non-empty string, or a digest that is not 64 hexadecimal digits</td><td>2</td><td><code>import</code></td><td><code>key</code></td></tr>
+<tr data-code="MAPPING_VALUE_EXECUTABLE" data-exit="2" data-stage="import" data-details="key"><td><code>MAPPING_VALUE_EXECUTABLE</code></td><td>A column value that names a callable or a module</td><td>2</td><td><code>import</code></td><td><code>key</code></td></tr>
+<tr data-code="MAPPING_COLUMN_ABSENT" data-exit="2" data-stage="import" data-details="column key"><td><code>MAPPING_COLUMN_ABSENT</code></td><td>A mapped column that the source does not have</td><td>2</td><td><code>import</code></td><td><code>key</code>, <code>column</code></td></tr>
+<tr data-code="POPULATION_INVALID" data-exit="2" data-stage="import" data-details="population problem"><td><code>POPULATION_INVALID</code></td><td>A population that is not <code>{"item_ids": [...]}</code> of distinct non-empty IDs</td><td>2</td><td><code>import</code></td><td><code>population</code>, <code>problem</code></td></tr>
+<tr data-code="POPULATION_ITEM_UNKNOWN" data-exit="2" data-stage="import" data-details="row_id"><td><code>POPULATION_ITEM_UNKNOWN</code></td><td>An Item that is in no Partition of the Protocol</td><td>2</td><td><code>import</code></td><td><code>row_id</code></td></tr>
+<tr data-code="POPULATION_MIXED_PARTITIONS" data-exit="2" data-stage="import" data-details="partitions"><td><code>POPULATION_MIXED_PARTITIONS</code></td><td>Items of more than one Partition</td><td>2</td><td><code>import</code></td><td><code>partitions</code></td></tr>
+<tr data-code="DATASET_DIGEST_MISMATCH" data-exit="3" data-stage="import" data-details="declared_sha256 locked_sha256"><td><code>DATASET_DIGEST_MISMATCH</code></td><td>The mapping's <code>dataset_sha256</code> differs from the Workload lock's digest</td><td>3</td><td><code>import</code></td><td><code>declared_sha256</code>, <code>locked_sha256</code></td></tr>
+<tr data-code="ROW_ID_EMPTY" data-exit="2" data-stage="import" data-details="line"><td><code>ROW_ID_EMPTY</code></td><td>A row with an empty ID</td><td>2</td><td><code>import</code></td><td><code>line</code></td></tr>
+<tr data-code="ROW_ID_DUPLICATE" data-exit="2" data-stage="import" data-details="row_id"><td><code>ROW_ID_DUPLICATE</code></td><td>An ID that appears twice</td><td>2</td><td><code>import</code></td><td><code>row_id</code></td></tr>
+<tr data-code="ROW_ID_OUTSIDE_POPULATION" data-exit="2" data-stage="import" data-details="row_id"><td><code>ROW_ID_OUTSIDE_POPULATION</code></td><td>An ID that is not an Item of the population</td><td>2</td><td><code>import</code></td><td><code>row_id</code></td></tr>
+<tr data-code="PREDICTION_NOT_FINITE" data-exit="2" data-stage="import" data-details="column row_id"><td><code>PREDICTION_NOT_FINITE</code></td><td>A <code>y_pred</code> that is empty, <code>NaN</code>, infinite or not a number</td><td>2</td><td><code>import</code></td><td><code>row_id</code>, <code>column</code></td></tr>
+<tr data-code="POPULATION_ITEM_ABSENT" data-exit="2" data-stage="import" data-details="absent row_id"><td><code>POPULATION_ITEM_ABSENT</code></td><td>An Item of the population that the source does not hold</td><td>2</td><td><code>import</code></td><td><code>row_id</code>, <code>absent</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--coral)"><h3>Complete ML files only</h3><p>An incomplete file is refused, never imported with the gaps marked <code>missing</code>. An agent import of JSONL answers is <a href="#agent-answers">chapter 08</a>; an import of an Inspect log is <a href="#inspect-log-import">chapter 09</a>; the migration of old Studies is another ticket. A Comparison that involves an Import is descriptive, with a warning on its scope (<a href="#comparison">chapter 07</a>); the report and the Exposure journal come later in issue #9.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Claims are not checked</h3><p>The digest of the dataset is checked against the lock; the model, the date, the protocol and the tool use are only what the mapping says. A column whose name looks like a dotted name (<code>pred.v1</code>) cannot be mapped, because the same shape names a module.</p></div>
+</div>
+<p class="prose">The tests are <code>tests/test_import_ml.py</code> (every criterion of the ticket) and <code>tests/test_handbook.py</code> (the tables of this chapter against the code). They run offline and call no model.</p>

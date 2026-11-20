@@ -7,7 +7,8 @@ Tool errors are counted apart, by structured code, never as Criterion states.
 
 An Episode stopped by one of our limits has a state for every Criterion (`rescore.criteria_for_limit_stop`),
 so it is counted in N_expected and N_attempted like any other and cannot drop silently out of a denominator.
-`public_check` Items, by the Partition the Workload declares for their Case, are refused until #9's Exposure journal exists.
+`public_check` Items, by the Partition the Workload declares for their Case, are refused here: `tally` takes no Study, so it has no Exposure journal
+(inside a Study, `assess` counts them and journals the Exposure).
 The shares of CMP-04 and CMP-05 and the Assessment contract belong to #9.
 """
 
@@ -17,7 +18,7 @@ from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.agentic.partitions import refuse_public_check
 
 
-def _counters(verdicts: list[dict], name: str) -> dict:
+def counters(verdicts: list[dict], name: str) -> dict:
     states = Counter()
     for verdict in verdicts:
         for criterion in verdict["criteria"] or []:
@@ -45,6 +46,6 @@ def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, workloa
     )
     tool_errors = Counter(code for v in verdicts for code in v["tool_error_codes"])
     return {
-        "criteria": {name: _counters(verdicts, name) for name in criteria},
+        "criteria": {name: counters(verdicts, name) for name in criteria},
         "tool_errors": {"total": sum(tool_errors.values()), "by_code": dict(sorted(tool_errors.items()))},
     }

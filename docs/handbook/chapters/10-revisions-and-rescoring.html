@@ -1,0 +1,99 @@
+<!-- chapter: id=revisions-rescoring; kicker=Core; title=Revisions and corrected References; accent=coral -->
+<p class="lead">A Study holds one frozen Protocol per revision, and a Protocol change is a new revision inside the same Study. A corrected References set changes the Protocol, so it is added with <code>init --study DIR --new-revision</code>: the corrected set is published beside the old one, the StudySpec of the earlier revision is kept as it was, and nothing an earlier revision references changes by a byte. An Assessment of a corrected set scores the same Observation set again, and says which earlier Assessment it differs from and why, so a corrected Reference is never read as a change of the evaluated system.</p>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p><code>init --new-revision</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/core/revisions.py</code> and, for each Track, in the <code>new_revision</code> function beside <code>init_study</code> (<code>src/hypotrail/ml/study.py</code>, <code>src/hypotrail/agentic/study.py</code>). The Study names its Workload, so the command takes no <code>--workload</code> (giving one is <code>INVALID_ARGUMENTS</code>, as is <code>init</code> with neither). It reads the Workload again, from <code>--examples-dir</code> or the repository's <code>examples/</code>, verifies its data against the lock before anything is written, and derives the Protocol it declares now: the population, the Partitions, the References, the rules on when information is available. With <code>--json</code>, stdout holds <code>{"ok": true, "study": SPEC}</code> with the new revision's StudySpec, or the error object of chapter 04; without it, one line.</p>
+<p>The command holds the Study's writer lock for its whole run, as every command that writes to a Study does: a second writer is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing.</p>
+</div>
+<pre class="code"><span class="cm"># a corrected References file in the Workload; the Study keeps the old set and adds the new one</span>
+uv run python -m hypotrail init --study runs/chinook --new-revision
+<span class="cm"># the new References ID is in `artifacts` of study.json and in `status --json`</span>
+uv run python -m hypotrail status --study runs/chinook --json</pre>
+
+<p class="sub2">What a revision keeps and what it adds</p>
+<div class="prose">
+<p>Every artifact the Protocol freezes (the dataset, the population, the References, the answer schema) is compared by its bytes with the one the current revision holds. One whose bytes did not change is carried over as it is: same path, same digest, same ID, same version. One whose bytes changed is published beside the earlier one, under a path that names its first sixteen digest digits, with the next version number and an ID that names its digest; the earlier file is never replaced. A References set is versioned as a whole: version 1 is the set <code>init</code> froze, version 2 the first corrected set.</p>
+<p><code>study.json</code> always holds the current revision, so every other command keeps reading one file. When a revision is added, the StudySpec of the one before is copied byte for byte to <code>revisions/N/study.json</code>, the new StudySpec is published as <code>revisions/N+1/study.json</code>, and <code>study.json</code> is replaced last, atomically. A writer killed between two of these steps leaves the earlier revision current; running the command again completes it. <code>study_id</code> stays the same for the life of the Study; <code>revision</code> is the digest of the StudySpec without its <code>revision</code> and <code>study_id</code>, so it differs from one revision to the next, and <code>previous_revision</code> chains each revision to the one before.</p>
+<p>A Workload whose Protocol is the one the current revision already freezes is refused with <code>PROTOCOL_UNCHANGED</code>, and nothing is written. A Configuration is not part of the Protocol: changing one needs no revision (<a href="#study-and-attempts">chapter 04</a>).</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="revision-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
+<tr data-path="revisions/N/study.json" data-written-by="init --new-revision"><td><code>revisions/N/study.json</code></td><td><code>init --new-revision</code></td><td>The StudySpec of revision N, canonical JSON. Revision N is copied there byte for byte when revision N+1 is added, and revision N+1 is published there; a file is never rewritten.</td></tr>
+<tr data-path="artifacts/chinook-references-SHA16.jsonl" data-written-by="init --new-revision"><td><code>artifacts/chinook-references-SHA16.jsonl</code></td><td><code>init --new-revision</code></td><td>A corrected References set of a Chinook Study, beside the earlier one. <code>SHA16</code> is the first sixteen digits of its digest. A bike Study names it <code>artifacts/references-SHA16.csv</code>; a changed population, answer schema or dataset is named the same way.</td></tr>
+<tr data-path="study.json" data-written-by="init --new-revision"><td><code>study.json</code></td><td><code>init --new-revision</code>, last</td><td>Replaced atomically by the new revision's StudySpec. The only file a revision replaces.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The fields</p>
+<div class="prose">
+<p>A revision adds three optional fields to the StudySpec of chapter 04. A StudySpec written by <code>init</code> holds <code>revision_number</code> 1 and a <code>version</code> of 1 on each artifact; one written before revisions existed holds neither and is read as revision 1.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="revision-fields"><thead><tr><th>Field</th><th>Where</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="revision_number" data-where="study"><td><code>revision_number</code></td><td>StudySpec</td><td>1 for the first revision, then one more each time <code>init --new-revision</code> adds one.</td></tr>
+<tr data-field="previous_revision" data-where="study"><td><code>previous_revision</code></td><td>StudySpec</td><td>The <code>revision</code> digest of the revision before; absent from revision 1.</td></tr>
+<tr data-field="check_informed" data-where="study"><td><code>check_informed</code></td><td>StudySpec</td><td>True when the revision was created after the Study's first Exposure; absent otherwise (<a href="#freeze-exposure">chapter 12</a>).</td></tr>
+<tr data-field="version" data-where="artifact"><td><code>version</code></td><td>each entry of <code>artifacts</code></td><td>How many different contents the Study has held under this role: 1 at <code>init</code>, one more each time a revision publishes changed bytes for it.</td></tr>
+</tbody></table></div>
+<p class="prose"><code>status</code> shows every revision under <code>revisions</code>, read only, and the current one under <code>study</code>:</p>
+<div class="tblwrap"><table class="tbl" id="revision-status"><thead><tr><th>Field of a revision in <code>status</code></th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="revision_number"><td><code>revision_number</code></td><td>The revision's number.</td></tr>
+<tr data-field="revision"><td><code>revision</code></td><td>The digest that names the revision's StudySpec.</td></tr>
+<tr data-field="previous_revision"><td><code>previous_revision</code></td><td>The revision before, or null for the first.</td></tr>
+<tr data-field="protocol_digest"><td><code>protocol_digest</code></td><td>The Protocol this revision froze.</td></tr>
+<tr data-field="artifacts"><td><code>artifacts</code></td><td>Its Protocol artifacts: <code>artifact_id</code>, <code>role</code>, <code>version</code>, <code>sha256</code>.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Rescoring: the new Assessment names the earlier one</p>
+<div class="prose">
+<p>After <code>init --new-revision</code>, <code>assess</code> takes the new References ID (the one in the current StudySpec; the earlier revision's set is no longer the Protocol and is refused with <code>REFERENCES_NOT_FOUND</code>) and an Observation set recorded under any revision. It writes a new Assessment, as ever: a new <code>assessment_id</code>, the same <code>observation_set_id</code>, the new <code>references_ref</code>, and every earlier file, Assessments included, untouched. It runs no model and no tool and opens neither the database nor the Workload: the frozen References, the answer schema and the kept answers are enough. The Assessment records the revision whose Protocol it applied (<code>study_revision</code>) and the time (<code>recorded_at</code>).</p>
+<p>Its <code>rescoring</code> field is null when no earlier Assessment of the same Observation set and the same Scorer differs from it. Otherwise it names the latest one that does (<code>earlier_assessment_id</code>), the <code>cause</code> and the Items whose verdict changed, each with both verdicts. The cause is the first of the differences below, in this order; any other that also differs is listed in <code>other_changes</code>, so nothing that changed is hidden. A numeric tolerance is held by the Reference (<code>numeric_absolute_tolerance</code>), so a changed tolerance is a changed References set and its cause is <code>references_version</code>.</p>
+<p>The Items are listed one per Item and Criterion, sorted. An Episode's Item ID is <code>CASE_ID#REPEAT</code> (<code>D03#0</code>); a bike Item's is its <code>row_id</code>. A verdict is the Criterion's <code>state</code>, its <code>score</code> (a boolean for an agent Criterion, the absolute error for a bike Item) and its <code>reason</code>. Because a numeric loss has no correct or incorrect, a corrected bike Reference lists the Item whose absolute error moved, and the Metric moves with it; an agent Criterion can flip from true to false, or become <code>unscored</code> when the Reference no longer settles a dependency. Either way the delta is the Reference's, not the system's. The human line adds <code>rescoring of Assessment ID: cause C, N Criteria changed</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="rescoring-causes"><thead><tr><th>Cause</th><th>Compared</th><th>The Scorer or the Reference that changed</th></tr></thead><tbody>
+<tr data-cause="references_version" data-compares="references_ref.sha256"><td><code>references_version</code></td><td><code>references_ref.sha256</code></td><td>A corrected References set, tolerance included, added by a new revision.</td></tr>
+<tr data-cause="scorer_version" data-compares="scorer.version"><td><code>scorer_version</code></td><td><code>scorer.version</code></td><td>The Scorer's version changed since the earlier Assessment (the registry is static: this follows a code change).</td></tr>
+<tr data-cause="scorer_config_digest" data-compares="scorer.config_digest"><td><code>scorer_config_digest</code></td><td><code>scorer.config_digest</code></td><td>The Scorer's configuration changed under the same version.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-fields"><thead><tr><th>Field of <code>rescoring</code></th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="earlier_assessment_id" data-required="yes"><td><code>earlier_assessment_id</code></td><td>yes</td><td>The latest earlier Assessment of the same Observation set and Scorer id that differs by one of the causes; it may come from an earlier revision.</td></tr>
+<tr data-field="cause" data-required="yes"><td><code>cause</code></td><td>yes</td><td>The first difference, in the order of the table above.</td></tr>
+<tr data-field="changed_items" data-required="yes"><td><code>changed_items</code></td><td>yes</td><td>The Items whose verdict changed; an empty list says that no verdict did.</td></tr>
+<tr data-field="other_changes" data-required="no"><td><code>other_changes</code></td><td>no</td><td>The other causes that also differ, when more than one does.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-item-fields"><thead><tr><th>Field of a changed Item</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="item_id"><td><code>item_id</code></td><td><code>CASE_ID#REPEAT</code> for an Episode, the <code>row_id</code> for a bike Item.</td></tr>
+<tr data-field="criterion"><td><code>criterion</code></td><td>The Criterion whose verdict changed.</td></tr>
+<tr data-field="earlier"><td><code>earlier</code></td><td>The verdict in the earlier Assessment.</td></tr>
+<tr data-field="now"><td><code>now</code></td><td>The verdict in this one.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-verdict-fields"><thead><tr><th>Field of a verdict</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="state"><td><code>state</code></td><td><code>scored</code>, <code>unscored</code> or <code>errored</code>.</td></tr>
+<tr data-field="score"><td><code>score</code></td><td>A boolean or an absolute error; null unless scored.</td></tr>
+<tr data-field="reason"><td><code>reason</code></td><td>The Reason of a non-score, or null.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="revision-record-fields"><thead><tr><th>Field added to every Assessment</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="study_revision"><td><code>study_revision</code></td><td><code>number</code>, <code>revision</code> and <code>protocol_digest</code> of the revision whose Protocol the Assessment applied; absent from an Assessment written before revisions existed.</td></tr>
+<tr data-field="recorded_at"><td><code>recorded_at</code></td><td>When it was written; it orders Assessments, since an <code>assessment_id</code> is a UUID.</td></tr>
+<tr data-field="rescoring"><td><code>rescoring</code></td><td>The object above, or null.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="prose">
+<p>The refusals of chapter 04 apply as they are: <code>STUDY_NOT_FOUND</code> for a folder that is no Study (no lock file is created in it), <code>DATA_INTEGRITY</code> when the Workload's data no longer matches its lock (checked before anything is written), <code>STUDY_LOCKED</code> and the integrity refusals. A revision adds one code of its own, and gives <code>INVALID_ARGUMENTS</code> two more causes.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="revision-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="PROTOCOL_UNCHANGED" data-exit="2" data-stage="study" data-details="protocol_digest revision_number"><td><code>PROTOCOL_UNCHANGED</code></td><td>The Protocol the Workload declares is the one the current revision freezes</td><td>2</td><td><code>study</code></td><td><code>protocol_digest</code>, <code>revision_number</code></td></tr>
+<tr data-code="INVALID_ARGUMENTS" data-exit="2" data-stage="config" data-details="command workload"><td><code>INVALID_ARGUMENTS</code></td><td><code>--new-revision</code> together with <code>--workload</code> (the Study names its Workload); <code>init</code> with neither (details: <code>command</code> only)</td><td>2</td><td><code>config</code></td><td><code>command</code>, <code>workload</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--sky)"><h3>Freeze and check_informed</h3><p>A revision takes its own freeze record, <code>revisions/N/freeze.json</code>, at its first use of <code>public_check</code>, not when it is created. A revision created after the Study's first Exposure is marked <code>check_informed</code> by <code>check_informed_mark</code> in <code>core/revisions.py</code>; one created before is not. After an Exposure, an <code>assess</code> or <code>compare</code> on <code>public_check</code> Items that finds a Protocol other than the current revision's is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and writes nothing (<a href="#freeze-exposure">chapter 12</a>).</p></div>
+<div class="card" style="--c:var(--amber)"><h3>The population is not compared</h3><p>An Assessment applies the Protocol of its own revision to an Observation set recorded under an earlier one. <code>assess</code> reads the Items from the Observation set's own population and does not compare it with the new revision's population: a revision that changed the population is the author's to read.</p></div>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-revisions"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why a corrected References set is read again from the Workload that declares it, and why a Configuration, which the Workload also declares, is not part of the Protocol.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
+<p class="prose">The tests are <code>tests/test_study_revision.py</code>, <code>tests/test_rescoring.py</code> and, for the writer lock, <code>tests/test_study_lock.py</code>; they run offline and call no model.</p>

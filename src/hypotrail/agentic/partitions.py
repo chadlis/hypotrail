@@ -5,7 +5,8 @@ protocol; Exposure), defined once, here (ADR 0002, amendment of 2026-11-04). A W
 file holds the Cases of each role, but it cannot add a role: `workload.schema.json` closes `cases`
 to these names.
 
-Before the Exposure journal that #9 builds, counting and rescoring refuse `public_check` Items.
+Counting and rescoring through the library functions, which take no Study and so have no Exposure journal to write to, refuse
+`public_check` Items. Inside a Study, `assess` scores and counts them and journals the Exposure (`hypotrail.core.exposure`).
 Scoring one answer against one Reference stays allowed (owner decision D2). Building a Workload
 reads every declared Cases file in full, to check that the Partitions are disjoint.
 """
@@ -22,13 +23,13 @@ def refuse_public_check(workload, case_ids, *, code: str, what: str, stage: str)
 
     The Partition of an Item is the one the Workload declares for its Case, never a label the caller
     passes. Items the declaration does not list (technical scenario Cases) have no Partition and pass.
-    The refusal comes before anything is computed or read; it waits for #9's Exposure journal.
+    The refusal comes before anything is computed or read.
     """
     held = sorted({case_id for case_id in case_ids if workload.partition_of(case_id) == PUBLIC_CHECK})
     if held:
         raise InvalidInputError(
             code,
-            f"{what} on {PUBLIC_CHECK} Items is refused: no Exposure journal exists yet",
+            f"{what} on {PUBLIC_CHECK} Items is refused: this entry point has no Study, so no Exposure journal to record it in",
             stage=stage,
             details={"partition": PUBLIC_CHECK, "case_ids": held},
         )

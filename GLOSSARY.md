@@ -8,6 +8,7 @@ Hypotrail runs small, explicit studies of predictive and agentic systems: it pro
 
 **Study**:
 The folder-scoped record of one investigation of one Workload under one frozen Protocol; it holds native and imported Attempts alike.
+Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds successive revisions, and a Protocol change is a new revision inside the same Study (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: project, run folder, experiment
 
 **Track**:
@@ -20,6 +21,7 @@ _Avoid_: benchmark, dataset (for the whole), use case, example (as a domain term
 
 **Protocol**:
 What a Study evaluates and how it scores it: the population, Partitions, References, Scorers and the rules on when information is available; it binds every Attempt, while how an imported Attempt's outputs were produced stays `declared` or `unknown`.
+Clarification, 2026-11-20: an Assessment applies the Protocol of its revision, also to outputs recorded under an earlier revision (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: pipeline, method, setup
 
 **Exposure**:
@@ -117,6 +119,7 @@ _Avoid_: evaluation, result, score
 
 **Comparison**:
 Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate.
+Clarification, 2026-11-20: for an agent, the Items are Episodes aligned by Case and Repeat, and the planned Repeats, tools, model and budgets are shared except for one declared intentional factor (chadlis/hypotrail#72).
 _Avoid_: benchmark, diff
 
 **Control**:

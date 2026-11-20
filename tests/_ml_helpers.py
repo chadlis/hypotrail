@@ -105,3 +105,34 @@ def fitted_row_ids(probe, workload_dir, config_id):
         if label.startswith(("Pipeline", "ColumnTransformer")):
             seen |= {owner[line.tobytes()] for line in X}
     return seen
+
+
+def canonical_digest(value):
+    """sha256 of a CSV file (given as a path) or of JSON-able data, floats rounded to 6 decimals.
+
+    The rounding keeps a digest recorded on one machine true on another (BLAS may differ in the last bit).
+    """
+    import csv
+    import hashlib
+    import json
+    from pathlib import Path
+
+    def rounded(node):
+        if isinstance(node, float):
+            return round(node, 6)
+        if isinstance(node, dict):
+            return {key: rounded(item) for key, item in node.items()}
+        if isinstance(node, list):
+            return [rounded(item) for item in node]
+        return node
+
+    def cell(text):
+        try:
+            return float(text)
+        except ValueError:
+            return text
+
+    if isinstance(value, Path):
+        with value.open(newline="", encoding="utf-8") as handle:
+            value = [[cell(c) for c in row] for row in csv.reader(handle)]
+    return hashlib.sha256(json.dumps(rounded(value), sort_keys=True).encode()).hexdigest()

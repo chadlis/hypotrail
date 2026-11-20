@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). Two parts exist. The feasibility spike: a locked Python 3.13 environment, verified datasets, an Inspect task where a model calls a read-only SQL tool on Chinook, scoring of a kept log with the `chinook_contract_v1` Scorer (`exact_table`, `format_valid`, `evidence_link_valid`, `contract_success`), and one recorded live trace. The Chinook Workload is declared as data (`examples/chinook/workload.json`, checked against a JSON Schema) with its `plain` and `verify` Configurations, and the Inspect task is built from that declaration (library code, no `run` command yet). The `scripted_fixture` Mode runs six of its seven technical scenarios (the seventh is expected but never run, so it stays absent from the log) on that task with Inspect's mock model and the real local tools, with counts per Criterion and a "simulation, no LLM evaluated" banner (library code, offline). The temporal regression Track on the bike Workload: Partitions, References, two Configurations (`seasonal_7`, `ridge_v1`), metrics and a first Comparison on `dev`, called from Python (no command line yet), with a Workload declaration checked against a JSON Schema. There is no Study, run manifest, freeze or Exposure journal, and no report yet.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. There is no report yet. The handbook chapters give each capability in detail.
 
 ## Install
 
@@ -14,14 +14,25 @@ Needs [uv](https://docs.astral.sh/uv/) and Python 3.13.
 uv sync --locked --all-extras                 # the core (Python plus jsonschema) needs no extra: uv sync --locked
 uv run --locked --all-extras pytest           # offline: no network, no model call
 uv run python -m hypotrail data verify        # check the public datasets
+uv run python -m hypotrail init --workload bike_day --study runs/bike
+uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition dev --request-id ml-dev-a
+uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references REFERENCES_ID
+uv run python -m hypotrail import ml --study runs/bike --source predictions.csv --mapping mapping.json --population population.json --request-id import-a
+uv run python -m hypotrail init --workload chinook --study runs/chinook
+uv run python -m hypotrail import agent --study runs/chinook --source answers.jsonl --population population.json --request-id import-b   # or --source LOG.eval, an Inspect log
+uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
+uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
+uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]   # two agent Assessments
+uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file in the Workload
+uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
 ```
 
-A live Attempt is opt-in and paid, never part of the tests: `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The command was rehearsed offline, and one Attempt per Configuration (`plain`, `verify`; Cases D03 and D05, one Repeat each, on `anthropic/claude-sonnet-5-5`) is recorded under `docs/handbook/traces/live-l12-plain/` and `live-l12-verify/`, and a second Attempt per Configuration (2026-11-07, under the limits their `run.json` records) under `live-l12b-plain/` and `live-l12b-verify/`; they are not scored against References, and the owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before these Attempts (chadlis/hypotrail#8); that review precedes any live Attempt.
+`spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
 
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
-- `src/hypotrail/` (`core/`, `agentic/`, `ml/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`); `tests/`.
+- `src/hypotrail/` (`core/`, `agentic/`, `ml/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.
