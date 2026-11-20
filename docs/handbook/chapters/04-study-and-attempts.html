@@ -10,7 +10,7 @@
 <li><code>status</code> only reads. It lists every Attempt of the Study with its <code>technical_status</code> and the artifacts found in its folder, the partial ones of an Attempt that never reached its terminal manifest included. It takes no lock.</li>
 <li><code>recover</code> is the explicit command that writes. It records as <code>interrupted</code>, with <code>finished_at</code> and a Reason, an Attempt that is <code>running</code> while no writer is alive, and keeps its artifacts. It resubmits nothing.</li>
 </ul>
-<p>The Workload stays where it is declared (<code>examples/&lt;name&gt;</code>, or the folder given by <code>--examples-dir</code>): a Configuration can change after the Study exists, and an Attempt records the Configuration it ran. The Study freezes the Protocol, not the Configurations.</p>
+<p>The Workload stays where it is declared (<code>examples/&lt;name&gt;</code> of a checkout, or the folder given by <code>--examples-dir</code>: see below): a Configuration can change after the Study exists, and an Attempt records the Configuration it ran. The Study freezes the Protocol, not the Configurations.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="study-commands"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
 <tr data-command="init" data-required="--study" data-optional="--workload --new-revision --examples-dir --json"><td><code>init</code></td><td><code>--study DIR</code></td><td><code>--workload NAME</code> (to create a Study; not with <code>--new-revision</code>), <code>--new-revision</code> (to add a revision), <code>--examples-dir DIR</code>, <code>--json</code></td></tr>
@@ -20,6 +20,32 @@
 <tr data-command="import agent" data-required="--study --source --population --request-id" data-optional="--examples-dir --json"><td><code>import agent</code></td><td><code>--study DIR</code>, <code>--source JSONL</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
 <tr data-command="status" data-required="--study" data-optional="--json"><td><code>status</code></td><td><code>--study DIR</code></td><td><code>--json</code></td></tr>
 <tr data-command="recover" data-required="--study --attempt" data-optional="--json"><td><code>recover</code></td><td><code>--study DIR</code>, <code>--attempt ATTEMPT_ID</code></td><td><code>--json</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Where the Workloads are found</p>
+<div class="prose">
+<p>One resolver, <code>resolve_examples_dir</code> in <code>src/hypotrail/core/data.py</code>, serves every command that reads a Workload (D-016, chadlis/hypotrail#75). No Workload file is packaged in the wheel, which holds only <code>src/hypotrail</code>, and no environment variable names the directory. The supported install is a checkout with <code>uv sync</code>: its <code>examples/</code> is found without a flag. Any other install, a wheel in another environment for example, passes <code>--examples-dir DIR</code> naming a checkout's <code>examples/</code> or a copy of it.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="workload-inputs"><thead><tr><th>Order</th><th>Input</th><th>Used when</th></tr></thead><tbody>
+<tr data-input="--examples-dir" data-order="1"><td>1</td><td><code>--examples-dir DIR</code></td><td>Whenever it is given, whatever else exists.</td></tr>
+<tr data-input="checkout-default" data-order="2"><td>2</td><td>the checkout's <code>examples/</code>, next to <code>src/</code></td><td>Only if that directory exists and holds at least one Workload lock (<code>data-sources.lock.json</code>).</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>With neither, the command is refused before it writes anything, with the coded error below, exit 2, and the message says to give <code>--examples-dir</code>. The command is never pointed at a directory that does not exist. <code>spike live</code> takes <code>--examples-dir</code> like the others (its Workload is Chinook). A command that reads the Workloads only for some of its work, <code>assess</code> and <code>compare</code> (for <code>public_check</code> Items, <a href="#freeze-exposure">chapter 12</a>), resolves them at that point, so on <code>dev</code> Items it needs no Workload.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="workload-refusal"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th>Details</th></tr></thead><tbody>
+<tr data-code="EXAMPLES_DIR_NOT_FOUND" data-exit="2" data-stage="config" data-details="examples_dir"><td><code>EXAMPLES_DIR_NOT_FOUND</code></td><td>No <code>--examples-dir</code>, and the checkout's <code>examples/</code> is missing or holds no Workload lock; nothing is written. (The same code refuses a given directory that does not exist.)</td><td>2</td><td>config</td><td><code>examples_dir</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="workload-commands"><thead><tr><th>Command</th><th>Reads a Workload for</th></tr></thead><tbody>
+<tr data-command="data verify"><td><code>data verify</code></td><td>the datasets it checks</td></tr>
+<tr data-command="init"><td><code>init</code>, with <code>--new-revision</code></td><td>the Protocol it freezes</td></tr>
+<tr data-command="run ml"><td><code>run ml</code></td><td>the Configurations and the data</td></tr>
+<tr data-command="run agent"><td><code>run agent</code></td><td>the declaration, the Cases and the database</td></tr>
+<tr data-command="import ml"><td><code>import ml</code></td><td>the declaration and the data</td></tr>
+<tr data-command="import agent"><td><code>import agent</code></td><td>the declaration and the Workload's files</td></tr>
+<tr data-command="assess"><td><code>assess</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
+<tr data-command="compare"><td><code>compare</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
+<tr data-command="spike live"><td><code>spike live</code></td><td>the Chinook declaration and Cases</td></tr>
 </tbody></table></div>
 
 <p class="sub2">The Study on disk</p>

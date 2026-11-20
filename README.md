@@ -10,6 +10,8 @@ Early development. The first milestone runs two public Workloads end to end: a d
 
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.13.
 
+The supported install is a checkout with `uv sync`: the commands below find the Workloads in its `examples/`. No Workload is packaged in the wheel, so any other install passes `--examples-dir` with the directory (a checkout's `examples/` or a copy); without it, such an install is refused before anything is written.
+
 ```
 uv sync --locked --all-extras                 # the core (Python plus jsonschema) needs no extra: uv sync --locked
 uv run --locked --all-extras pytest           # offline: no network, no model call
@@ -29,7 +31,7 @@ uv run python -m hypotrail init --study runs/chinook --new-revision    # after a
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
 ```
 
-`spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
+`spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR [--examples-dir DIR]`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`.
 

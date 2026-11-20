@@ -2316,3 +2316,67 @@ def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_
     assert "execution" in text and "the request the Attempt itself made" not in text
     assert "spike live" in text and "run agent" in text
 
+
+
+# --- chapter 04: where the Workloads are found (#23, D-016) ------------------------------------------------------------------------
+
+
+def _commands_taking_the_examples_flag():
+    import argparse
+
+    from hypotrail.cli import build_parser
+
+    found = set()
+
+    def walk(parser, path):
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for name, child in action.choices.items():
+                    walk(child, [*path, name])
+        if any("--examples-dir" in a.option_strings for a in parser._actions):
+            found.add(" ".join(path))
+
+    walk(build_parser(), [])
+    return found
+
+
+def test_the_workload_inputs_table_lists_exactly_what_the_resolver_reads(page):
+    """D-016, #23: the resolver takes the flag and the checkout default, and reads no environment variable."""
+    import inspect
+
+    from hypotrail.core import data
+
+    resolver = data.resolve_examples_dir
+    rows = attrs_of(page, "workload-inputs", "data-input")
+    assert set(rows) == {"--examples-dir", "checkout-default"}
+    assert [rows[k]["data-order"] for k in ("--examples-dir", "checkout-default")] == ["1", "2"]
+    assert list(inspect.signature(resolver).parameters) == ["examples_dir"]  # the flag's dest, and nothing else
+    assert "default_examples_dir" in resolver.__code__.co_names  # the checkout default
+    assert not {"environ", "getenv", "environb"} & set(resolver.__code__.co_names)  # no variable
+    assert not {"environ", "getenv"} & set(data.default_examples_dir.__code__.co_names)
+    assert "HYPOTRAIL_EXAMPLES_DIR" not in page.split('id="workload-inputs"')[1].split("</table>")[0]  # the table names no variable
+
+
+def test_the_workload_commands_table_equals_the_commands_the_parser_gives_the_flag(page):
+    rows = attrs_of(page, "workload-commands", "data-command")
+    assert set(rows) == _commands_taking_the_examples_flag()
+
+
+def test_the_workload_refusal_table_equals_the_code_exit_stage_and_details_of_the_refusal(page, monkeypatch, tmp_path):
+    from hypotrail.core import data
+
+    monkeypatch.setattr(data, "default_examples_dir", lambda: tmp_path / "no-such-checkout" / "examples")
+    with pytest.raises(Exception) as caught:
+        data.resolve_examples_dir(None)
+    error = caught.value
+    rows = attrs_of(page, "workload-refusal", "data-code")
+    assert set(rows) == {error.code}
+    row = rows[error.code]
+    assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (error.exit_code, error.stage, set(error.details))
+    assert "--examples-dir" in error.message
+
+
+def test_the_readme_states_the_supported_install_and_that_any_other_install_passes_the_flag():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "The supported install is a checkout with `uv sync`" in readme
+    assert "any other install passes `--examples-dir`" in readme

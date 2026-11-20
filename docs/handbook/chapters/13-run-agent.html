@@ -15,7 +15,7 @@
 <tr data-flag="--model" data-required="no" data-mode="llm_live"><td><code>--model MODEL</code></td><td>with <code>llm_live</code></td><td>llm_live</td><td>An explicit <code>anthropic/&lt;model&gt;</code>; there is no default.</td></tr>
 <tr data-flag="--cases" data-required="no" data-mode="llm_live"><td><code>--cases CASE_ID</code></td><td>no</td><td>llm_live</td><td>A Case of the Partition, one per flag (repeatable); without it, every Case of the Partition.</td></tr>
 <tr data-flag="--retry-of" data-required="no" data-mode="both"><td><code>--retry-of ATTEMPT_ID</code></td><td>no</td><td>both</td><td>The earlier Attempt this one repeats on purpose; the earlier one is left unchanged.</td></tr>
-<tr data-flag="--examples-dir" data-required="no" data-mode="both"><td><code>--examples-dir DIR</code></td><td>no</td><td>both</td><td>Where the Workloads are (default: the repository's <code>examples/</code>).</td></tr>
+<tr data-flag="--examples-dir" data-required="no" data-mode="both"><td><code>--examples-dir DIR</code></td><td>no</td><td>both</td><td>Where the Workloads are (default: the checkout's <code>examples/</code>; any other install gives the flag, chapter 04).</td></tr>
 <tr data-flag="--json" data-required="no" data-mode="both"><td><code>--json</code></td><td>no</td><td>both</td><td>Stdout holds exactly one JSON object, <code>{"ok": true, "replayed": ..., "attempt": MANIFEST, "warnings": [...]}</code> or <code>{"ok": false, "error": {...}}</code>; the human diagnostics go to stderr.</td></tr>
 </tbody></table></div>
 <pre class="code"><span class="cm"># the scenarios: Inspect's mock model, the real tools, no key, no network</span>
