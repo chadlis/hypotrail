@@ -80,9 +80,8 @@ def test_the_readme_claims_the_kept_live_episodes_come_from_spike_live_which_rec
     paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line)
     assert "spike live" in paragraph and "Episodes" in paragraph  # where the kept live Episodes come from
     assert re.search(r"\b(?:no|nothing|not)\b[^.;:]*\bStudy\b", paragraph)  # that command records nothing in a Study
-    # the paragraph names what is kept, the Episodes, not the execution that made them (GLOSSARY Attempt: one execution
-    # or import of exactly one Configuration on one population; one `spike live` execution is one, chapter 03 says so),
-    # so no Attempt here, and no noun the GLOSSARY does not define
+    # the README names the kept outputs Episodes; whether a `spike live` execution is an Attempt is open
+    # (chadlis/hypotrail#77), so no Attempt here, and no noun the GLOSSARY does not define
     assert not re.search(r"\bAttempts?\b", paragraph) and "spike output" not in paragraph
     # R4-01: the README and chapter 03 name the kept live traces with the same GLOSSARY term, Episodes
     chapter = (ROOT / "docs" / "handbook" / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
