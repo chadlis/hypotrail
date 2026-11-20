@@ -141,7 +141,7 @@ pre.code .cm{color:var(--faint)}
 <h1>Hypotrail <em>handbook</em></h1>
 <p class="sub">What each part does, how to run it, its limits, and which decision record explains it. It describes the current state and is rewritten when that changes.</p>
 </header>
-<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a><a href="#temporal-regression-track" style="--ac:var(--teal)"><span>02</span>Temporal regression Track</a><a href="#agentic-track" style="--ac:var(--violet)"><span>03</span>Agentic Track</a><a href="#study-and-attempts" style="--ac:var(--sky)"><span>04</span>Study and Attempts</a><a href="#assessments" style="--ac:var(--amber)"><span>05</span>Assessments and Scorers</a><a href="#import" style="--ac:var(--teal)"><span>06</span>Importing predictions made elsewhere</a><a href="#comparison" style="--ac:var(--violet)"><span>07</span>Comparison</a><a href="#agent-answers" style="--ac:var(--green)"><span>08</span>Agent answers: Study, import and Assessment</a><a href="#inspect-log-import" style="--ac:var(--sky)"><span>09</span>Importing an Inspect log</a><a href="#revisions-rescoring" style="--ac:var(--coral)"><span>10</span>Revisions and corrected References</a><a href="#agent-comparison" style="--ac:var(--violet)"><span>11</span>Comparing two agent Assessments</a><a href="#freeze-exposure" style="--ac:var(--teal)"><span>12</span>Freeze, Exposure and check_informed</a><a href="#run-agent" style="--ac:var(--sky)"><span>13</span>Running the agent into a Study</a></nav>
+<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a><a href="#temporal-regression-track" style="--ac:var(--teal)"><span>02</span>Temporal regression Track</a><a href="#agentic-track" style="--ac:var(--violet)"><span>03</span>Agentic Track</a><a href="#study-and-attempts" style="--ac:var(--sky)"><span>04</span>Study and Attempts</a><a href="#assessments" style="--ac:var(--amber)"><span>05</span>Assessments and Scorers</a><a href="#import" style="--ac:var(--teal)"><span>06</span>Importing predictions made elsewhere</a><a href="#comparison" style="--ac:var(--violet)"><span>07</span>Comparison</a><a href="#agent-answers" style="--ac:var(--green)"><span>08</span>Agent answers: Study, import and Assessment</a><a href="#inspect-log-import" style="--ac:var(--sky)"><span>09</span>Importing an Inspect log</a><a href="#revisions-rescoring" style="--ac:var(--coral)"><span>10</span>Revisions and corrected References</a><a href="#agent-comparison" style="--ac:var(--violet)"><span>11</span>Comparing two agent Assessments</a><a href="#freeze-exposure" style="--ac:var(--teal)"><span>12</span>Freeze, Exposure and check_informed</a><a href="#run-agent" style="--ac:var(--sky)"><span>13</span>Running the agent into a Study</a><a href="#report" style="--ac:var(--sky)"><span>14</span>The Study report</a></nav>
 <section id="feasibility-spike" style="--ac:var(--gold)"><div class="sh"><div class="n">01</div><div><p class="k">Spike</p><h2>Feasibility spike</h2></div></div>
 <p class="lead">The spike proved on the target machine that the chosen stack works before anything general is built: a locked Python 3.13 environment, both public datasets verified, an <b>Inspect</b> task where a model calls a read-only SQL tool on Chinook, and a live trace of a real model doing it. This chapter is the reference for what exists, how to run it and where it stops.</p>
 
@@ -694,6 +694,7 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-command="run agent" data-required="--study --mode --config --request-id" data-optional="--partition --repeats --model --cases --retry-of --examples-dir --json"><td><code>run agent</code></td><td><code>--study DIR</code>, <code>--mode scripted_fixture|llm_live</code>, <code>--config NAME</code>, <code>--request-id ID</code></td><td><code>--partition NAME</code>, <code>--repeats N</code>, <code>--model MODEL</code> and <code>--cases CASE_ID</code> (<code>llm_live</code> only; <a href="#run-agent">chapter 13</a>), <code>--retry-of ATTEMPT_ID</code>, <code>--examples-dir DIR</code>, <code>--json</code></td></tr>
 <tr data-command="import ml" data-required="--study --source --mapping --population --request-id" data-optional="--examples-dir --json"><td><code>import ml</code></td><td><code>--study DIR</code>, <code>--source CSV</code>, <code>--mapping MAPPING</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
 <tr data-command="import agent" data-required="--study --source --population --request-id" data-optional="--examples-dir --json"><td><code>import agent</code></td><td><code>--study DIR</code>, <code>--source JSONL</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
+<tr data-command="report" data-required="--study --out" data-optional="--examples-dir --json"><td><code>report</code></td><td><code>--study DIR</code>, <code>--out FILE</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
 <tr data-command="status" data-required="--study" data-optional="--json"><td><code>status</code></td><td><code>--study DIR</code></td><td><code>--json</code></td></tr>
 <tr data-command="recover" data-required="--study --attempt" data-optional="--json"><td><code>recover</code></td><td><code>--study DIR</code>, <code>--attempt ATTEMPT_ID</code></td><td><code>--json</code></td></tr>
 </tbody></table></div>
@@ -721,6 +722,7 @@ uv run python -m hypotrail spike live --config verify --model anthropic/&lt;mode
 <tr data-command="import agent"><td><code>import agent</code></td><td>the declaration and the Workload's files</td></tr>
 <tr data-command="assess"><td><code>assess</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
 <tr data-command="compare"><td><code>compare</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
+<tr data-command="report"><td><code>report</code></td><td>the digests to freeze, for <code>public_check</code> Items shown (a page of <code>dev</code> Items reads no Workload)</td></tr>
 <tr data-command="spike live"><td><code>spike live</code></td><td>the Chinook declaration and Cases</td></tr>
 </tbody></table></div>
 
@@ -970,7 +972,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>One writer</h3><p><code>assess</code> holds the Study's writer lock for the whole command, as <code>init</code>, <code>run ml</code>, <code>import ml</code>, <code>recover</code> and <code>compare</code> do: while another writer holds it, <code>assess</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (<a href="#study-and-attempts">chapter 04</a>).</p></div>
-<div class="card" style="--c:var(--violet)"><h3>No report</h3><p>Two Assessments are compared by <code>compare</code> (<a href="#comparison">chapter 07</a>), and nothing summarises them yet: the report comes later in issue #9. The record's <code>rescoring</code> field says which earlier Assessment of the same Observation set the new one differs from and why (<a href="#revisions-rescoring">chapter 10</a>).</p></div>
+<div class="card" style="--c:var(--violet)"><h3>Summarised by the report</h3><p>Two Assessments are compared by <code>compare</code> (<a href="#comparison">chapter 07</a>), and <code>report</code> sets Assessments and Comparisons of a Bike Study out on one page (<a href="#report">chapter 14</a>). The record's <code>rescoring</code> field says which earlier Assessment of the same Observation set the new one differs from and why (<a href="#revisions-rescoring">chapter 10</a>).</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Dev, and public_check with a journal</h3><p>Items of <code>public_check</code> can be assessed because the Study journals the Exposure (<a href="#freeze-exposure">chapter 12</a>); Items of <code>train</code> never can. <code>PROTOCOL_CHANGED</code> (exit 3) refuses an Assessment of <code>public_check</code> Items when the Workload's Protocol is no longer the revision's.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Two Scorers' shapes</h3><p>The two regression Scorers aggregate one Criterion into a Metric and leave <code>correct</code> and <code>incorrect</code> null. <code>chinook_contract_v1</code> scores four Criteria per Episode and counts them: its Assessment is the subject of <a href="#agent-answers">chapter 08</a>.</p></div>
 </div>
@@ -1643,7 +1645,7 @@ uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_
 
 <p class="sub2">What the commands do</p>
 <div class="prose">
-<p>No new command exists. <code>assess</code> and <code>compare</code> do the work, in <code>src/hypotrail/ml/assess.py</code>, <code>src/hypotrail/agentic/assess.py</code>, <code>src/hypotrail/core/comparison.py</code> and <code>src/hypotrail/core/agent_comparison.py</code>; the freeze record, the journal and the marks are in <code>src/hypotrail/core/exposure.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Both commands take an optional <code>--examples-dir</code>, read only when the Items are <code>public_check</code> ones, to digest the Workload as it is declared now (default: the checkout's <code>examples/</code>, as chapter 04 says).</p>
+<p><code>assess</code>, <code>compare</code> and <code>report</code> (<a href="#report">chapter 14</a>) record Exposures; a report that shows <code>public_check</code> Items records one even with no Assessment. <code>assess</code> and <code>compare</code> do the work, in <code>src/hypotrail/ml/assess.py</code>, <code>src/hypotrail/agentic/assess.py</code>, <code>src/hypotrail/core/comparison.py</code> and <code>src/hypotrail/core/agent_comparison.py</code>; the freeze record, the journal and the marks are in <code>src/hypotrail/core/exposure.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). The three commands take an optional <code>--examples-dir</code>, read only when the Items are <code>public_check</code> ones, to digest the Workload as it is declared now (default: the checkout's <code>examples/</code>, as chapter 04 says).</p>
 <ol>
 <li>The usual checks run first (chapters 05, 07, 08 and 11). A refusal there writes nothing.</li>
 <li>For <code>public_check</code> Items, the Workload's Protocol is digested again and compared with the one the current revision froze. A difference is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and nothing is written: a Protocol change is made with <code>init --study DIR --new-revision</code> (<a href="#revisions-rescoring">chapter 10</a>).</li>
@@ -1666,6 +1668,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <div class="tblwrap"><table class="tbl" id="exposure-entry-points"><thead><tr><th>Entry point</th><th>In a Study</th><th>On <code>public_check</code></th><th>Refusal code without a Study</th></tr></thead><tbody>
 <tr data-entry="assess" data-study="yes" data-writes="journal" data-code=""><td><code>assess</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
 <tr data-entry="compare" data-study="yes" data-writes="journal" data-code=""><td><code>compare</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
+<tr data-entry="report" data-study="yes" data-writes="journal" data-code=""><td><code>report</code> (Bike)</td><td>yes</td><td>allowed; one journal entry when the page shows <code>public_check</code> Items</td><td>none</td></tr>
 <tr data-entry="run ml" data-study="yes" data-writes="" data-code=""><td><code>run ml</code></td><td>yes</td><td>allowed, not an Exposure: no score is computed</td><td>none</td></tr>
 <tr data-entry="metrics.compute_metrics" data-study="no" data-writes="" data-code="PUBLIC_CHECK_METRICS_REFUSED"><td><code>hypotrail.ml.metrics.compute_metrics</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code></td></tr>
 <tr data-entry="comparison.compare" data-study="no" data-writes="" data-code="PUBLIC_CHECK_COMPARISON_REFUSED"><td><code>hypotrail.ml.comparison.compare</code> (two predictions files)</td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
@@ -1713,8 +1716,8 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <tr data-field="comparison_ids"><td><code>comparison_ids</code></td><td>The Comparison written; empty for an Assessment</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="exposure-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
-<tr data-path="revisions/N/freeze.json" data-written-by="assess compare"><td><code>revisions/N/freeze.json</code></td><td>the first <code>assess</code> or <code>compare</code> on <code>public_check</code> Items under revision N</td><td>The freeze record. Written once.</td></tr>
-<tr data-path="exposures/SEQ-ENTRY_ID.json" data-written-by="assess compare"><td><code>exposures/SEQ-ENTRY_ID.json</code></td><td>every <code>assess</code> or <code>compare</code> on <code>public_check</code> Items</td><td>One journal entry. Never rewritten.</td></tr>
+<tr data-path="revisions/N/freeze.json" data-written-by="assess compare report"><td><code>revisions/N/freeze.json</code></td><td>the first <code>assess</code>, <code>compare</code> or <code>report</code> on <code>public_check</code> Items under revision N</td><td>The freeze record. Written once.</td></tr>
+<tr data-path="exposures/SEQ-ENTRY_ID.json" data-written-by="assess compare report"><td><code>exposures/SEQ-ENTRY_ID.json</code></td><td>every <code>assess</code>, <code>compare</code> or <code>report</code> on <code>public_check</code> Items</td><td>One journal entry. Never rewritten.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">check_informed</p>
@@ -1754,7 +1757,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--sky)"><h3>Not a proof of non-exposure</h3><p>No lock can prove that the user never read the public CSV elsewhere, and a new Study is not evidence that <code>public_check</code> was unseen. The journal records what this Study did.</p></div>
-<div class="card" style="--c:var(--violet)"><h3>No report, no live campaign</h3><p>The report's Exposure section, its display of <code>check_informed</code> and the live campaign on <code>public_check</code> are issue #10. No path here calls a model.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>A report for Bike Studies, no live campaign</h3><p>The report of a Bike Study has an Exposure section and shows the <code>check_informed</code> marks (<a href="#report">chapter 14</a>); the agent Track's report and the live campaign on <code>public_check</code> are later work. No path here calls a model.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A revision is not marked into its Assessments</h3><p>An Assessment made under a <code>check_informed</code> revision is not itself marked unless a Configuration marks it. The revision's own mark is in <code>status</code>.</p></div>
 <div class="card" style="--c:var(--coral)"><h3>Exposure before the score</h3><p>The entry is written before the Items are scored or paired, so a crash between the entry and the Assessment leaves an entry whose Assessment ID names no Assessment. The journal errs on the side of recording.</p></div>
 </div>
@@ -1912,6 +1915,78 @@ uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --conf
 <div class="card" style="--c:var(--violet)"><h3>No report</h3><p>No report renders the scenario banner or the Comparison of two live Attempts; the 72-Episode campaign on <code>public_check</code> is later work.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>One provider</h3><p>Only <code>anthropic/&lt;model&gt;</code> is accepted, with the key sent to that provider alone. The model licence line of the specification does not apply to a remote provider, and no field records one.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A scan is not a proof</h3><p>The scan finds the key as written, in a file or decoded from a log; it does not find the key in an altered form.</p></div>
+</div>
+</section>
+<section id="report" style="--ac:var(--sky)"><div class="sh"><div class="n">14</div><div><p class="k">Report</p><h2>The Study report</h2></div></div>
+<p class="lead"><code>report</code> renders one HTML page for a Study of the temporal regression Track, from the Study's records alone: the Attempts, Observation sets, Assessments, Comparisons, the freeze record and the Exposure journal. The page holds its text, styles and tables inline, loads nothing, has no script and computes nothing when it is opened. A page that shows <code>public_check</code> Items is an Exposure and is recorded as one.</p>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p><code>python -m hypotrail report --study DIR --out FILE</code>, with <code>--json</code> and <code>--examples-dir DIR</code> (the flags are in the commands table of <a href="#study-and-attempts">chapter 04</a>). The code is <code>src/hypotrail/report/</code>: <code>gather.py</code> reads and verifies the records, <code>render.py</code> writes the page, <code>command.py</code> is the command. It imports neither Inspect nor scikit-learn nor NumPy (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>), and it calls no fit, no prediction, no model and no tool, so it works with the network cut.</p>
+<ol>
+<li>The Study is read; a Study of another Track is refused (the tool-using agent Track is the next ticket's). <code>--out</code> must not be inside the Study, nor a directory, and its folder must exist.</li>
+<li>Every artifact the page shows is read back against its digest: a changed byte is <code>ARTIFACT_INTEGRITY</code> (exit 3) and no page is written.</li>
+<li>If the page shows <code>public_check</code> Items, the Study's writer lock is taken (a second writer is <code>STUDY_LOCKED</code>, exit 6), the Workload is found through the one resolver of <a href="#study-and-attempts">chapter 04</a> and its Protocol is checked against the revision's (<code>PROTOCOL_CHANGED</code>, exit 3), the freeze record is written first if the revision has none, then one journal entry names the Attempts, Assessments and Comparisons the page shows of those Items (<a href="#freeze-exposure">chapter 12</a>). A Study whose Items are all <code>dev</code> records nothing, takes no lock and reads no Workload.</li>
+<li>The page is written to a temporary file beside <code>--out</code> and renamed onto it: an existing file is replaced.</li>
+</ol>
+<p>The page is rebuilt from the Study each time it is asked for; it is never stored as a record. Two reports of the same <code>public_check</code> Study record two Exposures.</p>
+</div>
+<pre class="code"><span class="cm"># a page for a Study; --out is outside the Study</span>
+uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html</pre>
+
+<p class="sub2">The sections</p>
+<div class="prose">
+<p>The nine sections of the specification, in its order, then the Exposure section. Each has a stable <code>id</code>. The page's own headings, labels and sentences are in English; a string that comes from outside the code (a question, an ID, a declared field) is shown as given, HTML-escaped, in text and in attributes, and a web address in it is text, never a link.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-sections"><thead><tr><th>Order</th><th>Id</th><th>Heading</th><th>What it shows</th></tr></thead><tbody>
+<tr data-section="question-mode" data-order="1" data-heading="Question and Mode"><td>1</td><td><code>question-mode</code></td><td>Question and Mode</td><td>The question and objective of the Study, its Track, its Primary Metric, the Modes of its Attempts.</td></tr>
+<tr data-section="data-licences" data-order="2" data-heading="Data and licences"><td>2</td><td><code>data-licences</code></td><td>Data and licences</td><td>The dataset the Study keeps, with its digest, and the licence notice file the Workload names. The notice text stays with the Workload: the page reads the Study alone.</td></tr>
+<tr data-section="protocol-partitions" data-order="3" data-heading="Protocol and Partitions"><td>3</td><td><code>protocol-partitions</code></td><td>Protocol and Partitions</td><td>The Protocol and revision, and each Partition's Items and date range, read from the Study's population.</td></tr>
+<tr data-section="configurations" data-order="4" data-heading="Configurations compared"><td>4</td><td><code>configurations</code></td><td>Configurations compared</td><td>Each Attempt's Configuration and its declared content; an Import declares none.</td></tr>
+<tr data-section="coverage-statuses" data-order="5" data-heading="Coverage and statuses"><td>5</td><td><code>coverage-statuses</code></td><td>Coverage and statuses</td><td>Each Attempt with its Mode, technical status, <code>request_id</code>, <code>outcome_unknown</code> and its produced, failed and missing Items; each Assessment's counts and, per Criterion, its states and Reasons. A null is shown as <code>unknown</code>, never as 0.</td></tr>
+<tr data-section="metrics-differences" data-order="6" data-heading="Metrics and differences"><td>6</td><td><code>metrics-differences</code></td><td>Metrics and differences</td><td>Each Assessment's Metric, its revision, the earlier Assessment it differs from and the recorded cause; a table by month; each Comparison.</td></tr>
+<tr data-section="individual-errors" data-order="7" data-heading="Individual errors"><td>7</td><td><code>individual-errors</code></td><td>Individual errors</td><td>The ten Items with the largest absolute error of each Assessment, with date, true and predicted values, and where each is found.</td></tr>
+<tr data-section="limits" data-order="8" data-heading="Limits"><td>8</td><td><code>limits</code></td><td>Limits</td><td>The limitations the StudySpec, the Assessments and the Comparisons record.</td></tr>
+<tr data-section="artifact-origin" data-order="9" data-heading="Origin of the artifacts"><td>9</td><td><code>artifact-origin</code></td><td>Origin of the artifacts</td><td>Each artifact with its relative link, SHA-256, size and role; an Import's producer fields with their origin, <code>declared</code> or <code>unknown</code>.</td></tr>
+<tr data-section="exposure" data-order="10" data-heading="Exposure"><td>10</td><td><code>exposure</code></td><td>Exposure</td><td>The count of Exposures this Study recorded, the journal, the statement that any earlier exposure is unknown, and every record marked <code>check_informed</code>.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The tenth section is not one of the nine of the specification: the ticket asks for it, and it sits after them so that the nine keep their order.</p>
+</div>
+
+<p class="sub2">What the numbers are</p>
+<div class="prose">
+<p>Every value is written into the HTML when the page is rendered. The values the records hold (Metrics, counters, deltas, coverage) are read as recorded. Two tables hold values the records do not: the table by month (the Items of the month and the mean of the Assessment's per-Item absolute errors, with the number scored) and the Reasons per Criterion (the per-Item states, counted). Both are computed from the recorded per-Item file when the page is rendered, never when it is opened. The ten largest errors are ranked by absolute error, the larger first and equal errors by Item ID; the difference column is predicted minus true.</p>
+<p>A Comparison is shown with its Control and Candidate Assessments, its comparability status and warnings, its coverage and its deltas as recorded. A positive delta means the Candidate is worse. A Comparison against an Import is shown as descriptive, with its warning. An Attempt that is <code>running</code> is shown as running, whether or not its writer is alive, and an <code>interrupted</code> one as interrupted.</p>
+</div>
+
+<p class="sub2">What the page does not say</p>
+<div class="prose">
+<p>The page never attributes readiness, safety or independence to an output, a Configuration or a Study. The one sentence that names those words denies them; it is listed here so that the test over the page's own text can allow it by its exact text.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-denials"><thead><tr><th>Sentence</th></tr></thead><tbody>
+<tr data-denial="limits"><td>This report does not state that any output, Configuration or Study is production-ready, safe or independent.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="tblwrap"><table class="tbl" id="report-refusals"><thead><tr><th>Case</th><th>Code</th><th>Exit</th><th>Stage</th><th>Details</th></tr></thead><tbody>
+<tr data-code="STUDY_NOT_FOUND" data-exit="2" data-stage="study" data-details="study"><td>No Study at <code>--study</code></td><td><code>STUDY_NOT_FOUND</code></td><td>2</td><td><code>study</code></td><td><code>study</code></td></tr>
+<tr data-code="UNSUPPORTED_CAPABILITY" data-exit="2" data-stage="study" data-details="command study_domain command_domain"><td>A Study of the tool-using agent Track</td><td><code>UNSUPPORTED_CAPABILITY</code></td><td>2</td><td><code>study</code></td><td><code>command</code>, <code>study_domain</code>, <code>command_domain</code></td></tr>
+<tr data-code="REPORT_OUTPUT_INVALID" data-exit="2" data-stage="report" data-details="out reason"><td><code>--out</code> inside the Study (<code>inside_study</code>), a directory (<code>is_directory</code>) or in a folder that does not exist (<code>no_folder</code>)</td><td><code>REPORT_OUTPUT_INVALID</code></td><td>2</td><td><code>report</code></td><td><code>out</code>, <code>reason</code></td></tr>
+<tr data-code="ARTIFACT_INTEGRITY" data-exit="3" data-stage="artifact" data-details="path expected_sha256 actual_sha256 expected_size_bytes actual_size_bytes"><td>An artifact whose bytes no longer match its reference</td><td><code>ARTIFACT_INTEGRITY</code></td><td>3</td><td><code>artifact</code></td><td><code>path</code>, <code>expected_sha256</code>, <code>actual_sha256</code>, <code>expected_size_bytes</code>, <code>actual_size_bytes</code></td></tr>
+<tr data-code="STUDY_LOCKED" data-exit="6" data-stage="lock" data-details="study"><td>A second writer, while an Exposure is recorded</td><td><code>STUDY_LOCKED</code></td><td>6</td><td><code>lock</code></td><td><code>study</code></td></tr>
+<tr data-code="PROTOCOL_CHANGED" data-exit="3" data-stage="exposure" data-details="expected_protocol_digest actual_protocol_digest"><td>The Workload's Protocol is no longer the revision's, when an Exposure is recorded</td><td><code>PROTOCOL_CHANGED</code></td><td>3</td><td><code>exposure</code></td><td><code>expected_protocol_digest</code>, <code>actual_protocol_digest</code></td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>A page that shows <code>public_check</code> Items also needs the Workload: without <code>--examples-dir</code>, outside a checkout, it is refused before anything is written, as every command that reads a Workload is (<a href="#study-and-attempts">chapter 04</a>).</p>
+</div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--violet)"><h3>Bike Studies only</h3><p>A Study of the tool-using agent Track is refused. Its Case by Repeat matrix, the <code>scripted_fixture</code> banner and the Episode traces are the next ticket's.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>A report is an Exposure</h3><p>Showing <code>public_check</code> outputs is an Exposure even with no Assessment. The entry is written before the page, so a failure to write the page leaves the entry.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>No licence text</h3><p>The Study keeps the dataset, not the licence notice or its attribution addresses: the page names the notice file the Workload declared and shows no notice text.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>No in-page links</h3><p>The only links are relative links to Study artifacts, from the folder of <code>--out</code>, each with its SHA-256. Moving the page without the Study breaks them.</p></div>
 </div>
 </section>
 <footer><span>Hypotrail &middot; handbook</span><div class="pj"><span>ADRs in docs/adr</span><span>Vocabulary in GLOSSARY.md</span></div></footer>

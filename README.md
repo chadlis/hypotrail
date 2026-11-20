@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. There is no report yet. The handbook chapters give each capability in detail.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. `report` renders one self-contained HTML page for a Bike Study from its records alone (a page that shows `public_check` Items is an Exposure); the tool-using agent Track's report comes next. The handbook chapters give each capability in detail.
 
 ## Install
 
@@ -27,6 +27,7 @@ uv run python -m hypotrail import agent --study runs/chinook --source answers.js
 uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
 uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]   # two agent Assessments
+uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study; a Bike Study for now
 uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file in the Workload
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
 ```
@@ -38,7 +39,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
-- `src/hypotrail/` (`core/`, `agentic/`, `ml/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
+- `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.

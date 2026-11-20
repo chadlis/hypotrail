@@ -63,7 +63,7 @@ def _listed_artifacts(study: Path, manifest: dict) -> tuple[list, list]:
     return found, leftovers
 
 
-def _check_informed(study: Path) -> list:
+def check_informed(study: Path) -> list:
     """Every record that carries the `check_informed` mark: a revision, an Attempt, an Assessment or a Comparison."""
     marked = [
         {"kind": "revision", "id": each["revision"], "revision_number": revisions.revision_number(each)}
@@ -122,7 +122,7 @@ def status(study) -> dict:
         "attempts": attempts,
         "freeze_records": exposure.freeze_records(study),
         "exposures": exposure.summary(study),
-        "check_informed": _check_informed(study),
+        "check_informed": check_informed(study),
     }
 
 

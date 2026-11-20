@@ -3,7 +3,7 @@
 
 <p class="sub2">What the commands do</p>
 <div class="prose">
-<p>No new command exists. <code>assess</code> and <code>compare</code> do the work, in <code>src/hypotrail/ml/assess.py</code>, <code>src/hypotrail/agentic/assess.py</code>, <code>src/hypotrail/core/comparison.py</code> and <code>src/hypotrail/core/agent_comparison.py</code>; the freeze record, the journal and the marks are in <code>src/hypotrail/core/exposure.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Both commands take an optional <code>--examples-dir</code>, read only when the Items are <code>public_check</code> ones, to digest the Workload as it is declared now (default: the checkout's <code>examples/</code>, as chapter 04 says).</p>
+<p><code>assess</code>, <code>compare</code> and <code>report</code> (<a href="#report">chapter 14</a>) record Exposures; a report that shows <code>public_check</code> Items records one even with no Assessment. <code>assess</code> and <code>compare</code> do the work, in <code>src/hypotrail/ml/assess.py</code>, <code>src/hypotrail/agentic/assess.py</code>, <code>src/hypotrail/core/comparison.py</code> and <code>src/hypotrail/core/agent_comparison.py</code>; the freeze record, the journal and the marks are in <code>src/hypotrail/core/exposure.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). The three commands take an optional <code>--examples-dir</code>, read only when the Items are <code>public_check</code> ones, to digest the Workload as it is declared now (default: the checkout's <code>examples/</code>, as chapter 04 says).</p>
 <ol>
 <li>The usual checks run first (chapters 05, 07, 08 and 11). A refusal there writes nothing.</li>
 <li>For <code>public_check</code> Items, the Workload's Protocol is digested again and compared with the one the current revision froze. A difference is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and nothing is written: a Protocol change is made with <code>init --study DIR --new-revision</code> (<a href="#revisions-rescoring">chapter 10</a>).</li>
@@ -26,6 +26,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <div class="tblwrap"><table class="tbl" id="exposure-entry-points"><thead><tr><th>Entry point</th><th>In a Study</th><th>On <code>public_check</code></th><th>Refusal code without a Study</th></tr></thead><tbody>
 <tr data-entry="assess" data-study="yes" data-writes="journal" data-code=""><td><code>assess</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
 <tr data-entry="compare" data-study="yes" data-writes="journal" data-code=""><td><code>compare</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
+<tr data-entry="report" data-study="yes" data-writes="journal" data-code=""><td><code>report</code> (Bike)</td><td>yes</td><td>allowed; one journal entry when the page shows <code>public_check</code> Items</td><td>none</td></tr>
 <tr data-entry="run ml" data-study="yes" data-writes="" data-code=""><td><code>run ml</code></td><td>yes</td><td>allowed, not an Exposure: no score is computed</td><td>none</td></tr>
 <tr data-entry="metrics.compute_metrics" data-study="no" data-writes="" data-code="PUBLIC_CHECK_METRICS_REFUSED"><td><code>hypotrail.ml.metrics.compute_metrics</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code></td></tr>
 <tr data-entry="comparison.compare" data-study="no" data-writes="" data-code="PUBLIC_CHECK_COMPARISON_REFUSED"><td><code>hypotrail.ml.comparison.compare</code> (two predictions files)</td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
@@ -73,8 +74,8 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <tr data-field="comparison_ids"><td><code>comparison_ids</code></td><td>The Comparison written; empty for an Assessment</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="exposure-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
-<tr data-path="revisions/N/freeze.json" data-written-by="assess compare"><td><code>revisions/N/freeze.json</code></td><td>the first <code>assess</code> or <code>compare</code> on <code>public_check</code> Items under revision N</td><td>The freeze record. Written once.</td></tr>
-<tr data-path="exposures/SEQ-ENTRY_ID.json" data-written-by="assess compare"><td><code>exposures/SEQ-ENTRY_ID.json</code></td><td>every <code>assess</code> or <code>compare</code> on <code>public_check</code> Items</td><td>One journal entry. Never rewritten.</td></tr>
+<tr data-path="revisions/N/freeze.json" data-written-by="assess compare report"><td><code>revisions/N/freeze.json</code></td><td>the first <code>assess</code>, <code>compare</code> or <code>report</code> on <code>public_check</code> Items under revision N</td><td>The freeze record. Written once.</td></tr>
+<tr data-path="exposures/SEQ-ENTRY_ID.json" data-written-by="assess compare report"><td><code>exposures/SEQ-ENTRY_ID.json</code></td><td>every <code>assess</code>, <code>compare</code> or <code>report</code> on <code>public_check</code> Items</td><td>One journal entry. Never rewritten.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">check_informed</p>
@@ -114,7 +115,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--sky)"><h3>Not a proof of non-exposure</h3><p>No lock can prove that the user never read the public CSV elsewhere, and a new Study is not evidence that <code>public_check</code> was unseen. The journal records what this Study did.</p></div>
-<div class="card" style="--c:var(--violet)"><h3>No report, no live campaign</h3><p>The report's Exposure section, its display of <code>check_informed</code> and the live campaign on <code>public_check</code> are issue #10. No path here calls a model.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>A report for Bike Studies, no live campaign</h3><p>The report of a Bike Study has an Exposure section and shows the <code>check_informed</code> marks (<a href="#report">chapter 14</a>); the agent Track's report and the live campaign on <code>public_check</code> are later work. No path here calls a model.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A revision is not marked into its Assessments</h3><p>An Assessment made under a <code>check_informed</code> revision is not itself marked unless a Configuration marks it. The revision's own mark is in <code>status</code>.</p></div>
 <div class="card" style="--c:var(--coral)"><h3>Exposure before the score</h3><p>The entry is written before the Items are scored or paired, so a crash between the entry and the Assessment leaves an entry whose Assessment ID names no Assessment. The journal errs on the side of recording.</p></div>
 </div>

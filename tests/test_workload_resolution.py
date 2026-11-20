@@ -132,6 +132,11 @@ def _compare_agent(root):
     return ["compare", "--study", study, "--control", ids[0], "--candidate", ids[1]], None
 
 
+def _report(root):
+    study, _ = fresh_study(root, "seasonal_7", partition="public_check")  # its outputs are public_check Items: the page is an Exposure, which reads the Workload
+    return ["report", "--study", study, "--out", root / "page.html"], None
+
+
 def _spike_live(root):
     return ["spike", "live", "--config", "nonesuch", "--model", "anthropic/m", "--out", root / "out"], UNDECLARED
 
@@ -149,6 +154,7 @@ ROWS = {
     "assess (agent)": ("assess", _assess_agent),
     "compare (ml)": ("compare", _compare_ml),
     "compare (agent)": ("compare", _compare_agent),
+    "report": ("report", _report),
     "spike live": ("spike live", _spike_live),
 }
 
@@ -222,6 +228,17 @@ def test_an_editable_checkout_finds_its_examples_without_a_flag_and_the_flag_tak
     root2, argv2, _ = _setup(tmp_path / "second", name) if (tmp_path / "second").mkdir() is None else None
     named = _outcome(_run(installs["checkout"], [*argv2, "--examples-dir", installs["no_lock"]], cwd=root2 / "cwd"))
     assert named != default and named[0] != 0
+
+
+def test_a_report_of_dev_items_reads_no_workload_so_it_needs_no_flag_where_none_is_found(installs, tmp_path):
+    """D-016 and #85 Tightened H: `report` reads the Workload only to record an Exposure, so a page of `dev` Items works from any install."""
+    root = tmp_path / "work"
+    (root / "cwd").mkdir(parents=True)
+    study, _ = fresh_study(root, "seasonal_7")
+    argv = ["report", "--study", study, "--out", root / "page.html"]
+    code, payload = _run(installs["outside"], argv, cwd=root / "cwd")
+    assert (code, payload.get("ok")) == (0, True), payload
+    assert payload["report"]["exposure"]["recorded"] is False and (root / "page.html").is_file()
 
 
 # --- the parser and the list --------------------------------------------------------------------------------------------

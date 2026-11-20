@@ -243,6 +243,20 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--json", action="store_true", help="print one JSON object")
     recover.set_defaults(handler=_recover)
 
+    report = commands.add_parser(
+        "report", help="render one self-contained HTML page for a Study, from its records alone (a page that shows public_check Items is an Exposure)"
+    )
+    report.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to report")
+    report.add_argument("--out", required=True, type=Path, metavar="FILE", help="the page to write (an existing file is replaced; not inside the Study)")
+    report.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only when the page shows public_check Items, to freeze the Workload's digests",
+    )
+    report.add_argument("--json", action="store_true", help="print one JSON object")
+    report.set_defaults(handler=_report_command)
+
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
     live = spike_commands.add_parser(
@@ -510,6 +524,16 @@ def _compare(args) -> int:
     )
     _print_warnings(record["warnings"])
     _emit({"ok": True, "comparison": record}, args.json, human)
+    return EXIT_OK
+
+
+def _report_command(args) -> int:
+    from hypotrail.report import command
+
+    result = command.report(args.study, args.out, live_basis=_live_basis(args.examples_dir))
+    recorded = result["exposure"]
+    human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
+    _emit({"ok": True, "report": result}, args.json, human)
     return EXIT_OK
 
 

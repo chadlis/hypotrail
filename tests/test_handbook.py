@@ -708,6 +708,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
         "run agent": subparser(subparser(parser, "run"), "agent"),
         "import ml": subparser(subparser(parser, "import"), "ml"),
         "import agent": subparser(subparser(parser, "import"), "agent"),
+        "report": subparser(parser, "report"),
         "status": subparser(parser, "status"),
         "recover": subparser(parser, "recover"),
     }
@@ -1780,7 +1781,7 @@ def test_the_exposure_layout_table_equals_the_files_an_exposure_writes(page, tmp
         generic.add(re.sub(r"^exposures/[0-9]{6}-[0-9a-f-]{36}\.json$", "exposures/SEQ-ENTRY_ID.json", path))
     rows = attrs_of(page, "exposure-layout", "data-path")
     assert set(rows) == generic
-    assert all(set(row["data-written-by"].split()) == {"assess", "compare"} for row in rows.values())
+    assert all(set(row["data-written-by"].split()) == {"assess", "compare", "report"} for row in rows.values())
 
 
 def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code_each_refusal_has(page, tmp_path):
@@ -1800,7 +1801,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
         "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], workload=workload),
     }
     rows = attrs_of(page, "exposure-entry-points", "data-entry")
-    assert set(rows) == {"assess", "compare", "run ml", *calls}
+    assert set(rows) == {"assess", "compare", "report", "run ml", *calls}
     for entry, call in calls.items():
         assert rows[entry]["data-study"] == "no"
         with pytest.raises(HypotrailError) as refusal:
@@ -1811,6 +1812,9 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
     _, payload, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
     assert rows["assess"]["data-writes"] == "journal" and len(list((study / "exposures").glob("*.json"))) == 1
     assert rows["compare"]["data-writes"] == "journal" and rows["compare"]["data-study"] == rows["assess"]["data-study"] == "yes"
+    only_outputs, _ = fresh_study(tmp_path / "r", "seasonal_7", partition="public_check")  # `report` shows them: one entry, with no Assessment
+    assert run_json("report", "--study", only_outputs, "--out", tmp_path / "r.html")[0] == 0
+    assert rows["report"]["data-writes"] == "journal" and rows["report"]["data-study"] == "yes" and len(list((only_outputs / "exposures").glob("*.json"))) == 1
 
 
 def test_the_check_informed_table_equals_the_records_that_carry_the_mark_and_what_status_lists(page, tmp_path):
@@ -2380,3 +2384,64 @@ def test_the_readme_states_the_supported_install_and_that_any_other_install_pass
     readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
     assert "The supported install is a checkout with `uv sync`" in readme
     assert "any other install passes `--examples-dir`" in readme
+
+
+# --- chapter 14: the Study report (#85) ----------------------------------------------------------------------------------------
+
+
+def test_the_report_sections_table_equals_the_sections_the_code_renders_in_order(page):
+    from hypotrail.report import render
+
+    rows = attrs_of(page, "report-sections", "data-section")
+    ordered = sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))
+    assert [int(row["data-order"]) for _, row in ordered] == list(range(1, len(render.SECTIONS) + 1))
+    assert [(key, row["data-heading"]) for key, row in ordered] == list(render.SECTIONS)
+
+
+def test_the_report_denial_table_lists_the_one_sentence_the_code_writes_that_names_readiness_safety_and_independence(page):
+    from hypotrail.report import render
+
+    rows = table_rows(page, "report-denials", "data-denial")
+    assert [r["text"].strip() for r in rows.values()] == [render.DENIAL]
+
+
+def test_the_report_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _assess_helpers import fresh_study
+    from _chinook_helpers import init_chinook
+    from _report_helpers import report
+    from _study_helpers import examples_copy
+
+    from hypotrail.core import lock
+
+    out = tmp_path / "out.html"
+    dev, _ = fresh_study(tmp_path / "dev", "seasonal_7")
+    public, _ = fresh_study(tmp_path / "public", "seasonal_7", partition="public_check")
+    chinook, _ = init_chinook(tmp_path / "chinook")
+    tampered, _ = fresh_study(tmp_path / "tampered", "seasonal_7")
+    (tampered / "datasets" / "day.csv").write_bytes((tampered / "datasets" / "day.csv").read_bytes() + b"\n")
+    refusals = {
+        "STUDY_NOT_FOUND": [report(tmp_path / "nothing", out)],
+        "UNSUPPORTED_CAPABILITY": [report(chinook, out)],
+        "REPORT_OUTPUT_INVALID": [report(dev, dev / "r.html"), report(dev, tmp_path), report(dev, tmp_path / "no-folder" / "r.html")],
+        "ARTIFACT_INTEGRITY": [report(tampered, out)],
+        "PROTOCOL_CHANGED": [report(public, out, "--examples-dir", examples_copy(tmp_path, rows=lambda t: t[0].update(cnt=str(int(t[0]["cnt"]) + 1))))],
+    }
+    with lock.writer_lock(public):
+        refusals["STUDY_LOCKED"] = [report(public, out)]
+    rows = attrs_of(page, "report-refusals", "data-code")
+    assert set(rows) == set(refusals)
+    for code, cases in refusals.items():
+        for status, payload, _ in cases:
+            error, row = payload["error"], rows[code]
+            assert error["code"] == code
+            assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (status, error["stage"], set(error["details"])), code
+    assert {payload["error"]["details"]["reason"] for _, payload, _ in refusals["REPORT_OUTPUT_INVALID"]} == {"inside_study", "is_directory", "no_folder"}
+    assert not out.exists()
+
+
+def test_the_readme_and_chapters_05_and_12_say_a_report_exists():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "There is no report yet" not in readme and "hypotrail report --study runs/bike --out" in readme and "`report/`" in readme
+    for name in ("05-assessments.html", "12-freeze-and-exposure.html"):
+        text = (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
+        assert 'href="#report"' in text and "nothing summarises them yet" not in text and "are issue #10" not in text, name
