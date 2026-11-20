@@ -94,6 +94,9 @@ def native(study, attempt, *, mode="llm_live", configuration="plain", model="mod
     The manifest records what a native Attempt of this Track would: its Mode, its Configuration, its model, its tools,
     its limits and its planned Repeats.
     """
+    as_mode = mode
+    if assessed and mode == "scripted_fixture":
+        mode = "llm_live"  # `assess` refuses the Mode (#74); the side is recorded under its Mode after it is assessed (`reclassified`)
     source = Path(study) / "attempts" / attempt["attempt_id"]
     new_id = str(uuid.uuid4())
     folder = Path(study) / "attempts" / new_id
@@ -143,7 +146,35 @@ def native(study, attempt, *, mode="llm_live", configuration="plain", model="mod
         manifest["code_environment"] = {**manifest["code_environment"], **environment}
     contracts.validate(manifest)
     (folder / "attempt.json").write_bytes(canonical.dumps(manifest))
-    return manifest, assess(study, record["observation_set_id"]) if assessed else record["observation_set_id"]
+    if not assessed:
+        return manifest, record["observation_set_id"]
+    assessment = assess(study, record["observation_set_id"])
+    return reclassified(study, manifest, record, as_mode), assessment
+
+
+def reclassified(study, manifest, record, mode):
+    """The same Attempt recorded under another Mode, after it was assessed.
+
+    `assess` refuses an Observation set of the `scripted_fixture` Mode (#74, D-012 item 15), so a native side of that
+    Mode, which `compare` must still refuse next to a `llm_live` one, is an assessed side whose records say so afterwards.
+    """
+    if mode == manifest["mode"]:
+        return manifest
+    folder = Path(study) / "attempts" / manifest["attempt_id"]
+    record = {**record, "mode": mode}
+    (folder / "observation_set.json").write_bytes(canonical.dumps(record))
+    set_ref = artifacts.ref_of_existing(study, f"attempts/{manifest['attempt_id']}/observation_set.json", media_type="application/json", role="observation_set")
+    config = {**manifest["effective_config"], "mode": mode}
+    manifest = {
+        **manifest,
+        "mode": mode,
+        "effective_config": config,
+        "effective_config_digest": canonical.digest(config),
+        "output_refs": [r for r in manifest["output_refs"] if r["role"] != "observation_set"] + [set_ref],
+    }
+    contracts.validate(manifest)
+    (folder / "attempt.json").write_bytes(canonical.dumps(manifest))
+    return manifest
 
 
 def compare(study, control, candidate, *more):

@@ -199,6 +199,25 @@ def reasoning_in_request(model: Model) -> dict | None:
     return model.api.completion_config(config)[0].get("thinking")
 
 
+def effective_parameters(log) -> dict:
+    """The request parameters the log records for the reasoning setting and the output cap, each None where it records none.
+
+    `reasoning` is the `thinking` field and `output_cap` the `max_tokens` of the first model request, as sent. A log that
+    keeps no request (Inspect's mock model) shows neither, and nothing is filled in.
+    """
+    parameters = request_parameters(log) or {}
+    return {"reasoning": parameters.get("thinking"), "output_cap": parameters.get("max_tokens")}
+
+
+def tool_names(log) -> list[str] | None:
+    """The names of the tools the first model request offered, sorted, as the log records them; None when it records none."""
+    for sample in log.samples or []:
+        for event in sample.events or []:
+            if event.event == "model" and event.tools:
+                return sorted(tool.name for tool in event.tools)
+    return None
+
+
 TOKEN_FIELDS = ("input_tokens", "output_tokens", "input_tokens_cache_write", "input_tokens_cache_read", "total_tokens")
 
 
@@ -303,6 +322,24 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def prepared_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) -> Model:
+    """The live model of a run, once its request is known to state the reasoning setting (nothing is sent to check it).
+
+    The one place a run takes its model from: `run_live` (`spike live`) and `run agent` both call it, so a test that
+    runs the same code with Inspect's mock model replaces this function and nothing else.
+    """
+    model = live_model(model_id, api_key, base_url)
+    if reasoning_in_request(model) is None:
+        raise InvalidInputError(
+            "REASONING_NOT_EXPLICIT",
+            f"the request for {model_id} would not state the reasoning setting; "
+            "a live run needs it explicit, so nothing was sent",
+            stage="live",
+            details={"model": model_id},
+        )
+    return model
+
+
 def run_live(
     *,
     model_id: str,
@@ -315,15 +352,7 @@ def run_live(
     configuration: str,
 ) -> dict:
     out_dir = Path(out_dir)
-    model = live_model(model_id, api_key, base_url)
-    if reasoning_in_request(model) is None:
-        raise InvalidInputError(
-            "REASONING_NOT_EXPLICIT",
-            f"the request for {model_id} would not state the reasoning setting; "
-            "a live run needs it explicit, so nothing was sent",
-            stage="live",
-            details={"model": model_id},
-        )
+    model = prepared_model(model_id, api_key, base_url)
     load_workload(workload_dir).cases_path("dev")  # a Workload without `dev` is refused before anything is written
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
@@ -356,6 +385,15 @@ def run_live(
         )
 
     return _scanned(out_dir, api_key, work)
+
+
+def record_execution(*, location: str, out_dir: Path, limits: limits_module.EpisodeLimits, database_sha256: dict) -> dict:
+    """The run record of an execution made by this process: `run.json` and `projection.json` written in `out_dir`.
+
+    The limits are this Attempt's own request (`request_source` is `this_attempt`); `database_sha256` is what the
+    caller hashed before and after the run.
+    """
+    return _record(request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256)
 
 
 def summarize(

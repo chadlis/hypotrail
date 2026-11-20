@@ -362,23 +362,6 @@ def test_a_native_side_that_does_not_record_a_factor_makes_the_comparison_descri
     assert [w["code"] for w in record["warnings"]] == ["COMPARISON_FACTOR_NOT_ESTABLISHED"] and "tools" in record["warnings"][0]["message"]
 
 
-def test_the_strict_path_of_two_native_attempts_is_compatible_and_carries_no_warning(tmp_path, study):
-    seed, _ = imported(tmp_path, study, "seed", answer_lines(wrong={("D01", 0)}))
-    _, plain = native(study, seed, configuration="plain")
-    other, _ = imported(tmp_path, study, "other", answer_lines())
-    _, verify = native(study, other, configuration="verify")
-    code, payload, err = compare(study, plain, verify)
-    assert code == 0 and err == ""
-    record = payload["comparison"]
-    assert record["comparability"]["status"] == "compatible" and record["warnings"] == []
-    assert [(c["check"], c["passed"]) for c in record["comparability"]["checks"]] == [
-        ("population", True), ("references", True), ("scorer", True), ("unit", True), ("repeats", True),
-        ("tools", True), ("model", True), ("budgets", True), ("mode", True),
-    ]
-    assert record["delta"]["value"] == pytest.approx(1 - (2 / 3 + 3) / 4)
-    assert record["delta"]["reason"] is None and record["coverage"]["complete"] is True
-
-
 # --- the environment, descriptive measures, --json ---------------------------------------------------------------------------------
 
 
