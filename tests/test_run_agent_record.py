@@ -552,6 +552,26 @@ def test_the_failed_manifest_of_run_agent_and_the_whole_study_never_hold_a_forei
     assert holds_the_key(study) == [] and FAKE_KEY not in out + err
 
 
+def test_a_key_in_a_hypotrail_errors_message_ends_the_attempt_failed_with_secret_in_output_and_no_message_text(tmp_path, monkeypatch):
+    """R5-02, #74 U4 « the terminal manifests included, is scanned »: the failed manifest is scanned like the others, and a hit is the Reason, not left `running`."""
+    examples = chinook_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, name="failing", examples=examples)
+    patch_model(monkeypatch)
+
+    def fails(*args, **kwargs):
+        raise HypotrailError("DATABASE_CHANGED", f"changed {FAKE_KEY}", stage="run")
+
+    monkeypatch.setattr(runner, "run_episodes", fails)
+    exit_code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "boom", "--partition", "dev",
+                                  "--repeats", "1", "--model", MODEL, "--cases", "D03", "--json", "--examples-dir", examples)
+    assert exit_code == EXIT_INFRASTRUCTURE and json.loads(out)["error"]["code"] == "SECRET_IN_OUTPUT"
+    (folder,) = (study / "attempts").iterdir()
+    manifest = json.loads((folder / "attempt.json").read_text())
+    contracts.validate(manifest)
+    assert manifest["technical_status"] == "failed" and manifest["reason"].startswith("SECRET_IN_OUTPUT")
+    assert "changed" not in manifest["reason"] and holds_the_key(study) == [] and FAKE_KEY not in out + err
+
+
 def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):
     """The run record is written after the log scan: the scan before each write is its own guard."""
     study = study_of(tmp_path)

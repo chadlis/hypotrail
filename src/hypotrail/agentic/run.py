@@ -307,6 +307,8 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
         writes.replace(manifest_path, canonical.dumps(terminal))
     except Exception as error:
         coded = coded_error(error)  # a foreign exception by its type only: the failed manifest and the raised error say the same
+        if api_key and api_key in f"{coded.code}: {coded.message}":  # the Reason is the failed manifest's one new text: scanned like every file
+            coded = leak([manifest_path])  # a hit is the Reason, with no message text of the error
         record_failure(study, manifest_path, manifest, coded)
         # the Study is scanned whether or not the Attempt failed (#74): what the scan finds travels with the error
         coded.details["warnings"] = _warnings_of(study, api_key)
