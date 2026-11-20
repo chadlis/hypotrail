@@ -19,13 +19,14 @@ from _run_agent_helpers import (
     live_args,
     ok,
     patch_model,
+    read,
     refuse_provider,
     scripted,
     study_of,
     tree,
     tree_without_lock,
 )
-from _study_helpers import init_study, run_cli
+from _study_helpers import ROOT, init_study, run_cli
 from test_study_lock import held_by_another_process
 
 from hypotrail import cli
@@ -283,3 +284,29 @@ def test_the_generic_run_agent_module_docstring_names_no_workload():
     from hypotrail.agentic import run
 
     assert "chinook" not in run.__doc__.lower()
+
+
+# --- The first paid live call of #80 ----------------------------------------------------------------------------------------------
+
+
+def test_the_exact_live_command_of_slice_80_from_the_repository_root_with_the_provider_patched_exits_0_with_a_completed_attempt_of_2_episodes(
+    tmp_path, monkeypatch
+):
+    """The command of the first paid live call (#80), argument for argument, from the repository root: nothing reaches a provider."""
+    import json
+
+    monkeypatch.chdir(ROOT)
+    study = study_of(tmp_path, name="live-check")
+    patch_model(monkeypatch)  # the fake key in HYPOTRAIL_ANTHROPIC_API_KEY, and `prepared_model` patched
+    code, out, err = run_cli(
+        *("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--partition", "dev"),
+        *("--cases", "D03", "--cases", "D05", "--repeats", "1", "--model", "anthropic/claude-sonnet-5-5"),
+        *("--request-id", "live-check-1", "--json"),
+    )
+    assert code == 0, (out, err)
+    payload = json.loads(out)
+    attempt = payload["attempt"]
+    assert payload["ok"] is True and attempt["mode"] == "llm_live" and attempt["technical_status"] == "completed"
+    record = read(study, attempt, "run.json")
+    assert [(e["case_id"], e["repeat"]) for e in record["episodes"]] == [("D03", 0), ("D05", 0)]
+    assert FAKE_KEY not in out + err
