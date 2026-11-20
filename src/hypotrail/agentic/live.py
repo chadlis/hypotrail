@@ -481,7 +481,6 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
     # `request` is what its caller names: this run's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
     by_the_run = request.source is RequestSource.THIS_ATTEMPT
-    turns = effective["model_turns"]
     reasoning_effort = _reasoning_effort(log)
 
     record = {

@@ -2023,6 +2023,13 @@ def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_ev
     assert "The model the log reports." not in text and "mockllm/model in every test" not in text
 
 
+def test_chapter_13_says_both_models_are_always_recorded_and_a_provider_prefix_alone_is_no_difference():
+    """R2-03, D-012 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
+    text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert "are always recorded side by side" in text and "a provider prefix alone is not a difference" in text
+    assert "when they differ, both are shown" not in text
+
+
 def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_to_llm_live(page):
     from hypotrail.agentic import run
     from hypotrail.cli import build_parser

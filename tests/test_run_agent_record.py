@@ -108,6 +108,21 @@ def test_the_served_model_is_the_one_the_episodes_outputs_report_not_the_name_th
     assert observation_set["provenance"]["served_model"] == "claude-served-0001"
 
 
+def test_a_provider_prefix_alone_is_no_difference_and_both_names_are_recorded_as_given(tmp_path, monkeypatch):
+    """R2-03, D-012 item 11: the shape of the kept traces (requested `anthropic/claude-sonnet-5-5`, outputs `claude-sonnet-5-5`) records both as given."""
+    study = study_of(tmp_path)
+    script = scripted()
+
+    def serving_the_name_without_its_prefix(*args, **kwargs):
+        output = script(*args, **kwargs)
+        output.model = "claude-sonnet-5-5"
+        return output
+
+    patch_model(monkeypatch, serving_the_name_without_its_prefix)
+    config = ok(live(study, "plain", "prefix", cases=["D03"], model="anthropic/claude-sonnet-5-5"))["effective_config"]
+    assert config["model"] == "anthropic/claude-sonnet-5-5" and config["served_model"] == "claude-sonnet-5-5"
+
+
 def test_the_configuration_is_its_id_its_declared_content_and_its_resolved_system_text_and_its_digest_is_the_freeze_digest(recorded):
     study, attempt, _ = recorded
     configuration = attempt["effective_config"]["configuration"]
