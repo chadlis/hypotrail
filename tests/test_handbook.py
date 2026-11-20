@@ -1663,7 +1663,8 @@ def test_the_agent_comparison_chapter_names_the_delta_reason_and_the_status_code
 
 def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "compare` on two Chinook Assessments" in readme or "Chinook Comparison" in readme
+    # R1-02: the README stays short; the agent Comparison's detail is in chapter 07.
+    assert "`compare`" in readme and "of either Track" in readme
     chapter = (HANDBOOK / "chapters" / "07-comparison.html").read_text(encoding="utf-8")
     assert "Agent Comparisons, the alignment by Case and Repeat" not in chapter
     assert 'href="#agent-comparison"' in chapter

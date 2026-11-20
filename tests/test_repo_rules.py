@@ -36,3 +36,10 @@ def test_the_comparison_definition_is_unchanged_and_the_agent_rule_is_a_dated_li
     at = lines.index("**Comparison**:")
     assert lines[at + 1] == "Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate."
     assert lines[at + 2].startswith("Clarification, 2026-11-20: ")
+
+
+def test_the_readme_status_stays_short():
+    # R1-02, AGENTS.md: keep README.md short; the detail belongs in the handbook.
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    status = text.split("## Status\n", 1)[1].split("\n## ", 1)[0]
+    assert len(status.split()) <= 200
