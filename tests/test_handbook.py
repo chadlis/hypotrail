@@ -2124,6 +2124,9 @@ def run_agent_refusals(tmp_path, monkeypatch):
     patch_model(monkeypatch, answering_with(FAKE_KEY))
     leaky, _ = init_chinook(tmp_path, name="leaky")
     record("secret-in-output", live(leaky, "plain", "r"))
+    early, _ = init_chinook(tmp_path, name="early")
+    patch_model(monkeypatch)
+    record("secret-in-output-before-running", live(early, "plain", FAKE_KEY))
     assert first["technical_status"] == "completed"
     return found
 
@@ -2138,6 +2141,14 @@ def test_the_run_agent_refusal_table_equals_the_code_exit_stage_and_details_of_e
         assert int(row["data-exit"]) == exit_code, case
         assert row["data-stage"] == stage, case
         assert words(row["data-details"]) == details, case
+
+
+def test_the_run_agent_refusal_table_shows_in_its_details_cell_the_keys_of_its_data_details(page):
+    """R4-03, ADR 0003: the table and its attributes agree, so a `warnings` key of the attributes is a word of the visible cell."""
+    for row in parse(page).tables["run-agent-codes"]:
+        if "data-case" in row["attrs"]:
+            visible = words(re.sub(r"[,\s]+", " ", row["cells"][-1]["text"]).strip()) - {"none"}  # « none » is how an empty cell reads
+            assert visible == words(row["attrs"]["data-details"]), row["attrs"]["data-case"]
 
 
 @pytest.fixture
