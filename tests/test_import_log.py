@@ -420,3 +420,44 @@ def test_the_same_request_id_with_another_log_or_population_is_request_conflict_
         EXIT_LOCK_OR_CONFLICT, "REQUEST_CONFLICT", first["attempt"]["attempt_id"], ["input_digests"],
     )
     assert snapshot(study) == before
+
+
+# --- R1-10 (#69, ENV-02): only the supported Inspect version, installed and written in the log -------------------------------
+
+
+def test_the_supported_inspect_version_is_the_one_pyproject_pins():
+    import tomllib
+
+    from hypotrail.agentic.imports import SUPPORTED_INSPECT
+
+    pinned = tomllib.loads((Path(__file__).resolve().parent.parent / "pyproject.toml").read_text())["project"]["optional-dependencies"]["agent"]
+    assert f"inspect-ai=={SUPPORTED_INSPECT}" in pinned
+
+
+def test_an_installed_inspect_other_than_the_supported_one_refuses_a_log_import_with_exit_5_and_writes_nothing(tmp_path, study, monkeypatch):
+    from importlib import metadata
+
+    log = scripted_log(tmp_path, ("D01",))
+    before = snapshot(study)
+    real = metadata.version
+    monkeypatch.setattr(metadata, "version", lambda name: "0.0.1" if name == "inspect-ai" else real(name))
+    code, payload, _ = import_agent(study, log, episodes_file(tmp_path, keys("D01")), "log")
+    assert code == 5 and payload["error"]["code"] == "INSPECT_UNAVAILABLE"
+    assert payload["error"]["details"] == {"package": "inspect-ai", "installed": "0.0.1", "supported": "0.3.287"}
+    assert snapshot(study) == before
+
+
+def test_a_log_written_by_another_inspect_version_is_refused_and_nothing_is_written(tmp_path, study):
+    from inspect_ai.log import read_eval_log, write_eval_log
+
+    log = scripted_log(tmp_path, ("D01",))
+    loaded = read_eval_log(str(log))
+    loaded.eval.packages = {"inspect_ai": "0.3.1"}
+    other = tmp_path / "other-version.eval"
+    write_eval_log(loaded, str(other))
+    before = snapshot(study)
+    code, payload, _ = import_agent(study, other, episodes_file(tmp_path, keys("D01")), "log")
+    error = payload["error"]
+    assert (code, error["code"], error["stage"]) == (2, "LOG_INSPECT_VERSION_UNSUPPORTED", "import")
+    assert error["details"]["log_inspect_version"] == "0.3.1" and error["details"]["supported"] == "0.3.287"
+    assert snapshot(study) == before

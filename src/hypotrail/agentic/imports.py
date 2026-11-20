@@ -39,6 +39,7 @@ independently.
 
 import json
 import uuid
+from importlib import metadata
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
@@ -56,6 +57,8 @@ DECLARED = "declared"
 POPULATION_KEY = "episodes"
 LOG_SUFFIX = ".eval"  # a source with this extension is an Inspect log; any other source is JSON Lines
 INSPECT_UNAVAILABLE = "INSPECT_UNAVAILABLE"
+LOG_VERSION_UNSUPPORTED = "LOG_INSPECT_VERSION_UNSUPPORTED"
+SUPPORTED_INSPECT = "0.3.287"  # the Inspect version `pyproject.toml` pins (a test keeps the two equal): installed and written by the log
 OBSERVATIONS_NAME = "observations.jsonl"
 SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
 SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
@@ -183,6 +186,15 @@ def _require_inspect() -> None:
             details={"package": "inspect-ai"},
             exit_code=EXIT_CAPABILITY_UNAVAILABLE,
         ) from None
+    installed = metadata.version("inspect-ai")
+    if installed != SUPPORTED_INSPECT:
+        raise HypotrailError(
+            INSPECT_UNAVAILABLE,
+            f"importing an Inspect log needs the supported Inspect {SUPPORTED_INSPECT}; {installed} is installed",
+            stage=STAGE,
+            details={"package": "inspect-ai", "installed": installed, "supported": SUPPORTED_INSPECT},
+            exit_code=EXIT_CAPABILITY_UNAVAILABLE,
+        )
 
 
 def _stated(value) -> str:
@@ -190,10 +202,17 @@ def _stated(value) -> str:
 
 
 def _log_identity(source) -> tuple:
-    """(model, Configuration) the log header declares, or `unknown`: used to identify a request, never to accept an input."""
+    """(model, Configuration) the log header declares, or `unknown`, once its Inspect version is the supported one (else refused)."""
     from hypotrail.agentic import inspect_log
 
     header = inspect_log.header_of(inspect_log.read(source, header_only=True))
+    if header["inspect_version"] != SUPPORTED_INSPECT:
+        raise InvalidInputError(
+            LOG_VERSION_UNSUPPORTED,
+            f"the log was written by Inspect {_stated(header['inspect_version'])}; only logs of the supported Inspect {SUPPORTED_INSPECT} are imported",
+            stage=STAGE,
+            details={"source": str(source), "log_inspect_version": header["inspect_version"], "supported": SUPPORTED_INSPECT},
+        )
     return _stated(header["model"]), _stated(header["configuration"])
 
 

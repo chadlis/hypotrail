@@ -50,6 +50,12 @@ def agent_log_import_refusals(tmp_path, monkeypatch):
     junk = Path(tmp_path) / "junk.eval"
     junk.write_bytes(b"not a log")
     record(import_agent(study, junk, episodes_file(tmp_path, [("D01", 0)]), "r"))
+    from inspect_ai.log import write_eval_log
+
+    other_version = read_eval_log(str(log))
+    other_version.eval.packages = {"inspect_ai": "0.3.1"}
+    write_eval_log(other_version, str(Path(tmp_path) / "other-version.eval"))
+    record(import_agent(study, Path(tmp_path) / "other-version.eval", episodes_file(tmp_path, [("D01", 0)]), "r"))
     with monkeypatch.context() as patch:
         patch.setitem(sys.modules, "inspect_ai", None)
         record(import_agent(study, log, episodes_file(tmp_path, [("D01", 0)]), "r"))
