@@ -21,6 +21,7 @@ from _run_agent_helpers import (
     fixture,
     folder_of,
     live,
+    live_args,
     observation_set_id_of,
     observations_of,
     ok,
@@ -121,6 +122,25 @@ def test_a_provider_prefix_alone_is_no_difference_and_both_names_are_recorded_as
     patch_model(monkeypatch, serving_the_name_without_its_prefix)
     config = ok(live(study, "plain", "prefix", cases=["D03"], model="anthropic/claude-sonnet-5-5"))["effective_config"]
     assert config["model"] == "anthropic/claude-sonnet-5-5" and config["served_model"] == "claude-sonnet-5-5"
+
+
+def test_the_human_output_of_run_agent_shows_the_model_and_the_served_model_of_the_attempt_as_recorded(tmp_path, monkeypatch):
+    """R3-02, D-012 item 11 and addendum 3: both names are displayed as given, with no computed flag, in the output without `--json`."""
+    study = study_of(tmp_path)
+    script = scripted()
+
+    def serving_the_name_without_its_prefix(*args, **kwargs):
+        output = script(*args, **kwargs)
+        output.model = "claude-sonnet-5-5"
+        return output
+
+    patch_model(monkeypatch, serving_the_name_without_its_prefix)
+    code, out, _ = run_cli("run", "agent", "--study", study, *live_args("plain", "human", cases=["D03"], model="anthropic/claude-sonnet-5-5"))
+    assert code == 0, out
+    assert "model anthropic/claude-sonnet-5-5" in out and "served_model claude-sonnet-5-5" in out
+    assert "differ" not in out.lower()
+    code, out, _ = run_cli("run", "agent", "--study", study, *live_args("plain", "human", cases=["D03"], model="anthropic/claude-sonnet-5-5"))
+    assert "model anthropic/claude-sonnet-5-5" in out and "served_model claude-sonnet-5-5" in out  # a replay shows them too
 
 
 def test_the_configuration_is_its_id_its_declared_content_and_its_resolved_system_text_and_its_digest_is_the_freeze_digest(recorded):

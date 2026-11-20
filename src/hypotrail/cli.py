@@ -387,6 +387,7 @@ def _run_agent(args) -> int:
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"
+        f" (model {manifest['effective_config']['model']}, served_model {manifest['effective_config']['served_model']})"  # both, as recorded
         + (f" ({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
         + (" (recorded earlier: nothing was run again)" if replayed else "")
     )

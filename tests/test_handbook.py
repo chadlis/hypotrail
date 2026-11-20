@@ -2028,6 +2028,7 @@ def test_chapter_13_says_both_models_are_always_recorded_and_a_provider_prefix_a
     text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
     assert "are always recorded side by side" in text and "a provider prefix alone is not a difference" in text
     assert "when they differ, both are shown" not in text
+    assert "The output without --json shows both names on its first line, as recorded" in text and "computes no flag from them" in text  # R3-02
 
 
 def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_to_llm_live(page):
