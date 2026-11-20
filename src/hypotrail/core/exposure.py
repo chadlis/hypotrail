@@ -39,7 +39,7 @@ from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, environment
 from hypotrail.core import study as layout
-from hypotrail.core.errors import IntegrityError
+from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 STAGE = "exposure"
 FREEZE_NAME = "freeze.json"
@@ -134,8 +134,16 @@ def checked_basis(spec: dict, live_basis) -> dict:
     (`{"protocol_digest", "configuration_digests"}`, the Track's `freeze_basis` applied to the Workload). It is
     called only here, so a command that never records an Exposure never reads the Workload for it.
 
-    Refuses with `PROTOCOL_CHANGED` (exit 3) when that Protocol is not the revision's: nothing has been written.
+    Refuses with `WORKLOAD_BASIS_REQUIRED` (exit 2) when no `live_basis` was given: an Exposure cannot be recorded
+    without the Workload's digests, and nothing has been written. Refuses with `PROTOCOL_CHANGED` (exit 3) when that Protocol is not the revision's: nothing has been written.
     """
+    if live_basis is None:
+        raise InvalidInputError(
+            "WORKLOAD_BASIS_REQUIRED",
+            "a Comparison of public_check Items is an Exposure, which freezes the Workload's digests: the caller gave no way to read the Workload",
+            stage=STAGE,
+            details={},
+        )
     live = live_basis()
     if live["protocol_digest"] != spec["protocol_digest"]:
         raise IntegrityError(

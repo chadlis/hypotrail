@@ -405,15 +405,12 @@ def _live_basis(study, examples_dir):
     """What `compare` hands the core to freeze a Workload on an Exposure: the Study's Track reads it, the core imports no Track."""
     from hypotrail.core import study as layout
 
-    def basis() -> dict:
-        spec = layout.read_spec(study)
-        if spec["domain"] == "agentic":
-            from hypotrail.agentic import study as track
-        else:
-            from hypotrail.ml import study as track
-        return track.live_basis(spec, examples_dir)()
-
-    return basis
+    spec = layout.read_spec(study)
+    if spec["domain"] == "agentic":
+        from hypotrail.agentic import study as track
+    else:
+        from hypotrail.ml import study as track
+    return track.live_basis(spec, examples_dir)
 
 
 def _compare(args) -> int:

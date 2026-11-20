@@ -463,3 +463,14 @@ def observation_set_of_attempt(study, attempt):
 
 def references_of(study):
     return next(e["artifact_id"] for e in spec_of(study)["artifacts"] if e["ref"]["role"] == "references")
+
+
+def test_a_library_comparison_of_public_check_items_without_a_workload_basis_is_refused_with_a_code_and_writes_nothing(tmp_path):
+    from hypotrail.core import comparison
+
+    study, _, assessments = bike_exposed(tmp_path, "seasonal_7", "ridge_v1")
+    before = snapshot_files(study)
+    with pytest.raises(HypotrailError) as refusal:
+        comparison.compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"])
+    assert (refusal.value.code, refusal.value.stage) == ("WORKLOAD_BASIS_REQUIRED", "exposure")
+    assert snapshot_files(study) == before
