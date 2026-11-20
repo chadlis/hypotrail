@@ -365,18 +365,23 @@ def _run_ml(args) -> int:
 def _run_agent(args) -> int:
     from hypotrail.agentic import run
 
-    manifest, replayed, warnings = run.run_agent(
-        args.study,
-        mode=args.mode,
-        config=args.config,
-        request_id=args.request_id,
-        partition=args.partition,
-        repeats=args.repeats,
-        model=args.model,
-        cases=args.cases,
-        retry_of=args.retry_of,
-        examples_dir=args.examples_dir,
-    )
+    try:
+        manifest, replayed, warnings = run.run_agent(
+            args.study,
+            mode=args.mode,
+            config=args.config,
+            request_id=args.request_id,
+            partition=args.partition,
+            repeats=args.repeats,
+            model=args.model,
+            cases=args.cases,
+            retry_of=args.retry_of,
+            examples_dir=args.examples_dir,
+        )
+    except Exception as error:
+        for warning in getattr(error, "scan_warnings", []):  # the scan of the Study after a failed run
+            print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
+        raise
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"

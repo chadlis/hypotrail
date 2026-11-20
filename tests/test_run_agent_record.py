@@ -390,6 +390,30 @@ def test_a_key_found_elsewhere_in_the_study_is_a_warning_that_changes_no_recorde
     assert code == 0 and json.loads(out)["replayed"] is True and json.loads(out)["warnings"] == [] and "notes.txt" not in err
 
 
+def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_run_too_and_a_hit_elsewhere_is_a_warning_on_the_error(tmp_path, monkeypatch):
+    """#74: « the Study folder is scanned for the key after an `llm_live` run, whether or not the run failed »."""
+    examples = chinook_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, name="failing", examples=examples)
+    patch_model(monkeypatch)
+    (study / "notes.txt").write_text(f"my key is {FAKE_KEY}\n", encoding="utf-8")
+    real = runner.run_episodes
+
+    def changes_the_database(*args, **kwargs):
+        location = real(*args, **kwargs)
+        database = kwargs["workload"].database_path
+        database.write_bytes(database.read_bytes() + b"\0")
+        return location
+
+    monkeypatch.setattr(runner, "run_episodes", changes_the_database)
+    code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "bad", "--partition", "dev",
+                             "--repeats", "1", "--model", MODEL, "--cases", "D03", "--json", "--examples-dir", examples)
+    assert code == EXIT_INTEGRITY_REFUSED
+    error = json.loads(out)["error"]
+    assert error["code"] == "DATABASE_CHANGED"
+    assert [w["file"] for w in error["details"]["warnings"]] == ["notes.txt"] and "SECRET_IN_STUDY" in err and "notes.txt" in err
+    assert FAKE_KEY not in out + err
+
+
 def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):
     """The run record is written after the log scan: the scan before each write is its own guard."""
     study = study_of(tmp_path)

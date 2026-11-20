@@ -30,8 +30,8 @@ The order is fixed, and nothing is run before the checks that precede it (chadli
 
 An `llm_live` Attempt never keeps the key. Every file the Attempt writes, its manifests included, is scanned for it
 before it is written (`SECRET_IN_OUTPUT`, exit 4): a hit before the `running` manifest writes nothing, a later hit
-ends the Attempt `failed`. After the run the whole Study folder is scanned, and a hit elsewhere is a warning that
-changes no recorded Attempt.
+ends the Attempt `failed`. After the run, failed or not, the whole Study folder is scanned, and a hit elsewhere is a warning that
+changes no recorded Attempt (after a failed run it is on stderr and in the error's `details.warnings`).
 
 An Attempt stopped between the running manifest and the terminal one keeps what it published and is never shown as
 completed; `recover` records it `interrupted`, with `outcome_unknown: true` for `llm_live`.
@@ -305,6 +305,10 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
         writes.replace(manifest_path, canonical.dumps(terminal))
     except Exception as error:
         record_failure(study, manifest_path, manifest, error)
+        # the scan of the Study is made whether or not the run failed (#74): what it finds travels with the error
+        error.scan_warnings = _warnings_of(study, api_key)
+        if isinstance(error, HypotrailError) and error.scan_warnings:
+            error.details["warnings"] = error.scan_warnings
         raise
     return terminal, False, _warnings_of(study, api_key)
 
