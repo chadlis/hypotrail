@@ -22,7 +22,7 @@ from _chinook_helpers import (
     spec_of,
     write_lines,
 )
-from _study_helpers import run_json, sha256
+from _study_helpers import EXAMPLES, run_json, sha256
 
 from hypotrail.core import canonical, contracts, scorers
 from hypotrail.core.chinook_contract import CRITERIA, SCORER_VERSION
@@ -360,40 +360,64 @@ def test_the_human_line_names_the_primary_criterion_and_its_counters(tmp_path):
     assert code == 0 and "contract_success" in out and "2 correct of 4 expected Episodes" in out and err == ""
 
 
-def test_import_and_assess_succeed_without_the_database_the_model_the_tools_or_inspect(tmp_path):
+_AC7_CHILD = textwrap.dedent(
+    r"""
+    import builtins, io, json, os, pathlib, socket, sqlite3, sys
+    BLOCKED = ("inspect_ai", "sklearn", "numpy", "scipy", "pandas", "anthropic", "openai")
+    for name in BLOCKED:
+        sys.modules[name] = None
+    a = sys.argv[1:]
+    mode = a[4]
+    targets = {(pathlib.Path(a[3]) / "chinook/data/Chinook_Sqlite.sqlite").resolve(), pathlib.Path(a[5]).resolve()}
+    assert all(t.exists() for t in targets), targets
+    used, net = [], []
+    def is_target(f):
+        if isinstance(f, int): return False
+        try: return pathlib.Path(os.fsdecode(f).removeprefix("file:").split("?")[0]).resolve() in targets
+        except (TypeError, ValueError): return False
+    class Used(BaseException): pass
+    def guarded(name, real):
+        def w(f, *x, **k):
+            if is_target(f):
+                used.append(name); raise Used(name)
+            return real(f, *x, **k)
+        return w
+    io.open = guarded("io.open", io.open); builtins.open = guarded("open", builtins.open)
+    os.open = guarded("os.open", os.open); sqlite3.connect = guarded("sqlite3.connect", sqlite3.connect)
+    def blocked(name):
+        def b(*x, **k):
+            net.append(name); raise OSError("network " + name)
+        return b
+    socket.socket.connect = blocked("connect"); socket.socket.connect_ex = blocked("connect_ex"); socket.getaddrinfo = blocked("getaddrinfo")
+    from hypotrail import cli
+    assert cli.main(["import", "agent", "--study", a[0], "--source", a[1], "--population", a[2], "--request-id", "x", "--examples-dir", a[3], "--json"]) == 0
+    folder = next((pathlib.Path(a[0]) / "attempts").iterdir())
+    osid = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
+    spec = json.loads((pathlib.Path(a[0]) / "study.json").read_text())
+    ref = next(e["artifact_id"] for e in spec["artifacts"] if e["ref"]["role"] == "references")
+    extra = [] if mode == "default-examples" else ["--examples-dir", a[3]]
+    assert cli.main(["assess", "--study", a[0], "--observations", osid, "--scorer", "chinook_contract_v1", "--references", ref, "--json", *extra]) == 0
+    loaded = sorted(m for m in sys.modules if sys.modules[m] is not None and m.split(".")[0] in BLOCKED)
+    agentic = sorted(m for m in sys.modules if m in ("hypotrail.agentic.sql_tool", "hypotrail.agentic.runner", "hypotrail.agentic.projection", "hypotrail.agentic.live"))
+    print("LOADED", loaded, agentic, used, net)
+    """
+)
+
+
+@pytest.mark.parametrize("mode", ["with-examples", "default-examples"])
+def test_ac7_import_agent_and_assess_succeed_with_every_condition_at_once(tmp_path, mode):
+    """#68 AC7 (R4-02, R5-01): in a fresh interpreter Inspect and the providers are not importable, the network is patched
+    (a child does not inherit the conftest guard) and every use (`open`, `io.open`, `os.open`, `sqlite3.connect`) of the
+    Study-side and of the repository's Chinook file raises, both files being present through `import agent` and `assess`.
+    Both succeed, load no blocked module and none of the model or tool modules, and record zero uses and zero network attempts."""
     examples = chinook_examples(tmp_path)
     study = init_chinook(tmp_path, examples=examples)[0]
     population = fixture_population(tmp_path)
-    script = textwrap.dedent(
-        """
-        import json, pathlib, sqlite3, sys
-        BLOCKED = ("inspect_ai", "sklearn", "numpy", "scipy", "pandas", "anthropic", "openai")
-        for name in BLOCKED:
-            sys.modules[name] = None  # importing any of them now raises ImportError
-        used = []
-        def never(*args, **kwargs):
-            used.append("sqlite3.connect")
-            raise AssertionError("the database was opened")
-        sqlite3.connect = never
-        from hypotrail import cli
-        a = sys.argv[1:]
-        assert cli.main(["import", "agent", "--study", a[0], "--source", a[1], "--population", a[2], "--request-id", "x", "--examples-dir", a[3], "--json"]) == 0
-        folder = next((pathlib.Path(a[0]) / "attempts").iterdir())
-        osid = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
-        spec = json.loads((pathlib.Path(a[0]) / "study.json").read_text())
-        ref = next(e["artifact_id"] for e in spec["artifacts"] if e["ref"]["role"] == "references")
-        # the Workload's files are gone: the frozen References and the kept answer schema are enough
-        import shutil
-        shutil.rmtree(pathlib.Path(a[3]) / "chinook")
-        assert cli.main(["assess", "--study", a[0], "--observations", osid, "--scorer", "chinook_contract_v1", "--references", ref, "--json"]) == 0
-        loaded = sorted(m for m in sys.modules if sys.modules[m] is not None and m.split(".")[0] in BLOCKED)
-        agentic = sorted(m for m in sys.modules if m in ("hypotrail.agentic.sql_tool", "hypotrail.agentic.runner", "hypotrail.agentic.projection", "hypotrail.agentic.live"))
-        print("LOADED", loaded, agentic, used)
-        """
-    )
-    done = subprocess.run([sys.executable, "-c", script, str(study), str(FIXTURE), str(population), str(examples)], capture_output=True, text=True)
+    repository_file = EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite"
+    args = [str(study), str(FIXTURE), str(population), str(examples), mode, str(repository_file)]
+    done = subprocess.run([sys.executable, "-c", _AC7_CHILD, *args], capture_output=True, text=True)
     assert done.returncode == 0, done.stderr
-    assert "LOADED [] [] []" in done.stdout
+    assert "LOADED [] [] [] []" in done.stdout
 
 
 def test_assess_writes_nothing_outside_the_study_and_reads_no_network(tmp_path, fixture_assessment, network_guard):
@@ -401,56 +425,4 @@ def test_assess_writes_nothing_outside_the_study_and_reads_no_network(tmp_path, 
     before = {p for p in tmp_path.rglob("*") if p.is_file() and Path(study) not in p.parents}
     assessed(study, observation_set)
     assert {p for p in tmp_path.rglob("*") if p.is_file() and Path(study) not in p.parents} == before
-    assert network_guard.attempts == []
-
-
-def test_ac7_import_agent_and_assess_succeed_with_every_condition_at_once(tmp_path, monkeypatch, guard, network_guard):
-    """R4-02 (#68 AC7): model and tools fail if called, the present Chinook file fails if used, the network guard is on
-    (autouse, asserted below) and Inspect is not importable. `import agent` and `assess` still succeed, in one test."""
-    import types
-
-    examples = chinook_examples(tmp_path)
-    study = init_chinook(tmp_path, examples=examples)[0]
-    source = write_lines(tmp_path / "answers.jsonl", fixture_lines())
-    population = fixture_population(tmp_path)
-
-    def fails(name):
-        def called(*args, **kwargs):
-            raise AssertionError(f"{name} was called")
-
-        return called
-
-    # The modules that hold the model and the tools are replaced by modules whose every function fails if called.
-    stubs = {
-        "hypotrail.agentic.runner": ("mock_model", "run_episodes", "build_task"),
-        "hypotrail.agentic.live": ("live_model", "run_live"),
-        "hypotrail.agentic.sql_tool": ("describe_schema", "query_readonly", "run_query"),
-    }
-    for module_name, functions in stubs.items():
-        stub = types.ModuleType(module_name)
-        for function in functions:
-            setattr(stub, function, fails(f"{module_name}.{function}"))
-        monkeypatch.setitem(sys.modules, module_name, stub)
-        monkeypatch.setattr(sys.modules["hypotrail.agentic"], module_name.rpartition(".")[2], stub, raising=False)
-    for name in ("inspect_ai", "inspect_ai.model", "inspect_ai.tool", "inspect_ai.log"):
-        monkeypatch.setitem(sys.modules, name, None)  # importing any of them raises ImportError
-    with pytest.raises(ImportError):
-        import inspect_ai  # noqa: F401
-
-    guard(examples)  # the Chinook file is present, and any use of it raises
-    import sqlite3
-
-    with pytest.raises(BaseException) as armed:
-        sqlite3.connect(examples / "chinook" / "data" / "Chinook_Sqlite.sqlite")
-    assert type(armed.value).__name__ == "LiveDatabaseUsed"
-
-    code, payload, err = import_agent(study, source, population, "x", "--examples-dir", examples)
-    assert code == 0, (payload, err)
-    folder = Path(study) / "attempts" / payload["attempt"]["attempt_id"]
-    observations = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
-    code, payload, err = run_json(
-        "assess", "--study", study, "--observations", observations, "--scorer", "chinook_contract_v1",
-        "--references", references_id(study), "--examples-dir", examples,
-    )
-    assert code == 0, (payload, err)
     assert network_guard.attempts == []
