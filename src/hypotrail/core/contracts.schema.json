@@ -878,7 +878,19 @@
           "type": "object",
           "properties": {
             "same": {
-              "type": "boolean"
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "import_sides": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "control",
+                  "candidate"
+                ]
+              }
             },
             "differs": {
               "type": "array",

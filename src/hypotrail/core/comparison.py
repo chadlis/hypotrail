@@ -172,13 +172,25 @@ def check_assessments(control: dict, candidate: dict, checks: list) -> None:
 
 
 def describe_environments(control_manifest: dict, candidate_manifest: dict) -> tuple:
-    """(the `code_environment` block of a Comparison, the sentence of its limitations): what differs, never "identical" (ID-03)."""
+    """(the `code_environment` block of a Comparison, the sentence of its limitations): what differs, never "identical" (ID-03).
+
+    An Import records the code environment of the importer, not of the program that produced its outputs. A Comparison
+    with an Import therefore establishes nothing about a shared environment: `same` is null, `import_sides` names the
+    Import(s), and no sentence says the executions share or differ in their environment.
+    """
     environments = (control_manifest["code_environment"], candidate_manifest["code_environment"])
     differs = sorted(
         key for key in set(environments[0]) | set(environments[1]) if canonical.dumps(environments[0].get(key)) != canonical.dumps(environments[1].get(key))
     )
     block = {"same": not differs, "differs": differs, "control": environments[0], "candidate": environments[1]}
-    if differs:
+    imports = [role for role, manifest in (("control", control_manifest), ("candidate", candidate_manifest)) if manifest["mode"] == EXTERNAL_MODE]
+    if imports:
+        block = {**block, "same": None, "import_sides": imports}
+        sentence = (
+            f"The {' and '.join(imports)} of this Comparison is an Import: it records the code environment of the importer, not of the program "
+            "that produced its outputs, so whether the two executions ran in the same code environment is not established."
+        )
+    elif differs:
         sentence = (
             f"The two Attempts ran in different code environments (differs: {', '.join(differs)}): "
             "the two executions are not identical, and the difference may owe something to that."

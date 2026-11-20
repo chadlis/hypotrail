@@ -127,3 +127,17 @@ def test_a_folder_that_is_no_study_is_refused_without_creating_a_lock(tmp_path):
     code, payload, _ = run_json("compare", "--study", tmp_path / "empty", "--control", "a", "--candidate", "b")
     assert (code, payload["error"]["code"]) == (2, "STUDY_NOT_FOUND")
     assert not (tmp_path / "empty").exists()
+
+
+# --- R1-13 (#72 Tightened C, ID-03): an Import records the importer's environment, not its producer's -------------------------------
+
+
+@pytest.mark.parametrize("import_is", ["candidate", "control"])
+def test_a_comparison_with_an_import_does_not_say_the_two_attempts_share_a_code_environment(native_and_import, import_is):
+    study, native, imported = native_and_import
+    control, candidate = (native, imported) if import_is == "candidate" else (imported, native)
+    record = compare(study, control["assessment_id"], candidate["assessment_id"])[1]["comparison"]
+    assert record["code_environment"]["same"] is None and record["code_environment"]["import_sides"] == [import_is]
+    text = " ".join(record["limitations"])
+    assert "record the same code environment" not in text and "different code environments" not in text
+    assert "importer" in text and "not established" in text

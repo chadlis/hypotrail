@@ -466,3 +466,13 @@ def test_the_agent_comparison_is_a_core_module_that_imports_no_track_and_no_insp
     source = (Path(__file__).resolve().parent.parent / "src" / "hypotrail" / "core" / "agent_comparison.py").read_text()
     for forbidden in ("inspect_ai", "hypotrail.agentic", "hypotrail.ml", "sklearn", "numpy"):
         assert f"import {forbidden}" not in source and f"from {forbidden}" not in source, forbidden
+
+
+def test_two_imports_do_not_claim_a_shared_code_environment(tmp_path, study):
+    # R1-13 (#72 Tightened C, ID-03): an Import records the importer's environment, not its producer's.
+    _, a = imported(tmp_path, study, "a", answer_lines())
+    _, b = imported(tmp_path, study, "b", answer_lines())
+    record = compare(study, a, b)[1]["comparison"]
+    assert record["code_environment"]["same"] is None and record["code_environment"]["import_sides"] == ["control", "candidate"]
+    text = " ".join(record["limitations"])
+    assert "record the same code environment" not in text and "importer" in text and "not established" in text
