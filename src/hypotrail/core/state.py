@@ -3,7 +3,8 @@
 `status` only reads (SPEC §5 « Une commande explicite inspecte/récupère l'état local »): it lists
 every Attempt with its `technical_status`, its artifacts (the partial ones of an Attempt that never
 reached its terminal manifest included, each with the digest of its bytes) and whether a live writer
-holds the Study. It takes no lock and writes nothing.
+holds the Study; and every revision of the Study (`hypotrail.core.revisions`) with its Protocol digest and
+its Protocol artifacts. It takes no lock and writes nothing.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
 lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`
@@ -19,7 +20,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 import datetime
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, lock
+from hypotrail.core import artifacts, canonical, contracts, lock, revisions
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -85,8 +86,24 @@ def status(study) -> dict:
             }
         )
     return {
-        "study": {key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest")},
+        "study": {
+            **{key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest", "revision")},
+            "revision_number": revisions.revision_number(spec),
+        },
         "writer_alive": writer_alive,
+        "revisions": [
+            {
+                "revision_number": revisions.revision_number(each),
+                "revision": each["revision"],
+                "previous_revision": each.get("previous_revision"),
+                "protocol_digest": each["protocol_digest"],
+                "artifacts": [
+                    {"artifact_id": e["artifact_id"], "role": e["ref"]["role"], "version": revisions.version_of(e), "sha256": e["ref"]["sha256"]}
+                    for e in each["artifacts"]
+                ],
+            }
+            for each in revisions.revision_specs(study)
+        ],
         "attempts": attempts,
     }
 

@@ -697,7 +697,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     (attempt,) = listing["attempts"]
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
-    assert set(listing) == {"ok", "study", "writer_alive", "attempts"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts"}  # `revisions` is chapter 09's
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -1364,3 +1364,80 @@ def test_chapter_03_no_longer_lists_the_agent_import_and_assessment_as_not_built
     text = CHAPTER_03.read_text(encoding="utf-8")
     assert "Scoring answers imported without a trace, the shares of the Assessment contract" not in text
     assert 'href="#agent-answers"' in text
+
+
+# --- chapter 09: revisions and corrected References (#70, #73 Tightened B4) --------------------------------------------
+
+
+def _corrected_chinook_study(tmp_path, *, name="chapter-09", revisions=1):
+    """(study, the files before the revisions, the files after): a Chinook Study given `revisions` corrected References sets."""
+    from _chinook_helpers import init_chinook
+    from _revision_helpers import corrected_chinook_references, new_revision, snapshot_files
+
+    study, _ = init_chinook(tmp_path, name=name)
+    before = set(snapshot_files(study))
+    for number in range(revisions):
+        examples = corrected_chinook_references(
+            tmp_path, lambda records, n=number: records["D03"].update(rows=[[1300 + n]]), name=f"{name}-examples-{number}"
+        )
+        code, payload, err = new_revision(study, "--examples-dir", examples)
+        assert code == 0, (payload, err)
+    return study, before, set(snapshot_files(study))
+
+
+def test_the_revision_layout_table_equals_the_files_a_new_revision_writes(page, tmp_path):
+    study, before, after = _corrected_chinook_study(tmp_path, revisions=2)
+    generic = set()
+    for path in after - before:
+        path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
+        generic.add(re.sub(r"-[0-9a-f]{16}\.", "-SHA16.", path))
+    rows = attrs_of(page, "revision-layout", "data-path")
+    assert set(rows) == generic | {"study.json"}  # study.json is the one file replaced, not added
+    assert all(row["data-written-by"] == "init --new-revision" for row in rows.values())
+    assert "study.json" in before and "revisions/1/study.json" in after
+
+
+def test_the_revision_field_tables_equal_what_a_revision_adds_to_the_study_spec_and_what_status_reports(page, tmp_path):
+    from _revision_helpers import spec_of
+
+    from hypotrail.core import contracts
+    from hypotrail.core.state import status
+
+    study, _, _ = _corrected_chinook_study(tmp_path)
+    spec_definition = contracts.schema()["$defs"]["StudySpec"]
+    rows = attrs_of(page, "revision-fields", "data-field")
+    in_study = {field for field, row in rows.items() if row["data-where"] == "study"}
+    assert in_study == set(spec_definition["properties"]) - set(spec_definition["required"])
+    assert in_study <= set(spec_of(study))
+    entry = spec_definition["properties"]["artifacts"]["items"]
+    in_artifact = {field for field, row in rows.items() if row["data-where"] == "artifact"}
+    assert in_artifact == set(entry["properties"]) - set(entry["required"]) and in_artifact <= set(spec_of(study)["artifacts"][0])
+    (_, second) = status(study)["revisions"]
+    assert set(attrs_of(page, "revision-status", "data-field")) == set(second)
+    assert second["revision_number"] == 2 and second["previous_revision"] is not None
+
+
+def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _chinook_helpers import init_chinook
+    from _revision_helpers import new_revision
+    from _study_helpers import run_json
+
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    study, _ = init_chinook(tmp_path, name="refusals")
+    record(new_revision(study))  # PROTOCOL_UNCHANGED
+    record(run_json("init", "--study", study, "--new-revision", "--workload", "chinook"))  # INVALID_ARGUMENTS, the widest details
+    rows = attrs_of(page, "revision-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+    _, neither, _ = run_json("init", "--study", tmp_path / "none")
+    assert neither["error"]["code"] == "INVALID_ARGUMENTS" and set(neither["error"]["details"]) <= words(rows["INVALID_ARGUMENTS"]["data-details"])

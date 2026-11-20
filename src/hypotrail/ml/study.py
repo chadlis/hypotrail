@@ -11,22 +11,25 @@ Partitions and their ranges, the population (memberships) and the References by 
 data file by its bytes, the columns and the rules on when information is available
 (`period_k`, the forbidden and the allowed target features) and the primary metric. It does not hold
 a Configuration: changing a Configuration never changes it.
+
+`new_revision` adds a revision to an existing Study (`init --study DIR --new-revision`): it derives the
+Protocol the Workload declares now, and `hypotrail.core.revisions` keeps the earlier revision and its
+artifacts as they were and publishes what changed beside them.
 """
 
-import shutil
+import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, lock
+from hypotrail.core import artifacts, canonical, contracts, data, lock, revisions
+from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
     ARTIFACTS_DIR,
     DATASETS_DIR,
-    SCRATCH_DIR,
     STUDY_FILE,
     declared_track,
     media_type_of,
-    short_id,
 )
 from hypotrail.ml.declaration import Declaration, load_declaration, plain, require_keys
 from hypotrail.ml.memberships import MEMBERSHIPS_NAME, write_memberships
@@ -77,6 +80,74 @@ def _exists(study: Path) -> InvalidInputError:
     )
 
 
+def _derived_bytes(source: Path) -> tuple:
+    """The population and the References set the Track's own writers derive from the Workload, as bytes."""
+    with tempfile.TemporaryDirectory() as scratch:
+        write_memberships(source, Path(scratch))
+        write_references(source, Path(scratch))
+        return (Path(scratch) / MEMBERSHIPS_NAME).read_bytes(), (Path(scratch) / REFERENCES_NAME).read_bytes()
+
+
+def _write_spec(study: Path, workload: str, source: Path, declaration: Declaration, previous: dict | None) -> dict:
+    """Publish the Protocol artifacts and the StudySpec of the first revision, or of the one after `previous`.
+
+    The StudySpec is written last. An artifact the earlier revision already holds with the same bytes is
+    carried over; one whose bytes changed is published beside it (`hypotrail.core.revisions`).
+    """
+    data_path = source / declaration.data_file
+    dataset_bytes = data_path.read_bytes()
+    memberships_bytes, references_bytes = _derived_bytes(source)
+    protocol = protocol_content(
+        declaration,
+        dataset_sha256=canonical.sha256_hex(dataset_bytes),
+        memberships_sha256=canonical.sha256_hex(memberships_bytes),
+        references_sha256=canonical.sha256_hex(references_bytes),
+    )
+    if previous is not None:
+        revisions.refuse_unchanged(previous, canonical.digest(protocol))
+    before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
+    dataset, _ = revisions.place(
+        study,
+        previous["dataset_refs"][0] if previous is not None else None,
+        f"{DATASETS_DIR}/{data_path.name}",
+        dataset_bytes,
+        media_type=media_type_of(data_path),
+        role="dataset",
+    )
+    memberships = revisions.artifact_entry(
+        study, "memberships", before.get("memberships"), MEMBERSHIPS_PATH, memberships_bytes, media_type="text/csv", role="memberships"
+    )
+    references = revisions.artifact_entry(
+        study, "references", before.get("references"), REFERENCES_PATH, references_bytes, media_type="text/csv", role="references"
+    )
+    spec = {
+        "kind": "study",
+        "schema_version": SPEC_VERSION,
+        "study_id": previous["study_id"] if previous is not None else str(uuid.uuid4()),
+        "revision": "0" * 64,
+        "question": declaration.question,
+        "domain": DOMAIN,
+        "objective": declaration.objective,
+        "protocol_id": protocol_id(workload),
+        "protocol_digest": canonical.digest(protocol),
+        "dataset_refs": [dataset],
+        "primary_metric": {"id": PRIMARY, "direction": DIRECTION, "unit": declaration.target_unit},
+        "limitations": list(declaration.limitations),
+        "workload": workload,
+        "artifacts": [memberships, references],
+        "revision_number": 1,
+    }
+    if previous is not None:
+        spec.update(revisions.next_fields(study, previous))
+    spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
+    contracts.validate(spec)
+    if previous is None:
+        artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
+    else:
+        revisions.publish(study, previous, spec)
+    return spec
+
+
 def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
@@ -102,45 +173,24 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     with lock.writer_lock(study):
         if (study / STUDY_FILE).exists():
             raise _exists(study)
-        data_path = source / declaration.data_file
-        dataset = artifacts.publish_bytes(
-            study, f"{DATASETS_DIR}/{data_path.name}", data_path.read_bytes(), media_type=media_type_of(data_path), role="dataset"
-        )
-        scratch = study / SCRATCH_DIR / "init"
-        try:
-            write_memberships(source, scratch)
-            write_references(source, scratch)
-            memberships = artifacts.publish_file(study, scratch / MEMBERSHIPS_NAME, MEMBERSHIPS_PATH, media_type="text/csv", role="memberships")
-            references = artifacts.publish_file(study, scratch / REFERENCES_NAME, REFERENCES_PATH, media_type="text/csv", role="references")
-        finally:
-            shutil.rmtree(study / SCRATCH_DIR, ignore_errors=True)
+        return _write_spec(study, workload, source, declaration, None)
 
-        protocol = protocol_content(
-            declaration,
-            dataset_sha256=dataset["sha256"],
-            memberships_sha256=memberships["sha256"],
-            references_sha256=references["sha256"],
-        )
-        spec = {
-            "kind": "study",
-            "schema_version": SPEC_VERSION,
-            "study_id": str(uuid.uuid4()),
-            "revision": "0" * 64,
-            "question": declaration.question,
-            "domain": DOMAIN,
-            "objective": declaration.objective,
-            "protocol_id": protocol_id(workload),
-            "protocol_digest": canonical.digest(protocol),
-            "dataset_refs": [dataset],
-            "primary_metric": {"id": PRIMARY, "direction": DIRECTION, "unit": declaration.target_unit},
-            "limitations": list(declaration.limitations),
-            "workload": workload,
-            "artifacts": [
-                {"artifact_id": short_id("memberships", memberships["sha256"]), "ref": memberships},
-                {"artifact_id": short_id("references", references["sha256"]), "ref": references},
-            ],
-        }
-        spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
-        contracts.validate(spec)
-        artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
-        return spec
+
+def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
+    """Add a revision to the Study `study`: the Protocol its Workload declares now; return the new StudySpec.
+
+    The Workload is the one the Study names, read again from `examples_dir`. A Protocol equal to the
+    current revision's is refused (`PROTOCOL_UNCHANGED`). Holds the Study's writer lock for the whole command.
+    """
+    study = Path(study)
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    with lock.writer_lock(study):
+        previous = layout.read_spec(study)
+        layout.require_domain(previous, DOMAIN, "init --new-revision")
+        examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+        workload = previous["workload"]
+        data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is written
+        source = examples / workload
+        declaration = load_declaration(source)
+        require_keys(declaration, "data_file", "question", "objective", "limitations")
+        return _write_spec(study, workload, source, declaration, previous)

@@ -4,10 +4,11 @@ A Study is a folder named explicitly (`--study DIR`); it holds, all as artifacts
 
 ```
 DIR/
-  study.json                         the StudySpec (canonical JSON)
+  study.json                         the StudySpec of the current revision (canonical JSON)
   datasets/<file>                    the dataset as it was at `init`
   artifacts/memberships.csv          the population, a Study artifact with an ID
   artifacts/references.csv           the References set, a Study artifact with an ID
+  revisions/<n>/study.json           the StudySpec of revision n, once a later revision exists (core/revisions.py)
   attempts/<attempt_id>/attempt.json the Attempt manifest (running, then terminal)
   attempts/<attempt_id>/...          the Attempt's predictions, parameters, Observation set
   assessments/<assessment_id>/per_item.csv     an Assessment's Criterion state per Item

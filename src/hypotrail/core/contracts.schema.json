@@ -128,6 +128,10 @@
               },
               "ref": {
                 "$ref": "#/$defs/ArtifactRef"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
               }
             },
             "required": [
@@ -136,6 +140,14 @@
             ],
             "additionalProperties": false
           }
+        },
+        "revision_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       },
       "required": [

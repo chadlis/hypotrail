@@ -13,6 +13,10 @@ database by their bytes, and the primary Criterion. It holds no Configuration. T
 Criterion is declared as data by the Workload (`primary_criterion`, ADR 0002; owner decision 1A on
 chadlis/hypotrail#9) and becomes the Study's `primary_metric`.
 
+`new_revision` adds a revision to an existing Study (`init --study DIR --new-revision`), for example after a
+corrected References file: `hypotrail.core.revisions` keeps the earlier revision and its artifacts as they
+were and publishes what changed beside them.
+
 Nothing here imports Inspect, and the database is never opened as a database: it is copied and hashed.
 """
 
@@ -23,14 +27,14 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import Workload, load_workload
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.core import artifacts, canonical, contracts, data, lock
+from hypotrail.core import artifacts, canonical, contracts, data, lock, revisions
+from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
     ARTIFACTS_DIR,
     DATASETS_DIR,
     STUDY_FILE,
     media_type_of,
-    short_id,
 )
 
 TRACK = "tool_using_agent"
@@ -90,6 +94,76 @@ def _exists(study: Path) -> InvalidInputError:
     return InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
 
 
+def _write_spec(study: Path, workload_name: str, workload: Workload, previous: dict | None) -> dict:
+    """Publish the Protocol artifacts and the StudySpec of the first revision, or of the one after `previous`.
+
+    The StudySpec is written last. An artifact the earlier revision already holds with the same bytes is
+    carried over; one whose bytes changed is published beside it (`hypotrail.core.revisions`).
+    """
+    database = workload.database_path
+    references_file = references_path(workload)
+    database_bytes = database.read_bytes()
+    protocol = protocol_content(workload, dataset_sha256=canonical.sha256_hex(database_bytes))
+    if previous is not None:
+        revisions.refuse_unchanged(previous, canonical.digest(protocol))
+    before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
+    dataset, _ = revisions.place(
+        study,
+        previous["dataset_refs"][0] if previous is not None else None,
+        f"{DATASETS_DIR}/{database.name}",
+        database_bytes,
+        media_type="application/vnd.sqlite3",
+        role="dataset",
+    )
+    memberships = revisions.artifact_entry(
+        study, "memberships", before.get("memberships"), MEMBERSHIPS_PATH, memberships_bytes(workload), media_type="text/csv", role="memberships"
+    )
+    references = revisions.artifact_entry(
+        study,
+        "references",
+        before.get("references"),
+        f"{ARTIFACTS_DIR}/{references_file.name}",
+        references_file.read_bytes(),
+        media_type="application/jsonl",
+        role="references",
+    )
+    schema = revisions.artifact_entry(
+        study,
+        "answer-schema",
+        before.get("answer_schema"),
+        ANSWER_SCHEMA_PATH,
+        workload.answer_schema_path.read_bytes(),
+        media_type=media_type_of(ANSWER_SCHEMA_PATH),
+        role="answer_schema",
+    )
+    spec = {
+        "kind": "study",
+        "schema_version": SPEC_VERSION,
+        "study_id": previous["study_id"] if previous is not None else str(uuid.uuid4()),
+        "revision": "0" * 64,
+        "question": workload.declaration["question"],
+        "domain": DOMAIN,
+        "objective": workload.declaration["objective"],
+        "protocol_id": protocol_id(workload_name),
+        "protocol_digest": canonical.digest(protocol),
+        "dataset_refs": [dataset],
+        "primary_metric": {"id": workload.declaration["primary_criterion"], "direction": PRIMARY_DIRECTION, "unit": PRIMARY_UNIT},
+        "limitations": list(workload.declaration["limitations"]),
+        "workload": workload_name,
+        "artifacts": [memberships, references, schema],
+        "revision_number": 1,
+    }
+    if previous is not None:
+        spec.update(revisions.next_fields(study, previous))
+    spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
+    contracts.validate(spec)
+    if previous is None:
+        artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
+    else:
+        revisions.publish(study, previous, spec)
+    return spec
+
+
 def init_study(workload_name: str, study: Path, examples_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Chinook-like Workload `workload_name` of `examples_dir`; return its StudySpec."""
     study = Path(study)
@@ -106,44 +180,23 @@ def init_study(workload_name: str, study: Path, examples_dir: Path | None = None
     with lock.writer_lock(study):
         if (study / STUDY_FILE).exists():
             raise _exists(study)
-        database = workload.database_path
-        dataset = artifacts.publish_bytes(
-            study, f"{DATASETS_DIR}/{database.name}", database.read_bytes(), media_type="application/vnd.sqlite3", role="dataset"
-        )
-        memberships = artifacts.publish_bytes(study, MEMBERSHIPS_PATH, memberships_bytes(workload), media_type="text/csv", role="memberships")
-        references_file = references_path(workload)
-        references = artifacts.publish_bytes(
-            study,
-            f"{ARTIFACTS_DIR}/{references_file.name}",
-            references_file.read_bytes(),
-            media_type="application/jsonl",
-            role="references",
-        )
-        schema = artifacts.publish_bytes(
-            study, ANSWER_SCHEMA_PATH, workload.answer_schema_path.read_bytes(), media_type=media_type_of(ANSWER_SCHEMA_PATH), role="answer_schema"
-        )
-        protocol = protocol_content(workload, dataset_sha256=dataset["sha256"])
-        spec = {
-            "kind": "study",
-            "schema_version": SPEC_VERSION,
-            "study_id": str(uuid.uuid4()),
-            "revision": "0" * 64,
-            "question": workload.declaration["question"],
-            "domain": DOMAIN,
-            "objective": workload.declaration["objective"],
-            "protocol_id": protocol_id(workload_name),
-            "protocol_digest": canonical.digest(protocol),
-            "dataset_refs": [dataset],
-            "primary_metric": {"id": workload.declaration["primary_criterion"], "direction": PRIMARY_DIRECTION, "unit": PRIMARY_UNIT},
-            "limitations": list(workload.declaration["limitations"]),
-            "workload": workload_name,
-            "artifacts": [
-                {"artifact_id": short_id("memberships", memberships["sha256"]), "ref": memberships},
-                {"artifact_id": short_id("references", references["sha256"]), "ref": references},
-                {"artifact_id": short_id("answer-schema", schema["sha256"]), "ref": schema},
-            ],
-        }
-        spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})
-        contracts.validate(spec)
-        artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
-        return spec
+        return _write_spec(study, workload_name, workload, None)
+
+
+def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
+    """Add a revision to the Study `study`: the Protocol its Workload declares now; return the new StudySpec.
+
+    The Workload is the one the Study names, read again from `examples_dir`. A Protocol equal to the
+    current revision's is refused (`PROTOCOL_UNCHANGED`). Holds the Study's writer lock for the whole command.
+    """
+    study = Path(study)
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    with lock.writer_lock(study):
+        previous = layout.read_spec(study)
+        layout.require_domain(previous, DOMAIN, "init --new-revision")
+        examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+        workload_name = previous["workload"]
+        data.verify_workloads(examples, [workload_name])  # T01 at this entry point: before anything is written
+        workload = load_workload(examples / workload_name)
+        require_declared(workload, "question", "objective", "limitations", "primary_criterion", "answer_schema")
+        return _write_spec(study, workload_name, workload, previous)

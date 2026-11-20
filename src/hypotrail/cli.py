@@ -55,9 +55,15 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
-    init = commands.add_parser("init", help="create a Study for a Workload")
-    init.add_argument("--workload", required=True, metavar="NAME", help="the Workload to study (for example bike_day)")
-    init.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study folder to create")
+    init = commands.add_parser("init", help="create a Study for a Workload, or add a revision to a Study (--new-revision)")
+    init.add_argument("--workload", metavar="NAME", help="the Workload to study (for example bike_day); required unless --new-revision")
+    init.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study folder to create, or to add a revision to")
+    init.add_argument(
+        "--new-revision",
+        action="store_true",
+        help="add a StudySpec revision to the existing Study: the Protocol its Workload declares now "
+        "(a corrected References set, for example); the Workload is the one the Study names, so --workload is not given",
+    )
     init.add_argument(
         "--examples-dir",
         type=Path,
@@ -225,6 +231,15 @@ def _init(args) -> int:
     from hypotrail.core import data
     from hypotrail.core.study import declared_track
 
+    if args.new_revision:
+        return _new_revision(args)
+    if args.workload is None:
+        raise InvalidInputError(
+            "INVALID_ARGUMENTS",
+            "init needs --workload NAME to create a Study (or --new-revision to add a revision to an existing one)",
+            stage="config",
+            details={"command": "init"},
+        )
     examples = args.examples_dir or data.default_examples_dir()
     if declared_track(Path(examples) / args.workload) == "tool_using_agent":
         from hypotrail.agentic import study
@@ -234,6 +249,32 @@ def _init(args) -> int:
     spec = study.init_study(args.workload, args.study, args.examples_dir)
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
+        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
+    )
+    _emit({"ok": True, "study": spec}, args.json, human)
+    return EXIT_OK
+
+
+def _new_revision(args) -> int:
+    from hypotrail.core import revisions
+    from hypotrail.core import study as layout
+
+    if args.workload is not None:
+        raise InvalidInputError(
+            "INVALID_ARGUMENTS",
+            "--new-revision takes the Workload the Study names: do not give --workload",
+            stage="config",
+            details={"command": "init", "workload": args.workload},
+        )
+    domain = layout.read_spec(args.study)["domain"]
+    if domain == "agentic":
+        from hypotrail.agentic import study
+    else:
+        from hypotrail.ml import study
+
+    spec = study.new_revision(args.study, args.examples_dir)
+    human = (
+        f"Study {args.study} is at revision {revisions.revision_number(spec)}: Workload {spec['workload']}, "
         f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
     )
     _emit({"ok": True, "study": spec}, args.json, human)
