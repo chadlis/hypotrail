@@ -343,7 +343,7 @@ def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_ro
     for text in (
         "<code>token_limit</code> means that budget, whose value is the row of the table of current limits",
         "input history and the cached tokens resent at every call no longer weigh on the budget",
-        "both Attempts were made under the earlier 12,000 all-token budget",
+        "both pairs were made under the earlier 12,000 all-token budget",
     ):
         assert text in page, text
     assert "Turn limit, total token budget" not in page
@@ -426,7 +426,7 @@ LIVE_L12B = {
 
 def test_the_kept_second_attempts_figures_are_those_of_their_run_json(page):
     """Chapter 03 states each Episode's output and total tokens as the two kept live-l12b run.json files record them, and the null uses_tool_result with its Reason."""
-    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Two further Attempts were kept on 2026-11-07" in p)
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Four further Episodes were kept on 2026-11-07" in p)
     assert 'href="#current-limits"' in paragraph and "4000" not in paragraph and "4,000" not in paragraph  # the value is the row's
     for name, expected in LIVE_L12B.items():
         kept = json.loads((HANDBOOK / "traces" / name / "run.json").read_text())
