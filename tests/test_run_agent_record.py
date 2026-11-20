@@ -36,10 +36,10 @@ from _study_helpers import run_cli, run_json
 
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import live as agentic_live
-from hypotrail.agentic import runner
+from hypotrail.agentic import run, runner
 from hypotrail.agentic.sql_tool import QueryCaps
 from hypotrail.core import canonical, contracts, environment, exposure
-from hypotrail.core.errors import EXIT_INFRASTRUCTURE, EXIT_INTEGRITY_REFUSED
+from hypotrail.core.errors import EXIT_INFRASTRUCTURE, EXIT_INTEGRITY_REFUSED, HypotrailError
 
 from inspect_ai.log import read_eval_log
 
@@ -503,6 +503,29 @@ def test_the_warnings_of_the_study_scan_reach_the_json_error_whatever_exception_
     assert error["code"] == code and exit_code == EXIT_INFRASTRUCTURE
     assert [w["file"] for w in error["details"]["warnings"]] == ["notes.txt"] and "SECRET_IN_STUDY" in err and "notes.txt" in err
     assert FAKE_KEY not in out + err
+
+
+@pytest.mark.parametrize("raised", [RuntimeError(f"provider down {FAKE_KEY}"), OSError("disk gone"), HypotrailError("DATABASE_CHANGED", "changed", stage="run")])
+def test_run_agent_raises_a_hypotrail_error_with_the_warnings_whatever_exception_ended_the_attempt(tmp_path, monkeypatch, raised):
+    """R3-03, #74 (`--json` errors: code, message, stage and details without secrets): a library caller catches `HypotrailError` and finds `details.warnings`, and never a foreign text."""
+    examples = chinook_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, name="failing", examples=examples)
+    patch_model(monkeypatch)
+    (study / "notes.txt").write_text(f"my key is {FAKE_KEY}\n", encoding="utf-8")
+
+    def fails(*args, **kwargs):
+        raise raised
+
+    monkeypatch.setattr(runner, "run_episodes", fails)
+    with pytest.raises(HypotrailError) as caught:
+        run.run_agent(study, mode="llm_live", config="plain", request_id="lib", partition="dev", repeats=1, model=MODEL, cases=["D03"], retry_of=None, examples_dir=examples)
+    error = caught.value
+    assert [w["file"] for w in error.details["warnings"]] == ["notes.txt"]
+    if isinstance(raised, HypotrailError):
+        assert error is raised and error.code == "DATABASE_CHANGED"
+    else:
+        assert error.code in {"UNEXPECTED_ERROR", "INFRASTRUCTURE_FAILURE"} and error.exit_code == EXIT_INFRASTRUCTURE
+    assert FAKE_KEY not in json.dumps(error.to_dict()) and "provider down" not in error.message and "disk gone" not in error.message
 
 
 def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):

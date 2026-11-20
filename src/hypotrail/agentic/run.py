@@ -52,18 +52,31 @@ from hypotrail.core import artifacts, canonical, contracts, data, environment, e
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
-from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
+from hypotrail.core.errors import EXIT_INFRASTRUCTURE, HypotrailError, IntegrityError, InvalidInputError
 
 COMMAND = "run agent"
 
 
-class FailedAfterScan(Exception):
-    """An Attempt ended `failed`: the error that ended it, and the warnings the scan of the Study made afterwards."""
+def _error_with_warnings(error: Exception, warnings: list) -> HypotrailError:
+    """What `run_agent` raises for an Attempt that failed: a `HypotrailError` whose `details.warnings` holds what the scan of the Study found.
 
-    def __init__(self, error: Exception, warnings: list):
-        super().__init__(str(error))
-        self.error = error
-        self.warnings = warnings
+    A Hypotrail error is the one that ended the Attempt. For any other exception only its type is reported, since its text can
+    carry anything, a provider key included.
+    """
+    if isinstance(error, HypotrailError):
+        error.details["warnings"] = warnings
+        return error
+    if isinstance(error, OSError):
+        return HypotrailError(
+            "INFRASTRUCTURE_FAILURE", type(error).__name__, stage="infrastructure", details={"type": type(error).__name__, "warnings": warnings}, exit_code=EXIT_INFRASTRUCTURE
+        )
+    return HypotrailError(
+        "UNEXPECTED_ERROR",
+        f"unexpected {type(error).__name__}",
+        stage="infrastructure",
+        details={"type": type(error).__name__, "warnings": warnings},
+        exit_code=EXIT_INFRASTRUCTURE,
+    )
 
 
 FIXTURE, LIVE = "scripted_fixture", "llm_live"
@@ -317,7 +330,7 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
     except Exception as error:
         record_failure(study, manifest_path, manifest, error)
         # the Study is scanned whether or not the Attempt failed (#74): what the scan finds travels with the error
-        raise FailedAfterScan(error, _warnings_of(study, api_key)) from error
+        raise _error_with_warnings(error, _warnings_of(study, api_key)) from error
     return terminal, False, _warnings_of(study, api_key)
 
 

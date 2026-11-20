@@ -378,12 +378,9 @@ def _run_agent(args) -> int:
             retry_of=args.retry_of,
             examples_dir=args.examples_dir,
         )
-    except run.FailedAfterScan as failed:  # the Study was scanned after the Attempt failed: what it found goes with the error
-        failure = _failure_of(failed.error)
-        if failed.warnings:
-            failure.details["warnings"] = failed.warnings
-        _print_warnings(failed.warnings)
-        raise failure from failed.error
+    except HypotrailError as error:  # the Study was scanned after an Attempt failed: what it found is in `details.warnings`
+        _print_warnings(error.details.get("warnings", []))
+        raise
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"
