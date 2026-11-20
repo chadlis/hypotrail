@@ -34,6 +34,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 | 2 tickets, 10 retro | `slice-planner` | opus |
 | 3 ticket gate, 5 review axes | `slice-gate` | opus |
 | 4 implementation and product docs, 6 fixes, 7 learning notes | `slice-builder` | sonnet |
+| owner decisions under the autonomous protocol | `owner-proxy`, fresh each time | fable |
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
@@ -77,11 +78,28 @@ By default the run **stops at the open PR**:
 
 **Preparation mode**, only on an explicit `/drive #n prepare` request: read the slice and its sources, create or update the slice preparation note below, then finish normally with `/hypotrail-study before <fully-qualified-source-issue>` as the next command, to run in a session opened on `chadlis/hypotrail-learning` so that its repository skill is used, not a same-named personal skill. Do not enter steps 1–12, create a delivery branch, add an `in-progress` label, open implementation tickets, merge, or start a chain. Save the note and its link only. Create no learning issue in this mode. Do not mark an implementation step done because preparation happened. If `prepare` is combined with `merge` or `chain`, preparation takes precedence and the next execution needs a new explicit command. Preparation is optional. A plain `/drive` does not start a course or wait for a learning session.
 
-**Changes to the apparatus are deferred, never applied.** The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
+**Changes to the apparatus are deferred, never applied** (under the autonomous protocol: decided by the proxy, then applied on their own pull request). The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
 **Paid live runs.** A live run is one invocation of a command that calls a real model, whatever its number of Episodes. At most five per slice, each within the slice issue's bounds and written in the state comment with its reason. Before the first, a test runs the exact live command (same working directory, same arguments) with the provider patched, and exits 0. A run is repeated only after a technical failure, never to get a better result. When post-processing fails, rerun it from the kept log, never the call.
 
 **Native primitives are his to leave.** Inspect owns the agent loop, its logs, retries and limits. scikit-learn owns fitting and preprocessing. SQLite owns read-only enforcement through `mode=ro` and its authorizer. Do not recreate what they provide, never parse an Inspect log by hand, never filter SQL with a regex. A slice that seems to need any of these departures is a floor.
+
+## Autonomous protocol (owner decision, 2026-11-20)
+
+Salah adopted this protocol on chadlis/hypotrail#1 ([end state and protocol](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378), with [1](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7042941886) and [2](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043566976)). It applies to every run whose opening message invokes it, until the end state written there is reached. Where it disagrees with another section of this skill, it wins for that run.
+
+- **`merge` and `chain` are implied.** One pull request per slice, with its review of record, squash-merged by you (« 2A »).
+- **Owner-only cases.** Only four things still go to Salah, as a STOP: (i) live spending beyond USD 30 in total across the run (`anthropic/claude-sonnet-5-5`; the five paid runs per slice still apply, and the chain-wide cap of five becomes this dollar cap); (ii) an irreversible act other than a pull-request merge (force-push on `main`, deleting a branch or an issue); (iii) the licence (AGENTS.md); (iv) changing a Reference to improve a score, which is refused in every case and never asked.
+- **Every other owner decision goes to a proxy.** That covers what "Owner decisions" sends to Salah, every floor that is not one of the four cases, a pending `INFERRED` ticket the sources cannot settle, and an apparatus change (from `retro` or elsewhere). The floor or finding stays recorded; the proxy decides what happens next.
+- **Proxy procedure.**
+  1. Write the decision in the log (below) before asking: the question, the sources, at least two options with their cost and reversibility, and your own choice with its reason, sealed (written before the proxy answers).
+  2. Start a fresh `owner-proxy` with the question, the sources and the options, **without your choice or recommendation**. Apply "Inspect first" to the options you write, not to a recommendation the proxy does not see.
+  3. If the proxy chooses as you did, that is the decision. If not, start a second fresh `owner-proxy` with the same brief plus both argued positions, labelled A and B without saying whose each is. Its answer is the decision.
+  4. Log it as « decision by proxy (Fable) », never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Record, in the same entry, any proxy reading that was not the session's own model (for example a fallback model).
+- **Decision log.** One issue on chadlis/hypotrail, titled `Autonomous run: decision log`, linked from #1's protocol comment; one comment per decision. A slice's state comment links its entries. The log is what Salah reviews at the end.
+- **Learning loop.** Its status for this run is itself recorded in the decision log; apply what the log says.
+- **Briefs.** No STOP outside the four cases. Ordinary briefs are short terminal notes. The brief page ("The brief page") is written once, at the very end, for the final review, covering the whole run and the decision log.
+- **Checks Salah reserved for the final review** (VS Code themes, Copilot chat): written in the slice's PR body as « owner check, final review », never claimed as passed.
 
 ## Floors
 
@@ -207,7 +225,8 @@ If learning-repository access fails, keep the short note in a preparation/delive
 
 - At most one STOP per turn, and a STOP turn carries nothing else.
 - Running a command, even a long one that can fail, is EXÉCUTION.
-- Only these qualify for a STOP: an owner decision as defined in "Who decides" (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. A choice inside the delegation is not a STOP. Optional learning preparation ends normally and is not a STOP.
+- Under the autonomous protocol, only its four owner-only cases qualify for a STOP; see "Autonomous protocol".
+- Otherwise, only these qualify for a STOP: an owner decision as defined in "Who decides" (including an explicitly owner-reserved decision), something irreversible beyond the mode's floor, a floor being hit. A choice inside the delegation is not a STOP. Optional learning preparation ends normally and is not a STOP.
 
 A STOP explains from scratch: what the thing is, why it is on the table now, the options with what each costs, what you already checked, and what answer you need (« 1A ou 1B », « PASS ou corrections »). Assume he remembers no earlier turn, decision or slice. **Every doubt carries at least two options and an argued recommendation.** Never infer PASS from a missing option or an absent answer. Distinguish a routine information brief from a STOP that requires an owner decision.
 
