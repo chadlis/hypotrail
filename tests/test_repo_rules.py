@@ -71,12 +71,16 @@ def test_both_tracks_read_the_memberships_with_the_one_shared_reader():
     assert layout.partition_of(b"row_id,partition\nr1,train\nr2,\n", "row_id") == {"r1": "train"}
 
 
-def test_the_readme_claims_no_live_attempt_in_a_study():
-    # R2-04, AGENTS.md "short and true": the only live path is `spike live --out DIR`, which records no Attempt of a Study (#72 B2).
+def test_the_readme_claims_the_kept_live_episodes_come_from_spike_live_which_records_nothing_in_a_study():
+    # R2-04, R3-02, R3-03, AGENTS.md "short and true": the claim, not its phrasing (#72 B2: `spike live --out DIR` records nothing in a Study).
+    import re
+
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "A live Attempt" not in text
-    assert "records no Attempt in a Study" in text
-    # the spike outputs under docs/handbook/traces are not Attempts of a Study (GLOSSARY Attempt): the README says what they are
-    live = next(line for line in text.splitlines() if "docs/handbook/traces/" in line)
-    assert "spike outputs, not Attempts of a Study" in live and "live Attempt" not in live
-    assert "one Attempt per Configuration" not in live and "second Attempt" not in live and "these Attempts" not in live
+    paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line)
+    assert "spike live" in paragraph and "Episodes" in paragraph  # where the kept live Episodes come from
+    assert re.search(r"\b(?:no|nothing|not)\b[^.;:]*\bStudy\b", paragraph)  # that command records nothing in a Study
+    # no Attempt (a term that places them in a Study, GLOSSARY) and no noun the GLOSSARY does not define
+    assert not re.search(r"\bAttempts?\b", paragraph) and "spike output" not in paragraph
+    assert len(paragraph.split()) <= 100  # short
+
