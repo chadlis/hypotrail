@@ -100,21 +100,30 @@ def summary(study) -> dict:
     }
 
 
+def configuration_digest(declared, system_text=None) -> str:
+    """The digest of a Configuration, the one function the freeze record and `check_informed` both use.
+
+    Of the declared content alone when no system text is given (the temporal regression Track), of
+    `{"declared", "system_text"}`, without the `id`, when the Track resolves the exact system text a Configuration
+    runs under (the tool-using agent Track). A Track's `freeze_basis` calls it to write the freeze record, and
+    `configuration_digest_of` calls it to judge an Attempt, so the two cannot drift; this module imports no Track.
+    """
+    if system_text is None:
+        return canonical.digest(declared)
+    return canonical.digest({"declared": declared, "system_text": system_text})
+
+
 def configuration_digest_of(manifest: dict):
     """The digest of the Configuration an Attempt ran, or None for an Import (it records no declared Configuration).
 
-    It is the digest the freeze record holds for that Configuration, whichever Track wrote the Attempt: of the
-    declared content alone when the Attempt records nothing else (the temporal regression Track), of
-    `{"declared", "system_text"}`, without the `id`, when it records the exact system text it resolved to (the
-    tool-using agent Track, `hypotrail.agentic.study.freeze_basis`).
+    It is the digest the freeze record holds for that Configuration, whichever Track wrote the Attempt: the
+    manifest's `declared` and, when it records one, its `system_text`, through `configuration_digest`.
     """
     configuration = manifest["effective_config"].get("configuration")
     declared = configuration.get("declared") if isinstance(configuration, dict) else None
     if declared is None:
         return None
-    if "system_text" in configuration:
-        return canonical.digest({"declared": declared, "system_text": configuration["system_text"]})
-    return canonical.digest(declared)
+    return configuration_digest(declared, configuration.get("system_text"))
 
 
 def is_informed(study, configuration_digest) -> bool:

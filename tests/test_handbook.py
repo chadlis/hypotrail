@@ -2007,6 +2007,15 @@ def run_agent_chapter() -> str:
     return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
 
 
+def test_chapter_12_names_the_one_function_that_digests_a_configuration():
+    """R1-07: the handbook says where the Configuration digest is computed; the function exists in the core."""
+    from hypotrail.core import exposure
+
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "12-freeze-and-exposure.html").read_text(encoding="utf-8")).split())
+    assert callable(exposure.configuration_digest)
+    assert "one function of the core, exposure.configuration_digest" in chapter and "so the two cannot drift" in chapter
+
+
 def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_eval_name():
     """R1-04: the handbook states where `served_model` comes from, as the code takes it."""
     text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())

@@ -121,6 +121,21 @@ def test_the_configuration_is_its_id_its_declared_content_and_its_resolved_syste
     assert exposure.configuration_digest_of(attempt) == held
 
 
+def test_the_freeze_record_and_check_informed_take_a_configuration_digest_from_the_one_core_function(recorded, monkeypatch):
+    """R1-07: the Track's `freeze_basis` and `core/exposure.py` call one function, so they cannot drift."""
+    from hypotrail.agentic import study as agentic_study
+
+    study, attempt, _ = recorded
+    spec = json.loads((study / "study.json").read_text())
+    declared = WORKLOAD.declaration["configurations"]["plain"]
+    held = agentic_study.freeze_basis(spec, CHINOOK)["configuration_digests"]["plain"]
+    assert held == exposure.configuration_digest(declared, WORKLOAD.system_text("plain")) == exposure.configuration_digest_of(attempt)
+    # the shape of the digest is that function's alone: changing it moves both sides together
+    monkeypatch.setattr(exposure, "configuration_digest", lambda declared, system_text=None: "one-function")
+    assert set(agentic_study.freeze_basis(spec, CHINOOK)["configuration_digests"].values()) == {"one-function"}
+    assert exposure.configuration_digest_of(attempt) == "one-function"
+
+
 def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_run_whether_or_not_it_failed(tmp_path, monkeypatch, capsys):
     study = study_of(tmp_path)
     patch_model(monkeypatch)
