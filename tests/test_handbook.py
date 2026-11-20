@@ -2251,6 +2251,40 @@ def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(n
         assert new in text, new
 
 
+# The chapters and the README this slice changed (#74, #77). The rule: « run » is not the noun for an Attempt or an execution
+# (GLOSSARY Attempt, _Avoid_: run; #77 Tightened B2). The command names (`run agent`, `run ml`, `spike live`), the file
+# `run.json` and its record's name are not the noun, and a verb is not either: the noun is found after a determiner.
+CHANGED_BY_THE_SLICE = ["01-feasibility-spike.html", "03-agentic-track.html", "04-study-and-attempts.html", "05-assessments.html",
+                        "08-agent-answers.html", "11-agent-comparison.html", "12-freeze-and-exposure.html", "13-run-agent.html"]
+RUN_AS_A_NOUN = re.compile(
+    r"\b(?:the|a|an|this|each|every|one|its|their|whole|paid|failed|scripted|kept|same|first|recorded|single)\s+"
+    r"(?:(?:live|paid|failed|scripted|whole|kept|same|first|recorded|spike|library|single|real|new|earlier|llm_live|scripted_fixture)\s+)?runs?\b(?!\.json|\s+(?:agent|ml|record)\b)(?:'s)?",
+    re.IGNORECASE,
+)
+
+
+def run_as_a_noun(text):
+    return [text[max(0, m.start() - 30):m.end() + 30] for m in RUN_AS_A_NOUN.finditer(text)]
+
+
+def test_the_noun_finder_sees_a_run_that_names_an_attempt_and_not_a_command_or_a_verb():
+    """The guard below is only as good as its finder: it sees the nouns of R2-04 and lets the allow-list and the verbs through."""
+    assert run_as_a_noun("after a failed run the same warnings") and run_as_a_noun("the Chinook file changed during an llm_live run; the Attempt")
+    assert run_as_a_noun("hashed before and after the run: a difference") and run_as_a_noun("One paid run was planned") and run_as_a_noun("the run's own")
+    assert not run_as_a_noun("run agent --mode llm_live; run ml; the run.json file; the run record; spike live runs one Configuration")
+    assert not run_as_a_noun("an Attempt runs exactly one Configuration; the machine that runs; A replay runs no scan; the query runs in a thread")
+
+
+@pytest.mark.parametrize("name", CHANGED_BY_THE_SLICE + ["README"])
+def test_no_changed_chapter_and_not_the_readme_calls_an_attempt_or_an_execution_a_run(name):
+    """R2-04, #77 Tightened B2, GLOSSARY Attempt: the rule over the whole of each changed chapter and the README, not two exact strings."""
+    if name == "README":
+        text = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    else:
+        text = plain_chapter(name)
+    assert run_as_a_noun(text) == []
+
+
 def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_a_run():
     """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")

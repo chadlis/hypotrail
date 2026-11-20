@@ -426,7 +426,7 @@ def test_a_key_found_elsewhere_in_the_study_is_a_warning_that_changes_no_recorde
     assert code == 0 and json.loads(out)["replayed"] is True and json.loads(out)["warnings"] == [] and "notes.txt" not in err
 
 
-def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_run_too_and_a_hit_elsewhere_is_a_warning_on_the_error(tmp_path, monkeypatch):
+def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_attempt_too_and_a_hit_elsewhere_is_a_warning_on_the_error(tmp_path, monkeypatch):
     """#74: « the Study folder is scanned for the key after an `llm_live` run, whether or not the run failed »."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
