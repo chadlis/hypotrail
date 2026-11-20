@@ -2445,3 +2445,51 @@ def test_the_readme_and_chapters_05_and_12_say_a_report_exists():
     for name in ("05-assessments.html", "12-freeze-and-exposure.html"):
         text = (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
         assert 'href="#report"' in text and "nothing summarises them yet" not in text and "are issue #10" not in text, name
+
+
+# --- chapter 15: data fetch (#22) -----------------------------------------------------------------------------------
+
+
+def test_the_data_fetch_flag_table_equals_the_parser(page):
+    from hypotrail.cli import build_parser
+
+    data = next(a for a in build_parser()._actions if getattr(a, "choices", None) and "data" in a.choices).choices["data"]
+    fetch = next(a for a in data._actions if getattr(a, "choices", None) and "fetch" in a.choices).choices["fetch"]
+    options = {flag: a.required for a in fetch._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "data-fetch-flags", "data-flag")
+    assert {flag: row["data-required"] == "true" for flag, row in rows.items()} == options
+
+
+def test_the_data_fetch_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _fetch_helpers import fetch_refusals
+
+    found = fetch_refusals(tmp_path)
+    rows = attrs_of(page, "data-fetch-refusals", "data-code")
+    assert set(rows) == set(found)
+    for code, cases in found.items():
+        for status, error in cases:
+            row = rows[code]
+            assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (status, error["stage"], set(error["details"])), code
+    reasons = {code: {error["details"]["reason"] for _, error in cases if "reason" in error["details"]} for code, cases in found.items()}
+    text = {code: row["text"] for code, row in table_rows(page, "data-fetch-refusals", "data-code").items()}
+    for code, named in reasons.items():
+        for reason in named:
+            assert reason in text[code], (code, reason)  # each reason the code gives is named in its row
+
+
+def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acquired_by_removing_it_first(page):
+    from hypotrail.core import fetch
+
+    match = re.search(r"<code data-cap>(\d+) bytes</code>", page)
+    assert match and int(match.group(1)) == fetch.GENERIC_CAP_BYTES
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")).split())
+    assert "To acquire a file again, remove it first." in chapter
+    assert "never replaces a file" in chapter and "no automatic mirror" in chapter
+
+
+def test_the_readme_install_block_has_the_data_fetch_line_and_says_how_a_clean_install_acquires_the_data():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    block = readme.split("```")[1]
+    assert re.search(r"^uv run python -m hypotrail data fetch --lock \S+ --dest \S+", block, re.M)
+    flat = " ".join(readme.split())
+    assert "acquires it with `data fetch`" in flat and "to acquire it again, remove it first" in flat

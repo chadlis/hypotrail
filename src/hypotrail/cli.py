@@ -57,6 +57,20 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
+    fetch = data_commands.add_parser(
+        "fetch", help="acquire a Workload's public sources from the URLs of its lock, checked against the lock"
+    )
+    fetch.add_argument("--lock", required=True, type=Path, metavar="LOCK", help="the data-sources.lock.json to acquire")
+    fetch.add_argument(
+        "--dest",
+        required=True,
+        type=Path,
+        metavar="DIR",
+        help="the Workload directory the files are published in: each source lands at its lock's local_path under it (for example examples/bike_day)",
+    )
+    fetch.add_argument("--json", action="store_true", help="print one JSON object")
+    fetch.set_defaults(handler=_data_fetch)
+
     init = commands.add_parser("init", help="create a Study for a Workload, or add a revision to a Study (--new-revision)")
     init.add_argument("--workload", metavar="NAME", help="the Workload to study (for example bike_day); required unless --new-revision")
     init.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study folder to create, or to add a revision to")
@@ -305,6 +319,18 @@ def _data_verify(args) -> int:
         for r in reports
     ]
     _emit({"ok": True, "datasets": reports}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _data_fetch(args) -> int:
+    from hypotrail.core import fetch
+
+    reports = fetch.fetch(args.lock, args.dest)
+    lines = []
+    for r in reports:
+        lines.append(f"{r['dataset_id']}: {r['file']} {r['status']} (sha256 {r['sha256'][:12]}..., checked against the lock)")
+        lines.append(f"  notice {r['notice']['file'] or '(none)'}: {r['notice']['status']}")
+    _emit({"ok": True, "sources": reports}, args.json, "\n".join(lines))
     return EXIT_OK
 
 

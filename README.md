@@ -4,18 +4,19 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, and `status` and `recover` show and repair a Study's local state. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. `report` renders one self-contained HTML page for a Bike Study from its records alone (a page that shows `public_check` Items is an Exposure); the tool-using agent Track's report comes next. The handbook chapters give each capability in detail.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` and `recover` show and repair a Study's local state, and `data verify` and `data fetch` check and acquire the public data against its lock. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. `report` renders one self-contained HTML page for a Bike Study from its records alone (a page that shows `public_check` Items is an Exposure); the tool-using agent Track's report comes next. The handbook chapters give each capability in detail.
 
 ## Install
 
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.13.
 
-The supported install is a checkout with `uv sync`: the commands below find the Workloads in its `examples/`. No Workload is packaged in the wheel, so any other install passes `--examples-dir` with the directory (a checkout's `examples/` or a copy); without it, such an install is refused before anything is written.
+The supported install is a checkout with `uv sync`: the commands below find the Workloads in its `examples/`. No Workload is packaged in the wheel, so any other install passes `--examples-dir` with the directory (a checkout's `examples/` or a copy); without it, such an install is refused before anything is written. A checkout already holds the verified data. A copy that lacks a data file acquires it with `data fetch` (below): the file comes from its lock's URL, is checked against the lock, and a file that is already there is left or refused, never replaced (to acquire it again, remove it first).
 
 ```
 uv sync --locked --all-extras                 # the core (Python plus jsonschema) needs no extra: uv sync --locked
 uv run --locked --all-extras pytest           # offline: no network, no model call
 uv run python -m hypotrail data verify        # check the public datasets
+uv run python -m hypotrail data fetch --lock examples/bike_day/data-sources.lock.json --dest examples/bike_day    # acquire a missing data file from the lock's URL, checked against the lock
 uv run python -m hypotrail init --workload bike_day --study runs/bike
 uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition dev --request-id ml-dev-a
 uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references REFERENCES_ID
