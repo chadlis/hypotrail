@@ -72,7 +72,7 @@ PRODUCER_FIELDS = {
     "tool_use": "tool_use",
     "saw_public_check": None,
 }
-POPULATION_KEY = "item_ids"
+POPULATION_KEY = layout.IMPORT_POPULATION_KEY
 SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
 SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -426,7 +426,7 @@ def _import_locked(study, source, mapping_path, population_path, request_id, *, 
             "domain": DOMAIN,
             "origin": "imported",
             "mode": MODE,
-            "population_ref": by_role["memberships"],
+            "population_ref": population_ref,
             "raw_refs": [source_ref],
             "normalized_ref": normalized_ref,
             "provenance": {"produced_by": "external", "partition": partition, "import_time": import_time, **producer},

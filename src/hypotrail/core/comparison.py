@@ -8,7 +8,7 @@ The checks run in a fixed order over what the two Assessments record; nothing is
 one has passed (SPEC CMP-01, CMP-02, T12):
 
 1. both Assessments exist in the Study, and everything read is read back against its digest (exit 2, 3);
-2. `population`: the same Partition and the same population artifact;
+2. `population`: the same Partition and the same expected Items (an Import's population file, or the Study's memberships);
 3. the Partition is `dev` or `public_check` (`COMPARISON_PARTITION_NOT_DEV` otherwise);
 4. `references`: the same References set (by digest);
 5. `scorer`: the same Scorer id, version and configuration digest;
@@ -81,6 +81,19 @@ def _rows(data: bytes) -> list:
     return list(csv.DictReader(io.StringIO(data.decode("utf-8"), newline="")))
 
 
+def _population_digest(study: Path, observation_set: dict) -> str:
+    """What identifies the population of a side: the Partition and the expected Items for the regression Track.
+
+    An Import's population file and the Study's memberships name the same population when they expect the same
+    Items, so the artifact's bytes are not compared (the agent Track compares its Cases, `agent_comparison`).
+    """
+    ref = observation_set["population_ref"]
+    if observation_set["domain"] == AGENTIC:
+        return ref["sha256"]
+    partition = observation_set["provenance"].get("partition")
+    return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": layout.expected_row_ids(study, ref, partition)}))
+
+
 def _side(study: Path, role: str, assessment_id: str) -> dict:
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
@@ -103,7 +116,7 @@ def _side(study: Path, role: str, assessment_id: str) -> dict:
         "observation_set": observation_set,
         "manifest": manifest,
         "partition": observation_set["provenance"].get("partition"),
-        "population_sha256": observation_set["population_ref"]["sha256"],
+        "population_sha256": _population_digest(study, observation_set),
         "per_item": per_item,
         "metric": assessment["metrics"][0],
     }

@@ -80,6 +80,21 @@ def partition_of(memberships: bytes, key: str) -> dict:
     return {row[key]: row["partition"] for row in rows if row["partition"]}
 
 
+IMPORT_POPULATION_KEY = "item_ids"  # the one key of the population file `import ml` is given
+
+
+def expected_row_ids(study, population_ref: dict, partition: str) -> list:
+    """The sorted `row_id`s an Observation set of the regression Track is expected to answer.
+
+    A native Attempt's population is the Study's memberships, whose Items of `partition` are all expected. An
+    Import's population is the file it was given (`--population`), which may list fewer Items of that Partition.
+    """
+    raw = artifacts.read_verified(study, population_ref)
+    if population_ref["role"] == "import_population":
+        return sorted(canonical.loads(raw)[IMPORT_POPULATION_KEY])
+    return sorted(row_id for row_id, found in partition_of(raw, "row_id").items() if found == partition)
+
+
 def short_id(prefix: str, sha256: str) -> str:
     """The ID of a Study artifact: its kind and the first 16 hex digits of its digest."""
     return f"{prefix}-{sha256[:16]}"

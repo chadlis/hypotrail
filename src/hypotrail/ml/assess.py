@@ -156,7 +156,6 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     for ref in observation_set["raw_refs"]:
         artifacts.read_verified(study, ref)  # the predictions the Observation set was normalized from
     normalized = artifacts.read_verified(study, observation_set["normalized_ref"])
-    population = artifacts.read_verified(study, observation_set["population_ref"])
     references_bytes = artifacts.read_verified(study, references)
 
     partition = observation_set["provenance"].get("partition")
@@ -164,7 +163,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         raise _refuse("OBSERVATIONS_INVALID", "the Observation set names no Partition", problem="unknown_partition", row_id=None)
     exposed = requires_exposure(partition, not_dev_code="ASSESSMENT_PARTITION_NOT_DEV", what="an Assessment", stage=STAGE)
 
-    expected = sorted(row["row_id"] for row in _rows(population) if row["partition"] == partition)
+    expected = layout.expected_row_ids(study, observation_set["population_ref"], partition)
     observed = {}
     for row in _rows(normalized):
         row_id = row["row_id"]

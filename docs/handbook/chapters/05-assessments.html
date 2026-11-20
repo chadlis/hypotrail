@@ -32,7 +32,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <li>Every artifact read is read back against its digest: the Observation set record, the normalized outputs, the raw predictions it was made from, the population and the References. One that no longer matches is an integrity refusal (chapter 04, <code>ARTIFACT_INTEGRITY</code>, exit 3) and nothing is written.</li>
 <li>The Partition of the Items is <code>dev</code> or <code>public_check</code>; any other Partition (<code>train</code>) is refused. An Assessment on <code>public_check</code> is an Exposure: the Study's freeze record is written if the revision has none and one journal entry is appended before any Item is scored (<a href="#freeze-exposure">chapter 12</a>). Running predictions on <code>public_check</code> with <code>run ml</code> is not an Exposure.</li>
 <li>The Items of the Observation set must be Items of that Partition, each once.</li>
-<li>Each expected Item (every Item the population holds for the Partition, whatever the outputs hold) gets its Criterion; the Metric is aggregated from the scored ones. <code>per_item.csv</code> is published, then <code>assessment.json</code>, last.</li>
+<li>Each expected Item (for a native Attempt, every Item of the Study's memberships in the Partition; for an Import, every Item of the population file it was given, which may list fewer; whatever the outputs hold) gets its Criterion; the Metric is aggregated from the scored ones. <code>per_item.csv</code> is published, then <code>assessment.json</code>, last.</li>
 </ol>
 </div>
 

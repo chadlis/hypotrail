@@ -439,3 +439,21 @@ def test_without_json_the_human_line_goes_to_stdout_and_a_refusal_to_stderr(tmp_
     assert code == 0 and out.startswith("Import ") and err == ""
     code, out, err = run_cli("import", "ml", "--study", study, "--source", tmp_path / "gone", "--mapping", mapping, "--population", population, "--request-id", "h2")
     assert code == 2 and out == "" and "SOURCE_NOT_FOUND" in err
+
+
+# --- R1-12 (#67 Tightened B2): the population the import was given is the expected set of its Assessment -----------------
+
+
+def test_assess_expects_the_items_of_the_imported_population_not_the_whole_partition(tmp_path, study):
+    source, digest = export(tmp_path)
+    ids = [r["day_key"] for r in rows_of(source)][:10]
+    subset = write_rows(tmp_path / "subset.csv", rows_of(source)[:10], FIELDS)
+    population = write_json(tmp_path / "ten.json", {"item_ids": ids})
+    code, payload, err = import_ml(study, subset, mapping_of(tmp_path, digest), population, "ten")
+    assert code == 0, (payload, err)
+    assessment = measures(study, payload["attempt"])
+    assert assessment["counts"]["expected"] == 10
+    assert assessment["counts"]["attempted"] == 10 and assessment["counts"]["scored"] == 10
+    assert assessment["counts"]["missing"] == 0 if "missing" in assessment["counts"] else True
+    per_item = rows_of(Path(study) / assessment["per_item_ref"]["path"])
+    assert sorted(r["row_id"] for r in per_item) == sorted(ids)
