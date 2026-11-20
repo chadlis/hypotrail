@@ -83,6 +83,9 @@ def test_another_configuration_under_the_same_request_id_is_a_conflict_on_config
     rig = Rig(tmp_path, monkeypatch)
     ok(rig.live("plain", "r"))
     rig.conflict(rig.live("verify", "r"), "configuration")
+    # a Configuration that declares the very same content under another name is another Configuration: the id is an element
+    rig.declaration(lambda d: d["configurations"].update(plain_again=json.loads(json.dumps(d["configurations"]["plain"]))))
+    rig.conflict(rig.live("plain_again", "r"), "configuration")
 
 
 def test_the_same_configuration_name_with_its_declared_content_changed_is_a_conflict_on_configuration(tmp_path, monkeypatch):

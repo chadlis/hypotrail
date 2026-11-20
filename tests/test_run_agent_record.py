@@ -388,3 +388,23 @@ def test_a_key_found_elsewhere_in_the_study_is_a_warning_that_changes_no_recorde
     assert stored == payload["attempt"]
     code, out, err = run_cli(*args)  # a replay runs no scan
     assert code == 0 and json.loads(out)["replayed"] is True and json.loads(out)["warnings"] == [] and "notes.txt" not in err
+
+
+def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):
+    """The run record is written after the log scan: the scan before each write is its own guard."""
+    study = study_of(tmp_path)
+    patch_model(monkeypatch)
+    real = agentic_live.record_execution
+
+    def writes_the_key_into_the_record(**kwargs):
+        record = real(**kwargs)
+        path = Path(kwargs["out_dir"]) / "run.json"
+        path.write_text(path.read_text(encoding="utf-8") + FAKE_KEY, encoding="utf-8")
+        return record
+
+    monkeypatch.setattr(agentic_live, "record_execution", writes_the_key_into_the_record)
+    code, error = error_of(live(study, "plain", "late-file", cases=["D03"]))
+    assert (code, error["code"]) == (EXIT_INFRASTRUCTURE, "SECRET_IN_OUTPUT")
+    (folder,) = (study / "attempts").iterdir()
+    assert json.loads((folder / "attempt.json").read_text())["technical_status"] == "failed"
+    assert holds_the_key(study) == [] and not (folder / "run.json").exists()
