@@ -337,7 +337,7 @@ def counts_case_ids(record):
 # --- limits, hash, offline ------------------------------------------------------------------------------
 
 
-def test_the_run_records_the_effective_limits_the_unenforceable_tool_call_limit_and_the_seven_calls(fixture_run):
+def test_the_attempt_records_the_effective_limits_the_unenforceable_tool_call_limit_and_the_seven_calls(fixture_run):
     _, record = fixture_run
     effective = record["effective_limits"]
     assert effective["model_turns"] == 6 and effective["time_seconds"] == 60
@@ -348,7 +348,7 @@ def test_the_run_records_the_effective_limits_the_unenforceable_tool_call_limit_
     assert "6-turn limit allows 7 provider calls" in record["provider_calls_allowed"]["note"]
 
 
-def test_the_run_records_the_chinook_hash_before_and_after_and_they_are_equal(fixture_run):
+def test_the_attempt_records_the_chinook_hash_before_and_after_and_they_are_equal(fixture_run):
     _, record = fixture_run
     expected = hashlib.sha256(DATABASE.read_bytes()).hexdigest()
     assert record["database"]["sha256_before"] == record["database"]["sha256_after"] == expected

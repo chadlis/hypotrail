@@ -1,4 +1,4 @@
-"""Preconditions of a live model run, checked before anything is imported or sent.
+"""Preconditions of a live model execution, checked before anything is imported or sent.
 
 Standard library only. A live execution is opt-in, bounded and never part of the test
 suite or CI. The provider key is read from one variable and from no other.

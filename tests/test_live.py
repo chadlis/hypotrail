@@ -91,7 +91,7 @@ def test_the_old_variable_name_is_not_read(tmp_path, clean_env, never_runs, netw
     assert network_guard.attempts == []
 
 
-def test_a_bearer_token_in_the_environment_would_override_the_key_so_the_run_refuses(
+def test_a_bearer_token_in_the_environment_would_override_the_key_so_the_execution_refuses(
     tmp_path, clean_env, never_runs
 ):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
@@ -115,7 +115,7 @@ def test_the_key_is_never_echoed(tmp_path, clean_env, monkeypatch):
 # --- the model identifier ----------------------------------------------------------------------------
 
 
-def test_without_a_model_the_run_exits_before_inspect_starts(tmp_path, clean_env, never_runs):
+def test_without_a_model_the_execution_exits_before_inspect_starts(tmp_path, clean_env, never_runs):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
     code, out, _ = run_cli(*live_args(tmp_path))
     assert code == 2
@@ -156,7 +156,7 @@ def test_the_code_holds_no_default_model():
         ["--case", "NOPE"],
     ],
 )
-def test_the_run_refuses_non_dev_cases_and_more_than_two_episodes(tmp_path, clean_env, never_runs, extra):
+def test_the_execution_refuses_non_dev_cases_and_more_than_two_episodes(tmp_path, clean_env, never_runs, extra):
     clean_env.setenv("HYPOTRAIL_ANTHROPIC_API_KEY", FAKE_KEY)
     code, _, _ = run_cli(*live_args(tmp_path, "--model", MODEL_ID, *extra))
     assert code == 2
@@ -312,7 +312,7 @@ def test_the_record_holds_provider_model_revision_engine_parameters_and_hardware
     assert (out / "run.json").is_file() and (out / "projection.json").is_file()
 
 
-def test_the_key_appears_in_no_file_the_run_produced(rehearsal):
+def test_the_key_appears_in_no_file_the_execution_produced(rehearsal):
     _, _, out = rehearsal
     files = [p for p in out.rglob("*") if p.is_file()]
     assert files
@@ -414,7 +414,7 @@ def test_the_live_module_does_not_import_zipfile():
     assert not hasattr(agentic_live, "zipfile")
 
 
-def test_a_log_that_cannot_be_fully_scanned_fails_the_run_report(tmp_path):
+def test_a_log_that_cannot_be_fully_scanned_fails_the_execution_report(tmp_path):
     from hypotrail.core.errors import HypotrailError
 
     (tmp_path / "a.eval").write_bytes(b"not a log")
@@ -423,7 +423,7 @@ def test_a_log_that_cannot_be_fully_scanned_fails_the_run_report(tmp_path):
     assert caught.value.code == "LOG_NOT_FULLY_SCANNED"
 
 
-def test_a_run_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
+def test_an_execution_that_leaks_the_key_is_reported_as_an_error(tmp_path, clean_env, monkeypatch):
     for name in PROXY_VARIABLES:
         clean_env.delenv(name, raising=False)
     clean_env.setenv("NO_PROXY", "127.0.0.1,localhost")
@@ -496,7 +496,7 @@ def test_the_command_reaches_the_missing_key_without_importing_inspect(tmp_path)
 # --- opt-in --------------------------------------------------------------------------------------------------------
 
 
-def test_nothing_in_the_suite_starts_a_live_run_against_the_real_endpoint():
+def test_nothing_in_the_suite_starts_a_live_execution_against_the_real_endpoint():
     # The only run_live calls in tests pass a loopback base_url or are patched.
     for path in (ROOT / "tests").glob("test_*.py"):
         for number, line in enumerate(path.read_text().splitlines(), 1):
@@ -685,7 +685,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
     assert caught.value.code == "SECRET_IN_OUTPUT"
 
 
-def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
+def test_a_failing_execution_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
     def fails(cases, **kwargs):
         raise RuntimeError("the execution stopped")
 

@@ -26,7 +26,7 @@ def spike_cases():
 
 
 @pytest.fixture
-def scripted_run(tmp_path):
+def scripted_execution(tmp_path):
     """Run 2 Cases x 2 Repeats offline; return (script, log location)."""
     script = ScriptedModel(spike_cases())
     location = runner.run_episodes(
@@ -47,8 +47,8 @@ def expected_episodes():
 # --- check 1: every Case x Repeat is recovered through the public API ----------
 
 
-def test_four_episodes_are_projected_once_each_with_the_expected_sequence(scripted_run):
-    _, location = scripted_run
+def test_four_episodes_are_projected_once_each_with_the_expected_sequence(scripted_execution):
+    _, location = scripted_execution
     episodes = projection.project_log(location, expected=expected_episodes())
 
     assert [(e["case_id"], e["repeat"]) for e in episodes] == expected_episodes()
@@ -64,8 +64,8 @@ def test_four_episodes_are_projected_once_each_with_the_expected_sequence(script
         ]
 
 
-def test_the_tool_result_in_the_log_equals_the_same_sql_run_directly(scripted_run):
-    _, location = scripted_run
+def test_the_tool_result_in_the_log_equals_the_same_sql_executed_directly(scripted_execution):
+    _, location = scripted_execution
     for episode in projection.project_log(location, expected=expected_episodes()):
         steps = {s["kind"]: s for s in episode["steps"] if s["kind"] != "model_turn"}
         logged = steps["tool_result"]["result"]
@@ -76,8 +76,8 @@ def test_the_tool_result_in_the_log_equals_the_same_sql_run_directly(scripted_ru
         assert logged["row_count"] == len(logged["rows"]) > 0
 
 
-def test_the_tool_call_id_comes_from_the_application_and_maps_to_the_native_event(scripted_run):
-    _, location = scripted_run
+def test_the_tool_call_id_comes_from_the_application_and_maps_to_the_native_event(scripted_execution):
+    _, location = scripted_execution
     for episode in projection.project_log(location, expected=expected_episodes()):
         call = next(s for s in episode["steps"] if s["kind"] == "tool_call")
         result = next(s for s in episode["steps"] if s["kind"] == "tool_result")
@@ -108,8 +108,8 @@ def test_an_episode_that_errors_is_still_one_record_marked_failed(tmp_path):
     assert failed["final_answer"] is None
 
 
-def test_an_expected_episode_absent_from_the_log_is_marked_missing(scripted_run):
-    _, location = scripted_run
+def test_an_expected_episode_absent_from_the_log_is_marked_missing(scripted_execution):
+    _, location = scripted_execution
     episodes = projection.project_log(location, expected=expected_episodes() + [("D03", 2)])
     assert len(episodes) == 5
     assert episodes[-1]["status"] == "missing"
@@ -119,8 +119,8 @@ def test_an_expected_episode_absent_from_the_log_is_marked_missing(scripted_run)
 # --- the scripted log cannot be taken for a live one ------------------------------
 
 
-def test_the_log_records_inspects_mock_model(scripted_run):
-    _, location = scripted_run
+def test_the_log_records_inspects_mock_model(scripted_execution):
+    _, location = scripted_execution
     assert read_eval_log(location).eval.model == MODEL
     for episode in projection.project_log(location, expected=expected_episodes()):
         assert episode["model"] == MODEL

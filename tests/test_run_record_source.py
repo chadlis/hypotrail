@@ -74,7 +74,7 @@ def test_the_provider_call_note_is_built_from_the_effective_turn_limit_of_the_lo
         assert "tool_calls" not in (record["summarised_by"] or {})
 
 
-def test_what_no_log_holds_describes_the_run_itself_and_in_a_re_summary_sits_under_summarised_by(tmp_path, monkeypatch):
+def test_what_no_log_holds_describes_the_execution_itself_and_in_a_re_summary_sits_under_summarised_by(tmp_path, monkeypatch):
     """AC4 + D-012 items 4 and 7: python, hardware, machine; the database hashes the caller gives."""
     monkeypatch.setattr(platform, "python_version", lambda: "3.99.1")
     monkeypatch.setattr(platform, "platform", lambda *a, **k: "SummariserOS-1")

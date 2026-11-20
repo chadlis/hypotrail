@@ -165,7 +165,7 @@ def test_the_sheet_versions_equal_the_lock_and_the_interpreter_minor_and_record_
     assert re.fullmatch(r"\d+\.\d+\.\d+(\.\d+)?", values["sqlite"]), values["sqlite"]
 
 
-def test_the_sheet_model_is_the_one_the_live_run_recorded(page):
+def test_the_sheet_model_is_the_one_the_live_execution_recorded(page):
     values = sheet(page)
     assert values["model"] == RUN["model"] == "anthropic/claude-sonnet-5-5"
     assert values["served-model"] == RUN["served_models"][0]
@@ -1979,7 +1979,7 @@ def test_chapter_03_run_record_table_matches_the_fields_the_code_writes_and_wher
             assert _value(again["baseline"], field) is None, field
             assert again["baseline"]["summarised_by"][key] is not None, field
             if field != "reasoning.note":
-                assert _value(live["baseline"], field) is not None, field  # the run's own value, in a record the run writes
+                assert _value(live["baseline"], field) is not None, field  # the Attempt's own value, in a record the Attempt writes
         if attrs["data-run"] == "null":
             assert live["baseline"][field] is None, field
     assert set(rows["summarised_by"]["attrs"]["data-keys"].split()) == set(again["baseline"]["summarised_by"])
@@ -2218,7 +2218,7 @@ def test_the_readme_and_the_chapters_say_run_agent_records_a_native_attempt():
         assert 'href="#run-agent"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
 
 
-def test_chapter_13_says_the_banner_the_code_writes_and_that_no_paid_run_was_made():
+def test_chapter_13_says_the_banner_the_code_writes_and_that_no_paid_execution_was_made():
     from hypotrail.agentic import fixture
 
     chapter = run_agent_chapter()
@@ -2259,7 +2259,7 @@ def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(n
         assert new in text, new
 
 
-def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_a_run():
+def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_the_word_run():
     """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter

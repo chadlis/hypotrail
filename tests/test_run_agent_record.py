@@ -171,7 +171,7 @@ def test_the_freeze_record_and_check_informed_take_a_configuration_digest_from_t
     assert exposure.configuration_digest_of(attempt) == "one-function"
 
 
-def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_run_whether_or_not_it_failed(tmp_path, monkeypatch, capsys):
+def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_execution_whether_or_not_it_failed(tmp_path, monkeypatch, capsys):
     study = study_of(tmp_path)
     patch_model(monkeypatch)
     code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "ok", "--partition", "dev",
@@ -262,7 +262,7 @@ def test_with_the_provider_failing_on_one_episode_the_attempt_is_completed_and_t
 # --- Limits, the database, tokens and Repeats ------------------------------------------------------------------------------------
 
 
-def test_the_run_applies_the_limits_of_the_track_with_the_cache_off_and_no_retry_and_reads_them_back_in_both_modes(tmp_path, monkeypatch):
+def test_the_attempt_applies_the_limits_of_the_track_with_the_cache_off_and_no_retry_and_reads_them_back_in_both_modes(tmp_path, monkeypatch):
     study = study_of(tmp_path)
     patch_model(monkeypatch)
     expected = {
@@ -281,7 +281,7 @@ def test_the_run_applies_the_limits_of_the_track_with_the_cache_off_and_no_retry
 
 
 @pytest.mark.parametrize("mode", ["llm_live", "scripted_fixture"])
-def test_a_change_of_the_chinook_file_during_the_run_is_database_changed_and_the_attempt_ends_failed_with_a_reason(tmp_path, monkeypatch, mode):
+def test_a_change_of_the_chinook_file_during_the_attempt_is_database_changed_and_the_attempt_ends_failed_with_a_reason(tmp_path, monkeypatch, mode):
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, examples=examples)
     patch_model(monkeypatch)
@@ -405,7 +405,7 @@ def holds_the_key(study) -> list:
     return [str(p.relative_to(study)) for p in sorted(Path(study).rglob("*")) if p.is_file() and FAKE_KEY.encode() in p.read_bytes()]
 
 
-def test_a_key_planted_in_the_runs_output_ends_the_attempt_failed_with_secret_in_output_and_no_file_holds_it(tmp_path, monkeypatch):
+def test_a_key_planted_in_the_attempts_output_ends_the_attempt_failed_with_secret_in_output_and_no_file_holds_it(tmp_path, monkeypatch):
     study = study_of(tmp_path)
     patch_model(monkeypatch, answering_with(FAKE_KEY))
     code, error = error_of(live(study, "plain", "leak", cases=["D03"]))

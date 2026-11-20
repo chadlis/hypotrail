@@ -268,7 +268,7 @@ def test_every_error_has_code_message_stage_and_details_and_diagnostics_go_to_st
     assert code == EXIT_INVALID_INPUT and payload["error"]["code"] == "STUDY_NOT_FOUND"
 
 
-def test_a_successful_run_prints_exactly_one_json_object_on_stdout(tmp_path, capsys):
+def test_a_successful_run_ml_prints_exactly_one_json_object_on_stdout(tmp_path, capsys):
     from hypotrail import cli
 
     study, _ = init_study(tmp_path)

@@ -480,7 +480,7 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
     effective = limits_module.effective_limits(log)
     # `request` is what its caller names: this execution's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
-    by_the_run = request.source is RequestSource.THIS_ATTEMPT
+    by_this_execution = request.source is RequestSource.THIS_ATTEMPT
     reasoning_effort = _reasoning_effort(log)
 
     record = {
@@ -497,20 +497,20 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
             "setting": reasoning_effort,
             "requested": reasoning_effort,
             "sent": (parameters or {}).get("thinking"),
-            "note": REASONING_NOTE if by_the_run else None,
+            "note": REASONING_NOTE if by_this_execution else None,
         },
         "output_cap": {"requested": request.limits["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
         "engine": {"name": "inspect-ai", "version": log.eval.packages.get("inspect_ai")},
-        "python": platform.python_version() if by_the_run else None,
-        "hardware": platform.platform() if by_the_run else None,
-        "machine": platform.machine() if by_the_run else None,
+        "python": platform.python_version() if by_this_execution else None,
+        "hardware": platform.platform() if by_this_execution else None,
+        "machine": platform.machine() if by_this_execution else None,
         "effective_limits": effective,
         "requested_limits": request.limits,
         "request_source": request.source.value,
         "limit_notes": limit_notes(effective),
         "cases": None if planned is None else [{"case_id": c, "repeat": r} for c, r in planned],
-        "database_sha256": database_sha256 if by_the_run else None,
-        "summarised_by": None if by_the_run else _summarised_by(database_sha256),
+        "database_sha256": database_sha256 if by_this_execution else None,
+        "summarised_by": None if by_this_execution else _summarised_by(database_sha256),
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
         "episodes": [_episode_entry(e, samples.get((e["case_id"], e["repeat"]))) for e in episodes],
