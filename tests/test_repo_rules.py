@@ -69,3 +69,10 @@ def test_both_tracks_read_the_memberships_with_the_one_shared_reader():
     csv_bytes = b'case_id,partition\n"A,1",dev\nB2,\nC3,public_check\n'
     assert layout.partition_of(csv_bytes, "case_id") == {"A,1": "dev", "C3": "public_check"}
     assert layout.partition_of(b"row_id,partition\nr1,train\nr2,\n", "row_id") == {"r1": "train"}
+
+
+def test_the_readme_claims_no_live_attempt_in_a_study():
+    # R2-04, AGENTS.md "short and true": the only live path is `spike live --out DIR`, which records no Attempt of a Study (#72 B2).
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "A live Attempt" not in text
+    assert "records no Attempt in a Study" in text
