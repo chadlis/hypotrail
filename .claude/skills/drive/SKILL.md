@@ -38,7 +38,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
-**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice.
+**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice, except the proxy's fallback under "Autonomous protocol". When an agent file changes during a session, put the changed paragraph in that agent's prompts until a new session loads the file.
 
 **Reaching Matt Pocock's user-invoked skills.** `to-tickets`, `implement`, `implement-spec` and `retro` cannot be invoked through the Skill tool. Tell the subagent to read the file and follow it:
 
@@ -78,7 +78,7 @@ By default the run **stops at the open PR**:
 
 **Preparation mode**, only on an explicit `/drive #n prepare` request: read the slice and its sources, create or update the slice preparation note below, then finish normally with `/hypotrail-study before <fully-qualified-source-issue>` as the next command, to run in a session opened on `chadlis/hypotrail-learning` so that its repository skill is used, not a same-named personal skill. Do not enter steps 1–12, create a delivery branch, add an `in-progress` label, open implementation tickets, merge, or start a chain. Save the note and its link only. Create no learning issue in this mode. Do not mark an implementation step done because preparation happened. If `prepare` is combined with `merge` or `chain`, preparation takes precedence and the next execution needs a new explicit command. Preparation is optional. A plain `/drive` does not start a course or wait for a learning session.
 
-**Changes to the apparatus are deferred, never applied** (except under the autonomous protocol, where the proxy decides them and they go on their own pull request). The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
+**Changes to the apparatus are deferred, never applied** (except under the autonomous protocol, where the proxy decides them, or the owner instructs them, and they go on their own pull request). The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
 **Paid live runs.** A live run is one invocation of a command that calls a real model, whatever its number of Episodes. At most five per slice, each within the slice issue's bounds and written in the state comment with its reason. Before the first, a test runs the exact live command (same working directory, same arguments) with the provider patched, and exits 0. A run is repeated only after a technical failure, never to get a better result. When post-processing fails, rerun it from the kept log, never the call.
 
@@ -95,7 +95,7 @@ Salah adopted this protocol on chadlis/hypotrail#1 ([end state and protocol](htt
   1. Write the decision in the log (below) before asking: the question, the sources, at least two options with their cost, their reversibility and what Inspect does for the same thing ("Inspect first"), and your own choice with its reason.
   2. Start a fresh `owner-proxy` with the question, the sources and the options, **without your choice or recommendation**, and without pointing it at the decision log.
   3. If the proxy chooses as you did, that is the decision. If not (including a new option of its own), start a second fresh `owner-proxy` with the same brief plus both argued positions, labelled A and B without saying whose each is. Its answer is the decision.
-  4. Log it as « decision by proxy (Fable) », never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Name the model that served each proxy reading when it is known; a reading not served by Fable is recorded as such and not labelled « (Fable) ».
+  4. Log it as « decision by proxy (Fable) » (« (Opus) » under the fallback below), never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Name the model that served each proxy reading when it is known; a reading not served by Fable is recorded as such and not labelled « (Fable) ». When Fable is unavailable because its budget is spent, start the proxy with a model override to Opus 5.5 (owner instruction, 2026-11-20: « s'il n'y a plus de budget Fable 5.2, utilise opus 5.5 »), and label the reading « decision by proxy (Opus) ».
 - **Decision log.** One issue on chadlis/hypotrail, chadlis/hypotrail#75, linked from a comment on #1; one comment per decision. A slice's state comment links its entries. The log is what Salah reviews at the end. Drive decisions inside the delegation ("Delegated implementation choices") that a later reader could question go there too, labelled « drive decision (delegated) ».
 - **Learning loop.** The protocol comment says learning notes and `hypotrail-study` suggestions are « not required by this run ». How this run applies that line is decision D-001 of the log.
 - **Reports and briefs.** Each axis report of a review of record is kept word for word in the round's comment on the slice issue, for the final review. No STOP outside the cases above. Ordinary briefs are short terminal notes. The brief page ("The brief page") is written once, at the very end, for the final review, covering the whole run and the decision log; a STOP for one of the cases above gets its own.
@@ -122,7 +122,7 @@ Each ends the run and produces the brief early:
 
 **Counting.** Round 1 is the first review of record. The two axis readers together make one round. A correction followed by a new review opens the next round. A disposition check or a targeted routing check on the same head belongs to the round in progress; it never stands in for a new correction-and-review cycle.
 
-**Five is a cap, not a target.** It is an experimental cap, to be re-evaluated with the data the state comment records. As soon as blockers and decisions are settled and the required checks pass, finish in the authorised mode, without further rounds. An empty report does not close earlier blockers that are still open. Never rerun an unchanged review in the hope of a kinder report.
+**Five is a cap, not a target.** It is an experimental cap, to be re-evaluated with the data the round comments and the state comment record. As soon as blockers and decisions are settled and the required checks pass, finish in the authorised mode, without further rounds. An empty report does not close earlier blockers that are still open. Never rerun an unchanged review in the hope of a kinder report.
 
 **Fix attempts.** A fix attempt is a completed correction (committed, full suite run) that names the check it means to satisfy. Running the same command twice on the same head is not two attempts. A test kept red on purpose before implementation (test-first) is not a completed attempt. The check must test an accepted requirement, not a constraint the test invented.
 
@@ -138,7 +138,7 @@ Each ends the run and produces the brief early:
 
 A floor ends with the STOP brief and a concrete recommendation. It is never a request for Salah to debug.
 
-Every owner decision gets its own dated comment on the slice issue: his words quoted, its scope, any budget, and the commits it allows. The state comment links it. Steps 7 to 10 then run as usual, and the PR body names the floor.
+Every owner decision gets its own dated comment on the slice issue: his words quoted, the option text he chose quoted from the brief, its scope, any budget, and the commits it allows. Any consequence or summary of yours goes under a separate « Drive reading » line. The state comment links it. Steps 7 to 10 then run as usual, and the PR body names the floor.
 
 Review counters, fix attempts per check, open findings, unresolved decisions and floors survive resumes and history rewrites. A new review or a session restart cannot erase an earlier floor, and a later change to these rules does not lift a floor already reached: that needs Salah's explicit answer.
 
@@ -154,7 +154,7 @@ Salah wants system-wide orientation, participation in consequential choices, and
 
 **Decide and continue** when the choice keeps to the accepted contract, stays inside the authorised budget and scope, meets no owner reservation or other floor, and can be verified by suitable checks. That the repository does not prescribe an implementation detail does not make it a product decision. Record a structuring choice briefly where records already live (state comment, slice note, PR body), with its reason, limit and reversibility. An ADR only when the routing table asks for one.
 
-Delegated, for example: repairing incomplete validation so that it meets an already accepted requirement, renaming an internal symbol, choosing the structure of a test. Not delegated, however easy to code or to undo: changing the scope of a public refusal, a methodological guarantee, or an evaluation protocol that is not settled.
+Delegated, for example: repairing incomplete validation so that it meets an already accepted requirement, renaming an internal symbol, choosing the structure of a test. Not delegated, however easy to code or to undo: changing the scope of a public refusal, a methodological guarantee, an evaluation protocol that is not settled, or a reading that reconciles two accepted requirements an axis reader reports in conflict. That reading goes to the owner-decision gate (under the autonomous protocol, the proxy) before any fix is delegated.
 
 ### Owner decisions
 
@@ -186,7 +186,7 @@ For every slice, reuse its existing `notes/<slice>.md` in `chadlis/hypotrail-lea
 
 On every start and resume, read the note, any linked selected objective and relevant `before` records, following the unconditional authority check below. Also search selected learning issues by the source issue reference if no backlink exists. A tutor can have prepared the objective directly before `drive` ran. A suggested focus in a note is not an activated learning objective. If the focus clearly matches an active objective listed in `apprentissage/parcours.md` that does not cite this slice yet, add the note to that issue as a candidate source (« candidate, not assessed »), without changing the objective. If Salah asks `drive` itself to track an objective, record the request in the note and point to `/hypotrail-study`: the tutor creates the issue.
 
-In explicit `prepare`, collect the note now and finish with `/hypotrail-study before chadlis/hypotrail#N`. In normal execution, update it at steps 7 and 9. If a selected learning issue already covers this source, add the new evidence to that issue without changing the objective, closing it or creating a duplicate. If none exists, stop at the note. A missing learning issue is a normal completed state.
+In explicit `prepare`, collect the note now and finish with `/hypotrail-study before chadlis/hypotrail#N`. In normal execution, update it at steps 7 and 9. A disposition check on a finding about learning notes quotes the note's content, since axis readers may be unable to read `chadlis/hypotrail-learning`. If a selected learning issue already covers this source, add the new evidence to that issue without changing the objective, closing it or creating a duplicate. If none exists, stop at the note. A missing learning issue is a normal completed state.
 
 Use these compact fields in the note, omitting empty optional sections:
 
@@ -251,12 +251,14 @@ Writing style, in French: descriptive and explicit, never condensed or literary.
 
 The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Because it is edited, it is an index, never the only copy: a decision, a finding ID or a gate reading lives in its own comment and the state comment links it. Step lines are added, never merged. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
 
-From the first review of record on, the state comment also lists the open IDs of the **findings register** (see "Routing findings") with links to the round comments that define them, and one line per review round:
+From the first review of record on, each round's "Review of record" comment carries, for that round:
 - the reviewed base and head;
 - raw and deduplicated finding counts by routing row, and the cited paths;
 - pre-existing defects, incomplete fixes and demonstrated regressions, and for rounds 4 and 5 the defects resolved and introduced;
 - the models actually used if known, the available token or cost telemetry and durations (unknown stays unknown);
 - each human interruption, its reason, and whether the existing delegation could already have settled it.
+
+The state comment carries one line per round linking its comment, the open IDs of the **findings register** (see "Routing findings"), the human interruptions and the defects found after acceptance. Edit it in the same turn as each round comment, decision-log entry and pull request, never later.
 
 Defects found after acceptance are added when someone reports them. This record is what will be used to re-evaluate the five-round cap. Build no other tracking for it, and open no issue to hold it.
 
@@ -311,7 +313,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
 | 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links; each ticket that changes behaviour has a criterion that the handbook chapter describes the change, and that any README line it affects is updated, in the same pull request (ADR 0003, AGENTS.md) | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED`. Then, across all tickets: name each parent amendment or specification rule that governs the slice's inputs or outcomes (for example "every abnormal outcome carries a **Reason**") and the ticket whose criteria witness it; a rule no ticket witnesses is `UNCOVERED` | `slice-gate`, fresh | its reading comes back, every governing rule mapped to a ticket or marked `UNCOVERED` |
-| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, affected product documentation complete |
+| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, each criterion's witness shown red in a builder's hand-back, affected product documentation complete |
 | 5 | **Review of record, round 1**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports kept verbatim, each finding entered in the register |
 | 6 | Route each finding through the register (see "Routing findings"); fixes go to `slice-builder`. A correction followed by a review opens the next round: `/mattpocock-skills:code-review <head of the last reviewed round>`, bare. Checkpoint after round 3, plan before rounds 4 and 5, and stop at any floor (see "Review rounds") | you, then subagent | every finding fixed and verified, refuted with evidence, linked as a duplicate, or escalated; the accepted head is named |
 | 7 | Learning notes and links: update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above). The PR names which acceptance tests (T-xx) it proves | `slice-builder` | learning notes are saved or preserved in the named fallback |
@@ -346,10 +348,11 @@ Take the first row that applies:
 | something about the tooling (flaky test, broken script) | the brief, not the code |
 | none of the above | the brief, under "non classé" |
 
-Three readings of this table that it does not say on its face:
+Four readings of this table that it does not say on its face:
 - Missing required documentation is a requirement, row 1.
 - Duplicated code or an unflattering name is not, by itself, behaviour nobody asked for. Row 2 is about what the code does.
 - A product ambiguity is not settled by routing it to row 3. It follows the owner-decision gate of "Who decides".
+- A finding that turns on what a `GLOSSARY.md` term covers (its definition and its relationships disagree, or the readers do) is a product ambiguity from its second round on. It goes to the owner-decision gate, which may choose a `needs-triage` issue for `/domain-modeling`, not to another wording fix; the reader who raised it verifies that the decided disposition was applied.
 
 ### The findings register
 
