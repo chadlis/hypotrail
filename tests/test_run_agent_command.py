@@ -276,3 +276,10 @@ def test_the_generic_run_agent_code_names_no_workload_in_its_message_or_its_help
     agent = next(a for a in run_parser._actions if getattr(a, "choices", None) and "agent" in a.choices).choices["agent"]
     config = next(a for a in agent._actions if "--config" in a.option_strings)
     assert "chinook" not in config.help.lower()
+
+
+def test_the_generic_run_agent_module_docstring_names_no_workload():
+    """R2-05, ADR 0002: the module that documents the order of `run agent` for any Workload does not name Chinook either."""
+    from hypotrail.agentic import run
+
+    assert "chinook" not in run.__doc__.lower()
