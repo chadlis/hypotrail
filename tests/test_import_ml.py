@@ -431,6 +431,24 @@ def test_an_error_inside_the_process_leaves_a_failed_attempt_with_a_reason(tmp_p
     assert manifest["technical_status"] == "failed" and "disk full" in manifest["reason"]
 
 
+def test_the_cli_reports_an_os_error_of_import_ml_as_it_always_did_by_type_and_message(tmp_path, study, monkeypatch):
+    """R5-03, #81 keeps the other commands: only `run agent` reports an OS error by its type alone."""
+    from hypotrail.core import artifacts
+
+    source, mapping, population, _ = ready(tmp_path)
+    real = artifacts.publish_record
+
+    def broken_record(study_, relative, record, *, role):
+        if role == "observation_set":
+            raise OSError("disk full")
+        return real(study_, relative, record, role=role)
+
+    monkeypatch.setattr(artifacts, "publish_record", broken_record)
+    code, payload, _ = import_ml(study, source, mapping, population, "imp")
+    assert code == 4 and payload["error"]["code"] == "INFRASTRUCTURE_FAILURE"
+    assert payload["error"]["message"] == "OSError: disk full" and payload["error"]["details"] == {}
+
+
 def test_without_json_the_human_line_goes_to_stdout_and_a_refusal_to_stderr(tmp_path, study):
     from _study_helpers import run_cli
 
