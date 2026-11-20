@@ -149,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     assess.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Observation set")
     assess.add_argument("--observations", required=True, metavar="OBSERVATION_SET_ID", help="the Observation set to score")
     assess.add_argument(
-        "--scorer", required=True, metavar="SCORER_ID", help="a registered Scorer (regression_mae_v1, regression_rmse_v1)"
+        "--scorer", required=True, metavar="SCORER_ID", help="a registered Scorer (regression_mae_v1, regression_rmse_v1, chinook_contract_v1)"
     )
     assess.add_argument("--references", required=True, metavar="REFERENCES_ID", help="the References set of the Study to score against")
     assess.add_argument("--json", action="store_true", help="print one JSON object")
@@ -292,6 +292,11 @@ def _import_agent(args) -> int:
 
 
 def _assess(args) -> int:
+    from hypotrail.core import scorers
+
+    scorer = scorers.REGISTRY.get(args.scorer) if isinstance(args.scorer, str) else None
+    if scorer is not None and scorer.domain == scorers.AGENTIC:
+        return _assess_agent(args)
     from hypotrail.ml import assess
 
     record = assess.assess(args.study, args.observations, args.scorer, args.references)
@@ -300,6 +305,24 @@ def _assess(args) -> int:
     human = (
         f"Assessment {record['assessment_id']}: {metric['id']} {value} over {counts['scored']} of "
         f"{counts['expected']} expected Items ({counts['unscored']} unscored, {counts['errored']} errored)"
+    )
+    _emit({"ok": True, "assessment": record}, args.json, human)
+    return EXIT_OK
+
+
+def _assess_agent(args) -> int:
+    from hypotrail.agentic import assess
+
+    record = assess.assess(args.study, args.observations, args.scorer, args.references)
+    counts = record["counts"]
+    quality, share = record["metrics"]
+
+    def shown(rate):
+        return "no value" if rate["value"] is None else f"{rate['value']:.3g}"
+
+    human = (
+        f"Assessment {record['assessment_id']}: primary Criterion {record['primary_criterion']}: {counts['correct']} correct of {counts['expected']} expected Episodes "
+        f"({counts['scored']} scored, {counts['unscored']} unscored, {counts['errored']} errored); {quality['id']} {shown(quality)}, {share['id']} {shown(share)}"
     )
     _emit({"ok": True, "assessment": record}, args.json, human)
     return EXIT_OK

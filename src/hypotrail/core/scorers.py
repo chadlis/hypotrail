@@ -1,11 +1,14 @@
 """The Scorer registry: static and closed (SPEC §8).
 
 A `SCORER_ID` is a key of `REGISTRY`, looked up as a string. Nothing is imported, evaluated or
-looked up by name from the given text, so no Python can be loaded through it. This ticket registers
-the two Scorers of the temporal regression Track; `chinook_contract_v1` joins with the Chinook
-ticket. A Scorer carries the `domain` of the Observation sets it can score, a `config` that is
-hashed into `config_digest`, and the pure function that aggregates the Criterion into its Metric.
-The module needs only the standard library.
+looked up by name from the given text, so no Python can be loaded through it. It registers the two
+Scorers of the temporal regression Track and `chinook_contract_v1` of the agent Track (#68). A Scorer
+carries the `domain` of the Observation sets it can score and a `config` that is hashed into
+`config_digest`. A regression Scorer has one Criterion and the pure function that aggregates it into
+its Metric; `chinook_contract_v1` has four Criteria and no aggregation of its own: the shares of an
+agent Assessment are counted from the states of its Criteria, and the one scoring function stays in
+`hypotrail.core.chinook_contract` (ADR 0001). The module needs the standard library and, for that
+Scorer's name and version, `hypotrail.core.chinook_contract`.
 """
 
 import math
@@ -13,9 +16,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from hypotrail.core import canonical
+from hypotrail.core.chinook_contract import CRITERIA as CHINOOK_CRITERIA
+from hypotrail.core.chinook_contract import SCORER_NAME as CHINOOK_SCORER
+from hypotrail.core.chinook_contract import SCORER_VERSION as CHINOOK_VERSION
 from hypotrail.core.errors import InvalidInputError
 
 REGRESSION = "regression"
+AGENTIC = "agentic"
 ABSOLUTE_ERROR = "absolute_error"
 
 
@@ -33,12 +40,15 @@ class Scorer:
     id: str
     version: str
     domain: str
-    criterion: str
-    metric_id: str
-    aggregate: Callable[[list], float]
+    criterion: str | None
+    metric_id: str | None
+    aggregate: Callable[[list], float] | None
+    criteria: tuple = ()
 
     @property
     def config(self) -> dict:
+        if self.domain == AGENTIC:
+            return {"criteria": list(self.criteria), "answer_schema": "table-answer/1"}
         return {"criterion": self.criterion, "metric": self.metric_id, "direction": "lower_is_better"}
 
     @property
@@ -51,6 +61,7 @@ REGISTRY: dict[str, Scorer] = {
     for scorer in (
         Scorer("regression_mae_v1", "1", REGRESSION, ABSOLUTE_ERROR, "mae", mean_absolute_error),
         Scorer("regression_rmse_v1", "1", REGRESSION, ABSOLUTE_ERROR, "rmse", root_mean_squared_error),
+        Scorer(CHINOOK_SCORER, CHINOOK_VERSION, AGENTIC, None, None, None, criteria=CHINOOK_CRITERIA),
     )
 }
 

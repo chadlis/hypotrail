@@ -326,17 +326,17 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
     study = Path(study)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
-    spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    layout.require_domain(spec, DOMAIN, COMMAND)
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study):
         return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir)
 
 
 def _import_locked(study, source, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
+    layout.require_domain(spec, DOMAIN, COMMAND)
     examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
     workload_name = spec["workload"]
-    data.verify_workloads(examples, [workload_name])
+    data.verify_workload_files(examples, workload_name)  # the bytes only: the database is never opened
     study_refs = [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]
     for ref in study_refs:
         artifacts.read_verified(study, ref)

@@ -82,7 +82,7 @@ def run_ml(
     study = Path(study)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
-    layout.require_domain(layout.read_spec(study), DOMAIN, COMMAND)  # a folder that is no Study is refused before a lock file is created in it
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study):
         return _run_locked(study, config_id, partition, request_id, retry_of=retry_of, examples_dir=examples_dir)
 
@@ -98,6 +98,7 @@ def _run_locked(
 ) -> tuple[dict, bool]:
     """Run (or replay) one request; return the Attempt manifest and whether it was recorded already."""
     spec = layout.read_spec(study)
+    layout.require_domain(spec, DOMAIN, COMMAND)
     examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
     workload = spec["workload"]
     data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is computed

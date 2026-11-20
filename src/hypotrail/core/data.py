@@ -321,3 +321,23 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
             }
         )
     return reports
+
+
+def verify_workload_files(examples_dir: Path, name: str) -> None:
+    """Check the bytes of the named Workload's files against its lock, and its licence notices, without opening any of them.
+
+    `verify_workloads` goes further and queries the content (the Chinook database is opened and its
+    tables counted). A command that must never open the database, as `import agent` must not, checks
+    the bytes only: the content was checked by `init`, and the Study keeps a copy read back against its digest.
+    """
+    examples_dir = Path(examples_dir)
+    if not examples_dir.is_dir():
+        raise InvalidInputError(
+            "EXAMPLES_DIR_NOT_FOUND",
+            f"examples directory not found: {examples_dir}",
+            stage="config",
+            details={"examples_dir": str(examples_dir)},
+        )
+    workload = _load_workload(examples_dir, name)
+    _verify_bytes(workload)
+    _verify_licence(workload)

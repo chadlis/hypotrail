@@ -620,6 +620,57 @@
         },
         "check_informed": {
           "type": "boolean"
+        },
+        "primary_criterion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unknowns": {
+          "type": "object",
+          "properties": {
+            "unscored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "errored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reasons": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "required": [
+            "unscored",
+            "errored",
+            "reasons"
+          ],
+          "additionalProperties": false
+        },
+        "operational_errors": {
+          "type": "object",
+          "properties": {
+            "failed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "missing": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "failed",
+            "missing"
+          ],
+          "additionalProperties": false
+        },
+        "detailed_metrics_ref": {
+          "$ref": "#/$defs/ArtifactRef"
         }
       },
       "required": [

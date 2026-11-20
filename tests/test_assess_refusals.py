@@ -77,7 +77,7 @@ def test_assess_does_not_import_scikit_learn_numpy_or_inspect(kept):
 # --- AC6: a closed registry ------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("scorer", ["no_such_scorer_v1", "chinook_contract_v1", "planted_scorer:run", "planted_scorer", "os.path:join", ""])
+@pytest.mark.parametrize("scorer", ["no_such_scorer_v1", "chinook_contract_v2", "planted_scorer:run", "planted_scorer", "os.path:join", ""])
 def test_a_scorer_not_in_the_registry_is_refused_and_nothing_is_imported_from_the_string(kept, tmp_path, monkeypatch, scorer):
     plant = tmp_path / "plant"
     plant.mkdir()
@@ -86,7 +86,7 @@ def test_a_scorer_not_in_the_registry_is_refused_and_nothing_is_imported_from_th
     study, _, obs = kept
     before = snapshot(study)
     error = refused(assess(study, obs, scorer, references_id(study)), "SCORER_NOT_REGISTERED", EXIT_INVALID_INPUT)
-    assert error["stage"] == "assess" and error["details"]["registered"] == ["regression_mae_v1", "regression_rmse_v1"]
+    assert error["stage"] == "assess" and error["details"]["registered"] == ["chinook_contract_v1", "regression_mae_v1", "regression_rmse_v1"]
     assert "planted_scorer" not in sys.modules
     assert snapshot(study) == before and not (study / "assessments").exists()
 
