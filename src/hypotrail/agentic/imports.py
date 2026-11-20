@@ -65,6 +65,19 @@ PRODUCER_FIELDS = {
     "file_mode": ("mode",),
 }
 CLAIMED_IN_PRODUCER = ("model", "generation_time", "historical_protocol", "tool_use")
+# The keys of a line, and when each is required: always, only for a `produced` line (one of the two answers), or never.
+ALWAYS, WHEN_PRODUCED, OPTIONAL = "always", "produced", "no"
+LINE_KEYS = {
+    "case_id": ALWAYS,
+    "repeat": ALWAYS,
+    "observation_status": ALWAYS,
+    "raw_answer": WHEN_PRODUCED,
+    "final_answer": WHEN_PRODUCED,
+    "trace": OPTIONAL,
+    "origin": OPTIONAL,
+    "mode": OPTIONAL,
+    "producer": OPTIONAL,
+}
 
 
 def _refuse(code, message, **details):

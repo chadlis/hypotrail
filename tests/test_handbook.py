@@ -656,6 +656,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
         "init": subparser(parser, "init"),
         "run ml": subparser(subparser(parser, "run"), "ml"),
         "import ml": subparser(subparser(parser, "import"), "ml"),
+        "import agent": subparser(subparser(parser, "import"), "agent"),
         "status": subparser(parser, "status"),
         "recover": subparser(parser, "recover"),
     }
@@ -771,7 +772,11 @@ def study_refusals(tmp_path):
     study, _ = init_study(tmp_path, name="base")
     record_cli(*run_json("init", "--workload", "bike_day", "--study", study))  # STUDY_EXISTS
     record_cli(*run_json("run", "ml", "--study", tmp_path / "none", "--config", "seasonal_7", "--partition", "dev", "--request-id", "r"))
-    record_cli(*run_json("init", "--workload", "chinook", "--study", tmp_path / "chinook"))
+    record_cli(*run_json("init", "--workload", "bike_day", "--study", tmp_path / "elsewhere", "--examples-dir", examples_copy(tmp_path, edit=lambda d: d.update(track="x"), name="other-track")))
+    from _chinook_helpers import init_chinook
+
+    chinook, _ = init_chinook(tmp_path, name="chinook")
+    record_cli(*run_ml(chinook, "seasonal_7", "dev", "r"))  # UNSUPPORTED_CAPABILITY: a command of the other Track
     record_cli(*run_ml(study, "seasonal_7", "dev", ""))
     record_cli(*run_ml(study, "seasonal_7", "dev", "r", "--retry-of", "nope"))
     record_cli(*run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev"))
@@ -856,7 +861,7 @@ def test_the_scorer_table_equals_the_registry(page):
     for scorer_id, row in rows.items():
         scorer = scorers.REGISTRY[scorer_id]
         assert (row["data-version"], row["data-domain"], row["data-criterion"], row["data-metric"]) == (
-            scorer.version, scorer.domain, scorer.criterion, scorer.metric_id,
+            scorer.version, scorer.domain, scorer.criterion or " ".join(scorer.criteria), scorer.metric_id or "",
         ), scorer_id
 
 
@@ -1156,3 +1161,206 @@ def test_the_compare_refusal_table_equals_the_code_exit_stage_and_details_of_eac
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code
         assert words(row["data-details"]) == details, code
+
+
+# --- chapter 08: init for Chinook, import agent, assess with chinook_contract_v1 (#68) ---------------------------------
+
+
+def _chinook_study_with_assessment(tmp_path):
+    from _chinook_helpers import FIXTURE, fixture_population, import_agent, init_chinook, references_id
+    from _study_helpers import run_json
+
+    study, _ = init_chinook(tmp_path, name="chapter-08")
+    _, imported, _ = import_agent(study, FIXTURE, fixture_population(tmp_path), "imp")
+    attempt = imported["attempt"]
+    folder = study / "attempts" / attempt["attempt_id"]
+    observation_set = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
+    _, assessed, _ = run_json(
+        "assess", "--study", study, "--observations", observation_set, "--scorer", "chinook_contract_v1", "--references", references_id(study)
+    )
+    return study, attempt, assessed["assessment"]
+
+
+def test_the_agent_study_layout_table_equals_the_files_init_writes_for_chinook(page, tmp_path):
+    from _chinook_helpers import init_chinook
+
+    study, _ = init_chinook(tmp_path)
+    written = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    rows = attrs_of(page, "agent-study-layout", "data-path")
+    assert set(rows) == written
+
+
+def test_the_agent_import_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    action = next(a for a in parser._actions if getattr(a, "choices", None) and "import" in a.choices)
+    sub = next(a for a in action.choices["import"]._actions if getattr(a, "choices", None) and "agent" in a.choices)
+    options = {flag: a.required for a in sub.choices["agent"]._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "agent-import-command", "data-command")
+    assert set(rows) == {"import agent"}
+    assert words(rows["import agent"]["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(rows["import agent"]["data-optional"]) == {flag for flag, required in options.items() if not required}
+
+
+def test_the_line_key_table_equals_the_keys_a_line_may_hold_and_what_each_requires(page, tmp_path):
+    from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, write_lines
+
+    from hypotrail.agentic import imports
+
+    rows = attrs_of(page, "agent-line-keys", "data-key")
+    assert {key: row["data-required"] for key, row in rows.items()} == imports.LINE_KEYS
+    study, _ = init_chinook(tmp_path)
+    population = fixture_population(tmp_path)
+    for key, required in imports.LINE_KEYS.items():  # a key left out of every line: refused when it is required, accepted otherwise
+        lines = [{k: v for k, v in line.items() if k != key} for line in fixture_lines()]
+        code, payload, _ = import_agent(study, write_lines(tmp_path / f"{key}.jsonl", lines), population, f"without-{key}")
+        refused = required == "always" or key == "final_answer"  # the fixture's lines carry final_answer, never raw_answer
+        assert (code != 0) == refused, (key, payload)
+
+
+def test_the_agent_producer_table_equals_the_fields_the_code_records_with_their_origin(page, tmp_path):
+    from hypotrail.agentic import imports
+
+    rows = attrs_of(page, "agent-producer", "data-field")
+    declared = {field: ".".join(place) if place else "" for field, place in imports.PRODUCER_FIELDS.items()}
+    assert {field: row["data-declared-by"] for field, row in rows.items()} == declared
+    _, attempt, _ = _chinook_study_with_assessment(tmp_path)
+    producer = attempt["effective_config"]["producer"]
+    assert set(producer) == set(rows)
+    assert {field for field, entry in producer.items() if entry["origin"] == "declared"} == {"file_origin", "file_mode"}
+
+
+def test_the_agent_import_layout_table_equals_the_files_an_import_writes(page, tmp_path):
+    from _chinook_helpers import FIXTURE
+
+    study, attempt, _ = _chinook_study_with_assessment(tmp_path)
+    folder = study / "attempts" / attempt["attempt_id"]
+    written = {
+        p.relative_to(study).as_posix().replace(attempt["attempt_id"], "ATTEMPT_ID").replace(f"source/{FIXTURE.name}", "source/NAME")
+        for p in folder.rglob("*")
+        if p.is_file()
+    }
+    rows = attrs_of(page, "agent-import-layout", "data-path")
+    assert set(rows) == written
+    roles = {
+        ref["path"].replace(attempt["attempt_id"], "ATTEMPT_ID").replace(f"source/{FIXTURE.name}", "source/NAME"): ref["role"]
+        for ref in [*attempt["input_refs"], *attempt["output_refs"]]
+    }
+    for path, row in rows.items():
+        if path in roles:
+            assert row["data-role"] == roles[path], path
+
+
+def test_the_agent_import_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _chinook_refusals import agent_import_refusals
+
+    found = agent_import_refusals(tmp_path)
+    table = attrs_of(page, "agent-import-codes", "data-code")
+    assert set(table) == set(found)
+    for code, row in table.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+def test_the_agent_counter_table_equals_the_counts_keys_of_the_contract_and_the_assessment_counts(page, tmp_path):
+    from hypotrail.core import contracts
+
+    _, _, record = _chinook_study_with_assessment(tmp_path)
+    rows = attrs_of(page, "agent-counters", "data-key")
+    assert set(rows) == set(contracts.schema()["$defs"]["Counts"]["properties"]) == set(record["counts"])
+    counts = record["counts"]
+    assert counts["scored"] == counts["correct"] + counts["incorrect"]
+    assert {key: row["data-ticket-name"] for key, row in rows.items()} == {key: f"N_{key}" for key in rows}
+
+
+def test_the_agent_rate_table_equals_the_two_named_rates_of_the_assessment(page, tmp_path):
+    from hypotrail.agentic import assess as agent_assess
+
+    _, _, record = _chinook_study_with_assessment(tmp_path)
+    rows = attrs_of(page, "agent-rates", "data-rate")
+    assert set(rows) == {agent_assess.QUALITY, agent_assess.CONFIRMED_SHARE} == {m["id"] for m in record["metrics"]}
+    for metric in record["metrics"]:
+        row = rows[metric["id"]]
+        assert metric["denominator"] == record["counts"][row["data-denominator"]], metric["id"]
+        assert metric["value"] == record["counts"][row["data-numerator"]] / metric["denominator"], metric["id"]
+        assert metric["reason"] is None
+    assert {row["data-null-reason"] for row in rows.values()} == {agent_assess.REASON_NO_SCORED, agent_assess.REASON_NO_EXPECTED}
+
+
+def test_the_agent_assessment_field_table_equals_what_an_agent_assessment_adds_to_the_contract(page, tmp_path):
+    from hypotrail.core import contracts
+
+    _, _, record = _chinook_study_with_assessment(tmp_path)
+    rows = attrs_of(page, "agent-assessment-fields", "data-field")
+    definition = contracts.schema()["$defs"]["Assessment"]
+    assert set(rows) == set(record) - set(definition["required"])
+    for field in rows:
+        assert field in definition["properties"] and field not in definition["required"], field
+
+
+def test_the_agent_assessment_layout_and_per_item_columns_equal_the_files_and_the_columns_written(page, tmp_path):
+    from hypotrail.agentic import assess as agent_assess
+
+    study, _, record = _chinook_study_with_assessment(tmp_path)
+    written = {
+        p.relative_to(study).as_posix().replace(record["assessment_id"], "ASSESSMENT_ID") for p in (study / "assessments").rglob("*") if p.is_file()
+    }
+    layout = attrs_of(page, "agent-assessment-layout", "data-path")
+    assert set(layout) == written
+    columns = table_rows(page, "agent-per-item-columns", "data-column")
+    assert list(columns) == agent_assess.PER_ITEM_COLUMNS
+    header = (study / record["per_item_ref"]["path"]).read_text().splitlines()[0].split(",")
+    assert header == agent_assess.PER_ITEM_COLUMNS
+
+
+def test_the_unproduced_reason_table_equals_the_reasons_of_a_failed_and_a_missing_episode(page):
+    from hypotrail.agentic.unproduced import criteria_of_unproduced
+
+    rows = attrs_of(page, "agent-unproduced", "data-status")
+    assert set(rows) == {"failed", "missing"}
+    for status, row in rows.items():
+        criteria = criteria_of_unproduced({"status": status, "reason": None})
+        assert {(c["state"], c["reason"]) for c in criteria} == {("unscored", row["data-reason"])}, status
+
+
+def test_the_agent_assess_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _chinook_helpers import episodes_file, import_agent, init_chinook, references_id, spec_of, write_lines
+    from _study_helpers import run_json
+
+    from hypotrail.core import canonical
+
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    study, _ = init_chinook(tmp_path, name="refusals")
+    keys = [("E01", 0), ("E11", 0)]
+    source = write_lines(tmp_path / "public.jsonl", [{"case_id": c, "repeat": r, "observation_status": "missing"} for c, r in keys])
+    _, imported, _ = import_agent(study, source, episodes_file(tmp_path, keys), "imp")
+    folder = study / "attempts" / imported["attempt"]["attempt_id"]
+    observation_set = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
+    args = ("assess", "--study", study, "--observations", observation_set, "--scorer", "chinook_contract_v1")
+    record(run_json(*args, "--references", references_id(study)))
+    spec = spec_of(study)
+    spec["artifacts"] = [e for e in spec["artifacts"] if e["ref"]["role"] != "answer_schema"]
+    (study / "study.json").write_bytes(canonical.dumps(spec))
+    record(run_json(*args, "--references", references_id(study)))
+    rows = attrs_of(page, "agent-assess-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+def test_chapter_03_no_longer_lists_the_agent_import_and_assessment_as_not_built():
+    text = CHAPTER_03.read_text(encoding="utf-8")
+    assert "Scoring answers imported without a trace, the shares of the Assessment contract" not in text
+    assert 'href="#agent-answers"' in text
