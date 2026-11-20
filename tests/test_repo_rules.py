@@ -76,3 +76,7 @@ def test_the_readme_claims_no_live_attempt_in_a_study():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "A live Attempt" not in text
     assert "records no Attempt in a Study" in text
+    # the spike outputs under docs/handbook/traces are not Attempts of a Study (GLOSSARY Attempt): the README says what they are
+    live = next(line for line in text.splitlines() if "docs/handbook/traces/" in line)
+    assert "spike outputs, not Attempts of a Study" in live and "live Attempt" not in live
+    assert "one Attempt per Configuration" not in live and "second Attempt" not in live and "these Attempts" not in live
