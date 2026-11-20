@@ -98,7 +98,8 @@ def freeze_basis(spec: dict, source: Path) -> dict:
     base Configuration changes the digest of the one that extends it.
     """
     workload = load_workload(source)
-    protocol = protocol_content(workload, dataset_sha256=data.sha256_file(workload.database_path))
+    # the dataset is the Study's own copy (read back against its digest by every command), never the live file
+    protocol = protocol_content(workload, dataset_sha256=spec["dataset_refs"][0]["sha256"])
     declared = workload.declaration.get("configurations", {})
     return {
         "protocol_digest": canonical.digest(protocol),

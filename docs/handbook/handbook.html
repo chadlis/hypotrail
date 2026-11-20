@@ -1170,9 +1170,9 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <p class="sub2">What is checked, in order</p>
 <div class="prose">
 <ol>
-<li>The Study exists and the writer lock is free; the Study is of the agent Track (<code>UNSUPPORTED_CAPABILITY</code>); the bytes of the Workload's files are checked against its lock, without opening the database, and the Study's artifacts are read back against their digests.</li>
+<li>The Study exists and the writer lock is free; the Study is of the agent Track (<code>UNSUPPORTED_CAPABILITY</code>); the bytes of the Workload's other files and licence notices are checked against its lock, the database is neither opened nor hashed (the Study's copy of it, read back against its digest, stands for it), and the Study's artifacts are read back against their digests.</li>
 <li>The two files are read and their sha256 taken. The request is identified (below). The same <code>request_id</code> with the same request ends here with the recorded Import: nothing is validated again, written or scored.</li>
-<li>The Protocol of the Workload is still the Study's (<code>PROTOCOL_CHANGED</code>): the Cases, the References, the answer schema, the database and the primary Criterion are compared by their bytes.</li>
+<li>The Protocol of the Workload is still the Study's (<code>PROTOCOL_CHANGED</code>): the Cases, the References, the answer schema and the primary Criterion are compared by their bytes, and the database by the digest of the Study's copy.</li>
 <li>The population is checked, then every line of the source in file order: JSON, an object, its fields, its status, its answer, its place in the population, its uniqueness; then every Episode of the population must be present.</li>
 <li>Only then is anything written: the running manifest, the original files, the validation report, the normalized Observations and the Observation set, and the terminal manifest last. A refusal at step 4 writes nothing at all.</li>
 </ol>
@@ -1584,6 +1584,7 @@ uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_
 <li>For <code>public_check</code> Items, the Workload's Protocol is digested again and compared with the one the current revision froze. A difference is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and nothing is written: a Protocol change is made with <code>init --study DIR --new-revision</code> (<a href="#revisions-rescoring">chapter 10</a>).</li>
 <li>If the revision has no freeze record, it is written now, before anything is computed on <code>public_check</code> Items. It is never rewritten, and a revision gets its own at its own first use.</li>
 <li>One journal entry is appended, pointing to that freeze record, and only then are the Items scored or paired. The entry is published atomically under the writer lock and never rewritten. An Assessment lists its Attempt and its own ID; a Comparison lists the Attempts and the Assessments of both sides and its own ID.</li>
+<li>The Workload's current digests are read through a function the entry point passes in (the Track's <code>freeze_basis</code>), so the core imports no Track. For a Chinook Study the database part of the Protocol digest is the digest of the Study's own copy: neither <code>import agent</code> nor <code>assess</code> opens or hashes the live file.</li>
 </ol>
 <p>An entry written for a Comparison that is then refused at its <code>coverage</code> check stays: the Items were read, and the journal is not rewritten. Its Comparison ID names no Comparison. <code>run ml</code> on <code>public_check</code> is not an Exposure: it produces predictions and scores nothing.</p>
 </div>
