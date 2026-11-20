@@ -698,6 +698,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
     parsers = {
         "init": subparser(parser, "init"),
         "run ml": subparser(subparser(parser, "run"), "ml"),
+        "run agent": subparser(subparser(parser, "run"), "agent"),
         "import ml": subparser(subparser(parser, "import"), "ml"),
         "import agent": subparser(subparser(parser, "import"), "agent"),
         "status": subparser(parser, "status"),
@@ -1990,3 +1991,207 @@ def test_chapter_03_says_a_re_summary_keeps_the_logs_facts_and_that_the_licence_
     assert page.index('id="run-request-source"') < page.index("Where each field of <code>run.json</code> comes from") < page.index('id="run-record-fields"')
     assert "The model licence line of the specification's §3 does not apply to a remote provider: the record has no field for it." in page
     assert 'href="#run-record-fields"' in page
+
+
+# --- chapter 13: `run agent` (#74) ------------------------------------------------------------------------------------------------
+
+
+def run_agent_chapter() -> str:
+    return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
+
+
+def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_to_llm_live(page):
+    from hypotrail.agentic import run
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    run_parser = next(a for a in parser._actions if getattr(a, "choices", None) and "run" in a.choices).choices["run"]
+    agent = next(a for a in run_parser._actions if getattr(a, "choices", None) and "agent" in a.choices).choices["agent"]
+    options = {flag: action for action in agent._actions for flag in action.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "run-agent-flags", "data-flag")
+    assert set(rows) == set(options)
+    for flag, row in rows.items():
+        assert (row["data-required"] == "yes") == options[flag].required, flag
+        assert (row["data-mode"] == "llm_live") == (flag in run.FLAGS_OF_LIVE.values()), flag
+    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases"}
+
+
+def run_agent_refusals(tmp_path, monkeypatch):
+    """Provoke each refusal of the table; return {case: (exit code, stage, set of details keys)}."""
+    import sys
+
+    from _chinook_helpers import chinook_examples, database_of, init_chinook
+    from _exposure_helpers import edit_chinook_references
+    from _run_agent_helpers import FAKE_KEY, agent, answering_with, fixture, live, live_args, patch_model
+    from _study_helpers import init_study
+    from test_study_lock import held_by_another_process
+
+    from hypotrail.agentic import runner
+
+    found = {}
+
+    def record(case, result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[case] = (error["code"], code, error["stage"], set(error["details"]))
+
+    patch_model(monkeypatch)
+    study, _ = init_chinook(tmp_path, name="study")
+    bike, _ = init_study(tmp_path, name="bike")
+    record("request-id-empty", fixture(study, "plain", ""))
+    record("other-track", fixture(bike, "plain", "r"))
+    record("flag-of-the-other-mode", fixture(study, "plain", "r", "--partition", "dev"))
+    for case, flag in (("partition-required", "--partition"), ("repeats-required", "--repeats"), ("model-required", "--model")):
+        args = live_args("plain", "r")
+        at = args.index(flag)
+        del args[at : at + 2]
+        record(case, agent(study, *args))
+    record("configuration-not-declared", live(study, "nonesuch", "r"))
+    no_scenarios = chinook_examples(tmp_path, edit=lambda declaration: declaration.pop("scenarios"), name="no-scenarios")
+    record("scenarios-not-declared", fixture(study, "plain", "r", "--examples-dir", no_scenarios))
+    record("partition-not-allowed", live(study, "plain", "r", partition="train"))
+    record("repeats-out-of-bounds", live(study, "plain", "r", repeats=4))
+    record("case-repeated", live(study, "plain", "r", cases=["D03", "D03"]))
+    record("case-not-in-partition", live(study, "plain", "r", cases=["E01"]))
+    with held_by_another_process(study):
+        record("study-locked", live(study, "plain", "r"))
+    first = live(study, "plain", "first")[1]["attempt"]
+    record("retry-of-unknown", live(study, "plain", "r", "--retry-of", "nope"))
+    record("request-conflict", live(study, "verify", "first"))
+    examples = chinook_examples(tmp_path, name="altered-examples")
+    altered, _ = init_chinook(tmp_path, name="altered", examples=examples)
+    database_of(examples).write_bytes(database_of(examples).read_bytes() + b"x")
+    record("data-integrity", live(altered, "plain", "r", "--examples-dir", examples))
+    broken, _ = init_chinook(tmp_path, name="broken")
+    (broken / "artifacts" / "memberships.csv").write_bytes(b"x")
+    record("artifact-integrity", live(broken, "plain", "r"))
+    corrected = edit_chinook_references(tmp_path, lambda records: records["D01"].update(rows=[[0]]), name="corrected")
+    record("protocol-changed", live(study, "plain", "new", "--examples-dir", corrected))
+    inspect_ai = sys.modules["inspect_ai"]
+    monkeypatch.setitem(sys.modules, "inspect_ai", None)
+    record("inspect-unavailable", live(study, "plain", "new"))
+    sys.modules["inspect_ai"] = inspect_ai
+    patch_model(monkeypatch, key=None)
+    record("live-unavailable", live(study, "plain", "new"))
+    patch_model(monkeypatch)
+    real = runner.run_episodes
+
+    def changes_the_database(path):
+        def run(*args, **kwargs):
+            location = real(*args, **kwargs)
+            path.write_bytes(path.read_bytes() + b"\0")
+            return location
+
+        return run
+
+    for case, make in (("database-changed-live", live), ("database-changed-fixture", fixture)):
+        examples = chinook_examples(tmp_path, name=f"{case}-examples")
+        changing, _ = init_chinook(tmp_path, name=case, examples=examples)
+        monkeypatch.setattr(runner, "run_episodes", changes_the_database(database_of(examples)))
+        record(case, make(changing, "plain", "r", "--examples-dir", examples))
+    monkeypatch.setattr(runner, "run_episodes", real)
+    patch_model(monkeypatch, answering_with(FAKE_KEY))
+    leaky, _ = init_chinook(tmp_path, name="leaky")
+    record("secret-in-output", live(leaky, "plain", "r"))
+    assert first["technical_status"] == "completed"
+    return found
+
+
+def test_the_run_agent_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path, monkeypatch):
+    rows = attrs_of(page, "run-agent-codes", "data-case")
+    found = run_agent_refusals(tmp_path, monkeypatch)
+    assert set(rows) == set(found)
+    for case, row in rows.items():
+        code, exit_code, stage, details = found[case]
+        assert row["data-code"] == code, case
+        assert int(row["data-exit"]) == exit_code, case
+        assert row["data-stage"] == stage, case
+        assert words(row["data-details"]) == details, case
+
+
+@pytest.fixture
+def run_agent_attempts(tmp_path, monkeypatch):
+    """One scenario Attempt, one `llm_live` Attempt, and the `running` manifest of a third that was stopped before its terminal one."""
+    from _chinook_helpers import init_chinook
+    from _run_agent_helpers import fixture, live, ok, patch_model
+
+    from hypotrail.core import artifacts
+
+    study, _ = init_chinook(tmp_path)
+    patch_model(monkeypatch)
+    scenario = ok(fixture(study, "plain", "fixture"))
+    native = ok(live(study, "plain", "live"))
+
+    class Stopped(BaseException):
+        pass
+
+    real = artifacts.replace_bytes
+    written = []
+
+    def stop_at_the_terminal_manifest(study_path, relative, data):
+        written.append(data)
+        if len(written) == 2:
+            raise Stopped
+        return real(study_path, relative, data)
+
+    monkeypatch.setattr(artifacts, "replace_bytes", stop_at_the_terminal_manifest)
+    with pytest.raises(Stopped):
+        live(study, "plain", "stopped")
+    monkeypatch.setattr(artifacts, "replace_bytes", real)
+    running = json.loads(written[0])
+    return study, {"scripted_fixture": scenario, "llm_live": native}, running
+
+
+def test_the_run_agent_config_and_digest_tables_equal_the_keys_a_running_and_a_terminal_manifest_hold(page, run_agent_attempts):
+    study, attempts, running = run_agent_attempts
+    config = attrs_of(page, "run-agent-config", "data-key")
+    assert set(config) == set(attempts["llm_live"]["effective_config"]) == set(attempts["scripted_fixture"]["effective_config"])
+    assert {key for key, row in config.items() if row["data-when"] == "running"} == set(running["effective_config"])
+    assert running["technical_status"] == "running"
+    digests = attrs_of(page, "run-agent-digests", "data-key")
+    for mode, attempt in attempts.items():
+        in_mode = {key for key, row in digests.items() if row["data-mode"] in ("both", mode)}
+        assert in_mode == set(attempt["effective_config"]["input_digests"]), mode
+
+
+def test_the_run_agent_file_table_equals_the_files_and_roles_an_attempt_of_each_mode_writes(page, run_agent_attempts):
+    study, attempts, _ = run_agent_attempts
+    rows = attrs_of(page, "run-agent-files", "data-path")
+    for mode, attempt in attempts.items():
+        folder = study / "attempts" / attempt["attempt_id"]
+        on_disk = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
+        on_disk = {"inspect/LOG.eval" if path.startswith("inspect/") else path for path in on_disk}
+        expected = {path for path, row in rows.items() if row["data-mode"] in ("both", mode)}
+        assert on_disk == expected, mode
+        listed = {"input_refs": attempt["input_refs"][-1:], "output_refs": attempt["output_refs"]}
+        for path, row in rows.items():
+            if row["data-mode"] not in ("both", mode) or row["data-listed"] == "no":
+                continue
+            refs = [ref for ref in listed[row["data-listed"]] if ref["role"] == row["data-role"]]
+            assert len(refs) == 1, (mode, path)
+            relative = refs[0]["path"].removeprefix(f"attempts/{attempt['attempt_id']}/")
+            assert ("inspect/LOG.eval" if relative.startswith("inspect/") else relative) == path, (mode, path)
+        assert {ref["role"] for ref in attempt["output_refs"]} == {row["data-role"] for row in rows.values() if row["data-mode"] in ("both", mode) and row["data-listed"] == "output_refs"}
+
+
+def test_the_readme_and_the_chapters_say_run_agent_records_a_native_attempt():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "`run agent`" in readme and "--mode scripted_fixture" in readme and "--mode llm_live" in readme
+    for name, stale in (
+        ("04-study-and-attempts.html", "no command runs the agent into a Study yet"),
+        ("11-agent-comparison.html", "nothing yet runs the agent Track into a Study"),
+        ("11-agent-comparison.html", "No native Chinook Attempt"),
+    ):
+        assert stale not in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), (name, stale)
+    for name in ("03-agentic-track.html", "04-study-and-attempts.html", "11-agent-comparison.html"):
+        assert 'href="#run-agent"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
+
+
+def test_chapter_13_says_the_banner_the_code_writes_and_that_no_paid_run_was_made():
+    from hypotrail.agentic import fixture
+
+    chapter = run_agent_chapter()
+    assert f'"{fixture.BANNER}"' in chapter
+    assert f'"{fixture.BANNER}"' in (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
+    assert "It was not run in this step" in chapter
+    assert not list((HANDBOOK / "traces").glob("*run-agent*"))
