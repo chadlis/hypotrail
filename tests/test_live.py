@@ -580,6 +580,8 @@ def _reading(final_answer, results=({"rows": [["Iron Maiden", 21]]},)):
         "[1, 2]",  # a JSON value that is not an object
         '{"rows": [["x", NaN]]}',  # parse_answer refuses NaN
         '{"rows": [["x", Infinity]]}',
+        '{"rows": [["Iron Maiden", 1e999]]}',  # a literal that decodes to a non-finite float (#61)
+        '{"rows": [["Iron Maiden", -1e999]]}',
         '{"rows": []} {"rows": []}',
     ],
 )

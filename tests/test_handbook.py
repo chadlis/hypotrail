@@ -508,7 +508,13 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     shapes = {
         "exact_object": ["OBJ"],
         "wrapped": ["Voici. OBJ", "OBJ\nFin.", "```json\nOBJ\n```", "[OBJ]"],
-        "non_json_wrapper": ['{"answer": OBJ, "note": NaN}', '{"answer": OBJ', "x {oops OBJ"],
+        "non_json_wrapper": [
+            '{"answer": OBJ, "note": NaN}',
+            '{"answer": OBJ, "note": 1e999}',  # #61: a number that decodes to a non-finite float is a failed read too
+            '{"answer": OBJ, "note": -1e999}',
+            '{"answer": OBJ',
+            "x {oops OBJ",
+        ],
     }
 
     def holding(shape, obj):
@@ -519,7 +525,15 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     samples |= {f"{name}_off_schema": [(holding(sh, o), o) for sh in group for o in off_objects] for name, group in shapes.items()}
     samples["nothing_read"] = [
         (raw, None)
-        for raw in ("The answer is 1297.", "1297", "[1297]", text + text, "```json\n" + text + "\n```\n```json\n" + text + "\n```")
+        for raw in (
+            "The answer is 1297.",
+            "1297",
+            "[1297]",
+            text + text,
+            "```json\n" + text + "\n```\n```json\n" + text + "\n```",
+            text.replace("1297", "1e999"),  # #61: a bare answer holding a non-finite literal reads nothing
+            text.replace("1297", "9" * 4301),  # #61 B3: an integer beyond Python's parse limit reads nothing
+        )
     ]
     for name, group in samples.items():
         if name.endswith("_off_schema"):
@@ -538,6 +552,15 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
             falsified = {n for n, c in by.items() if c["state"] == "scored" and c["score"] is False}
             if name == "nothing_read":
                 assert listed == set(chinook_contract.CRITERIA) == falsified, raw
+                # #61 A3: with the Reference absent or invalid, the Criterion named by data-without-reference is unscored
+                # with the Reference's Reason (an Instrument failure), and the others stay false
+                unscored = set(attrs["data-without-reference"].split())
+                for absent in (None, {}):
+                    gone = {c["name"]: c for c in chinook_contract.score_episode(raw, absent, schema)["criteria"]}
+                    reason = chinook_contract.reference_problem(absent)
+                    assert {n for n, c in gone.items() if c["state"] == "unscored"} == unscored, raw
+                    assert all(gone[n]["reason"] == reason for n in unscored), raw
+                    assert {n for n, c in gone.items() if c["score"] is False} == set(chinook_contract.CRITERIA) - unscored, raw
             elif not name.endswith("_off_schema"):
                 assert falsified == listed, raw
             # the Criteria scored false with invalid_response_format are exactly the row's data-false list, except that
@@ -565,6 +588,13 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
     }
 
 
+def test_the_scorer_docstring_states_that_a_missing_reference_leaves_exact_table_unscored_when_nothing_is_read():
+    """#61 A3 (D-012 item 20): the module docstring no longer says every Criterion is false for an answer nothing is read from."""
+    doc = " ".join(_scorer_inputs()[0].__doc__.split())
+    assert "has every Criterion scored false with this Reason, trace or not." not in doc
+    assert "except `exact_table`, which is `unscored` with `reference_missing` or `reference_invalid` when the Reference is absent or unusable" in doc
+
+
 def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_as_the_one_object(page):
     """#58 T9'': the Scorer reads a non-JSON wrapper on the object it holds and a JSON wrapper as the one object, and the chapter states the JSON half once."""
     chinook_contract, schema, reference, answer = _scorer_inputs()
@@ -578,6 +608,19 @@ def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_a
     assert exact_table('{"answer": ' + text + ', "note": 1}') == (chinook_contract.READ_FROM_RAW_ANSWER, False)
     assert page.count("is itself the one object, and is judged as such") == 1
     assert "read on the whole wrapper, which lacks the six fields" in page
+
+
+def test_chapter_03_refuses_a_number_that_decodes_to_a_non_finite_float_like_nan_and_states_the_integer_limit():
+    """#61 AC7 (Tightened E), B3 (D-012 item 18): the chapter says what the Scorer does for both."""
+    chapter = " ".join(re.sub(r"<[^>]+>", "", CHAPTER_03.read_text(encoding="utf-8")).split())
+    assert "A number that decodes to a non-finite float, such as 1e999 or -1e999, is refused like NaN" in chapter
+    assert "An integer of more than 4,300 digits, which Python refuses to read, leaves the answer unreadable" in chapter
+
+
+def test_chapter_08_states_the_scorer_version_the_registry_holds():
+    chinook_contract = _scorer_inputs()[0]
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "08-agent-answers.html").read_text(encoding="utf-8")).split())
+    assert f"chinook_contract_v1 at version {chinook_contract.SCORER_VERSION} and its config_digest" in chapter
 
 
 def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():

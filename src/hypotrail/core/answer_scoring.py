@@ -3,7 +3,8 @@
 Standard library only: this is the one scoring function, whatever produced the
 answer. It compares status, reason, columns (in order), rows (in order) and unit.
 There is no conversion from a string to a number, a boolean is not an integer,
-NULL stays NULL, non-finite numbers are refused, and no number is picked out of
+NULL stays NULL, non-finite numbers are refused (the tokens `NaN`, `Infinity` and `-Infinity`, and a
+literal such as `1e999` that decodes to infinity), and no number is picked out of
 prose. An answer missing one of the six required fields is malformed. The
 Reference's absolute tolerance applies to numbers; it is 0 for exact comparison.
 """
@@ -21,12 +22,23 @@ def _refuse_constant(name):
     raise ValueError(f"non-finite number: {name}")
 
 
+def _refuse_overflow(literal):
+    """A number literal with a fraction or an exponent, as a float; a literal that overflows is refused.
+
+    An integer literal is never passed here, so an integer too large for a double stays an integer.
+    """
+    value = float(literal)
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite number: {literal}")
+    return value
+
+
 def parse_answer(text):
     """The answer as a dict, or None when it is not exactly one JSON object."""
     if not isinstance(text, str):
         return None
     try:
-        value = json.loads(text, parse_constant=_refuse_constant)
+        value = json.loads(text, parse_constant=_refuse_constant, parse_float=_refuse_overflow)
     except ValueError:
         return None
     return value if isinstance(value, dict) else None
@@ -43,10 +55,10 @@ def find_embedded_object(text):
     """The one JSON object an answer contains, as an `EmbeddedObject`, or None.
 
     The text is scanned left to right. At each `{` the standard decoder tries to read one value
-    (refusing `NaN`, `Infinity` and `-Infinity`, as `parse_answer` does); a read that gives an
+    (refusing `NaN`, `Infinity`, `-Infinity` and a number literal that decodes to infinity, as `parse_answer` does); a read that gives an
     object is a candidate and the scan resumes after its last character, so an object nested in a
     candidate is not another one. A failed read (a stray brace, a truncated object, a non-finite
-    number) skips only its `{`: an object that decodes further on, even inside the text of a failed
+    number, an integer beyond Python's parse limit) skips only its `{`: an object that decodes further on, even inside the text of a failed
     read, is a candidate.
     Numbers, strings and arrays are never candidates, and a Markdown fence needs no special case.
     Exactly one candidate is returned, with the exact slice of `text` it was read from; none, or
@@ -54,7 +66,7 @@ def find_embedded_object(text):
     """
     if not isinstance(text, str):
         return None
-    decoder = json.JSONDecoder(parse_constant=_refuse_constant)
+    decoder = json.JSONDecoder(parse_constant=_refuse_constant, parse_float=_refuse_overflow)
     found = None
     position = text.find("{")
     while position != -1:

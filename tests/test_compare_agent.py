@@ -278,6 +278,14 @@ def test_two_references_or_two_scorers_are_refused_as_for_the_bike(tmp_path, stu
         refused(study, a, rewritten(study, b, edit), code, check, reason)
 
 
+def test_an_assessment_under_scorer_version_two_does_not_compare_with_one_under_the_current_version(tmp_path, study):
+    """#61 Tightened D: CMP-01 strict comparison needs the same Scorer version."""
+    _, a = imported(tmp_path, study, "a", answer_lines())
+    _, b = imported(tmp_path, study, "b", answer_lines())
+    assert b["scorer"]["version"] == "3"
+    refused(study, a, rewritten(study, b, lambda r: r["scorer"].update(version="2")), "COMPARISON_SCORER_DIFFERS", "scorer", "scorer_differs")
+
+
 def rewritten(study, assessment, edit):
     """A new Assessment record that shares `assessment`'s per-Item file and whose record `edit` changes."""
     import uuid

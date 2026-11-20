@@ -88,11 +88,11 @@ def fixture_assessment(tmp_path):
 # --- AC5: the Scorer's name and version, a state and a Reason for every Episode and Criterion ---------------------------
 
 
-def test_the_scorer_is_registered_at_version_2_and_the_assessment_records_its_name_and_version(fixture_assessment):
+def test_the_scorer_is_registered_at_version_3_and_the_assessment_records_its_name_and_version(fixture_assessment):
     _, _, record = fixture_assessment
     contracts.validate(record)
-    assert SCORER in scorers.REGISTRY and scorers.REGISTRY[SCORER].version == SCORER_VERSION == "2"
-    assert record["scorer"] == {"id": SCORER, "version": "2", "config_digest": scorers.REGISTRY[SCORER].config_digest}
+    assert SCORER in scorers.REGISTRY and scorers.REGISTRY[SCORER].version == SCORER_VERSION == "3"
+    assert record["scorer"] == {"id": SCORER, "version": "3", "config_digest": scorers.REGISTRY[SCORER].config_digest}
     assert record["kind"] == "assessment" and record["schema_version"] == "assessment/1"
 
 

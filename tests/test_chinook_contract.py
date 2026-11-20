@@ -267,9 +267,9 @@ def test_no_object_or_several_reads_nothing_and_every_criterion_is_false(name, t
 
 
 def test_the_scorer_version_changes_because_the_same_answer_now_scores_differently():
-    assert chinook_contract.SCORER_VERSION == "2"
+    assert chinook_contract.SCORER_VERSION == "3"
     assert chinook_contract.SCORER_NAME == "chinook_contract_v1"
-    assert score(correct_answer("D03"), "D03")["scorer"] == {"name": "chinook_contract_v1", "version": "2"}
+    assert score(correct_answer("D03"), "D03")["scorer"] == {"name": "chinook_contract_v1", "version": "3"}
 
 
 def test_the_record_says_whether_the_answer_was_read_from_the_raw_answer_or_an_embedded_object():
@@ -521,3 +521,125 @@ def test_a_missing_reference_in_a_rescoring_is_unscored_not_a_key_error(kept_log
     )
     assert criteria(verdicts[0])["exact_table"]["score"] is True
     assert criteria(verdicts[1])["exact_table"]["reason"] == "reference_missing"
+
+
+# --- #61: a number that decodes to a non-finite float is refused, like the NaN token ----------------------------------------
+
+NOT_FINITE_LITERALS = ["1e999", "-1e999", "1E999", "1.5e+400"]
+
+
+def _answer_text_holding(placement, literal):
+    """The raw text of a bare answer whose JSON holds `literal` (a number token) at `placement`."""
+    base = json.dumps(correct_answer("D03"))
+    if placement == "rows":
+        return base.replace("[[1297]]", f"[[{literal}]]")
+    if placement == "nested array":
+        return base[:-1] + f', "note": [[1, [{literal}]]]}}'
+    if placement == "unknown field":
+        return base[:-1] + f', "extra": {literal}}}'
+    raise AssertionError(placement)
+
+
+def _states(result):
+    return [(c["name"], c["state"], c["score"], c["reason"]) for c in result["criteria"]]
+
+
+@pytest.mark.parametrize("trace", [True, False])
+@pytest.mark.parametrize("placement", ["rows", "nested array", "unknown field"])
+def test_a_bare_answer_holding_a_non_finite_literal_reads_nothing_and_every_criterion_is_false(placement, trace):
+    """#61 AC1 (Tightened A): not read as an object; four Criteria false with the Reason, trace or not, nothing read from."""
+    steps = [] if trace else None
+    for literal in NOT_FINITE_LITERALS:
+        raw = _answer_text_holding(placement, literal)
+        result = chinook_contract.score_episode(raw, REFS["D03"], SCHEMA, steps)
+        assert _states(result) == [(n, "scored", False, "invalid_response_format") for n in chinook_contract.CRITERIA], raw
+        assert result["answer_read_from"] is None, raw
+
+
+@pytest.mark.parametrize("reference", [None, {}])
+def test_an_unusable_reference_leaves_exact_table_unscored_for_an_answer_holding_a_non_finite_literal(reference):
+    """#61 Tightened A / A2: the Instrument failure is kept apart from the system's format failure."""
+    reason = chinook_contract.reference_problem(reference)
+    result = chinook_contract.score_episode(_answer_text_holding("rows", "1e999"), reference, SCHEMA, None)
+    assert _states(result) == [
+        ("exact_table", "unscored", None, reason),
+        ("format_valid", "scored", False, "invalid_response_format"),
+        ("evidence_link_valid", "scored", False, "invalid_response_format"),
+        ("contract_success", "scored", False, "invalid_response_format"),
+    ]
+    assert result["answer_read_from"] is None
+
+
+def test_an_answer_holding_a_non_finite_literal_still_reads_an_object_inside_it_as_a_wrapped_answer():
+    """#61 Tightened A, B4: the unknown field holds an object; the answer is a wrapped answer scored on it."""
+    raw = '{"status": "answered", "extra": 1e999, "inner": {"a": 1}}'
+    result = chinook_contract.score_episode(raw, REFS["D03"], SCHEMA, None)
+    assert result["answer_read_from"] == "embedded_object"
+    by = criteria(result)
+    assert (by["format_valid"]["score"], by["contract_success"]["score"]) == (False, False)
+    assert (by["exact_table"]["score"], by["exact_table"]["reason"]) == (False, "invalid_response_format")
+
+
+def _without_raw(result):
+    return {k: v for k, v in result.items() if k != "raw_answer"}
+
+
+def test_a_wrapper_holding_an_overflowing_literal_scores_as_the_same_wrapper_holding_nan():
+    """#61 AC2: same Criteria, same Reasons, same answer_read_from; only the `{` of the failed read is skipped."""
+    obj = json.dumps(correct_answer("D03"))
+    templates = [
+        '{"answer": ' + obj + ', "note": X}',  # the right table inside a wrapper that fails
+        '{"answer": ' + obj + ', "note": [X]}',
+        'Voici : {"v": X} puis ' + obj,  # a failed candidate before the object
+        '{"note": X, "inner": ' + obj + "}",  # the object sits inside the text of a failed read
+        '{"rows": [[X]]} ' + obj,
+        '{"answer": ' + obj + ', "note": X',  # truncated wrapper
+    ]
+    for template in templates:
+        for token, literal in (("NaN", "1e999"), ("-Infinity", "-1e999")):
+            for steps in (None, []):
+                expected = chinook_contract.score_episode(template.replace("X", token), REFS["D03"], SCHEMA, steps)
+                got = chinook_contract.score_episode(template.replace("X", literal), REFS["D03"], SCHEMA, steps)
+                assert _without_raw(got) == _without_raw(expected), template
+    right = chinook_contract.score_episode(templates[0].replace("X", "1e999"), REFS["D03"], SCHEMA)
+    assert right["answer_read_from"] == "embedded_object" and criteria(right)["exact_table"]["score"] is True
+
+
+@pytest.mark.parametrize("literal", ["1e308", "-1e308", "5e-324", "9" * 309, "-" + "9" * 309])
+def test_a_finite_number_is_read_as_before_and_is_never_a_scoring_failure(literal):
+    """#61 AC3 (Tightened B2): an integer too large for a double is an integer, not an overflow."""
+    raw = _answer_text_holding("rows", literal)
+    result = chinook_contract.score_episode(raw, REFS["D03"], SCHEMA, None)
+    assert "error_type" not in result
+    assert result["answer_read_from"] == "raw_answer"
+    by = criteria(result)
+    assert (by["format_valid"]["score"], by["format_valid"]["reason"]) == (True, None)
+    assert (by["exact_table"]["state"], by["exact_table"]["score"], by["exact_table"]["reason"]) == ("scored", False, None)
+    assert by["exact_table"]["components"]["rows"] is False
+
+
+@pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+def test_the_three_tokens_stay_refused(token):
+    result = chinook_contract.score_episode(_answer_text_holding("rows", token), REFS["D03"], SCHEMA, None)
+    assert _states(result) == [(n, "scored", False, "invalid_response_format") for n in chinook_contract.CRITERIA]
+    assert result["answer_read_from"] is None
+
+
+def test_an_integer_beyond_pythons_parse_limit_leaves_the_answer_unreadable_unless_an_object_is_readable_inside():
+    """#61 B3 / B4 / D-012 item 18."""
+    huge = "9" * 4301
+    result = chinook_contract.score_episode(_answer_text_holding("rows", huge), REFS["D03"], SCHEMA, None)
+    assert _states(result) == [(n, "scored", False, "invalid_response_format") for n in chinook_contract.CRITERIA]
+    assert result["answer_read_from"] is None
+    inside = '{"extra": ' + huge + ', "inner": {"a": 1}}'
+    assert chinook_contract.score_episode(inside, REFS["D03"], SCHEMA, None)["answer_read_from"] == "embedded_object"
+    # 4,300 digits is Python's own limit: an integer of that length is still read
+    assert chinook_contract.score_episode(_answer_text_holding("rows", "9" * 4300), REFS["D03"], SCHEMA)["answer_read_from"] == "raw_answer"
+
+
+def test_the_answer_schema_is_unchanged():
+    """#61 AC6 (D-012 item 2): the bytes of `table-answer/1` are part of every Chinook Protocol digest."""
+    import hashlib
+
+    digest = hashlib.sha256((CHINOOK / "schemas" / "table-answer.schema.json").read_bytes()).hexdigest()
+    assert digest == "72377e13ba30c890b0abcefadc71de08d95c73a0438b4acbc366a7c1651c0f14"
