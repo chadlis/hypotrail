@@ -623,6 +623,13 @@ def test_chapter_08_states_the_scorer_version_the_registry_holds():
     assert f"chinook_contract_v1 at version {chinook_contract.SCORER_VERSION} and its config_digest" in chapter
 
 
+def test_chapter_05_states_the_scorer_version_the_registry_holds_in_its_prose_too():
+    """#61 Tightened E: « every chapter sentence that states the current version gives the new one »; chapter 05's prose said 2."""
+    chinook_contract = _scorer_inputs()[0]
+    chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "05-assessments.html").read_text(encoding="utf-8")).split())
+    assert f"chinook_contract_v1 is the Scorer of the agent Track (version {chinook_contract.SCORER_VERSION})" in chapter
+
+
 def test_chapter_03_states_the_scorer_version_and_names_answer_read_from():
     chinook_contract = _scorer_inputs()[0]
     chapter = CHAPTER_03.read_text(encoding="utf-8")
