@@ -419,6 +419,7 @@ def test_the_request_identity_names_each_element_that_differs():
     for key, value in (
         ("command", "run agent"), ("workload", "other"), ("configuration", {"id": "a", "declared": {"k": 2}}),
         ("partition", "train"), ("mode", "scripted_fixture"), ("input_digests", {"dataset": "e"}),
+        ("cases", ["D03"]), ("model", "anthropic/other"), ("repeats", 2),
     ):
         assert requests.differences(base, requests.identity({**effective, key: value}, environment)) == [key]
     other = {**environment, "code_revision": {"commit": "b", "dirty": False, "local_code_fingerprint": None}}

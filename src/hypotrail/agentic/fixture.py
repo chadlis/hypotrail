@@ -31,7 +31,7 @@ from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 MODE = "scripted_fixture"
-BANNER = "simulation, no LLM evaluated"
+BANNER = "test simulation, no LLM evaluated"
 MODEL = "mockllm/model"
 
 

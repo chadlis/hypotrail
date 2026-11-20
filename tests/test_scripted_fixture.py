@@ -133,7 +133,7 @@ def test_a_limit_stopped_episode_stays_in_expected_and_attempted_and_out_of_prod
 
 from hypotrail.agentic import fixture
 
-BANNER = "simulation, no LLM evaluated"
+BANNER = "test simulation, no LLM evaluated"
 
 
 @pytest.fixture(scope="module")

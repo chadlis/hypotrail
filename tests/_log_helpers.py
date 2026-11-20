@@ -9,7 +9,7 @@ from hypotrail.agentic import runner
 
 KEPT = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces"
 KEPT_LOGS = sorted(KEPT.glob("live-*/inspect/*.eval"))
-SCRIPTED = {"mode": "scripted_fixture", "banner": "simulation, no LLM evaluated"}
+SCRIPTED = {"mode": "scripted_fixture", "banner": "test simulation, no LLM evaluated"}
 
 
 def scripted_log(tmp_path, case_ids=("D01", "D03"), *, partition="dev", repeats=1, name="logs", metadata=SCRIPTED, script=None, limits=None, configuration="plain"):

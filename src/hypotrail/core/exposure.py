@@ -101,10 +101,20 @@ def summary(study) -> dict:
 
 
 def configuration_digest_of(manifest: dict):
-    """The digest of the Configuration an Attempt ran, or None for an Import (it records no declared Configuration)."""
+    """The digest of the Configuration an Attempt ran, or None for an Import (it records no declared Configuration).
+
+    It is the digest the freeze record holds for that Configuration, whichever Track wrote the Attempt: of the
+    declared content alone when the Attempt records nothing else (the temporal regression Track), of
+    `{"declared", "system_text"}`, without the `id`, when it records the exact system text it resolved to (the
+    tool-using agent Track, `hypotrail.agentic.study.freeze_basis`).
+    """
     configuration = manifest["effective_config"].get("configuration")
     declared = configuration.get("declared") if isinstance(configuration, dict) else None
-    return None if declared is None else canonical.digest(declared)
+    if declared is None:
+        return None
+    if "system_text" in configuration:
+        return canonical.digest({"declared": declared, "system_text": configuration["system_text"]})
+    return canonical.digest(declared)
 
 
 def is_informed(study, configuration_digest) -> bool:
