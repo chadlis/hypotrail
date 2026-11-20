@@ -334,6 +334,17 @@ def _import_agent(args) -> int:
     return EXIT_OK
 
 
+def _rescoring_note(record: dict) -> str:
+    """What the human line adds when the Assessment follows an earlier one that differs from it."""
+    rescoring = record.get("rescoring")
+    if rescoring is None:
+        return ""
+    return (
+        f"; rescoring of Assessment {rescoring['earlier_assessment_id']}: cause {rescoring['cause']}, "
+        f"{len(rescoring['changed_items'])} Criteria changed"
+    )
+
+
 def _assess(args) -> int:
     from hypotrail.core import scorers
 
@@ -347,7 +358,7 @@ def _assess(args) -> int:
     value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
     human = (
         f"Assessment {record['assessment_id']}: {metric['id']} {value} over {counts['scored']} of "
-        f"{counts['expected']} expected Items ({counts['unscored']} unscored, {counts['errored']} errored)"
+        f"{counts['expected']} expected Items ({counts['unscored']} unscored, {counts['errored']} errored)" + _rescoring_note(record)
     )
     _emit({"ok": True, "assessment": record}, args.json, human)
     return EXIT_OK
@@ -365,7 +376,7 @@ def _assess_agent(args) -> int:
 
     human = (
         f"Assessment {record['assessment_id']}: primary Criterion {record['primary_criterion']}: {counts['correct']} correct of {counts['expected']} expected Episodes "
-        f"({counts['scored']} scored, {counts['unscored']} unscored, {counts['errored']} errored); {quality['id']} {shown(quality)}, {share['id']} {shown(share)}"
+        f"({counts['scored']} scored, {counts['unscored']} unscored, {counts['errored']} errored); {quality['id']} {shown(quality)}, {share['id']} {shown(share)}" + _rescoring_note(record)
     )
     _emit({"ok": True, "assessment": record}, args.json, human)
     return EXIT_OK

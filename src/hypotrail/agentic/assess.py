@@ -23,18 +23,22 @@ The order is fixed, and nothing is written before the checks that precede it:
    metric (owner decision 1A on chadlis/hypotrail#9), is the envelope's, the others are kept apart;
 6. `per_item.csv` and `metrics.json` are published, then `assessment.json` last. Another Assessment
    of the same Observation set never changes an earlier one: a new `assessment_id` each time.
+7. the record names the revision whose Protocol it applied (`study_revision`) and, when an earlier Assessment of the
+   same Observation set and Scorer differs by its References or its Scorer, that Assessment, the cause and the
+   Items whose verdict changed (`rescoring`, `hypotrail.core.rescoring`).
 """
 
 import csv
 import io
 import json
+import datetime
 import uuid
 from collections import Counter
 from pathlib import Path
 
 from hypotrail.agentic.counts import counters
 from hypotrail.agentic.unproduced import criteria_of_unproduced
-from hypotrail.core import artifacts, canonical, contracts, lock, scorers
+from hypotrail.core import artifacts, canonical, contracts, lock, rescoring, revisions, scorers
 from hypotrail.core import study as layout
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
@@ -241,6 +245,15 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         "per_item_ref": per_item_ref,
         "metrics": _rates(counts),
         "limitations": list(LIMITATIONS),
+        "study_revision": revisions.identity(spec),
+        "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "rescoring": rescoring.describe(
+            study,
+            observation_set_id=observation_set["observation_set_id"],
+            scorer={"id": scorer.id, "version": scorer.version, "config_digest": scorer.config_digest},
+            references_ref=references,
+            per_item=per_item,
+        ),
         "primary_criterion": primary,
         "unknowns": {"unscored": counts["unscored"], "errored": counts["errored"], "reasons": dict(sorted(non_scores.items()))},
         "operational_errors": {"failed": statuses.count("failed"), "missing": statuses.count("missing")},

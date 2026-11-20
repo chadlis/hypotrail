@@ -1,5 +1,5 @@
 <!-- chapter: id=revisions-rescoring; kicker=Core; title=Revisions and corrected References; accent=coral -->
-<p class="lead">A Study holds one frozen Protocol per revision, and a Protocol change is a new revision inside the same Study. A corrected References set changes the Protocol, so it is added with <code>init --study DIR --new-revision</code>: the corrected set is published beside the old one, the StudySpec of the earlier revision is kept as it was, and nothing an earlier revision references changes by a byte. This chapter describes the revisions; what an Assessment of a corrected set says about the earlier one is added to it below.</p>
+<p class="lead">A Study holds one frozen Protocol per revision, and a Protocol change is a new revision inside the same Study. A corrected References set changes the Protocol, so it is added with <code>init --study DIR --new-revision</code>: the corrected set is published beside the old one, the StudySpec of the earlier revision is kept as it was, and nothing an earlier revision references changes by a byte. An Assessment of a corrected set scores the same Observation set again, and says which earlier Assessment it differs from and why, so a corrected Reference is never read as a change of the evaluated system.</p>
 
 <p class="sub2">The command</p>
 <div class="prose">
@@ -41,6 +41,40 @@ uv run python -m hypotrail status --study runs/chinook --json</pre>
 <tr data-field="artifacts"><td><code>artifacts</code></td><td>Its Protocol artifacts: <code>artifact_id</code>, <code>role</code>, <code>version</code>, <code>sha256</code>.</td></tr>
 </tbody></table></div>
 
+<p class="sub2">Rescoring: the new Assessment names the earlier one</p>
+<div class="prose">
+<p>After <code>init --new-revision</code>, <code>assess</code> takes the new References ID (the one in the current StudySpec; the earlier revision's set is no longer the Protocol and is refused with <code>REFERENCES_NOT_FOUND</code>) and an Observation set recorded under any revision. It writes a new Assessment, as ever: a new <code>assessment_id</code>, the same <code>observation_set_id</code>, the new <code>references_ref</code>, and every earlier file, Assessments included, untouched. It runs no model and no tool and opens neither the database nor the Workload: the frozen References, the answer schema and the kept answers are enough. The Assessment records the revision whose Protocol it applied (<code>study_revision</code>) and the time (<code>recorded_at</code>).</p>
+<p>Its <code>rescoring</code> field is null when no earlier Assessment of the same Observation set and the same Scorer differs from it. Otherwise it names the latest one that does (<code>earlier_assessment_id</code>), the <code>cause</code> and the Items whose verdict changed, each with both verdicts. The cause is the first of the differences below, in this order; any other that also differs is listed in <code>other_changes</code>, so nothing that changed is hidden. A numeric tolerance is held by the Reference (<code>numeric_absolute_tolerance</code>), so a changed tolerance is a changed References set and its cause is <code>references_version</code>.</p>
+<p>The Items are listed one per Item and Criterion, sorted. An Episode's Item ID is <code>CASE_ID#REPEAT</code> (<code>D03#0</code>); a bike Item's is its <code>row_id</code>. A verdict is the Criterion's <code>state</code>, its <code>score</code> (a boolean for an agent Criterion, the absolute error for a bike Item) and its <code>reason</code>. Because a numeric loss has no correct or incorrect, a corrected bike Reference lists the Item whose absolute error moved, and the Metric moves with it; an agent Criterion can flip from true to false, or become <code>unscored</code> when the Reference no longer settles a dependency. Either way the delta is the Reference's, not the system's. The human line adds <code>rescoring of Assessment ID: cause C, N Criteria changed</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="rescoring-causes"><thead><tr><th>Cause</th><th>Compared</th><th>The Scorer or the Reference that changed</th></tr></thead><tbody>
+<tr data-cause="references_version" data-compares="references_ref.sha256"><td><code>references_version</code></td><td><code>references_ref.sha256</code></td><td>A corrected References set, tolerance included, added by a new revision.</td></tr>
+<tr data-cause="scorer_version" data-compares="scorer.version"><td><code>scorer_version</code></td><td><code>scorer.version</code></td><td>The Scorer's version changed since the earlier Assessment (the registry is static: this follows a code change).</td></tr>
+<tr data-cause="scorer_config_digest" data-compares="scorer.config_digest"><td><code>scorer_config_digest</code></td><td><code>scorer.config_digest</code></td><td>The Scorer's configuration changed under the same version.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-fields"><thead><tr><th>Field of <code>rescoring</code></th><th>Required</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="earlier_assessment_id" data-required="yes"><td><code>earlier_assessment_id</code></td><td>yes</td><td>The latest earlier Assessment of the same Observation set and Scorer id that differs by one of the causes; it may come from an earlier revision.</td></tr>
+<tr data-field="cause" data-required="yes"><td><code>cause</code></td><td>yes</td><td>The first difference, in the order of the table above.</td></tr>
+<tr data-field="changed_items" data-required="yes"><td><code>changed_items</code></td><td>yes</td><td>The Items whose verdict changed; an empty list says that no verdict did.</td></tr>
+<tr data-field="other_changes" data-required="no"><td><code>other_changes</code></td><td>no</td><td>The other causes that also differ, when more than one does.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-item-fields"><thead><tr><th>Field of a changed Item</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="item_id"><td><code>item_id</code></td><td><code>CASE_ID#REPEAT</code> for an Episode, the <code>row_id</code> for a bike Item.</td></tr>
+<tr data-field="criterion"><td><code>criterion</code></td><td>The Criterion whose verdict changed.</td></tr>
+<tr data-field="earlier"><td><code>earlier</code></td><td>The verdict in the earlier Assessment.</td></tr>
+<tr data-field="now"><td><code>now</code></td><td>The verdict in this one.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="rescoring-verdict-fields"><thead><tr><th>Field of a verdict</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="state"><td><code>state</code></td><td><code>scored</code>, <code>unscored</code> or <code>errored</code>.</td></tr>
+<tr data-field="score"><td><code>score</code></td><td>A boolean or an absolute error; null unless scored.</td></tr>
+<tr data-field="reason"><td><code>reason</code></td><td>The Reason of a non-score, or null.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="revision-record-fields"><thead><tr><th>Field added to every Assessment</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="study_revision"><td><code>study_revision</code></td><td><code>number</code>, <code>revision</code> and <code>protocol_digest</code> of the revision whose Protocol the Assessment applied; absent from an Assessment written before revisions existed.</td></tr>
+<tr data-field="recorded_at"><td><code>recorded_at</code></td><td>When it was written; it orders Assessments, since an <code>assessment_id</code> is a UUID.</td></tr>
+<tr data-field="rescoring"><td><code>rescoring</code></td><td>The object above, or null.</td></tr>
+</tbody></table></div>
+
 <p class="sub2">Refusals</p>
 <div class="prose">
 <p>The refusals of chapter 04 apply as they are: <code>STUDY_NOT_FOUND</code> for a folder that is no Study (no lock file is created in it), <code>DATA_INTEGRITY</code> when the Workload's data no longer matches its lock (checked before anything is written), <code>STUDY_LOCKED</code> and the integrity refusals. A revision adds one code of its own, and gives <code>INVALID_ARGUMENTS</code> two more causes.</p>
@@ -61,4 +95,4 @@ uv run python -m hypotrail status --study runs/chinook --json</pre>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why a corrected References set is read again from the Workload that declares it, and why a Configuration, which the Workload also declares, is not part of the Protocol.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
 </tbody></table></div>
-<p class="prose">The tests are <code>tests/test_study_revision.py</code> and, for the writer lock, <code>tests/test_study_lock.py</code>; they run offline and call no model.</p>
+<p class="prose">The tests are <code>tests/test_study_revision.py</code>, <code>tests/test_rescoring.py</code> and, for the writer lock, <code>tests/test_study_lock.py</code>; they run offline and call no model.</p>

@@ -150,3 +150,15 @@ def find_assessment(study, assessment_id: str):
         if candidate.name == assessment_id and (candidate / "assessment.json").is_file():
             return read_record(study, f"{ASSESSMENTS_DIR}/{candidate.name}/assessment.json")
     return None
+
+
+def assessment_records(study) -> list:
+    """Every Assessment record the Study keeps, in the order of their folder names."""
+    folder = Path(study) / ASSESSMENTS_DIR
+    if not folder.is_dir():
+        return []
+    return [
+        read_record(study, f"{ASSESSMENTS_DIR}/{candidate.name}/assessment.json")
+        for candidate in sorted(folder.iterdir())
+        if (candidate / "assessment.json").is_file()
+    ]

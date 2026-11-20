@@ -619,6 +619,17 @@
                     ],
                     "additionalProperties": false
                   }
+                },
+                "other_changes": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "references_version",
+                      "scorer_version",
+                      "scorer_config_digest"
+                    ]
+                  },
+                  "uniqueItems": true
                 }
               },
               "required": [
@@ -683,6 +694,33 @@
         },
         "detailed_metrics_ref": {
           "$ref": "#/$defs/ArtifactRef"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "study_revision": {
+          "type": "object",
+          "properties": {
+            "number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "protocol_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "number",
+            "revision",
+            "protocol_digest"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

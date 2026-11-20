@@ -1296,7 +1296,8 @@ def test_the_agent_assessment_field_table_equals_what_an_agent_assessment_adds_t
     _, _, record = _chinook_study_with_assessment(tmp_path)
     rows = attrs_of(page, "agent-assessment-fields", "data-field")
     definition = contracts.schema()["$defs"]["Assessment"]
-    assert set(rows) == set(record) - set(definition["required"])
+    generic = {"rescoring", "study_revision", "recorded_at"}  # every Assessment has them: chapter 05 and chapter 10
+    assert set(rows) | generic == set(record) - set(definition["required"])
     for field in rows:
         assert field in definition["properties"] and field not in definition["required"], field
 
@@ -1515,3 +1516,41 @@ def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_ea
         assert words(row["data-details"]) == details, code
     _, neither, _ = run_json("init", "--study", tmp_path / "none")
     assert neither["error"]["code"] == "INVALID_ARGUMENTS" and set(neither["error"]["details"]) <= words(rows["INVALID_ARGUMENTS"]["data-details"])
+
+
+def test_the_rescoring_tables_equal_the_contract_schema_the_causes_of_the_code_and_a_rescoring_the_code_writes(page, tmp_path):
+    from _chinook_helpers import FIXTURE, fixture_population, import_agent, init_chinook, references_id
+    from _revision_helpers import corrected_chinook_references, new_revision
+    from _study_helpers import run_json
+
+    from hypotrail.core import contracts, rescoring
+
+    study, _ = init_chinook(tmp_path, name="chapter-10-rescoring")
+    _, imported, _ = import_agent(study, FIXTURE, fixture_population(tmp_path), "imp")
+    folder = study / "attempts" / imported["attempt"]["attempt_id"]
+    observation_set = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
+    args = ("assess", "--study", study, "--observations", observation_set, "--scorer", "chinook_contract_v1")
+    run_json(*args, "--references", references_id(study))
+    corrected = corrected_chinook_references(tmp_path, lambda records: records["D03"].update(rows=[[1300]]))
+    new_revision(study, "--examples-dir", corrected)
+    _, payload, _ = run_json(*args, "--references", references_id(study))
+    record = payload["assessment"]
+    definition = contracts.schema()["$defs"]["Assessment"]["properties"]
+    shape = definition["rescoring"]["anyOf"][1]
+
+    fields = attrs_of(page, "rescoring-fields", "data-field")
+    assert set(fields) == set(shape["properties"]) and set(record["rescoring"]) <= set(fields)
+    assert {f for f, row in fields.items() if row["data-required"] == "yes"} == set(shape["required"])
+    items = attrs_of(page, "rescoring-item-fields", "data-field")
+    assert set(items) == set(shape["properties"]["changed_items"]["items"]["properties"]) == set(record["rescoring"]["changed_items"][0])
+    verdict = attrs_of(page, "rescoring-verdict-fields", "data-field")
+    assert set(verdict) == set(record["rescoring"]["changed_items"][0]["now"]) == {"state", "score", "reason"}
+
+    causes = attrs_of(page, "rescoring-causes", "data-cause")
+    assert tuple(causes) == rescoring.CAUSES  # the order is the order in which the first difference is the cause
+    assert set(causes) == set(shape["properties"]["cause"]["enum"]) == set(shape["properties"]["other_changes"]["items"]["enum"])
+    assert causes["references_version"]["data-compares"] == "references_ref.sha256"
+    assert causes["scorer_version"]["data-compares"] == "scorer.version"
+    assert causes["scorer_config_digest"]["data-compares"] == "scorer.config_digest"
+    assert set(definition["study_revision"]["properties"]) == set(record["study_revision"])
+    assert set(attrs_of(page, "revision-record-fields", "data-field")) == {"study_revision", "recorded_at", "rescoring"}

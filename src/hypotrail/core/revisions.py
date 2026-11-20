@@ -37,6 +37,11 @@ def revision_number(spec: dict) -> int:
     return spec.get("revision_number", 1)
 
 
+def identity(spec: dict) -> dict:
+    """What an Assessment records of the revision whose Protocol it applied."""
+    return {"number": revision_number(spec), "revision": spec["revision"], "protocol_digest": spec["protocol_digest"]}
+
+
 def version_of(entry: dict) -> int:
     return entry.get("version", 1)
 
