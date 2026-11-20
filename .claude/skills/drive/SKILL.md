@@ -138,7 +138,7 @@ Each ends the run and produces the brief early:
 
 A floor ends with the STOP brief and a concrete recommendation. It is never a request for Salah to debug.
 
-Every owner decision gets its own dated comment on the slice issue: his words quoted, its scope, any budget, and the commits it allows. The state comment links it. Steps 7 to 10 then run as usual, and the PR body names the floor.
+Every owner decision gets its own dated comment on the slice issue: his words quoted, the option text he chose quoted from the brief, its scope, any budget, and the commits it allows. Any consequence or summary of yours goes under a separate « Drive reading » line. The state comment links it. Steps 7 to 10 then run as usual, and the PR body names the floor.
 
 Review counters, fix attempts per check, open findings, unresolved decisions and floors survive resumes and history rewrites. A new review or a session restart cannot erase an earlier floor, and a later change to these rules does not lift a floor already reached: that needs Salah's explicit answer.
 
@@ -154,7 +154,7 @@ Salah wants system-wide orientation, participation in consequential choices, and
 
 **Decide and continue** when the choice keeps to the accepted contract, stays inside the authorised budget and scope, meets no owner reservation or other floor, and can be verified by suitable checks. That the repository does not prescribe an implementation detail does not make it a product decision. Record a structuring choice briefly where records already live (state comment, slice note, PR body), with its reason, limit and reversibility. An ADR only when the routing table asks for one.
 
-Delegated, for example: repairing incomplete validation so that it meets an already accepted requirement, renaming an internal symbol, choosing the structure of a test. Not delegated, however easy to code or to undo: changing the scope of a public refusal, a methodological guarantee, or an evaluation protocol that is not settled.
+Delegated, for example: repairing incomplete validation so that it meets an already accepted requirement, renaming an internal symbol, choosing the structure of a test. Not delegated, however easy to code or to undo: changing the scope of a public refusal, a methodological guarantee, an evaluation protocol that is not settled, or a reading that reconciles two accepted requirements an axis reader reports in conflict. That reading goes to the owner-decision gate (under the autonomous protocol, the proxy) before any fix is delegated.
 
 ### Owner decisions
 
@@ -186,7 +186,7 @@ For every slice, reuse its existing `notes/<slice>.md` in `chadlis/hypotrail-lea
 
 On every start and resume, read the note, any linked selected objective and relevant `before` records, following the unconditional authority check below. Also search selected learning issues by the source issue reference if no backlink exists. A tutor can have prepared the objective directly before `drive` ran. A suggested focus in a note is not an activated learning objective. If the focus clearly matches an active objective listed in `apprentissage/parcours.md` that does not cite this slice yet, add the note to that issue as a candidate source (« candidate, not assessed »), without changing the objective. If Salah asks `drive` itself to track an objective, record the request in the note and point to `/hypotrail-study`: the tutor creates the issue.
 
-In explicit `prepare`, collect the note now and finish with `/hypotrail-study before chadlis/hypotrail#N`. In normal execution, update it at steps 7 and 9. If a selected learning issue already covers this source, add the new evidence to that issue without changing the objective, closing it or creating a duplicate. If none exists, stop at the note. A missing learning issue is a normal completed state.
+In explicit `prepare`, collect the note now and finish with `/hypotrail-study before chadlis/hypotrail#N`. In normal execution, update it at steps 7 and 9. A disposition check on a finding about learning notes quotes the note's content, since axis readers may be unable to read `chadlis/hypotrail-learning`. If a selected learning issue already covers this source, add the new evidence to that issue without changing the objective, closing it or creating a duplicate. If none exists, stop at the note. A missing learning issue is a normal completed state.
 
 Use these compact fields in the note, omitting empty optional sections:
 
@@ -251,12 +251,14 @@ Writing style, in French: descriptive and explicit, never condensed or literary.
 
 The slice issue carries **one state comment** that you create at step 1 and edit at every step. It has one line per step, with the date and the evidence that closed it: a commit, an exit code, a verdict, a link. It survives the session. Because it is edited, it is an index, never the only copy: a decision, a finding ID or a gate reading lives in its own comment and the state comment links it. Step lines are added, never merged. Under `chain`, also keep the chain's starting issue, links to its completed slices and the cumulative paid live-run count. Restore that count on resume rather than treating the current slice as a new budget.
 
-From the first review of record on, the state comment also lists the open IDs of the **findings register** (see "Routing findings") with links to the round comments that define them, and one line per review round:
+From the first review of record on, each round's "Review of record" comment carries, for that round:
 - the reviewed base and head;
 - raw and deduplicated finding counts by routing row, and the cited paths;
 - pre-existing defects, incomplete fixes and demonstrated regressions, and for rounds 4 and 5 the defects resolved and introduced;
 - the models actually used if known, the available token or cost telemetry and durations (unknown stays unknown);
 - each human interruption, its reason, and whether the existing delegation could already have settled it.
+
+The state comment carries one line per round linking its comment, the open IDs of the **findings register** (see "Routing findings"), the human interruptions and the defects found after acceptance. Edit it in the same turn as each round comment, decision-log entry and pull request, never later.
 
 Defects found after acceptance are added when someone reports them. This record is what will be used to re-evaluate the five-round cap. Build no other tracking for it, and open no issue to hold it.
 
@@ -311,7 +313,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 1 | Branch from an up-to-date `main` (the branch the session imposes, otherwise `slice/<n>-<slug>`). Create the state comment; add label `in-progress` | you | `git branch --show-current` |
 | 2 | `to-tickets` on the slice issue: tracer-bullet tickets as sub-issues of the slice, each starting with a line `Blocked by: #a, #b` (or `Blocked by: none`) instead of native dependency links; each ticket that changes behaviour has a criterion that the handbook chapter describes the change, and that any README line it affects is updated, in the same pull request (ADR 0003, AGENTS.md) | `slice-planner` | the tickets exist |
 | 3 | **Ticket gate**: does any ticket promise more or less than the slice issue, the parent's amendments and the cited specification sections, or state something no test can witness? Each doubted ticket is marked `INFERRED`. Then, across all tickets: name each parent amendment or specification rule that governs the slice's inputs or outcomes (for example "every abnormal outcome carries a **Reason**") and the ticket whose criteria witness it; a rule no ticket witnesses is `UNCOVERED` | `slice-gate`, fresh | its reading comes back, every governing rule mapped to a ticket or marked `UNCOVERED` |
-| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, affected product documentation complete |
+| 4 | You follow `implement-spec` on the slice as its orchestrator: every implementer and merger it starts is a `slice-builder`. With at most two tickets, `implement` per ticket, each in one `slice-builder`. Affected product documentation is part of the work: the handbook (`docs/handbook/`) describes what changed and the README is still true | you, then `slice-builder` | tickets resolved, full test suite green, each criterion's witness shown red in a builder's hand-back, affected product documentation complete |
 | 5 | **Review of record, round 1**: you invoke `/mattpocock-skills:code-review main`, bare; each axis reader it starts is a fresh `slice-gate` | you, then 2 × `slice-gate` | both axis reports kept verbatim, each finding entered in the register |
 | 6 | Route each finding through the register (see "Routing findings"); fixes go to `slice-builder`. A correction followed by a review opens the next round: `/mattpocock-skills:code-review <head of the last reviewed round>`, bare. Checkpoint after round 3, plan before rounds 4 and 5, and stop at any floor (see "Review rounds") | you, then subagent | every finding fixed and verified, refuted with evidence, linked as a duplicate, or escalated; the accepted head is named |
 | 7 | Learning notes and links: update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above). The PR names which acceptance tests (T-xx) it proves | `slice-builder` | learning notes are saved or preserved in the named fallback |
@@ -350,6 +352,7 @@ Three readings of this table that it does not say on its face:
 - Missing required documentation is a requirement, row 1.
 - Duplicated code or an unflattering name is not, by itself, behaviour nobody asked for. Row 2 is about what the code does.
 - A product ambiguity is not settled by routing it to row 3. It follows the owner-decision gate of "Who decides".
+- A finding that turns on what a `GLOSSARY.md` term covers (its definition and its relationships disagree, or the readers do) is a product ambiguity from its second round on. It goes to the owner-decision gate, which may choose a `needs-triage` issue for `/domain-modeling`, not to another wording fix; the reader who raised it verifies the disposition.
 
 ### The findings register
 
