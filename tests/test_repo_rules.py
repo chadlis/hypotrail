@@ -28,3 +28,11 @@ def test_no_help_text_uses_a_word_the_glossary_avoids_for_attempt():
     # GLOSSARY, Attempt: _Avoid_: run, job. `--retry-of` once said "the Attempt this run repeats".
     for options, text in _helps(build_parser()):
         assert " run " not in f" {text.lower()} " or "--retry-of" not in options, text
+
+
+def test_the_comparison_definition_is_unchanged_and_the_agent_rule_is_a_dated_line_beside_it():
+    # R1-03: earlier glossary entries add a separate `Clarification, DATE:` line, never an edit inside a definition.
+    lines = (ROOT / "GLOSSARY.md").read_text(encoding="utf-8").splitlines()
+    at = lines.index("**Comparison**:")
+    assert lines[at + 1] == "Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate."
+    assert lines[at + 2].startswith("Clarification, 2026-11-20: ")
