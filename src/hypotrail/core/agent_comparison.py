@@ -214,7 +214,11 @@ def _matrix(side: dict, assessment: dict) -> dict:
 
 
 def _measures(study: Path, side: dict) -> dict:
-    """The descriptive measures of a side. Counts need a trace for every Episode that ran; nothing here holds a latency, a token count or a cost."""
+    """The descriptive measures of a side, each None unless it is known for every Episode that ran (never a partial sum, never 0).
+
+    Counts need a trace; latency and tokens need the `usage` an Inspect log import keeps (a JSONL import has none); no
+    Observation set holds a cost.
+    """
     entries = [canonical.loads(line) for line in artifacts.read_verified(study, side["observation_set"]["normalized_ref"]).decode("utf-8").splitlines() if line.strip()]
     ran = [entry for entry in entries if entry["status"] != "missing"]
     observable = bool(ran) and all(isinstance(entry.get("trace"), list) for entry in ran)
@@ -222,7 +226,11 @@ def _measures(study: Path, side: dict) -> dict:
     def count(kind):
         return sum(step.get("kind") == kind for entry in ran for step in entry["trace"]) if observable else None
 
-    return {"latency_seconds": None, "model_calls": count("model_turn"), "tool_calls": count("tool_call"), "tokens": None, "cost": None}
+    def usage(name):
+        values = [(entry.get("usage") or {}).get(name) for entry in ran]
+        return sum(values) if ran and all(isinstance(v, (int, float)) for v in values) else None
+
+    return {"latency_seconds": usage("latency_seconds"), "model_calls": count("model_turn"), "tool_calls": count("tool_call"), "tokens": usage("tokens"), "cost": None}
 
 
 def _rate(scored: int, expected: int):

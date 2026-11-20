@@ -461,3 +461,44 @@ def test_a_log_written_by_another_inspect_version_is_refused_and_nothing_is_writ
     assert (code, error["code"], error["stage"]) == (2, "LOG_INSPECT_VERSION_UNSUPPORTED", "import")
     assert error["details"]["log_inspect_version"] == "0.3.1" and error["details"]["supported"] == "0.3.287"
     assert snapshot(study) == before
+
+
+# --- R1-11 (#72 Tightened D): the log's latency and token usage are kept and reported descriptively -----------------------------
+
+
+def test_a_log_import_keeps_each_episodes_latency_and_tokens_and_a_comparison_reports_their_sums(tmp_path, study):
+    from inspect_ai.log import read_eval_log
+
+    logs = [kept_log(tmp_path, 0), kept_log(tmp_path, 3)]  # l12-plain and l12b-plain: the same Cases, one Repeat each
+    attempts = [imported(tmp_path, study, log, keys("D03", "D05"), request_id=f"log-{n}") for n, log in enumerate(logs)]
+    expected = []
+    for log, attempt in zip(logs, attempts):
+        samples = read_eval_log(str(log)).samples
+        want = {(str(s.id), s.epoch - 1): (float(s.total_time), sum(u.total_tokens for u in s.model_usage.values())) for s in samples}
+        got = {(e["case_id"], e["repeat"]): (e["usage"]["latency_seconds"], e["usage"]["tokens"]) for e in normalized_of(study, attempt)}
+        assert got == want and all(latency > 0 and tokens > 0 for latency, tokens in got.values())
+        expected.append((sum(l for l, _ in got.values()), sum(t for _, t in got.values())))
+    assessments = [assessed(study, attempt) for attempt in attempts]
+    code, payload, err = run_json("compare", "--study", study, "--control", assessments[0]["assessment_id"], "--candidate", assessments[1]["assessment_id"], "--factor", "budgets")
+    if code != 0:  # the two kept logs may differ in a planned element: name the one the refusal gives
+        factor = payload["error"]["details"]["check"]
+        code, payload, err = run_json("compare", "--study", study, "--control", assessments[0]["assessment_id"], "--candidate", assessments[1]["assessment_id"], "--factor", factor)
+    assert code == 0, (payload, err)
+    descriptive = payload["comparison"]["descriptive"]
+    for side, (latency, tokens) in zip(("control", "candidate"), expected):
+        assert descriptive[side]["latency_seconds"] == pytest.approx(latency) and descriptive[side]["tokens"] == tokens
+        assert descriptive[side]["cost"] is None
+
+
+def test_a_jsonl_import_has_no_usage_so_latency_and_tokens_stay_null_never_zero(tmp_path, study):
+    from _chinook_helpers import FIXTURE, fixture_population
+    from _chinook_helpers import import_agent as import_jsonl
+
+    code, payload, err = import_jsonl(study, FIXTURE, fixture_population(tmp_path), "jsonl")
+    assert code == 0, (payload, err)
+    assert all(e.get("usage") is None for e in normalized_of(study, payload["attempt"]))
+    from hypotrail.core import agent_comparison
+
+    side = {"observation_set": observation_set_of(study, payload["attempt"])}
+    measures = agent_comparison._measures(study, side)
+    assert measures["latency_seconds"] is None and measures["tokens"] is None

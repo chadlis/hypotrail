@@ -234,8 +234,11 @@ def _log_producer(header: dict) -> tuple:
     return producer, log
 
 
-def _log_entries(episodes: list) -> dict:
-    """The normalized Observations of projected Episodes: the answer text is the `raw_answer`, the steps are the trace."""
+def _log_entries(episodes: list, usage: dict) -> dict:
+    """The normalized Observations of projected Episodes: the answer text is the `raw_answer`, the steps are the trace.
+
+    `usage` is what the log states for each Episode it holds (latency and tokens); an Episode it lacks has none.
+    """
     entries = {}
     for episode in episodes:
         answered = episode["status"] == "produced" and episode["final_answer"] is not None
@@ -248,6 +251,7 @@ def _log_entries(episodes: list) -> dict:
             "raw_answer": episode["final_answer"] if answered else None,
             "final_answer": None,
             "trace": episode["steps"] or None,
+            "usage": usage.get((episode["case_id"], episode["repeat"])),
         }
     return entries
 
@@ -506,7 +510,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
 
         log = inspect_log.read(source)
         episodes, count = inspect_log.checked_episodes(log, keys, partition, partition_of)
-        entries = _log_entries(episodes)
+        entries = _log_entries(episodes, inspect_log.usage_by_key(log))
         producer, declared_log = _log_producer(inspect_log.header_of(log))
     else:
         entries, claims, count = _checked_lines(source_bytes, source, partition, keys, partition_of)

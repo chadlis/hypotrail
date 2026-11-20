@@ -1324,6 +1324,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-key="answer_given_as"><td><code>answer_given_as</code></td><td><code>raw_answer</code> for an Episode with a final answer, otherwise null.</td></tr>
 <tr data-key="raw_answer"><td><code>raw_answer</code></td><td>The text of the final answer.</td></tr>
 <tr data-key="final_answer"><td><code>final_answer</code></td><td>Always null: a log gives text, not a parsed object.</td></tr>
+<tr data-key="usage"><td><code>usage</code></td><td>What the log states for the Episode: <code>latency_seconds</code> (the sample's total time) and <code>tokens</code> (its models' total tokens, cached input included), each null when the log does not give it, and the whole key null for an Episode the log lacks. A JSONL import has no such key.</td></tr>
 <tr data-key="trace"><td><code>trace</code></td><td>The projected steps of the Episode; null when there is none.</td></tr>
 </tbody></table></div>
 
@@ -1523,7 +1524,7 @@ uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_
 
 <p class="sub2">The rates, and what is only described</p>
 <div class="prose">
-<p><code>rates</code> repeats, for each side, the two named rates of its Assessment with the unknowns beside them: <code>quality_among_scored</code> (correct among scored) and <code>confirmed_share_of_expected</code> (correct among expected), the Episodes <code>unscored</code> or <code>errored</code> and their Reasons, and the failed and missing Episodes. A rate whose denominator is zero is null with a Reason, never 0. <code>descriptive</code> reports, for each side, latency, the numbers of model and tool calls, tokens and cost. These are descriptive only: no Criterion and no delta rests on them, and no cost is compared. Calls are counted from the kept traces and are null unless every Episode that ran has one; latency, tokens and cost are null, because no Observation set of this slice keeps them, and they are never filled with 0.</p>
+<p><code>rates</code> repeats, for each side, the two named rates of its Assessment with the unknowns beside them: <code>quality_among_scored</code> (correct among scored) and <code>confirmed_share_of_expected</code> (correct among expected), the Episodes <code>unscored</code> or <code>errored</code> and their Reasons, and the failed and missing Episodes. A rate whose denominator is zero is null with a Reason, never 0. <code>descriptive</code> reports, for each side, latency, the numbers of model and tool calls, tokens and cost. These are descriptive only: no Criterion and no delta rests on them, and no cost is compared. Calls are counted from the kept traces and are null unless every Episode that ran has one; latency and tokens are the sums of what an Inspect log import kept for each Episode (chapter 09), and are null unless every Episode that ran has them, so a JSONL import or a partial log gives null; cost is always null, because no Observation set keeps it. None of them is ever filled with 0.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="agent-coverage-keys"><thead><tr><th>Key of <code>coverage</code></th><th>Meaning</th></tr></thead><tbody>
 <tr data-key="unit"><td><code>unit</code></td><td>What is counted: Episodes.</td></tr>
@@ -1563,7 +1564,7 @@ uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_
 <div class="card" style="--c:var(--coral)"><h3>No native Chinook Attempt</h3><p>Nothing in this slice runs the agent Track into a Study, so a strict Comparison is witnessed only on manifests built by hand. The keys such a manifest records (<code>configuration</code>, <code>model</code>, <code>tools</code>, <code>limits</code>, <code>repeats</code>) are this chapter's contract for the Attempt that will.</p></div>
 <div class="card" style="--c:var(--violet)"><h3>Exposure</h3><p>A Comparison of <code>public_check</code> Episodes is an Exposure and has its journal entry (<a href="#freeze-exposure">chapter 12</a>).</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Primary Criterion</h3><p>The primary Criterion is the one of the Control's Assessment. Two Assessments scored under two primary Criteria are not told apart by a check; the Protocol of a Study freezes one.</p></div>
-<div class="card" style="--c:var(--amber)"><h3>Latency and cost</h3><p>Latency, tokens and cost are always null for an import, and no native Attempt records them yet.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>Latency and cost</h3><p>Latency and tokens come from an Inspect log import and are null for a JSONL import; cost is always null; no native Attempt records them yet.</p></div>
 </div>
 
 <p class="sub2">Which ADR explains what</p>

@@ -72,6 +72,22 @@ def header_of(log) -> dict:
     }
 
 
+def usage_by_key(log) -> dict:
+    """{(case_id, repeat): {"latency_seconds", "tokens"}} of the samples the log holds, as the log states them.
+
+    Latency is the sample's `total_time`; tokens are `total_tokens` summed over the models the sample used (the
+    cached input tokens included). A figure the log does not give is None, never zero (CMP-06).
+    """
+    out = {}
+    for sample in log.samples or []:
+        totals = [u.total_tokens for u in (sample.model_usage or {}).values() if u.total_tokens is not None]
+        out[(str(sample.id), sample.epoch - 1)] = {
+            "latency_seconds": None if sample.total_time is None else float(sample.total_time),
+            "tokens": sum(totals) if totals else None,
+        }
+    return out
+
+
 def checked_episodes(log, keys: list, partition: str, partition_of: dict) -> tuple[list, int]:
     """(the projected Episode of every expected key, the number of samples read).
 

@@ -455,7 +455,7 @@ def test_two_inspect_logs_of_plain_and_verify_compare_with_their_declared_budget
     assert checks["budgets"] == {"check": "budgets", "passed": True, "reason": None}  # both headers state the same limits
     assert checks["model"]["passed"] is True and checks["tools"]["reason"] == "not_established"
     assert record["comparability"]["status"] == "descriptive_only"
-    assert record["descriptive"]["control"]["tool_calls"] == 4 and record["descriptive"]["control"]["tokens"] is None
+    assert record["descriptive"]["control"]["tool_calls"] == 4 and isinstance(record["descriptive"]["control"]["tokens"], int)  # the log states its tokens (R1-11)
     assert record["coverage"]["expected"] == 4 and record["delta"]["metric"] == PRIMARY
 
 

@@ -25,6 +25,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-key="answer_given_as"><td><code>answer_given_as</code></td><td><code>raw_answer</code> for an Episode with a final answer, otherwise null.</td></tr>
 <tr data-key="raw_answer"><td><code>raw_answer</code></td><td>The text of the final answer.</td></tr>
 <tr data-key="final_answer"><td><code>final_answer</code></td><td>Always null: a log gives text, not a parsed object.</td></tr>
+<tr data-key="usage"><td><code>usage</code></td><td>What the log states for the Episode: <code>latency_seconds</code> (the sample's total time) and <code>tokens</code> (its models' total tokens, cached input included), each null when the log does not give it, and the whole key null for an Episode the log lacks. A JSONL import has no such key.</td></tr>
 <tr data-key="trace"><td><code>trace</code></td><td>The projected steps of the Episode; null when there is none.</td></tr>
 </tbody></table></div>
 
