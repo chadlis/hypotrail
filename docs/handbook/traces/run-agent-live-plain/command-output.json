@@ -1,0 +1,173 @@
+{
+  "ok": true,
+  "replayed": false,
+  "attempt": {
+    "kind": "attempt",
+    "schema_version": "attempt/1",
+    "attempt_id": "88335363-1a01-46e0-845a-b4742daf9c57",
+    "request_id": "live-check-1",
+    "operation": "execute",
+    "mode": "llm_live",
+    "technical_status": "completed",
+    "started_at": "2026-11-20T21:46:54.965067+00:00",
+    "finished_at": "2026-11-20T21:47:10.718811+00:00",
+    "effective_config": {
+      "command": "run agent",
+      "workload": "chinook",
+      "mode": "llm_live",
+      "partition": "dev",
+      "cases": [
+        "D03",
+        "D05"
+      ],
+      "repeats": 1,
+      "model": "anthropic/claude-sonnet-5-5",
+      "configuration": {
+        "id": "plain",
+        "declared": {
+          "system_text": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n"
+        },
+        "system_text": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n"
+      },
+      "protocol": {
+        "protocol_id": "chinook:protocol",
+        "protocol_digest": "f8e32b30e2ee11e80585f4fb6d0b15010aa90922e2ed1bb23d75cab272a71f64"
+      },
+      "input_digests": {
+        "dataset": "bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a",
+        "population": "b31055db64b41efa64603ac1d0e26642e95b16cc6097ac4aaf77de4503e5c59e",
+        "references": "7a47fd1bc05472552fdfe768f2561b1e23ffaf7516b6c9d062d0a9df8812d651",
+        "cases": "6c083a6d35fb266cfed595c9a2b95549475409bedb3d0c6cddfcc51db9f510ee"
+      },
+      "served_model": "claude-sonnet-5-5",
+      "tools": [
+        "describe_schema",
+        "query_readonly"
+      ],
+      "limits": {
+        "model_turns": 6,
+        "tool_calls": null,
+        "time_seconds": 60,
+        "output_token_budget": 4000,
+        "token_budget_metering": "output",
+        "max_output_tokens": 1024,
+        "concurrency": 1,
+        "max_connections": 1,
+        "response_cache": false,
+        "sample_retries": 0,
+        "transport_retries": 0,
+        "query_caps": {
+          "time_seconds": 1.0,
+          "max_instructions": 100000000,
+          "max_rows": 200,
+          "max_bytes": 65536
+        }
+      },
+      "limit_notes": {
+        "tool_calls": "Inspect has no limit on the number of tool calls (its limits are message, turn, token, time, working time and cost). It is bounded only indirectly: at most one call per model turn if the model makes no parallel tool calls.",
+        "provider_calls": "6 model turns allow 7 provider calls"
+      },
+      "effective_parameters": {
+        "reasoning": {
+          "type": "between_tools"
+        },
+        "output_cap": 1024
+      }
+    },
+    "effective_config_digest": "07c195c6176d7c348ba33ce69cc0756ad84939bca7020a5bdd95b96dc6b5061d",
+    "input_refs": [
+      {
+        "media_type": "application/vnd.sqlite3",
+        "path": "datasets/Chinook_Sqlite.sqlite",
+        "role": "dataset",
+        "sha256": "bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a",
+        "size_bytes": 1067008
+      },
+      {
+        "media_type": "text/csv",
+        "path": "artifacts/memberships.csv",
+        "role": "memberships",
+        "sha256": "b31055db64b41efa64603ac1d0e26642e95b16cc6097ac4aaf77de4503e5c59e",
+        "size_bytes": 286
+      },
+      {
+        "media_type": "application/jsonl",
+        "path": "artifacts/chinook-references.jsonl",
+        "role": "references",
+        "sha256": "7a47fd1bc05472552fdfe768f2561b1e23ffaf7516b6c9d062d0a9df8812d651",
+        "size_bytes": 9945
+      },
+      {
+        "media_type": "application/json",
+        "path": "artifacts/answer-schema.json",
+        "role": "answer_schema",
+        "sha256": "72377e13ba30c890b0abcefadc71de08d95c73a0438b4acbc366a7c1651c0f14",
+        "size_bytes": 2296
+      },
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/workload.json",
+        "sha256": "27c1d3f313606a0386824c7349c59949821a192214ecc50cc95afcc8d64bf5cd",
+        "size_bytes": 3179,
+        "media_type": "application/json",
+        "role": "workload_declaration"
+      }
+    ],
+    "code_environment": {
+      "python": "3.13.18",
+      "dependency_lock": {
+        "path": "uv.lock",
+        "sha256": "c563c7cfcd32b22d0fca2af5f62c748893446d0a6a07f0c8fd9e9e1a1900f753"
+      },
+      "code_revision": {
+        "commit": "b158cfd0094e860c1db4643e43087d1ece2b8138",
+        "dirty": false,
+        "local_code_fingerprint": null
+      }
+    },
+    "outcome_unknown": false,
+    "retry_of": null,
+    "output_refs": [
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/population.json",
+        "sha256": "6d1662c4684e8719c287285df9a635ff20a4307ff1a6aaed490280475cfa3ce1",
+        "size_bytes": 72,
+        "media_type": "application/json",
+        "role": "run_population"
+      },
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval",
+        "sha256": "3b72392720010f79b8a5de482241911be81946036eaf470172994dd60ecacaf0",
+        "size_bytes": 20191,
+        "media_type": "application/zip",
+        "role": "inspect_log"
+      },
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/run.json",
+        "sha256": "267fde2777393d8c248ee1226f56f009671f19068561c5e71fdef9be3401bc11",
+        "size_bytes": 6110,
+        "media_type": "application/json",
+        "role": "run_record"
+      },
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/observations.jsonl",
+        "sha256": "a52a903c30065291d10a586e45663d306299b845539c6cdaab2e33660083dcca",
+        "size_bytes": 16759,
+        "media_type": "application/jsonl",
+        "role": "observations"
+      },
+      {
+        "path": "attempts/88335363-1a01-46e0-845a-b4742daf9c57/observation_set.json",
+        "sha256": "2d9cac451d9f86c8385662498ec6a7916d6eda79330b06ba2e4c4a4dd85628f2",
+        "size_bytes": 1177,
+        "media_type": "application/json",
+        "role": "observation_set"
+      }
+    ],
+    "item_counts": {
+      "produced": 2,
+      "failed": 0,
+      "missing": 0
+    }
+  },
+  "warnings": []
+}
