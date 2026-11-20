@@ -2195,3 +2195,55 @@ def test_chapter_13_says_the_banner_the_code_writes_and_that_no_paid_run_was_mad
     assert f'"{fixture.BANNER}"' in (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
     assert "It was not run in this step" in chapter
     assert not list((HANDBOOK / "traces").glob("*run-agent*"))
+
+
+def plain_chapter(name):
+    """A chapter as a reader reads it: its HTML tags removed and its whitespace collapsed."""
+    return " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")).split())
+
+
+# #77, D-011 and Tightened B2: each phrase named a `spike live` or library-fixture execution an Attempt; each becomes its reword.
+ATTEMPT_REWORDS = {
+    "01-feasibility-spike.html": {
+        "what the spike's own Attempt recorded": "what the spike's own execution recorded",
+    },
+    "03-agentic-track.html": {
+        "before and after the Attempt, which must be equal": "before and after the library fixture's execution, which must be equal",
+        "With no --case, the Attempt takes the two dev join Cases": "With no --case, the spike live execution takes the two dev join Cases",
+        "The output is scanned for the key before the Attempt reports": "The output is scanned for the key before the execution reports",
+        "Before any provider call, the Attempt asks Inspect's own request building": "Before any provider call, the execution asks Inspect's own request building",
+        "the Attempt is refused with REASONING_NOT_EXPLICIT": "the execution is refused with REASONING_NOT_EXPLICIT",
+        "the Cases of the Attempt": "the Cases of the execution",
+        "the SHA-256 of the Chinook file before and after the Attempt;": "the SHA-256 of the Chinook file before and after the execution;",
+        "the request the Attempt itself made": "the request of the execution that wrote the record",
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(ATTEMPT_REWORDS))
+def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(name):
+    text = plain_chapter(name)
+    for old, new in ATTEMPT_REWORDS[name].items():
+        assert old not in text, old
+        assert new in text, new
+
+
+def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
+    """#77 AC2: what is left of the word in chapters 01 and 03 is the generic line, the two commands that record an Attempt in a Study and the row that says a spike live execution is not one."""
+    assert "Attempt" not in plain_chapter("01-feasibility-spike.html")
+    text = plain_chapter("03-agentic-track.html")
+    contexts = [text[max(0, m.start() - 30) : m.end() + 30] for m in re.finditer("Attempt", text)]
+    assert len(contexts) == 5, contexts
+    assert "to be checked on an Attempt." in contexts[0]  # the generic line
+    assert "as a scenario Attempt of a Study" in text and "records a native Attempt of the live Mode in a Study" in text
+    # the this_attempt row names the Attempt of run agent, and says in its own words that a spike live execution is not one
+    assert "llm_live Attempt (chapter 13)" in text and "a spike live execution is not an Attempt, since it records nothing in a Study" in text
+
+
+def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_that_wrote_the_record(page):
+    """#77 D-011 C: the value keeps its name; its row says what it means, for a `spike live` execution and for a `run agent` Attempt."""
+    rows = table_rows(page, "run-request-source", "data-request-source")
+    text = rows["this_attempt"]["text"]
+    assert "execution" in text and "the request the Attempt itself made" not in text
+    assert "spike live" in text and "run agent" in text
+

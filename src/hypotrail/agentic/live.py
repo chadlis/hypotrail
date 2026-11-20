@@ -390,7 +390,7 @@ def run_live(
 def record_execution(*, location: str, out_dir: Path, limits: limits_module.EpisodeLimits, database_sha256: dict) -> dict:
     """The run record of an execution made by this process: `run.json` and `projection.json` written in `out_dir`.
 
-    The limits are this Attempt's own request (`request_source` is `this_attempt`); `database_sha256` is what the
+    The limits are this execution's own request (`request_source` is `this_attempt`); `database_sha256` is what the
     caller hashed before and after the run.
     """
     return _record(request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256)
