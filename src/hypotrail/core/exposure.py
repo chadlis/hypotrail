@@ -1,4 +1,4 @@
-"""The freeze record, the Exposure journal and `check_informed` (SPEC §2 « Gel et exposition »; chadlis/hypotrail#73).
+"""The freeze record, the Exposure journal and `check_informed` (SPEC §2, freeze and exposure; chadlis/hypotrail#73).
 
 An Exposure is any Assessment or Comparison that touches `public_check` Items, native or imported, for
 either Track (GLOSSARY, #1 amendment). Before the first one of a Study revision, the revision holds a

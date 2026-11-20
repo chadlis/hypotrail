@@ -2,7 +2,7 @@
 
 A corrected Reference, a changed numeric tolerance (held by the Reference) or a new Scorer version
 changes verdicts without any change of the evaluated system, so the Assessment that follows says so
-(RES-02; SPEC §5 « Une nouvelle évaluation ou correction de référence crée un nouvel assessment_id »).
+(RES-02; SPEC §5: a new evaluation or a Reference correction creates a new assessment_id).
 
 The earlier Assessment is the latest one of the same Observation set and the same Scorer id that differs
 from the new one in at least one of three things: the References set (by digest), the Scorer's version,

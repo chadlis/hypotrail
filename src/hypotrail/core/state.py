@@ -1,6 +1,6 @@
 """The local state of a Study: `status` reads it, `recover` records an interrupted Attempt.
 
-`status` only reads (SPEC §5 « Une commande explicite inspecte/récupère l'état local »): it lists
+`status` only reads (SPEC §5: an explicit command inspects and recovers the local state): it lists
 every Attempt with its `technical_status`, its artifacts (the partial ones of an Attempt that never
 reached its terminal manifest included, each with the digest of its bytes) and whether a live writer
 holds the Study; and every revision of the Study (`hypotrail.core.revisions`) with its Protocol digest and

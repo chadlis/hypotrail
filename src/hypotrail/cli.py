@@ -89,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="names the request: the same ID with the same request returns the recorded Attempt, "
         "with another request it is refused (REQUEST_CONFLICT)",
     )
-    run_ml.add_argument("--retry-of", metavar="ATTEMPT_ID", help="the Attempt this run repeats on purpose")
+    run_ml.add_argument("--retry-of", metavar="ATTEMPT_ID", help="the earlier Attempt this new Attempt is made after, on purpose")
     run_ml.add_argument(
         "--examples-dir",
         type=Path,
@@ -445,7 +445,7 @@ def _recover(args) -> int:
     from hypotrail.core import state
 
     manifest = state.recover(args.study, args.attempt)
-    human = f"Attempt {manifest['attempt_id']} recorded as interrupted (partial artifacts kept; to repeat it, run again with a new --request-id and --retry-of)"
+    human = f"Attempt {manifest['attempt_id']} recorded as interrupted (partial artifacts kept; to make it again, record a new Attempt with a new --request-id and --retry-of)"
     _emit({"ok": True, "attempt": manifest}, args.json, human)
     return EXIT_OK
 
