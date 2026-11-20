@@ -396,6 +396,20 @@ def record_execution(*, location: str, out_dir: Path, limits: limits_module.Epis
     return _record(request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256)
 
 
+def served_models(log) -> list:
+    """The models the provider reports in the Episodes' outputs (`output.model`), sorted; none when no output names one."""
+    return sorted({s.output.model for s in (log.samples or []) if s.output and s.output.model})
+
+
+def limit_notes(effective: dict) -> dict:
+    """What the engine cannot enforce or only bounds indirectly, built from the effective limits read back from the log."""
+    turns = effective["model_turns"]
+    return {
+        "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
+        "provider_calls": None if turns is None else f"{turns} model turns allow {turns + 1} provider calls",
+    }
+
+
 def summarize(
     *,
     location: str,
@@ -477,9 +491,7 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
         "configuration": (log.eval.metadata or {}).get("configuration"),
         "system_text": (log.eval.metadata or {}).get("system_text"),
         "model": log.eval.model,
-        "served_models": sorted(
-            {s.output.model for s in (log.samples or []) if s.output and s.output.model}
-        ),
+        "served_models": served_models(log),
         "request_parameters": parameters,
         # reasoning and the output cap: what was asked, and what the request carried
         "reasoning": {
@@ -496,10 +508,7 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
         "effective_limits": effective,
         "requested_limits": request.limits,
         "request_source": request.source.value,
-        "limit_notes": {
-            "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
-            "provider_calls": None if turns is None else f"{turns} model turns allow {turns + 1} provider calls",
-        },
+        "limit_notes": limit_notes(effective),
         "cases": None if planned is None else [{"case_id": c, "repeat": r} for c, r in planned],
         "database_sha256": database_sha256 if by_the_run else None,
         "summarised_by": None if by_the_run else _summarised_by(database_sha256),

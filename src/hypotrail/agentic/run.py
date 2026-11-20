@@ -406,6 +406,8 @@ def _record(study: Path, writes: _Writes, workload, examples: Path, manifest: di
         if self_check is not None:
             published.append(writes.publish_record(f"{folder}/{SELF_CHECK_NAME}", self_check, role="self_check"))
         normalized_ref = writes.publish(f"{folder}/{OBSERVATIONS_NAME}", imports.normalized(entries), media_type="application/jsonl", role="observations")
+        reported = agentic_live.served_models(log)  # what the provider says, as `run.json`'s `served_models`: never the requested name
+        served_model = ", ".join(reported) if reported else None
         observation_set = {
             "kind": "observations",
             "schema_version": "observations/1",
@@ -422,23 +424,19 @@ def _record(study: Path, writes: _Writes, workload, examples: Path, manifest: di
                 "configuration": plan["configuration"]["id"],
                 "partition": plan["partition"],
                 "model": plan["model"],
-                "served_model": log.eval.model,
+                "served_model": served_model,
             },
             "unknown_fields": [],
         }
         contracts.validate(observation_set)
         observation_set_ref = writes.publish_record(f"{folder}/observation_set.json", observation_set, role="observation_set")
         effective = limits_module.effective_limits(log)
-        turns = effective["model_turns"]
         effective_config = {
             **effective_config,
-            "served_model": log.eval.model,
+            "served_model": served_model,
             "tools": agentic_live.tool_names(log),
             "limits": effective,
-            "limit_notes": {
-                "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
-                "provider_calls": None if turns is None else f"{turns} model turns allow {turns + 1} provider calls",
-            },
+            "limit_notes": agentic_live.limit_notes(effective),
             "effective_parameters": agentic_live.effective_parameters(log),
         }
     statuses = [entry["status"] for entry in entries.values()]

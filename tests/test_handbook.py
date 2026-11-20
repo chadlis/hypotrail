@@ -2007,6 +2007,13 @@ def run_agent_chapter() -> str:
     return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
 
 
+def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_eval_name():
+    """R1-04: the handbook states where `served_model` comes from, as the code takes it."""
+    text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert "the one the provider reports in the Episodes' outputs (output.model" in text
+    assert "The model the log reports." not in text and "mockllm/model in every test" not in text
+
+
 def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_to_llm_live(page):
     from hypotrail.agentic import run
     from hypotrail.cli import build_parser

@@ -87,6 +87,27 @@ def test_the_manifest_is_an_attempt_record_with_the_keys_compare_reads_the_proto
     assert config["served_model"] == log.eval.model
 
 
+def test_the_served_model_is_the_one_the_episodes_outputs_report_not_the_name_the_eval_was_given(tmp_path, monkeypatch):
+    """R1-04, D-012 item 11: `served_model` is what the provider reports (`output.model`, as `run.json`'s `served_models`), so a difference shows."""
+    study = study_of(tmp_path)
+    script = scripted()
+
+    def serving_another_model(*args, **kwargs):
+        output = script(*args, **kwargs)
+        output.model = "claude-served-0001"
+        return output
+
+    patch_model(monkeypatch, serving_another_model)
+    attempt = ok(live(study, "plain", "served", cases=["D03"]))
+    config = attempt["effective_config"]
+    log = read_eval_log(str(log_of(study, attempt)))
+    assert log.eval.model == "mockllm/model"  # what Inspect filled in from the requested model
+    assert config["model"] == MODEL and config["served_model"] == "claude-served-0001"
+    assert read(study, attempt, "run.json")["served_models"] == ["claude-served-0001"]
+    observation_set = json.loads((folder_of(study, attempt) / "observation_set.json").read_text())
+    assert observation_set["provenance"]["served_model"] == "claude-served-0001"
+
+
 def test_the_configuration_is_its_id_its_declared_content_and_its_resolved_system_text_and_its_digest_is_the_freeze_digest(recorded):
     study, attempt, _ = recorded
     configuration = attempt["effective_config"]["configuration"]
