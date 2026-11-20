@@ -1,4 +1,4 @@
-"""The layout of a Study on disk, and how a Track-neutral command opens one.
+"""The layout of a Study on disk, and the readers every command shares to open one.
 
 A Study is a folder named explicitly (`--study DIR`); it holds, all as artifacts referenced by digest:
 
@@ -20,6 +20,10 @@ DIR/
   exposures/<seq>-<entry_id>.json    one Exposure journal entry each, appended and never rewritten (core/exposure.py)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
+
+Everything here is Track-neutral except `expected_row_ids`, which reads the population of the regression Track
+(`row_id`, and the `item_ids` file of `import ml`): `core/comparison.py` needs it for a regression Comparison and
+the core imports no Track, so it stays here and says so.
 
 The Workload itself (its declaration, its Configurations, its data and lock) stays where it is declared
 (`examples/<name>`): a Configuration can change after the Study exists, and an Attempt records the
@@ -84,7 +88,7 @@ IMPORT_POPULATION_KEY = "item_ids"  # the one key of the population file `import
 
 
 def expected_row_ids(study, population_ref: dict, partition: str) -> list:
-    """The sorted `row_id`s an Observation set of the regression Track is expected to answer.
+    """The sorted `row_id`s an Observation set of the regression Track is expected to answer (regression Track only).
 
     A native Attempt's population is the Study's memberships, whose Items of `partition` are all expected. An
     Import's population is the file it was given (`--population`), which may list fewer Items of that Partition.
