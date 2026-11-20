@@ -1856,3 +1856,137 @@ def test_the_readme_and_the_chapters_no_longer_say_public_check_waits_for_the_jo
             assert stale not in text or name.name.startswith("12-"), (name.name, stale)
     for name in ("02-temporal-regression-track.html", "03-agentic-track.html", "05-assessments.html", "07-comparison.html", "08-agent-answers.html"):
         assert 'href="#freeze-exposure"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
+
+
+# --- #62: chapter 03's table of the fields of run.json is pinned against the code that writes them ----------------------
+
+
+def _flattened(record):
+    """The fields of a run record as the table names them: the dicts the table splits are split into `parent.child`."""
+    split = {"engine", "reasoning", "output_cap", "limit_notes"}
+    return {f"{k}.{c}" if k in split else k for k, v in record.items() for c in (v if k in split else [None])}
+
+
+def _value(record, field):
+    for part in field.split("."):
+        record = record[part]
+    return record
+
+
+def _log_mutations():
+    """For each field whose source is the log: how to change that value in a log written offline, and what the record must then say."""
+    from inspect_ai.model import ModelCall
+
+    def request(log):
+        event = next(e for s in log.samples for e in s.events if e.event == "model")
+        event.call = ModelCall(request={"max_tokens": 77, "thinking": {"type": "mutated"}, "temperature": 0.5}, response={})
+
+    def served(log):
+        log.samples[0].output.model = "served-mutated"
+
+    def metadata(key):
+        return lambda log: log.eval.metadata.update({key: "mutated"})
+
+    def plan(log):
+        log.eval.dataset.sample_ids = ["D03", "D05"]
+        log.eval.config.epochs = 2
+
+    def no_samples(log):
+        log.samples = []
+
+    def latency(log):
+        log.samples[0].total_time = 12.5
+
+    def effort(log):
+        log.plan.config.reasoning_effort = "medium"
+
+    def turns(log):
+        log.eval.config.turn_limit = 5
+
+    def cap(log):
+        log.plan.config.max_tokens = 333
+
+    return {
+        "provider": (lambda log: setattr(log.eval, "model", "other/mutated"), lambda r: r["provider"] == "other"),
+        "model": (lambda log: setattr(log.eval, "model", "other/mutated"), lambda r: r["model"] == "other/mutated"),
+        "configuration": (metadata("configuration"), lambda r: r["configuration"] == "mutated"),
+        "system_text": (metadata("system_text"), lambda r: r["system_text"] == "mutated"),
+        "served_models": (served, lambda r: r["served_models"] == ["served-mutated"]),
+        "request_parameters": (request, lambda r: r["request_parameters"] == {"thinking": {"type": "mutated"}, "temperature": 0.5, "max_tokens": 77}),
+        "reasoning.sent": (request, lambda r: r["reasoning"]["sent"] == {"type": "mutated"}),
+        "output_cap.sent": (request, lambda r: r["output_cap"]["sent"] == 77),
+        "reasoning.setting": (effort, lambda r: r["reasoning"]["setting"] == "medium"),
+        "reasoning.requested": (effort, lambda r: r["reasoning"]["requested"] == "medium"),
+        "engine.version": (lambda log: log.eval.packages.update({"inspect_ai": "0.3.1"}), lambda r: r["engine"]["version"] == "0.3.1"),
+        "effective_limits": (turns, lambda r: r["effective_limits"]["model_turns"] == 5),
+        "requested_limits": (turns, lambda r: r["requested_limits"]["model_turns"] == 5),
+        "output_cap.requested": (cap, lambda r: r["output_cap"]["requested"] == 333),
+        "limit_notes.provider_calls": (turns, lambda r: r["limit_notes"]["provider_calls"] == "5 model turns allow 6 provider calls"),
+        "cases": (plan, lambda r: r["cases"] == [{"case_id": c, "repeat": n} for c in ("D03", "D05") for n in (0, 1)]),
+        "inspect_status": (lambda log: setattr(log, "status", "error"), lambda r: r["inspect_status"] == "error"),
+        "episodes": (latency, lambda r: r["episodes"][0]["latency_seconds"] == 12.5),
+        "tool_loop_observed": (no_samples, lambda r: r["tool_loop_observed"] is False),
+    }
+
+
+def test_chapter_03_run_record_table_matches_the_fields_the_code_writes_and_where_each_comes_from(page, tmp_path, monkeypatch):
+    """#62 Tightened F: the rows are the fields written; a row sourced from the log follows a change of that value in a log; a row sourced from the re-summary appears only under `summarised_by`."""
+    import platform
+    import types
+
+    from _record_helpers import live_record, make_log, resummary
+
+    from hypotrail.agentic import live as agentic_live
+
+    rows = table_rows(page, "run-record-fields", "data-field")
+    mutations = _log_mutations()
+    logs = {"baseline": make_log(tmp_path, "baseline")}
+    for field in {f for f, (e, _) in mutations.items()}:
+        logs[field] = make_log(tmp_path, field.replace(".", "-"), edit=mutations[field][0])
+    hashes = {"before": "b" * 64, "after": "b" * 64}
+    monkeypatch.setattr(platform, "python_version", lambda: "3.99.1")
+    monkeypatch.setattr(platform, "platform", lambda *a, **k: "SummariserOS-1")
+    monkeypatch.setattr(platform, "machine", lambda: "summ64")
+    monkeypatch.setattr(agentic_live, "metadata", types.SimpleNamespace(version=lambda name: "9.9.9"))
+    again = {k: resummary(out, location, database_sha256=hashes) for k, (out, location) in logs.items()}
+    live = {k: live_record(tmp_path, monkeypatch, location, name=f"live-{n}") for n, (k, (out, location)) in enumerate(logs.items())}
+
+    # the rows are the fields the code writes, in both kinds of record
+    assert set(rows) == _flattened(live["baseline"]) == _flattened(again["baseline"])
+    sources = {"run": {"log", "request", "run", "code", "null"}, "resummary": {"log", "code", "summarised_by"}}
+    for field, row in rows.items():
+        assert row["attrs"]["data-run"] in sources["run"] and row["attrs"]["data-resummary"] in sources["resummary"], field
+        for column, record in (("data-run", live), ("data-resummary", again)):
+            if row["attrs"][column] != "log":
+                continue
+            # a value the table says is the log's follows the log
+            assert field in mutations, f"{field} is sourced from the log but no test changes it in a log"
+            assert not mutations[field][1](record["baseline"]), (field, "the baseline already holds the mutated value")
+            assert mutations[field][1](record[field]), (column, field)
+
+    for field, row in rows.items():
+        attrs = row["attrs"]
+        if attrs["data-resummary"] == "summarised_by":
+            key = attrs["data-summarised-key"]
+            assert _value(again["baseline"], field) is None, field
+            assert again["baseline"]["summarised_by"][key] is not None, field
+            if field != "reasoning.note":
+                assert _value(live["baseline"], field) is not None, field  # the run's own value, in a record the run writes
+        if attrs["data-run"] == "null":
+            assert live["baseline"][field] is None, field
+    assert set(rows["summarised_by"]["attrs"]["data-keys"].split()) == set(again["baseline"]["summarised_by"])
+    assert again["baseline"]["summarised_by"] == {
+        "python": "3.99.1", "hardware": "SummariserOS-1", "machine": "summ64", "inspect_version": "9.9.9",
+        "reasoning_note": agentic_live.REASONING_NOTE, "database_sha256_given_by_caller": hashes,
+    }
+    assert live["baseline"]["reasoning"]["note"] == agentic_live.REASONING_NOTE and live["baseline"]["python"] == "3.99.1"
+
+
+def test_chapter_03_says_a_re_summary_keeps_the_logs_facts_and_that_the_licence_line_does_not_apply(page):
+    """#62 and D-012 items 4, 7 and 9: the prose around the table of run.json fields."""
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Where each field of <code>run.json</code> comes from" in p)
+    for text in ("<code>summarised_by</code>", "takes no model, Cases or Repeats from its caller", "calls no model and no tool", "the pinned Inspect's <code>EvalSpec</code> has no interpreter or platform field"):
+        assert text in paragraph
+    assert page.index('id="run-request-source"') < page.index("Where each field of <code>run.json</code> comes from") < page.index('id="run-record-fields"')
+    assert "The model licence line of the specification's §3 does not apply to a remote provider: the record has no field for it." in page
+    assert 'href="#run-record-fields"' in page

@@ -20,7 +20,6 @@ Everything written carries the Mode and the banner.
 
 import json
 import platform
-from importlib import metadata
 from pathlib import Path
 
 from inspect_ai.log import read_eval_log
@@ -140,7 +139,7 @@ def run_fixture(
         "configuration": configuration,
         "model": log.eval.model,
         "provider": log.eval.model.split("/", 1)[0],
-        "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
+        "engine": {"name": "inspect-ai", "version": log.eval.packages.get("inspect_ai")},
         "python": platform.python_version(),
         "inspect_log": str(Path(location).resolve().relative_to(out_dir.resolve())),
         "inspect_status": log.status,

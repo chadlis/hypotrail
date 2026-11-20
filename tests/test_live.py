@@ -535,13 +535,20 @@ def test_a_kept_log_can_be_summarised_again_without_any_model_call(rehearsal, tm
         case_ids=["D03", "D05"],
         repeats=1,
     )
-    # a re-summary differs from the live record in the database hashes (as before), in saying where its request
-    # came from (#57 T3), and in the 8 tool calls, which the log cannot hold (T1')
+    # a re-summary differs from the live record in saying where its request came from (#57 T3), in the 8 tool
+    # calls, which the log cannot hold (T1'), and in what only the execution itself or the summarising machine
+    # can say (#62): the live record's own, null in a re-summary, which has them under `summarised_by`
     assert record["request_source"] == "this_attempt" and again["request_source"] == "kept_log"
     assert record["requested_limits"]["tool_calls"] == 8 and again["requested_limits"]["tool_calls"] is None
+    assert again["summarised_by"].keys() == {
+        "python", "hardware", "machine", "inspect_version", "reasoning_note", "database_sha256_given_by_caller"
+    }
     expected = {
         **record,
         "database_sha256": None,
+        "python": None, "hardware": None, "machine": None,
+        "reasoning": {**record["reasoning"], "note": None},
+        "summarised_by": again["summarised_by"],
         "request_source": "kept_log",
         "requested_limits": {**record["requested_limits"], "tool_calls": None},
     }
@@ -791,7 +798,7 @@ def test_both_configurations_send_the_same_explicit_reasoning_setting_and_the_10
 def test_the_record_holds_the_reasoning_setting_and_the_output_cap_as_sent(both_rehearsals):
     for configuration, (_, record, out) in both_rehearsals.items():
         assert {k: v for k, v in record["reasoning"].items() if k != "note"} == {
-            "setting": "disabled", "requested": "none", "sent": {"type": "disabled"}
+            "setting": "none", "requested": "none", "sent": {"type": "disabled"}
         }
         assert record["output_cap"] == {"requested": 1024, "sent": 1024}
         assert record["configuration"] == configuration

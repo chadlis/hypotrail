@@ -3,6 +3,12 @@
 It scores nothing against References. It only records that a real model calls
 the tool and uses its result. The key is passed explicitly to the provider and is
 never logged or persisted; the output is scanned for it before the run reports.
+
+A run record (`run.json`) says what the execution's own Inspect log says wherever the log holds the fact
+(model, engine version, Cases and Repeats, limits, reasoning), whether it is written right after the run or
+by re-summarising a kept log. What no log holds, and only the summarising machine or code can say, is the
+execution's own in a record written by the run, and in a re-summary is null with the summarising
+machine's value under `summarised_by` (#62).
 """
 
 import hashlib
@@ -27,7 +33,6 @@ ANTHROPIC_BASE_URL = "https://api.anthropic.com"
 # thinking from the same 1,024-token output cap as the answer, so an answer could be cut by our own
 # setting; disabled keeps the whole cap for the answer. Inspect's name for it is "none".
 REASONING_EFFORT = "none"
-REASONING_SETTING = "disabled"
 # From Inspect's Anthropic provider (`completion_config` and `_supports_disabling_thinking`): for
 # reasoning_effort="none" it sends thinking {"type": "disabled"}; Sonnet 5.5 rejects "disabled" and
 # is sent {"type": "between_tools"} instead, which its source calls "no up-front thinking" and the
@@ -242,9 +247,8 @@ def usage_of(sample) -> dict:
     }
 
 
-def _read_back_reasoning(location: str) -> str | None:
-    """The reasoning effort that took effect, as the log header records it (public log API)."""
-    log = read_eval_log(location, header_only=True)
+def _reasoning_effort(log) -> str | None:
+    """The reasoning effort that took effect, as the log header records it; None when the log has none."""
     generate = log.eval.model_generate_config.model_copy(update=log.plan.config.model_dump(exclude_none=True))
     return generate.reasoning_effort
 
@@ -285,6 +289,14 @@ class Request:
     @classmethod
     def from_log(cls, location: str) -> "Request":
         return cls(limits_module.requested_from_log(location), RequestSource.KEPT_LOG, _BUILT_BY_A_CONSTRUCTOR)
+
+
+def _planned(log) -> list[tuple[str, int]] | None:
+    """The Episodes the log's plan names: its dataset's sample IDs times its epochs; None when it holds no such plan."""
+    ids, epochs = log.eval.dataset.sample_ids, log.eval.config.epochs
+    if ids is None or epochs is None:
+        return None
+    return [(str(case_id), repeat) for case_id in ids for repeat in range(epochs)]
 
 
 def _sha256(path: Path) -> str:
@@ -338,12 +350,8 @@ def run_live(
         )
         return _record(
             request=Request.this_attempt(limits),
-            limits=limits,
             location=location,
             out_dir=out_dir,
-            model_id=model_id,
-            case_ids=case_ids,
-            repeats=repeats,
             database_sha256={"before": before, "after": _sha256(workload.database_path)},
         )
 
@@ -354,17 +362,21 @@ def summarize(
     *,
     location: str,
     out_dir: Path,
-    model_id: str,
     api_key: str,
-    case_ids: list[str],
-    repeats: int,
+    model_id: str | None = None,
+    case_ids: list[str] | None = None,
+    repeats: int | None = None,
     database_sha256: dict | None = None,
 ) -> dict:
     """Project a kept log, write the run record, and scan the output for the key.
 
     It reads the log only; it calls neither the model nor any tool, so it can be
-    run again on a kept log. The scan runs even if a step fails. The database hashes
-    belong to the run, so they are recorded only if given (None otherwise).
+    run again on a kept log. The scan runs even if a step fails.
+
+    The record says what the log says: its model, its Cases and Repeats, its engine version, its limits.
+    `model_id`, `case_ids` and `repeats` are accepted for callers that still pass them and are ignored, so no
+    argument can make the record differ from the log. The database hashes belong to the run: a re-summary
+    records them, if given, under `summarised_by`, as the caller's (None otherwise).
     """
     out_dir = Path(out_dir).resolve()
     return _scanned(
@@ -372,12 +384,8 @@ def summarize(
         api_key,
         lambda: _record(
             request=Request.from_log(location),
-            limits=limits_module.EpisodeLimits(),
             location=location,
             out_dir=out_dir,
-            model_id=model_id,
-            case_ids=case_ids,
-            repeats=repeats,
             database_sha256=database_sha256,
         ),
     )
@@ -397,58 +405,66 @@ def _episode_entry(episode: dict, sample) -> dict:
     }
 
 
-def _record(
-    *,
-    request: Request,
-    limits: limits_module.EpisodeLimits,
-    location: str,
-    out_dir: Path,
-    model_id: str,
-    case_ids: list[str],
-    repeats: int,
-    database_sha256: dict | None,
-) -> dict:
+def _summarised_by(database_sha256: dict | None) -> dict:
+    """What describes the machine and the code that re-summarise a log, never the execution: its own key in the record."""
+    return {
+        "python": platform.python_version(),
+        "hardware": platform.platform(),
+        "machine": platform.machine(),
+        "inspect_version": metadata.version("inspect-ai"),
+        "reasoning_note": REASONING_NOTE,
+        "database_sha256_given_by_caller": database_sha256,
+    }
+
+
+def _record(*, request: Request, location: str, out_dir: Path, database_sha256: dict | None) -> dict:
     out_dir = Path(out_dir).resolve()
-    expected = [(c, r) for c in case_ids for r in range(repeats)]
-    episodes = projection.project_log(location, expected=expected)
     log = read_eval_log(location)
+    planned = _planned(read_eval_log(location, header_only=True))  # a full read fills sample_ids from the samples
+    # a log with no plan names no Episodes: the Episodes it holds are projected, and `cases` is null
+    expected = planned if planned is not None else sorted((str(s.id), s.epoch - 1) for s in log.samples or [])
+    episodes = projection.project_log(location, expected=expected)
     parameters = request_parameters(log)
-    effective = limits_module.read_back(location)
-    # `request` is what its caller names: this Attempt's, or the kept log's, never today's code (#57)
+    effective = limits_module.effective_limits(log)
+    # `request` is what its caller names: this run's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
+    by_the_run = request.source is RequestSource.THIS_ATTEMPT
+    turns = effective["model_turns"]
+    reasoning_effort = _reasoning_effort(log)
 
     record = {
         "mode": "llm_live",
-        "provider": "anthropic",
+        "provider": log.eval.model.split("/", 1)[0],
         # the exact prompt text of the Configuration, as the log header kept it
         "configuration": (log.eval.metadata or {}).get("configuration"),
         "system_text": (log.eval.metadata or {}).get("system_text"),
-        "model": model_id,
+        "model": log.eval.model,
         "served_models": sorted(
             {s.output.model for s in (log.samples or []) if s.output and s.output.model}
         ),
         "request_parameters": parameters,
         # reasoning and the output cap: what was asked, and what the request carried
         "reasoning": {
-            "setting": REASONING_SETTING,
-            "requested": _read_back_reasoning(location),
+            "setting": reasoning_effort,
+            "requested": reasoning_effort,
             "sent": (parameters or {}).get("thinking"),
-            "note": REASONING_NOTE,
+            "note": REASONING_NOTE if by_the_run else None,
         },
         "output_cap": {"requested": request.limits["max_output_tokens"], "sent": (parameters or {}).get("max_tokens")},
-        "engine": {"name": "inspect-ai", "version": metadata.version("inspect-ai")},
-        "python": platform.python_version(),
-        "hardware": platform.platform(),
-        "machine": platform.machine(),
+        "engine": {"name": "inspect-ai", "version": log.eval.packages.get("inspect_ai")},
+        "python": platform.python_version() if by_the_run else None,
+        "hardware": platform.platform() if by_the_run else None,
+        "machine": platform.machine() if by_the_run else None,
         "effective_limits": effective,
         "requested_limits": request.limits,
         "request_source": request.source.value,
         "limit_notes": {
             "tool_calls": limits_module.NOT_ENFORCEABLE["tool_calls"],
-            "provider_calls": f"{limits.model_turns} model turns allow {limits.model_turns + 1} provider calls",
+            "provider_calls": None if turns is None else f"{turns} model turns allow {turns + 1} provider calls",
         },
-        "cases": [{"case_id": c, "repeat": r} for c, r in expected],
-        "database_sha256": database_sha256,
+        "cases": None if planned is None else [{"case_id": c, "repeat": r} for c, r in planned],
+        "database_sha256": database_sha256 if by_the_run else None,
+        "summarised_by": None if by_the_run else _summarised_by(database_sha256),
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,
         "episodes": [_episode_entry(e, samples.get((e["case_id"], e["repeat"]))) for e in episodes],
