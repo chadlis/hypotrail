@@ -229,7 +229,7 @@ def _rate(scored: int, expected: int):
     return scored / expected if expected else None
 
 
-def compare_sides(study: Path, control: dict, candidate: dict, factor: str | None, examples_dir=None) -> dict:
+def compare_sides(study: Path, control: dict, candidate: dict, factor: str | None, live_basis=None) -> dict:
     """Write and return the Comparison of two agent sides (`hypotrail.core.comparison` has read them).
 
     A Comparison of `public_check` Episodes is an Exposure: its journal entry is appended once the checks have passed
@@ -259,7 +259,7 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
 
     comparison_id = str(uuid.uuid4())
     if exposed:  # before any Episode is paired
-        record_exposure(study, control, candidate, comparison_id, examples_dir)
+        record_exposure(study, control, candidate, comparison_id, live_basis)
     ca, da = control["assessment"], candidate["assessment"]
     primary = ca["primary_criterion"]
     side_episodes = {"control": _episodes(control), "candidate": _episodes(candidate)}

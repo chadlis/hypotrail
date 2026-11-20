@@ -35,6 +35,7 @@ from hypotrail.core import artifacts, canonical, contracts, exposure, lock, resc
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.partitions import requires_exposure
+from hypotrail.ml.study import live_basis as _live_basis
 
 COMMAND = "assess"
 STAGE = "assess"
@@ -177,7 +178,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         raise _refuse("OBSERVATIONS_INVALID", f"{stray[0]} is not an Item of {partition}", problem="unexpected_item", row_id=stray[0])
     assessment_id = str(uuid.uuid4())
     if exposed:  # before any Item is scored
-        exposure.record(study, spec, examples_dir=examples_dir, attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
+        exposure.record(study, spec, _live_basis(spec, examples_dir), attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
     reference_cells = {row["row_id"]: row["y_true"] for row in _rows(references_bytes)}
 
     entries = []

@@ -185,12 +185,13 @@ def import_scope_warning(imports: list) -> dict:
     return {"code": WARNING_DESCRIPTIVE, "message": message}
 
 
-def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, examples_dir=None) -> dict:
+def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
-    writer lock for the whole command: a second writer is refused at once. `examples_dir` is read only for a
-    Comparison of `public_check` Items, to freeze the Workload's digests (default: the repository's).
+    writer lock for the whole command: a second writer is refused at once. `live_basis` is a function with no
+    argument that returns the Track's `freeze_basis` of the Workload; it is called only for a Comparison of
+    `public_check` Items, to freeze the Workload's digests (see `hypotrail.core.exposure`).
     """
     study = Path(study)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
@@ -202,7 +203,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             details={"factor": factor, "study_domain": spec["domain"]},
         )
     with lock.writer_lock(study):
-        return _compare_locked(study, control_id, candidate_id, factor, examples_dir)
+        return _compare_locked(study, control_id, candidate_id, factor, live_basis)
 
 
 def check_partition(partition) -> bool:
@@ -217,26 +218,26 @@ def check_partition(partition) -> bool:
     )
 
 
-def record_exposure(study: Path, control: dict, candidate: dict, comparison_id: str, examples_dir) -> None:
+def record_exposure(study: Path, control: dict, candidate: dict, comparison_id: str, live_basis) -> None:
     """Append the journal entry of a Comparison of `public_check` Items, before the Comparison computes on them."""
     exposure.record(
         study,
         layout.read_spec(study),
-        examples_dir=examples_dir,
+        live_basis,
         attempt_ids=[side["manifest"]["attempt_id"] for side in (control, candidate)],
         assessment_ids=[side["assessment"]["assessment_id"] for side in (control, candidate)],
         comparison_ids=[comparison_id],
     )
 
 
-def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None, examples_dir) -> dict:
+def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None, live_basis) -> dict:
     control = _side(study, "control", control_id)
     candidate = _side(study, "candidate", candidate_id)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
-        return agent_comparison.compare_sides(study, control, candidate, factor, examples_dir)
+        return agent_comparison.compare_sides(study, control, candidate, factor, live_basis)
 
     for side in (control, candidate):
         side["items"] = {row["row_id"]: row for row in side["per_item"]}
@@ -292,7 +293,7 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
 
     comparison_id = str(uuid.uuid4())
     if exposed:  # before any paired difference is computed
-        record_exposure(study, control, candidate, comparison_id, examples_dir)
+        record_exposure(study, control, candidate, comparison_id, live_basis)
     row_ids = sorted(control["items"])
     paired = []
     scored = {"control": 0, "candidate": 0}

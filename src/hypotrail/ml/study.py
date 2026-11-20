@@ -96,6 +96,19 @@ def freeze_basis(spec: dict, source: Path) -> dict:
     }
 
 
+def live_basis(spec: dict, examples_dir: Path | None = None):
+    """A function with no argument that returns `freeze_basis` of this Study's Workload under `examples_dir`.
+
+    `hypotrail.core.exposure` takes it instead of importing the Track; it reads the Workload only when called.
+    """
+
+    def basis() -> dict:
+        examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+        return freeze_basis(spec, examples / spec["workload"])
+
+    return basis
+
+
 def _exists(study: Path) -> InvalidInputError:
     return InvalidInputError(
         "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}

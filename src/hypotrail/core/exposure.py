@@ -37,7 +37,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment
+from hypotrail.core import artifacts, canonical, contracts, environment
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError
 
@@ -127,21 +127,16 @@ def marks(study, manifests=(), assessments=()) -> dict:
     return {"check_informed": True} if marked else {}
 
 
-def _track(spec: dict):
-    if spec["domain"] == "agentic":
-        from hypotrail.agentic import study as track
-    else:
-        from hypotrail.ml import study as track
-    return track
-
-
-def basis(spec: dict, examples_dir) -> dict:
+def checked_basis(spec: dict, live_basis) -> dict:
     """The Protocol digest and the Configuration digests of the Workload as it is declared now.
+
+    The core knows no Track: the caller passes `live_basis`, a function with no argument that returns that basis
+    (`{"protocol_digest", "configuration_digests"}`, the Track's `freeze_basis` applied to the Workload). It is
+    called only here, so a command that never records an Exposure never reads the Workload for it.
 
     Refuses with `PROTOCOL_CHANGED` (exit 3) when that Protocol is not the revision's: nothing has been written.
     """
-    examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
-    live = _track(spec).freeze_basis(spec, examples / spec["workload"])
+    live = live_basis()
     if live["protocol_digest"] != spec["protocol_digest"]:
         raise IntegrityError(
             "PROTOCOL_CHANGED",
@@ -173,13 +168,13 @@ def _write_freeze(study, spec: dict, live: dict) -> dict:
     return record
 
 
-def record(study, spec: dict, *, examples_dir=None, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
+def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
     """Append one journal entry for an Exposure, after the freeze record of the current revision (written first if absent).
 
     The caller holds the Study's writer lock and has finished every refusal that needs no value of `public_check`
     Items; this is called before it computes anything on them.
     """
-    live = basis(spec, examples_dir)
+    live = checked_basis(spec, live_basis)
     freeze = read_freeze(study, spec.get("revision_number", 1)) or _write_freeze(study, spec, live)
     folder = Path(study) / JOURNAL_DIR
     sequence = (sum(1 for p in folder.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if folder.is_dir() else 0) + 1
