@@ -28,7 +28,7 @@ A live Attempt is opt-in and paid, never part of the tests: `python -m hypotrail
 - [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, candidate milestones and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.
 - [`AGENTS.md`](AGENTS.md): rules for contributors and coding agents.
-- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice).
+- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/).
 - [chadlis/hypotrail-learning](https://github.com/chadlis/hypotrail-learning): the learning book (French) and the original specification of the first milestone.
 
 ## License

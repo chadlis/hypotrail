@@ -1,6 +1,6 @@
 ---
 name: drive
-description: "Deliver one Hypotrail slice through the existing delegated implementation and independent review workflow. Preserve autonomous development and attach concise evidence for selected learning goals. Invoke with /drive, /drive #n, or a request to resume a slice. Optional prepare produces a learning handoff before implementation. Existing merge and chain modifiers remain explicit."
+description: "Deliver one Hypotrail slice through the existing delegated implementation and independent review workflow. Preserve autonomous development and attach concise evidence for selected learning goals. Invoke with /drive, /drive #n, or a request to resume a slice. Optional prepare produces a learning handoff before implementation. Existing merge and chain modifiers remain explicit, except under the autonomous protocol of 2026-11-20, which implies them."
 disable-model-invocation: true
 ---
 
@@ -86,20 +86,20 @@ By default the run **stops at the open PR**:
 
 ## Autonomous protocol (owner decision, 2026-11-20)
 
-Salah adopted this protocol on chadlis/hypotrail#1 ([end state and protocol](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378), with [1](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7042941886) and [2](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043566976)). It applies to every run whose opening message invokes it, until the end state written there is reached. Where it disagrees with another section of this skill, it wins for that run.
+Salah adopted this protocol on chadlis/hypotrail#1 ([end state and protocol](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378), with [1](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7042941886) and [2](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043566976)). Its scope, in his words: « all work after #9's current state, until the end state is reached ». « The drive skill's owner-decision rules are amended accordingly »: where this section disagrees with another section of this skill, this section wins within that scope. Outside it, the rest of the skill applies unchanged.
 
 - **`merge` and `chain` are implied.** One pull request per slice, with its review of record, squash-merged by you (« 2A »).
-- **Owner-only cases.** Only four things still go to Salah, as a STOP: (i) live spending beyond USD 30 in total across the run (`anthropic/claude-sonnet-5-5`; the five paid runs per slice still apply, and the chain-wide cap of five becomes this dollar cap); (ii) an irreversible act other than a pull-request merge (force-push on `main`, deleting a branch or an issue); (iii) the licence (AGENTS.md); (iv) changing a Reference to improve a score, which is refused in every case and never asked.
-- **Every other owner decision goes to a proxy.** That covers what "Owner decisions" sends to Salah, every floor that is not one of the four cases, a pending `INFERRED` ticket the sources cannot settle, and an apparatus change (from `retro` or elsewhere). The floor or finding stays recorded; the proxy decides what happens next.
+- **What still goes to Salah, as a STOP** (written as in "How a STOP is written", with its brief page): (i) live spending beyond the agreed budget, which is USD 30 in total across the remaining work, on `anthropic/claude-sonnet-5-5`, on top of the cap of five paid runs per slice and the chain-wide cap of five under `chain` (both caps still apply; going past either is this case); (ii) an irreversible act other than a pull-request merge (force-push on `main`, deleting a branch or an issue); (iii) the licence (AGENTS.md). The fourth owner-only case, (iv) changing a Reference to improve a score, is never asked: it is refused in every case.
+- **Every other owner decision goes to a proxy** (« Everything else goes to a fresh proxy agent »). That covers what "Owner decisions" sends to Salah, every floor that is not one of the cases above (the floor's record stays; the proxy decides what happens next), a pending `INFERRED` ticket the sources cannot settle, an apparatus change (from `retro` or elsewhere), and the validation of each L3 Track's evaluation contract and dataset before it is implemented (end state, item 3).
 - **Proxy procedure.**
-  1. Write the decision in the log (below) before asking: the question, the sources, at least two options with their cost and reversibility, and your own choice with its reason, sealed (written before the proxy answers).
-  2. Start a fresh `owner-proxy` with the question, the sources and the options, **without your choice or recommendation**. Apply "Inspect first" to the options you write, not to a recommendation the proxy does not see.
-  3. If the proxy chooses as you did, that is the decision. If not, start a second fresh `owner-proxy` with the same brief plus both argued positions, labelled A and B without saying whose each is. Its answer is the decision.
-  4. Log it as « decision by proxy (Fable) », never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Record, in the same entry, any proxy reading that was not the session's own model (for example a fallback model).
-- **Decision log.** One issue on chadlis/hypotrail, titled `Autonomous run: decision log`, linked from #1's protocol comment; one comment per decision. A slice's state comment links its entries. The log is what Salah reviews at the end.
-- **Learning loop.** Its status for this run is itself recorded in the decision log; apply what the log says.
-- **Briefs.** No STOP outside the four cases. Ordinary briefs are short terminal notes. The brief page ("The brief page") is written once, at the very end, for the final review, covering the whole run and the decision log.
-- **Checks Salah reserved for the final review** (VS Code themes, Copilot chat): written in the slice's PR body as « owner check, final review », never claimed as passed.
+  1. Write the decision in the log (below) before asking: the question, the sources, at least two options with their cost, their reversibility and what Inspect does for the same thing ("Inspect first"), and your own choice with its reason.
+  2. Start a fresh `owner-proxy` with the question, the sources and the options, **without your choice or recommendation**, and without pointing it at the decision log.
+  3. If the proxy chooses as you did, that is the decision. If not (including a new option of its own), start a second fresh `owner-proxy` with the same brief plus both argued positions, labelled A and B without saying whose each is. Its answer is the decision.
+  4. Log it as « decision by proxy (Fable) », never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Name the model that served each proxy reading when it is known; a reading not served by Fable is recorded as such and not labelled « (Fable) ».
+- **Decision log.** One issue on chadlis/hypotrail, chadlis/hypotrail#75, linked from a comment on #1; one comment per decision. A slice's state comment links its entries. The log is what Salah reviews at the end. Drive decisions inside the delegation ("Delegated implementation choices") that a later reader could question go there too, labelled « drive decision (delegated) ».
+- **Learning loop.** The protocol comment says learning notes and `hypotrail-study` suggestions are « not required by this run ». How this run applies that line is decision D-001 of the log.
+- **Reports and briefs.** Each axis report of a review of record is kept word for word in the round's comment on the slice issue, for the final review. No STOP outside the cases above. Ordinary briefs are short terminal notes. The brief page ("The brief page") is written once, at the very end, for the final review, covering the whole run and the decision log; a STOP for one of the cases above gets its own.
+- **Checks Salah reserved for the final review** (VS Code themes, Copilot chat, end state item 2): written in the slice's PR body as « owner check, final review », never claimed as passed.
 
 ## Floors
 
@@ -286,7 +286,7 @@ Announce the pick in an EXÉCUTION turn: « je prends #n (<titre>), parce que <r
 ## Preflight: before step 0 and on every resume
 
 1. The checkout is `chadlis/hypotrail` (`git remote get-url origin`, or the fallback push in "Where the state lives").
-2. `slice-planner`, `slice-gate` and `slice-builder` are among the subagent types this session offers.
+2. `slice-planner`, `slice-gate` and `slice-builder` are among the subagent types this session offers, and `owner-proxy` too under the autonomous protocol.
 
 If either fails, stop under the apparatus floor before reading the slice. The STOP says that agent types load from the checkout's `.claude/agents/` when a session starts, so the remedy is a new session opened on `chadlis/hypotrail`. `prepare` needs only point 1.
 
