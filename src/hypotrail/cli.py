@@ -378,18 +378,19 @@ def _run_agent(args) -> int:
             retry_of=args.retry_of,
             examples_dir=args.examples_dir,
         )
-    except Exception as error:
-        for warning in getattr(error, "scan_warnings", []):  # the scan of the Study after a failed run
-            print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
-        raise
+    except run.FailedAfterScan as failed:  # the Study was scanned after the Attempt failed: what it found goes with the error
+        failure = _failure_of(failed.error)
+        if failed.warnings:
+            failure.details["warnings"] = failed.warnings
+        _print_warnings(failed.warnings)
+        raise failure from failed.error
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"
         + (f" ({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
         + (" (recorded earlier: nothing was run again)" if replayed else "")
     )
-    for warning in warnings:
-        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
+    _print_warnings(warnings)
     _emit({"ok": True, "replayed": replayed, "attempt": manifest, "warnings": warnings}, args.json, human)
     return EXIT_OK
 
@@ -502,8 +503,7 @@ def _compare(args) -> int:
         f"Comparison {record['comparison_id']} ({record['comparability']['status']}): delta {delta['metric']} {value} "
         f"(Candidate minus Control; positive means the Candidate is {direction}) over {coverage['paired']} of {coverage['expected']} {unit}"
     )
-    for warning in record["warnings"]:
-        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
+    _print_warnings(record["warnings"])
     _emit({"ok": True, "comparison": record}, args.json, human)
     return EXIT_OK
 
@@ -596,26 +596,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_OK
     try:
         return handler(args)
-    except HypotrailError as error:
-        failure = error
-    except OSError as error:
-        failure = HypotrailError(
+    except Exception as error:
+        failure = _failure_of(error)
+    return _report(failure, getattr(args, "json", False))
+
+
+def _failure_of(error: Exception) -> HypotrailError:
+    """The error `--json` and stderr report: a Hypotrail error as it is, any other exception by its type only."""
+    if isinstance(error, HypotrailError):
+        return error
+    if isinstance(error, OSError):
+        return HypotrailError(
             "INFRASTRUCTURE_FAILURE",
             f"{type(error).__name__}: {error}",
             stage="infrastructure",
             exit_code=EXIT_INFRASTRUCTURE,
         )
-    except Exception as error:
-        # The text of an unexpected exception can carry anything, a provider key
-        # included, so only its type is reported.
-        failure = HypotrailError(
-            "UNEXPECTED_ERROR",
-            f"unexpected {type(error).__name__}",
-            stage="infrastructure",
-            details={"type": type(error).__name__},
-            exit_code=EXIT_INFRASTRUCTURE,
-        )
-    return _report(failure, getattr(args, "json", False))
+    # The text of an unexpected exception can carry anything, a provider key
+    # included, so only its type is reported.
+    return HypotrailError(
+        "UNEXPECTED_ERROR",
+        f"unexpected {type(error).__name__}",
+        stage="infrastructure",
+        details={"type": type(error).__name__},
+        exit_code=EXIT_INFRASTRUCTURE,
+    )
+
+
+def _print_warnings(warnings) -> None:
+    for warning in warnings:
+        print(f"{warning['code']}: {warning['message']}", file=sys.stderr)
 
 
 def _report(failure: HypotrailError, as_json: bool) -> int:

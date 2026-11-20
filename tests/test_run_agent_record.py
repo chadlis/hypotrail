@@ -450,6 +450,26 @@ def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_run_too_and_a_
     assert FAKE_KEY not in out + err
 
 
+@pytest.mark.parametrize("raised, code", [(RuntimeError("provider down"), "UNEXPECTED_ERROR"), (OSError("disk gone"), "INFRASTRUCTURE_FAILURE")])
+def test_the_warnings_of_the_study_scan_reach_the_json_error_whatever_exception_ended_the_attempt(tmp_path, monkeypatch, raised, code):
+    """R2-01, #74 U4 « a warning on stderr (and in the `--json` object) naming the file »: not only for a Hypotrail error."""
+    examples = chinook_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, name="failing", examples=examples)
+    patch_model(monkeypatch)
+    (study / "notes.txt").write_text(f"my key is {FAKE_KEY}\n", encoding="utf-8")
+
+    def fails(*args, **kwargs):
+        raise raised
+
+    monkeypatch.setattr(runner, "run_episodes", fails)
+    exit_code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "boom", "--partition", "dev",
+                                  "--repeats", "1", "--model", MODEL, "--cases", "D03", "--json", "--examples-dir", examples)
+    error = json.loads(out)["error"]
+    assert error["code"] == code and exit_code == EXIT_INFRASTRUCTURE
+    assert [w["file"] for w in error["details"]["warnings"]] == ["notes.txt"] and "SECRET_IN_STUDY" in err and "notes.txt" in err
+    assert FAKE_KEY not in out + err
+
+
 def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):
     """The run record is written after the log scan: the scan before each write is its own guard."""
     study = study_of(tmp_path)

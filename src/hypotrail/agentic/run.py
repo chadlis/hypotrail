@@ -24,14 +24,14 @@ The order is fixed, and nothing is run before the checks that precede it (chadli
 5. for a new request, the Protocol of the Workload must still be the Study's (`PROTOCOL_CHANGED`, exit 3);
 6. Inspect must be importable (`INSPECT_UNAVAILABLE`, exit 5), then, for `llm_live`, the key must be present
    (`LIVE_UNAVAILABLE`, exit 5);
-7. the manifest is written `running`; the run is made with Inspect writing its log outside the Study; the Chinook file
+7. the manifest is written `running`; the Episodes are made with Inspect writing its log outside the Study; the Workload's database
    is hashed before and after (`DATABASE_CHANGED`, exit 3); the log is scanned for the key and read through Inspect's
    public log API; the artifacts are published atomically; the terminal manifest is written last.
 
 An `llm_live` Attempt never keeps the key. Every file the Attempt writes, its manifests included, is scanned for it
 before it is written (`SECRET_IN_OUTPUT`, exit 4): a hit before the `running` manifest writes nothing, a later hit
-ends the Attempt `failed`. After the run, failed or not, the whole Study folder is scanned, and a hit elsewhere is a warning that
-changes no recorded Attempt (after a failed run it is on stderr and in the error's `details.warnings`).
+ends the Attempt `failed`. After the Attempt, failed or not, the whole Study folder is scanned, and a hit elsewhere is a warning that
+changes no recorded Attempt (for a failed Attempt it is on stderr and in the error's `details.warnings`).
 
 An Attempt stopped between the running manifest and the terminal one keeps what it published and is never shown as
 completed; `recover` records it `interrupted`, with `outcome_unknown: true` for `llm_live`.
@@ -55,6 +55,17 @@ from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_r
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
 
 COMMAND = "run agent"
+
+
+class FailedAfterScan(Exception):
+    """An Attempt ended `failed`: the error that ended it, and the warnings the scan of the Study made afterwards."""
+
+    def __init__(self, error: Exception, warnings: list):
+        super().__init__(str(error))
+        self.error = error
+        self.warnings = warnings
+
+
 FIXTURE, LIVE = "scripted_fixture", "llm_live"
 MODES = (FIXTURE, LIVE)
 PARTITIONS = ("dev", "public_check")
@@ -170,7 +181,7 @@ def leak(files: list) -> HypotrailError:
 
 
 def _warnings_of(study: Path, secret: str | None) -> list:
-    """What a scan of the whole Study finds after the run: a warning for each file holding the key, never a change to an Attempt."""
+    """What a scan of the whole Study finds after the Attempt: a warning for each file holding the key, never a change to an Attempt."""
     if not secret:
         return []
     from hypotrail.agentic import live as agentic_live
@@ -305,15 +316,12 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
         writes.replace(manifest_path, canonical.dumps(terminal))
     except Exception as error:
         record_failure(study, manifest_path, manifest, error)
-        # the scan of the Study is made whether or not the run failed (#74): what it finds travels with the error
-        error.scan_warnings = _warnings_of(study, api_key)
-        if isinstance(error, HypotrailError) and error.scan_warnings:
-            error.details["warnings"] = error.scan_warnings
-        raise
+        # the Study is scanned whether or not the Attempt failed (#74): what the scan finds travels with the error
+        raise FailedAfterScan(error, _warnings_of(study, api_key)) from error
     return terminal, False, _warnings_of(study, api_key)
 
 
-# --- The run, and the artifacts it leaves -----------------------------------------------------------------------------------------
+# --- The Episodes, and the artifacts they leave -----------------------------------------------------------------------------------------
 
 
 def _usage(sample) -> dict | None:
@@ -333,7 +341,7 @@ def _sha256(path: Path) -> str:
 def _changed(before: str, after: str) -> IntegrityError:
     return IntegrityError(
         "DATABASE_CHANGED",
-        "the Workload's database changed during the run",
+        "the Workload's database changed during the Attempt",
         stage="run",
         details={"sha256_before": before, "sha256_after": after},
     )
