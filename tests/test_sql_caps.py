@@ -220,7 +220,7 @@ def test_the_episode_time_limit_stops_an_episode_whose_query_outlasts_it(tmp_pat
 # --- effective limits ------------------------------------------------------------------------------
 
 
-def test_the_attempt_records_the_four_caps_next_to_the_episode_limits(tmp_path):
+def test_the_execution_records_the_four_caps_next_to_the_episode_limits(tmp_path):
     cases = case_module.load_cases(CASES, ["D03"])
     caps = QueryCaps(time_seconds=2.0, max_instructions=7_000_000, max_rows=150, max_bytes=2048)
     location = runner.run_episodes(

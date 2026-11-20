@@ -171,7 +171,7 @@ def test_the_freeze_record_and_check_informed_take_a_configuration_digest_from_t
     assert exposure.configuration_digest_of(attempt) == "one-function"
 
 
-def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_execution_whether_or_not_it_failed(tmp_path, monkeypatch, capsys):
+def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_attempt_whether_or_not_it_failed(tmp_path, monkeypatch, capsys):
     study = study_of(tmp_path)
     patch_model(monkeypatch)
     code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "ok", "--partition", "dev",
