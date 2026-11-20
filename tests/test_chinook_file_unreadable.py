@@ -6,21 +6,15 @@ file is present. A replaced live database therefore goes unnoticed by these two 
 """
 
 import json
-import os
-import sqlite3
 from pathlib import Path
 
 import pytest
 
-from _chinook_helpers import chinook_examples, fixture_lines, fixture_population, import_agent, init_chinook, references_id, write_lines
+from _chinook_helpers import database_of, chinook_examples, fixture_lines, fixture_population, import_agent, init_chinook, references_id, write_lines
 from _exposure_helpers import PUBLIC_CASES, REPEATS, SCORER, journal, public_lines
 from _chinook_helpers import episodes_file
 from _log_helpers import scripted_log
 from _study_helpers import run_json
-
-
-def database_of(examples) -> Path:
-    return Path(examples) / "chinook" / "data" / "Chinook_Sqlite.sqlite"
 
 
 def observation_set_of(study, attempt) -> str:
@@ -68,44 +62,6 @@ def test_a_public_check_assessment_freezes_without_reading_the_chinook_file(tmp_
     code, payload, err = assess(study, payload["attempt"], examples)
     assert code == 0, (payload, err)
     assert len(journal(study)) == 1
-
-
-class LiveDatabaseUsed(BaseException):  # not an Exception: no `except Exception` or `except OSError` can swallow it
-    pass
-
-
-@pytest.fixture
-def guard(monkeypatch):
-    """Arm with `guard(examples)`: from then on any use of that Workload's database file raises."""
-    import io
-
-    def arm(examples):
-        target = database_of(examples).resolve()
-
-        def is_target(file) -> bool:
-            if isinstance(file, int):
-                return False
-            try:
-                return Path(os.fsdecode(file).removeprefix("file:").split("?")[0]).resolve() == target
-            except (TypeError, ValueError):
-                return False
-
-        def guarded(real):
-            def wrapper(file, *args, **kwargs):
-                if is_target(file):
-                    raise LiveDatabaseUsed(str(target))
-                return real(file, *args, **kwargs)
-
-            return wrapper
-
-        import builtins
-
-        monkeypatch.setattr(io, "open", guarded(io.open))
-        monkeypatch.setattr(builtins, "open", guarded(builtins.open))
-        monkeypatch.setattr(os, "open", guarded(os.open))
-        monkeypatch.setattr(sqlite3, "connect", guarded(sqlite3.connect))
-
-    return arm
 
 
 def test_a_jsonl_import_and_its_assessment_use_no_part_of_the_present_chinook_file(tmp_path, guard):

@@ -402,3 +402,55 @@ def test_assess_writes_nothing_outside_the_study_and_reads_no_network(tmp_path, 
     assessed(study, observation_set)
     assert {p for p in tmp_path.rglob("*") if p.is_file() and Path(study) not in p.parents} == before
     assert network_guard.attempts == []
+
+
+def test_ac7_import_agent_and_assess_succeed_with_every_condition_at_once(tmp_path, monkeypatch, guard, network_guard):
+    """R4-02 (#68 AC7): model and tools fail if called, the present Chinook file fails if used, the network guard is on
+    (autouse, asserted below) and Inspect is not importable. `import agent` and `assess` still succeed, in one test."""
+    import types
+
+    examples = chinook_examples(tmp_path)
+    study = init_chinook(tmp_path, examples=examples)[0]
+    source = write_lines(tmp_path / "answers.jsonl", fixture_lines())
+    population = fixture_population(tmp_path)
+
+    def fails(name):
+        def called(*args, **kwargs):
+            raise AssertionError(f"{name} was called")
+
+        return called
+
+    # The modules that hold the model and the tools are replaced by modules whose every function fails if called.
+    stubs = {
+        "hypotrail.agentic.runner": ("mock_model", "run_episodes", "build_task"),
+        "hypotrail.agentic.live": ("live_model", "run_live"),
+        "hypotrail.agentic.sql_tool": ("describe_schema", "query_readonly", "run_query"),
+    }
+    for module_name, functions in stubs.items():
+        stub = types.ModuleType(module_name)
+        for function in functions:
+            setattr(stub, function, fails(f"{module_name}.{function}"))
+        monkeypatch.setitem(sys.modules, module_name, stub)
+        monkeypatch.setattr(sys.modules["hypotrail.agentic"], module_name.rpartition(".")[2], stub, raising=False)
+    for name in ("inspect_ai", "inspect_ai.model", "inspect_ai.tool", "inspect_ai.log"):
+        monkeypatch.setitem(sys.modules, name, None)  # importing any of them raises ImportError
+    with pytest.raises(ImportError):
+        import inspect_ai  # noqa: F401
+
+    guard(examples)  # the Chinook file is present, and any use of it raises
+    import sqlite3
+
+    with pytest.raises(BaseException) as armed:
+        sqlite3.connect(examples / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    assert type(armed.value).__name__ == "LiveDatabaseUsed"
+
+    code, payload, err = import_agent(study, source, population, "x", "--examples-dir", examples)
+    assert code == 0, (payload, err)
+    folder = Path(study) / "attempts" / payload["attempt"]["attempt_id"]
+    observations = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
+    code, payload, err = run_json(
+        "assess", "--study", study, "--observations", observations, "--scorer", "chinook_contract_v1",
+        "--references", references_id(study), "--examples-dir", examples,
+    )
+    assert code == 0, (payload, err)
+    assert network_guard.attempts == []

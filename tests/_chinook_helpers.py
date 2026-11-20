@@ -61,3 +61,7 @@ def spec_of(study):
 
 def references_id(study):
     return next(e["artifact_id"] for e in spec_of(study)["artifacts"] if e["ref"]["role"] == "references")
+
+
+def database_of(examples) -> Path:
+    return Path(examples) / "chinook" / "data" / "Chinook_Sqlite.sqlite"
