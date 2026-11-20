@@ -2229,14 +2229,33 @@ def test_the_readme_and_the_chapters_say_run_agent_records_a_native_attempt():
         assert 'href="#run-agent"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name
 
 
-def test_chapter_13_says_the_banner_the_code_writes_and_that_no_paid_execution_was_made():
+def test_chapter_13_says_the_banner_the_code_writes():
     from hypotrail.agentic import fixture
 
     chapter = run_agent_chapter()
     assert f'"{fixture.BANNER}"' in chapter
     assert f'"{fixture.BANNER}"' in (HANDBOOK / "chapters" / "03-agentic-track.html").read_text(encoding="utf-8")
-    assert "It was not run in this step" in chapter
-    assert not list((HANDBOOK / "traces").glob("*run-agent*"))
+    assert "It was not run in this step" not in chapter
+
+
+def test_chapter_13_describes_the_kept_paid_attempt_with_the_figures_its_run_json_records():
+    """#80: the one paid Attempt (2026-11-20) is kept under traces/run-agent-live-plain and the chapter states what its run.json records."""
+    kept = HANDBOOK / "traces" / "run-agent-live-plain"
+    record = json.loads((kept / "run.json").read_text())
+    manifest = json.loads((kept / "attempt.json").read_text())
+    chapter = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
+    assert manifest["technical_status"] == "completed" and manifest["mode"] == "llm_live" and manifest["request_id"] == "live-check-1"
+    assert record["model"] == "anthropic/claude-sonnet-5-5" and record["served_models"] == ["claude-sonnet-5-5"]
+    assert f"anthropic/claude-sonnet-5-5 and the served_model the outputs report is claude-sonnet-5-5" in chapter
+    for episode in record["episodes"]:
+        assert episode["status"] == "produced" and episode["cost"] is None
+        assert f"{episode['output_tokens']} output tokens and {episode['total_tokens']:,} total tokens" in chapter
+    assert [e["case_id"] for e in record["episodes"]] == ["D03", "D05"]
+    assert "The cost is not observable" in chapter and "docs/handbook/traces/run-agent-live-plain/" in chapter
+    for name in ("attempt.json", "observation_set.json", "observations.jsonl", "population.json", "run.json"):
+        assert (kept / name).is_file(), name
+    assert (kept / record["inspect_log"]).is_file()
+    assert f'href="traces/run-agent-live-plain/{record["inspect_log"]}"' in run_agent_chapter()
 
 
 def plain_chapter(name):
