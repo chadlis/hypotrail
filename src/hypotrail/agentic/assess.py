@@ -90,7 +90,7 @@ def _rates(counts: dict) -> list:
 def _verdict(entry, key, references, schema) -> dict:
     case_id, repeat = key
     status = entry["status"] if entry is not None else "missing"  # absent from the outputs
-    if status == "produced":
+    if status == "produced" and entry["answer_given_as"] is not None:
         text = entry["raw_answer"] if entry["answer_given_as"] == "raw_answer" else canonical.dumps(entry["final_answer"]).decode("utf-8")
         result = apply_scorer(score_episode, text, references.get(case_id), schema, entry["trace"])
         return {
@@ -107,7 +107,8 @@ def _verdict(entry, key, references, schema) -> dict:
         "status": status,
         "answer_given_as": None,
         "answer_read_from": None,
-        "criteria": criteria_of_unproduced({"status": status, "reason": None}),
+        # the Reason an import kept for the Episode (a limit, the output cap), the same rule as the rescoring of a log
+        "criteria": criteria_of_unproduced({"status": status, "reason": entry.get("reason") if entry is not None else None}),
     }
 
 

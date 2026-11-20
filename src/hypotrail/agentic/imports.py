@@ -1,8 +1,12 @@
 """`import agent`: adopt agent answers, written elsewhere as JSONL, as an Import Attempt of a Chinook Study.
 
 The file is data: nothing in it is executed or deserialised as code (SPEC IMP-06). This module
-imports neither Inspect, scikit-learn nor NumPy, so an import and its `assess` run where none of them
-is installed. It follows the shape of `import ml` (`hypotrail.ml.imports`, #67) and fixes the same
+imports neither Inspect, scikit-learn nor NumPy, so a JSONL import and its `assess` run where none of
+them is installed. A source with the extension `.eval` is an Inspect log (#69): it is read by
+`hypotrail.agentic.inspect_log`, loaded only for it, through Inspect's public log API; without
+Inspect it is refused before the lock is taken (`INSPECT_UNAVAILABLE`, exit 5). A log gives the same
+Observations as a JSONL file (the final answer as `raw_answer`, the projected steps as `trace`, plus
+the `reason` of an Episode that failed), and an Episode the log does not hold is `missing`. It follows the shape of `import ml` (`hypotrail.ml.imports`, #67) and fixes the same
 order; nothing is written before the checks that precede it, and a refusal publishes no Observation
 set and no Attempt:
 
@@ -42,7 +46,7 @@ from hypotrail.agentic.study import DOMAIN, protocol_content
 from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
-from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
 
 COMMAND = "import agent"
 MODE = "external_unknown"
@@ -50,6 +54,8 @@ STAGE = "import"
 UNKNOWN = "unknown"
 DECLARED = "declared"
 POPULATION_KEY = "episodes"
+LOG_SUFFIX = ".eval"  # a source with this extension is an Inspect log; any other source is JSON Lines
+INSPECT_UNAVAILABLE = "INSPECT_UNAVAILABLE"
 OBSERVATIONS_NAME = "observations.jsonl"
 SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
 SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
@@ -65,6 +71,8 @@ PRODUCER_FIELDS = {
     "file_mode": ("mode",),
 }
 CLAIMED_IN_PRODUCER = ("model", "generation_time", "historical_protocol", "tool_use")
+# What an Inspect log header states beyond the producer fields, each recorded under `log` with its origin.
+LOG_FIELDS = ("configuration", "system_text", "limits", "inspect_version", "log_format_version", "log_status")
 # The keys of a line, and when each is required: always, only for a `produced` line (one of the two answers), or never.
 ALWAYS, WHEN_PRODUCED, OPTIONAL = "always", "produced", "no"
 LINE_KEYS = {
@@ -162,6 +170,72 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
     if len(partitions) != 1:
         raise _refuse("POPULATION_MIXED_PARTITIONS", "the population mixes Cases of several Partitions", partitions=partitions)
     return partitions[0], sorted(keys)
+
+
+def is_log(source) -> bool:
+    return Path(source).suffix.lower() == LOG_SUFFIX
+
+
+def _require_inspect() -> None:
+    """A log import needs the supported Inspect (ENV-02): refused before anything is read or written, exit 5."""
+    try:
+        import inspect_ai  # noqa: F401
+    except ImportError:
+        raise HypotrailError(
+            INSPECT_UNAVAILABLE,
+            "importing an Inspect log needs the supported Inspect (the agent extra); it is not importable here",
+            stage=STAGE,
+            details={"package": "inspect-ai"},
+            exit_code=EXIT_CAPABILITY_UNAVAILABLE,
+        ) from None
+
+
+def _stated(value) -> str:
+    return value.strip() if isinstance(value, str) and value.strip() else UNKNOWN
+
+
+def _log_identity(source) -> tuple:
+    """(model, Configuration) the log header declares, or `unknown`: used to identify a request, never to accept an input."""
+    from hypotrail.agentic import inspect_log
+
+    header = inspect_log.header_of(inspect_log.read(source, header_only=True))
+    return _stated(header["model"]), _stated(header["configuration"])
+
+
+def _log_producer(header: dict) -> tuple:
+    """(producer, log): what the log header states, all `declared`, and what it leaves out, `unknown`."""
+    from hypotrail.agentic import inspect_log
+
+    def entry(value):
+        return {"value": value, "origin": UNKNOWN if value in (None, "") else DECLARED}
+
+    mode = header["mode"] if isinstance(header["mode"], str) else None
+    if mode == "llm_live" and inspect_log.is_mock(header["model"]):
+        mode = None  # Inspect's mock model never ran a live model, whatever the header says
+    producer = {field: entry(None) for field in PRODUCER_FIELDS}
+    producer["model"] = entry(header["model"])
+    producer["generation_time"] = entry(header["generation_time"])
+    producer["file_mode"] = entry(mode)
+    log = {name: entry(header[name]) for name in LOG_FIELDS}
+    return producer, log
+
+
+def _log_entries(episodes: list) -> dict:
+    """The normalized Observations of projected Episodes: the answer text is the `raw_answer`, the steps are the trace."""
+    entries = {}
+    for episode in episodes:
+        answered = episode["status"] == "produced" and episode["final_answer"] is not None
+        entries[(episode["case_id"], episode["repeat"])] = {
+            "case_id": episode["case_id"],
+            "repeat": episode["repeat"],
+            "status": episode["status"],
+            "reason": episode["reason"],
+            "answer_given_as": "raw_answer" if answered else None,
+            "raw_answer": episode["final_answer"] if answered else None,
+            "final_answer": None,
+            "trace": episode["steps"] or None,
+        }
+    return entries
 
 
 def _field(line, number, name, kinds, *, nullable=True):
@@ -308,29 +382,37 @@ def _normalized(entries: dict) -> bytes:
     return b"".join(canonical.dumps(entries[key]) + b"\n" for key in sorted(entries))
 
 
-def _report(source_ref, population_ref, partition, count, keys, entries) -> dict:
+JSONL_CHECKS = (
+    "source_is_data_not_a_serialized_object",
+    "source_is_utf8_json_lines",
+    "population_episodes_in_one_partition_of_the_protocol",
+    "observation_status_known",
+    "produced_lines_hold_one_answer",
+    "episodes_within_the_population",
+    "episodes_unique",
+    "population_covered",
+)
+LOG_CHECKS = (
+    "source_is_read_through_inspects_public_log_api",
+    "population_episodes_in_one_partition_of_the_protocol",
+    "log_samples_within_the_population",
+    "log_samples_unique",
+    "population_episodes_absent_from_the_log_are_missing",
+)
+
+
+def _report(source_ref, population_ref, partition, count, keys, entries, *, log: bool = False) -> dict:
     statuses = [entry["status"] for entry in entries.values()]
     return {
         "report": "import_validation/1",
+        "source_format": "inspect_log" if log else "jsonl",
         "source_sha256": source_ref["sha256"],
         "population_sha256": population_ref["sha256"],
         "partition": partition,
-        "lines_read": count,
+        "samples_read" if log else "lines_read": count,
         "population_episodes": len(keys),
         "execution_status_counts": {status: statuses.count(status) for status in ITEM_STATUSES},
-        "checks": [
-            {"check": check, "result": "passed"}
-            for check in (
-                "source_is_data_not_a_serialized_object",
-                "source_is_utf8_json_lines",
-                "population_episodes_in_one_partition_of_the_protocol",
-                "observation_status_known",
-                "produced_lines_hold_one_answer",
-                "episodes_within_the_population",
-                "episodes_unique",
-                "population_covered",
-            )
-        ],
+        "checks": [{"check": check, "result": "passed"} for check in (LOG_CHECKS if log else JSONL_CHECKS)],
     }
 
 
@@ -340,6 +422,8 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    if is_log(source):
+        _require_inspect()  # before the lock, and before anything is read or written
     with lock.writer_lock(study):
         return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir)
 
@@ -364,14 +448,16 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
     loose = _loose_json(population_bytes)
     episodes = _loose_episodes(loose)
     partitions = {partition_of.get(e["case_id"]) for e in episodes}
+    log_import = is_log(source)
+    model, configuration = _log_identity(source) if log_import else (_loose_model(source_bytes), UNKNOWN)
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
         "workload": workload_name,
         "mode": MODE,
         "partition": partitions.pop() if episodes and len(partitions) == 1 and None not in partitions else None,
-        "configuration": UNKNOWN,
-        "model": _loose_model(source_bytes),
+        "configuration": configuration,
+        "model": model,
         "repeats": max(e["repeat"] for e in episodes) + 1 if episodes else UNKNOWN,
         "protocol": {"protocol_id": spec["protocol_id"], "protocol_digest": spec["protocol_digest"]},
         "input_digests": {
@@ -400,11 +486,22 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
         )
 
     partition, keys = _checked_population(population_bytes, population_path, partition_of)
-    entries, claims, count = _checked_lines(source_bytes, source, partition, keys, partition_of)
-    producer = _producer(claims)
+    declared_log = None
+    if log_import:
+        from hypotrail.agentic import inspect_log
+
+        log = inspect_log.read(source)
+        episodes, count = inspect_log.checked_episodes(log, keys, partition, partition_of)
+        entries = _log_entries(episodes)
+        producer, declared_log = _log_producer(inspect_log.header_of(log))
+    else:
+        entries, claims, count = _checked_lines(source_bytes, source, partition, keys, partition_of)
+        producer = _producer(claims)
     effective_config = {**effective_config, "partition": partition, "repeats": max(r for _, r in keys) + 1}
     import_time = now()
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
+    if declared_log is not None:
+        effective_config["log"] = declared_log
     attempt_id = str(uuid.uuid4())
     folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
     manifest_path = layout.attempt_manifest_path(attempt_id)
@@ -430,13 +527,17 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
     try:
         original = Path(source).name or "source.jsonl"
         source_ref = artifacts.publish_bytes(
-            study, f"{folder}/source/{original}", source_bytes, media_type="application/jsonl", role="import_source"
+            study,
+            f"{folder}/source/{original}",
+            source_bytes,
+            media_type="application/zip" if log_import else "application/jsonl",
+            role="import_source",
         )
         population_ref = artifacts.publish_bytes(
             study, f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population"
         )
         report_ref = artifacts.publish_record(
-            study, f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries), role="validation_report"
+            study, f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
         )
         normalized_ref = artifacts.publish_bytes(
             study, f"{folder}/{OBSERVATIONS_NAME}", _normalized(entries), media_type="application/jsonl", role="observations"
@@ -452,8 +553,15 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
             "population_ref": population_ref,
             "raw_refs": [source_ref],
             "normalized_ref": normalized_ref,
-            "provenance": {"produced_by": "external", "partition": partition, "import_time": import_time, **producer},
-            "unknown_fields": [field for field, entry in producer.items() if entry["origin"] == UNKNOWN],
+            "provenance": {
+                "produced_by": "external",
+                "partition": partition,
+                "import_time": import_time,
+                **producer,
+                **({} if declared_log is None else {"log": declared_log}),
+            },
+            "unknown_fields": [field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
+            + [f"log.{name}" for name, entry in (declared_log or {}).items() if entry["origin"] == UNKNOWN],
         }
         contracts.validate(observation_set)
         observation_set_ref = artifacts.publish_record(study, f"{folder}/observation_set.json", observation_set, role="observation_set")

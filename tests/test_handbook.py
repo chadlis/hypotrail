@@ -697,7 +697,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     (attempt,) = listing["attempts"]
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts"}  # `revisions` is chapter 09's
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts"}  # `revisions` is chapter 10's
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -1366,7 +1366,81 @@ def test_chapter_03_no_longer_lists_the_agent_import_and_assessment_as_not_built
     assert 'href="#agent-answers"' in text
 
 
-# --- chapter 09: revisions and corrected References (#70, #73 Tightened B4) --------------------------------------------
+# --- chapter 09: importing an Inspect log (#69) -----------------------------------------------------------------------------
+
+
+def _log_import(tmp_path, *, metadata=None):
+    from _chinook_helpers import episodes_file, import_agent, init_chinook
+    from _log_helpers import SCRIPTED, scripted_log
+
+    study, _ = init_chinook(tmp_path, name="chapter-09")
+    log = scripted_log(tmp_path, ("D01", "D03"), metadata=SCRIPTED if metadata is None else metadata)
+    code, payload, err = import_agent(study, log, episodes_file(tmp_path, [("D01", 0), ("D03", 0)]), "imp")
+    assert code == 0, (payload, err)
+    folder = study / "attempts" / payload["attempt"]["attempt_id"]
+    return study, payload["attempt"], folder
+
+
+def test_the_source_kind_table_equals_the_suffix_the_code_reads_as_a_log(page):
+    from hypotrail.agentic import imports
+
+    rows = attrs_of(page, "log-source-kinds", "data-suffix")
+    assert {row["data-kind"]: suffix for suffix, row in rows.items()} == {"inspect_log": imports.LOG_SUFFIX, "jsonl": ""}
+    assert imports.is_log(f"answers{imports.LOG_SUFFIX}") and not imports.is_log("answers.jsonl")
+
+
+def test_the_log_observation_key_table_equals_the_keys_an_imported_episode_keeps(page, tmp_path):
+    _, _, folder = _log_import(tmp_path)
+    kept = [json.loads(line) for line in (folder / "observations.jsonl").read_text().splitlines()]
+    rows = attrs_of(page, "log-observation-keys", "data-key")
+    assert set(rows) == {key for entry in kept for key in entry}
+    assert all(set(entry) == set(rows) for entry in kept)
+
+
+def test_the_declared_table_equals_the_fields_the_import_records_with_their_origin_and_place(page, tmp_path):
+    from hypotrail.agentic import imports, inspect_log
+
+    _, attempt, folder = _log_import(tmp_path)
+    rows = attrs_of(page, "log-declared", "data-field")
+    assert {row["data-header"] for row in rows.values()} == set(inspect_log.HEADER_FIELDS)
+    config = attempt["effective_config"]
+    for field, row in rows.items():
+        entry = config[row["data-under"]][field]
+        assert entry["origin"] == "declared", field  # a scripted log states every one of them
+    assert {f for f, r in rows.items() if r["data-under"] == "log"} == set(imports.LOG_FIELDS)
+    observation_set = json.loads((folder / "observation_set.json").read_text())
+    assert observation_set["provenance"]["log"] == config["log"]
+
+
+def test_the_unknown_table_equals_the_producer_fields_a_log_does_not_establish(page, tmp_path):
+    _, attempt, folder = _log_import(tmp_path)
+    rows = attrs_of(page, "log-unknown", "data-field")
+    producer = attempt["effective_config"]["producer"]
+    assert set(rows) == {field for field, entry in producer.items() if entry["origin"] == "unknown"}
+    assert set(json.loads((folder / "observation_set.json").read_text())["unknown_fields"]) == set(rows)
+
+
+def test_the_log_import_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path, monkeypatch):
+    from _log_helpers import agent_log_import_refusals
+
+    found = agent_log_import_refusals(tmp_path, monkeypatch)
+    table = attrs_of(page, "log-import-codes", "data-code")
+    assert set(table) == set(found)
+    for code, row in table.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+def test_the_chapters_that_said_a_log_import_was_not_built_point_to_chapter_09():
+    for name in ("03-agentic-track.html", "06-import.html", "08-agent-answers.html"):
+        text = (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
+        assert 'href="#inspect-log-import"' in text, name
+    assert "an import of Inspect logs" not in (HANDBOOK / "chapters" / "08-agent-answers.html").read_text(encoding="utf-8")
+
+
+# --- chapter 10: revisions and corrected References (#70, #73 Tightened B4) --------------------------------------------
 
 
 def _corrected_chinook_study(tmp_path, *, name="chapter-09", revisions=1):

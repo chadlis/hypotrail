@@ -127,7 +127,9 @@ def build_parser() -> argparse.ArgumentParser:
         "agent", help="import agent answers produced elsewhere, as JSON Lines, into a Study of the tool-using agent Track"
     )
     import_agent.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Import in")
-    import_agent.add_argument("--source", required=True, type=Path, metavar="JSONL", help="the answers file (JSON Lines, UTF-8), kept as it is")
+    import_agent.add_argument("--source", required=True, type=Path, metavar="SOURCE",
+        help="the answers file (JSON Lines, UTF-8) or an Inspect log (.eval, needs Inspect), kept as it is",
+    )
     import_agent.add_argument(
         "--population",
         required=True,

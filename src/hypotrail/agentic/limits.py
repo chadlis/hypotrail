@@ -100,7 +100,11 @@ def read_back(location: str) -> dict:
 
     `query_caps` holds the four per-query caps of the SQL tool (None for a log made before they existed).
     """
-    log = read_eval_log(location, header_only=True)
+    return effective_limits(read_eval_log(location, header_only=True))
+
+
+def effective_limits(log) -> dict:
+    """`read_back` of a log header already read through the public API."""
     config = log.eval.config
     # Generation settings passed to `eval` are recorded in the plan; those set on
     # the model are recorded with the model. Either one may hold a value.
