@@ -38,7 +38,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
-**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice.
+**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice, except the proxy's fallback under "Autonomous protocol". When an agent file changes during a session, put the changed paragraph in that agent's prompts until a new session loads the file.
 
 **Reaching Matt Pocock's user-invoked skills.** `to-tickets`, `implement`, `implement-spec` and `retro` cannot be invoked through the Skill tool. Tell the subagent to read the file and follow it:
 
@@ -78,7 +78,7 @@ By default the run **stops at the open PR**:
 
 **Preparation mode**, only on an explicit `/drive #n prepare` request: read the slice and its sources, create or update the slice preparation note below, then finish normally with `/hypotrail-study before <fully-qualified-source-issue>` as the next command, to run in a session opened on `chadlis/hypotrail-learning` so that its repository skill is used, not a same-named personal skill. Do not enter steps 1–12, create a delivery branch, add an `in-progress` label, open implementation tickets, merge, or start a chain. Save the note and its link only. Create no learning issue in this mode. Do not mark an implementation step done because preparation happened. If `prepare` is combined with `merge` or `chain`, preparation takes precedence and the next execution needs a new explicit command. Preparation is optional. A plain `/drive` does not start a course or wait for a learning session.
 
-**Changes to the apparatus are deferred, never applied** (except under the autonomous protocol, where the proxy decides them and they go on their own pull request). The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
+**Changes to the apparatus are deferred, never applied** (except under the autonomous protocol, where the proxy decides them, or the owner instructs them, and they go on their own pull request). The apparatus is `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/**` and scripts. Write the proposed diff into the brief.
 
 **Paid live runs.** A live run is one invocation of a command that calls a real model, whatever its number of Episodes. At most five per slice, each within the slice issue's bounds and written in the state comment with its reason. Before the first, a test runs the exact live command (same working directory, same arguments) with the provider patched, and exits 0. A run is repeated only after a technical failure, never to get a better result. When post-processing fails, rerun it from the kept log, never the call.
 
@@ -95,7 +95,7 @@ Salah adopted this protocol on chadlis/hypotrail#1 ([end state and protocol](htt
   1. Write the decision in the log (below) before asking: the question, the sources, at least two options with their cost, their reversibility and what Inspect does for the same thing ("Inspect first"), and your own choice with its reason.
   2. Start a fresh `owner-proxy` with the question, the sources and the options, **without your choice or recommendation**, and without pointing it at the decision log.
   3. If the proxy chooses as you did, that is the decision. If not (including a new option of its own), start a second fresh `owner-proxy` with the same brief plus both argued positions, labelled A and B without saying whose each is. Its answer is the decision.
-  4. Log it as « decision by proxy (Fable) », never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Name the model that served each proxy reading when it is known; a reading not served by Fable is recorded as such and not labelled « (Fable) ». When Fable is unavailable because its budget is spent, start the proxy with a model override to Opus (owner instruction, 2026-11-20: « s'il n'y a plus de budget Fable 5.2, utilise opus 5.5 »), and label the reading « decision by proxy (Opus) ».
+  4. Log it as « decision by proxy (Fable) » (« (Opus) » under the fallback below), never as Salah's, with every reading, its scope, its reversibility and the commits it allows. Name the model that served each proxy reading when it is known; a reading not served by Fable is recorded as such and not labelled « (Fable) ». When Fable is unavailable because its budget is spent, start the proxy with a model override to Opus 5.5 (owner instruction, 2026-11-20: « s'il n'y a plus de budget Fable 5.2, utilise opus 5.5 »), and label the reading « decision by proxy (Opus) ».
 - **Decision log.** One issue on chadlis/hypotrail, chadlis/hypotrail#75, linked from a comment on #1; one comment per decision. A slice's state comment links its entries. The log is what Salah reviews at the end. Drive decisions inside the delegation ("Delegated implementation choices") that a later reader could question go there too, labelled « drive decision (delegated) ».
 - **Learning loop.** The protocol comment says learning notes and `hypotrail-study` suggestions are « not required by this run ». How this run applies that line is decision D-001 of the log.
 - **Reports and briefs.** Each axis report of a review of record is kept word for word in the round's comment on the slice issue, for the final review. No STOP outside the cases above. Ordinary briefs are short terminal notes. The brief page ("The brief page") is written once, at the very end, for the final review, covering the whole run and the decision log; a STOP for one of the cases above gets its own.
@@ -122,7 +122,7 @@ Each ends the run and produces the brief early:
 
 **Counting.** Round 1 is the first review of record. The two axis readers together make one round. A correction followed by a new review opens the next round. A disposition check or a targeted routing check on the same head belongs to the round in progress; it never stands in for a new correction-and-review cycle.
 
-**Five is a cap, not a target.** It is an experimental cap, to be re-evaluated with the data the state comment records. As soon as blockers and decisions are settled and the required checks pass, finish in the authorised mode, without further rounds. An empty report does not close earlier blockers that are still open. Never rerun an unchanged review in the hope of a kinder report.
+**Five is a cap, not a target.** It is an experimental cap, to be re-evaluated with the data the round comments and the state comment record. As soon as blockers and decisions are settled and the required checks pass, finish in the authorised mode, without further rounds. An empty report does not close earlier blockers that are still open. Never rerun an unchanged review in the hope of a kinder report.
 
 **Fix attempts.** A fix attempt is a completed correction (committed, full suite run) that names the check it means to satisfy. Running the same command twice on the same head is not two attempts. A test kept red on purpose before implementation (test-first) is not a completed attempt. The check must test an accepted requirement, not a constraint the test invented.
 
@@ -348,11 +348,11 @@ Take the first row that applies:
 | something about the tooling (flaky test, broken script) | the brief, not the code |
 | none of the above | the brief, under "non classé" |
 
-Three readings of this table that it does not say on its face:
+Four readings of this table that it does not say on its face:
 - Missing required documentation is a requirement, row 1.
 - Duplicated code or an unflattering name is not, by itself, behaviour nobody asked for. Row 2 is about what the code does.
 - A product ambiguity is not settled by routing it to row 3. It follows the owner-decision gate of "Who decides".
-- A finding that turns on what a `GLOSSARY.md` term covers (its definition and its relationships disagree, or the readers do) is a product ambiguity from its second round on. It goes to the owner-decision gate, which may choose a `needs-triage` issue for `/domain-modeling`, not to another wording fix; the reader who raised it verifies the disposition.
+- A finding that turns on what a `GLOSSARY.md` term covers (its definition and its relationships disagree, or the readers do) is a product ambiguity from its second round on. It goes to the owner-decision gate, which may choose a `needs-triage` issue for `/domain-modeling`, not to another wording fix; the reader who raised it verifies that the decided disposition was applied.
 
 ### The findings register
 
