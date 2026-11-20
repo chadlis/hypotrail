@@ -2235,6 +2235,15 @@ def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(n
         assert new in text, new
 
 
+def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_a_run():
+    """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
+    chapter = plain_chapter("03-agentic-track.html")
+    assert "records the same run as a scenario Attempt" not in chapter
+    assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "paid live run" not in readme and "an opt-in paid live Attempt" in readme
+
+
 def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
     """#77 AC2: what is left of the word in chapters 01 and 03 is the generic line, the two commands that record an Attempt in a Study and the row that says a spike live execution is not one."""
     assert "Attempt" not in plain_chapter("01-feasibility-spike.html")
