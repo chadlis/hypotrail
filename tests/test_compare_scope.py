@@ -137,7 +137,7 @@ def test_a_comparison_with_an_import_does_not_say_the_two_attempts_share_a_code_
     study, native, imported = native_and_import
     control, candidate = (native, imported) if import_is == "candidate" else (imported, native)
     record = compare(study, control["assessment_id"], candidate["assessment_id"])[1]["comparison"]
-    assert record["code_environment"]["same"] is None and record["code_environment"]["import_sides"] == [import_is]
+    assert record["code_environment"]["same"] is None and "import_sides" not in record["code_environment"]
     text = " ".join(record["limitations"])
     assert "record the same code environment" not in text and "different code environments" not in text
     assert "importer" in text and "not established" in text

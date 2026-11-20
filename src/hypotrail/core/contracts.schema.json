@@ -883,15 +883,6 @@
                 "null"
               ]
             },
-            "import_sides": {
-              "type": "array",
-              "items": {
-                "enum": [
-                  "control",
-                  "candidate"
-                ]
-              }
-            },
             "differs": {
               "type": "array",
               "items": {

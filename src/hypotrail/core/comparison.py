@@ -175,8 +175,7 @@ def describe_environments(control_manifest: dict, candidate_manifest: dict) -> t
     """(the `code_environment` block of a Comparison, the sentence of its limitations): what differs, never "identical" (ID-03).
 
     An Import records the code environment of the importer, not of the program that produced its outputs. A Comparison
-    with an Import therefore establishes nothing about a shared environment: `same` is null, `import_sides` names the
-    Import(s), and no sentence says the executions share or differ in their environment.
+    with an Import therefore establishes nothing about a shared environment: `same` is null, and no sentence says the executions share or differ in their environment.
     """
     environments = (control_manifest["code_environment"], candidate_manifest["code_environment"])
     differs = sorted(
@@ -185,7 +184,7 @@ def describe_environments(control_manifest: dict, candidate_manifest: dict) -> t
     block = {"same": not differs, "differs": differs, "control": environments[0], "candidate": environments[1]}
     imports = [role for role, manifest in (("control", control_manifest), ("candidate", candidate_manifest)) if manifest["mode"] == EXTERNAL_MODE]
     if imports:
-        block = {**block, "same": None, "import_sides": imports}
+        block = {**block, "same": None}
         sentence = (
             f"The {' and '.join(imports)} of this Comparison is an Import: it records the code environment of the importer, not of the program "
             "that produced its outputs, so whether the two executions ran in the same code environment is not established."

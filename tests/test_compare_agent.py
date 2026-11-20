@@ -473,6 +473,6 @@ def test_two_imports_do_not_claim_a_shared_code_environment(tmp_path, study):
     _, a = imported(tmp_path, study, "a", answer_lines())
     _, b = imported(tmp_path, study, "b", answer_lines())
     record = compare(study, a, b)[1]["comparison"]
-    assert record["code_environment"]["same"] is None and record["code_environment"]["import_sides"] == ["control", "candidate"]
+    assert record["code_environment"]["same"] is None and "import_sides" not in record["code_environment"]
     text = " ".join(record["limitations"])
     assert "record the same code environment" not in text and "importer" in text and "not established" in text
