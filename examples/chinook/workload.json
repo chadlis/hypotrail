@@ -3,6 +3,15 @@
   "track": "tool_using_agent",
   "workload_id": "chinook",
   "licence_notice": "licenses/Chinook-MIT.txt",
+  "question": "Does a tool-using agent answer questions about the Chinook music-store database with an exact table, in the requested format, citing the tool calls that support it?",
+  "objective": "Measure the contract success of an agent on the dev Cases: an exact table, a valid answer format and an evidence link to the Episode's own tool calls, for each Case and Repeat.",
+  "limitations": [
+    "Twenty authored questions on one small database: the shares describe these Cases, not agents in general.",
+    "The Repeats of a Case are not independent samples: no confidence interval and no significance claim is computed.",
+    "evidence_link_valid checks that the cited IDs designate successful calls of the Episode; it does not prove that every claim follows from the trace.",
+    "The public_check Partition names a role in the protocol, not a guarantee of novelty or secrecy: the database is public and known."
+  ],
+  "primary_criterion": "contract_success",
   "database": {
     "file": "data/Chinook_Sqlite.sqlite",
     "dataset_id": "chinook-sqlite-1.4.5"

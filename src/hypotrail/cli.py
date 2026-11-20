@@ -194,7 +194,14 @@ def _data_verify(args) -> int:
 
 
 def _init(args) -> int:
-    from hypotrail.ml import study
+    from hypotrail.core import data
+    from hypotrail.core.study import declared_track
+
+    examples = args.examples_dir or data.default_examples_dir()
+    if declared_track(Path(examples) / args.workload) == "tool_using_agent":
+        from hypotrail.agentic import study
+    else:
+        from hypotrail.ml import study
 
     spec = study.init_study(args.workload, args.study, args.examples_dir)
     human = (

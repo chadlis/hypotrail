@@ -91,9 +91,9 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     if track != TRACK:
         raise InvalidInputError(
             "WORKLOAD_TRACK_NOT_SUPPORTED",
-            f"Workload {workload!r} declares the Track {track!r}; `init` creates Studies of the {TRACK!r} Track only",
+            f"Workload {workload!r} declares the Track {track!r}; `init` creates Studies of the {TRACK!r} and 'tool_using_agent' Tracks only",
             stage="study",
-            details={"workload": workload, "track": track, "supported": [TRACK]},
+            details={"workload": workload, "track": track, "supported": sorted([TRACK, "tool_using_agent"])},
         )
     declaration = load_declaration(source)
     require_keys(declaration, "data_file", "question", "objective", "limitations")

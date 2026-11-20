@@ -28,6 +28,7 @@ import uuid
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
+from hypotrail.core.attempts import ITEM_STATUSES, now as _now, record_failure as _record_failure, verify_recorded as _verify_recorded
 from hypotrail.core import study as layout
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
 from hypotrail.ml.configuration import checked_configuration
@@ -40,11 +41,6 @@ from hypotrail.ml.study import DOMAIN, MODE, protocol_content
 COMMAND = "run ml"
 OBSERVATIONS_COLUMNS = ["row_id", "status", "reason", "y_pred_raw", "y_pred"]
 PARAMETERS_NAME = "sklearn_params.json"
-ITEM_STATUSES = ("produced", "failed", "missing")
-
-
-def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _rows(data_bytes: bytes) -> list:
@@ -71,32 +67,6 @@ def item_counts(normalized: bytes) -> dict:
     for row in _rows(normalized):
         counts[row["status"]] += 1
     return counts
-
-
-def _record_failure(study: Path, manifest_path: str, running: dict, error: Exception) -> None:
-    """An error inside this live process: the Attempt is `failed`, with finished_at and a Reason.
-
-    Its published artifacts stay. If even this write fails, the manifest stays `running`: no state
-    is invented. The Reason names the error, never a secret: an OS error by its message, a Hypotrail
-    error by its code, anything else by its type only.
-    """
-    if isinstance(error, OSError):
-        reason = f"{type(error).__name__}: {error}"
-    elif isinstance(error, HypotrailError):
-        reason = f"{error.code}: {error.message}"
-    else:
-        reason = f"unexpected {type(error).__name__}"
-    failed = {**running, "technical_status": "failed", "finished_at": _now(), "reason": reason}
-    try:
-        contracts.validate(failed)
-        artifacts.replace_bytes(study, manifest_path, canonical.dumps(failed))
-    except Exception:
-        pass
-
-
-def _verify_recorded(study: Path, manifest: dict) -> None:
-    for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
-        artifacts.read_verified(study, ref)
 
 
 def run_ml(

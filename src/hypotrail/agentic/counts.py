@@ -17,7 +17,7 @@ from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.agentic.partitions import refuse_public_check
 
 
-def _counters(verdicts: list[dict], name: str) -> dict:
+def counters(verdicts: list[dict], name: str) -> dict:
     states = Counter()
     for verdict in verdicts:
         for criterion in verdict["criteria"] or []:
@@ -45,6 +45,6 @@ def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, workloa
     )
     tool_errors = Counter(code for v in verdicts for code in v["tool_error_codes"])
     return {
-        "criteria": {name: _counters(verdicts, name) for name in criteria},
+        "criteria": {name: counters(verdicts, name) for name in criteria},
         "tool_errors": {"total": sum(tool_errors.values()), "by_code": dict(sorted(tool_errors.items()))},
     }

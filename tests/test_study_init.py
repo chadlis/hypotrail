@@ -134,9 +134,11 @@ def test_init_refuses_an_existing_study_and_an_unknown_or_other_track_workload(t
     assert (study / "study.json").read_bytes() == before
     code, payload, _ = run_json("init", "--workload", "nope", "--study", tmp_path / "other")
     assert code == EXIT_INVALID_INPUT and payload["error"]["code"] == "UNKNOWN_WORKLOAD"
-    code, payload, _ = run_json("init", "--workload", "chinook", "--study", tmp_path / "chinook")
+    # `init --workload chinook` creates a Study since #68 (tests/test_agent_study.py); an unknown Track is still refused
+    examples = examples_copy(tmp_path, edit=lambda declaration: declaration.update(track="something_else"))
+    code, payload, _ = run_json("init", "--workload", "bike_day", "--study", tmp_path / "elsewhere", "--examples-dir", examples)
     assert code == EXIT_INVALID_INPUT and payload["error"]["code"] == "WORKLOAD_TRACK_NOT_SUPPORTED"
-    assert not (tmp_path / "chinook").exists()
+    assert not (tmp_path / "elsewhere").exists()
 
 
 def test_init_in_human_mode_prints_one_line_and_no_json_flag_is_needed(tmp_path):
