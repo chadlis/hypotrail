@@ -343,7 +343,7 @@ def test_chapter_03_names_the_output_budget_by_its_metering_and_points_to_its_ro
     for text in (
         "<code>token_limit</code> means that budget, whose value is the row of the table of current limits",
         "input history and the cached tokens resent at every call no longer weigh on the budget",
-        "both pairs were made under the earlier 12,000 all-token budget",
+        "both directories were made under the earlier 12,000 all-token budget",
     ):
         assert text in page, text
     assert "Turn limit, total token budget" not in page
