@@ -90,6 +90,23 @@ def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
     }
 
 
+def dataset_ref(spec: dict) -> dict:
+    """The reference of the Study's own copy of the Workload's database."""
+    return next(ref for ref in spec["dataset_refs"] if ref["role"] == "dataset")
+
+
+def dataset_sha256(spec: dict, workload: Workload) -> str:
+    """The dataset digest a Protocol is computed from: the Workload's database when readable, else the Study's own copy.
+
+    A replaced database therefore changes the Protocol digest and is refused, while an unreadable or absent one
+    does not stop a command (the Study's copy is read back against its digest by every command).
+    """
+    try:
+        return canonical.sha256_hex(workload.database_path.read_bytes())
+    except OSError:
+        return dataset_ref(spec)["sha256"]
+
+
 def freeze_basis(spec: dict, source: Path) -> dict:
     """What a freeze record takes of the Workload as it is declared now (`hypotrail.core.exposure`).
 
@@ -98,8 +115,7 @@ def freeze_basis(spec: dict, source: Path) -> dict:
     base Configuration changes the digest of the one that extends it.
     """
     workload = load_workload(source)
-    # the dataset is the Study's own copy (read back against its digest by every command), never the live file
-    protocol = protocol_content(workload, dataset_sha256=spec["dataset_refs"][0]["sha256"])
+    protocol = protocol_content(workload, dataset_sha256=dataset_sha256(spec, workload))
     declared = workload.declaration.get("configurations", {})
     return {
         "protocol_digest": canonical.digest(protocol),
@@ -141,7 +157,7 @@ def _write_spec(study: Path, workload_name: str, workload: Workload, previous: d
     before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
     dataset, _ = revisions.place(
         study,
-        previous["dataset_refs"][0] if previous is not None else None,
+        dataset_ref(previous) if previous is not None else None,
         f"{DATASETS_DIR}/{database.name}",
         database_bytes,
         media_type="application/vnd.sqlite3",

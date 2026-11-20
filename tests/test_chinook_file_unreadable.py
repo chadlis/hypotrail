@@ -1,4 +1,4 @@
-"""R1-09 (#69 AC4, #68 AC7): neither the import nor `assess` opens or hashes the live Chinook database."""
+"""R1-09, R2-02 (#69 AC4, #73 B4): an unreadable or absent Chinook database falls back to the Study's copy; a readable one is checked."""
 
 import json
 from pathlib import Path
@@ -59,3 +59,50 @@ def test_a_public_check_assessment_freezes_without_reading_the_chinook_file(tmp_
     code, payload, err = assess(study, payload["attempt"], examples)
     assert code == 0, (payload, err)
     assert len(journal(study)) == 1
+
+
+# --- R2-02: a readable database is still checked; only an unreadable or absent one falls back to the Study's copy ---
+
+
+def replace_database(examples) -> None:
+    database_of(examples).write_bytes(b"not the Chinook database")
+
+
+def test_an_import_refuses_a_replaced_chinook_file_with_a_code(tmp_path):
+    examples = chinook_examples(tmp_path)
+    study = init_chinook(tmp_path, examples=examples)[0]
+    source = write_lines(tmp_path / "answers.jsonl", fixture_lines())
+    replace_database(examples)
+    code, payload, err = import_agent(study, source, fixture_population(tmp_path), "x", "--examples-dir", examples)
+    assert code == 3 and payload["error"]["code"] == "DATA_INTEGRITY", (payload, err)
+
+
+def test_an_import_refuses_a_replaced_chinook_file_whose_lock_was_edited_to_match_it(tmp_path):
+    import hashlib
+
+    examples = chinook_examples(tmp_path)
+    study = init_chinook(tmp_path, examples=examples)[0]
+    source = write_lines(tmp_path / "answers.jsonl", fixture_lines())
+    replace_database(examples)
+    lock = Path(examples) / "chinook" / "data-sources.lock.json"
+    document = json.loads(lock.read_text())
+    for entry in document["sources"]:
+        if entry["local_path"].endswith("Chinook_Sqlite.sqlite"):
+            entry["sha256"] = hashlib.sha256(database_of(examples).read_bytes()).hexdigest()
+            entry["size_bytes"] = database_of(examples).stat().st_size
+    lock.write_text(json.dumps(document))
+    code, payload, err = import_agent(study, source, fixture_population(tmp_path), "x", "--examples-dir", examples)
+    assert code == 3 and payload["error"]["code"] == "PROTOCOL_CHANGED", (payload, err)
+
+
+def test_a_public_check_assessment_is_refused_before_its_freeze_when_the_chinook_file_was_replaced(tmp_path):
+    examples = chinook_examples(tmp_path)
+    study = init_chinook(tmp_path, examples=examples)[0]
+    keys = [(case_id, repeat) for case_id in PUBLIC_CASES for repeat in range(REPEATS)]
+    source = write_lines(tmp_path / "public.jsonl", public_lines())
+    code, payload, err = import_agent(study, source, episodes_file(tmp_path, keys), "p", "--examples-dir", examples)
+    assert code == 0, (payload, err)
+    replace_database(examples)
+    code, result, err = assess(study, payload["attempt"], examples)
+    assert code == 3 and result["error"]["code"] == "PROTOCOL_CHANGED", (result, err)
+    assert journal(study) == [] and not list((Path(study) / "revisions").glob("*/freeze.json"))

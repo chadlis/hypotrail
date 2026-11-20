@@ -47,9 +47,9 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <p class="sub2">What is checked, in order</p>
 <div class="prose">
 <ol>
-<li>The Study exists and the writer lock is free; the Study is of the agent Track (<code>UNSUPPORTED_CAPABILITY</code>); the bytes of the Workload's other files and licence notices are checked against its lock, the database is neither opened nor hashed (the Study's copy of it, read back against its digest, stands for it), and the Study's artifacts are read back against their digests.</li>
+<li>The Study exists and the writer lock is free; the Study is of the agent Track (<code>UNSUPPORTED_CAPABILITY</code>); the bytes of the Workload's files and licence notices are checked against its lock (the database too when it is readable, so a replaced file is refused with <code>DATA_INTEGRITY</code>; an absent or unreadable one is left out and the Study's copy of it, read back against its digest, stands for it), and the Study's artifacts are read back against their digests.</li>
 <li>The two files are read and their sha256 taken. The request is identified (below). The same <code>request_id</code> with the same request ends here with the recorded Import: nothing is validated again, written or scored.</li>
-<li>The Protocol of the Workload is still the Study's (<code>PROTOCOL_CHANGED</code>): the Cases, the References, the answer schema and the primary Criterion are compared by their bytes, and the database by the digest of the Study's copy.</li>
+<li>The Protocol of the Workload is still the Study's (<code>PROTOCOL_CHANGED</code>): the Cases, the References, the answer schema and the primary Criterion are compared by their bytes, and the database by the digest of the live file when it is readable, else of the Study's copy.</li>
 <li>The population is checked, then every line of the source in file order: JSON, an object, its fields, its status, its answer, its place in the population, its uniqueness; then every Episode of the population must be present.</li>
 <li>Only then is anything written: the running manifest, the original files, the validation report, the normalized Observations and the Observation set, and the terminal manifest last. A refusal at step 4 writes nothing at all.</li>
 </ol>
