@@ -84,3 +84,12 @@ def test_the_readme_claims_the_kept_live_episodes_come_from_spike_live_which_rec
     assert not re.search(r"\bAttempts?\b", paragraph) and "spike output" not in paragraph
     assert len(paragraph.split()) <= 100  # short
 
+
+
+def test_the_dataset_reference_is_found_by_its_role_for_both_tracks():
+    # R3-05: the agentic Track looked it up by role, the regression Track by position; one helper in the core serves both.
+    from hypotrail.core import study as layout
+
+    other = {"role": "memberships", "sha256": "a" * 64}
+    dataset = {"role": "dataset", "sha256": "b" * 64}
+    assert layout.dataset_ref({"dataset_refs": [other, dataset]}) is dataset

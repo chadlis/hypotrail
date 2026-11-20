@@ -203,7 +203,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         raise _refuse("OBSERVATIONS_INVALID", f"{stray[0]} is not an Episode of the population", problem="unexpected_item", case_id=stray[0][0], repeat=stray[0][1])
     assessment_id = str(uuid.uuid4())
     if exposed:  # before any Episode is scored
-        exposure.record(study, spec, _live_basis(spec, examples_dir), attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
+        exposure.record(study, spec, _live_basis(examples_dir), attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
     reference_of = {record["case_id"]: record for record in _lines(references_bytes)}
 
     verdicts = [_verdict(observed.get(key), key, reference_of, schema) for key in expected]  # a fixed order, whatever the file order

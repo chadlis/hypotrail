@@ -1104,6 +1104,12 @@
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
         },
+        "dataset_source": {
+          "enum": [
+            "study_copy",
+            "workload_file"
+          ]
+        },
         "configuration_digests": {
           "type": "object",
           "additionalProperties": {
@@ -1167,6 +1173,7 @@
         "study_id",
         "revision_number",
         "protocol_digest",
+        "dataset_source",
         "configuration_digests",
         "environment",
         "code",

@@ -75,6 +75,7 @@ def test_the_bike_freeze_record_holds_the_protocol_both_configurations_the_envir
     contracts.validate(freeze)
     spec = spec_of(study)
     assert freeze["protocol_digest"] == spec["protocol_digest"] and freeze["study_id"] == spec["study_id"] and freeze["revision_number"] == 1
+    assert freeze["dataset_source"] == "workload_file"  # R3-01: the Bike's Protocol digest hashes the Workload's data file
     assert set(freeze["configuration_digests"]) == {"seasonal_7", "ridge_v1"}
     # the digest is of the declared content an Attempt records of the Configuration it ran
     declared = attempts["seasonal_7"]["effective_config"]["configuration"]["declared"]
@@ -91,6 +92,7 @@ def test_the_chinook_freeze_record_holds_plain_and_verify(tmp_path):
     (freeze,) = freezes(study)
     contracts.validate(freeze)
     assert freeze["protocol_digest"] == spec_of(study)["protocol_digest"]
+    assert freeze["dataset_source"] == "study_copy"  # R3-01: the live Chinook file is not opened, the Study's copy stands for it
     assert set(freeze["configuration_digests"]) == {"plain", "verify"}
     assert len(set(freeze["configuration_digests"].values())) == 2
     assert all(len(digest) == 64 for digest in freeze["configuration_digests"].values())
@@ -474,3 +476,23 @@ def test_a_library_comparison_of_public_check_items_without_a_workload_basis_is_
         comparison.compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"])
     assert (refusal.value.code, refusal.value.stage) == ("WORKLOAD_BASIS_REQUIRED", "exposure")
     assert snapshot_files(study) == before
+
+
+def test_a_comparison_reads_the_workload_basis_from_the_spec_it_read_under_the_writer_lock(tmp_path):
+    # R3-04, #73 B4: the Study's revision is read once, under the lock, and handed to the basis function; nothing is read before the lock.
+    from hypotrail.core import comparison
+
+    study, _, assessments = bike_exposed(tmp_path, "seasonal_7", "ridge_v1")
+    seen = []
+
+    def basis(spec):
+        with pytest.raises(HypotrailError):  # the writer lock is held while the basis is computed
+            with lock.writer_lock(study):
+                pass
+        seen.append(spec)
+        return ml_study.live_basis()(spec)
+
+    from hypotrail.ml import study as ml_study
+
+    comparison.compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"], live_basis=basis)
+    assert [spec["revision"] for spec in seen] == [spec_of(study)["revision"]]

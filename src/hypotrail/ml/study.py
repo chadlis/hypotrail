@@ -92,17 +92,19 @@ def freeze_basis(spec: dict, source: Path) -> dict:
     )
     return {
         "protocol_digest": canonical.digest(protocol),
+        "dataset_source": "workload_file",
         "configuration_digests": {name: canonical.digest(plain(c)) for name, c in sorted(declaration.configurations.items())},
     }
 
 
-def live_basis(spec: dict, examples_dir: Path | None = None):
-    """A function with no argument that returns `freeze_basis` of this Study's Workload under `examples_dir`.
+def live_basis(examples_dir: Path | None = None):
+    """A function of the Study's spec that returns `freeze_basis` of that Study's Workload under `examples_dir`.
 
-    `hypotrail.core.exposure` takes it instead of importing the Track; it reads the Workload only when called.
+    `hypotrail.core.exposure` takes it instead of importing the Track and calls it with the spec it read under the
+    writer lock; it reads the Workload only when called.
     """
 
-    def basis() -> dict:
+    def basis(spec: dict) -> dict:
         examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
         return freeze_basis(spec, examples / spec["workload"])
 
@@ -143,7 +145,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
     before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
     dataset, _ = revisions.place(
         study,
-        previous["dataset_refs"][0] if previous is not None else None,
+        layout.dataset_ref(previous) if previous is not None else None,
         f"{DATASETS_DIR}/{data_path.name}",
         dataset_bytes,
         media_type=media_type_of(data_path),

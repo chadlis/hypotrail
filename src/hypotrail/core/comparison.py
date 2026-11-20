@@ -213,8 +213,8 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
-    writer lock for the whole command: a second writer is refused at once. `live_basis` is a function with no
-    argument that returns the Track's `freeze_basis` of the Workload; it is called only for a Comparison of
+    writer lock for the whole command: a second writer is refused at once. `live_basis` is a function of the
+    Study's spec that returns the Track's `freeze_basis` of the Workload; it is called only for a Comparison of
     `public_check` Items, to freeze the Workload's digests (see `hypotrail.core.exposure`).
     """
     study = Path(study)

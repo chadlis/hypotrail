@@ -451,13 +451,13 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
     workload_name = spec["workload"]
-    data.verify_workload_files(examples, workload_name)  # the Workload's files and notices; the database too when readable
+    data.verify_workload_files(examples, workload_name)  # the Workload's other files and notices: the live database is never opened
     study_refs = [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]
     for ref in study_refs:
         artifacts.read_verified(study, ref)
     by_role = {entry["ref"]["role"]: entry["ref"] for entry in spec["artifacts"]}
     workload = load_workload(examples / workload_name)
-    dataset_sha = dataset_sha256(spec, workload)  # the live database when readable, else the Study's own copy (read back above)
+    dataset_sha = dataset_sha256(spec)  # the Study's own copy, read back above: the live database is never opened or hashed
 
     source_bytes = _read(source, "SOURCE_NOT_FOUND", "source")
     population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")

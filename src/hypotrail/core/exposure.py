@@ -130,8 +130,10 @@ def marks(study, manifests=(), assessments=()) -> dict:
 def checked_basis(spec: dict, live_basis) -> dict:
     """The Protocol digest and the Configuration digests of the Workload as it is declared now.
 
-    The core knows no Track: the caller passes `live_basis`, a function with no argument that returns that basis
-    (`{"protocol_digest", "configuration_digests"}`, the Track's `freeze_basis` applied to the Workload). It is
+    The core knows no Track: the caller passes `live_basis`, a function of the Study's spec that returns that basis
+    (`{"protocol_digest", "dataset_source", "configuration_digests"}`, the Track's `freeze_basis` applied to the
+    Workload). It is given the `spec` the caller read under the writer lock, so the basis and the revision it is
+    compared with are the same read. `dataset_source` says where the database digest in the Protocol came from. It is
     called only here, so a command that never records an Exposure never reads the Workload for it.
 
     Refuses with `WORKLOAD_BASIS_REQUIRED` (exit 2) when no `live_basis` was given: an Exposure cannot be recorded
@@ -144,7 +146,7 @@ def checked_basis(spec: dict, live_basis) -> dict:
             stage=STAGE,
             details={},
         )
-    live = live_basis()
+    live = live_basis(spec)
     if live["protocol_digest"] != spec["protocol_digest"]:
         raise IntegrityError(
             "PROTOCOL_CHANGED",
@@ -166,6 +168,7 @@ def _write_freeze(study, spec: dict, live: dict) -> dict:
         "study_id": spec["study_id"],
         "revision_number": number,
         "protocol_digest": live["protocol_digest"],
+        "dataset_source": live["dataset_source"],
         "configuration_digests": live["configuration_digests"],
         "environment": {"python": code["python"], "dependency_lock_sha256": code["dependency_lock"]["sha256"]},
         "code": {"revision": code["code_revision"]["commit"], "dirty": code["code_revision"]["dirty"]},

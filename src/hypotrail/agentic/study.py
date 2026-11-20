@@ -90,21 +90,13 @@ def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
     }
 
 
-def dataset_ref(spec: dict) -> dict:
-    """The reference of the Study's own copy of the Workload's database."""
-    return next(ref for ref in spec["dataset_refs"] if ref["role"] == "dataset")
+def dataset_sha256(spec: dict) -> str:
+    """The dataset digest a Protocol is computed from after `init`: the Study's own copy, never the live database.
 
-
-def dataset_sha256(spec: dict, workload: Workload) -> str:
-    """The dataset digest a Protocol is computed from: the Workload's database when readable, else the Study's own copy.
-
-    A replaced database therefore changes the Protocol digest and is refused, while an unreadable or absent one
-    does not stop a command (the Study's copy is read back against its digest by every command).
+    `import agent` and `assess` never open the Chinook file (#69). The copy is read back against this digest by
+    every command; `init`, `init --new-revision` and `data verify` are what read the live file.
     """
-    try:
-        return canonical.sha256_hex(workload.database_path.read_bytes())
-    except OSError:
-        return dataset_ref(spec)["sha256"]
+    return layout.dataset_ref(spec)["sha256"]
 
 
 def freeze_basis(spec: dict, source: Path) -> dict:
@@ -112,26 +104,29 @@ def freeze_basis(spec: dict, source: Path) -> dict:
 
     The Protocol digest is computed as `import agent` computes it, from the bytes of the Workload's files. A
     Configuration's digest covers what it declares and the exact system text it resolves to, so a changed
-    base Configuration changes the digest of the one that extends it.
+    base Configuration changes the digest of the one that extends it. The database part of the Protocol digest is
+    the Study's own copy (`dataset_source` says so in the freeze record): the live file is not opened.
     """
     workload = load_workload(source)
-    protocol = protocol_content(workload, dataset_sha256=dataset_sha256(spec, workload))
+    protocol = protocol_content(workload, dataset_sha256=dataset_sha256(spec))
     declared = workload.declaration.get("configurations", {})
     return {
         "protocol_digest": canonical.digest(protocol),
+        "dataset_source": "study_copy",
         "configuration_digests": {
             name: canonical.digest({"declared": declared[name], "system_text": workload.system_text(name)}) for name in sorted(declared)
         },
     }
 
 
-def live_basis(spec: dict, examples_dir: Path | None = None):
-    """A function with no argument that returns `freeze_basis` of this Study's Workload under `examples_dir`.
+def live_basis(examples_dir: Path | None = None):
+    """A function of the Study's spec that returns `freeze_basis` of that Study's Workload under `examples_dir`.
 
-    `hypotrail.core.exposure` takes it instead of importing the Track; it reads the Workload only when called.
+    `hypotrail.core.exposure` takes it instead of importing the Track and calls it with the spec it read under the
+    writer lock; it reads the Workload only when called.
     """
 
-    def basis() -> dict:
+    def basis(spec: dict) -> dict:
         examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
         return freeze_basis(spec, examples / spec["workload"])
 
@@ -157,7 +152,7 @@ def _write_spec(study: Path, workload_name: str, workload: Workload, previous: d
     before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
     dataset, _ = revisions.place(
         study,
-        dataset_ref(previous) if previous is not None else None,
+        layout.dataset_ref(previous) if previous is not None else None,
         f"{DATASETS_DIR}/{database.name}",
         database_bytes,
         media_type="application/vnd.sqlite3",

@@ -99,6 +99,11 @@ def expected_row_ids(study, population_ref: dict, partition: str) -> list:
     return sorted(row_id for row_id, found in partition_of(raw, "row_id").items() if found == partition)
 
 
+def dataset_ref(spec: dict) -> dict:
+    """The reference of the Study's own copy of the Workload's dataset: found by its role, never by its position."""
+    return next(ref for ref in spec["dataset_refs"] if ref["role"] == "dataset")
+
+
 def short_id(prefix: str, sha256: str) -> str:
     """The ID of a Study artifact: its kind and the first 16 hex digits of its digest."""
     return f"{prefix}-{sha256[:16]}"
