@@ -118,7 +118,7 @@ One application of one Scorer version to one Observation set and one Reference s
 _Avoid_: evaluation, result, score
 
 **Comparison**:
-Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate.
+Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate. For an agent, the Items are Episodes aligned by Case and Repeat, and the planned Repeats, tools, model and budgets are shared except for one declared intentional factor (2026-11-20, #72).
 _Avoid_: benchmark, diff
 
 **Control**:

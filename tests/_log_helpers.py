@@ -12,13 +12,13 @@ KEPT_LOGS = sorted(KEPT.glob("live-*/inspect/*.eval"))
 SCRIPTED = {"mode": "scripted_fixture", "banner": "simulation, no LLM evaluated"}
 
 
-def scripted_log(tmp_path, case_ids=("D01", "D03"), *, partition="dev", repeats=1, name="logs", metadata=SCRIPTED, script=None, limits=None):
+def scripted_log(tmp_path, case_ids=("D01", "D03"), *, partition="dev", repeats=1, name="logs", metadata=SCRIPTED, script=None, limits=None, configuration="plain"):
     """The location of an Inspect log of `case_ids`, run by the mock model on the real local tools."""
     cases = WORKLOAD.cases(partition, list(case_ids))
     return runner.run_episodes(
         cases,
         workload=WORKLOAD,
-        configuration="plain",
+        configuration=configuration,
         model=runner.mock_model(script or ScriptedModel(cases)),
         repeats=repeats,
         log_dir=Path(tmp_path) / name,

@@ -16,6 +16,7 @@ from hypotrail.core.errors import (
     HypotrailError,
     InvalidInputError,
 )
+from hypotrail.core.factors import FACTORS
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -167,6 +168,12 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Assessments")
     compare.add_argument("--control", required=True, metavar="ASSESSMENT_ID", help="the Assessment measured against (the Control)")
     compare.add_argument("--candidate", required=True, metavar="ASSESSMENT_ID", help="the Assessment measured (the Candidate)")
+    compare.add_argument(
+        "--factor",
+        choices=FACTORS,
+        default=None,
+        help="the factor that is intentionally different between the two sides of an agent Comparison (default: configuration)",
+    )
     compare.add_argument("--json", action="store_true", help="print one JSON object")
     compare.set_defaults(handler=_compare)
 
@@ -385,12 +392,16 @@ def _assess_agent(args) -> int:
 def _compare(args) -> int:
     from hypotrail.core import comparison
 
-    record = comparison.compare(args.study, args.control, args.candidate)
+    record = comparison.compare(args.study, args.control, args.candidate, args.factor)
     delta, coverage = record["delta"], record["coverage"]
     value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
+    if delta.get("reason"):
+        value += f" ({delta['reason']})"
+    direction = "better" if record.get("primary_criterion") else "worse"
+    unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
     human = (
         f"Comparison {record['comparison_id']} ({record['comparability']['status']}): delta {delta['metric']} {value} "
-        f"(Candidate minus Control; positive means the Candidate is worse) over {coverage['paired']} of {coverage['expected']} paired Items"
+        f"(Candidate minus Control; positive means the Candidate is {direction}) over {coverage['paired']} of {coverage['expected']} {unit}"
     )
     for warning in record["warnings"]:
         print(f"{warning['code']}: {warning['message']}", file=sys.stderr)

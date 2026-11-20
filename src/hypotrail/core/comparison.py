@@ -40,6 +40,7 @@ STAGE = "compare"
 DEV = "dev"
 PUBLIC_CHECK = "public_check"
 EXTERNAL_MODE = "external_unknown"
+AGENTIC = "agentic"
 PAIRED_COLUMNS = ["row_id", "control_abs_error", "candidate_abs_error", "delta_abs_error"]
 DELTA_DEFINITION = "Metric(Candidate) - Metric(Control); positive means the Candidate is worse (the Metric is lower-is-better)"
 
@@ -54,6 +55,15 @@ REFUSALS = {
     "mode": ("COMPARISON_MODE_DIFFERS", "mode_differs"),
     "coverage": ("COMPARISON_COVERAGE_INSUFFICIENT", "coverage_insufficient"),
 }
+# The extra checks of an agent Comparison (`hypotrail.core.agent_comparison`): the same planned Repeats, tools, model and budgets.
+REFUSALS.update(
+    {
+        "repeats": ("COMPARISON_REPEATS_DIFFER", "repeats_differ"),
+        "tools": ("COMPARISON_TOOLS_DIFFER", "tools_differ"),
+        "model": ("COMPARISON_MODEL_DIFFERS", "model_differs"),
+        "budgets": ("COMPARISON_BUDGETS_DIFFER", "budgets_differ"),
+    }
+)
 REASON_PROVENANCE = "provenance_unverified"
 WARNING_DESCRIPTIVE = "COMPARISON_DESCRIPTIVE_IMPORT"
 LIMITATION_DEPENDENCE = "Daily observations are dependent: the delta carries no confidence interval and no significance claim."
@@ -90,7 +100,7 @@ def _side(study: Path, role: str, assessment_id: str) -> dict:
         "manifest": manifest,
         "partition": observation_set["provenance"].get("partition"),
         "population_sha256": observation_set["population_ref"]["sha256"],
-        "items": {row["row_id"]: row for row in per_item},
+        "per_item": per_item,
         "metric": assessment["metrics"][0],
     }
 
@@ -109,18 +119,88 @@ def _scorer_differences(control: dict, candidate: dict) -> list:
     return [key for key in ("id", "version", "config_digest") if control["scorer"][key] != candidate["scorer"][key]]
 
 
-def compare(study, control_id: str, candidate_id: str) -> dict:
+def check_assessments(control: dict, candidate: dict, checks: list) -> None:
+    """The References, Scorer and unit checks, common to every Track: each appended to `checks` when it passes, a refusal otherwise."""
+    ca, da = control["assessment"], candidate["assessment"]
+    if ca["references_ref"]["sha256"] != da["references_ref"]["sha256"]:
+        raise _refuse(
+            "references",
+            [*checks, {"check": "references", "passed": False, "reason": REFUSALS["references"][1]}],
+            {"references_sha256": ca["references_ref"]["sha256"]},
+            {"references_sha256": da["references_ref"]["sha256"]},
+            "the two Assessments were scored against different References",
+        )
+    checks.append({"check": "references", "passed": True, "reason": None})
+
+    differs = _scorer_differences(ca, da)
+    if differs:
+        raise _refuse(
+            "scorer",
+            [*checks, {"check": "scorer", "passed": False, "reason": REFUSALS["scorer"][1]}],
+            ca["scorer"],
+            da["scorer"],
+            f"the two Assessments were made by different Scorers (differs: {', '.join(differs)})",
+        )
+    checks.append({"check": "scorer", "passed": True, "reason": None})
+
+    if control["metric"]["unit"] != candidate["metric"]["unit"]:
+        raise _refuse(
+            "unit",
+            [*checks, {"check": "unit", "passed": False, "reason": REFUSALS["unit"][1]}],
+            {"unit": control["metric"]["unit"]},
+            {"unit": candidate["metric"]["unit"]},
+            "the two Assessments are in different units",
+        )
+    checks.append({"check": "unit", "passed": True, "reason": None})
+
+
+def describe_environments(control_manifest: dict, candidate_manifest: dict) -> tuple:
+    """(the `code_environment` block of a Comparison, the sentence of its limitations): what differs, never "identical" (ID-03)."""
+    environments = (control_manifest["code_environment"], candidate_manifest["code_environment"])
+    differs = sorted(
+        key for key in set(environments[0]) | set(environments[1]) if canonical.dumps(environments[0].get(key)) != canonical.dumps(environments[1].get(key))
+    )
+    block = {"same": not differs, "differs": differs, "control": environments[0], "candidate": environments[1]}
+    if differs:
+        sentence = (
+            f"The two Attempts ran in different code environments (differs: {', '.join(differs)}): "
+            "the two executions are not identical, and the difference may owe something to that."
+        )
+    else:
+        sentence = "The two Attempts record the same code environment; this does not establish that the two executions were identical."
+    return block, sentence
+
+
+def import_scope_warning(imports: list) -> dict:
+    """The warning of a descriptive Comparison: the roles that are an Import and what that leaves unverified."""
+    message = (
+        f"The {' and '.join(imports)} of this Comparison is an Import (Mode {EXTERNAL_MODE}): its producer, model, generation time "
+        "and exposure to public_check are declared or unknown, never verified. The Comparison is descriptive, not strict: "
+        "it supports no claim that the two sides were produced under the same conditions."
+    )
+    return {"code": WARNING_DESCRIPTIVE, "message": message}
+
+
+def compare(study, control_id: str, candidate_id: str, factor: str | None = None) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
-    Holds the Study's writer lock for the whole command: a second writer is refused at once.
+    `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
+    writer lock for the whole command: a second writer is refused at once.
     """
     study = Path(study)
-    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    if factor is not None and spec["domain"] != AGENTIC:
+        raise InvalidInputError(
+            "UNSUPPORTED_CAPABILITY",
+            f"a Comparison of a Study of the {spec['domain']!r} domain declares no factor: only the agentic Track has one",
+            stage=STAGE,
+            details={"factor": factor, "study_domain": spec["domain"]},
+        )
     with lock.writer_lock(study):
-        return _compare_locked(study, control_id, candidate_id)
+        return _compare_locked(study, control_id, candidate_id, factor)
 
 
-def _compare_locked(study: Path, control_id: str, candidate_id: str) -> dict:
+def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None) -> dict:
     control = _side(study, "control", control_id)
     candidate = _side(study, "candidate", candidate_id)
 
@@ -133,6 +213,13 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str) -> dict:
                 details={"partition": PUBLIC_CHECK, "role": side["role"]},
             )
 
+    if control["observation_set"]["domain"] == AGENTIC:
+        from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
+
+        return agent_comparison.compare_sides(study, control, candidate, factor)
+
+    for side in (control, candidate):
+        side["items"] = {row["row_id"]: row for row in side["per_item"]}
     checks = []
 
     def passed(check, ok, reason=None):
@@ -159,36 +246,7 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str) -> dict:
         )
 
     ca, da = control["assessment"], candidate["assessment"]
-    if ca["references_ref"]["sha256"] != da["references_ref"]["sha256"]:
-        raise _refuse(
-            "references",
-            [*checks, {"check": "references", "passed": False, "reason": REFUSALS["references"][1]}],
-            {"references_sha256": ca["references_ref"]["sha256"]},
-            {"references_sha256": da["references_ref"]["sha256"]},
-            "the two Assessments were scored against different References",
-        )
-    passed("references", True)
-
-    differs = _scorer_differences(ca, da)
-    if differs:
-        raise _refuse(
-            "scorer",
-            [*checks, {"check": "scorer", "passed": False, "reason": REFUSALS["scorer"][1]}],
-            ca["scorer"],
-            da["scorer"],
-            f"the two Assessments were made by different Scorers (differs: {', '.join(differs)})",
-        )
-    passed("scorer", True)
-
-    if control["metric"]["unit"] != candidate["metric"]["unit"]:
-        raise _refuse(
-            "unit",
-            [*checks, {"check": "unit", "passed": False, "reason": REFUSALS["unit"][1]}],
-            {"unit": control["metric"]["unit"]},
-            {"unit": candidate["metric"]["unit"]},
-            "the two Assessments are in different units",
-        )
-    passed("unit", True)
+    check_assessments(control, candidate, checks)
 
     only_control = sorted(set(control["items"]) - set(candidate["items"]))
     only_candidate = sorted(set(candidate["items"]) - set(control["items"]))
@@ -246,30 +304,14 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str) -> dict:
     control_metric, candidate_metric = control["metric"]["value"], candidate["metric"]["value"]
     delta = None if control_metric is None or candidate_metric is None else candidate_metric - control_metric
 
-    environments = (control["manifest"]["code_environment"], candidate["manifest"]["code_environment"])
-    env_differs = sorted(
-        key for key in set(environments[0]) | set(environments[1]) if canonical.dumps(environments[0].get(key)) != canonical.dumps(environments[1].get(key))
-    )
-    limitations = [LIMITATION_DEPENDENCE]
-    if env_differs:
-        limitations.append(
-            f"The two Attempts ran in different code environments (differs: {', '.join(env_differs)}): "
-            "the two executions are not identical, and the difference may owe something to that."
-        )
-    else:
-        limitations.append(
-            "The two Attempts record the same code environment; this does not establish that the two executions were identical."
-        )
+    environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
+    limitations = [LIMITATION_DEPENDENCE, environment_sentence]
     warnings = []
     descriptive = bool(external)
     if descriptive:
-        message = (
-            f"The {' and '.join(external)} of this Comparison is an Import (Mode {EXTERNAL_MODE}): its producer, model, generation time "
-            "and exposure to public_check are declared or unknown, never verified. The Comparison is descriptive, not strict: "
-            "it supports no claim that the two sides were produced under the same conditions."
-        )
-        warnings.append({"code": WARNING_DESCRIPTIVE, "message": message})
-        limitations.append(message)
+        warning = import_scope_warning(external)
+        warnings.append(warning)
+        limitations.append(warning["message"])
 
     comparison_id = str(uuid.uuid4())
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
@@ -300,7 +342,7 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str) -> dict:
         "paired_deltas_ref": paired_ref,
         "coverage": coverage,
         "delta": {"metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"], "definition": DELTA_DEFINITION},
-        "code_environment": {"same": not env_differs, "differs": env_differs, "control": environments[0], "candidate": environments[1]},
+        "code_environment": environment,
         "warnings": warnings,
         "limitations": limitations,
     }

@@ -869,34 +869,7 @@
           "type": "boolean"
         },
         "delta": {
-          "type": "object",
-          "properties": {
-            "metric": {
-              "type": "string",
-              "minLength": 1
-            },
-            "value": {
-              "type": [
-                "number",
-                "null"
-              ]
-            },
-            "unit": {
-              "type": "string",
-              "minLength": 1
-            },
-            "definition": {
-              "type": "string",
-              "minLength": 1
-            }
-          },
-          "required": [
-            "metric",
-            "value",
-            "unit",
-            "definition"
-          ],
-          "additionalProperties": false
+          "$ref": "#/$defs/Delta"
         },
         "code_environment": {
           "type": "object",
@@ -946,6 +919,75 @@
             ],
             "additionalProperties": false
           }
+        },
+        "secondary_deltas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Delta"
+          }
+        },
+        "primary_criterion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "matrix_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "rates": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "unknowns": {
+                  "type": "object"
+                },
+                "operational_errors": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "metrics",
+                "unknowns",
+                "operational_errors"
+              ],
+              "additionalProperties": false
+            },
+            "candidate": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "unknowns": {
+                  "type": "object"
+                },
+                "operational_errors": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "metrics",
+                "unknowns",
+                "operational_errors"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "control",
+            "candidate"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -1173,6 +1215,54 @@
         "attempt_ids",
         "assessment_ids",
         "comparison_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Delta": {
+      "type": "object",
+      "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "control": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "candidate": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "unit",
+        "definition"
       ],
       "additionalProperties": false
     }

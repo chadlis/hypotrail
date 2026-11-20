@@ -1554,3 +1554,119 @@ def test_the_rescoring_tables_equal_the_contract_schema_the_causes_of_the_code_a
     assert causes["scorer_config_digest"]["data-compares"] == "scorer.config_digest"
     assert set(definition["study_revision"]["properties"]) == set(record["study_revision"])
     assert set(attrs_of(page, "revision-record-fields", "data-field")) == {"study_revision", "recorded_at", "rescoring"}
+
+
+# --- chapter 11: comparing two agent Assessments (#72) ---------------------------------------------------------------------
+
+
+def _agent_comparison(tmp_path):
+    """(Study, Comparison record, the two Assessments) of two imports, so the files of a Comparison are all written."""
+    from _agent_compare_helpers import answer_lines, compare, imported
+    from _chinook_helpers import init_chinook
+
+    study, _ = init_chinook(tmp_path, name="chapter-11")
+    _, plain = imported(tmp_path, study, "plain", answer_lines())
+    _, verify = imported(tmp_path, study, "verify", answer_lines(wrong={("D01", 0)}))
+    _, payload, _ = compare(study, plain, verify)
+    return study, payload["comparison"], (plain, verify)
+
+
+def test_the_agent_check_table_equals_the_checks_the_code_runs_in_order_and_which_of_them_a_request_can_declare(page):
+    from hypotrail.core import agent_comparison, comparison
+
+    rows = table_rows(page, "agent-comparability-checks", "data-check")
+    assert list(rows) == list(agent_comparison.AGENT_CHECKS)
+    for check, row in rows.items():
+        code, reason = comparison.REFUSALS[check]
+        assert (row["attrs"]["data-code"], row["attrs"]["data-reason"]) == (code, reason), check
+        assert (row["attrs"]["data-declarable"] == "yes") == (check in agent_comparison.FACTORS), check
+
+
+def test_the_agent_reason_table_equals_the_reasons_the_code_records(page, tmp_path):
+    from _agent_compare_helpers import answer_lines, compare, imported
+    from _chinook_helpers import init_chinook
+
+    from hypotrail.core import agent_comparison, comparison
+
+    rows = attrs_of(page, "agent-check-reasons", "data-reason")
+    assert set(rows) == {agent_comparison.REASON_DECLARED, agent_comparison.REASON_NOT_ESTABLISHED, comparison.REASON_PROVENANCE}
+    study, _ = init_chinook(tmp_path, name="reasons")
+    _, a = imported(tmp_path, study, "a", answer_lines())
+    _, b = imported(tmp_path, study, "b", answer_lines(model="other"))
+    found = {}
+    for flags in ((), ("--factor", "model")):
+        _, payload, _ = compare(study, a, b, *flags)
+        for check in payload.get("comparison", {}).get("comparability", {}).get("checks", []):
+            if check["reason"]:
+                found[check["reason"]] = check["passed"]
+    _, unknown = imported(tmp_path, study, "unknown", answer_lines(model=None, tool_use=None, mode=None))
+    for check in compare(study, a, unknown)[1]["comparison"]["comparability"]["checks"]:
+        if check["reason"]:
+            found[check["reason"]] = check["passed"]
+    assert set(found) == set(rows)
+    for reason, passed in found.items():
+        assert rows[reason]["data-passed"] == str(passed).lower(), reason
+
+
+def test_the_agent_coverage_table_equals_the_keys_of_the_coverage_record_and_the_layout_equals_the_files_written(page, tmp_path):
+    study, record, _ = _agent_comparison(tmp_path)
+    assert set(attrs_of(page, "agent-coverage-keys", "data-key")) == set(record["coverage"])
+    written = {
+        p.relative_to(study).as_posix().replace(record["comparison_id"], "COMPARISON_ID") for p in (study / "comparisons").rglob("*") if p.is_file()
+    }
+    assert set(attrs_of(page, "agent-comparison-layout", "data-path")) == written
+    assert set(record["descriptive"]["control"]) == set(contracts_schema_properties("DescriptiveMeasures"))
+
+
+def contracts_schema_properties(name):
+    from hypotrail.core import contracts
+
+    return contracts.schema()["$defs"][name]["properties"]
+
+
+def test_the_agent_refusal_table_equals_the_code_exit_stage_and_details_of_each_new_refusal(page, tmp_path):
+    from _agent_compare_helpers import answer_lines, compare, imported, native
+    from _chinook_helpers import init_chinook
+
+    study, _ = init_chinook(tmp_path, name="chapter-11-refusals")
+    found = {}
+
+    def record(result):
+        code, payload, _ = result
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    seed, base = imported(tmp_path, study, "seed", answer_lines())
+    _, two = imported(tmp_path, study, "two", answer_lines(repeats=2), repeats=2)
+    _, tools = imported(tmp_path, study, "tools", answer_lines(tool_use="query_readonly"))
+    _, model = imported(tmp_path, study, "model", answer_lines(model="other"))
+    _, wide = native(study, seed, limits={"model_turns": 7})
+    _, tight = native(study, seed, limits={"model_turns": 4})
+    record(compare(study, base, two))
+    record(compare(study, base, tools))
+    record(compare(study, base, model))
+    record(compare(study, wide, tight))
+    rows = attrs_of(page, "agent-compare-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+
+
+def test_the_agent_comparison_chapter_names_the_delta_reason_and_the_status_codes_the_code_writes(page, tmp_path):
+    from hypotrail.core import agent_comparison
+
+    chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
+    for name in (agent_comparison.REASON_COVERAGE, agent_comparison.WARNING_NOT_ESTABLISHED, agent_comparison.DEFAULT_FACTOR, "COMPARISON_DESCRIPTIVE_IMPORT"):
+        assert f"<code>{name}</code>" in chapter, name
+    assert set(agent_comparison.FACTORS) == {"configuration", "repeats", "tools", "model", "budgets"}
+
+
+def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "compare` on two Chinook Assessments" in readme or "Chinook Comparison" in readme
+    chapter = (HANDBOOK / "chapters" / "07-comparison.html").read_text(encoding="utf-8")
+    assert "Agent Comparisons, the alignment by Case and Repeat" not in chapter
+    assert 'href="#agent-comparison"' in chapter
