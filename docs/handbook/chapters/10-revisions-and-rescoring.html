@@ -30,6 +30,7 @@ uv run python -m hypotrail status --study runs/chinook --json</pre>
 <div class="tblwrap"><table class="tbl" id="revision-fields"><thead><tr><th>Field</th><th>Where</th><th>Meaning</th></tr></thead><tbody>
 <tr data-field="revision_number" data-where="study"><td><code>revision_number</code></td><td>StudySpec</td><td>1 for the first revision, then one more each time <code>init --new-revision</code> adds one.</td></tr>
 <tr data-field="previous_revision" data-where="study"><td><code>previous_revision</code></td><td>StudySpec</td><td>The <code>revision</code> digest of the revision before; absent from revision 1.</td></tr>
+<tr data-field="check_informed" data-where="study"><td><code>check_informed</code></td><td>StudySpec</td><td>True when the revision was created after the Study's first Exposure; absent otherwise (<a href="#freeze-exposure">chapter 12</a>).</td></tr>
 <tr data-field="version" data-where="artifact"><td><code>version</code></td><td>each entry of <code>artifacts</code></td><td>How many different contents the Study has held under this role: 1 at <code>init</code>, one more each time a revision publishes changed bytes for it.</td></tr>
 </tbody></table></div>
 <p class="prose"><code>status</code> shows every revision under <code>revisions</code>, read only, and the current one under <code>study</code>:</p>
@@ -86,7 +87,7 @@ uv run python -m hypotrail status --study runs/chinook --json</pre>
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--sky)"><h3>No freeze, no Exposure</h3><p>A revision has no freeze record yet, and no Exposure journal exists to say whether a revision comes after the Study's first Exposure, so none is marked <code>check_informed</code> (issue #73, later). The place for each revision's freeze record is its folder, <code>revisions/N/</code>; the mark is added by <code>check_informed_mark</code> in <code>core/revisions.py</code>.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Freeze and check_informed</h3><p>A revision takes its own freeze record, <code>revisions/N/freeze.json</code>, at its first use of <code>public_check</code>, not when it is created. A revision created after the Study's first Exposure is marked <code>check_informed</code> by <code>check_informed_mark</code> in <code>core/revisions.py</code>; one created before is not. After an Exposure, an <code>assess</code> or <code>compare</code> on <code>public_check</code> Items that finds a Protocol other than the current revision's is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and writes nothing (<a href="#freeze-exposure">chapter 12</a>).</p></div>
 <div class="card" style="--c:var(--amber)"><h3>The population is not compared</h3><p>An Assessment applies the Protocol of its own revision to an Observation set recorded under an earlier one. <code>assess</code> reads the Items from the Observation set's own population and does not compare it with the new revision's population: a revision that changed the population is the author's to read.</p></div>
 </div>
 

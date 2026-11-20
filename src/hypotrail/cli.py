@@ -161,6 +161,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--scorer", required=True, metavar="SCORER_ID", help="a registered Scorer (regression_mae_v1, regression_rmse_v1, chinook_contract_v1)"
     )
     assess.add_argument("--references", required=True, metavar="REFERENCES_ID", help="the References set of the Study to score against")
+    assess.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/); read only for an Assessment of public_check Items, to freeze the Workload's digests",
+    )
     assess.add_argument("--json", action="store_true", help="print one JSON object")
     assess.set_defaults(handler=_assess)
 
@@ -173,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=FACTORS,
         default=None,
         help="the factor that is intentionally different between the two sides of an agent Comparison (default: configuration)",
+    )
+    compare.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/); read only for a Comparison of public_check Items, to freeze the Workload's digests",
     )
     compare.add_argument("--json", action="store_true", help="print one JSON object")
     compare.set_defaults(handler=_compare)
@@ -360,7 +372,7 @@ def _assess(args) -> int:
         return _assess_agent(args)
     from hypotrail.ml import assess
 
-    record = assess.assess(args.study, args.observations, args.scorer, args.references)
+    record = assess.assess(args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir)
     counts, metric = record["counts"], record["metrics"][0]
     value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
     human = (
@@ -374,7 +386,7 @@ def _assess(args) -> int:
 def _assess_agent(args) -> int:
     from hypotrail.agentic import assess
 
-    record = assess.assess(args.study, args.observations, args.scorer, args.references)
+    record = assess.assess(args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir)
     counts = record["counts"]
     quality, share = record["metrics"]
 
@@ -392,7 +404,7 @@ def _assess_agent(args) -> int:
 def _compare(args) -> int:
     from hypotrail.core import comparison
 
-    record = comparison.compare(args.study, args.control, args.candidate, args.factor)
+    record = comparison.compare(args.study, args.control, args.candidate, args.factor, examples_dir=args.examples_dir)
     delta, coverage = record["delta"], record["coverage"]
     value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
     if delta.get("reason"):
@@ -414,6 +426,11 @@ def _status(args) -> int:
 
     report = state.status(args.study)
     lines = [f"Study {report['study']['study_id']} ({report['study']['workload']}); a writer is {'active' if report['writer_alive'] else 'not active'}"]
+    exposures = report["exposures"]
+    lines.append(
+        f"  {exposures['recorded_in_this_study']} Exposures recorded in this Study; any earlier exposure to public_check is {exposures['earlier_exposure']}"
+        + (f"; marked check_informed: {len(report['check_informed'])}" if report["check_informed"] else "")
+    )
     for attempt in report["attempts"]:
         lines.append(
             f"  {attempt['attempt_id']} {attempt['technical_status']} request {attempt['request_id']}, "

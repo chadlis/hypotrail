@@ -18,9 +18,10 @@ names its digest, with the next version number. The steps run in this order, so 
 between two of them is completed by running the command again: the new artifacts, the copy of the
 current StudySpec, the new revision's StudySpec, and last the replacement of `study.json`.
 
-Not built here, and where it attaches (chadlis/hypotrail#73): each revision's freeze record belongs
-beside its StudySpec, in `revisions/<n>/`; the Exposure journal is what `check_informed_mark` reads to
-mark a revision created after the Study's first Exposure.
+Each revision's freeze record lies beside its StudySpec, in `revisions/<n>/freeze.json`, written at the
+revision's first use of `public_check` (`hypotrail.core.exposure`). A revision created after the Study's
+first Exposure is marked `check_informed` (`check_informed_mark`); the earlier revisions and their records
+stay as they were.
 """
 
 from pathlib import Path, PurePosixPath
@@ -101,12 +102,13 @@ def refuse_unchanged(previous: dict, protocol_digest: str) -> None:
 
 
 def check_informed_mark(study) -> dict:
-    """The fields that mark a new revision as informed by `public_check`; none until the Exposure journal exists.
+    """The fields that mark a new revision as informed by `public_check`: `check_informed` once the Study has had an Exposure.
 
-    #73 replaces this body: it returns `{"check_informed": True}` when the Study already has its first
-    Exposure. Today no Assessment, Comparison or count touches `public_check` Items, so no Study has one.
+    The Study's first Exposure counts, whatever the revision it was made under (`hypotrail.core.exposure`).
     """
-    return {}
+    from hypotrail.core import exposure  # `exposure` reads revisions' numbers: imported here to keep the two modules apart
+
+    return {"check_informed": True} if exposure.entries(study) else {}
 
 
 def next_fields(study, previous: dict) -> dict:

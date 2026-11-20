@@ -3,8 +3,7 @@
 Targets come from the separate References artifact and are joined to the
 predictions by `row_id`, never by position. Metrics use `y_pred`. The unit is the
 one the Workload declares (`target_unit`). Metrics are computed on `dev` only; a request on
-`public_check` is refused until the Exposure journal exists (SPEC section 2; the slice keeps no
-such journal yet).
+`public_check` is refused here, a function that takes no Study (inside a Study, `assess` computes it and journals the Exposure) (SPEC section 2).
 """
 
 import csv

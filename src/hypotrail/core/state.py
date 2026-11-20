@@ -4,7 +4,9 @@
 every Attempt with its `technical_status`, its artifacts (the partial ones of an Attempt that never
 reached its terminal manifest included, each with the digest of its bytes) and whether a live writer
 holds the Study; and every revision of the Study (`hypotrail.core.revisions`) with its Protocol digest and
-its Protocol artifacts. It takes no lock and writes nothing.
+its Protocol artifacts; the freeze records, the Exposure journal and every `check_informed` mark
+(`hypotrail.core.exposure`). A Study with no journal entry reports zero Exposures recorded in this Study and
+says that any earlier exposure is unknown. It takes no lock and writes nothing.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
 lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`
@@ -20,7 +22,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 import datetime
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, lock, revisions
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, revisions
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -59,6 +61,19 @@ def _listed_artifacts(study: Path, manifest: dict) -> tuple[list, list]:
             }
         )
     return found, leftovers
+
+
+def _check_informed(study: Path) -> list:
+    """Every record that carries the `check_informed` mark: a revision, an Attempt, an Assessment or a Comparison."""
+    marked = [
+        {"kind": "revision", "id": each["revision"], "revision_number": revisions.revision_number(each)}
+        for each in revisions.revision_specs(study)
+        if each.get("check_informed")
+    ]
+    marked += [{"kind": "attempt", "id": attempt_id} for attempt_id in layout.attempt_ids(study) if layout.read_manifest(study, attempt_id).get("check_informed")]
+    marked += [{"kind": "assessment", "id": r["assessment_id"]} for r in layout.assessment_records(study) if r.get("check_informed")]
+    marked += [{"kind": "comparison", "id": r["comparison_id"]} for r in layout.comparison_records(study) if r.get("check_informed")]
+    return marked
 
 
 def status(study) -> dict:
@@ -105,6 +120,9 @@ def status(study) -> dict:
             for each in revisions.revision_specs(study)
         ],
         "attempts": attempts,
+        "freeze_records": exposure.freeze_records(study),
+        "exposures": exposure.summary(study),
+        "check_informed": _check_informed(study),
     }
 
 

@@ -697,7 +697,8 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     (attempt,) = listing["attempts"]
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts"}  # `revisions` is chapter 10's
+    # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed"}
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -915,7 +916,6 @@ def test_the_assess_refusal_table_equals_the_code_exit_stage_and_details_of_each
     attempt = attempts["seasonal_7"]
     refs = references_id(study)
     obs = observation_set_id(study, attempt)
-    public_study, public_attempts = fresh_study(tmp_path / "p", "seasonal_7", partition="public_check")
     found = {}
 
     def record(result):
@@ -929,7 +929,7 @@ def test_the_assess_refusal_table_equals_the_code_exit_stage_and_details_of_each
     record(assess(study, obs, "regression_mae_v1", "nope"))
     record(assess(study, construct(study, attempt, lambda rows: [*rows, rows[0]]), "regression_mae_v1", refs))
     record(assess(study, construct(study, attempt, lambda rows: rows, provenance={"partition": "train"}), "regression_mae_v1", refs))
-    record(assess(public_study, observation_set_id(public_study, public_attempts["seasonal_7"]), "regression_mae_v1", references_id(public_study)))
+    # ASSESSMENT_PUBLIC_CHECK_REFUSED is gone: inside a Study an Assessment of public_check Items is an Exposure (chapter 12)
     rows = attrs_of(page, "assess-codes", "data-code")
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -1140,10 +1140,8 @@ def test_the_compare_refusal_table_equals_the_code_exit_stage_and_details_of_eac
         return compare(study, control["assessment_id"], other["assessment_id"])
 
     train = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "train"})
-    public = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "public_check"})
     record(compare(study, control["assessment_id"], "nope"))
     record(against(forged(study, candidate, lambda r: r.update(observation_set_id="nope"))))
-    record(against(forged(study, candidate, lambda r: r.update(observation_set_id=public))))
     record(against(forged(study, candidate, lambda r: r.update(observation_set_id=train))))
     both = [forged(study, a[c], lambda r, t=t: r.update(observation_set_id=t)) for c, t in (("seasonal_7", train), ("ridge_v1", train))]
     record(compare(study, both[0]["assessment_id"], both[1]["assessment_id"]))
@@ -1347,7 +1345,6 @@ def test_the_agent_assess_refusal_table_equals_the_code_exit_stage_and_details_o
     folder = study / "attempts" / imported["attempt"]["attempt_id"]
     observation_set = json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
     args = ("assess", "--study", study, "--observations", observation_set, "--scorer", "chinook_contract_v1")
-    record(run_json(*args, "--references", references_id(study)))
     spec = spec_of(study)
     spec["artifacts"] = [e for e in spec["artifacts"] if e["ref"]["role"] != "answer_schema"]
     (study / "study.json").write_bytes(canonical.dumps(spec))
@@ -1483,7 +1480,7 @@ def test_the_revision_field_tables_equal_what_a_revision_adds_to_the_study_spec_
     rows = attrs_of(page, "revision-fields", "data-field")
     in_study = {field for field, row in rows.items() if row["data-where"] == "study"}
     assert in_study == set(spec_definition["properties"]) - set(spec_definition["required"])
-    assert in_study <= set(spec_of(study))
+    assert in_study - {"check_informed"} <= set(spec_of(study))  # `check_informed` is written once the Study has had an Exposure (chapter 12)
     entry = spec_definition["properties"]["artifacts"]["items"]
     in_artifact = {field for field, row in rows.items() if row["data-where"] == "artifact"}
     assert in_artifact == set(entry["properties"]) - set(entry["required"]) and in_artifact <= set(spec_of(study)["artifacts"][0])
@@ -1670,3 +1667,148 @@ def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists()
     chapter = (HANDBOOK / "chapters" / "07-comparison.html").read_text(encoding="utf-8")
     assert "Agent Comparisons, the alignment by Case and Repeat" not in chapter
     assert 'href="#agent-comparison"' in chapter
+
+
+# --- chapter 12: the freeze record, the Exposure journal and check_informed (#73) -------------------------------------------
+
+
+def _exposed_bike_study(tmp_path, *, name="chapter-12"):
+    """(Study, files): a Bike Study with a freeze record, journal entries, and one record of each kind marked check_informed."""
+    from _assess_helpers import assess, fresh_study, observation_set_id, references_id
+    from _compare_helpers import compare
+    from _revision_helpers import new_revision
+    from _study_helpers import examples_copy, run_ml
+
+    study, attempts = fresh_study(tmp_path / name, "seasonal_7", partition="public_check")
+    _, first, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
+    changed = examples_copy(tmp_path / name, edit=lambda d: d["configurations"]["ridge_v1"]["ridge"].update(alpha=2.5))
+    _, ridge, _ = run_ml(study, "ridge_v1", "public_check", "changed", "--examples-dir", changed)
+    _, second, _ = assess(study, observation_set_id(study, ridge["attempt"]), "regression_mae_v1", references_id(study), "--examples-dir", changed)
+    code, both, err = compare(study, first["assessment"]["assessment_id"], second["assessment"]["assessment_id"], "--examples-dir", changed)
+    assert code == 0, (both, err)
+
+    def corrected_day(table):
+        row = next(r for r in table if r["dteday"] == "2012-03-15")
+        row["cnt"], row["registered"] = str(int(row["cnt"]) + 1000), str(int(row["registered"]) + 1000)
+
+    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path / name, rows=corrected_day, name="revised"))
+    assert code == 0, (payload, err)
+    return study
+
+
+def test_the_freeze_and_journal_field_tables_equal_the_contract_schema_and_the_records_the_code_writes(page, tmp_path):
+    from _exposure_helpers import freezes, journal
+
+    from hypotrail.core import contracts
+
+    study = _exposed_bike_study(tmp_path)
+    (freeze,) = freezes(study)
+    definition = contracts.schema()["$defs"]["FreezeRecord"]["properties"]
+    rows = attrs_of(page, "freeze-fields", "data-field")
+    assert {f for f, row in rows.items() if row["data-where"] == "freeze"} == set(definition) == set(freeze)
+    assert {f for f, row in rows.items() if row["data-where"] == "environment"} == set(definition["environment"]["properties"]) == set(freeze["environment"])
+    assert {f for f, row in rows.items() if row["data-where"] == "code"} == set(definition["code"]["properties"]) == set(freeze["code"])
+    entry_definition = contracts.schema()["$defs"]["ExposureEntry"]["properties"]
+    entry_rows = attrs_of(page, "entry-fields", "data-field")
+    assert set(entry_rows) == set(entry_definition) == set(journal(study)[0])
+
+
+def test_the_exposure_layout_table_equals_the_files_an_exposure_writes(page, tmp_path):
+    from _assess_helpers import assess, fresh_study, observation_set_id, references_id
+    from _revision_helpers import snapshot_files
+
+    study, attempts = fresh_study(tmp_path, "seasonal_7", partition="public_check")
+    before = set(snapshot_files(study))
+    assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
+    generic = set()
+    for path in set(snapshot_files(study)) - before:
+        if path.startswith("assessments/"):
+            continue  # an Assessment's own files are chapter 05's
+        path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
+        generic.add(re.sub(r"^exposures/[0-9]{6}-[0-9a-f-]{36}\.json$", "exposures/SEQ-ENTRY_ID.json", path))
+    rows = attrs_of(page, "exposure-layout", "data-path")
+    assert set(rows) == generic
+    assert all(set(row["data-written-by"].split()) == {"assess", "compare"} for row in rows.values())
+
+
+def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code_each_refusal_has(page, tmp_path):
+    from _assess_helpers import assess, fresh_study, observation_set_id, references_id
+    from _study_helpers import run_json
+
+    from hypotrail.agentic import counts, rescore
+    from hypotrail.agentic.declaration import load_workload
+    from hypotrail.core.errors import HypotrailError
+    from hypotrail.ml import comparison, metrics
+
+    workload = load_workload(ROOT / "examples" / "chinook")
+    calls = {
+        "metrics.compute_metrics": lambda: metrics.compute_metrics("p.csv", "r.csv", "m.csv", tmp_path, partition="public_check"),
+        "comparison.compare": lambda: comparison.compare("a.csv", "b.csv", "r.csv", "m.csv", tmp_path / "out", tmp_path, partition="public_check"),
+        "rescore": lambda: rescore.rescore_episodes([{"case_id": "E01", "repeat": 0}], {}, schema={}, workload=workload),
+        "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], workload=workload),
+    }
+    rows = attrs_of(page, "exposure-entry-points", "data-entry")
+    assert set(rows) == {"assess", "compare", "run ml", *calls}
+    for entry, call in calls.items():
+        assert rows[entry]["data-study"] == "no"
+        with pytest.raises(HypotrailError) as refusal:
+            call()
+        assert refusal.value.code == rows[entry]["data-code"], entry
+    study, attempts = fresh_study(tmp_path / "s", "seasonal_7", partition="public_check")  # `run ml` on public_check: allowed, no journal
+    assert rows["run ml"]["data-writes"] == "" and not (study / "exposures").exists()
+    _, payload, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
+    assert rows["assess"]["data-writes"] == "journal" and len(list((study / "exposures").glob("*.json"))) == 1
+    assert rows["compare"]["data-writes"] == "journal" and rows["compare"]["data-study"] == rows["assess"]["data-study"] == "yes"
+
+
+def test_the_check_informed_table_equals_the_records_that_carry_the_mark_and_what_status_lists(page, tmp_path):
+    from _study_helpers import run_json
+
+    from hypotrail.core import contracts
+
+    study = _exposed_bike_study(tmp_path)
+    rows = attrs_of(page, "check-informed-marks", "data-record")
+    definitions = contracts.schema()["$defs"]
+    assert set(rows) == {name for name, d in definitions.items() if "check_informed" in d.get("properties", {})}
+    _, report, _ = run_json("status", "--study", study)
+    assert {m["kind"] for m in report["check_informed"]} == {row["data-kind"] for row in rows.values()}
+    assert {m["kind"]: set(m) for m in report["check_informed"]}["revision"] == {"kind", "id", "revision_number"}
+
+
+def test_the_exposure_status_table_equals_the_keys_status_reports(page, tmp_path):
+    from _study_helpers import init_study, run_json
+
+    study = _exposed_bike_study(tmp_path)
+    _, report, _ = run_json("status", "--study", study)
+    rows = attrs_of(page, "exposure-status", "data-field")
+    assert {f for f, row in rows.items() if row["data-where"] == "status"} == {"freeze_records", "exposures", "check_informed"} <= set(report)
+    assert {f for f, row in rows.items() if row["data-where"] == "exposures"} == set(report["exposures"])
+    empty, _ = init_study(tmp_path / "empty")
+    _, report, _ = run_json("status", "--study", empty)
+    assert report["exposures"]["recorded_in_this_study"] == 0 and report["exposures"]["earlier_exposure"] == "unknown"
+
+
+def test_the_exposure_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _chinook_helpers import init_chinook
+    from _exposure_helpers import assess_agent, correct_e01, edit_chinook_references, import_public
+
+    study, _ = init_chinook(tmp_path)
+    attempt = import_public(tmp_path, study, "imp")
+    code, payload, _ = assess_agent(study, attempt, "--examples-dir", edit_chinook_references(tmp_path, correct_e01))
+    error = payload["error"]
+    rows = attrs_of(page, "exposure-codes", "data-code")
+    assert set(rows) == {error["code"]}
+    row = rows[error["code"]]
+    assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (code, error["stage"], set(error["details"]))
+
+
+def test_the_readme_and_the_chapters_no_longer_say_public_check_waits_for_the_journal():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "no freeze or Exposure journal" not in readme.lower()
+    assert "Exposure journal" in readme and "freeze record" in readme
+    for name in sorted((HANDBOOK / "chapters").glob("*.html")):
+        text = name.read_text(encoding="utf-8")
+        for stale in ("until the Exposure journal exists", "until #9's Exposure journal", "No freeze, no Exposure", "ASSESSMENT_PUBLIC_CHECK_REFUSED"):
+            assert stale not in text or name.name.startswith("12-"), (name.name, stale)
+    for name in ("02-temporal-regression-track.html", "03-agentic-track.html", "05-assessments.html", "07-comparison.html", "08-agent-answers.html"):
+        assert 'href="#freeze-exposure"' in (HANDBOOK / "chapters" / name).read_text(encoding="utf-8"), name

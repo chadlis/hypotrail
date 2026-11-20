@@ -83,15 +83,15 @@ def test_an_item_not_scored_on_one_side_is_refused_rather_than_dropped_from_the_
     assert details["control"] == {"expected": 182, "scored": 182} and details["candidate"] == {"expected": 182, "scored": 181}
 
 
-def test_a_comparison_of_public_check_items_is_refused_with_a_code(fresh):
+def test_a_comparison_of_a_dev_side_and_a_public_check_side_is_refused_as_two_populations_and_exposes_nothing(fresh):
+    # #73 lifted the refusal of public_check inside a Study (tests/test_exposure.py); two Partitions are still not one population
     study, attempts, control, candidate = fresh
     hidden = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "public_check"})
     on_public = forged(study, candidate, lambda r: r.update(observation_set_id=hidden))
     before = snapshot(study)
     code, payload, _ = compare(study, control["assessment_id"], on_public["assessment_id"])
-    assert code == 2
-    assert payload["error"]["code"] == "PUBLIC_CHECK_COMPARISON_REFUSED"
-    assert snapshot(study) == before
+    assert (code, payload["error"]["code"], payload["error"]["details"]["check"]) == (3, "COMPARISON_POPULATION_DIFFERS", "population")
+    assert snapshot(study) == before and not (study / "exposures").exists()
 
 
 def test_a_comparison_of_a_partition_other_than_dev_is_refused(fresh):

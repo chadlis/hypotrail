@@ -148,6 +148,9 @@
         "previous_revision": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "check_informed": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -1090,6 +1093,10 @@
           "type": "string",
           "minLength": 1
         },
+        "revision_number": {
+          "type": "integer",
+          "minimum": 1
+        },
         "protocol_digest": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
@@ -1155,6 +1162,7 @@
         "schema_version",
         "freeze_id",
         "study_id",
+        "revision_number",
         "protocol_digest",
         "configuration_digests",
         "environment",

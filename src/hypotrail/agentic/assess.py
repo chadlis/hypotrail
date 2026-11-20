@@ -13,8 +13,10 @@ The order is fixed, and nothing is written before the checks that precede it:
    the Observation set's domain (`UNSUPPORTED_CAPABILITY`, exit 2);
 2. every artifact read (raw answers, normalized Observations, population, References, answer
    schema) is read back against its digest (`ARTIFACT_INTEGRITY`, exit 3);
-3. the Partition of the Episodes is `dev` (`ASSESSMENT_PUBLIC_CHECK_REFUSED`, until the Exposure
-   journal of #9 exists, `ASSESSMENT_PARTITION_NOT_DEV`);
+3. the Partition of the Episodes is `dev` or `public_check` (`ASSESSMENT_PARTITION_NOT_DEV` otherwise). An Assessment of
+   `public_check` Episodes is an Exposure: once the structure of the Observation set has passed, and before any
+   Episode is scored, the Study's freeze record is written if the revision has none and one journal entry is
+   appended (`hypotrail.core.exposure`; `PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's);
 4. every expected Episode gets a state for each of the four Criteria, with a Reason for every
    non-score: an answer is scored (a `final_answer` object as its canonical JSON text), a `failed`
    Episode is `unscored` with `execution_failed`, a `missing` one with `observation_missing`;
@@ -38,11 +40,11 @@ from pathlib import Path
 
 from hypotrail.agentic.counts import counters
 from hypotrail.agentic.unproduced import criteria_of_unproduced
-from hypotrail.core import artifacts, canonical, contracts, lock, rescoring, revisions, scorers
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers
 from hypotrail.core import study as layout
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.partitions import require_dev
+from hypotrail.ml.partitions import requires_exposure
 
 STAGE = "assess"
 PER_ITEM_COLUMNS = ["case_id", "repeat", "execution_status", "answer_given_as", "answer_read_from", "criterion", "state", "score", "reason"]
@@ -132,18 +134,19 @@ def _per_item_csv(verdicts: list) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
+def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
-    Holds the Study's writer lock for the whole command: a second writer is refused at once.
+    Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
+    read only for an Assessment of `public_check` Episodes, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study):
-        return _assess_locked(study, observation_set_id, scorer_id, references_id)
+        return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
 
 
-def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
+def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -152,7 +155,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         raise _refuse(
             "OBSERVATION_SET_NOT_FOUND", f"the Study keeps no Observation set {observation_set_id!r}", observation_set_id=str(observation_set_id)
         )
-    observation_set, _ = found
+    observation_set, manifest = found
     references = next((e["ref"] for e in spec["artifacts"] if e["artifact_id"] == references_id and e["ref"]["role"] == "references"), None)
     if references is None:
         raise _refuse(
@@ -183,7 +186,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     partition = observation_set["provenance"].get("partition")
     if partition is None:
         raise _refuse("OBSERVATIONS_INVALID", "the Observation set names no Partition", problem="unknown_partition")
-    require_dev(partition, public_check_code="ASSESSMENT_PUBLIC_CHECK_REFUSED", not_dev_code="ASSESSMENT_PARTITION_NOT_DEV", what="an Assessment", stage=STAGE)
+    exposed = requires_exposure(partition, not_dev_code="ASSESSMENT_PARTITION_NOT_DEV", what="an Assessment", stage=STAGE)
 
     expected = _expected(population)
     observed = {}
@@ -197,6 +200,9 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     stray = sorted(set(observed) - set(expected))
     if stray:
         raise _refuse("OBSERVATIONS_INVALID", f"{stray[0]} is not an Episode of the population", problem="unexpected_item", case_id=stray[0][0], repeat=stray[0][1])
+    assessment_id = str(uuid.uuid4())
+    if exposed:  # before any Episode is scored
+        exposure.record(study, spec, examples_dir=examples_dir, attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
     reference_of = {record["case_id"]: record for record in _lines(references_bytes)}
 
     verdicts = [_verdict(observed.get(key), key, reference_of, schema) for key in expected]  # a fixed order, whatever the file order
@@ -216,7 +222,6 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         "criteria": {name: {"counts": _counts(verdicts, name), "metrics": _rates(_counts(verdicts, name))} for name in secondary},
     }
 
-    assessment_id = str(uuid.uuid4())
     folder = f"{layout.ASSESSMENTS_DIR}/{assessment_id}"
     per_item = _per_item_csv(verdicts)
     per_item_ref = {
@@ -246,6 +251,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         "metrics": _rates(counts),
         "limitations": list(LIMITATIONS),
         "study_revision": revisions.identity(spec),
+        **exposure.marks(study, [manifest]),
         "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "rescoring": rescoring.describe(
             study,

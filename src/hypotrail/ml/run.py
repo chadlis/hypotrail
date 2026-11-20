@@ -17,6 +17,9 @@ The order is fixed, and nothing is computed before the checks that precede it:
 
 An Attempt stopped between the running manifest and the terminal one keeps what it published and
 is never shown as completed.
+
+After the Study's first Exposure, an Attempt whose Configuration the freeze record does not hold is marked
+`check_informed`; it is not refused (`hypotrail.core.exposure`).
 """
 
 import csv
@@ -27,7 +30,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
+from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, lock, requests
 from hypotrail.core.attempts import ITEM_STATUSES, now as _now, record_failure as _record_failure, verify_recorded as _verify_recorded
 from hypotrail.core import study as layout
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
@@ -181,6 +184,8 @@ def _run_locked(
         "code_environment": code_environment,
         "outcome_unknown": False,
         "retry_of": retry_of,
+        # a Configuration whose digest the freeze record of the Study's first Exposure does not hold (hypotrail.core.exposure)
+        **exposure.marks(study, [{"effective_config": effective_config}]),
     }
     contracts.validate(manifest)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))

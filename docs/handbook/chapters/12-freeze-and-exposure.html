@@ -1,0 +1,126 @@
+<!-- chapter: id=freeze-exposure; kicker=Core; title=Freeze, Exposure and check_informed; accent=teal -->
+<p class="lead">A Study may use its <code>public_check</code> Partition, and it records every use. Before the first use in a Study revision, the revision holds a <b>freeze record</b>: the digests of its Protocol, of every Configuration the Workload declares, of the environment and of the code. Every Assessment or Comparison that touches <code>public_check</code> Items, native or imported, for either Track, is an <b>Exposure</b> and is appended to the Study's <b>journal</b>. What the first Exposure may have informed is marked <code>check_informed</code>. A Study with no journal entry says that it recorded no Exposure and that any earlier exposure is unknown; nothing here claims that <code>public_check</code> was never seen.</p>
+
+<p class="sub2">What the commands do</p>
+<div class="prose">
+<p>No new command exists. <code>assess</code> and <code>compare</code> do the work, in <code>src/hypotrail/ml/assess.py</code>, <code>src/hypotrail/agentic/assess.py</code>, <code>src/hypotrail/core/comparison.py</code> and <code>src/hypotrail/core/agent_comparison.py</code>; the freeze record, the journal and the marks are in <code>src/hypotrail/core/exposure.py</code>, a core module (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>). Both commands take an optional <code>--examples-dir</code>, read only when the Items are <code>public_check</code> ones, to digest the Workload as it is declared now (default: the repository's <code>examples/</code>).</p>
+<ol>
+<li>The usual checks run first (chapters 05, 07, 08 and 11). A refusal there writes nothing.</li>
+<li>For <code>public_check</code> Items, the Workload's Protocol is digested again and compared with the one the current revision froze. A difference is refused with <code>PROTOCOL_CHANGED</code> (exit 3) and nothing is written: a Protocol change is made with <code>init --study DIR --new-revision</code> (<a href="#revisions-rescoring">chapter 10</a>).</li>
+<li>If the revision has no freeze record, it is written now, before anything is computed on <code>public_check</code> Items. It is never rewritten, and a revision gets its own at its own first use.</li>
+<li>One journal entry is appended, pointing to that freeze record, and only then are the Items scored or paired. The entry is published atomically under the writer lock and never rewritten. An Assessment lists its Attempt and its own ID; a Comparison lists the Attempts and the Assessments of both sides and its own ID.</li>
+</ol>
+<p>An entry written for a Comparison that is then refused at its <code>coverage</code> check stays: the Items were read, and the journal is not rewritten. Its Comparison ID names no Comparison. <code>run ml</code> on <code>public_check</code> is not an Exposure: it produces predictions and scores nothing.</p>
+</div>
+<pre class="code"><span class="cm"># an Attempt on public_check, then its Assessment: the first Exposure of the Study</span>
+uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition public_check --request-id ml-public-a
+uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references REFERENCES_ID
+<span class="cm"># the freeze record, the journal and every check_informed mark</span>
+uv run python -m hypotrail status --study runs/bike --json</pre>
+
+<p class="sub2">Where public_check is allowed</p>
+<div class="prose">
+<p>Inside a Study, <code>assess</code> and <code>compare</code> accept <code>public_check</code> Items for both Tracks: the 184 Bike Items for <code>seasonal_7</code> and <code>ridge_v1</code>, and the 12 Chinook <code>public_check</code> Cases of an imported file, three Repeats each. A Partition other than <code>dev</code> and <code>public_check</code> (<code>train</code>) is refused as before. An entry point that has no Study keeps its refusal, because it has no journal to write to.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="exposure-entry-points"><thead><tr><th>Entry point</th><th>In a Study</th><th>On <code>public_check</code></th><th>Refusal code without a Study</th></tr></thead><tbody>
+<tr data-entry="assess" data-study="yes" data-writes="journal" data-code=""><td><code>assess</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
+<tr data-entry="compare" data-study="yes" data-writes="journal" data-code=""><td><code>compare</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
+<tr data-entry="run ml" data-study="yes" data-writes="" data-code=""><td><code>run ml</code></td><td>yes</td><td>allowed, not an Exposure: no score is computed</td><td>none</td></tr>
+<tr data-entry="metrics.compute_metrics" data-study="no" data-writes="" data-code="PUBLIC_CHECK_METRICS_REFUSED"><td><code>hypotrail.ml.metrics.compute_metrics</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code></td></tr>
+<tr data-entry="comparison.compare" data-study="no" data-writes="" data-code="PUBLIC_CHECK_COMPARISON_REFUSED"><td><code>hypotrail.ml.comparison.compare</code> (two predictions files)</td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
+<tr data-entry="rescore" data-study="no" data-writes="" data-code="PUBLIC_CHECK_RESCORING_REFUSED"><td><code>rescore.rescore_episodes</code> and <code>rescore.rescore_log</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_RESCORING_REFUSED</code></td></tr>
+<tr data-entry="counts.tally" data-study="no" data-writes="" data-code="PUBLIC_CHECK_COUNTS_REFUSED"><td><code>counts.tally</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_COUNTS_REFUSED</code></td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>Inside a Study, the rescoring and the counts of the agent Track are those of <code>assess</code>: it scores each Episode and counts the Criteria. The library functions of chapter 03 take no Study, so they keep their refusal.</p>
+</div>
+
+<p class="sub2">The freeze record</p>
+<div class="prose">
+<p>One file per revision, <code>revisions/N/freeze.json</code>, beside that revision's StudySpec. It holds the digest of the Protocol, of each Configuration the Workload declares (<code>seasonal_7</code> and <code>ridge_v1</code> for the Bike, <code>plain</code> and <code>verify</code> for Chinook), of the environment (Python and the dependency lock) and of the code (revision and dirty state). A Configuration's digest is the one of its declared content, as an Attempt records it in <code>effective_config.configuration.declared</code>; a Chinook Configuration's also covers the system text it resolves to, so a change to <code>plain</code> changes <code>verify</code> too.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="freeze-fields"><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="kind" data-where="freeze"><td><code>kind</code></td><td><code>freeze</code></td></tr>
+<tr data-field="schema_version" data-where="freeze"><td><code>schema_version</code></td><td><code>freeze/1</code></td></tr>
+<tr data-field="freeze_id" data-where="freeze"><td><code>freeze_id</code></td><td>The ID every journal entry of the revision points to</td></tr>
+<tr data-field="study_id" data-where="freeze"><td><code>study_id</code></td><td>The Study</td></tr>
+<tr data-field="revision_number" data-where="freeze"><td><code>revision_number</code></td><td>The revision this record freezes</td></tr>
+<tr data-field="protocol_digest" data-where="freeze"><td><code>protocol_digest</code></td><td>The revision's own Protocol digest</td></tr>
+<tr data-field="configuration_digests" data-where="freeze"><td><code>configuration_digests</code></td><td>One digest per Configuration the Workload declares, by name</td></tr>
+<tr data-field="environment" data-where="freeze"><td><code>environment</code></td><td>The interpreter and the dependency lock</td></tr>
+<tr data-field="code" data-where="freeze"><td><code>code</code></td><td>The code revision and whether the tree was dirty</td></tr>
+<tr data-field="recorded_at" data-where="freeze"><td><code>recorded_at</code></td><td>When it was written</td></tr>
+<tr data-field="python" data-where="environment"><td><code>environment.python</code></td><td>The interpreter's version</td></tr>
+<tr data-field="dependency_lock_sha256" data-where="environment"><td><code>environment.dependency_lock_sha256</code></td><td>The SHA-256 of <code>uv.lock</code>, or null when the lock is not around the code</td></tr>
+<tr data-field="revision" data-where="code"><td><code>code.revision</code></td><td>The commit, or null with no commit</td></tr>
+<tr data-field="dirty" data-where="code"><td><code>code.dirty</code></td><td>True when <code>src/</code>, <code>pyproject.toml</code> or <code>uv.lock</code> differ from the commit, or when that cannot be known</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The journal</p>
+<div class="prose">
+<p>One file per entry, <code>exposures/SEQ-ENTRY_ID.json</code>, <code>SEQ</code> being its six-digit position. The journal belongs to the Study, not to a revision: its first entry is the Study's first Exposure, whatever the revision.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="entry-fields"><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="kind"><td><code>kind</code></td><td><code>exposure</code></td></tr>
+<tr data-field="schema_version"><td><code>schema_version</code></td><td><code>exposure/1</code></td></tr>
+<tr data-field="entry_id"><td><code>entry_id</code></td><td>The entry's ID</td></tr>
+<tr data-field="freeze_id"><td><code>freeze_id</code></td><td>The freeze record of the revision current at the time, written before this entry</td></tr>
+<tr data-field="recorded_at"><td><code>recorded_at</code></td><td>When it was appended</td></tr>
+<tr data-field="attempt_ids"><td><code>attempt_ids</code></td><td>The Attempts whose Observation sets were scored or compared</td></tr>
+<tr data-field="assessment_ids"><td><code>assessment_ids</code></td><td>The Assessment written, or the two compared</td></tr>
+<tr data-field="comparison_ids"><td><code>comparison_ids</code></td><td>The Comparison written; empty for an Assessment</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="exposure-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
+<tr data-path="revisions/N/freeze.json" data-written-by="assess compare"><td><code>revisions/N/freeze.json</code></td><td>the first <code>assess</code> or <code>compare</code> on <code>public_check</code> Items under revision N</td><td>The freeze record. Written once.</td></tr>
+<tr data-path="exposures/SEQ-ENTRY_ID.json" data-written-by="assess compare"><td><code>exposures/SEQ-ENTRY_ID.json</code></td><td>every <code>assess</code> or <code>compare</code> on <code>public_check</code> Items</td><td>One journal entry. Never rewritten.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">check_informed</p>
+<div class="prose">
+<p>Two things are marked. A <b>revision</b> created after the Study's first Exposure is marked, and every later one too; each revision takes its own freeze record at its own first use of <code>public_check</code>; earlier revisions and their records stay readable and unchanged. A <b>Configuration</b> whose digest is not in the freeze record written before the Study's first Exposure, whatever the revision, marks every Attempt, Assessment and Comparison that uses it. A Configuration changed or added after that point is a new revision of the Configuration, identified by its new digest: it is not refused and needs no new Study revision, which is for Protocol changes only. A Configuration the freeze holds unchanged is not marked.</p>
+<p>An Import has no Configuration digest, so it is never marked through a Configuration, and its producer's exposure to <code>public_check</code> stays <code>unknown</code> (<code>saw_public_check</code>, chapters 06 and 08). The marks are shown by <code>status</code> and, in a report, by #10.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="check-informed-marks"><thead><tr><th>Record</th><th>Kind in <code>status</code></th><th>Marked when</th></tr></thead><tbody>
+<tr data-record="StudySpec" data-kind="revision"><td>Study revision (<code>study.json</code>)</td><td><code>revision</code></td><td>It is created after the Study's first Exposure</td></tr>
+<tr data-record="AttemptManifest" data-kind="attempt"><td>Attempt manifest</td><td><code>attempt</code></td><td>Its Configuration's digest is not in the first freeze record, or it is marked already</td></tr>
+<tr data-record="Assessment" data-kind="assessment"><td>Assessment</td><td><code>assessment</code></td><td>Its Attempt is marked, or its Attempt's Configuration is one the first freeze record does not hold</td></tr>
+<tr data-record="Comparison" data-kind="comparison"><td>Comparison</td><td><code>comparison</code></td><td>A side's Assessment or Attempt is marked, or a side's Configuration is one the first freeze record does not hold</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What status shows</p>
+<div class="prose">
+<p><code>status</code> reads these records and writes nothing. With no journal entry, it reports zero Exposures recorded in this Study and says that any earlier exposure is unknown.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="exposure-status"><thead><tr><th>Key of <code>status --json</code></th><th>Content</th></tr></thead><tbody>
+<tr data-field="freeze_records" data-where="status"><td><code>freeze_records</code></td><td>The freeze records, one per revision that has used <code>public_check</code></td></tr>
+<tr data-field="exposures" data-where="status"><td><code>exposures</code></td><td>The journal</td></tr>
+<tr data-field="check_informed" data-where="status"><td><code>check_informed</code></td><td>Every marked record, as <code>kind</code> and <code>id</code> (a revision also has <code>revision_number</code>)</td></tr>
+<tr data-field="recorded_in_this_study" data-where="exposures"><td><code>exposures.recorded_in_this_study</code></td><td>The number of entries</td></tr>
+<tr data-field="earlier_exposure" data-where="exposures"><td><code>exposures.earlier_exposure</code></td><td><code>unknown</code>, always: no local lock proves that the user or an Import's producer never saw <code>public_check</code></td></tr>
+<tr data-field="statement" data-where="exposures"><td><code>exposures.statement</code></td><td>That sentence in words</td></tr>
+<tr data-field="entries" data-where="exposures"><td><code>exposures.entries</code></td><td>The journal entries, in order</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="prose">
+<p>The refusals of chapters 05, 07, 08 and 11 apply as they are, except that <code>ASSESSMENT_PUBLIC_CHECK_REFUSED</code> and, inside a Study, <code>PUBLIC_CHECK_COMPARISON_REFUSED</code> are gone. A Comparison of a <code>dev</code> side and a <code>public_check</code> side is refused as two populations (<code>COMPARISON_POPULATION_DIFFERS</code>). <code>STUDY_LOCKED</code> (exit 6) and the integrity refusals are those of chapter 04. One code is new. With <code>--json</code>, the error has <code>code</code>, <code>message</code>, <code>stage</code> and <code>details</code>, and stdout holds one object.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="exposure-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="PROTOCOL_CHANGED" data-exit="3" data-stage="exposure" data-details="actual_protocol_digest expected_protocol_digest"><td><code>PROTOCOL_CHANGED</code></td><td>An <code>assess</code> or <code>compare</code> on <code>public_check</code> Items finds that the Workload's Protocol is not the current revision's. <code>run</code> and <code>import</code> refuse the same fault at the stage <code>request</code> (chapter 04)</td><td>3</td><td><code>exposure</code></td><td><code>expected_protocol_digest</code>, <code>actual_protocol_digest</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--sky)"><h3>Not a proof of non-exposure</h3><p>No lock can prove that the user never read the public CSV elsewhere, and a new Study is not evidence that <code>public_check</code> was unseen. The journal records what this Study did.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>No report, no live campaign</h3><p>The report's Exposure section, its display of <code>check_informed</code> and the live campaign on <code>public_check</code> are issue #10. No path here calls a model.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>A revision is not marked into its Assessments</h3><p>An Assessment made under a <code>check_informed</code> revision is not itself marked unless a Configuration marks it. The revision's own mark is in <code>status</code>.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>Exposure before the score</h3><p>The entry is written before the Items are scored or paired, so a crash between the entry and the Assessment leaves an entry whose Assessment ID names no Assessment. The journal errs on the side of recording.</p></div>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-exposure"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the freeze record, the journal and the Assessment and Comparison that write them are core, and import neither scikit-learn nor Inspect.</td></tr>
+<tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles, and why a Configuration, which the Workload declares, is digested apart from the Protocol.</td></tr>
+<tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
+<p class="prose">The tests are <code>tests/test_exposure.py</code> and the tables above are compared with the code in <code>tests/test_handbook.py</code>; they run offline and call no model.</p>

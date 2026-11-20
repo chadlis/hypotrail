@@ -21,7 +21,7 @@ SPEC_FIELDS = {
 
 # What the Tightened lines and acceptance criteria of #64 to #73 name, one entry each (A2).
 TICKET_FIELDS = {
-    "StudySpec": "workload artifacts",  # #64: the Workload by name and the Study artifacts, each with an ID
+    "StudySpec": "workload artifacts check_informed",  # #64: the Workload by name and the Study artifacts, each with an ID; #73: a revision created after the first Exposure
     "AttemptManifest": "item_counts output_refs reason check_informed",  # #64 C; #65 B; #73
     "Assessment": "rescoring check_informed primary_criterion unknowns operational_errors detailed_metrics_ref",  # #70: the earlier Assessment, the cause, the changed Items; #73; #68 K2, CMP-04, G: the primary Criterion, the unknowns beside the rates, failed and missing Episodes apart, the secondary Criteria
     "Comparison": "roles declared_factor descriptive check_informed delta code_environment warnings secondary_deltas primary_criterion matrix_ref rates",  # #71 Control and Candidate, the delta, ID-03, the scope warning; #72 factor; CMP-06; #72 the matrix, the rates, the secondary deltas

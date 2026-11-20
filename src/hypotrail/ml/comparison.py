@@ -6,8 +6,8 @@ exactly the same Items: there is no silent intersection (SPEC CMP-02). The
 metrics are those of `metrics.summarise`, over the same scored Items as the
 differences. `delta_mae` is `MAE(Candidate) - MAE(Control)` from the two reported
 MAEs: a positive value means the Candidate is worse, and no sign is required. The strict comparability checks belong to a later
-contract. A Comparison is computed on `dev` only; a request on `public_check` is refused until the Exposure journal
-exists (SPEC section 2).
+contract. This file-based function takes no Study: it computes on `dev` only, and a request on `public_check` is refused. Inside a
+Study, `compare` accepts `public_check` and journals the Exposure (SPEC section 2).
 """
 
 import json

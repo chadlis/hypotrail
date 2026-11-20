@@ -90,6 +90,24 @@ def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
     }
 
 
+def freeze_basis(spec: dict, source: Path) -> dict:
+    """What a freeze record takes of the Workload as it is declared now (`hypotrail.core.exposure`).
+
+    The Protocol digest is computed as `import agent` computes it, from the bytes of the Workload's files. A
+    Configuration's digest covers what it declares and the exact system text it resolves to, so a changed
+    base Configuration changes the digest of the one that extends it.
+    """
+    workload = load_workload(source)
+    protocol = protocol_content(workload, dataset_sha256=data.sha256_file(workload.database_path))
+    declared = workload.declaration.get("configurations", {})
+    return {
+        "protocol_digest": canonical.digest(protocol),
+        "configuration_digests": {
+            name: canonical.digest({"declared": declared[name], "system_text": workload.system_text(name)}) for name in sorted(declared)
+        },
+    }
+
+
 def _exists(study: Path) -> InvalidInputError:
     return InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
 

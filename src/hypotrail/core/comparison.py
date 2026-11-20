@@ -8,18 +8,22 @@ The checks run in a fixed order over what the two Assessments record; nothing is
 one has passed (SPEC CMP-01, CMP-02, T12):
 
 1. both Assessments exist in the Study, and everything read is read back against its digest (exit 2, 3);
-2. neither side touches `public_check` (`PUBLIC_CHECK_COMPARISON_REFUSED`: lifting it belongs to the
-   Exposure ticket of #9);
-3. `population`: the same Partition and the same population artifact;
-4. the Partition is `dev` (`COMPARISON_PARTITION_NOT_DEV`);
-5. `references`: the same References set (by digest);
-6. `scorer`: the same Scorer id, version and configuration digest;
-7. `unit`: the same unit of the Metric;
-8. `items`: the same Items, aligned by `row_id`. Two Assessments whose Items differ by even one are
+2. `population`: the same Partition and the same population artifact;
+3. the Partition is `dev` or `public_check` (`COMPARISON_PARTITION_NOT_DEV` otherwise);
+4. `references`: the same References set (by digest);
+5. `scorer`: the same Scorer id, version and configuration digest;
+6. `unit`: the same unit of the Metric;
+7. `items`: the same Items, aligned by `row_id`. Two Assessments whose Items differ by even one are
    refused with the counts on each side; no intersection is ever computed;
-9. `mode`: the same Mode of production. A side that is an Import (`external_unknown`) does not refuse:
+8. `mode`: the same Mode of production. A side that is an Import (`external_unknown`) does not refuse:
    the Comparison is then `descriptive_only` and carries a warning on its scope;
-10. `coverage`: every Item is scored on both sides, so the paired differences hide no missing Item.
+9. `coverage`: every Item is scored on both sides, so the paired differences hide no missing Item.
+
+A Comparison of `public_check` Items is an Exposure (`hypotrail.core.exposure`): once the Items and the Mode
+have been checked, and before the paired differences are computed, the Study's freeze record is written if the
+revision has none and one journal entry names the Comparison and the Assessments and Attempts of both sides
+(`PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's). A Comparison refused
+at `coverage` after that leaves its entry: the Exposure had happened. Its ID names no Comparison.
 
 A refused check raises its own code (exit 3) whose details carry the `check`, its Reason code, the
 values of both sides and the checks evaluated so far, and writes no Comparison. `delta` is the Metric of
@@ -32,7 +36,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, lock
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -181,11 +185,12 @@ def import_scope_warning(imports: list) -> dict:
     return {"code": WARNING_DESCRIPTIVE, "message": message}
 
 
-def compare(study, control_id: str, candidate_id: str, factor: str | None = None) -> dict:
+def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, examples_dir=None) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
-    writer lock for the whole command: a second writer is refused at once.
+    writer lock for the whole command: a second writer is refused at once. `examples_dir` is read only for a
+    Comparison of `public_check` Items, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
@@ -197,26 +202,41 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             details={"factor": factor, "study_domain": spec["domain"]},
         )
     with lock.writer_lock(study):
-        return _compare_locked(study, control_id, candidate_id, factor)
+        return _compare_locked(study, control_id, candidate_id, factor, examples_dir)
 
 
-def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None) -> dict:
+def check_partition(partition) -> bool:
+    """True for `public_check` (the Comparison is an Exposure), False for `dev`; any other Partition is refused."""
+    if partition in (DEV, PUBLIC_CHECK):
+        return partition == PUBLIC_CHECK
+    raise InvalidInputError(
+        "COMPARISON_PARTITION_NOT_DEV",
+        f"a Comparison is computed on {DEV} or {PUBLIC_CHECK} only, not on {partition!r}",
+        stage=STAGE,
+        details={"partition": partition},
+    )
+
+
+def record_exposure(study: Path, control: dict, candidate: dict, comparison_id: str, examples_dir) -> None:
+    """Append the journal entry of a Comparison of `public_check` Items, before the Comparison computes on them."""
+    exposure.record(
+        study,
+        layout.read_spec(study),
+        examples_dir=examples_dir,
+        attempt_ids=[side["manifest"]["attempt_id"] for side in (control, candidate)],
+        assessment_ids=[side["assessment"]["assessment_id"] for side in (control, candidate)],
+        comparison_ids=[comparison_id],
+    )
+
+
+def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None, examples_dir) -> dict:
     control = _side(study, "control", control_id)
     candidate = _side(study, "candidate", candidate_id)
-
-    for side in (control, candidate):
-        if side["partition"] == PUBLIC_CHECK:
-            raise InvalidInputError(
-                "PUBLIC_CHECK_COMPARISON_REFUSED",
-                f"a Comparison on {PUBLIC_CHECK} is refused: no Exposure journal exists yet",
-                stage=STAGE,
-                details={"partition": PUBLIC_CHECK, "role": side["role"]},
-            )
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
-        return agent_comparison.compare_sides(study, control, candidate, factor)
+        return agent_comparison.compare_sides(study, control, candidate, factor, examples_dir)
 
     for side in (control, candidate):
         side["items"] = {row["row_id"]: row for row in side["per_item"]}
@@ -237,13 +257,7 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
             "not the same population",
         )
     passed("population", True)
-    if control["partition"] != DEV:
-        raise InvalidInputError(
-            "COMPARISON_PARTITION_NOT_DEV",
-            f"a Comparison is computed on {DEV} only, not on {control['partition']!r}",
-            stage=STAGE,
-            details={"partition": control["partition"]},
-        )
+    exposed = check_partition(control["partition"])
 
     ca, da = control["assessment"], candidate["assessment"]
     check_assessments(control, candidate, checks)
@@ -276,6 +290,9 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
     else:
         passed("mode", True)
 
+    comparison_id = str(uuid.uuid4())
+    if exposed:  # before any paired difference is computed
+        record_exposure(study, control, candidate, comparison_id, examples_dir)
     row_ids = sorted(control["items"])
     paired = []
     scored = {"control": 0, "candidate": 0}
@@ -313,7 +330,6 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
         warnings.append(warning)
         limitations.append(warning["message"])
 
-    comparison_id = str(uuid.uuid4())
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
     population = {
         "partition": control["partition"],
@@ -342,6 +358,7 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
         "paired_deltas_ref": paired_ref,
         "coverage": coverage,
         "delta": {"metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"], "definition": DELTA_DEFINITION},
+        **exposure.marks(study, [control["manifest"], candidate["manifest"]], [ca, da]),
         "code_environment": environment,
         "warnings": warnings,
         "limitations": limitations,

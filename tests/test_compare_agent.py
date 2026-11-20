@@ -295,15 +295,15 @@ def rewritten(study, assessment, edit):
 # --- AC7: public_check ------------------------------------------------------------------------------------------------------------
 
 
-def test_a_comparison_of_public_check_episodes_is_refused_with_a_code_until_the_exposure_ticket(tmp_path, study):
+def test_a_comparison_of_a_dev_side_and_a_public_check_side_is_refused_as_two_populations_and_exposes_nothing(tmp_path, study):
+    # #73 lifted the refusal of public_check inside a Study (tests/test_exposure.py); two Partitions are still not one population
     seed, assessment = imported(tmp_path, study, "seed", answer_lines())
-    _, hidden = native(study, seed, partition="public_check", assessed=False)  # `assess` refuses it: the Assessment is forged
+    _, hidden = native(study, seed, partition="public_check", assessed=False)
     on_public = rewritten(study, assessment, lambda r: r.update(observation_set_id=hidden))
     before = snapshot(study)
     code, payload, _ = compare(study, assessment, on_public)
-    assert (code, payload["error"]["code"], payload["error"]["stage"]) == (2, "PUBLIC_CHECK_COMPARISON_REFUSED", "compare")
-    assert payload["error"]["details"] == {"partition": "public_check", "role": "candidate"}
-    assert snapshot(study) == before
+    assert (code, payload["error"]["code"], payload["error"]["stage"]) == (3, "COMPARISON_POPULATION_DIFFERS", "compare")
+    assert snapshot(study) == before and not (Path(study) / "exposures").exists()
 
 
 def test_a_partition_other_than_dev_is_refused(tmp_path, study):

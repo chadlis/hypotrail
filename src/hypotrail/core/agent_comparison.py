@@ -8,7 +8,8 @@ The checks run in a fixed order over what the two Assessments record; nothing is
 passed (SPEC CMP-01, CMP-02, T12). `AGENT_CHECKS` lists them:
 
 1. `population`: the same Partition and the same Cases (not the same Episodes: a difference in Repeats has its own check);
-2. the Partition is `dev` (`COMPARISON_PARTITION_NOT_DEV`);
+2. the Partition is `dev` or `public_check` (`COMPARISON_PARTITION_NOT_DEV` otherwise); a `public_check` Comparison is an
+   Exposure, recorded in the journal once every check has passed (`hypotrail.core.exposure`);
 3. `references`, `scorer`, `unit`: as for the bike (`comparison.check_assessments`);
 4. `repeats`: the same planned Repeats for each Case;
 5. `tools`, `model`, `budgets`: the same tools, model and budgets, each where both sides establish it. A native
@@ -36,20 +37,20 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts
+from hypotrail.core import artifacts, canonical, contracts, exposure
 from hypotrail.core import study as layout
 from hypotrail.core.comparison import (
-    DEV,
     EXTERNAL_MODE,
     REASON_PROVENANCE,
     REFUSALS,
     STAGE,
     _refuse,
     check_assessments,
+    check_partition,
     describe_environments,
     import_scope_warning,
+    record_exposure,
 )
-from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.factors import DEFAULT_FACTOR, FACTORS  # noqa: F401
 
 AGENT_CHECKS = ("population", "references", "scorer", "unit", "repeats", "tools", "model", "budgets", "mode")
@@ -228,8 +229,12 @@ def _rate(scored: int, expected: int):
     return scored / expected if expected else None
 
 
-def compare_sides(study: Path, control: dict, candidate: dict, factor: str | None) -> dict:
-    """Write and return the Comparison of two agent sides (`hypotrail.core.comparison` has read them and refused `public_check`)."""
+def compare_sides(study: Path, control: dict, candidate: dict, factor: str | None, examples_dir=None) -> dict:
+    """Write and return the Comparison of two agent sides (`hypotrail.core.comparison` has read them).
+
+    A Comparison of `public_check` Episodes is an Exposure: its journal entry is appended once the checks have passed
+    and before the Episodes are paired (`hypotrail.core.comparison.record_exposure`).
+    """
     declared = factor or DEFAULT_FACTOR
     checks = []
     populations = {"control": _population(study, control), "candidate": _population(study, candidate)}
@@ -243,13 +248,7 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
             f"the Control is on {control['partition']!r} and the Candidate on {candidate['partition']!r}, or the two cover other Cases: not the same population",
         )
     checks.append({"check": "population", "passed": True, "reason": None})
-    if control["partition"] != DEV:
-        raise InvalidInputError(
-            "COMPARISON_PARTITION_NOT_DEV",
-            f"a Comparison is computed on {DEV} only, not on {control['partition']!r}",
-            stage=STAGE,
-            details={"partition": control["partition"]},
-        )
+    exposed = check_partition(control["partition"])
 
     check_assessments(control, candidate, checks)
     _check_repeats(control, candidate, populations, checks, declared)
@@ -258,6 +257,9 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
     imports = _check_mode(control, candidate, checks)
     assert [c["check"] for c in checks] == list(AGENT_CHECKS)
 
+    comparison_id = str(uuid.uuid4())
+    if exposed:  # before any Episode is paired
+        record_exposure(study, control, candidate, comparison_id, examples_dir)
     ca, da = control["assessment"], candidate["assessment"]
     primary = ca["primary_criterion"]
     side_episodes = {"control": _episodes(control), "candidate": _episodes(candidate)}
@@ -301,7 +303,6 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
     limitations.extend(w["message"] for w in warnings)
     descriptive = bool(imports) or any(not c["passed"] for c in checks)
 
-    comparison_id = str(uuid.uuid4())
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
     population = {"partition": control["partition"], "count": len(keys), "cases": populations["control"]["cases"], "episodes": [list(key) for key in keys]}
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
@@ -335,6 +336,7 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
             side["role"]: {"metrics": side["assessment"]["metrics"], "unknowns": side["assessment"]["unknowns"], "operational_errors": side["assessment"]["operational_errors"]}
             for side in (control, candidate)
         },
+        **exposure.marks(study, [control["manifest"], candidate["manifest"]], [ca, da]),
         "declared_factor": declared,
         "descriptive": {"control": _measures(study, control), "candidate": _measures(study, candidate)},
         "code_environment": environment,

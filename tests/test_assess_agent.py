@@ -305,15 +305,14 @@ def test_the_assessment_layout_is_the_three_files_and_assessment_json_is_written
 # --- AC7: public_check ---------------------------------------------------------------------------------------------------------
 
 
-def test_an_assessment_of_public_check_items_is_refused_with_a_code_and_writes_nothing(tmp_path):
+def test_an_assessment_of_public_check_items_is_an_exposure_and_writes_its_journal_entry(tmp_path):
+    # #73 lifted the refusal inside a Study; tests/test_exposure.py holds the rest of the rules
     keys = [("E01", 0), ("E11", 0)]
     study, observation_set = imported(tmp_path, [line(c, status="missing") for c, _ in keys], keys=keys)
-    before = snapshot(study)
-    code, payload, _ = assess(study, observation_set, references_id(study))
-    assert code == EXIT_INVALID_INPUT == 2
-    error = error_of(payload)
-    assert (error["code"], error["stage"], error["details"]) == ("ASSESSMENT_PUBLIC_CHECK_REFUSED", "assess", {"partition": "public_check"})
-    assert snapshot(study) == before
+    code, payload, err = assess(study, observation_set, references_id(study))
+    assert code == 0, (payload, err)
+    (entry,) = [json.loads(p.read_text()) for p in (Path(study) / "exposures").glob("*.json")]
+    assert entry["assessment_ids"] == [payload["assessment"]["assessment_id"]]
 
 
 # --- refusals of the registry and of the Study ----------------------------------------------------------------------------------

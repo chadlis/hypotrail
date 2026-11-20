@@ -158,12 +158,15 @@ def test_an_assessment_on_dev_is_scored_and_on_train_is_refused_with_a_code(kept
     assert set(p.name for p in (study / "assessments").iterdir()) == before
 
 
-def test_an_assessment_on_public_check_is_refused_with_its_own_code_while_run_ml_on_public_check_stays_allowed(tmp_path):
-    study, attempts = fresh_study(tmp_path, "seasonal_7", partition="public_check")  # not an Exposure: it is allowed
+def test_an_assessment_on_public_check_is_an_exposure_recorded_in_the_study_while_run_ml_on_public_check_is_not(tmp_path):
+    # #73 lifted the refusal inside a Study (tests/test_exposure.py): the Assessment is written with its journal entry
+    study, attempts = fresh_study(tmp_path, "seasonal_7", partition="public_check")  # not an Exposure
+    assert not (study / "exposures").exists()
     obs = observation_set_id(study, attempts["seasonal_7"])
-    error = refused(assess(study, obs, "regression_mae_v1", references_id(study)), "ASSESSMENT_PUBLIC_CHECK_REFUSED", EXIT_INVALID_INPUT)
-    assert error["details"] == {"partition": "public_check"}
-    assert not (study / "assessments").exists()
+    code, payload, err = assess(study, obs, "regression_mae_v1", references_id(study))
+    assert code == 0, (payload, err)
+    (entry,) = [json.loads(p.read_text()) for p in (study / "exposures").glob("*.json")]
+    assert entry["assessment_ids"] == [payload["assessment"]["assessment_id"]]
 
 
 # --- Tightened J: --json and errors -----------------------------------------------------------------------------------

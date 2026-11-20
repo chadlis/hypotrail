@@ -356,10 +356,10 @@ def test_without_inspect_a_log_import_is_refused_before_anything_is_written_and_
     assert "EXIT 0" in done.stdout and "LOADED []" in done.stdout, (done.stdout, done.stderr)
 
 
-# --- AC6: an Assessment of public_check Items stays refused ----------------------------------------------------------------
+# --- AC6: an Assessment of public_check Items is an Exposure of the Study (#73) -----------------------------------------------
 
 
-def test_an_assessment_of_a_logged_public_check_episode_is_refused_with_a_code(tmp_path, study):
+def test_an_assessment_of_a_logged_public_check_episode_is_recorded_in_the_exposure_journal(tmp_path, study):
     log = scripted_log(tmp_path, ("E01",), partition="public_check")
     attempt = imported(tmp_path, study, log, keys("E01"))
     assert attempt["effective_config"]["partition"] == "public_check"
@@ -367,7 +367,9 @@ def test_an_assessment_of_a_logged_public_check_episode_is_refused_with_a_code(t
         "assess", "--study", study, "--observations", observation_set_of(study, attempt)["observation_set_id"], "--scorer", SCORER,
         "--references", references_id(study),
     )
-    assert (code, error_of(payload)["code"], error_of(payload)["stage"]) == (2, "ASSESSMENT_PUBLIC_CHECK_REFUSED", "assess")
+    assert code == 0, payload
+    (entry,) = [json.loads(p.read_text()) for p in (Path(study) / "exposures").glob("*.json")]
+    assert entry["attempt_ids"] == [attempt["attempt_id"]] and entry["assessment_ids"] == [payload["assessment"]["assessment_id"]]
 
 
 # --- Tightened A2: the request identity ------------------------------------------------------------------------------------

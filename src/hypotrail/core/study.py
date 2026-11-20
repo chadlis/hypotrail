@@ -16,6 +16,8 @@ DIR/
   comparisons/<comparison_id>/population.json     a Comparison's population identity
   comparisons/<comparison_id>/paired_deltas.csv   its absolute errors and their difference per row_id
   comparisons/<comparison_id>/comparison.json     the Comparison record (written last)
+  revisions/<n>/freeze.json          the freeze record of revision n, written before its first public_check use (core/exposure.py)
+  exposures/<seq>-<entry_id>.json    one Exposure journal entry each, appended and never rewritten (core/exposure.py)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 
@@ -161,4 +163,16 @@ def assessment_records(study) -> list:
         read_record(study, f"{ASSESSMENTS_DIR}/{candidate.name}/assessment.json")
         for candidate in sorted(folder.iterdir())
         if (candidate / "assessment.json").is_file()
+    ]
+
+
+def comparison_records(study) -> list:
+    """Every Comparison record the Study keeps, in the order of their folder names."""
+    folder = Path(study) / COMPARISONS_DIR
+    if not folder.is_dir():
+        return []
+    return [
+        read_record(study, f"{COMPARISONS_DIR}/{candidate.name}/comparison.json")
+        for candidate in sorted(folder.iterdir())
+        if (candidate / "comparison.json").is_file()
     ]

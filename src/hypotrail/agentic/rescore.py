@@ -32,7 +32,7 @@ from hypotrail.agentic.unproduced import (  # noqa: F401  (re-exported: the name
 )
 
 def _refuse_public_check(workload, case_ids) -> None:
-    """Until #9's Exposure journal exists, rescoring refuses `public_check` Items (owner decision D2)."""
+    """Rescoring through these library functions takes no Study, so it refuses `public_check` Items (owner decision D2); `assess` does it inside a Study."""
     refuse_public_check(workload, case_ids, code="PUBLIC_CHECK_RESCORING_REFUSED", what="rescoring", stage="rescore")
 
 

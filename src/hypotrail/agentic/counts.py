@@ -7,7 +7,8 @@ Tool errors are counted apart, by structured code, never as Criterion states.
 
 An Episode stopped by one of our limits has a state for every Criterion (`rescore.criteria_for_limit_stop`),
 so it is counted in N_expected and N_attempted like any other and cannot drop silently out of a denominator.
-`public_check` Items, by the Partition the Workload declares for their Case, are refused until #9's Exposure journal exists.
+`public_check` Items, by the Partition the Workload declares for their Case, are refused here: `tally` takes no Study, so it has no Exposure journal
+(inside a Study, `assess` counts them and journals the Exposure).
 The shares of CMP-04 and CMP-05 and the Assessment contract belong to #9.
 """
 

@@ -74,6 +74,28 @@ def protocol_content(declaration: Declaration, *, dataset_sha256: str, membershi
     }
 
 
+def freeze_basis(spec: dict, source: Path) -> dict:
+    """What a freeze record takes of the Workload as it is declared now (`hypotrail.core.exposure`).
+
+    The Protocol digest is computed as `run ml` computes it (the declaration, the dataset's bytes and the
+    Study's own population and References); a Configuration's digest is the one of its declared content,
+    which is what an Attempt records as `effective_config.configuration.declared`.
+    """
+    declaration = load_declaration(source)
+    require_keys(declaration, "data_file", "configurations")
+    by_role = {entry["ref"]["role"]: entry["ref"] for entry in spec["artifacts"]}
+    protocol = protocol_content(
+        declaration,
+        dataset_sha256=data.sha256_file(source / declaration.data_file),
+        memberships_sha256=by_role["memberships"]["sha256"],
+        references_sha256=by_role["references"]["sha256"],
+    )
+    return {
+        "protocol_digest": canonical.digest(protocol),
+        "configuration_digests": {name: canonical.digest(plain(c)) for name, c in sorted(declaration.configurations.items())},
+    }
+
+
 def _exists(study: Path) -> InvalidInputError:
     return InvalidInputError(
         "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}

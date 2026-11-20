@@ -11,7 +11,10 @@ The order is fixed, and nothing is written before the checks that precede it:
    belong to the Observation set's domain (`UNSUPPORTED_CAPABILITY`, exit 2);
 3. every artifact read (Observation set record, normalized outputs, raw predictions, population,
    References) is read back against its digest (`ARTIFACT_INTEGRITY`, exit 3);
-4. the Partition of the Items is `dev` (`ASSESSMENT_PUBLIC_CHECK_REFUSED`, `ASSESSMENT_PARTITION_NOT_DEV`);
+4. the Partition of the Items is `dev` or `public_check` (`ASSESSMENT_PARTITION_NOT_DEV` otherwise). An Assessment of
+   `public_check` Items is an Exposure: once the structure of the Observation set has passed, and before any Item is
+   scored, the Study's freeze record is written if the revision has none and one journal entry is appended
+   (`hypotrail.core.exposure`; `PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's);
 5. every expected Item gets its Criterion (the absolute error of the day) in a state; the Metric is
    aggregated from the scored ones;
 6. `per_item.csv` is published, then `assessment.json` last. Another Assessment of the same
@@ -28,10 +31,10 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, lock, rescoring, revisions, scorers
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml.partitions import require_dev
+from hypotrail.ml.partitions import requires_exposure
 
 COMMAND = "assess"
 STAGE = "assess"
@@ -108,18 +111,19 @@ def _per_item_csv(entries) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
+def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
-    Holds the Study's writer lock for the whole command: a second writer is refused at once.
+    Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
+    read only for an Assessment of `public_check` Items, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study):
-        return _assess_locked(study, observation_set_id, scorer_id, references_id)
+        return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
 
 
-def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str) -> dict:
+def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -130,7 +134,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
             f"the Study keeps no Observation set {observation_set_id!r}",
             observation_set_id=str(observation_set_id),
         )
-    observation_set, _ = found
+    observation_set, manifest = found
     references = next((e["ref"] for e in spec["artifacts"] if e["artifact_id"] == references_id and e["ref"]["role"] == "references"), None)
     if references is None:
         raise _refuse(
@@ -157,13 +161,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     partition = observation_set["provenance"].get("partition")
     if partition is None:
         raise _refuse("OBSERVATIONS_INVALID", "the Observation set names no Partition", problem="unknown_partition", row_id=None)
-    require_dev(
-        partition,
-        public_check_code="ASSESSMENT_PUBLIC_CHECK_REFUSED",
-        not_dev_code="ASSESSMENT_PARTITION_NOT_DEV",
-        what="an Assessment",
-        stage=STAGE,
-    )
+    exposed = requires_exposure(partition, not_dev_code="ASSESSMENT_PARTITION_NOT_DEV", what="an Assessment", stage=STAGE)
 
     expected = sorted(row["row_id"] for row in _rows(population) if row["partition"] == partition)
     observed = {}
@@ -177,6 +175,9 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     stray = sorted(set(observed) - set(expected))
     if stray:
         raise _refuse("OBSERVATIONS_INVALID", f"{stray[0]} is not an Item of {partition}", problem="unexpected_item", row_id=stray[0])
+    assessment_id = str(uuid.uuid4())
+    if exposed:  # before any Item is scored
+        exposure.record(study, spec, examples_dir=examples_dir, attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
     reference_cells = {row["row_id"]: row["y_true"] for row in _rows(references_bytes)}
 
     entries = []
@@ -200,7 +201,6 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
     }
     metric = _metric(scorer, [e[3] for e in entries if e[2] == "scored"], spec["primary_metric"]["unit"])
 
-    assessment_id = str(uuid.uuid4())
     folder = f"{layout.ASSESSMENTS_DIR}/{assessment_id}"
     per_item = _per_item_csv(entries)
     per_item_ref = {
@@ -222,6 +222,7 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         "metrics": [metric],
         "limitations": list(LIMITATIONS),
         "study_revision": revisions.identity(spec),
+        **exposure.marks(study, [manifest]),
         "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "rescoring": rescoring.describe(
             study,
