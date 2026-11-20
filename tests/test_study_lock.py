@@ -89,10 +89,13 @@ def writers(study):
         "import agent": lambda: run_json(
             "import", "agent", "--study", study, "--source", "s.jsonl", "--population", "p.json", "--request-id", "second-writer"
         ),
+        "import agent log": lambda: run_json(
+            "import", "agent", "--study", study, "--source", "s.eval", "--population", "p.json", "--request-id", "second-writer"
+        ),
     }
 
 
-@pytest.mark.parametrize("command", ["run ml", "recover", "assess", "assess agent", "compare", "init", "import ml", "import agent"])
+@pytest.mark.parametrize("command", ["run ml", "recover", "assess", "assess agent", "compare", "init", "import ml", "import agent", "import agent log"])
 def test_while_a_writer_holds_the_lock_every_other_writer_is_refused_at_once_with_exit_6_and_writes_nothing(tmp_path, command):
     study, _ = init_study(tmp_path)
     before = snapshot(study)
