@@ -3,7 +3,7 @@
 The order is fixed, and nothing is computed before the checks that precede it:
 
 1. the Workload's data is verified against its lock (`DATA_INTEGRITY`, exit 3: no Attempt is written);
-2. every Study artifact the run reads (dataset, population, References) is read back against its
+2. every Study artifact the Attempt reads (dataset, population, References) is read back against its
    digest (`ARTIFACT_INTEGRITY`, exit 3);
 3. the Configuration and the Partition are checked against the declaration (exit 2);
 4. the request is identified (`hypotrail.core.requests`): the same `request_id` with the same

@@ -1,6 +1,6 @@
 """`run agent`: one Configuration of the tool-using agent Track run as one native Attempt of a Study.
 
-It records the Attempt from the Inspect log of the run, the way `run ml` records a Bike Attempt: the same request
+It records the Attempt from the Inspect log of the execution, the way `run ml` records a Bike Attempt: the same request
 identity and replay, the same running-then-terminal manifest, the same atomic artifacts, the same writer lock, `status`
 and `recover`. It has two Modes:
 
@@ -130,7 +130,7 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
         read_json(workload.scenarios_path, stage="fixture", noun="scenarios file", key="scenarios")
         return {"configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None}
     if partition not in PARTITIONS:
-        raise _refuse("PARTITION_NOT_ALLOWED", f"a run takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(PARTITIONS))
+        raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(PARTITIONS))
     low, high = REPEATS_BOUNDS
     if not isinstance(repeats, int) or isinstance(repeats, bool) or not low <= repeats <= high:
         raise _refuse("REPEATS_OUT_OF_BOUNDS", f"--repeats is an integer from {low} to {high}, not {repeats!r}", repeats=repeats, minimum=low, maximum=high)

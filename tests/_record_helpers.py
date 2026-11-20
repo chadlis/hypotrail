@@ -41,7 +41,7 @@ def resummary(out, location, *, model_id=LOG_MODEL, case_ids=("D03",), repeats=1
 
 
 def live_record(tmp_path, monkeypatch, location, *, model_id=LOG_MODEL, case_ids=("D03",), repeats=1, name="live-out"):
-    """The record `run_live` writes right after a run whose Inspect log is `location` (a copy of it): no model, no network."""
+    """The record `run_live` writes right after an execution whose Inspect log is `location` (a copy of it): no model, no network."""
 
     def run_the_copy(cases, *, log_dir, **kwargs):
         Path(log_dir).mkdir(parents=True)

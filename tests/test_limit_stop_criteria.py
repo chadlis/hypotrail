@@ -2,7 +2,7 @@
 `public_check` Items by the agentic counting and rescoring entry points (#48 T4').
 
 Seams: `projection.project_log` (status and Reason), `rescore.rescore_episodes` / `rescore_log` (Criteria),
-`counts.tally` (counters), `fixture.run_fixture` (the run). Inspect's mock model only.
+`counts.tally` (counters), `fixture.run_fixture` (the execution). Inspect's mock model only.
 """
 
 import json
@@ -208,7 +208,7 @@ def test_the_counters_tell_a_scored_false_stop_from_an_unscored_one(tmp_path):
     assert (c["N_incorrect"], c["N_unscored"], c["N_correct"]) == (1, 1, 0)
 
 
-# --- the scripted run: the budget-exhausted scenario shows Criteria scored false --------------------
+# --- the scripted execution: the budget-exhausted scenario shows Criteria scored false --------------------
 
 
 @pytest.fixture(scope="module")

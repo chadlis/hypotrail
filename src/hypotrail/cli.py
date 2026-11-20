@@ -571,7 +571,7 @@ def _spike_live(args) -> int:
         out_dir=args.out,
     )
     lines = [
-        f"live run recorded in {args.out} (configuration {args.config}, model {record['model']}, "
+        f"live execution recorded in {args.out} (configuration {args.config}, model {record['model']}, "
         f"tool loop observed: {record['tool_loop_observed']})"
     ] + [
         f"  {e['case_id']} repeat {e['repeat']}: {e['status']}" for e in record["episodes"]

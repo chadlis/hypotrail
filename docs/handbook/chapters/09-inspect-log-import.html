@@ -37,13 +37,13 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <div class="tblwrap"><table class="tbl" id="log-declared"><thead><tr><th>Recorded field</th><th>Under</th><th>Read from the header</th></tr></thead><tbody>
 <tr data-field="model" data-under="producer" data-header="model"><td><code>model</code></td><td><code>producer</code></td><td>The model Inspect ran (<code>mockllm/model</code> for the mock model).</td></tr>
 <tr data-field="generation_time" data-under="producer" data-header="generation_time"><td><code>generation_time</code></td><td><code>producer</code></td><td>The creation time of the log.</td></tr>
-<tr data-field="file_mode" data-under="producer" data-header="mode"><td><code>file_mode</code></td><td><code>producer</code></td><td>The Mode the task metadata states (<code>scripted_fixture</code> for a scripted run); none for a live log.</td></tr>
+<tr data-field="file_mode" data-under="producer" data-header="mode"><td><code>file_mode</code></td><td><code>producer</code></td><td>The Mode the task metadata states (<code>scripted_fixture</code> for a scripted execution); none for a live log.</td></tr>
 <tr data-field="configuration" data-under="log" data-header="configuration"><td><code>configuration</code></td><td><code>log</code></td><td>The Configuration name in the task metadata.</td></tr>
 <tr data-field="system_text" data-under="log" data-header="system_text"><td><code>system_text</code></td><td><code>log</code></td><td>The system text of the Configuration, as the task metadata holds it.</td></tr>
 <tr data-field="limits" data-under="log" data-header="limits"><td><code>limits</code></td><td><code>log</code></td><td>The limits that took effect, as the log header records them (chapter 03's read-back).</td></tr>
 <tr data-field="inspect_version" data-under="log" data-header="inspect_version"><td><code>inspect_version</code></td><td><code>log</code></td><td>The Inspect version that wrote the log.</td></tr>
 <tr data-field="log_format_version" data-under="log" data-header="log_format_version"><td><code>log_format_version</code></td><td><code>log</code></td><td>The version of the log format.</td></tr>
-<tr data-field="log_status" data-under="log" data-header="log_status"><td><code>log_status</code></td><td><code>log</code></td><td>The status of the run that wrote the log (<code>success</code>, <code>error</code>, ...).</td></tr>
+<tr data-field="log_status" data-under="log" data-header="log_status"><td><code>log_status</code></td><td><code>log</code></td><td>The status of the execution that wrote the log (<code>success</code>, <code>error</code>, ...).</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="log-unknown"><thead><tr><th>Field</th><th>Why it stays unknown</th></tr></thead><tbody>
 <tr data-field="historical_protocol"><td><code>historical_protocol</code></td><td>The Configuration and the limits are recorded as what the header states; the protocol the producer followed is not established.</td></tr>

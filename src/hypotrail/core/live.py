@@ -1,6 +1,6 @@
 """Preconditions of a live model run, checked before anything is imported or sent.
 
-Standard library only. A live run is opt-in, bounded and never part of the test
+Standard library only. A live execution is opt-in, bounded and never part of the test
 suite or CI. The provider key is read from one variable and from no other.
 """
 
@@ -41,7 +41,7 @@ def check_bounds(case_ids: list[str], repeats: int, dev_case_ids: set[str]) -> N
     if outside:
         raise InvalidInputError(
             "CASE_NOT_DEV",
-            f"live runs are limited to dev Cases, not: {', '.join(outside)}",
+            f"a live execution is limited to dev Cases, not: {', '.join(outside)}",
             stage="live",
             details={"cases": outside},
         )
@@ -49,7 +49,7 @@ def check_bounds(case_ids: list[str], repeats: int, dev_case_ids: set[str]) -> N
     if repeats < 1 or len(set(case_ids)) != len(case_ids) or not 1 <= episodes <= MAX_EPISODES:
         raise InvalidInputError(
             "EPISODES_OUT_OF_BOUNDS",
-            f"a live run is limited to {MAX_EPISODES} Episodes (distinct Cases x Repeats), "
+            f"a live execution is limited to {MAX_EPISODES} Episodes (distinct Cases x Repeats), "
             f"got {episodes}",
             stage="live",
             details={"episodes": episodes, "maximum": MAX_EPISODES},

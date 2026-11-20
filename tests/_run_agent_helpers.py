@@ -129,7 +129,7 @@ def error_of(result):
 
 
 def answering_with(text):
-    """A scripted model whose final answer holds `text`: a value planted in the run's output."""
+    """A scripted model whose final answer holds `text`: a value planted in the execution's output."""
     from inspect_ai.model import ModelOutput
 
     inner = scripted()

@@ -28,7 +28,7 @@ at `coverage` after that leaves its entry: the Exposure had happened. Its ID nam
 A refused check raises its own code (exit 3) whose details carry the `check`, its Reason code, the
 values of both sides and the checks evaluated so far, and writes no Comparison. `delta` is the Metric of
 the Candidate minus the Metric of the Control: a positive value means the Candidate is worse (lower is
-better). The command holds the Study's writer lock for its whole run.
+better). The command holds the Study's writer lock for its whole execution.
 """
 
 import csv

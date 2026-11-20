@@ -12,7 +12,7 @@ a list of model turns, each one of:
 
 A scenario whose `script` is null is expected but never run, so it stays absent from the log.
 
-The tools are the real ones, and the task, the projection and the Scorer are the code a live run
+The tools are the real ones, and the task, the projection and the Scorer are the code a live execution
 uses; only the model differs. Nothing here reads the network, a provider key or a Reference when it
 answers. The scenario Cases are technical: none of them is one of the Workload's business Cases.
 Everything written carries the Mode and the banner.
@@ -172,7 +172,7 @@ def run_fixture(
     if hash_before != hash_after:
         raise IntegrityError(
             "DATABASE_CHANGED",
-            "the Chinook file changed during the run",
+            "the Chinook file changed during the execution",
             stage="fixture",
             details={"sha256_before": hash_before, "sha256_after": hash_after},
         )

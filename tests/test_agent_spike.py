@@ -249,7 +249,7 @@ def test_no_core_module_imports_inspect():
 
 
 def test_the_scripted_model_never_loads_a_tiktoken_vocabulary(monkeypatch):
-    """SPEC DATA-03: a scripted run needs no download, even through a proxy that hides it from the guard."""
+    """SPEC DATA-03: a scripted execution needs no download, even through a proxy that hides it from the guard."""
     import asyncio
 
     import tiktoken

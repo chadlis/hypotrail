@@ -8,7 +8,7 @@
 
 <p class="sub2">The command</p>
 <div class="prose">
-<p><code>import ml</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/ml/imports.py</code>. It follows the rules of chapter 04: <code>--request-id</code> is required, with <code>--json</code> stdout holds one object (<code>{"ok": true, "replayed": BOOL, "attempt": MANIFEST}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>) and the diagnostic goes to stderr, and the command holds the Study's writer lock for its whole run. It imports neither scikit-learn, NumPy nor Inspect, and reads no network: <code>import ml</code> and <code>assess</code> of the Import run where none of them is installed.</p>
+<p><code>import ml</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/ml/imports.py</code>. It follows the rules of chapter 04: <code>--request-id</code> is required, with <code>--json</code> stdout holds one object (<code>{"ok": true, "replayed": BOOL, "attempt": MANIFEST}</code> or <code>{"ok": false, "error": {"code", "message", "stage", "details"}}</code>) and the diagnostic goes to stderr, and the command holds the Study's writer lock for its whole execution. It imports neither scikit-learn, NumPy nor Inspect, and reads no network: <code>import ml</code> and <code>assess</code> of the Import run where none of them is installed.</p>
 </div>
 <pre class="code"><span class="cm"># a program that never imports hypotrail writes its predictions; it prints the digest of the data it read</span>
 python examples/external/bike_trailing_mean.py --data examples/bike_day/data/day.csv --first 2012-01-01 --last 2012-06-30 --id-prefix bike-day --out predictions.csv

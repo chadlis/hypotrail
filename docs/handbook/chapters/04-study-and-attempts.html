@@ -55,7 +55,7 @@
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="statuses"><thead><tr><th>Level</th><th>Values</th></tr></thead><tbody>
 <tr data-level="attempt" data-values="running completed failed interrupted"><td>Attempt (<code>technical_status</code>)</td><td><code>running</code>, <code>completed</code>, <code>failed</code>, <code>interrupted</code>. <code>run ml</code> writes <code>running</code>, then <code>completed</code>, or <code>failed</code> when an error stops it inside the live process; <code>recover</code> writes <code>interrupted</code>. Every non-completed terminal state has a Reason. A terminal manifest has <code>finished_at</code>; a <code>running</code> one does not.</td></tr>
-<tr data-level="item" data-values="produced failed missing"><td>Item (execution status)</td><td><code>produced</code>, <code>failed</code>, <code>missing</code>. Separate from how an Item is scored. A native run of a declared Configuration produces every Item.</td></tr>
+<tr data-level="item" data-values="produced failed missing"><td>Item (execution status)</td><td><code>produced</code>, <code>failed</code>, <code>missing</code>. Separate from how an Item is scored. A native Attempt of a declared Configuration produces every Item.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Artifacts and integrity</p>

@@ -1,13 +1,13 @@
-"""The opt-in, bounded live run: the spike task against a real Anthropic model.
+"""The opt-in, bounded live execution: the spike task against a real Anthropic model.
 
 It scores nothing against References. It only records that a real model calls
 the tool and uses its result. The key is passed explicitly to the provider and is
-never logged or persisted; the output is scanned for it before the run reports.
+never logged or persisted; the output is scanned for it before the execution reports.
 
 A run record (`run.json`) says what the execution's own Inspect log says wherever the log holds the fact
-(model, engine version, Cases and Repeats, limits, reasoning), whether it is written right after the run or
+(model, engine version, Cases and Repeats, limits, reasoning), whether it is written right after the execution or
 by re-summarising a kept log. What no log holds, and only the summarising machine or code can say, is the
-execution's own in a record written by the run, and in a re-summary is null with the summarising
+execution's own in a record written by the execution, and in a re-summary is null with the summarising
 machine's value under `summarised_by` (#62).
 """
 
@@ -95,7 +95,7 @@ def _raise_if_leaked(out_dir: Path, api_key: str) -> None:
     if leaked:
         raise HypotrailError(
             "SECRET_IN_OUTPUT",
-            f"the API key was found in the run output: {', '.join(leaked)}; do not keep or commit it",
+            f"the API key was found in the execution output: {', '.join(leaked)}; do not keep or commit it",
             stage="live",
             details={"files": leaked},
         )
@@ -190,7 +190,7 @@ def request_parameters(log) -> dict | None:
 def reasoning_in_request(model: Model) -> dict | None:
     """The `thinking` field Inspect's own request building gives this model, with no network.
 
-    It asks the provider's `completion_config` for the parameters it would send for the run's
+    It asks the provider's `completion_config` for the parameters it would send for the execution's
     generation settings. None means the request would not state the reasoning setting.
     """
     config = GenerateConfig(
@@ -323,9 +323,9 @@ def _sha256(path: Path) -> str:
 
 
 def prepared_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) -> Model:
-    """The live model of a run, once its request is known to state the reasoning setting (nothing is sent to check it).
+    """The live model of an execution, once its request is known to state the reasoning setting (nothing is sent to check it).
 
-    The one place a run takes its model from: `run_live` (`spike live`) and `run agent` both call it, so a test that
+    The one place an execution takes its model from: `run_live` (`spike live`) and `run agent` both call it, so a test that
     runs the same code with Inspect's mock model replaces this function and nothing else.
     """
     model = live_model(model_id, api_key, base_url)
@@ -333,7 +333,7 @@ def prepared_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_U
         raise InvalidInputError(
             "REASONING_NOT_EXPLICIT",
             f"the request for {model_id} would not state the reasoning setting; "
-            "a live run needs it explicit, so nothing was sent",
+            "a live execution needs it explicit, so nothing was sent",
             stage="live",
             details={"model": model_id},
         )
@@ -391,7 +391,7 @@ def record_execution(*, location: str, out_dir: Path, limits: limits_module.Epis
     """The run record of an execution made by this process: `run.json` and `projection.json` written in `out_dir`.
 
     The limits are this execution's own request (`request_source` is `this_attempt`); `database_sha256` is what the
-    caller hashed before and after the run.
+    caller hashed before and after the execution.
     """
     return _record(request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256)
 
@@ -427,7 +427,7 @@ def summarize(
 
     The record says what the log says: its model, its Cases and Repeats, its engine version, its limits.
     `model_id`, `case_ids` and `repeats` are accepted for callers that still pass them and are ignored, so no
-    argument can make the record differ from the log. The database hashes belong to the run: a re-summary
+    argument can make the record differ from the log. The database hashes belong to the execution: a re-summary
     records them, if given, under `summarised_by`, as the caller's (None otherwise).
     """
     out_dir = Path(out_dir).resolve()
@@ -478,7 +478,7 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
     episodes = projection.project_log(location, expected=expected)
     parameters = request_parameters(log)
     effective = limits_module.effective_limits(log)
-    # `request` is what its caller names: this run's, or the kept log's, never today's code (#57)
+    # `request` is what its caller names: this execution's, or the kept log's, never today's code (#57)
     samples = {(str(s.id), s.epoch - 1): s for s in log.samples or []}
     by_the_run = request.source is RequestSource.THIS_ATTEMPT
     reasoning_effort = _reasoning_effort(log)

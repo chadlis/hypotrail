@@ -1,4 +1,4 @@
-"""Ticket #20: the opt-in, bounded live run. Nothing here reaches a real provider.
+"""Ticket #20: the opt-in, bounded live execution. Nothing here reaches a real provider.
 
 The live path is exercised against a fake Anthropic endpoint on loopback, which
 speaks the Messages API well enough to carry a tool call, so the provider
@@ -55,7 +55,7 @@ def never_runs(monkeypatch):
 
     def fail(**kwargs):
         calls.append(kwargs)
-        raise AssertionError("the live run was started")
+        raise AssertionError("the live execution was started")
 
     monkeypatch.setattr(agentic_live, "run_live", fail)
     return calls
@@ -606,7 +606,7 @@ def test_the_other_nulls_name_their_cause():
     assert _reading(json.dumps({"rows": []}), results=()) == (None, "no_tool_result")
 
 
-# --- review findings: a non-JSON tool message, and the key scan on a failing run ------------------------------
+# --- review findings: a non-JSON tool message, and the key scan on a failing execution ------------------------------
 
 
 def test_a_tool_result_that_is_not_json_does_not_count_as_a_returned_row():
@@ -672,7 +672,7 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
 
     def fails_after_writing_the_key(cases, **kwargs):
         (kwargs["log_dir"].parent / "stray.txt").write_text(FAKE_KEY)
-        raise RuntimeError("the run stopped")
+        raise RuntimeError("the execution stopped")
 
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails_after_writing_the_key)
     from hypotrail.core.errors import HypotrailError
@@ -687,10 +687,10 @@ def test_the_key_scan_runs_even_when_the_episodes_fail(tmp_path, clean_env, monk
 
 def test_a_failing_run_without_a_leak_keeps_its_own_error(tmp_path, clean_env, monkeypatch):
     def fails(cases, **kwargs):
-        raise RuntimeError("the run stopped")
+        raise RuntimeError("the execution stopped")
 
     monkeypatch.setattr(agentic_live.runner, "run_episodes", fails)
-    with pytest.raises(RuntimeError, match="the run stopped"):
+    with pytest.raises(RuntimeError, match="the execution stopped"):
         agentic_live.run_live(
             model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK,
             case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain",

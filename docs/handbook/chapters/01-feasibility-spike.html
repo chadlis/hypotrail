@@ -97,7 +97,7 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <p class="sub2">Choices and limits worth knowing</p>
 <div class="grid2">
 <div class="card" style="--c:var(--gold)"><h3>Tool-call IDs</h3><p>Inspect gives a tool no public way to read its own call ID while it runs. The tool mints an application ID, puts it in the result the model sees, and the projection keeps the mapping to the native ID.</p></div>
-<div class="card" style="--c:var(--sky)"><h3>Scripted runs</h3><p>Offline runs use Inspect's mock model, recorded as <code>mockllm/model</code>, so no projection of such a log can be taken for a live model.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>Scripted executions</h3><p>Offline executions use Inspect's mock model, recorded as <code>mockllm/model</code>, so no projection of such a log can be taken for a live model.</p></div>
 <div class="card" style="--c:var(--teal)"><h3>Rehearsal</h3><p>The live path is exercised in the suite against a fake endpoint on loopback, so the real Anthropic client, the key header and the key scan are tested without a real call.</p></div>
 <div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The Import and Assessment contracts.</p></div>
 </div>

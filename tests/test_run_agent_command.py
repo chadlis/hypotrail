@@ -179,7 +179,7 @@ def test_the_exit_codes_of_run_agent_are_those_of_section_8(tmp_path, monkeypatc
     database_of(examples).write_bytes(database_of(examples).read_bytes() + b"x")
     code, error = error_of(live(changed, "plain", "e3", "--examples-dir", examples))
     assert (code, error["code"]) == (EXIT_INTEGRITY_REFUSED, "DATA_INTEGRITY")
-    # 4: infrastructure (the key found in the run's output)
+    # 4: infrastructure (the key found in the execution's output)
     leaky = study_of(tmp_path, name="s4")
     patch_model(monkeypatch, answering_with(FAKE_KEY))
     code, error = error_of(live(leaky, "plain", "e4"))

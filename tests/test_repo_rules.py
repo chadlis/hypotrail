@@ -26,7 +26,7 @@ def _helps(parser):
 
 
 def test_no_help_text_uses_a_word_the_glossary_avoids_for_attempt():
-    # GLOSSARY, Attempt: _Avoid_: run, job. `--retry-of` once said "the Attempt this run repeats".
+    # GLOSSARY, Attempt: _Avoid_: run, job. `--retry-of` once named the Attempt it repeats with the avoided noun.
     for options, text in _helps(build_parser()):
         assert " run " not in f" {text.lower()} " or "--retry-of" not in options, text
 

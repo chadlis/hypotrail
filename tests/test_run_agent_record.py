@@ -1,4 +1,4 @@
-"""Ticket #74: what a native `llm_live` Attempt records, from the Inspect log of the run (the model is Inspect's mock model)."""
+"""Ticket #74: what a native `llm_live` Attempt records, from the Inspect log of the execution (the model is Inspect's mock model)."""
 
 import json
 import re
@@ -177,7 +177,7 @@ def test_no_provider_secret_is_written_anywhere_in_the_study_after_an_llm_live_r
     code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "ok", "--partition", "dev",
                              "--repeats", "1", "--model", MODEL, "--cases", "D03", "--json")
     assert code == 0
-    # a run that fails (the Chinook file changes during it) still leaves no key in the Study
+    # an Attempt that fails (the Chinook file changes during it) still leaves no key in the Study
     real = runner.run_episodes
 
     def changes_the_database(*args, **kwargs):
@@ -204,7 +204,7 @@ def test_the_log_is_kept_raw_and_the_observation_set_is_projected_from_it_one_ob
     study = study_of(tmp_path)
     script = patch_model(monkeypatch, scripted(error_on=("D03", 1)))
     real = runner.run_episodes
-    # an expected Episode the log never holds: D07 is dropped from the run, and stays expected
+    # an expected Episode the log never holds: D07 is dropped from the Attempt, and stays expected
     monkeypatch.setattr(runner, "run_episodes", lambda cases, **kw: real([c for c in cases if c["case_id"] != "D07"], **kw))
     attempt = ok(live(study, "plain", "p", cases=["D03", "D05", "D07"]))
     folder = folder_of(study, attempt)
@@ -367,10 +367,10 @@ def test_no_reference_reaches_the_model_in_either_mode(tmp_path, monkeypatch):
             assert sentinel not in json.dumps([m.model_dump(mode="json") for m in sample.messages])
             assert sentinel not in json.dumps([e.model_dump(mode="json") for e in sample.events if e.event == "model"])
         assert sentinel not in log.model_dump_json(exclude={"samples"})
-        assert sentinel not in json.dumps(attempt)  # nor in what the Attempt records of the run
+        assert sentinel not in json.dumps(attempt)  # nor in what the Attempt records of its execution
 
 
-# --- public_check is not an Exposure for a run; check_informed -----------------------------------------------------------------------
+# --- public_check is not an Exposure for an Attempt; check_informed -----------------------------------------------------------------------
 
 
 def test_a_public_check_attempt_scores_nothing_and_journals_nothing_and_after_the_first_exposure_only_a_changed_configuration_is_marked(
@@ -462,7 +462,7 @@ def test_a_key_found_elsewhere_in_the_study_is_a_warning_that_changes_no_recorde
 
 
 def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_attempt_too_and_a_hit_elsewhere_is_a_warning_on_the_error(tmp_path, monkeypatch):
-    """#74: « the Study folder is scanned for the key after an `llm_live` run, whether or not the run failed »."""
+    """#74: « the Study folder is scanned for the key after an `llm_live` Attempt, whether or not it failed »."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
     patch_model(monkeypatch)

@@ -1,7 +1,7 @@
 """Ticket #48: the `scripted_fixture` Mode, its scenarios, the Criterion counts and the limit-stopped Episode.
 
 Seams: `projection.project_log` (execution status of an Episode), `rescore.rescore_log` (Criteria of every
-expected Episode), `counts.tally` (the counters per Criterion), `fixture.run_fixture` (the run and what it
+expected Episode), `counts.tally` (the counters per Criterion), `fixture.run_fixture` (the execution and what it
 writes). Inspect's mock model only: no network, no provider key.
 """
 
@@ -129,7 +129,7 @@ def test_a_limit_stopped_episode_stays_in_expected_and_attempted_and_out_of_prod
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (1, 1, 0)
 
 
-# --- the scripted_fixture run: six scenarios (+ one absent), each with its own outcome -------------
+# --- the scripted_fixture execution: six scenarios (+ one absent), each with its own outcome -------------
 
 from hypotrail.agentic import fixture
 
