@@ -117,6 +117,34 @@ def build_parser() -> argparse.ArgumentParser:
     import_ml.add_argument("--json", action="store_true", help="print one JSON object")
     import_ml.set_defaults(handler=_import_ml)
 
+    import_agent = import_commands.add_parser(
+        "agent", help="import agent answers produced elsewhere, as JSON Lines, into a Study of the tool-using agent Track"
+    )
+    import_agent.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Import in")
+    import_agent.add_argument("--source", required=True, type=Path, metavar="JSONL", help="the answers file (JSON Lines, UTF-8), kept as it is")
+    import_agent.add_argument(
+        "--population",
+        required=True,
+        type=Path,
+        metavar="FILE",
+        help='JSON {"episodes": [{"case_id", "repeat"}, ...]}: the Episodes the file must hold, all Cases of one Partition',
+    )
+    import_agent.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same request returns the recorded Import, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    import_agent.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the repository's examples/)",
+    )
+    import_agent.add_argument("--json", action="store_true", help="print one JSON object")
+    import_agent.set_defaults(handler=_import_agent)
+
     assess = commands.add_parser("assess", help="apply one registered Scorer to one kept Observation set")
     assess.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study that keeps the Observation set")
     assess.add_argument("--observations", required=True, metavar="OBSERVATION_SET_ID", help="the Observation set to score")
@@ -243,6 +271,20 @@ def _import_ml(args) -> int:
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
         f"({counts['produced']} Items produced, Mode {manifest['mode']})"
+        + (" (recorded earlier: nothing was read again)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    return EXIT_OK
+
+
+def _import_agent(args) -> int:
+    from hypotrail.agentic import imports
+
+    manifest, replayed = imports.import_agent(args.study, args.source, args.population, args.request_id, examples_dir=args.examples_dir)
+    counts = manifest["item_counts"]
+    human = (
+        f"Import {manifest['attempt_id']} {manifest['technical_status']} "
+        f"({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing; Mode {manifest['mode']})"
         + (" (recorded earlier: nothing was read again)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)

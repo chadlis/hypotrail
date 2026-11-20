@@ -55,6 +55,17 @@ def declared_track(workload_dir: Path):
     return declaration.get("track") if isinstance(declaration, dict) else None
 
 
+def require_domain(spec: dict, domain: str, command: str) -> None:
+    """Refuse a command on a Study of another Track: a combination the code does not offer."""
+    if spec["domain"] != domain:
+        raise InvalidInputError(
+            "UNSUPPORTED_CAPABILITY",
+            f"`{command}` works on a Study of the {domain!r} domain; this Study is {spec['domain']!r}",
+            stage="study",
+            details={"command": command, "study_domain": spec["domain"], "command_domain": domain},
+        )
+
+
 def short_id(prefix: str, sha256: str) -> str:
     """The ID of a Study artifact: its kind and the first 16 hex digits of its digest."""
     return f"{prefix}-{sha256[:16]}"

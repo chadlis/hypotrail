@@ -300,7 +300,7 @@ def import_ml(
     study = Path(study)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
-    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    layout.require_domain(layout.read_spec(study), DOMAIN, COMMAND)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study):
         return _import_locked(study, Path(source), Path(mapping), Path(population), request_id, examples_dir=examples_dir)
 
