@@ -26,6 +26,8 @@ The Workload itself (its declaration, its Configurations, its data and lock) sta
 Configuration it ran. The Protocol is what the Study freezes of the Workload.
 """
 
+import csv
+import io
 import json
 from pathlib import Path
 
@@ -67,6 +69,15 @@ def require_domain(spec: dict, domain: str, command: str) -> None:
             stage="study",
             details={"command": command, "study_domain": spec["domain"], "command_domain": domain},
         )
+
+
+def partition_of(memberships: bytes, key: str) -> dict:
+    """{item ID: Partition} read from a Study's memberships CSV, whose first column is `key` (`row_id` or `case_id`).
+
+    One reader for both Tracks: a quoted ID is read as CSV, and an Item with an empty Partition is left out.
+    """
+    rows = csv.DictReader(io.StringIO(memberships.decode("utf-8"), newline=""))
+    return {row[key]: row["partition"] for row in rows if row["partition"]}
 
 
 def short_id(prefix: str, sha256: str) -> str:

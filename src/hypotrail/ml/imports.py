@@ -111,11 +111,6 @@ def _loose_partition(population, partition_of: dict):
     return partitions.pop() if len(partitions) == 1 and None not in partitions else None
 
 
-def _partition_of(memberships: bytes) -> dict:
-    rows = csv.DictReader(io.StringIO(memberships.decode("utf-8"), newline=""))
-    return {row["row_id"]: row["partition"] for row in rows if row["partition"]}
-
-
 def _checked_mapping(raw: bytes, mapping_path) -> dict:
     try:
         mapping = json.loads(raw.decode("utf-8"))
@@ -323,7 +318,7 @@ def _import_locked(study, source, mapping_path, population_path, request_id, *, 
     mapping_bytes = _read(mapping_path, "MAPPING_NOT_FOUND", "mapping")
     population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")
     memberships = artifacts.read_verified(study, by_role["memberships"])
-    partition_of = _partition_of(memberships)
+    partition_of = layout.partition_of(memberships, "row_id")
 
     loose_mapping = _loose_json(mapping_bytes)
     model = loose_mapping.get("model") if isinstance(loose_mapping, dict) else None

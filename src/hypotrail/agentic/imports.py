@@ -125,11 +125,6 @@ def _loose_model(raw: bytes) -> str:
     return only.strip() if isinstance(only, str) and only.strip() else UNKNOWN
 
 
-def _partition_of(memberships: bytes) -> dict:
-    lines = memberships.decode("utf-8").splitlines()[1:]
-    return dict(line.split(",", 1) for line in lines if line)
-
-
 def _checked_population(raw: bytes, population_path, partition_of: dict):
     """(partition, sorted (case_id, repeat) keys) of the population file, every Case taken from one Partition of the Protocol."""
     name = str(population_path)
@@ -443,7 +438,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
 
     source_bytes = _read(source, "SOURCE_NOT_FOUND", "source")
     population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")
-    partition_of = _partition_of(artifacts.read_verified(study, by_role["memberships"]))
+    partition_of = layout.partition_of(artifacts.read_verified(study, by_role["memberships"]), "case_id")
 
     loose = _loose_json(population_bytes)
     episodes = _loose_episodes(loose)

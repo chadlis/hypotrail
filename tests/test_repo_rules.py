@@ -57,3 +57,15 @@ def test_the_core_imports_no_track():
                 names = [f"hypotrail.{a.name}" for a in node.names]
             offenders += [f"{path.name}: {n}" for n in names if n.startswith(("hypotrail.agentic", "hypotrail.ml"))]
     assert offenders == []
+
+
+def test_both_tracks_read_the_memberships_with_the_one_shared_reader():
+    # R1-05: the agentic copy split on the first comma, kept empty Partitions and ignored CSV quoting.
+    from hypotrail.agentic import imports as agent_imports
+    from hypotrail.core import study as layout
+    from hypotrail.ml import imports as ml_imports
+
+    assert not hasattr(agent_imports, "_partition_of") and not hasattr(ml_imports, "_partition_of")
+    csv_bytes = b'case_id,partition\n"A,1",dev\nB2,\nC3,public_check\n'
+    assert layout.partition_of(csv_bytes, "case_id") == {"A,1": "dev", "C3": "public_check"}
+    assert layout.partition_of(b"row_id,partition\nr1,train\nr2,\n", "row_id") == {"r1": "train"}
