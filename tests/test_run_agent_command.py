@@ -263,3 +263,16 @@ def test_the_checks_run_in_the_order_of_the_ticket_and_each_pair_of_adjacent_ref
     assert code == 0 and payload["replayed"] is True and payload["attempt"] == first
     assert tree(study) == before
 
+
+
+def test_the_generic_run_agent_code_names_no_workload_in_its_message_or_its_help():
+    """R1-06, ADR 0002: the Track's code stays generic; a Workload's name is declared data, never a literal of the Track."""
+    from hypotrail.agentic import run
+
+    assert "chinook" not in run._changed("a", "b").message.lower()
+    parser = cli.build_parser()
+    sub = next(a for a in parser._actions if getattr(a, "choices", None) and "run" in a.choices)
+    run_parser = sub.choices["run"]
+    agent = next(a for a in run_parser._actions if getattr(a, "choices", None) and "agent" in a.choices).choices["agent"]
+    config = next(a for a in agent._actions if "--config" in a.option_strings)
+    assert "chinook" not in config.help.lower()

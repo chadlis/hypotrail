@@ -333,7 +333,7 @@ def _sha256(path: Path) -> str:
 def _changed(before: str, after: str) -> IntegrityError:
     return IntegrityError(
         "DATABASE_CHANGED",
-        "the Chinook file changed during the run",
+        "the Workload's database changed during the run",
         stage="run",
         details={"sha256_before": before, "sha256_after": after},
     )

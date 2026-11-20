@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="scripted_fixture runs the Workload's scenarios with Inspect's mock model; llm_live runs one Partition against an explicit Anthropic model "
         "(needs --partition, --repeats and --model, and HYPOTRAIL_ANTHROPIC_API_KEY)",
     )
-    run_agent.add_argument("--config", required=True, metavar="NAME", help="the declared Configuration to run (chinook: plain or verify)")
+    run_agent.add_argument("--config", required=True, metavar="NAME", help="the declared Configuration to run (one the Workload declares)")
     run_agent.add_argument(
         "--request-id",
         required=True,
