@@ -11,10 +11,10 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from hypotrail.core.errors import (
-    EXIT_INFRASTRUCTURE,
     EXIT_OK,
     HypotrailError,
     InvalidInputError,
+    coded_error,
 )
 from hypotrail.core.factors import FACTORS
 
@@ -378,7 +378,7 @@ def _run_agent(args) -> int:
             retry_of=args.retry_of,
             examples_dir=args.examples_dir,
         )
-    except HypotrailError as error:  # the Study was scanned after an Attempt failed: what it found is in `details.warnings`
+    except HypotrailError as error:  # a refusal, or an Attempt that failed (then the Study was scanned and `details.warnings` holds what it found)
         _print_warnings(error.details.get("warnings", []))
         raise
     counts = manifest.get("item_counts")
@@ -595,30 +595,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return handler(args)
     except Exception as error:
-        failure = _failure_of(error)
+        failure = coded_error(error)
     return _report(failure, getattr(args, "json", False))
-
-
-def _failure_of(error: Exception) -> HypotrailError:
-    """The error `--json` and stderr report: a Hypotrail error as it is, any other exception by its type only."""
-    if isinstance(error, HypotrailError):
-        return error
-    if isinstance(error, OSError):
-        return HypotrailError(
-            "INFRASTRUCTURE_FAILURE",
-            f"{type(error).__name__}: {error}",
-            stage="infrastructure",
-            exit_code=EXIT_INFRASTRUCTURE,
-        )
-    # The text of an unexpected exception can carry anything, a provider key
-    # included, so only its type is reported.
-    return HypotrailError(
-        "UNEXPECTED_ERROR",
-        f"unexpected {type(error).__name__}",
-        stage="infrastructure",
-        details={"type": type(error).__name__},
-        exit_code=EXIT_INFRASTRUCTURE,
-    )
 
 
 def _print_warnings(warnings) -> None:

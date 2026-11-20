@@ -528,6 +528,30 @@ def test_run_agent_raises_a_hypotrail_error_with_the_warnings_whatever_exception
     assert FAKE_KEY not in json.dumps(error.to_dict()) and "provider down" not in error.message and "disk gone" not in error.message
 
 
+@pytest.mark.parametrize("raised", [OSError(f"disk gone {FAKE_KEY}"), RuntimeError(f"provider down {FAKE_KEY}")])
+def test_the_failed_manifest_of_run_agent_and_the_whole_study_never_hold_a_foreign_exceptions_text(tmp_path, monkeypatch, raised):
+    """R4-04, #74 U4 « every file this Attempt writes, the terminal manifest included, with no file holding the key »: a foreign exception is recorded by its type only."""
+    examples = chinook_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, name="failing", examples=examples)
+    patch_model(monkeypatch)
+
+    def fails(*args, **kwargs):
+        raise raised
+
+    monkeypatch.setattr(runner, "run_episodes", fails)
+    exit_code, out, err = run_cli("run", "agent", "--study", study, "--mode", "llm_live", "--config", "plain", "--request-id", "boom", "--partition", "dev",
+                                  "--repeats", "1", "--model", MODEL, "--cases", "D03", "--json", "--examples-dir", examples)
+    error = json.loads(out)["error"]
+    coded = "INFRASTRUCTURE_FAILURE" if isinstance(raised, OSError) else "UNEXPECTED_ERROR"
+    assert exit_code == EXIT_INFRASTRUCTURE and error["code"] == coded
+    (folder,) = (study / "attempts").iterdir()
+    manifest = json.loads((folder / "attempt.json").read_text())
+    contracts.validate(manifest)
+    assert manifest["technical_status"] == "failed" and manifest["reason"].startswith(coded)
+    assert type(raised).__name__ in manifest["reason"] and "disk gone" not in manifest["reason"] and "provider down" not in manifest["reason"]
+    assert holds_the_key(study) == [] and FAKE_KEY not in out + err
+
+
 def test_a_key_that_reaches_a_published_file_after_the_log_was_scanned_is_not_written(tmp_path, monkeypatch):
     """The run record is written after the log scan: the scan before each write is its own guard."""
     study = study_of(tmp_path)
