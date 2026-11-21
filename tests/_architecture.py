@@ -155,16 +155,149 @@ def calls(trees: dict) -> list:
     return found
 
 
-def defined_functions(trees: dict) -> set:
-    """{`module.function`} and {`module.Class.method`} of every function and method of every module (not the nested ones)."""
-    found = set()
+class Function(NamedTuple):
+    """A function or method of a module: its module, the qualified name of its class (None for a function), its node, its positional parameters (`self` left out) and its keyword-only ones."""
+
+    module: str
+    cls: str | None
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    parameters: list
+    keyword_only: list
+
+
+FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def signature(node, module: str, cls: str | None) -> Function:
+    positional = [a.arg for a in [*node.args.posonlyargs, *node.args.args] if a.arg != "self"]
+    return Function(module, cls, node, positional, [a.arg for a in node.args.kwonlyargs])
+
+
+def functions_of(trees: dict) -> dict:
+    """{`module.function` or `module.Class.method`: its `Function`} for every function and method of every module (not the nested ones)."""
+    found = {}
     for module, tree in trees.items():
         for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                found.add(f"{module}.{node.name}")
+            if isinstance(node, FUNCTION_NODES):
+                found[f"{module}.{node.name}"] = signature(node, module, None)
             elif isinstance(node, ast.ClassDef):
-                found |= {f"{module}.{node.name}.{child.name}" for child in node.body if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))}
+                for child in node.body:
+                    if isinstance(child, FUNCTION_NODES):
+                        found[f"{module}.{node.name}.{child.name}"] = signature(child, module, f"{module}.{node.name}")
     return found
+
+
+def defined_functions(trees: dict) -> set:
+    """{`module.function`} and {`module.Class.method`} of every function and method of every module (not the nested ones)."""
+    return set(functions_of(trees))
+
+
+class Binding(NamedTuple):
+    """One `with <factory>(...) as <target>`: its module, its node, its target (None without `as`) and the innermost function that holds it."""
+
+    module: str
+    node: ast.With | ast.AsyncWith
+    target: ast.expr | None
+    innermost: str
+
+
+def write_bindings(trees: dict, factory: str) -> list:
+    """Every `with` of a call that resolves to `factory`, outside the module that defines it."""
+    found = []
+    for module, tree in trees.items():
+        if module == factory.rpartition(".")[0]:
+            continue
+        names, innermost = names_of(module, tree), innermost_owners_in(module, tree)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.With, ast.AsyncWith)):
+                found += [
+                    Binding(module, node, item.optional_vars, innermost[id(node)])
+                    for item in node.items
+                    if isinstance(item.context_expr, ast.Call) and resolve(names, dotted(item.context_expr.func)) == factory
+                ]
+    return found
+
+
+def receiver_violations(root, factory: str, receiver: str) -> list:
+    """What breaks the rule that every `with <factory>(...) as <name>` and every parameter that receives it is named `receiver`, and that the object is used in the closed ways only.
+
+    The object is followed from the `with` that binds it, in the `with`'s body and in the functions nested there, through every call that passes it as a bare positional or keyword
+    argument, into the function the call resolves to (a function or method of `src`, a nested function, `self.method` when the class is known), and on through that function's calls.
+    Its uses are a method call on it and such an argument. Any other use is a violation: a rebinding, a `*args`, an attribute read, an argument of a call that does not resolve.
+    """
+    trees = parse_all(root)
+    sites = {id(site.node): site for site in calls(trees)}
+    functions = functions_of(trees)
+    innermost = {module: innermost_owners_in(module, tree) for module, tree in trees.items()}
+    parents = {module: {id(child): node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)} for module, tree in trees.items()}
+    found, seen = set(), set()
+
+    def ancestor(module, node, kinds):
+        while node is not None and not isinstance(node, kinds):
+            node = parents[module].get(id(node))
+        return node
+
+    def target_of(module, cls, call, local):
+        func = call.func
+        if isinstance(func, ast.Name) and func.id in local:
+            nested = local[func.id]
+            enclosing = innermost[module][id(parents[module][id(nested)])].replace(":", ".")
+            return f"{enclosing}.{nested.name}", signature(nested, module, cls)
+        callee = sites[id(call)].callee if id(call) in sites else None
+        if callee in functions:
+            return callee, functions[callee]
+        if cls and isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "self" and f"{cls}.{func.attr}" in functions:
+            return f"{cls}.{func.attr}", functions[f"{cls}.{func.attr}"]
+        return None
+
+    def follow(module, cls, scope, body, held):
+        local = {n.name: n for n in ast.walk(scope) if isinstance(n, FUNCTION_NODES) and n is not scope}
+        for statement in body:
+            for node in ast.walk(statement):
+                if not (isinstance(node, ast.Name) and node.id == held):
+                    continue
+                parent, where = parents[module][id(node)], innermost[module][id(node)]
+                if not isinstance(node.ctx, ast.Load):
+                    found.add(f"{where} rebinds the Write `{held}`")
+                elif isinstance(parent, ast.Attribute) and isinstance(parents[module][id(parent)], ast.Call) and parents[module][id(parent)].func is parent:
+                    continue
+                elif isinstance(parent, ast.Call) and any(argument is node for argument in parent.args):
+                    argument = next(i for i, each in enumerate(parent.args) if each is node)
+                    hand_over(module, cls, local, where, parent, argument)
+                elif isinstance(parent, ast.keyword) and parent.arg is not None:
+                    hand_over(module, cls, local, where, parents[module][id(parent)], parent.arg)
+                else:
+                    found.add(f"{where} uses the Write in `{ast.unparse(parent)}`")
+
+    def hand_over(module, cls, local, where, call, argument):
+        resolved = target_of(module, cls, call, local)
+        if resolved is None:
+            found.add(f"{where} passes the Write to a call that does not resolve: `{ast.unparse(call)}`")
+            return
+        name, function = resolved
+        if isinstance(argument, int):
+            parameter = function.parameters[argument] if argument < len(function.parameters) else None
+        else:
+            parameter = argument if argument in [*function.parameters, *function.keyword_only] else None
+        if parameter is None:
+            found.add(f"{where} passes the Write where {name} has no parameter for it")
+            return
+        if parameter != receiver:
+            found.add(f"{name} receives the Write as `{parameter}`")
+        if (id(function.node), parameter) not in seen:
+            seen.add((id(function.node), parameter))
+            follow(function.module, function.cls, function.node, function.node.body, parameter)
+
+    for binding in write_bindings(trees, factory):
+        if isinstance(binding.target, ast.Name):
+            if binding.target.id != receiver:
+                found.add(f"{binding.innermost} binds the Write as `{binding.target.id}`")
+            enclosing_class = ancestor(binding.module, binding.node, ast.ClassDef)
+            scope = ancestor(binding.module, binding.node, FUNCTION_NODES) or ancestor(binding.module, binding.node, ast.Module)
+            follow(binding.module, f"{binding.module}.{enclosing_class.name}" if enclosing_class else None, scope, binding.node.body, binding.target.id)
+        elif binding.target is not None:
+            found.add(f"{binding.innermost} binds the Write by unpacking")
+    return sorted(found)
 
 
 def reached_from(sites: list, defined: set, starts, *, stop_in: str) -> set:

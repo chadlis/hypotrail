@@ -131,8 +131,9 @@ def test_a_call_of_the_write_protocol_outside_the_study_write_module_counts_thro
 # --- rule 4: the Partition roles ------------------------------------------------------------------------------------------------
 
 TRACKS = ("agentic", "ml")
-# `core/comparison.py` and `report/gather.py` each hold a copy of the role names, and stay the only modules allowed to:
-# "Where do the core's copies of the role names (`core/comparison.py:44-45`, `report/gather.py:14`) belong, given that the core imports no Track?"
+# These two files hold a copy of the role names: `core/comparison.py` (`DEV`, `PUBLIC_CHECK`) and `report/gather.py` (`PUBLIC_CHECK`). They are the only exemption, and it holds
+# while this question stays open, chadlis/hypotrail#117, Q2: "Where do the core's copies of the role names (`core/comparison.py:44-45`, `report/gather.py:14`) belong, given that the core imports no Track?"
+# chadlis/hypotrail#130, c4: "A string constant of `src/` that equals a role of either Track is allowed only in that Track's partitions module and in the two files of Q2, `core/comparison.py` and `report/gather.py`, which the test names with the reason."
 CORE_COPIES_OF_THE_ROLE_NAMES = {
     "hypotrail.core.comparison": "the core imports no Track, so it cannot read the roles from a partitions module",
     "hypotrail.report.gather": "the report reads no Track's partitions module, so it keeps its own copy",
@@ -233,7 +234,9 @@ def test_a_role_removed_from_the_cases_of_a_copy_of_the_agent_schema_and_a_role_
     agent_schema = json.loads(agent_copy.read_text(encoding="utf-8"))
     del agent_schema["properties"]["cases"]["properties"]["public_check"]
     agent_copy.write_text(json.dumps(agent_schema), encoding="utf-8")
-    assert len(schema_problems(*load_schemas(tmp_path), roles)) == 1
+    assert schema_problems(*load_schemas(tmp_path), roles) == [
+        "the agent schema closes `cases` to ['dev'], not to the roles ['dev', 'public_check']"
+    ]
     shutil.copy(SOURCE / PACKAGE / "agentic" / "workload.schema.json", agent_copy)
     ml_copy = tmp_path / PACKAGE / "ml" / "workload.schema.json"
     ml_schema = json.loads(ml_copy.read_text(encoding="utf-8"))

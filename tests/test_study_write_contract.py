@@ -7,7 +7,7 @@ import ast
 from pathlib import Path
 
 import pytest
-from _architecture import SOURCE, calls, defined_functions, dotted, innermost_owners_in, names_of, owners_in, parse_all, reached_from, resolve
+from _architecture import SOURCE, calls, defined_functions, dotted, names_of, owners_in, parse_all, receiver_violations, reached_from, resolve, write_bindings
 from _order_inventory import LOCKED_PATHS
 
 STUDY_WRITE = "hypotrail.core.study_write"
@@ -29,17 +29,17 @@ def plant(root: Path, files: dict) -> Path:
 
 
 READ_SEQUENCE_FAULT = f"{WRITE_JOURNAL}.read_sequence_fault"
-# The Study-write module judges `--read-sequence` for the writers; the command line judges it for `init`, which keeps its refusal.
-READ_SEQUENCE_FAULT_CALLERS = {STUDY_WRITE, "hypotrail.cli"}
+# `check_read_sequence` judges `--read-sequence` for the library callers of a writer; `_read_sequence_value` is the `type=` of `--read-sequence` on every command, so the command line judges it at parse time.
+READ_SEQUENCE_FAULT_CALLERS = {f"{STUDY_WRITE}:check_read_sequence", "hypotrail.cli:_read_sequence_value"}
 
 
 def guard_violations(root) -> list:
-    """The calls of `read_sequence_fault` outside the Study-write module and the command line, and the places that raise `REQUEST_ID_EMPTY` besides `check_arguments`."""
+    """The calls of `read_sequence_fault` from a function other than the two of `READ_SEQUENCE_FAULT_CALLERS`, and the places that raise `REQUEST_ID_EMPTY` besides `check_arguments`."""
     trees = parse_all(root)
     found = [
         f"{site.owner} calls {site.callee}"
         for site in calls(trees)
-        if site.callee == READ_SEQUENCE_FAULT and site.module not in READ_SEQUENCE_FAULT_CALLERS
+        if site.callee == READ_SEQUENCE_FAULT and site.owner not in READ_SEQUENCE_FAULT_CALLERS
     ]
     for module, tree in trees.items():
         for node, owner in owners_in(module, tree):
@@ -48,9 +48,9 @@ def guard_violations(root) -> list:
     return found
 
 
-def test_the_guard_on_the_read_sequence_is_run_from_the_study_write_module_only_and_REQUEST_ID_EMPTY_is_raised_from_one_place_only():
+def test_read_sequence_fault_is_called_by_check_read_sequence_and_the_parse_time_check_only_and_REQUEST_ID_EMPTY_is_raised_from_check_arguments_only():
     assert guard_violations(SOURCE) == []
-    callers = {site.module for site in calls(parse_all(SOURCE)) if site.callee == READ_SEQUENCE_FAULT}
+    callers = {site.owner for site in calls(parse_all(SOURCE)) if site.callee == READ_SEQUENCE_FAULT}
     assert callers == READ_SEQUENCE_FAULT_CALLERS  # a check that finds no call anywhere would pass as well
     constants = [
         owner
@@ -61,14 +61,17 @@ def test_the_guard_on_the_read_sequence_is_run_from_the_study_write_module_only_
     assert constants == [f"{STUDY_WRITE}:check_arguments"]
 
 
-def test_the_guard_check_finds_a_call_of_read_sequence_fault_through_an_import_and_a_second_raise_of_REQUEST_ID_EMPTY_and_accepts_the_command_line(tmp_path):
+def test_the_guard_check_finds_a_call_of_read_sequence_fault_through_an_import_in_another_function_of_the_command_line_and_a_second_raise_of_REQUEST_ID_EMPTY_and_accepts_the_two_callers(tmp_path):
     root = plant(tmp_path, {
-        "hypotrail/core/study_write.py": "def check_arguments(c, r, i):\n    raise E('REQUEST_ID_EMPTY')\n",
-        "hypotrail/cli.py": "from hypotrail.core import write_journal\n\ndef v(r):\n    return write_journal.read_sequence_fault(r)\n",
+        "hypotrail/core/study_write.py": "from hypotrail.core import write_journal\n\ndef check_arguments(c, r, i):\n    raise E('REQUEST_ID_EMPTY')\n\n"
+        "def check_read_sequence(c, r):\n    return write_journal.read_sequence_fault(r)\n",
+        "hypotrail/cli.py": "from hypotrail.core import write_journal\n\ndef _read_sequence_value(r):\n    return write_journal.read_sequence_fault(r)\n\n"
+        "def v(r):\n    return write_journal.read_sequence_fault(r)\n",
         "hypotrail/ml/a.py": "from hypotrail.core import write_journal as wj\n\ndef w(r):\n    wj.read_sequence_fault(r)\n",
         "hypotrail/ml/b.py": "def w(i):\n    if not i:\n        raise E('REQUEST_ID_EMPTY')\n",
     })
     assert guard_violations(root) == [
+        "hypotrail.cli:v calls hypotrail.core.write_journal.read_sequence_fault",
         "hypotrail.ml.a:w calls hypotrail.core.write_journal.read_sequence_fault",
         "hypotrail.ml.b:w names REQUEST_ID_EMPTY",
     ]
@@ -179,99 +182,47 @@ def test_the_literal_check_finds_a_string_in_place_of_a_command_or_a_kind_and_ac
 # --- the receiver of every Write is spelled `write` ------------------------------------------------------------------------------
 
 
-def parameters_of(trees: dict) -> dict:
-    """{`module.function` or `module.Class.method`: its parameters, without `self`} for every function and method of every module (not the nested ones)."""
-    found = {}
-    for module, tree in trees.items():
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                found[f"{module}.{node.name}"] = (node, [a.arg for a in node.args.args])
-            elif isinstance(node, ast.ClassDef):
-                for child in node.body:
-                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        found[f"{module}.{node.name}.{child.name}"] = (child, [a.arg for a in child.args.args if a.arg != "self"])
-    return found
+LOCKED = f"{STUDY_WRITE}.locked"
 
 
-def receiver_violations(root) -> list:
-    """The names a `Write` is given other than `write`: by `with study_write.locked(...) as <name>`, and by a parameter of a function it is passed to.
-
-    A `Write` is followed from the `with` that binds it through every call that passes it, into the functions of `src`, and on through the calls those make.
-    """
-    trees = parse_all(root)
-    sites = {id(site.node): site for site in calls(trees)}
-    functions = parameters_of(trees)
-    found = set()
-
-    def follow(body, held: str, seen: set):
-        for statement in body:
-            for node in ast.walk(statement):
-                if not isinstance(node, ast.Call) or id(node) not in sites:
-                    continue
-                callee = sites[id(node)].callee
-                if callee not in functions:
-                    continue
-                function, parameters = functions[callee]
-                passed = [parameters[i] for i, argument in enumerate(node.args) if i < len(parameters) and isinstance(argument, ast.Name) and argument.id == held]
-                passed += [kw.arg for kw in node.keywords if isinstance(kw.value, ast.Name) and kw.value.id == held]
-                for parameter in passed:
-                    if parameter != WRITE_RECEIVER:
-                        found.add(f"{callee} receives the Write as `{parameter}`")
-                    if (callee, parameter) not in seen:
-                        seen.add((callee, parameter))
-                        follow(function.body, parameter, seen)
-
-    for module, tree in trees.items():
-        if module == STUDY_WRITE:
-            continue
-        innermost = innermost_owners_in(module, tree)
-        names = names_of(module, tree)
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.With, ast.AsyncWith)):
-                continue
-            for item in node.items:
-                if not (isinstance(item.context_expr, ast.Call) and resolve(names, dotted(item.context_expr.func)) == f"{STUDY_WRITE}.locked"):
-                    continue
-                if isinstance(item.optional_vars, ast.Name):
-                    if item.optional_vars.id != WRITE_RECEIVER:
-                        found.add(f"{innermost[id(node)]} binds the Write as `{item.optional_vars.id}`")
-                    follow(node.body, item.optional_vars.id, set())
-                elif item.optional_vars is not None:
-                    found.add(f"{innermost[id(node)]} binds the Write by unpacking")
-    return sorted(found)
-
-
-def test_every_with_study_write_locked_binds_write_and_every_function_it_is_passed_to_names_that_parameter_write():
-    assert receiver_violations(SOURCE) == []
-    trees = parse_all(SOURCE)
-    sites = {id(site.node): site for site in calls(trees)}
-    bound = [
-        item.optional_vars.id
-        for tree in trees.values()
-        for node in ast.walk(tree)
-        if isinstance(node, ast.With)
-        for item in node.items
-        if isinstance(item.optional_vars, ast.Name) and isinstance(item.context_expr, ast.Call) and sites[id(item.context_expr)].callee == f"{STUDY_WRITE}.locked"
-    ]
+def test_every_with_study_write_locked_binds_write_and_every_function_it_is_passed_to_names_that_parameter_write_and_uses_it_in_the_closed_ways_only():
+    assert receiver_violations(SOURCE, LOCKED, WRITE_RECEIVER) == []
+    bound = [binding.target.id for binding in write_bindings(parse_all(SOURCE), LOCKED) if isinstance(binding.target, ast.Name)]
     assert bound and set(bound) == {WRITE_RECEIVER}  # a check that finds no `with` would pass as well
 
 
-def test_the_receiver_check_finds_a_Write_bound_as_another_name_and_a_helper_that_takes_it_under_another_name_however_deep(tmp_path):
+def test_the_receiver_check_finds_a_Write_bound_as_another_name_a_helper_that_takes_it_under_another_name_however_deep_and_every_use_that_is_not_closed(tmp_path):
+    head = "from hypotrail.core import study_write\n\n"
     root = plant(tmp_path, {
         "hypotrail/core/study_write.py": "def locked(study, command):\n    pass\n",
-        "hypotrail/ml/ok.py": "from hypotrail.core import study_write\n\n"
-        "def f(study):\n    with study_write.locked(study, 'x') as write:\n        return g(study, write)\n\n"
-        "def g(study, write):\n    return write.wrote('k', 'i')\n",
-        "hypotrail/ml/bound.py": "from hypotrail.core import study_write\n\ndef f(study):\n    with study_write.locked(study, 'x') as w:\n        w.wrote('k', 'i')\n",
-        "hypotrail/ml/helper.py": "from hypotrail.core import study_write\n\n"
-        "def f(study):\n    with study_write.locked(study, 'x') as write:\n        return g(study, write)\n\n"
+        "hypotrail/ml/ok.py": head
+        + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        write.wrote('k', 'i')\n        return g(study, write)\n\n"
+        "def g(study, write, /):\n    def inner(write):\n        return write.wrote('k', 'i')\n\n    return inner(write)\n\n"
+        "class C:\n    def m(self, study):\n        with study_write.locked(study, 'x') as write:\n            self.n(write=write)\n\n"
+        "    def n(self, write):\n        return write.wrote('k', 'i')\n",
+        "hypotrail/ml/bound.py": head + "def f(study):\n    with study_write.locked(study, 'x') as w:\n        w.wrote('k', 'i')\n",
+        "hypotrail/ml/helper.py": head
+        + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        return g(study, write)\n\n"
         "def g(study, w):\n    return h(study, w)\n\n"
-        "def h(study, session):\n    return session\n",
+        "def h(study, session):\n    return session.wrote('k', 'i')\n",
+        "hypotrail/ml/nested.py": head
+        + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        def helper(w):\n            return w.wrote('k', 'i')\n\n        return helper(write)\n",
+        "hypotrail/ml/rebound.py": head + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        w = write\n        w.wrote('assessment', 'i')\n",
+        "hypotrail/ml/starred.py": head
+        + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        return g(study, *(write,))\n\ndef g(study, write):\n    return write\n",
+        "hypotrail/ml/unresolved.py": head + "def f(study, other):\n    with study_write.locked(study, 'x') as write:\n        return other.take(write)\n",
+        "hypotrail/ml/stored.py": head + "def f(study, box):\n    with study_write.locked(study, 'x') as write:\n        box.write = write\n        return write.count\n",
     })
-    assert receiver_violations(root) == [
+    assert receiver_violations(root, LOCKED, WRITE_RECEIVER) == [
         "hypotrail.ml.bound:f binds the Write as `w`",
         "hypotrail.ml.helper.g receives the Write as `w`",
         "hypotrail.ml.helper.h receives the Write as `session`",
+        "hypotrail.ml.nested.f.helper receives the Write as `w`",
+        "hypotrail.ml.rebound:f uses the Write in `w = write`",
+        "hypotrail.ml.starred:f uses the Write in `(write,)`",
+        "hypotrail.ml.stored:f uses the Write in `box.write = write`",
+        "hypotrail.ml.stored:f uses the Write in `write.count`",
+        "hypotrail.ml.unresolved:f passes the Write to a call that does not resolve: `other.take(write)`",
     ]
 
 
