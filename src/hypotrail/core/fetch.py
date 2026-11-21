@@ -7,7 +7,7 @@ connection), then the destination files already there (a matching one is left, a
 then the network.
 
 There is no mirror: a request starts only from the lock's `download_url` (or `notice_url`), and the command never chooses
-another URL. The redirects that URL answers with are followed (D-019), at most `MAX_REDIRECTS` hops and https only: a
+another URL. The redirects that URL answers with are followed (D-019 on chadlis/hypotrail#75), at most `MAX_REDIRECTS` hops and https only: a
 downgrade to http or one hop more is a failed transfer, with no fallback. No host is allowlisted in the code: the lock's
 SHA-256 is the only acceptance gate, and the timeout and the size bound apply to the file that finally arrives. A failed
 transfer is a coded error that names the already verified bundle and reports the final host, never a URL or its query.
@@ -45,7 +45,7 @@ TIMEOUT_SECONDS = 30
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
-# D-019: redirects are followed up to this many hops, and only to these schemes.
+# D-019 on chadlis/hypotrail#75: redirects are followed up to this many hops, and only to these schemes.
 MAX_REDIRECTS = 5
 REDIRECT_SCHEMES = ("https",)
 
@@ -80,7 +80,7 @@ class _Redirects(urllib.request.HTTPRedirectHandler):
 
 
 def open_url(url: str):
-    """Open one URL, following redirects under D-019. Tests replace this function; nothing else in the module touches the network."""
+    """Open one URL, following redirects under D-019 on chadlis/hypotrail#75. Tests replace this function; nothing else in the module touches the network."""
     request = urllib.request.Request(url, headers={"User-Agent": "hypotrail-data-fetch"})
     redirects = _Redirects()
     try:

@@ -34,7 +34,7 @@ def default_examples_dir() -> Path:
 
 
 def resolve_examples_dir(examples_dir: Path | str | None = None) -> Path:
-    """The directory holding the Workloads, for every command that reads one (D-016).
+    """The directory holding the Workloads, for every command that reads one (D-016 on chadlis/hypotrail#75).
 
     In this order: `--examples-dir` when it is given; otherwise the checkout's `examples/`, only if it exists and
     holds at least one Workload lock; otherwise a refusal that names the flag. No environment variable is read and no
