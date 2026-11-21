@@ -118,6 +118,20 @@ def cut_without_length(body: bytes, sent: int):
     return route
 
 
+def chunked_whole(body: bytes):
+    """A route that answers in chunked encoding and sends the whole `body` with its last chunk."""
+
+    def route(handler):
+        handler.send_response(200)
+        handler.send_header("Transfer-Encoding", "chunked")
+        handler.end_headers()
+        handler.wfile.write(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n\r\n")
+        handler.wfile.flush()
+        handler.close_connection = True
+
+    return route
+
+
 def redirect_to(location: str):
     def route(handler):
         handler.send_response(302)

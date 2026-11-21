@@ -14,6 +14,7 @@ import pytest
 from _fetch_helpers import (
     Stand,
     cut_after,
+    chunked_whole,
     cut_chunked,
     cut_without_length,
     fetch,
@@ -294,16 +295,53 @@ def test_c6_a_chunked_response_cut_mid_body_is_exit_4_publishes_nothing_removes_
     assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []  # nothing published, no .part left
 
 
-def test_c6_a_response_with_neither_length_nor_chunking_closed_early_stays_a_hash_mismatch_that_names_the_verified_bundle(stand, tmp_path):
-    # 10-R1-06: HTTP cannot tell this body from a complete one, so it is exit 3, DOWNLOAD_INTEGRITY, and the message names the alternative.
+BUNDLE = ("data verify", "verified bundle")
+
+
+def named_bundle(error, err=""):
+    return all(words in error["message"] for words in BUNDLE) and "data verify" in err
+
+
+def test_k_an_unframed_response_shorter_than_the_lock_size_is_a_cut_transfer_exit_4(stand, tmp_path):
+    # 10-R1-06, #22 Tightened K (D-020): no Content-Length, not chunked, fewer bytes than size_bytes.
     stand.routes["/short"] = cut_without_length(BODY, 5)
     entry = source(stand, "/short", BODY, "data/a.csv")
     dest = tmp_path / "dest"
     status, payload, err = fetch(write_lock(tmp_path / "l", entry), dest)
     error = payload["error"]
-    assert (status, error["code"], error["stage"]) == (3, "DOWNLOAD_INTEGRITY", "integrity")
-    assert "data verify" in error["message"] and "verified bundle" in error["message"] and "data verify" in err
-    assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []
+    assert (status, error["code"], error["stage"], error["details"]["reason"]) == (4, "DOWNLOAD_FAILED", "download", "interrupted")
+    assert named_bundle(error, err)
+    assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []  # nothing published, no .part left
+
+
+def test_k_an_unframed_response_of_the_lock_size_with_a_wrong_hash_stays_exit_3(stand, tmp_path):
+    wrong = b"alpha,beta\n9,9\n"  # the size of BODY, other bytes
+    stand.routes["/wrong"] = cut_without_length(wrong, len(wrong))
+    status, payload, err = fetch(write_lock(tmp_path / "l", source(stand, "/wrong", BODY, "data/a.csv")), tmp_path / "dest")
+    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err)
+    assert list((tmp_path / "dest" / "data").iterdir()) == []
+
+
+def test_k_a_chunked_body_that_arrives_whole_but_is_shorter_and_differs_stays_exit_3(stand, tmp_path):
+    # guards against taking « no Content-Length » alone for « unframed »: a chunked body is framed.
+    stand.routes["/chunked"] = chunked_whole(b"alpha")
+    status, payload, err = fetch(write_lock(tmp_path / "l", source(stand, "/chunked", BODY, "data/a.csv")), tmp_path / "dest")
+    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err)
+    assert list((tmp_path / "dest" / "data").iterdir()) == []
+
+
+def test_k_where_the_lock_gives_no_size_an_unframed_short_archive_or_notice_stays_exit_3_and_names_the_bundle(stand, tmp_path):
+    archive = make_zip({"day.csv": BODY})
+    stand.routes["/archive"] = cut_without_length(archive, len(archive) - 7)
+    entry = source(stand, "/archive", BODY, "data/day.csv", archive_sha256=sha256(archive), member="day.csv")
+    status, payload, err = fetch(write_lock(tmp_path / "a", entry), tmp_path / "da")
+    assert (status, payload["error"]["code"], payload["error"]["details"]["what"]) == (3, "DOWNLOAD_INTEGRITY", "archive")
+    assert named_bundle(payload["error"], err) and list((tmp_path / "da" / "data").iterdir()) == []
+    stand.routes["/ok"], stand.routes["/notice"] = BODY, cut_without_length(b"licence text\n", 4)
+    entry = source(stand, "/ok", BODY, "data/a.csv", notice="licenses/N.txt", notice_url=stand.url("/notice"), notice_sha256=sha256(b"licence text\n"))
+    status, payload, err = fetch(write_lock(tmp_path / "n", entry), tmp_path / "dn")
+    assert (status, payload["error"]["code"], payload["error"]["details"]["what"]) == (3, "DOWNLOAD_INTEGRITY", "notice")
+    assert named_bundle(payload["error"], err) and not (tmp_path / "dn" / "licenses" / "N.txt").exists()
 
 
 def urlpath(url):

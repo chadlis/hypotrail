@@ -308,8 +308,12 @@ def _mismatch(file: str, what: str, expected: str, actual: str) -> IntegrityErro
     )
 
 
-def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary) -> tuple[str, int]:
-    """Write the body of `url` to the temporary file, stopping as soon as it passes `bound`; return its SHA-256 and size."""
+def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary, lock_size: int | None = None) -> tuple[str, int]:
+    """Write the body of `url` to the temporary file, stopping as soon as it passes `bound`; return its SHA-256 and size.
+
+    A body that is framed (a `Content-Length`, or chunked) and ends short is a cut transfer. An unframed one is a cut transfer
+    only when it is shorter than `lock_size` (D-020); where the lock gives no size it cannot be told from a differing body.
+    """
     try:
         response = open_url(url)
     except _RedirectRefused as error:
@@ -322,6 +326,7 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary)
     host = host_of(response.geturl()) if hasattr(response, "geturl") else host_of(url)  # the final host, after any redirect
     with response:
         announced = response.headers.get("Content-Length")
+        chunked = "chunked" in (response.headers.get("Transfer-Encoding") or "").lower()
         if announced is not None and announced.isdigit() and int(announced) > bound:
             raise _too_large(file, what, bound)
         while True:
@@ -338,6 +343,8 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary)
             temporary.handle.write(block)
     if announced is not None and announced.isdigit() and total != int(announced):
         raise _failed(file, host, "interrupted")  # the connection closed before the announced length arrived
+    if announced is None and not chunked and lock_size is not None and total < lock_size:
+        raise _failed(file, host, "interrupted")  # unframed, and fewer bytes than the lock says: the connection was cut
     return digest.hexdigest(), total
 
 
@@ -345,7 +352,7 @@ def _fetch_file(url: str, target: Path, file: str, sha256: str, size: int | None
     """Download `url` and publish it at `target`: temporary file, bound, hash (and size), atomic rename."""
     bound = GENERIC_CAP_BYTES if size is None else size
     with _Temporary(target) as temporary:
-        actual, total = _transfer(url, file, what, bound, temporary)
+        actual, total = _transfer(url, file, what, bound, temporary, size)
         if actual != sha256 or (size is not None and total != size):
             raise _mismatch(file, what, sha256, actual)
         temporary.publish(target)

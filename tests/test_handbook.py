@@ -2561,16 +2561,18 @@ def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acq
     assert "never replaces a file" in chapter and "no automatic mirror" in chapter
 
 
-def test_the_data_fetch_chapter_states_the_three_ways_a_transfer_is_cut_and_what_each_ends_in():
-    # 10-R1-06, #22 C6: a cut with a Content-Length and a cut chunked body are exit 4 (interrupted); a body that announces neither
-    # cannot be told from a complete one, stays a hash mismatch, exit 3, and its message names the verified bundle.
-    chapter = " ".join(re.sub(r"<[^>]+>", " ", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")).split())
-    cut = re.search(r"<p data-cut-transfers>(.*?)</p>", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8"), re.S)
+def test_the_data_fetch_chapter_states_how_each_cut_transfer_ends_and_the_limit_where_the_lock_gives_no_size():
+    # 10-R1-06, #22 Tightened K (D-020): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
+    # are exit 4 (interrupted); an equal size with a wrong hash, a framed whole body that differs, and an unframed short body where
+    # the lock gives no size (archive, notice) are exit 3 and name the verified bundle; the handbook states this limit.
+    chapter = (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")
+    cut = re.search(r"<p data-cut-transfers>(.*?)</p>", chapter, re.S)
     assert cut, "no paragraph states how a cut transfer ends"
     text = " ".join(re.sub(r"<[^>]+>", " ", cut[1]).split())
-    assert "Content-Length" in text and "chunked" in text and "neither" in text
-    assert text.count("DOWNLOAD_FAILED") >= 1 and "interrupted" in text and "DOWNLOAD_INTEGRITY" in text and "data verify" in text
-    assert "exit 4" in text and "exit 3" in text and text in chapter
+    for word in ("Content-Length", "chunked", "unframed", "size_bytes", "interrupted", "DOWNLOAD_FAILED", "DOWNLOAD_INTEGRITY", "data verify", "exit 4", "exit 3"):
+        assert word in text, word
+    assert "fewer bytes" in text and "equal size" in text and "no size" in text and "archive" in text and "notice" in text
+    assert "is not used to call a short body a cut one" not in text
 
 
 def test_the_readme_install_block_has_the_data_fetch_line_and_says_how_a_clean_install_acquires_the_data():
