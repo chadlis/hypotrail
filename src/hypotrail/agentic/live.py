@@ -25,6 +25,7 @@ from inspect_ai.model import GenerateConfig, Model, get_model
 from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.declaration import load_workload
+from hypotrail.agentic.partitions import DEV
 from hypotrail.core.answer_scoring import parse_answer
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
@@ -353,7 +354,7 @@ def run_live(
 ) -> dict:
     out_dir = Path(out_dir)
     model = prepared_model(model_id, api_key, base_url)
-    load_workload(workload_dir).cases_path("dev")  # a Workload without `dev` is refused before anything is written
+    load_workload(workload_dir).cases_path(DEV)  # a Workload without `dev` is refused before anything is written
     if out_dir.exists() and any(out_dir.iterdir()):
         raise InvalidInputError(
             "OUTPUT_NOT_EMPTY",
@@ -368,7 +369,7 @@ def run_live(
         before = _sha256(workload.database_path)
         limits = limits_module.EpisodeLimits()
         location = runner.run_episodes(
-            workload.cases("dev", case_ids),
+            workload.cases(DEV, case_ids),
             workload=workload,
             configuration=configuration,
             model=model,

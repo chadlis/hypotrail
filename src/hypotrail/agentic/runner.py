@@ -14,6 +14,7 @@ from inspect_ai.solver import generate, use_tools
 from hypotrail.agentic.cases import user_message
 from hypotrail.agentic.declaration import Workload
 from hypotrail.agentic.limits import EpisodeLimits, eval_options
+from hypotrail.agentic.partitions import DEV
 from hypotrail.agentic.sql_tool import QueryCaps, describe_schema, query_readonly
 
 
@@ -22,7 +23,7 @@ def build_task(
     configuration: str,
     *,
     cases: list[dict] | None = None,
-    partition: str = "dev",
+    partition: str = DEV,
     scorer=None,
     query_caps: QueryCaps | None = None,
     metadata: dict | None = None,

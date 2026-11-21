@@ -12,7 +12,7 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.declaration import Declaration, load_declaration, require_keys, typed
-from hypotrail.ml.partitions import require_dev
+from hypotrail.ml.partitions import DEV, require_dev
 
 DIRECTION = "lower_is_better"
 PRIMARY = "mae"
@@ -123,7 +123,7 @@ def summarise(items: list[dict], partition: str, unit: str) -> dict:
     }
 
 
-def compute_metrics(predictions_path, references_path, memberships_path, workload_dir, *, partition: str = "dev") -> dict:
+def compute_metrics(predictions_path, references_path, memberships_path, workload_dir, *, partition: str = DEV) -> dict:
     require_dev(
         partition,
         public_check_code="PUBLIC_CHECK_METRICS_REFUSED",

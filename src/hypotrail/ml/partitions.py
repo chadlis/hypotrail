@@ -13,6 +13,7 @@ from hypotrail.core.errors import InvalidInputError
 TRAIN = "train"
 DEV = "dev"
 PUBLIC_CHECK = "public_check"
+ROLES = (TRAIN, DEV, PUBLIC_CHECK)
 
 
 def require_dev(partition: str, *, public_check_code: str, not_dev_code: str, what: str, stage: str) -> None:

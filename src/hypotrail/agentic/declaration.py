@@ -47,6 +47,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from hypotrail.agentic.cases import load_cases
+from hypotrail.agentic.partitions import DEV
 from hypotrail.core.errors import InvalidInputError
 
 DECLARATION_NAME = "workload.json"
@@ -267,7 +268,7 @@ class Workload:
             return declared["system_text"]
         return self.system_text(declared["extends"]) + declared["added_instruction"]
 
-    def cases_path(self, partition: str = "dev") -> Path:
+    def cases_path(self, partition: str = DEV) -> Path:
         files = self.declaration["cases"]
         if partition not in files:
             raise _refuse(
@@ -282,7 +283,7 @@ class Workload:
         """The Partition role the declaration gives a Case, or None for a Case it does not list."""
         return self._owner.get(case_id)
 
-    def cases(self, partition: str = "dev", case_ids: list[str] | None = None) -> list[dict]:
+    def cases(self, partition: str = DEV, case_ids: list[str] | None = None) -> list[dict]:
         """The Cases of a declared Partition. Nothing here reads the References."""
         return load_cases(self.cases_path(partition), case_ids)
 

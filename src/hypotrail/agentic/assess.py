@@ -45,7 +45,7 @@ from hypotrail.core import study as layout
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.agentic.study import live_basis as _live_basis
-from hypotrail.ml.partitions import requires_exposure
+from hypotrail.agentic.partitions import requires_exposure
 
 STAGE = "assess"
 SCENARIO_MODE = "scripted_fixture"

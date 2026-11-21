@@ -47,6 +47,7 @@ import uuid
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
+from hypotrail.agentic.partitions import ROLES
 from hypotrail.agentic.study import DOMAIN, protocol_content
 from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, requests, study_write
 from hypotrail.core import live as core_live
@@ -59,7 +60,6 @@ COMMAND = study_write.RUN_AGENT
 
 FIXTURE, LIVE = "scripted_fixture", "llm_live"
 MODES = (FIXTURE, LIVE)
-PARTITIONS = ("dev", "public_check")
 REPEATS_BOUNDS = (1, 3)
 FIXTURE_MODEL = "mockllm/model"
 FLAGS_OF_LIVE = {"partition": "--partition", "repeats": "--repeats", "model": "--model", "cases": "--cases"}
@@ -107,8 +107,8 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
             )
         read_json(workload.scenarios_path, stage="fixture", noun="scenarios file", key="scenarios")
         return {"configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None}
-    if partition not in PARTITIONS:
-        raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(PARTITIONS))
+    if partition not in ROLES:
+        raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(ROLES))
     low, high = REPEATS_BOUNDS
     if not isinstance(repeats, int) or isinstance(repeats, bool) or not low <= repeats <= high:
         raise _refuse("REPEATS_OUT_OF_BOUNDS", f"--repeats is an integer from {low} to {high}, not {repeats!r}", repeats=repeats, minimum=low, maximum=high)

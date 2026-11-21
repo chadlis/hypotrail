@@ -697,7 +697,7 @@ def _recover(args) -> int:
 def _spike_live(args) -> int:
     import os
 
-    from hypotrail.agentic import cases
+    from hypotrail.agentic import cases, partitions
     from hypotrail.agentic.declaration import load_workload
     from hypotrail.core import data, live
 
@@ -710,7 +710,7 @@ def _spike_live(args) -> int:
     workload.system_text(args.config)
     # Neither the declaration nor `hypotrail.agentic.cases` imports Inspect, so they are read
     # here, before the key.
-    dev_ids = {case["case_id"] for case in cases.load_cases(workload.cases_path("dev"))}
+    dev_ids = {case["case_id"] for case in cases.load_cases(workload.cases_path(partitions.DEV))}
     case_ids = args.case or ["D03", "D05"]
     live.check_bounds(case_ids, args.repeats, dev_ids)
     # The key is read last among the cheap checks and before Inspect is imported:
