@@ -2694,6 +2694,20 @@ def test_the_t24_walk_record_carries_the_cosmic_couture_charter_in_light_mode_an
         assert all(name in charter for name in used), "a token the charter does not define"
 
 
+def test_the_readme_chinook_compare_line_says_what_its_own_path_gives_and_the_walk_record_names_the_correction():
+    # 10-R1-04, #87 C5: the walk saw that line refused (D7, COMPARISON_POPULATION_DIFFERS, exit 3). The line's command is unchanged
+    # (the walk ran it, and walk_problems ignores comments); its comment now says so, and the record names the correction as made after the walk.
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    line = next(line for line in readme.splitlines() if "compare --study runs/chinook" in line)
+    comment = line.split("#", 1)[1]
+    assert "COMPARISON_POPULATION_DIFFERS" in comment and "exit 3" in comment and "same Cases" in comment
+    assert "compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]" in line
+    corrections = re.search(r'<h2 id="corrections">.*?(?=<h2 )', WALK.read_text(encoding="utf-8"), re.S)[0]
+    assert 'data-corrections="none"' not in corrections
+    assert "10-R1-04" in corrections and "after the walk" in corrections and "D7" in corrections
+    assert walk_problems(walk_steps(), readme_path()) == []  # the comment change leaves the README path the walk recorded
+
+
 # --- #88: the acceptance grid T01-T24 (chapter 16), its statuses and the handbook's completeness -------------------------
 
 ACCEPTANCE_IDS = [f"T{n:02d}" for n in range(1, 25)]
