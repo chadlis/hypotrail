@@ -9,26 +9,22 @@ from hypotrail.cli import build_parser
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_no_french_quotation_in_source_or_handbook():
-    # AGENTS.md: everything committed is in English; « » only ever quoted French.
-    files = [*(ROOT / "src").rglob("*.py"), *(ROOT / "docs" / "handbook" / "chapters").glob("*.html")]
-    found = [str(p.relative_to(ROOT)) for p in files if "«" in p.read_text(encoding="utf-8") or "»" in p.read_text(encoding="utf-8")]
-    assert found == []
-
-
-# R3-S-01: the files the slice L2.1 (#104) adds; each had « » around English once. Older tests and ADRs are a corpus decision, not made here.
-FILES_THE_SLICE_ADDS = [
-    "docs/adr/0004-panel-cli-contract.md",
-    "tests/test_write_sequence.py",
-    "tests/test_stale_sequence.py",
-    "tests/test_decide.py",
-    "tests/test_decision_history.py",
-    "tests/test_panel_cli_contract.py",
+# AGENTS.md: everything committed is in English; « » only ever quoted French. The files held to it: the source, the handbook chapters, ADR 0004 and the
+# test modules of the write sequence, the decisions and the panel-CLI contract. Older tests and the other ADRs are a corpus decision (#115), not made here.
+FILES_FREE_OF_FRENCH_QUOTATION = [
+    *sorted((ROOT / "src").rglob("*.py")),
+    *sorted((ROOT / "docs" / "handbook" / "chapters").glob("*.html")),
+    ROOT / "docs" / "adr" / "0004-panel-cli-contract.md",
+    ROOT / "tests" / "test_write_sequence.py",
+    ROOT / "tests" / "test_stale_sequence.py",
+    ROOT / "tests" / "test_decide.py",
+    ROOT / "tests" / "test_decision_history.py",
+    ROOT / "tests" / "test_panel_cli_contract.py",
 ]
 
 
-def test_no_french_quotation_in_the_files_the_slice_adds():
-    found = [name for name in FILES_THE_SLICE_ADDS if set("\u00ab\u00bb") & set((ROOT / name).read_text(encoding="utf-8"))]
+def test_no_french_quotation_outside_quoted_french():
+    found = [str(p.relative_to(ROOT)) for p in FILES_FREE_OF_FRENCH_QUOTATION if set("«»") & set(p.read_text(encoding="utf-8"))]
     assert found == []
 
 
