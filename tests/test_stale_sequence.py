@@ -351,6 +351,24 @@ def test_a_value_that_is_negative_or_not_an_integer_is_refused_as_an_argument_an
     assert tree(scenario.study) == files
 
 
+@pytest.mark.parametrize("value", [-1, 1.5, True, "valid"], ids=["negative", "not an integer", "boolean", "current value"])
+@pytest.mark.parametrize("command", SCENARIOS)
+def test_a_library_caller_is_refused_a_bad_read_sequence_as_an_argument_before_any_lock_and_nothing_is_written(command, value, tmp_path):
+    # #108 Tightened C, R1-P-03: the library entry gives the code and `details` of the CLI, before the lock (a held lock does not change it)
+    scenario = SCENARIOS[command](tmp_path)
+    files, before = tree(scenario.study), seq(scenario.study)
+    if value == "valid":
+        scenario.library(scenario.study, before)
+        assert seq(scenario.study) == before + 2
+        return
+    _, payload, _ = scenario.call(scenario.study, "--read-sequence", str(value))
+    with held_by_another_process(scenario.study), pytest.raises(HypotrailError) as caught:
+        scenario.library(scenario.study, value)
+    assert (caught.value.code, caught.value.exit_code, caught.value.stage) == ("INVALID_ARGUMENTS", 2, "config")
+    assert caught.value.details == error_of(payload)["details"]
+    assert tree(scenario.study) == files and seq(scenario.study) == before
+
+
 # --- Tightened J and E: init that creates a Study takes no option ------------------------------------------------------------
 
 

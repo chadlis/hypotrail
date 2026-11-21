@@ -86,6 +86,7 @@ def run_ml(
     study = Path(study)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    write_journal.require_a_valid_value(read_sequence, "run ml")
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
         return _run_locked(study, config_id, partition, request_id, retry_of=retry_of, examples_dir=examples_dir, read_sequence=read_sequence)

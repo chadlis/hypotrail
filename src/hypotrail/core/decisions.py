@@ -166,6 +166,7 @@ def decide(
         raise _invalid(f"the author of a decision is one of {', '.join(AUTHORS)}, not {author!r}")
     if read_sequence is None:
         raise _invalid("a decision is made on the write sequence its author read: --read-sequence is required")
+    write_journal.require_a_valid_value(read_sequence, "decide")
     if not cited_ids:
         raise _invalid("a decision cites at least one id: --artifact is required")
     for field, value in (("question", question), ("option", option)):

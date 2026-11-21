@@ -58,6 +58,22 @@ def entries(study) -> list:
     return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in _names(study)]
 
 
+def require_a_valid_value(read_sequence, command: str) -> None:
+    """Refuse a `read_sequence` that is not a non-negative integer, as the command line does (`INVALID_ARGUMENTS`, exit 2): call it before any lock.
+
+    `command` is the command's name as the command line shows it (`details` `{"command"}` is then the one the parser gives). `None` (not given) passes.
+    """
+    if read_sequence is None:
+        return
+    if isinstance(read_sequence, bool) or not isinstance(read_sequence, int) or read_sequence < 0:
+        raise InvalidInputError(
+            "INVALID_ARGUMENTS",
+            f"--read-sequence takes a non-negative integer, not {read_sequence!r}",
+            stage="config",
+            details={"command": f"hypotrail {command}"},
+        )
+
+
 def require_current(study, read_sequence) -> None:
     """Refuse a write made on a write sequence that is not the Study's: the caller holds the writer lock. `None` (not given) is never refused."""
     if read_sequence is None:

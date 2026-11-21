@@ -222,6 +222,7 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
     current revision's is refused (`PROTOCOL_UNCHANGED`). Holds the Study's writer lock for the whole command.
     """
     study = Path(study)
+    write_journal.require_a_valid_value(read_sequence, "init")
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study), write_journal.writing(study, "init --new-revision"):
         write_journal.require_current(study, read_sequence)
