@@ -394,40 +394,46 @@ def test_a_missing_examples_directory_is_an_invalid_input_not_an_infrastructure_
     assert error["details"] == {"examples_dir": str(tmp_path / "nope")}
 
 
-def test_a_checkout_examples_directory_that_holds_no_workload_lock_is_not_called_a_missing_checkout(tmp_path, monkeypatch):
-    # 10-R1-07: `examples/` exists but holds no Workload lock: the message says that, still names --examples-dir; same code, exit 2, details.
+@pytest.mark.parametrize(
+    ("state", "said"),
+    [
+        ("missing", "does not exist"),
+        ("dangling_link", "is a link whose target does not exist"),
+        ("file", "exists but is not a directory"),
+        ("empty_directory", "exists but holds no Workload lock"),
+        ("directory_without_lock", "exists but holds no Workload lock"),
+        ("valid", None),
+    ],
+)
+def test_the_resolver_states_only_what_it_observed_of_the_default_examples_and_never_calls_it_a_checkout(tmp_path, monkeypatch, state, said):
+    # 10-R2-02 (rounds 2 and 3, #23 B): the four facts, each naming --examples-dir; code, exit 2 and details are those of every refusal.
     from hypotrail.core import data
 
-    present, absent = tmp_path / "checkout" / "examples", tmp_path / "gone" / "examples"
-    (present / "empty_workload").mkdir(parents=True)
-    messages = {}
-    for name, default in (("present", present), ("absent", absent)):
-        monkeypatch.setattr(data, "default_examples_dir", lambda default=default: default)
-        code, out, _ = run_cli("data", "verify", "--json")
-        assert code == 2
-        error = json.loads(out)["error"]
-        assert (error["code"], error["stage"], error["details"]) == ("EXAMPLES_DIR_NOT_FOUND", "config", {"examples_dir": str(default)})
-        assert "--examples-dir" in error["message"]
-        messages[name] = error["message"]
-    assert "holds no Workload lock" in messages["present"] and "not a source checkout" not in messages["present"]
-    assert "does not exist" not in messages["present"]
-    assert "not a source checkout" in messages["absent"] and "does not exist" in messages["absent"]
-
-
-def test_a_checkout_examples_that_is_a_file_is_said_to_be_not_a_directory_not_to_be_missing(tmp_path, monkeypatch):
-    # 10-R2-02: `examples` exists but is a file; the message says so. Code, exit and details are those of the other refusals.
-    from hypotrail.core import data
-
-    default = tmp_path / "checkout" / "examples"
+    default = tmp_path / "somewhere" / "examples"
     default.parent.mkdir()
-    default.write_text("not a directory")
+    if state == "dangling_link":
+        default.symlink_to(tmp_path / "no-such-target", target_is_directory=True)
+    elif state == "file":
+        default.write_text("not a directory")
+    elif state in ("empty_directory", "directory_without_lock"):
+        default.mkdir()
+        if state == "directory_without_lock":
+            (default / "a_workload").mkdir()
+    elif state == "valid":
+        (default / "a_workload").mkdir(parents=True)
+        (default / "a_workload" / data.LOCK_NAME).write_text("{}")
     monkeypatch.setattr(data, "default_examples_dir", lambda: default)
+    if said is None:
+        assert data.resolve_examples_dir(None) == default
+        return
     code, out, _ = run_cli("data", "verify", "--json")
     assert code == 2
     error = json.loads(out)["error"]
     assert (error["code"], error["stage"], error["details"]) == ("EXAMPLES_DIR_NOT_FOUND", "config", {"examples_dir": str(default)})
-    assert "is not a directory" in error["message"] and "--examples-dir" in error["message"]
-    assert "does not exist" not in error["message"] and "not a source checkout" not in error["message"]
+    assert said in error["message"] and "--examples-dir" in error["message"]
+    assert "source checkout" not in error["message"]
+    others = {"does not exist", "is a link whose target does not exist", "exists but is not a directory", "exists but holds no Workload lock"}
+    assert not any(other in error["message"] for other in others if other not in said)  # one fact, the observed one
 
 
 @pytest.mark.parametrize(

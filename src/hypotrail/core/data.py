@@ -46,11 +46,14 @@ def resolve_examples_dir(examples_dir: Path | str | None = None) -> Path:
     if default.is_dir() and discover_workloads(default):
         return default
     if default.is_dir():
-        reason = f"{default} exists but holds no Workload lock ({LOCK_NAME}); give the directory that holds the Workloads with --examples-dir DIR"
+        fact = f"{default} exists but holds no Workload lock ({LOCK_NAME})"
     elif default.exists():
-        reason = f"{default} exists but is not a directory; give the directory that holds the Workloads with --examples-dir DIR"
+        fact = f"{default} exists but is not a directory"
+    elif default.is_symlink():
+        fact = f"{default} is a link whose target does not exist"
     else:
-        reason = f"{default} does not exist; this is not a source checkout, so give the directory that holds the Workloads with --examples-dir DIR"
+        fact = f"{default} does not exist"
+    reason = f"{fact}; give the directory that holds the Workloads with --examples-dir DIR"
     raise InvalidInputError(
         "EXAMPLES_DIR_NOT_FOUND",
         f"no Workloads found: {reason}",
