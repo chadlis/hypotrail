@@ -2674,6 +2674,26 @@ def test_the_t24_walk_record_names_the_walker_the_commit_and_that_an_agent_walke
     assert all(fields[name].strip() for name in ("os", "python", "uv"))
 
 
+def _root_tokens(css, selector):
+    """The `--name: value` declarations of the first `selector{...}` rule of a style block."""
+    body = css.split(selector + "{", 1)[1].split("}", 1)[0]
+    return dict(re.findall(r"(--[a-z0-9-]+):([^;]+);?", body))
+
+
+def test_the_t24_walk_record_carries_the_cosmic_couture_charter_in_light_mode_and_has_no_system_dark_switch():
+    # 10-R1-01, #1 amendment « All HTML uses the cosmic-couture charter, light mode by default »: the record is a page beside the
+    # handbook, not a chapter, and takes the handbook's own tokens (template.html), light by default, never from the OS setting.
+    page = WALK.read_text(encoding="utf-8")
+    template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
+    assert re.search(r'<html[^>]*\bdata-mode="light"', page)
+    assert "prefers-color-scheme" not in page
+    for selector in (":root", ':root[data-mode="light"]'):
+        used, charter = _root_tokens(page, selector), _root_tokens(template, selector)
+        assert {"--bg", "--ink", "--ink2", "--line", "--gold", "--paper"} <= set(used)
+        assert {name: value for name, value in used.items() if name in charter} == {name: charter[name] for name in used if name in charter}
+        assert all(name in charter for name in used), "a token the charter does not define"
+
+
 # --- #88: the acceptance grid T01-T24 (chapter 16), its statuses and the handbook's completeness -------------------------
 
 ACCEPTANCE_IDS = [f"T{n:02d}" for n in range(1, 25)]

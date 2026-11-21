@@ -1,31 +1,35 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mode="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hypotrail T24 walk record</title>
 <style>
-:root{--bg:#fbfaf7;--ink:#1d1b22;--ink2:#4a4655;--line:#d9d4c8;--code:#f0ede4;--accent:#8a5a00;--bad:#a3262a}
-@media (prefers-color-scheme:dark){:root{--bg:#121018;--ink:#f1ece0;--ink2:#c3bccf;--line:#3a3547;--code:#1c1826;--accent:#e1c48c;--bad:#ff8a8d}}
+:root{--bg:#0B0912;--bg2:#171320;--ink:#F5EFE3;--ink2:#CFC5D8;--faint:#857D97;--line:rgba(241,234,221,.14);--line2:rgba(241,234,221,.30);
+--gold:#E1C48C;--pink:#EC4C8C;--green:#8CCB55;--teal:#6FC3B2;--violet:#C08BD6;--sky:#5F94D0;--coral:#F2681E;--amber:#E8A857;
+--paper:#191424;--serif:'Fraunces',Georgia,serif;--sans:'Jost','Avenir Next',Avenir,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+:root[data-mode="light"]{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--faint:#7A7187;--line:rgba(21,17,28,.10);--line2:rgba(21,17,28,.20);
+--gold:#9C7633;--pink:#C2306D;--green:#4E8A25;--teal:#21806F;--violet:#8A4FA6;--sky:#2F64A3;--coral:#C9500F;--amber:#A86E1E;--paper:#FFFFFF;color-scheme:light}
+:root[data-mode="light"],:root[data-mode="light"] body{background:#EDE6DA}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}
-main{max-width:980px;margin:0 auto;padding:32px 16px 64px}
+body{margin:0;background:var(--bg);color:var(--ink);font:300 16px/1.55 var(--sans)}
+main{max-width:980px;margin:0 auto;padding:32px 16px 64px;background:var(--bg)}
 h1{font-size:28px;margin:0 0 4px}
 h2{font-size:20px;margin:40px 0 8px;border-top:1px solid var(--line);padding-top:16px}
 h3{font-size:15px;margin:0 0 6px}
 p,li,dd{color:var(--ink)}
 .lead{color:var(--ink2)}
-code,pre{font:13px/1.45 ui-monospace,Menlo,monospace}
-code{background:var(--code);padding:1px 4px;border-radius:3px}
-pre{background:var(--code);padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;border-radius:4px}
+code,pre{font:400 13px/1.45 var(--mono)}
+code{background:var(--bg2);padding:1px 4px;border-radius:3px}
+pre{background:var(--bg2);padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;border-radius:4px}
 pre code{background:none;padding:0}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px}
 dt{color:var(--ink2)} dd{margin:0}
 ol.steps{list-style:none;padding:0}
 li.step{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0 0 12px}
-.tag{font-weight:400;color:var(--accent)}
+.tag{font-weight:400;color:var(--gold)}
 .exit{font-weight:600;float:right}
-li.step[data-exit]:not([data-exit="0"]) .exit{color:var(--bad)}
+li.step[data-exit]:not([data-exit="0"]) .exit{color:var(--coral)}
 .note{color:var(--ink2);margin:6px 0 0;font-size:14px}
 blockquote{margin:6px 0;padding:6px 12px;border-left:3px solid var(--line);color:var(--ink)}
 ol.diffs>li{margin:0 0 14px}
