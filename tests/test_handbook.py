@@ -2708,6 +2708,14 @@ def test_the_readme_chinook_compare_line_says_what_its_own_path_gives_and_the_wa
     assert walk_problems(walk_steps(), readme_path()) == []  # the comment change leaves the README path the walk recorded
 
 
+def test_the_walk_record_hands_difficulty_d3_back_to_issue_89_in_plain_text_without_a_closing_keyword():
+    # 10-R1-05, #87 C5 « a defect in the code is recorded and handed back »: D3 names where it went; no keyword closes the issue.
+    text = WALK.read_text(encoding="utf-8")
+    d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
+    assert "chadlis/hypotrail#89" in d3 and "<a " not in d3
+    assert not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", d3, re.I)
+
+
 # --- #88: the acceptance grid T01-T24 (chapter 16), its statuses and the handbook's completeness -------------------------
 
 ACCEPTANCE_IDS = [f"T{n:02d}" for n in range(1, 25)]
