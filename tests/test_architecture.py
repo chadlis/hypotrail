@@ -131,9 +131,9 @@ def test_a_call_of_the_write_protocol_outside_the_study_write_module_counts_thro
 # --- rule 4: the Partition roles ------------------------------------------------------------------------------------------------
 
 TRACKS = ("agentic", "ml")
-# `core/comparison.py:44-45` and `report/gather.py:14` hold a copy of the role names; where they belong is the question Q2 of #117 leaves open:
+# `core/comparison.py` and `report/gather.py` each hold a copy of the role names, and stay the only modules allowed to:
 # "Where do the core's copies of the role names (`core/comparison.py:44-45`, `report/gather.py:14`) belong, given that the core imports no Track?"
-Q2_FILES = {
+CORE_COPIES_OF_THE_ROLE_NAMES = {
     "hypotrail.core.comparison": "the core imports no Track, so it cannot read the roles from a partitions module",
     "hypotrail.report.gather": "the report reads no Track's partitions module, so it keeps its own copy",
 }
@@ -162,7 +162,7 @@ def role_literal_problems(trees: dict) -> list:
             if not (isinstance(node, ast.Constant) and isinstance(node.value, str)) or not any(node.value in held for held in roles.values()):
                 continue
             home = {f"{PACKAGE}.{track}.partitions" for track, held in roles.items() if node.value in held}
-            if module not in home and module not in Q2_FILES:
+            if module not in home and module not in CORE_COPIES_OF_THE_ROLE_NAMES:
                 problems.append(f"{module}:{node.lineno} holds the literal {node.value!r}")
     return problems
 
@@ -195,15 +195,14 @@ def load_schemas(root) -> tuple:
     return tuple(json.loads((root / PACKAGE / track / "workload.schema.json").read_text(encoding="utf-8")) for track in TRACKS)
 
 
-def test_no_string_constant_of_src_equals_a_role_outside_the_partitions_module_of_that_track_and_the_two_files_of_q2():
+def test_no_string_constant_of_src_equals_a_role_outside_the_partitions_module_of_that_track_and_the_core_copies_of_the_role_names():
     trees = parse_all(SOURCE)
-    assert role_sets(trees) == {"agentic": {"dev", "public_check"}, "ml": {"train", "dev", "public_check"}}
     assert role_literal_problems(trees) == []
-    assert all(Q2_FILES.values()), "each file of Q2 gives its reason"
-    assert set(Q2_FILES) <= set(trees)
+    assert all(CORE_COPIES_OF_THE_ROLE_NAMES.values()), "each core copy of the role names gives its reason"
+    assert set(CORE_COPIES_OF_THE_ROLE_NAMES) <= set(trees)
 
 
-def test_a_role_literal_in_a_module_of_another_track_or_of_no_track_is_found_and_the_two_files_of_q2_and_the_partitions_modules_are_not(tmp_path):
+def test_a_role_literal_in_a_module_of_another_track_or_of_no_track_is_found_and_the_core_copies_of_the_role_names_and_the_partitions_modules_are_not(tmp_path):
     root = plant(tmp_path, {
         "hypotrail/agentic/partitions.py": 'DEV = "dev"\nPUBLIC_CHECK = "public_check"\nROLES = (DEV, PUBLIC_CHECK)\n',
         "hypotrail/ml/partitions.py": 'TRAIN = "train"\nDEV = "dev"\nPUBLIC_CHECK = "public_check"\nROLES = (TRAIN, DEV, PUBLIC_CHECK)\n',
@@ -224,16 +223,23 @@ def test_the_agent_schema_closes_cases_to_the_roles_of_the_agent_track_and_the_m
     assert schema_problems(agent_schema, ml_schema, role_sets(parse_all(SOURCE))) == []
 
 
-def test_a_role_removed_from_the_cases_of_the_agent_schema_and_a_role_planted_in_the_ml_schema_are_found():
-    roles = {"agentic": {"dev", "public_check"}, "ml": {"train", "dev", "public_check"}}
-    agent = {"properties": {"cases": {"properties": {"dev": {}, "public_check": {}}}}}
-    ml = {"properties": {"partitions": {"type": "object"}}}
-    assert schema_problems(agent, ml, roles) == []
-    del agent["properties"]["cases"]["properties"]["public_check"]
-    assert len(schema_problems(agent, ml, roles)) == 1
-    agent["properties"]["cases"]["properties"]["public_check"] = {}
-    ml["properties"]["partitions"]["examples"] = [{"train": []}]
-    assert schema_problems(agent, ml, roles) == ["the ml schema holds the role names ['train']"]
+def test_a_role_removed_from_the_cases_of_a_copy_of_the_agent_schema_and_a_role_planted_in_a_copy_of_the_ml_schema_are_found(tmp_path):
+    for track in TRACKS:
+        (tmp_path / PACKAGE / track).mkdir(parents=True)
+        shutil.copy(SOURCE / PACKAGE / track / "workload.schema.json", tmp_path / PACKAGE / track / "workload.schema.json")
+    roles = role_sets(parse_all(SOURCE))
+    assert schema_problems(*load_schemas(tmp_path), roles) == []
+    agent_copy = tmp_path / PACKAGE / "agentic" / "workload.schema.json"
+    agent_schema = json.loads(agent_copy.read_text(encoding="utf-8"))
+    del agent_schema["properties"]["cases"]["properties"]["public_check"]
+    agent_copy.write_text(json.dumps(agent_schema), encoding="utf-8")
+    assert len(schema_problems(*load_schemas(tmp_path), roles)) == 1
+    shutil.copy(SOURCE / PACKAGE / "agentic" / "workload.schema.json", agent_copy)
+    ml_copy = tmp_path / PACKAGE / "ml" / "workload.schema.json"
+    ml_schema = json.loads(ml_copy.read_text(encoding="utf-8"))
+    ml_schema["properties"]["train"] = {"type": "object"}
+    ml_copy.write_text(json.dumps(ml_schema), encoding="utf-8")
+    assert schema_problems(*load_schemas(tmp_path), roles) == ["the ml schema holds the role names ['train']"]
 
 
 # --- rule 5: the third-party imports of each package ----------------------------------------------------------------------------

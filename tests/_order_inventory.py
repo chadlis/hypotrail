@@ -113,8 +113,7 @@ LOCK_HELD_ENTERS_NONE = {
 
 # --- the paths that take the writer lock ---------------------------------------------------------------------------------------
 
-# Every function under `src` that takes the writer lock, as `module:function`: by `lock.writer_lock`, or, for the five writers that share the
-# write protocol (`run ml`, `run agent`, `import ml`, `import agent`, `decide`), by `study_write.locked`, which takes it for them;
+# Every function under `src` that takes the writer lock, as `module:function`: by `study_write.locked`, which takes it for every writer;
 # `tests/test_order_probe.py` holds this set equal to the set found in the source. `reads_sequence`: the function takes `--read-sequence`. `lock_held`
 # and `after`: its row of `LOCK_HELD` and of `UNDER_THE_LOCK` (the `AFTER` one). `stale_check_in`: the function that calls `require_current`, or the
 # `replay_attempt` or `replay_decision` of the Study-write module that runs it, when it is not the locked function itself.
