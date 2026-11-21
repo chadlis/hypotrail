@@ -2565,3 +2565,108 @@ def test_the_readme_install_block_has_the_data_fetch_line_and_says_how_a_clean_i
     assert re.search(r"^uv run python -m hypotrail data fetch --lock \S+ --dest \S+", block, re.M)
     flat = " ".join(readme.split())
     assert "acquires it with `data fetch`" in flat and "to acquire it again, remove it first" in flat
+
+
+# --- #87: the record of the T24 walk (clean install, README path) -------------------------------------
+
+WALK = HANDBOOK / "walk-t24.html"
+README_ID_FLAGS = ("--observations", "--references", "--control", "--candidate")
+
+
+class WalkSteps(HTMLParser):
+    """Reads the steps of the walk record: kind, exit code, command and output of each `li.step`."""
+
+    def __init__(self):
+        super().__init__()
+        self.steps, self._step, self._into = [], None, None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "li" and "data-step" in attrs:
+            exit_code = attrs.get("data-exit")
+            self._step = {"kind": attrs["data-kind"], "exit": None if exit_code is None else int(exit_code), "command": None, "output": None}
+            self.steps.append(self._step)
+        elif tag == "pre" and self._step is not None:
+            for field in ("command", "output"):
+                if f"data-{field}" in attrs:
+                    self._into = field
+                    self._step[field] = ""
+
+    def handle_endtag(self, tag):
+        if tag == "pre":
+            self._into = None
+        elif tag == "li":
+            self._step = None
+
+    def handle_data(self, data):
+        if self._into is not None:
+            self._step[self._into] += data
+
+
+def walk_steps(text=None):
+    parser = WalkSteps()
+    parser.feed(WALK.read_text(encoding="utf-8") if text is None else text)
+    return parser.steps
+
+
+def readme_path(readme_text=None):
+    """The commands of the README's install block: comments and `[optional]` parts removed."""
+    block = (readme_text or (ROOT / "README.md").read_text(encoding="utf-8")).split("```")[1]
+    lines = (re.sub(r"\s+#.*$", "", line).strip() for line in block.splitlines())
+    return [re.sub(r"\s*\[[^\]]*\]", "", line) for line in lines if line]
+
+
+def same_command(written, recorded):
+    """The recorded command is the README's, each ID placeholder (`OBSERVATION_SET_ID`) filled by one token."""
+    words, filled = written.split(), recorded.split()
+    return len(words) == len(filled) and all(re.fullmatch(r"[A-Z]+(?:_[A-Z]+)*_ID", word) or word == token for word, token in zip(words, filled))
+
+
+def walk_problems(steps, path):
+    """What is wrong with a walk record against the README's path; an empty list when it holds."""
+    problems = []
+    paid = [command for command in path if "--mode llm_live" in command]
+    ran = [command for command in path if command not in paid]
+    not_run = [step for step in steps if step["kind"] == "not-run"]
+    if [step["command"] for step in not_run if "llm_live" in step["command"]] != paid:
+        problems.append("the paid README commands are not listed as not run, as written")
+    if any(step["exit"] is not None or step["output"] is not None for step in not_run):
+        problems.append("a command listed as not run carries an exit code or an output")
+    recorded = [step["command"] for step in steps if step["kind"] == "readme"]
+    if len(recorded) != len(ran) or not all(same_command(written, command) for written, command in zip(ran, recorded)):
+        problems.append("the recorded README commands, in order, are not the commands of the README's path")
+    for index, step in enumerate(steps):
+        if step["kind"] == "not-run":
+            continue
+        if step["exit"] is None or not step["output"]:
+            problems.append(f"step {index + 1} keeps no exit code or no output")
+        before = "\n".join(earlier["output"] or "" for earlier in steps[:index])
+        for flag in README_ID_FLAGS:
+            for value in re.findall(rf"{flag} (\S+)", step["command"]):
+                if value not in before:
+                    problems.append(f"step {index + 1}: {flag} {value} is in no output of an earlier step")
+        for study in re.findall(r"--study (\S+)", step["command"]):
+            if " init --workload " in step["command"]:
+                continue  # the command that creates the Study
+            if not any(re.search(rf"\binit --workload \S+ --study {re.escape(study)}$", earlier["command"] or "") for earlier in steps[:index]):
+                problems.append(f"step {index + 1}: the Study {study} was not created by an earlier init")
+    return problems
+
+
+def test_the_t24_walk_record_keeps_the_commands_of_the_readme_path_with_the_ids_they_were_filled_from():
+    # #87 Tightened B: a record written without running the commands (IDs from elsewhere, an output missing, a command
+    # not run) or left behind by a change to the README's commands fails; the paid commands are listed, never run.
+    steps = walk_steps()
+    assert walk_problems(steps, readme_path()) == []
+    assert any(step["kind"] == "not-run" and "spike live" in step["command"] for step in steps)  # the paid command of the README's prose
+    assert "spike live" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_the_t24_walk_record_names_the_walker_the_commit_and_that_an_agent_walked():
+    # #87 C1: who walked, on which commit, in which environment.
+    fields = dict(re.findall(r'<dd data-field="([a-z-]+)">(.*?)</dd>', WALK.read_text(encoding="utf-8"), re.S))
+    assert re.search(r"<code>[0-9a-f]{40}</code>", fields["commit"])
+    assert "slice-builder" in fields["walker"] and "claude.ai/code/session_" in fields["walker"]
+    assert "not by the owner" in fields["executed-by"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields["date"])
+    assert all(fields[name].strip() for name in ("os", "python", "uv"))
