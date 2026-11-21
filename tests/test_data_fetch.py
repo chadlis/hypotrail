@@ -6,7 +6,9 @@ Every download is served by the stand-in on the loopback interface (or by a repl
 import json
 import os
 import shutil
+import urllib.request
 import zipfile
+from urllib.parse import urlsplit
 
 import pytest
 from _fetch_helpers import (
@@ -257,31 +259,118 @@ def test_c5_the_extracted_member_is_checked_against_the_lock_sha256_and_size_bef
 # --- C6: a failed transfer is exit 4 and names the verified bundle --------------------------------------------------
 
 
-@pytest.mark.parametrize("kind", ["unreachable", "http_status", "interrupted", "redirected"])
+@pytest.mark.parametrize("kind", ["unreachable", "http_status", "interrupted"])
 def test_c6_a_failed_transfer_is_exit_4_publishes_nothing_and_names_the_verified_bundle(stand, tmp_path, kind):
     stand.routes["/ok"] = BODY  # a mirror that is never to be tried
     url = {
         "unreachable": "http://127.0.0.1:1/closed",
         "http_status": stand.url("/gone"),
         "interrupted": stand.url("/cut"),
-        "redirected": stand.url("/redirect"),
     }[kind]
     stand.routes["/gone"] = 503
     stand.routes["/cut"] = cut_after(BODY, 5)
-    stand.routes["/redirect"] = redirect_to(stand.url("/ok"))
     entry = source(stand, "/ok", BODY, "data/a.csv", download_url=url)
     dest = tmp_path / "dest"
     status, payload, err = fetch(write_lock(tmp_path / "l", entry), dest)
     error = payload["error"]
     assert (status, error["code"], error["stage"]) == (4, "DOWNLOAD_FAILED", "download")
     assert "data verify" in error["message"] and "verified bundle" in error["message"] and "data verify" in err
-    assert error["details"]["reason"] == {"unreachable": "unreachable", "http_status": "http_status", "interrupted": "interrupted", "redirected": "http_status"}[kind]
+    assert error["details"]["reason"] == kind and error["details"]["host"] == urlsplit(url).netloc
     assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []
     assert "/ok" not in stand.requests and stand.requests.count(urlpath(url)) <= 1  # no other source, no second try
 
 
 def urlpath(url):
     return "/" + url.split("/", 3)[3]
+
+
+# --- J (D-019): redirects are followed, at most 5 hops, https only --------------------------------------------------
+# The stand-in speaks http, so the https-only rule is witnessed twice without TLS: end to end, where the default rule refuses a
+# redirect to the stand-in (an http address), and on the redirect handler itself, which is given https and http targets directly.
+# The tests that need a followed hop on the loopback widen the allowed schemes for their own duration.
+
+
+def chain(stand, hops, final=BODY, start="/r0"):
+    """Routes /r0 -> /r1 -> ... -> /r<hops>, which answers `final`."""
+    for n in range(hops):
+        stand.routes[f"/r{n}"] = redirect_to(stand.url(f"/r{n + 1}"))
+    stand.routes[f"/r{hops}"] = final
+    return start
+
+
+def test_j_a_followed_redirect_publishes_the_file_the_lock_names_and_up_to_five_hops_are_followed(stand, tmp_path, monkeypatch):
+    monkeypatch.setattr(core_fetch, "REDIRECT_SCHEMES", ("http", "https"))
+    for hops in (1, 5):
+        start = chain(stand, hops)
+        dest = tmp_path / f"dest{hops}"
+        status, payload, _ = fetch(write_lock(tmp_path / f"l{hops}", source(stand, start, BODY, "data/a.csv")), dest)
+        assert status == 0 and (dest / "data" / "a.csv").read_bytes() == BODY, hops
+        assert stand.requests[-(hops + 1):] == [f"/r{n}" for n in range(hops + 1)]  # the lock's URL first, then each hop
+        assert [p.name for p in (dest / "data").iterdir()] == ["a.csv"]
+
+
+def test_j_the_lock_sha256_stays_the_only_gate_after_a_redirect(stand, tmp_path, monkeypatch):
+    monkeypatch.setattr(core_fetch, "REDIRECT_SCHEMES", ("http", "https"))
+    chain(stand, 1, final=b"alpha,beta\n9,9\n")
+    status, payload, _ = fetch(write_lock(tmp_path / "l", source(stand, "/r0", BODY, "data/a.csv")), tmp_path / "dest")
+    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY")
+    assert list((tmp_path / "dest" / "data").iterdir()) == []
+
+
+def test_j_a_sixth_hop_is_refused_with_exit_4_and_no_fallback(stand, tmp_path, monkeypatch):
+    monkeypatch.setattr(core_fetch, "REDIRECT_SCHEMES", ("http", "https"))
+    start = chain(stand, 6)
+    dest = tmp_path / "dest"
+    status, payload, err = fetch(write_lock(tmp_path / "l", source(stand, start, BODY, "data/a.csv")), dest)
+    error = payload["error"]
+    assert (status, error["code"], error["details"]["reason"]) == (4, "DOWNLOAD_FAILED", "too_many_redirects")
+    assert "data verify" in error["message"]
+    assert stand.requests == [f"/r{n}" for n in range(6)]  # the lock's URL and five hops; the sixth redirect was not followed
+    assert list((dest / "data").iterdir()) == []
+
+
+def test_j_a_redirect_to_http_is_a_downgrade_refused_with_exit_4_and_the_target_is_never_requested(stand, tmp_path):
+    stand.routes["/start"] = redirect_to(stand.url("/target"))  # the stand-in is http: under the default rule this is a downgrade
+    stand.routes["/target"] = BODY
+    dest = tmp_path / "dest"
+    status, payload, _ = fetch(write_lock(tmp_path / "l", source(stand, "/start", BODY, "data/a.csv")), dest)
+    assert (status, payload["error"]["code"], payload["error"]["details"]["reason"]) == (4, "DOWNLOAD_FAILED", "redirect_downgrade")
+    assert stand.requests == ["/start"] and list((dest / "data").iterdir()) == []
+
+
+def test_j_the_redirect_handler_follows_https_refuses_http_and_refuses_the_sixth_hop():
+    request = urllib.request.Request("https://origin.invalid/file")
+    handler = core_fetch._Redirects()
+    followed = handler.redirect_request(request, None, 302, "Found", {}, "https://cdn.invalid/file?sig=abc")
+    assert followed.full_url == "https://cdn.invalid/file?sig=abc"  # built, never opened
+    with pytest.raises(core_fetch._RedirectRefused) as refused:
+        handler.redirect_request(request, None, 302, "Found", {}, "http://cdn.invalid/file")
+    assert refused.value.reason == "redirect_downgrade"
+    request.redirect_dict = {f"https://hop{n}.invalid/": 1 for n in range(5)}  # five hops already followed
+    with pytest.raises(core_fetch._RedirectRefused) as refused:
+        handler.redirect_request(request, None, 302, "Found", {}, "https://hop5.invalid/")
+    assert refused.value.reason == "too_many_redirects"
+    request.redirect_dict = {f"https://hop{n}.invalid/": 1 for n in range(4)}
+    assert handler.redirect_request(request, None, 302, "Found", {}, "https://hop4.invalid/").full_url == "https://hop4.invalid/"
+
+
+def test_j_details_and_messages_report_the_final_host_and_never_the_signed_url_or_its_query(stand, tmp_path, monkeypatch):
+    monkeypatch.setattr(core_fetch, "REDIRECT_SCHEMES", ("http", "https"))
+    other = Stand()  # a second host (another port), where the redirect leads
+    try:
+        signed = "/signed?X-Signature=TOPSECRET&Expires=1"
+        stand.routes["/start"] = redirect_to(other.url(signed))
+        other.routes[signed] = 503
+        status, out, err = run_cli(
+            "data", "fetch", "--lock", str(write_lock(tmp_path / "l", source(stand, "/start", BODY, "data/a.csv"))), "--dest", str(tmp_path / "dest"), "--json"
+        )
+        error = json.loads(out)["error"]
+        assert (status, error["code"], error["details"]["reason"], error["details"]["status"]) == (4, "DOWNLOAD_FAILED", "http_status", 503)
+        assert error["details"]["host"] == urlsplit(other.base).netloc != urlsplit(stand.base).netloc  # the final host, not the lock's
+        for text in (out, err):
+            assert "TOPSECRET" not in text and "X-Signature" not in text and "/signed" not in text
+    finally:
+        other.close()
 
 
 # --- C7 and D: the fetched files pass `data verify` like the committed bundle --------------------------------------------

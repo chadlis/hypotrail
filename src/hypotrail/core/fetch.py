@@ -6,8 +6,11 @@ rename. The order of the command is fixed: the lock and every path are checked f
 connection), then the destination files already there (a matching one is left, a differing one is refused), and only
 then the network.
 
-There is no mirror: a file comes from the lock's `download_url` and from nowhere else, and a redirect is not followed
-(it is an HTTP status the lock did not name). A failed transfer is a coded error that names the already verified bundle.
+There is no mirror: a request starts only from the lock's `download_url` (or `notice_url`), and the command never chooses
+another URL. The redirects that URL answers with are followed (D-019), at most `MAX_REDIRECTS` hops and https only: a
+downgrade to http or one hop more is a failed transfer, with no fallback. No host is allowlisted in the code: the lock's
+SHA-256 is the only acceptance gate, and the timeout and the size bound apply to the file that finally arrives. A failed
+transfer is a coded error that names the already verified bundle and reports the final host, never a URL or its query.
 """
 
 import hashlib
@@ -18,6 +21,7 @@ import re
 import secrets
 import stat
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -40,15 +44,51 @@ TIMEOUT_SECONDS = 30
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args, **kwargs):
-        return None  # the redirect is raised as the HTTPError it is: no other host is tried
+# D-019: redirects are followed up to this many hops, and only to these schemes.
+MAX_REDIRECTS = 5
+REDIRECT_SCHEMES = ("https",)
+
+
+class _RedirectRefused(Exception):
+    def __init__(self, reason: str, url: str):
+        super().__init__(reason)
+        self.reason, self.url = reason, url
+
+
+def host_of(url: str) -> str:
+    """The host (and port, if any) of a URL: all that an error reports of it; never a path, a query or credentials."""
+    parts = urllib.parse.urlsplit(url)
+    host = parts.hostname or ""
+    return f"{host}:{parts.port}" if parts.port else host
+
+
+class _Redirects(urllib.request.HTTPRedirectHandler):
+    max_redirections = MAX_REDIRECTS
+
+    def __init__(self):
+        self.current = None
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        hops = len(getattr(req, "redirect_dict", {}))  # the redirects already followed for this request
+        if urllib.parse.urlsplit(newurl).scheme.lower() not in REDIRECT_SCHEMES:
+            raise _RedirectRefused("redirect_downgrade", newurl)
+        if hops >= MAX_REDIRECTS:
+            raise _RedirectRefused("too_many_redirects", newurl)
+        self.current = newurl
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def open_url(url: str):
-    """Open one URL. Tests replace this function; nothing else in the module touches the network."""
+    """Open one URL, following redirects under D-019. Tests replace this function; nothing else in the module touches the network."""
     request = urllib.request.Request(url, headers={"User-Agent": "hypotrail-data-fetch"})
-    return urllib.request.build_opener(_NoRedirect).open(request, timeout=TIMEOUT_SECONDS)
+    redirects = _Redirects()
+    try:
+        return urllib.request.build_opener(redirects).open(request, timeout=TIMEOUT_SECONDS)
+    except _RedirectRefused:
+        raise
+    except Exception as error:
+        error.final_host = host_of(redirects.current or url)  # where the request was when it failed
+        raise
 
 
 # --- the lock -----------------------------------------------------------------------------------------------
@@ -237,13 +277,13 @@ class _Temporary:
             self.path.unlink(missing_ok=True)
 
 
-def _failed(file: str, url: str, reason: str, status: int | None = None) -> HypotrailError:
+def _failed(file: str, host: str, reason: str, status: int | None = None) -> HypotrailError:
     return HypotrailError(
         "DOWNLOAD_FAILED",
-        f"could not download {file} from {url} ({reason}); nothing was published and no other source is tried; "
+        f"could not download {file} (host {host}: {reason}); nothing was published and no other source is tried; "
         "the already verified bundle is the explicit alternative: run `data verify` on the committed data",
         stage="download",
-        details={"file": file, "url": url, "reason": reason, "status": status},
+        details={"file": file, "host": host, "reason": reason, "status": status},
         exit_code=EXIT_INFRASTRUCTURE,
     )
 
@@ -270,11 +310,14 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary)
     """Write the body of `url` to the temporary file, stopping as soon as it passes `bound`; return its SHA-256 and size."""
     try:
         response = open_url(url)
+    except _RedirectRefused as error:
+        raise _failed(file, host_of(error.url), error.reason) from None
     except urllib.error.HTTPError as error:
-        raise _failed(file, url, "http_status", error.code) from None
-    except (OSError, ValueError):  # unreachable host, refused or timed-out connection, malformed URL
-        raise _failed(file, url, "unreachable") from None
+        raise _failed(file, getattr(error, "final_host", host_of(url)), "http_status", error.code) from None
+    except (OSError, ValueError) as error:  # unreachable host, refused or timed-out connection, malformed URL
+        raise _failed(file, getattr(error, "final_host", host_of(url)), "unreachable") from None
     digest, total = hashlib.sha256(), 0
+    host = host_of(response.geturl()) if hasattr(response, "geturl") else host_of(url)  # the final host, after any redirect
     with response:
         announced = response.headers.get("Content-Length")
         if announced is not None and announced.isdigit() and int(announced) > bound:
@@ -283,7 +326,7 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary)
             try:
                 block = response.read(CHUNK_BYTES)
             except (OSError, http.client.HTTPException):  # a connection reset, a timeout, an incomplete read
-                raise _failed(file, url, "interrupted") from None
+                raise _failed(file, host, "interrupted") from None
             if not block:
                 break
             total += len(block)
@@ -292,7 +335,7 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary)
             digest.update(block)
             temporary.handle.write(block)
     if announced is not None and announced.isdigit() and total != int(announced):
-        raise _failed(file, url, "interrupted")  # the connection closed before the announced length arrived
+        raise _failed(file, host, "interrupted")  # the connection closed before the announced length arrived
     return digest.hexdigest(), total
 
 
