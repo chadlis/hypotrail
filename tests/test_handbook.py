@@ -900,12 +900,16 @@ def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_it
     assert "--read-sequence" in init_row and "--new-revision" in init_row.split("--read-sequence")[1]
 
 
-def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock():
-    # #108 Tightened M (D-038 on chadlis/hypotrail#75): `compare --factor` on a Study that is not of the agent Track, and `report`'s `--out` check
-    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter_text("04-study-and-attempts.html"), re.S) if "The refusals come in this order" in p)
-    assert "<code>compare --factor</code>" in paragraph and "<code>UNSUPPORTED_CAPABILITY</code>" in paragraph
-    assert "<code>report</code>" in paragraph and "<code>--out</code>" in paragraph and "<code>REPORT_OUTPUT_INVALID</code>" in paragraph
-    assert "before the lock" in paragraph
+def test_the_status_keys_row_for_write_sequence_counts_one_for_a_writer_killed_between_its_first_and_its_last_write(page, tmp_path):
+    # R2-P-02, #107 Tightened B: a killed writer leaves its `begin` entry only
+    from _study_helpers import run_json
+    from test_run_ml import killed
+
+    study, _ = killed(tmp_path, kill_at=4)
+    assert run_json("status", "--study", study)[1]["write_sequence"] == 2 + 1  # `init`'s two entries and the `begin` entry of the killed `run ml`
+    row = " ".join(table_rows(page, "status-keys", "data-field")["write_sequence"]["text"].split())
+    assert "2 more for every command that writes" in row
+    assert "1 more for a writer killed between its first and its last write" in row
 
 
 def test_the_exit_code_six_meaning_covers_a_study_changed_after_it_was_read(page):
@@ -4174,6 +4178,60 @@ def prose_of(chapter: str) -> str:
     return re.sub(r"<pre.*?</pre>", "", re.sub(r"<table.*?</table>", "", chapter, flags=re.S), flags=re.S)
 
 
+# R2-S-01, R2-S-02: the handbook rule of the drive skill, "The prose around such a table does not restate it", checked over the whole class.
+# A word the prose of a section must use to explain what its tables do not say; each is named by a table (a code, a flag or a key) and has its reason.
+PROSE_MAY_NAME = {
+    "--read-sequence": "the option chapter 04's read-sequence section is about; it is also the flag of chapter 17's decide row",
+    "--json": "the output mode whose shape chapter 17 describes and whose `status --json` chapter 17 says what it lists and does not list",
+    "write_sequence": "the number the section explains; a table names it as a key, no table says what advances it or what a record's copy is",
+    "read_sequence": "chapter 17 says how a record's read_sequence relates to its write_sequence (always one less), which no table says",
+    "request_id": "the identity of a replay and of the one namespace, which the sections explain; the tables only name it as a key",
+    "decision_id": "chapter 17 says a decision is cited by this id; the tables only name it as a key",
+    "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
+    "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
+    "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
+    "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
+}
+
+
+def tables_with_data_attributes(*chapters):
+    """The codes, reasons, keys and flags the tables with data attributes of the chapters list, and the numbers their rows advance the sequence by."""
+    listed, advances = set(), set()
+    for chapter in chapters:
+        for table in re.findall(r"<table.*?</table>", chapter, re.S):
+            for row in re.findall(r"<tr ([^>]*data-[^>]*)>", table):
+                attributes = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', row))
+                listed.update(attributes[name] for name in ("code", "reason", "field") if name in attributes)
+                listed.update(word for name in ("required", "optional", "details") for word in attributes.get(name, "").split())
+                advances.update(attributes[name] for name in ("advances",) if name in attributes)
+    return listed, advances
+
+
+def words_in_code(prose):
+    """The words of every <code> element of `prose`, as a reader sees them (a flag with its dash, a path whole). An element of more than three words is a sample of output, not a name."""
+    text = [html.unescape(re.sub(r"<[^>]+>", "", code)) for code in re.findall(r"<code>(.*?)</code>", prose, re.S)]
+    return {word.strip(".,;:()[]{}\"'") for each in text if len(each.split()) <= 3 for word in each.split()} - {""}
+
+
+def sections_the_slice_adds_or_rewrites():
+    chapter_04, chapter_17 = chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html")
+    write_sequence = chapter_04.split('<p class="sub2">The write sequence</p>')[1].split('<p class="sub2">Exit codes and refusals</p>')[0]
+    return {"chapter 04, the write sequence": write_sequence, "chapter 17": chapter_17}
+
+
+def test_the_prose_of_the_sections_the_slice_adds_names_none_of_the_codes_flags_or_keys_the_tables_list():
+    listed, advances = tables_with_data_attributes(chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html"))
+    assert {"STUDY_CHANGED", "REQUEST_CONFLICT", "--read-sequence", "request_id", "applies"} <= listed  # the collection reads the tables
+    assert advances == {"2"}
+    assert set(PROSE_MAY_NAME) <= listed, set(PROSE_MAY_NAME) - listed  # an entry that no table lists is not an exception to anything
+    used = set().union(*(words_in_code(prose_of(section)) for section in sections_the_slice_adds_or_rewrites().values()))
+    assert set(PROSE_MAY_NAME) <= used, set(PROSE_MAY_NAME) - used  # the list stays what the prose needs
+    for name, section in sections_the_slice_adds_or_rewrites().items():
+        prose = prose_of(section)
+        assert sorted((listed & words_in_code(prose)) - set(PROSE_MAY_NAME)) == [], name
+        assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
+
+
 def test_chapter_04_table_gives_the_commands_that_take_the_read_sequence_as_the_parser_defines_them(page):
     # R1-S-02: the commands are a column of `write-sequence-commands`, not a list in prose
     from hypotrail.cli import build_parser
@@ -4313,6 +4371,11 @@ def test_the_readme_status_keeps_the_claims_the_slice_dropped():
     status = " ".join(readme_status().split())
     for claim in ("end to end", "SQLite", "self-contained", "writes a Comparison of two Assessments of either Track"):
         assert claim in status, claim
+
+
+def test_the_readme_status_names_the_study_whose_state_and_decision_history_status_shows():
+    # R2-P-03: « its state » had no Study before it (the nearest noun was a Comparison)
+    assert "`status` shows a Study's state and decision history" in " ".join(readme_status().split())
 
 
 def test_the_readme_names_the_decision_history_in_the_status_command():

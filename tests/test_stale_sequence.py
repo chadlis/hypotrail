@@ -519,21 +519,42 @@ def test_run_ml_with_an_unknown_retry_of_and_an_older_value_gives_retry_of_unkno
 # --- Tightened M (D-038 on chadlis/hypotrail#75): two checks that read only the arguments and the spec keep their place before the lock ---------------
 
 
-def test_compare_with_a_factor_on_a_bike_study_and_an_older_value_gives_unsupported_capability_and_writes_nothing(tmp_path):
-    scenario, read, files = older("compare", tmp_path)
-    code, payload, err = scenario.call(scenario.study, "--factor", "model", "--read-sequence", read)
-    error = error_of(payload)
-    assert (code, error["code"]) == (2, "UNSUPPORTED_CAPABILITY"), (payload, err)
-    assert tree(scenario.study) == files
+CHAPTER_04 = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "chapters" / "04-study-and-attempts.html"
 
 
-def test_report_with_an_output_inside_the_study_and_an_older_value_gives_its_existing_refusal_and_writes_nothing(tmp_path):
+def checks_before_the_lock():
+    """{command: code} of the table `checks-before-the-lock` of chapter 04 (R2-S-01): what the handbook says keeps its place before the lock."""
+    table = re.search(r'<table[^>]*id="checks-before-the-lock".*?</table>', CHAPTER_04.read_text(encoding="utf-8"), re.S)
+    assert table, "chapter 04 has no table `checks-before-the-lock`"
+    return {command: code for command, code in re.findall(r'<tr data-command="([^"]+)" data-code="([^"]+)"', table[0])}
+
+
+def provoke_compare_factor(tmp_path):
+    scenario, read, files = older("compare", tmp_path)  # a bike Study: it has no factor
+    return scenario.study, files, lambda: scenario.call(scenario.study, "--factor", "model", "--read-sequence", read)
+
+
+def provoke_report_out(tmp_path):
     study, _ = TRACKS["bike"].public_outputs(tmp_path)  # a page that shows public_check Items is an Exposure: the value would be compared
     read = seq(study)
     bike_bump(study)
-    files = tree(study)
-    code, payload, err = report(study, study / "page.html", "--read-sequence", read)
-    assert (code, error_of(payload)["code"]) == (2, "REPORT_OUTPUT_INVALID"), (payload, err)
+    return study, tree(study), lambda: report(study, study / "page.html", "--read-sequence", read)  # --out inside the Study
+
+
+PROVOKED = {"compare --factor": provoke_compare_factor, "report --out": provoke_report_out}
+
+
+def test_the_table_of_the_checks_before_the_lock_lists_the_checks_the_test_provokes():
+    assert set(checks_before_the_lock()) == set(PROVOKED)
+
+
+@pytest.mark.parametrize("command", sorted(PROVOKED))
+def test_each_check_of_the_table_before_the_lock_gives_its_code_with_the_lock_held_and_an_older_value_and_writes_nothing(command, tmp_path):
+    # #108 Tightened M (D-038 on chadlis/hypotrail#75): neither the lock nor the older value (STUDY_LOCKED, STUDY_CHANGED) comes before it
+    study, files, call = PROVOKED[command](tmp_path)
+    with held_by_another_process(study):
+        code, payload, err = call()
+    assert (code, error_of(payload)["code"]) == (2, checks_before_the_lock()[command]), (payload, err)
     assert tree(study) == files
 
 
