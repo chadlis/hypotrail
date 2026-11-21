@@ -61,10 +61,9 @@ def held_ids(study) -> set:
     study = Path(study)
     found = set(layout.attempt_ids(study))
     for attempt_id in layout.attempt_ids(study):
-        for ref in layout.read_manifest(study, attempt_id).get("output_refs", []):
-            if ref["role"] == "observation_set":
-                with contextlib.suppress(OSError):  # a referenced record that is missing holds no id
-                    found.add(layout.read_record(study, ref["path"])["observation_set_id"])
+        for ref in layout.observation_set_refs(layout.read_manifest(study, attempt_id)):
+            with contextlib.suppress(OSError):  # a referenced record that is missing holds no id
+                found.add(layout.read_record(study, ref["path"])["observation_set_id"])
     found |= {record["assessment_id"] for record in layout.assessment_records(study)}
     found |= {record["comparison_id"] for record in layout.comparison_records(study)}
     for spec in revisions.revision_specs(study):

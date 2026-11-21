@@ -123,6 +123,86 @@ def test_the_builder_check_finds_an_INVALID_ARGUMENTS_refusal_built_in_the_write
     assert invalid_arguments_builders(root) == ["hypotrail.core.write_journal:invalid_arguments"]
 
 
+# --- the walk from a manifest to its Observation set -----------------------------------------------------------------------------
+
+
+def role_constants(trees: dict) -> set:
+    """The qualified names of the constants whose value is the role of an Observation set."""
+    return {
+        f"{module}.{node.targets[0].id}"
+        for module, tree in trees.items()
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+        and isinstance(node.value, ast.Constant) and node.value.value == OBSERVATION_SET_ROLE
+    }
+
+
+def reads_a_role(node) -> bool:
+    """`x["role"]` or `x.get("role")`."""
+    if isinstance(node, ast.Subscript):
+        return isinstance(node.slice, ast.Constant) and node.slice.value == "role"
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" and bool(node.args) and (
+        isinstance(node.args[0], ast.Constant) and node.args[0].value == "role"
+    )
+
+
+def comparers_of_the_observation_set_role(root) -> set:
+    """The functions that compare the role of a ref with the role of an Observation set (a string or a constant that holds it), `==`, `!=` or `in`."""
+    trees = parse_all(root)
+    constants = role_constants(trees)
+    found = set()
+    for module, tree in trees.items():
+        names = names_of(module, tree)
+
+        def is_the_role(node) -> bool:
+            if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+                return any(is_the_role(each) for each in node.elts)
+            return (isinstance(node, ast.Constant) and node.value == OBSERVATION_SET_ROLE) or resolve(names, dotted(node)) in constants
+
+        for node, owner in owners_in(module, tree):
+            if isinstance(node, ast.Compare):
+                sides = [node.left, *node.comparators]
+                if any(reads_a_role(side) for side in sides) and any(is_the_role(side) for side in sides):
+                    found.add(owner)
+    return found
+
+
+# The functions that walk a manifest's `output_refs` to its Observation set, each with its own reading of the record that it finds.
+THE_FOUR_WALKS = (
+    "hypotrail.core.study:find_observation_set",
+    "hypotrail.core.write_journal:_Session._written",
+    "hypotrail.core.decisions:held_ids",
+    "hypotrail.report.gather:observation_set_of",
+)
+
+
+def test_one_function_of_the_core_compares_the_role_of_an_output_ref_with_the_role_of_an_Observation_set():
+    walks = comparers_of_the_observation_set_role(SOURCE)
+    assert len(walks) == 1, sorted(walks)
+    [walk] = walks
+    assert walk.startswith("hypotrail.core.")  # the core imports no other package, and three of the four walks are in it
+
+
+def test_each_of_the_four_places_that_walked_a_manifest_to_its_Observation_set_calls_the_one_walk():
+    walks = comparers_of_the_observation_set_role(SOURCE)
+    assert len(walks) == 1, sorted(walks)
+    [walk] = walks
+    callers = {site.owner for site in calls(parse_all(SOURCE)) if site.callee == walk.replace(":", ".")}
+    assert set(THE_FOUR_WALKS) <= callers, sorted(set(THE_FOUR_WALKS) - callers)
+
+
+def test_the_walk_check_finds_a_comparison_of_a_role_with_a_string_a_constant_a_tuple_and_a_get(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/a.py": "ROLE = 'observation_set'\n\ndef by_string(m):\n    return [r for r in m if r['role'] == 'observation_set']\n\n"
+        "def by_constant(m):\n    return [r for r in m if r['role'] != ROLE]\n\ndef by_tuple(r):\n    return r.get('role') in ('x', 'observation_set')\n\n"
+        "def other(r):\n    return r['role'] == 'observations'\n",
+        "hypotrail/report/b.py": "from hypotrail.core.a import ROLE as R\n\ndef by_import(r):\n    return r['role'] == R\n",
+    })
+    assert comparers_of_the_observation_set_role(root) == {
+        "hypotrail.core.a:by_string", "hypotrail.core.a:by_constant", "hypotrail.core.a:by_tuple", "hypotrail.report.b:by_import",
+    }
+
+
 # --- the replay lookups ------------------------------------------------------------------------------------------------------------
 
 REPLAY_LOOKUPS = ("hypotrail.core.study.find_by_request", "hypotrail.core.decisions.find_by_request")

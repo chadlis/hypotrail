@@ -122,9 +122,8 @@ class _Session:
             except Exception:
                 return found  # the Attempt's manifest was never written: nothing is named
             found.insert(0, {"kind": "attempt", "id": self.attempt_id})
-            for ref in manifest.get("output_refs", []):
-                if ref["role"] == "observation_set":
-                    found.append({"kind": "observation_set", "id": layout.read_record(self.study, ref["path"])["observation_set_id"]})
+            for ref in layout.observation_set_refs(manifest):
+                found.append({"kind": "observation_set", "id": layout.read_record(self.study, ref["path"])["observation_set_id"]})
         return found
 
     def end(self, outcome: str) -> None:
