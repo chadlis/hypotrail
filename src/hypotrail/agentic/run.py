@@ -211,9 +211,9 @@ def run_agent(
 ) -> tuple[dict, bool, list]:
     """Run (or replay) one request under the Study's writer lock: (the Attempt manifest, whether it was recorded already, warnings)."""
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "run agent")
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
-    write_journal.require_a_valid_value(read_sequence, "run agent")
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)

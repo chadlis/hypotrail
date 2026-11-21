@@ -133,7 +133,7 @@ def status(study) -> dict:
 def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict:
     """Record the Attempt `attempt_id`, running with no live writer, as interrupted; return its manifest."""
     study = Path(study)
-    write_journal.require_a_valid_value(read_sequence, "recover")
+    write_journal.require_valid_read_sequence(read_sequence, "recover")
     layout.read_spec(study)
     with lock.writer_lock(study), write_journal.writing(study, "recover"):
         write_journal.require_current(study, read_sequence)

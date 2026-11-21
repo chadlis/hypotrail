@@ -12,8 +12,8 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first.
 
-The order of the checks, under the writer lock, is that of every writer: the arguments (`REQUEST_ID_EMPTY`, `DECISION_FIELD_EMPTY`, the author and the
-sequence); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
+The order of the checks, under the writer lock, is that of every writer: the arguments (the value of the read sequence first, as the command line's parser does, then `REQUEST_ID_EMPTY`, `DECISION_FIELD_EMPTY`, the author and the
+rest); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
 the same decision (question, option, author, source and cited ids; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
@@ -155,13 +155,13 @@ def decide(
 ) -> tuple[dict, bool]:
     """Record (or replay) one decision under the Study's writer lock; return the record and whether it was recorded already."""
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "decide")
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     if author not in AUTHORS:
         raise _invalid(f"the author of a decision is one of {', '.join(AUTHORS)}, not {author!r}")
     if read_sequence is None:
         raise _invalid("a decision is made on the write sequence its author read: --read-sequence is required")
-    write_journal.require_a_valid_value(read_sequence, "decide")
     if not cited_ids:
         raise _invalid("a decision cites at least one id: --artifact is required")
     for field, value in (("question", question), ("option", option)):

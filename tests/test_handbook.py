@@ -2412,7 +2412,7 @@ def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_
     """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
-    # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule « run is not the noun » is guarded over the corpus by test_run_noun.py
+    # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule "run is not the noun" is guarded over the corpus by test_run_noun.py
 
 
 def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():

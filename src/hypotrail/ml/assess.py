@@ -119,7 +119,7 @@ def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: 
     read only for an Assessment of `public_check` Items, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
-    write_journal.require_a_valid_value(read_sequence, "assess")
+    write_journal.require_valid_read_sequence(read_sequence, "assess")
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study), write_journal.writing(study, "assess"):
         write_journal.require_current(study, read_sequence)

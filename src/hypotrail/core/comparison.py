@@ -218,7 +218,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
     `public_check` Items, to freeze the Workload's digests (see `hypotrail.core.exposure`).
     """
     study = Path(study)
-    write_journal.require_a_valid_value(read_sequence, "compare")
+    write_journal.require_valid_read_sequence(read_sequence, "compare")
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if factor is not None and spec["domain"] != AGENTIC:
         raise InvalidInputError(

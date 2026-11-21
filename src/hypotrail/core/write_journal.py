@@ -53,20 +53,26 @@ def entries(study) -> list:
     return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in layout.record_names(study, JOURNAL_DIR)]
 
 
-def require_a_valid_value(read_sequence, command: str) -> None:
-    """Refuse a `read_sequence` that is not a non-negative integer, as the command line does (`INVALID_ARGUMENTS`, exit 2): call it before any lock.
+def read_sequence_fault(read_sequence) -> str | None:
+    """Why `read_sequence` is not a value of `--read-sequence`, or None: the one rule, and its one message, of the command line and of the library.
 
-    `command` is the command's name as the command line shows it (`details` `{"command"}` is then the one the parser gives). `None` (not given) passes.
+    A value is a non-negative integer (a boolean is not one). `None` (not given) is not a fault.
     """
     if read_sequence is None:
-        return
+        return None
     if isinstance(read_sequence, bool) or not isinstance(read_sequence, int) or read_sequence < 0:
-        raise InvalidInputError(
-            "INVALID_ARGUMENTS",
-            f"--read-sequence takes a non-negative integer, not {read_sequence!r}",
-            stage="config",
-            details={"command": f"hypotrail {command}"},
-        )
+        return f"--read-sequence takes a non-negative integer, not {read_sequence!r}"
+    return None
+
+
+def require_valid_read_sequence(read_sequence, command: str) -> None:
+    """Refuse a `read_sequence` that `read_sequence_fault` names, as the command line does (`INVALID_ARGUMENTS`, exit 2): the first argument check of a writer, before any lock.
+
+    `command` is the command's name as the command line shows it (`details` `{"command"}` is then the one the parser gives).
+    """
+    fault = read_sequence_fault(read_sequence)
+    if fault is not None:
+        raise InvalidInputError("INVALID_ARGUMENTS", fault, stage="config", details={"command": f"hypotrail {command}"})
 
 
 def require_current(study, read_sequence) -> None:

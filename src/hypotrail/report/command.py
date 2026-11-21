@@ -66,7 +66,7 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None) -> 
     `read_sequence` is compared with the Study's write sequence only when the page records an Exposure (#108 Tightened F).
     """
     study, out = Path(study), Path(out)
-    write_journal.require_a_valid_value(read_sequence, "report")
+    write_journal.require_valid_read_sequence(read_sequence, "report")
     spec = layout.read_spec(study)
     check_output(study, out)
     model = gather.load(study)

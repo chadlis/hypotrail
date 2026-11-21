@@ -11,6 +11,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from hypotrail.core import write_journal
 from hypotrail.core.errors import (
     EXIT_INFRASTRUCTURE,
     EXIT_OK,
@@ -31,13 +32,13 @@ class _ArgumentParser(argparse.ArgumentParser):
         )
 
 
-def _read_sequence_value(text: str) -> int:
-    """The value of `--read-sequence`: a non-negative integer."""
-    if not re.fullmatch(r"-?[0-9]+", text):
-        raise argparse.ArgumentTypeError(f"--read-sequence takes an integer, not {text!r}")
-    if text.startswith("-"):
-        raise argparse.ArgumentTypeError(f"--read-sequence takes a non-negative integer, not {text!r}")
-    return int(text)
+def _read_sequence_value(text: str):
+    """The value of `--read-sequence`: an integer when the text is one, which the rule of the write journal then judges (the library's rule)."""
+    value = int(text) if re.fullmatch(r"-?[0-9]+", text) else text
+    fault = write_journal.read_sequence_fault(value)
+    if fault is not None:
+        raise argparse.ArgumentTypeError(fault)
+    return value
 
 
 def _add_read_sequence(parser, *, required: bool = False) -> None:

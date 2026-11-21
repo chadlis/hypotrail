@@ -77,10 +77,10 @@ def new_revision_scenario(tmp_path):
 def run_ml_scenario(tmp_path):
     study, _ = init_study(tmp_path)
 
-    def library(path, read_sequence):
+    def library(path, read_sequence, request_id="w-run"):
         from hypotrail.ml import run
 
-        return run.run_ml(path, "seasonal_7", "dev", "w-run", read_sequence=read_sequence)
+        return run.run_ml(path, "seasonal_7", "dev", request_id, read_sequence=read_sequence)
 
     argv = lambda path, *more: ["run", "ml", "--study", path, "--config", "seasonal_7", "--partition", "dev", "--request-id", "w-run", *more]  # noqa: E731
     return Scenario(study, argv, library, bike_bump)
@@ -89,10 +89,10 @@ def run_ml_scenario(tmp_path):
 def run_agent_scenario(tmp_path):
     study, _ = init_chinook(tmp_path)
 
-    def library(path, read_sequence):
+    def library(path, read_sequence, request_id="w-agent"):
         from hypotrail.agentic import run
 
-        return run.run_agent(path, mode="scripted_fixture", config="plain", request_id="w-agent", read_sequence=read_sequence)
+        return run.run_agent(path, mode="scripted_fixture", config="plain", request_id=request_id, read_sequence=read_sequence)
 
     argv = lambda path, *more: ["run", "agent", "--study", path, "--mode", "scripted_fixture", "--config", "plain", "--request-id", "w-agent", *more]  # noqa: E731
     return Scenario(study, argv, library, chinook_bump)
@@ -102,10 +102,10 @@ def import_ml_scenario(tmp_path):
     study, _ = init_study(tmp_path)
     source, mapping, population, _ = ready(tmp_path)
 
-    def library(path, read_sequence):
+    def library(path, read_sequence, request_id="w-import"):
         from hypotrail.ml import imports
 
-        return imports.import_ml(path, source, mapping, population, "w-import", read_sequence=read_sequence)
+        return imports.import_ml(path, source, mapping, population, request_id, read_sequence=read_sequence)
 
     argv = lambda path, *more: [  # noqa: E731
         "import", "ml", "--study", path, "--source", source, "--mapping", mapping, "--population", population, "--request-id", "w-import", *more
@@ -118,10 +118,10 @@ def import_agent_scenario(tmp_path):
     source = write_lines(tmp_path / "answers.jsonl", fixture_lines())
     population = fixture_population(tmp_path)
 
-    def library(path, read_sequence):
+    def library(path, read_sequence, request_id="w-import-agent"):
         from hypotrail.agentic import imports
 
-        return imports.import_agent(path, source, population, "w-import-agent", read_sequence=read_sequence)
+        return imports.import_agent(path, source, population, request_id, read_sequence=read_sequence)
 
     argv = lambda path, *more: ["import", "agent", "--study", path, "--source", source, "--population", population, "--request-id", "w-import-agent", *more]  # noqa: E731
     return Scenario(study, argv, library, chinook_bump)
@@ -186,12 +186,12 @@ def decide_scenario(tmp_path):
     assert code == 0, (payload, err)
     attempt = payload["attempt"]["attempt_id"]
 
-    def library(path, read_sequence):
+    def library(path, read_sequence, request_id="w-decide", question="Which Configuration?"):
         from hypotrail.core import decisions
 
         return decisions.decide(
-            path, question="Which Configuration?", option="seasonal_7", author="human", source=None, cited_ids=[attempt],
-            request_id="w-decide", read_sequence=read_sequence,
+            path, question=question, option="seasonal_7", author="human", source=None, cited_ids=[attempt],
+            request_id=request_id, read_sequence=read_sequence,
         )
 
     argv = lambda path, *more: [  # noqa: E731
@@ -369,6 +369,31 @@ def test_a_library_caller_is_refused_a_bad_read_sequence_as_an_argument_before_a
     assert tree(scenario.study) == files and seq(scenario.study) == before
 
 
+# R2-P-01: a call with two argument faults gives the same code and `details` as the command line, whose parser refuses the value first
+TWO_FAULTS = [
+    ("run ml", {"request_id": ""}, ["--request-id", ""]),
+    ("run agent", {"request_id": ""}, ["--request-id", ""]),
+    ("import ml", {"request_id": ""}, ["--request-id", ""]),
+    ("import agent", {"request_id": ""}, ["--request-id", ""]),
+    ("decide", {"request_id": ""}, ["--request-id", ""]),
+    ("decide", {"question": ""}, ["--question", ""]),
+]
+
+
+@pytest.mark.parametrize("command, fault, flags", TWO_FAULTS, ids=[f"{command} {next(iter(fault))}" for command, fault, _ in TWO_FAULTS])
+def test_a_call_with_a_bad_read_sequence_and_another_argument_fault_gives_the_code_and_details_of_the_command_line(command, fault, flags, tmp_path):
+    scenario = SCENARIOS[command](tmp_path)
+    files = tree(scenario.study)
+    _, payload, _ = scenario.call(scenario.study, *flags, "--read-sequence", "-1")
+    cli = error_of(payload)
+    assert cli["code"] == "INVALID_ARGUMENTS"  # argparse refuses the value before the handler looks at the other argument
+    with held_by_another_process(scenario.study), pytest.raises(HypotrailError) as caught:
+        scenario.library(scenario.study, -1, **fault)
+    assert (caught.value.code, caught.value.stage, caught.value.details) == (cli["code"], cli["stage"], cli["details"])
+    assert caught.value.message in cli["message"]  # R2-S-05: one rule, one message, for the parser and the library
+    assert tree(scenario.study) == files
+
+
 # --- Tightened J and E: init that creates a Study takes no option ------------------------------------------------------------
 
 
@@ -491,7 +516,7 @@ def test_run_ml_with_an_unknown_retry_of_and_an_older_value_gives_retry_of_unkno
     assert tree(study) == files
 
 
-# --- Tightened M (D-038): two checks that read only the arguments and the spec keep their place before the lock ---------------
+# --- Tightened M (D-038 on chadlis/hypotrail#75): two checks that read only the arguments and the spec keep their place before the lock ---------------
 
 
 def test_compare_with_a_factor_on_a_bike_study_and_an_older_value_gives_unsupported_capability_and_writes_nothing(tmp_path):

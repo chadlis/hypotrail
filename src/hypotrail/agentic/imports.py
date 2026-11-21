@@ -439,9 +439,9 @@ def import_agent(
 ) -> tuple[dict, bool]:
     """Import (or replay) one request under the Study's writer lock; return the Attempt manifest and whether it was recorded already."""
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "import agent")
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
-    write_journal.require_a_valid_value(read_sequence, "import agent")
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if is_log(source):
         require_inspect()  # before the lock, and before anything is read or written
