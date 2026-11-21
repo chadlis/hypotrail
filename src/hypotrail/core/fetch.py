@@ -303,7 +303,7 @@ def _too_large(file: str, what: str, bound: int) -> IntegrityError:
 
 @dataclass(frozen=True)
 class _Outcome:
-    """What one transfer (or one extraction) came to, computed once; `_check` decides from it and from nothing else."""
+    """What one transfer (or one extraction) came to, computed once; `_check` decides from it and from the lock's expected SHA-256."""
 
     file: str
     what: str  # "file", "archive", "notice" or "member"

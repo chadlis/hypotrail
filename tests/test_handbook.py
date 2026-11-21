@@ -2811,7 +2811,7 @@ def test_what_the_walk_record_says_of_the_readme_is_in_the_readme_it_describes()
     assert "Two commands of the README are paid and were not run" in claim and "spike live" in claim and "spike live" in readme
     assert len([step for step in walk_steps() if step["kind"] == "not-run"]) == 2
 def test_the_walk_record_hands_difficulty_d3_back_to_issue_89_in_plain_text_without_a_closing_keyword():
-    # 10-R1-05, #87 C5 « a defect in the code is recorded and handed back »: D3 names where it went; no keyword closes the issue.
+    # 10-R1-05, #87 C5: D3 is handed back to #89 for triage, named in plain text; no keyword closes the issue.
     text = WALK.read_text(encoding="utf-8")
     d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
     assert "chadlis/hypotrail#89" in d3 and "<a " not in d3
