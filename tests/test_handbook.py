@@ -4190,6 +4190,8 @@ PROSE_MAY_NAME = {
     "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
     "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
     "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
+    "--factor": "chapter 04's order paragraph names `compare --factor` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
+    "--out": "chapter 04's order paragraph names `report --out` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
     "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
 }
 
@@ -4203,7 +4205,9 @@ def tables_with_data_attributes(*chapters):
                 attributes = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', row))
                 listed.update(attributes[name] for name in ("code", "reason", "field") if name in attributes)
                 listed.update(word for name in ("required", "optional", "details") for word in attributes.get(name, "").split())
-                advances.update(attributes[name] for name in ("advances",) if name in attributes)
+                listed.update(word for word in attributes.get("command", "").split() if word.startswith("--"))  # the flag a row names beside its command
+                if "advances" in attributes:
+                    advances.add(attributes["advances"])
     return listed, advances
 
 
@@ -4213,23 +4217,36 @@ def words_in_code(prose):
     return {word.strip(".,;:()[]{}\"'") for each in text if len(each.split()) <= 3 for word in each.split()} - {""}
 
 
-def sections_the_slice_adds_or_rewrites():
+def sections_whose_prose_leaves_the_tables_to_state_the_rules():
+    """Chapter 17 and chapter 04's write-sequence section: the sections whose rules (codes, flags, keys, advances) live in tables with data attributes.
+
+    A section belongs here when a table of it states a rule that its prose could repeat; the prose of such a section only says what no table says."""
     chapter_04, chapter_17 = chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html")
     write_sequence = chapter_04.split('<p class="sub2">The write sequence</p>')[1].split('<p class="sub2">Exit codes and refusals</p>')[0]
     return {"chapter 04, the write sequence": write_sequence, "chapter 17": chapter_17}
 
 
-def test_the_prose_of_the_sections_the_slice_adds_names_none_of_the_codes_flags_or_keys_the_tables_list():
+def test_the_prose_of_chapter_17_and_chapter_04_write_sequence_section_names_none_of_the_codes_flags_or_keys_the_tables_list():
     listed, advances = tables_with_data_attributes(chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html"))
     assert {"STUDY_CHANGED", "REQUEST_CONFLICT", "--read-sequence", "request_id", "applies"} <= listed  # the collection reads the tables
     assert advances == {"2"}
     assert set(PROSE_MAY_NAME) <= listed, set(PROSE_MAY_NAME) - listed  # an entry that no table lists is not an exception to anything
-    used = set().union(*(words_in_code(prose_of(section)) for section in sections_the_slice_adds_or_rewrites().values()))
+    used = set().union(*(words_in_code(prose_of(section)) for section in sections_whose_prose_leaves_the_tables_to_state_the_rules().values()))
     assert set(PROSE_MAY_NAME) <= used, set(PROSE_MAY_NAME) - used  # the list stays what the prose needs
-    for name, section in sections_the_slice_adds_or_rewrites().items():
+    for name, section in sections_whose_prose_leaves_the_tables_to_state_the_rules().items():
         prose = prose_of(section)
         assert sorted((listed & words_in_code(prose)) - set(PROSE_MAY_NAME)) == [], name
         assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
+
+
+def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock_and_points_to_the_table_that_gives_them():
+    # #108 Tightened M (D-038 on chadlis/hypotrail#75, kept by D-041 on chadlis/hypotrail#75): the paragraph names the two commands; the table gives their codes and conditions
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    assert "<code>compare --factor</code>" in paragraph and "<code>report --out</code>" in paragraph
+    assert "before the lock" in paragraph
+    assert 'id="checks-before-the-lock"' in chapter  # the table the paragraph points to
+    assert "UNSUPPORTED_CAPABILITY" not in paragraph and "REPORT_OUTPUT_INVALID" not in paragraph  # the table gives them, the prose does not restate them
 
 
 def test_chapter_04_table_gives_the_commands_that_take_the_read_sequence_as_the_parser_defines_them(page):
@@ -4374,7 +4391,7 @@ def test_the_readme_status_keeps_the_claims_the_slice_dropped():
 
 
 def test_the_readme_status_names_the_study_whose_state_and_decision_history_status_shows():
-    # R2-P-03: « its state » had no Study before it (the nearest noun was a Comparison)
+    # R2-P-03: "its state" had no Study before it (the nearest noun was a Comparison)
     assert "`status` shows a Study's state and decision history" in " ".join(readme_status().split())
 
 
