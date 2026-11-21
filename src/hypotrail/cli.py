@@ -519,7 +519,7 @@ def _assess_agent(args) -> int:
 
 
 def _live_basis(examples_dir):
-    """What `compare` hands the core to freeze a Workload on an Exposure: the Study's Track reads it, the core imports no Track.
+    """What `compare` and `report` hand the core to freeze a Workload on an Exposure: the Study's Track reads it, the core imports no Track.
 
     It reads nothing itself: the core calls it with the spec it read under the writer lock.
     """
