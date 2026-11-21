@@ -31,7 +31,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
 uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study
 uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html    # the same page for a Chinook Study
-uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file in the Workload
+uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file or a changed Cases file in the Workload
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
 ```
 
