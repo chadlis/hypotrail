@@ -3160,9 +3160,9 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
         samples = read_eval_log(str(logs[0])).samples or []
         reported = {sample.output.model for sample in samples}
         if len(samples) != 36:
-            problems.append(f"{config}: the Inspect log holds {len(samples)} samples, not 36")
+            problems.append(f"{config}: the Inspect log holds {len(samples)} Episodes (Inspect samples × epochs), not 36")
         if reported != served:
-            problems.append(f"{config}: the samples of the Inspect log report {sorted(reported)}, not the served model {sorted(served)}")
+            problems.append(f"{config}: the Episodes (Inspect samples × epochs) of the Inspect log report {sorted(reported)}, not the served model {sorted(served)}")
     for config, attempt in attempts.items():
         case, episode = join_episode(attempt)
         if episode is None:
@@ -3327,7 +3327,7 @@ def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_coun
         write_eval_log(log, str(path))
 
     reported = broken(another_model_in_one_sample)
-    assert len(reported) == 1 and "report ['claude-other', 'claude-sonnet-5-5'], not the served model ['claude-sonnet-5-5']" in reported[0]
+    assert len(reported) == 1 and "the Episodes (Inspect samples × epochs) of the Inspect log report ['claude-other', 'claude-sonnet-5-5'], not the served model ['claude-sonnet-5-5']" in reported[0]  # 93-R2-01, GLOSSARY Inspect mapping
 
     def another_limit(copy):
         path = next((copy / "study" / "attempts").glob("*/run.json"))
