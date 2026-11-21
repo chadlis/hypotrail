@@ -297,12 +297,20 @@ def _too_large(file: str, what: str, bound: int) -> IntegrityError:
     )
 
 
-def _mismatch(file: str, what: str, expected: str, actual: str) -> IntegrityError:
+_BUNDLE = "the already verified bundle is the explicit alternative: run `data verify` on the committed data"
+
+
+def _mismatch(file: str, what: str, expected: str, actual: str, *, sizes: tuple[int, int] | None = None, unsized: bool = False) -> IntegrityError:
+    """A download that differs from the lock. `sizes` (the lock's, then the received) when only the size differs; `unsized` for a
+    transfer whose lock gives no size, where a server may have cut an unframed body short and HTTP cannot tell it from a differing one."""
+    if sizes is not None:
+        what_differs = f"does not match the lock: its size is {sizes[1]} bytes and the lock says {sizes[0]} bytes (the sha256 matches)"
+    else:
+        what_differs = f"does not match the lock (expected sha256 {expected}, got {actual})"
+    hint = "; a body that a server cut short without announcing a length cannot be told from a differing one here" if unsized else ""
     return IntegrityError(
         "DOWNLOAD_INTEGRITY",
-        f"the {what} of {file} does not match the lock (expected sha256 {expected}, got {actual}): nothing was published; "
-        "a body that a server cut short without announcing a length looks like this one, and the already verified bundle "
-        "is the explicit alternative: run `data verify` on the committed data",
+        f"the {what} of {file} {what_differs}: nothing was published{hint}; {_BUNDLE}",
         stage="integrity",
         details={"file": file, "what": what, "expected_sha256": expected, "actual_sha256": actual},
     )
@@ -353,8 +361,10 @@ def _fetch_file(url: str, target: Path, file: str, sha256: str, size: int | None
     bound = GENERIC_CAP_BYTES if size is None else size
     with _Temporary(target) as temporary:
         actual, total = _transfer(url, file, what, bound, temporary, size)
-        if actual != sha256 or (size is not None and total != size):
-            raise _mismatch(file, what, sha256, actual)
+        if actual != sha256:
+            raise _mismatch(file, what, sha256, actual, unsized=size is None)
+        if size is not None and total != size:
+            raise _mismatch(file, what, sha256, actual, sizes=(size, total))
         temporary.publish(target)
 
 
@@ -373,7 +383,7 @@ def _fetch_member(source: dict, target: Path, file: str) -> None:
     with _Temporary(target) as archive:
         actual, _ = _transfer(source["download_url"], file, "archive", GENERIC_CAP_BYTES, archive)
         if actual != source["archive_sha256"]:
-            raise _mismatch(file, "archive", source["archive_sha256"], actual)
+            raise _mismatch(file, "archive", source["archive_sha256"], actual, unsized=True)
         archive.handle.flush()
         try:
             with zipfile.ZipFile(archive.path) as zipped:
@@ -395,8 +405,10 @@ def _fetch_member(source: dict, target: Path, file: str) -> None:
                             raise _too_large(file, "member", bound)
                         digest.update(block)
                         extracted.handle.write(block)
-                    if digest.hexdigest() != source["sha256"] or total != bound:
+                    if digest.hexdigest() != source["sha256"]:
                         raise _mismatch(file, "member", source["sha256"], digest.hexdigest())
+                    if total != bound:
+                        raise _mismatch(file, "member", source["sha256"], digest.hexdigest(), sizes=(bound, total))
                     extracted.publish(target)
         except (zipfile.BadZipFile, RuntimeError, NotImplementedError, EOFError):
             raise _member_refused(file, member, "unreadable") from None

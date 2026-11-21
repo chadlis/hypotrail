@@ -344,6 +344,40 @@ def test_k_where_the_lock_gives_no_size_an_unframed_short_archive_or_notice_stay
     assert named_bundle(payload["error"], err) and not (tmp_path / "dn" / "licenses" / "N.txt").exists()
 
 
+def test_r2_01_each_integrity_message_says_only_what_can_be_true_of_its_transfer_and_names_the_bundle(stand, tmp_path):
+    cut = "cut short"  # the hint that a server may have cut an unframed body that the lock gives no size for
+    wrong = b"alpha,beta\n9,9\n"
+    # a data file whose lock gives a size: the hint cannot be true
+    stand.routes["/wrong"] = wrong
+    status, payload, err = fetch(write_lock(tmp_path / "f", source(stand, "/wrong", BODY, "data/a.csv")), tmp_path / "df")
+    message = payload["error"]["message"]
+    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err) and cut not in message
+    assert f"expected sha256 {sha256(BODY)}, got {sha256(wrong)}" in message
+    # the same file, hash right and size wrong in the lock: the sizes are stated, not « expected sha256 X, got X »
+    stand.routes["/ok"] = BODY
+    status, payload, err = fetch(write_lock(tmp_path / "s", source(stand, "/ok", BODY, "data/a.csv", size_bytes=len(BODY) + 3)), tmp_path / "ds")
+    message = payload["error"]["message"]
+    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err)
+    assert f"{len(BODY)} bytes" in message and f"{len(BODY) + 3} bytes" in message and "got " + sha256(BODY) not in message and cut not in message
+    # an archive and a notice, which have no size in the lock: the hint can be true
+    archive = make_zip({"day.csv": BODY})
+    stand.routes["/archive"] = archive
+    entry = source(stand, "/archive", BODY, "data/day.csv", archive_sha256="2" * 64, member="day.csv")
+    status, payload, err = fetch(write_lock(tmp_path / "a", entry), tmp_path / "da")
+    assert (payload["error"]["details"]["what"], cut in payload["error"]["message"]) == ("archive", True) and named_bundle(payload["error"], err)
+    stand.routes["/notice"] = b"other\n"
+    entry = source(stand, "/ok", BODY, "data/a.csv", notice="licenses/N.txt", notice_url=stand.url("/notice"), notice_sha256=sha256(b"licence\n"))
+    status, payload, err = fetch(write_lock(tmp_path / "n", entry), tmp_path / "dn")
+    assert (payload["error"]["details"]["what"], cut in payload["error"]["message"]) == ("notice", True) and named_bundle(payload["error"], err)
+    # a member extracted from an archive that matched archive_sha256: never cut, for a wrong hash and for a wrong size
+    for changes in ({"sha256": "1" * 64}, {"size_bytes": len(BODY) + 1}):
+        status, payload, err = fetch(archive_lock(stand, tmp_path, archive, **changes), tmp_path / "dm")
+        message = payload["error"]["message"]
+        assert (payload["error"]["details"]["what"], cut in message) == ("member", False) and named_bundle(payload["error"], err), changes
+        if "size_bytes" in changes:
+            assert "got " + sha256(BODY) not in message and f"{len(BODY)} bytes" in message and f"{len(BODY) + 1} bytes" in message
+
+
 def urlpath(url):
     return "/" + url.split("/", 3)[3]
 
