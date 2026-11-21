@@ -4191,8 +4191,8 @@ PROSE_MAY_NAME = {
     "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
     "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
     "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
-    "--factor": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table.\" (D-041 on chadlis/hypotrail#75, item 2); its code and condition stay in the table",
-    "--out": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table.\" (D-041 on chadlis/hypotrail#75, item 2); its code and condition stay in the table",
+    "--factor": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table. Their codes and conditions stay in the table only. The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)",
+    "--out": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table. Their codes and conditions stay in the table only. The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)",
     "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
 }
 
@@ -4240,17 +4240,38 @@ def test_the_prose_of_chapter_17_and_chapter_04_write_sequence_section_names_non
         assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
 
 
-def test_chapter_04_order_paragraph_names_compare_factor_and_report_out_by_command_points_to_the_table_names_none_of_its_codes_and_states_no_count():
-    # the paragraph names the two checks by command and points to the table; the table gives every row's code and condition
+def chapter_04_order_paragraph():
     chapter = chapter_text("04-study-and-attempts.html")
-    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    return chapter, next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+
+
+def test_chapter_04_order_paragraph_names_compare_factor_and_report_out_by_command():
+    _, paragraph = chapter_04_order_paragraph()
     assert "<code>compare --factor</code>" in paragraph and "<code>report --out</code>" in paragraph
+
+
+def test_chapter_04_order_paragraph_points_to_the_table_of_checks_before_the_lock_that_the_chapter_holds():
+    chapter, paragraph = chapter_04_order_paragraph()
     assert "before the lock" in paragraph and "table of checks before the lock" in paragraph
-    assert 'id="checks-before-the-lock"' in chapter  # the table the paragraph points to
-    for check, (_, code) in rows_of_checks_table(chapter).items():
-        assert code not in paragraph, check  # the table gives the codes, the prose does not restate them
-    assert not re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+) (checks|rows)\b", paragraph)  # the table grows: no count
-    assert "beyond this general order" in paragraph and "read more than the arguments" in paragraph  # which checks the table lists
+    assert 'id="checks-before-the-lock"' in chapter
+
+
+def test_chapter_04_order_paragraph_names_none_of_the_codes_of_the_table_of_checks_before_the_lock():
+    chapter, paragraph = chapter_04_order_paragraph()
+    rows = rows_of_checks_table(chapter)
+    assert rows
+    for check, (_, code) in rows.items():
+        assert code not in paragraph, check
+
+
+def test_chapter_04_order_paragraph_states_no_count_of_the_checks_or_rows_of_the_table():
+    _, paragraph = chapter_04_order_paragraph()
+    assert not re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+) (checks|rows)\b", paragraph)
+
+
+def test_chapter_04_order_paragraph_says_the_table_lists_the_checks_beyond_this_general_order_that_read_more_than_the_arguments():
+    _, paragraph = chapter_04_order_paragraph()
+    assert "beyond this general order" in paragraph and "read more than the arguments" in paragraph
 
 
 def test_chapter_04_gives_the_modes_by_the_values_the_glossary_defines():

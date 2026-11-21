@@ -6,6 +6,9 @@ as a Study writer or a non-writer, and holds the writers equal to the writers th
 """
 
 import argparse
+import contextlib
+import importlib
+import unittest.mock
 
 import pytest
 from _checks_table import rows_of, rows_of_chapter_04
@@ -13,11 +16,13 @@ from _locked_paths import SOURCE, calls_after_the_stale_check, first_call_after_
 from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
 from _order_probe import LOCK_HELD as LOCK_HELD_CALLS
 from _order_probe import UNDER_THE_LOCK as UNDER_THE_LOCK_CALLS
+from _order_probe import of
 from _order_table import AFTER, BEFORE, CHECKS_BEFORE_THE_LOCK, LOCK_HELD, LOCKED_PATHS, REPLAYED, SKIPPED_CALLS, THE_CHECK, UNDER_THE_LOCK
 from test_study_lock import held_by_another_process
 from test_write_sequence import seq, tree
 
 from hypotrail.cli import build_parser
+from hypotrail.core import scorers
 
 
 def result_of(payload):
@@ -102,6 +107,59 @@ def test_the_calls_after_the_stale_check_follow_the_one_call_that_holds_it_or_th
     )
     assert calls_after_the_stale_check(tmp_path, "pkg.m:locked", stale_check_in="_held") == ["first", "second"]
     assert calls_after_the_stale_check(tmp_path, "pkg.m:top", then="_then") == ["third"]
+
+
+@contextlib.contextmanager
+def entered(*keys):
+    """Wraps each function `module:function` of `keys` (it still runs); yields a function that gives the set of those entered so far."""
+    with contextlib.ExitStack() as stack:
+        mocks = {}
+        for key in keys:
+            module, function = key.split(":")
+            mocks[key] = stack.enter_context(unittest.mock.patch(f"{module}.{function}", wraps=getattr(importlib.import_module(module), function)))
+        yield lambda: {key for key, mock in mocks.items() if mock.called}
+
+
+def path_of(row_field, case):
+    [key] = [key for key, path in LOCKED_PATHS.items() if path[row_field] == case]
+    return key
+
+
+@pytest.mark.parametrize("case", sorted(LOCK_HELD))
+def test_with_the_lock_held_each_row_enters_the_locked_function_of_its_path_and_no_other_locked_function(case, tmp_path):
+    study, call = LOCK_HELD_CALLS[case](tmp_path)
+    with held_by_another_process(study), entered(*LOCKED_PATHS) as called:
+        call(below(study))
+    assert called() == {path_of("lock_held", case)}
+
+
+@pytest.mark.parametrize("case", sorted(case for case, row in UNDER_THE_LOCK.items() if row[1] == AFTER))
+def test_with_the_lock_free_each_after_row_enters_the_locked_function_of_its_path_and_no_other_locked_function(case, tmp_path):
+    study, call = UNDER_THE_LOCK_CALLS[case](tmp_path)
+    with entered(*LOCKED_PATHS) as called:
+        call(below(study))
+    assert called() == {path_of("after", case)}
+
+
+NEW_REVISION = ("hypotrail.ml.study:new_revision", "hypotrail.agentic.study:new_revision")
+ASSESS = ("hypotrail.ml.assess:assess", "hypotrail.agentic.assess:assess")
+
+
+@pytest.mark.parametrize(("world", "module"), [("bike", NEW_REVISION[0]), ("chinook", NEW_REVISION[1])])
+def test_init_new_revision_enters_the_new_revision_of_the_domain_of_the_study_and_not_the_other(world, module, tmp_path):
+    study, call = of("init --new-revision", world=world)(tmp_path)
+    with held_by_another_process(study), entered(*NEW_REVISION) as called:
+        call(below(study))
+    assert called() == {module}
+
+
+@pytest.mark.parametrize("scorer", [*sorted(scorers.REGISTRY), "not_a_scorer"])
+def test_assess_enters_the_agentic_module_for_a_registered_agentic_scorer_and_the_regression_module_for_any_other_scorer(scorer, tmp_path):
+    agentic = scorer in scorers.REGISTRY and scorers.REGISTRY[scorer].domain == scorers.AGENTIC
+    study, call = of("assess", **{"--scorer": scorer})(tmp_path)
+    with held_by_another_process(study), entered(*ASSESS) as called:
+        call(below(study))
+    assert called() == {ASSESS[1] if agentic else ASSESS[0]}
 
 
 @pytest.mark.parametrize("case", sorted(LOCK_HELD))
