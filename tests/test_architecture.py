@@ -5,6 +5,10 @@ Each rule is a function of the parsed modules of a source tree, so the same rule
 
 import ast
 import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
 from _architecture import SOURCE, calls, imports, parse_all
 
@@ -230,3 +234,193 @@ def test_a_role_removed_from_the_cases_of_the_agent_schema_and_a_role_planted_in
     agent["properties"]["cases"]["properties"]["public_check"] = {}
     ml["properties"]["partitions"]["examples"] = [{"train": []}]
     assert schema_problems(agent, ml, roles) == ["the ml schema holds the role names ['train']"]
+
+
+# --- rule 5: the third-party imports of each package ----------------------------------------------------------------------------
+
+# The third-party top-level modules each package or top-level module of `src/hypotrail/` may import.
+THIRD_PARTY = {
+    # `anyio` is imported by `agentic/sql_tool.py` and `pyproject.toml` does not declare it yet: chadlis/hypotrail#121 declares it.
+    "agentic": {"anyio", "inspect_ai", "jsonschema"},
+    "core": {"jsonschema"},
+    "ml": {"jsonschema", "numpy", "sklearn"},
+    "report": set(),
+    "cli": set(),
+    "__init__": set(),
+    "__main__": set(),
+}
+
+
+def third_party_problems(trees: dict) -> list:
+    problems = []
+    for module, targets in imports(trees).items():
+        allowed = THIRD_PARTY.get(entry_of(module))
+        if allowed is None:
+            problems.append(f"{module} is in no package of the list")
+            continue
+        for top in sorted({target.split(".")[0] for target in targets} - set(sys.stdlib_module_names) - {PACKAGE}):
+            if top not in allowed:
+                problems.append(f"{module} imports {top}")
+    return problems
+
+
+def blocked_import_problems(root, trees: dict) -> list:
+    """Import every module outside `agentic` in a fresh interpreter in which `inspect_ai` cannot be imported; each module that fails is a problem.
+
+    `hypotrail.__main__` runs the command line when it is imported, so the probe gives it `--help`, which exits with 0.
+    """
+    modules = sorted(module for module in trees if entry_of(module) != "agentic")
+    probe = (
+        "import importlib, sys\n"
+        "sys.path.insert(0, sys.argv[1])\n"
+        "sys.modules['inspect_ai'] = None\n"
+        "names = sys.argv[2:]\n"
+        "sys.argv = ['hypotrail', '--help']\n"
+        "failed = []\n"
+        "for name in names:\n"
+        "    try:\n"
+        "        importlib.import_module(name)\n"
+        "    except SystemExit as error:\n"
+        "        if error.code not in (0, None):\n"
+        "            failed.append(f'{name}: SystemExit: {error.code}')\n"
+        "    except BaseException as error:\n"
+        "        failed.append(f'{name}: {type(error).__name__}: {error}')\n"
+        "print('\\n'.join('FAILED ' + line for line in failed))\n"
+    )
+    done = subprocess.run([sys.executable, "-I", "-c", probe, str(root), *modules], capture_output=True, text=True)
+    if done.returncode:
+        return [f"probe exited {done.returncode}: {done.stderr}"]
+    return [line.removeprefix("FAILED ") for line in done.stdout.splitlines() if line.startswith("FAILED ")]
+
+
+def test_each_package_of_src_imports_only_the_third_party_modules_of_its_list():
+    assert third_party_problems(parse_all(SOURCE)) == []
+
+
+def test_every_module_outside_agentic_imports_with_inspect_ai_made_unimportable():
+    trees = parse_all(SOURCE)
+    assert any(entry_of(module) == "core" for module in trees)
+    assert blocked_import_problems(SOURCE, trees) == []
+
+
+def test_a_third_party_import_outside_the_list_of_its_package_is_found_through_a_relative_module_a_function_and_the_top_level_modules(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/cli.py": "import json\nfrom hypotrail.core import c\n",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/c.py": "import jsonschema\nfrom . import d\n",
+        "hypotrail/core/d.py": "",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/m.py": "import numpy as np\nfrom sklearn.linear_model import Ridge\n",
+        "hypotrail/agentic/__init__.py": "",
+        "hypotrail/agentic/a.py": "import inspect_ai\n",
+    })
+    assert third_party_problems(parse_all(root)) == []
+    plant(root, {
+        "hypotrail/core/d.py": "def f():\n    import numpy\n",
+        "hypotrail/ml/m.py": "from inspect_ai import eval\n",
+        "hypotrail/cli.py": "import requests\n",
+        "hypotrail/new/__init__.py": "",
+    })
+    assert third_party_problems(parse_all(root)) == [
+        "hypotrail.cli imports requests",
+        "hypotrail.core.d imports numpy",
+        "hypotrail.ml.m imports inspect_ai",
+        "hypotrail.new is in no package of the list",
+    ]
+
+
+def test_a_top_level_import_of_inspect_ai_in_a_core_module_fails_the_probe_and_one_in_agentic_does_not(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/c.py": "VALUE = 1\n",
+        "hypotrail/agentic/__init__.py": "",
+        "hypotrail/agentic/a.py": "import inspect_ai\n",
+    })
+    assert blocked_import_problems(root, parse_all(root)) == []
+    plant(root, {"hypotrail/core/c.py": "import inspect_ai\n"})
+    [problem] = blocked_import_problems(root, parse_all(root))
+    assert problem.startswith("hypotrail.core.c: ModuleNotFoundError: import of inspect_ai halted")
+
+
+# --- rule 6: no dynamically loaded code -----------------------------------------------------------------------------------------
+
+DYNAMIC_BUILTINS = {"__import__", "exec", "eval"}
+DYNAMIC_LOADERS = {"import_module", "entry_points"}
+
+
+def dynamic_code_problems(trees: dict) -> list:
+    """A call of `import_module` or `entry_points` however it is imported or aliased, or of `__import__`, `exec` or `eval` that no name of its module explains: a builtin."""
+    problems = []
+    for site in calls(trees):
+        builtin = site.callee is None and site.raw in DYNAMIC_BUILTINS
+        loader = (site.callee or "").rpartition(".")[2] in DYNAMIC_LOADERS
+        if builtin or loader:
+            problems.append(f"{site.owner} calls {site.callee or site.raw}")
+    return problems
+
+
+def test_no_module_of_src_loads_code_dynamically_and_inspects_eval_imported_by_the_runner_is_not_the_builtin():
+    trees = parse_all(SOURCE)
+    assert dynamic_code_problems(trees) == []
+    runner = [site for site in calls(trees) if site.module == f"{PACKAGE}.agentic.runner" and site.raw == "eval"]
+    assert runner and all(site.callee == "inspect_ai.eval" for site in runner)
+
+
+def test_a_builtin_eval_exec_or_dunder_import_and_an_import_module_or_entry_points_call_are_found_and_an_imported_eval_is_not(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/a.py": "from inspect_ai import eval\n\ndef f():\n    return eval(1)\n",
+        "hypotrail/core/b.py": "def eval(x):\n    return x\n\ndef g():\n    return eval(1)\n",
+    })
+    assert dynamic_code_problems(parse_all(root)) == []
+    plant(root, {
+        "hypotrail/core/a.py": "def f(s):\n    return eval(s)\n",
+        "hypotrail/core/b.py": "def g(s):\n    exec(s)\n    return __import__(s)\n",
+        "hypotrail/core/c.py": "import importlib\n\ndef h(n):\n    return importlib.import_module(n)\n",
+        "hypotrail/core/d.py": "from importlib.metadata import entry_points as eps\n\ndef i():\n    return eps(group='x')\n",
+        "hypotrail/core/e.py": "from importlib import import_module as load\n\ndef j(n):\n    return load(n)\n",
+    })
+    assert dynamic_code_problems(parse_all(root)) == [
+        "hypotrail.core.a:f calls eval",
+        "hypotrail.core.b:g calls exec",
+        "hypotrail.core.b:g calls __import__",
+        "hypotrail.core.c:h calls importlib.import_module",
+        "hypotrail.core.d:i calls importlib.metadata.entry_points",
+        "hypotrail.core.e:j calls importlib.import_module",
+    ]
+
+
+# --- rule 7: examples ---------------------------------------------------------------------------------------------------------
+
+EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
+
+
+def examples_problems(root) -> list:
+    problems = [f"{path.relative_to(root)} is Python outside external/" for path in sorted(root.rglob("*.py")) if path.relative_to(root).parts[0] != "external"]
+    for module, targets in imports(parse_all(root)).items():
+        if module.split(".")[0] == "external":
+            problems += [f"{module} imports {target}" for target in sorted(targets) if target.split(".")[0] == PACKAGE]
+    return problems
+
+
+def test_no_python_is_under_examples_outside_external_and_no_file_of_external_imports_hypotrail():
+    assert (EXAMPLES / "external").is_dir() and list((EXAMPLES / "external").rglob("*.py"))
+    assert examples_problems(EXAMPLES) == []
+
+
+def test_a_py_file_in_a_workload_folder_and_an_absolute_or_relative_import_of_hypotrail_in_external_are_found(tmp_path):
+    shutil.copytree(EXAMPLES, tmp_path / "examples", ignore=shutil.ignore_patterns("__pycache__", "data"))
+    root = tmp_path / "examples"
+    assert examples_problems(root) == []
+    plant(root, {"chinook/helper.py": "x = 1\n"})
+    assert examples_problems(root) == ["chinook/helper.py is Python outside external/"]
+    (root / "chinook/helper.py").unlink()
+    plant(root, {
+        "external/a.py": "import hypotrail\n",
+        "external/b.py": "from hypotrail.core import x\n",
+        "external/sub/__init__.py": "",
+        "external/sub/c.py": "from ... import hypotrail\n",
+        "external/d.py": "from . import sibling\nimport json\n",
+    })
+    assert examples_problems(root) == ["external.a imports hypotrail", "external.b imports hypotrail.core.x", "external.sub.c imports hypotrail"]
