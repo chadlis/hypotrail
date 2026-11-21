@@ -293,7 +293,7 @@ def test_two_decisions_on_the_same_question_citing_the_same_ids_both_apply(study
     assert [(row["decision_id"], row["applies"], row["reasons"]) for row in rows] == [(first["decision_id"], True, []), (second["decision_id"], True, [])]
 
 
-# --- Tightened E: « later » is the position in the write journal --------------------------------------------------------
+# --- Tightened E: "later" is the position in the write journal --------------------------------------------------------
 
 
 def test_with_two_assessments_of_the_same_set_and_scorer_the_earlier_in_the_journal_is_outdated_and_the_later_applies(study, ids):

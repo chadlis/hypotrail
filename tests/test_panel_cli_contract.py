@@ -1,6 +1,6 @@
 """Ticket #111 (slice #104, L2.1): the records that #107 to #110 do not write themselves.
 
-The GLOSSARY clarification on « report », the ADR of the panel-CLI contract, and the README. Nothing here runs a command
+The GLOSSARY clarification on "report", the ADR of the panel-CLI contract, and the README. Nothing here runs a command
 that writes, and no model is called. The handbook rows are in `tests/test_handbook.py`.
 """
 
@@ -21,7 +21,7 @@ def adr() -> str:
 
 def section(text: str, title: str) -> str:
     match = re.search(rf"^## {re.escape(title)}\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    assert match, f"the ADR has no section « {title} »"
+    assert match, f"the ADR has no section '{title}'"
     return match[1]
 
 
@@ -128,10 +128,10 @@ def test_l2_1_writes_no_agent_instruction():
 
 
 def test_the_adr_and_the_glossary_entries_of_this_slice_quote_english_with_plain_double_quotes():
-    # R1-S-03: « » is for quoted French
+    # R1-S-03: the guillemets are for quoted French
     glossary = (ROOT / "GLOSSARY.md").read_text(encoding="utf-8")
     added = [re.search(rf"^\*\*{name}\*\*:\n(.*?)(?=^\*\*|\Z)", glossary, re.S | re.M)[1] for name in ("Write sequence", "Decision", "Exposure")]
-    found = [text for text in (adr(), *added) if "«" in text or "»" in text]
+    found = [text for text in (adr(), *added) if "\u00ab" in text or "\u00bb" in text]
     assert found == []
 
 
