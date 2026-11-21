@@ -1,4 +1,4 @@
-"""D-048: the PreToolUse hook `.claude/hooks/no-live-key.sh` unsets the provider key before every Bash command.
+"""D-048 on chadlis/hypotrail#75: the PreToolUse hook `.claude/hooks/no-live-key.sh` unsets the provider key before every Bash command.
 
 The script is run as a subprocess with the JSON Claude Code sends on stdin. Only a single simple
 `capture.sh` command is exempt; everything else is rewritten, and any malformed input blocks the command.
