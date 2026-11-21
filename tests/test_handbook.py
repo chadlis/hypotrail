@@ -3013,7 +3013,7 @@ def chapter_16():
 # --- #99: T20's proof is the Campaign of #98, kept whole; LIVE_ACCEPTED is conditional, computed from it ----------------------
 
 CAMPAIGN_DIR = HANDBOOK / "traces" / "campaign-public-check"
-CONDITIONAL_WORDS = "References E01–E10 reviewed by proxy, owner review pending"  # D-025 condition 3, verbatim
+CONDITIONAL_WORDS = "References E01–E10 reviewed by proxy, owner review pending"  # D-025 on chadlis/hypotrail#75, condition 3, verbatim
 JOIN_SEQUENCE = ("model_turn", "tool_call", "tool_result", "model_turn", "final_answer")  # SPEC AG-10
 
 
@@ -3052,7 +3052,7 @@ def limit_text(value):
 
 
 def join_episode(attempt):
-    """The Episode that stands for the Configuration's join trace: Case E02, or E06 if E02 has none produced (D-027 item 7)."""
+    """The Episode that stands for the Configuration's join trace: Case E02, or E06 if E02 has none produced (D-027 on chadlis/hypotrail#75, item 7)."""
     for case in ("E02", "E06"):
         produced = [o for o in attempt["observations"] if o["case_id"] == case and o["status"] == "produced"]
         if produced:
@@ -3159,7 +3159,7 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
 def live_value(page, kept_dir=CAMPAIGN_DIR):
     """#99 B and J, 93-R1-07: `conditional` when T20's row has a passing proof, the spike's report is cited as evidence, the
     LIVE_ACCEPTED row states in `data-owner-review` that the owner's review of the References is pending (only the owner lifts it:
-    D-025 condition 3, on chadlis/hypotrail#75) and the row names the AG-12 deviation of D-028; `pending` otherwise."""
+    D-025 condition 3) and the row names the AG-12 deviation of D-028; `pending` otherwise. Both decisions are on chadlis/hypotrail#75."""
     rows = {row["test"]: row for row in grid_of(page).rows}
     proof = campaign_proof_problems(rows["T20"], plain_text(row_html(page, "T20")), kept_dir)
     evidence = re.search(r'<tr data-status="LIVE_ACCEPTED".*?</tr>', page, re.S)[0]
@@ -3341,7 +3341,7 @@ def test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_
 
 
 def conditional_words_missing(text):
-    """Sentences holding LIVE_ACCEPTED without the conditional words beside them (D-025 condition 3, #99)."""
+    """Sentences holding LIVE_ACCEPTED without the conditional words beside them (D-025 on chadlis/hypotrail#75, condition 3; #99)."""
     return [s for s in split_sentences(text) if "LIVE_ACCEPTED" in s and CONDITIONAL_WORDS not in s]
 
 
@@ -3442,7 +3442,7 @@ def test_the_t24_row_fails_when_the_record_is_missing_unwalked_or_has_no_failure
 def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_as_a_role():
     # 10-R1-02, GLOSSARY Control (_Avoid_: baseline as a role): the limit on the order of the Configurations names `plain` and `verify`.
     chapter = (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
-    assert 'data-open-point="order"' not in chapter  # #99 C7 (D-028): the open point is settled; it is a limit now
+    assert 'data-open-point="order"' not in chapter  # #99 C7 (D-028 on chadlis/hypotrail#75): the open point is settled; it is a limit now
     point = re.search(r'<span data-limit="order">(.*?)</span>', chapter, re.S)[1]
     assert "order of <code>plain</code> and <code>verify</code>" in point
     assert "baseline" not in point.replace("« baseline »", "")  # a verbatim SPEC quote in « » may keep the word
@@ -3544,7 +3544,7 @@ def test_the_kept_command_output_says_how_it_was_made_and_chapter_16_says_the_sa
 
 
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
-    # #99 C7: D-025 option B, #94's Case text, #95's verdict "holds".
+    # #99 C7: D-025 on chadlis/hypotrail#75, option B, #94's Case text, #95's verdict "holds".
     paragraph = re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1]
     text = plain_text(paragraph)
     for part in ("D-025", "chadlis/hypotrail#94", "four-character text", "chadlis/hypotrail#95", "7057075785", "holds"):
@@ -3579,7 +3579,7 @@ def integer_year_answers(kept_dir):
 
 
 def e07_note_problems(chapter, kept_dir=CAMPAIGN_DIR):
-    """#99 C, D (D-026 item 4): the note on an integer-year answer exists exactly when one occurs in the kept Observation sets."""
+    """#99 C, D (D-026 on chadlis/hypotrail#75, item 4): the note on an integer-year answer exists exactly when one occurs in the kept Observation sets."""
     note = re.search(r'<p data-note="e07-integer-year">(.*?)</p>', chapter, re.S)
     occurs = integer_year_answers(kept_dir)
     if not occurs:
@@ -3594,7 +3594,7 @@ def e07_note_problems(chapter, kept_dir=CAMPAIGN_DIR):
 
 
 def test_the_E07_note_is_written_exactly_when_an_integer_year_answer_occurs_in_the_kept_observation_sets(page, tmp_path):
-    # #99 C (D-026 item 4, D-025 addendum 1): what the kept answers hold decides. They hold none, so there is no note, and the chapter says so.
+    # #99 C (D-026 on chadlis/hypotrail#75, item 4; D-025 on chadlis/hypotrail#75, addendum 1): what the kept answers hold decides. They hold none, so there is no note, and the chapter says so.
     assert integer_year_answers(CAMPAIGN_DIR) == []
     assert e07_note_problems(chapter_16()) == []
     assert "no E07 answer of the Campaign has an integer year" in plain_text(re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1])
