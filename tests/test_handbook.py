@@ -16,6 +16,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+from _checks_table import rows_of as rows_of_checks_table
 from inspect_ai.log import read_eval_log, write_eval_log
 
 from hypotrail.core.errors import InvalidInputError
@@ -4178,6 +4179,11 @@ def prose_of(chapter: str) -> str:
     return re.sub(r"<pre.*?</pre>", "", re.sub(r"<table.*?</table>", "", chapter, flags=re.S), flags=re.S)
 
 
+# Two sentences, each quoted from its own source: the first names the two exceptions, the second exempts their flags from the prose guard.
+THE_TWO_FLAGS_OF_TIGHTENED_M = (
+    "\"Chapter 04's order paragraph names these two exceptions.\" (chadlis/hypotrail#108, Tightened M); "
+    "\"The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)"
+)
 # R2-S-01, R2-S-02: the handbook rule of the drive skill, "The prose around such a table does not restate it", checked over the whole class.
 # A word the prose of a section must use to explain what its tables do not say; each is named by a table (a code, a flag or a key) and has its reason.
 PROSE_MAY_NAME = {
@@ -4190,8 +4196,8 @@ PROSE_MAY_NAME = {
     "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
     "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
     "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
-    "--factor": "chapter 04's order paragraph names `compare --factor` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
-    "--out": "chapter 04's order paragraph names `report --out` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
+    "--factor": THE_TWO_FLAGS_OF_TIGHTENED_M,
+    "--out": THE_TWO_FLAGS_OF_TIGHTENED_M,
     "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
 }
 
@@ -4239,14 +4245,44 @@ def test_the_prose_of_chapter_17_and_chapter_04_write_sequence_section_names_non
         assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
 
 
-def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock_and_points_to_the_table_that_gives_them():
-    # #108 Tightened M (D-038 on chadlis/hypotrail#75, kept by D-041 on chadlis/hypotrail#75): the paragraph names the two commands; the table gives their codes and conditions
+def chapter_04_order_paragraph():
     chapter = chapter_text("04-study-and-attempts.html")
-    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    return chapter, next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+
+
+def test_chapter_04_order_paragraph_names_compare_factor_and_report_out_by_command():
+    _, paragraph = chapter_04_order_paragraph()
     assert "<code>compare --factor</code>" in paragraph and "<code>report --out</code>" in paragraph
-    assert "before the lock" in paragraph
-    assert 'id="checks-before-the-lock"' in chapter  # the table the paragraph points to
-    assert "UNSUPPORTED_CAPABILITY" not in paragraph and "REPORT_OUTPUT_INVALID" not in paragraph  # the table gives them, the prose does not restate them
+
+
+def test_chapter_04_order_paragraph_points_to_the_table_of_checks_before_the_lock_that_the_chapter_holds():
+    chapter, paragraph = chapter_04_order_paragraph()
+    assert "before the lock" in paragraph and "table of checks before the lock" in paragraph
+    assert 'id="checks-before-the-lock"' in chapter
+
+
+def test_chapter_04_order_paragraph_names_none_of_the_codes_of_the_table_of_checks_before_the_lock():
+    chapter, paragraph = chapter_04_order_paragraph()
+    rows = rows_of_checks_table(chapter)
+    assert rows
+    for check, (_, code) in rows.items():
+        assert code not in paragraph, check
+
+
+def test_chapter_04_order_paragraph_states_no_count_of_the_checks_or_rows_of_the_table():
+    _, paragraph = chapter_04_order_paragraph()
+    assert not re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+) (checks|rows)\b", paragraph)
+
+
+def test_chapter_04_order_paragraph_says_the_table_lists_the_checks_beyond_this_general_order_that_read_more_than_the_arguments():
+    _, paragraph = chapter_04_order_paragraph()
+    assert "beyond this general order" in paragraph and "read more than the arguments" in paragraph
+
+
+def test_chapter_04_gives_the_modes_by_the_values_the_glossary_defines():
+    chapter = chapter_text("04-study-and-attempts.html")
+    assert "<code>scripted_fixture</code> Mode" in chapter and "<code>llm_live</code> Mode" in chapter
+    assert not re.search(r"scripted fixture Mode|the live Mode", chapter)
 
 
 def test_chapter_04_table_gives_the_commands_that_take_the_read_sequence_as_the_parser_defines_them(page):
