@@ -2795,8 +2795,9 @@ def test_the_walk_record_says_only_d3_was_handed_back_to_89_for_triage_which_was
     # 10-R1-05, #87 C5: #89 is `needs-triage` and asks whether the code or the README changes, so the record labels D3 neither. D3 says what
     # #89 says (`status --json` lists the References id, but it comes last in the path).
     text = WALK.read_text(encoding="utf-8")
+    record_date = re.search(r'<dd data-field="date">(.*?)</dd>', text, re.S)[1]  # the record's own date, read from the record
     intro = re.search(r'<h2 id="difficulties">.*?</h2>\s*<p>(.*?)</p>', text, re.S)[1]
-    assert "Only D3 was handed back" in intro and "chadlis/hypotrail#89 for triage" in intro and "triage was open when this record was written (2026-11-21)" in intro and "triage is open" not in intro  # dated: the test never reads #89
+    assert "Only D3 was handed back" in intro and "chadlis/hypotrail#89 for triage" in intro and f"triage was open when this record was written ({record_date})" in intro and "triage is open" not in intro  # dated: the test never reads #89
     assert "defect" not in intro and not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", intro, re.I) and "<a " not in intro
     d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
     assert "handed back to chadlis/hypotrail#89 for triage" in d3 and "defect" not in d3 and "says nothing untrue" not in d3
