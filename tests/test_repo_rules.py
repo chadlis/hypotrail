@@ -12,15 +12,14 @@ from hypotrail.cli import build_parser
 ROOT = Path(__file__).resolve().parent.parent
 
 
-# The pathspecs that both scans below use.
+# The pathspecs that both scans below share, as the requirement of chadlis/hypotrail#122 asks.
 HANDBOOK_CHAPTERS_PATHSPEC = ":(glob)docs/handbook/chapters/*.html"
 TESTS_PATHSPEC = "tests/"
 
 # Every pathspec: chadlis/hypotrail#122, criterion 1.
 BARE_ID_SCAN = ["src/", TESTS_PATHSPEC, HANDBOOK_CHAPTERS_PATHSPEC, "README.md"]
 
-# - the Python source: chadlis/hypotrail#122, criterion 6, "besides the files it scans today".
-# - the handbook chapters: chadlis/hypotrail#122, criterion 6, "besides the files it scans today".
+# - the Python source and the handbook chapters: chadlis/hypotrail#122, criterion 6.
 # - tests/: chadlis/hypotrail#115 and D-043 on chadlis/hypotrail#75.
 # - ADR 0004: chadlis/hypotrail#122, Tightened E, from D-044 on chadlis/hypotrail#75, item 5.
 GUILLEMET_SCAN = [":(glob)src/**/*.py", HANDBOOK_CHAPTERS_PATHSPEC, TESTS_PATHSPEC, "docs/adr/0004-panel-cli-contract.md"]
@@ -35,10 +34,9 @@ def _git_ls_files(pathspecs):
     return sorted(ROOT / name for name in listing.stdout.split("\0") if name and (ROOT / name).is_file())
 
 
-# Mechanises the AGENTS.md rule (Rules): 'Text you add or change quotes English with "…"; \u00ab \u00bb quotes French
-# only.' Here the two characters are spelled as escapes, because this test scans its own module.
-# The test refuses the opening French quotation mark (U+00AB) and the closing French quotation mark (U+00BB) in
-# every file it scans.
+# This test enforces a stricter form of AGENTS.md's rule on French quotation marks: no opening French quotation
+# mark (U+00AB) and no closing one (U+00BB) appears in any file it scans. Here the two characters are spelled as
+# escapes, because this test scans its own module.
 # docs/adr/ beyond ADR 0004 is not scanned: ADR 0002's French quotation marks hold a recorded quotation, and its
 # 2026-11-08 note records the harm of rewriting an ADR in place.
 # The French string in tests/test_report.py is written as escapes, so the scan keeps no named exception
