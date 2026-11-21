@@ -24,6 +24,7 @@ INIT_NEW_REVISION = "init --new-revision"
 ASSESS = "assess"
 COMPARE = "compare"
 RECOVER = "recover"
+REPORT = "report"
 
 DECISION = "decision"
 REVISION = "revision"
