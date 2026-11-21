@@ -4423,3 +4423,18 @@ def test_every_chapter_that_the_write_sequence_and_decisions_changed_links_the_p
     adr = sorted((ROOT / "docs" / "adr").glob("0004-*.md"))
     assert len(adr) == 1, "there is no ADR 0004"
     assert f'<a href="../adr/{adr[0].name}">0004</a>' in table, f"{chapter}: its ADR table has no row that links {adr[0].name}"
+
+
+def test_chapter_04_read_sequence_paragraph_says_a_command_given_no_option_behaves_as_before():
+    # R4-P-01 (#108 "when it is not given, the command behaves exactly as today"): one sentence on direct use, no row of a table restated
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "Reading the sequence before a write" in p)
+    sentence = "A command given no <code>--read-sequence</code> behaves as it did before the option existed."
+    assert sentence in paragraph
+
+
+def test_chapter_13_lead_points_to_the_order_paragraph_of_chapter_04_where_run_agent_differs_from_run_ml():
+    # R4-P-02 (#108 Tightened L): `run agent` does not have "the same order of checks" as `run ml`; chapter 04's order paragraph says where it differs
+    lead = re.search(r'<p class="lead">.*?</p>', chapter_text("13-run-agent.html"), re.S).group(0)
+    assert "the same order of checks" not in lead
+    assert 'order paragraph of <a href="#study-and-attempts">chapter 04</a>, where <code>run agent</code> differs from <code>run ml</code>' in lead
