@@ -3673,6 +3673,7 @@ def test_the_ag_12_deviation_names_its_source_in_chapter_16_and_the_readme_next_
     words = status.index(CONDITIONAL_WORDS)
     assert 0 < status.index(AG_12_SOURCE) - words < len(CONDITIONAL_WORDS) + 120  # next to the pending owner review
     assert len(readme_status().split()) <= 200
+    assert "The handbook gives each capability in detail." in " ".join(readme_status().split())  # 93-R4-01, within the cap
 
 
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
