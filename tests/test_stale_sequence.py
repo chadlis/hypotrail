@@ -16,6 +16,8 @@ from _assess_helpers import fresh_study, observation_set_id, references_id
 from _chinook_helpers import chinook_examples, database_of, fixture_lines, fixture_population, init_chinook, write_lines
 from _compare_helpers import assessed
 from _import_helpers import ready
+from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
+from _order_table import CHECKS_BEFORE_THE_LOCK
 from _report_helpers import report
 from _report_tracks import TRACKS, Bike
 from _revision_helpers import corrected_chinook_references
@@ -564,22 +566,20 @@ def checks_before_the_lock():
     """{command: code} of the table `checks-before-the-lock` of chapter 04 (R2-S-01): what the handbook says keeps its place before the lock."""
     table = re.search(r'<table[^>]*id="checks-before-the-lock".*?</table>', CHAPTER_04.read_text(encoding="utf-8"), re.S)
     assert table, "chapter 04 has no table `checks-before-the-lock`"
-    return {command: code for command, code in re.findall(r'<tr data-command="([^"]+)" data-code="([^"]+)"', table[0])}
+    return {command: code for command, code in re.findall(r'<tr data-command="([^"]+)" data-exit="\d+" data-code="([^"]+)"', table[0])}
 
 
-def provoke_compare_factor(tmp_path):
-    scenario, read, files = older("compare", tmp_path)  # a bike Study: it has no factor
-    return scenario.study, files, lambda: scenario.call(scenario.study, "--factor", "model", "--read-sequence", read)
+def provoked(case):
+    """The call of a row of the probe's table, as `(study, the Study's files, the call)`; the value it gives is below the Study's."""
+
+    def provoke(tmp_path):
+        study, call = CHECK_CALLS[case](tmp_path)
+        return study, tree(study), lambda: call(max(seq(study) - 2, 0))
+
+    return provoke
 
 
-def provoke_report_out(tmp_path):
-    study, _ = TRACKS["bike"].public_outputs(tmp_path)  # a page that shows public_check Items is an Exposure: the value would be compared
-    read = seq(study)
-    bike_bump(study)
-    return study, tree(study), lambda: report(study, study / "page.html", "--read-sequence", read)  # --out inside the Study
-
-
-PROVOKED = {"compare --factor": provoke_compare_factor, "report --out": provoke_report_out}
+PROVOKED = {case: provoked(case) for case in CHECKS_BEFORE_THE_LOCK}
 
 
 def test_the_table_of_the_checks_before_the_lock_lists_the_checks_the_test_provokes():
@@ -592,7 +592,7 @@ def test_each_check_of_the_table_before_the_lock_gives_its_code_with_the_lock_he
     study, files, call = PROVOKED[command](tmp_path)
     with held_by_another_process(study):
         code, payload, err = call()
-    assert (code, error_of(payload)["code"]) == (2, checks_before_the_lock()[command]), (payload, err)
+    assert (code, error_of(payload)["code"]) == (CHECKS_BEFORE_THE_LOCK[command][1], checks_before_the_lock()[command]), (payload, err)
     assert tree(study) == files
 
 
