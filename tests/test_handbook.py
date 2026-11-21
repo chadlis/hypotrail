@@ -3014,7 +3014,6 @@ def chapter_16():
 
 CAMPAIGN_DIR = HANDBOOK / "traces" / "campaign-public-check"
 CONDITIONAL_WORDS = "References E01–E10 reviewed by proxy, owner review pending"  # D-025 condition 3, verbatim
-OWNER_REVIEW_OF_REFERENCES = "pending"  # not a fact the grid can compute: only the owner lifts it (D-025 condition 3)
 JOIN_SEQUENCE = ("model_turn", "tool_call", "tool_result", "model_turn", "final_answer")  # SPEC AG-10
 
 
@@ -3157,14 +3156,18 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
     return problems
 
 
-def live_value(page, kept_dir=CAMPAIGN_DIR, owner_review=OWNER_REVIEW_OF_REFERENCES):
-    """#99 B and J: `conditional` when T20's row has a passing proof, the spike's report is cited as evidence and the owner's
-    review of the References is pending; `pending` otherwise."""
+def live_value(page, kept_dir=CAMPAIGN_DIR):
+    """#99 B and J, 93-R1-07: `conditional` when T20's row has a passing proof, the spike's report is cited as evidence, the
+    LIVE_ACCEPTED row states in `data-owner-review` that the owner's review of the References is pending (only the owner lifts it:
+    D-025 condition 3, on chadlis/hypotrail#75) and the row names the AG-12 deviation of D-028; `pending` otherwise."""
     rows = {row["test"]: row for row in grid_of(page).rows}
     proof = campaign_proof_problems(rows["T20"], plain_text(row_html(page, "T20")), kept_dir)
     evidence = re.search(r'<tr data-status="LIVE_ACCEPTED".*?</tr>', page, re.S)[0]
     spike_cited = 'href="#feasibility-spike"' in evidence
-    return "conditional" if not proof and spike_cited and owner_review == "pending" else "pending"
+    owner_pending = re.search(r'<tr data-status="LIVE_ACCEPTED"[^>]*\sdata-owner-review="([^"]*)"', evidence) is not None and re.search(r'data-owner-review="([^"]*)"', evidence)[1] == "pending"
+    text = plain_text(evidence)
+    deviation = all(part in text for part in ("AG-12", "not alternated", "D-028"))
+    return "conditional" if not proof and spike_cited and owner_pending and deviation else "pending"
 
 
 def test_the_grid_has_exactly_one_row_per_test_T01_to_T24_each_with_what_it_does_its_expected_result_and_a_proof_or_a_reason(page):
@@ -3318,11 +3321,17 @@ def test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_
     # #99 B and J: `conditional` when T20's row passes, the spike's report is cited and the owner's review is pending; `pending` otherwise.
     value = grid_of(page).statuses["LIVE_ACCEPTED"]["attrs"]["data-value"]
     assert value == live_value(page) == "conditional"
+    assert 'data-owner-review="pending"' in re.search(r'<tr data-status="LIVE_ACCEPTED".*?</tr>', page, re.S)[0]  # the state lives in the chapter, not in the test
     not_run = page.replace(row_html(page, "T20"), row_html(page, "T20").replace('data-proof="command"', 'data-proof="not-run"', 1))
     assert not_run != page and live_value(not_run) == "pending"
     no_spike = re.sub(r'(<tr data-status="LIVE_ACCEPTED".*?)href="#feasibility-spike"(.*?</tr>)', r"\1\2", page, count=1, flags=re.S)
     assert no_spike != page and live_value(no_spike) == "pending"
-    assert live_value(page, owner_review="done") == "pending"
+    done = page.replace('data-owner-review="pending"', 'data-owner-review="done"', 1)
+    assert done != page and live_value(done) == "pending"
+    no_attribute = page.replace(' data-owner-review="pending"', "", 1)
+    assert no_attribute != page and live_value(no_attribute) == "pending"
+    no_deviation = re.sub(r'(<tr data-status="LIVE_ACCEPTED".*?)AG-12(.*?</tr>)', r"\1the order\2", page, count=1, flags=re.S)
+    assert no_deviation != page and live_value(no_deviation) == "pending"
     copy = tmp_path / "campaign"
     shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html"))
     output = json.loads((copy / "command-output.json").read_text())
