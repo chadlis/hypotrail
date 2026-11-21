@@ -21,9 +21,11 @@ IMPORT_AGENT = "import agent"
 DECIDE = "decide"
 INIT = "init"
 INIT_NEW_REVISION = "init --new-revision"
+ASSESS = "assess"
 
 DECISION = "decision"
 REVISION = "revision"
+ASSESSMENT = "assessment"
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:

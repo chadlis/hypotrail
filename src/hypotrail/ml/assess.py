@@ -31,7 +31,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers, write_journal
+from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.partitions import requires_exposure
@@ -119,14 +119,14 @@ def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: 
     read only for an Assessment of `public_check` Items, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "assess")
+    study_write.check_read_sequence(study_write.ASSESS, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study), write_journal.writing(study, "assess"):
-        write_journal.require_current(study, read_sequence)
-        return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
+    with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
+        write.require_current()
+        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir)
 
 
-def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
+def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -235,8 +235,8 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         ),
     }
     contracts.validate(record)
-    write_journal.begin()  # a dev Assessment writes nothing before this; an Exposure began the command already
+    write.begin()  # a dev Assessment writes nothing before this; an Exposure began the command already
     artifacts.publish_bytes(study, per_item_ref["path"], per_item, media_type="text/csv", role="per_item")
-    write_journal.wrote("assessment", assessment_id)
+    write.wrote(study_write.ASSESSMENT, assessment_id)
     artifacts.publish_record(study, f"{folder}/assessment.json", record, role="assessment")
     return record
