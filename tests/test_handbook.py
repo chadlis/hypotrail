@@ -3532,6 +3532,25 @@ def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_d
             assert command["started_at"] in text and command["finished_at"] in text
 
 
+def kept_exit(name):
+    """The exit status a kept `commands/NAME.exit` file records: « NAME exit N »."""
+    return int(re.fullmatch(rf"{name} exit (\d+)", (CAMPAIGN_DIR / "commands" / f"{name}.exit").read_text(encoding="utf-8").strip())[1])
+
+
+def test_chapter_16_says_what_the_rehearsal_covered_and_that_the_paid_invocations_proved_the_uv_launcher(page):
+    # 93-R1-01, D-029 on chadlis/hypotrail#75: the rehearsal at f696f58 ran the hypotrail arguments under the test interpreter, not `uv run`.
+    match = re.search(r'<p data-rehearsal="launcher">(.*?)</p>', chapter_16(), re.S)
+    assert match, "no paragraph says what the rehearsal covered"
+    text = plain_text(match[1])
+    for part in (
+        "rehearsal that ran before the Campaign", "f696f58", "every hypotrail argument of the paid lines", "under the test interpreter",
+        "with the provider patched", "uv run launcher was not rehearsed", "paid invocations themselves proved the launcher",
+        "both exited 0", "commands/plain.exit", "commands/verify.exit",
+    ):
+        assert part in text, part
+    assert kept_exit("plain") == kept_exit("verify") == 0  # what the paragraph says of the two files is what they hold
+
+
 def test_the_kept_command_output_says_how_it_was_made_and_chapter_16_says_the_same():
     # 93-R1-08, #98 C6: the drive assembled the file after the invocations from each command's captured output; the commands printed human output.
     kept = json.loads((CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8"))
