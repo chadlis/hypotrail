@@ -10,6 +10,8 @@ Every acceptance criterion you witness has a test you have seen go **red** on th
 
 A comment says what the code alone does not show, and a test name says what the test checks. A comment cites a requirement only by quoting the source sentence the prompt gives, and code that no source asks for carries no citation. A line you rewrite loses any finding ID it holds. Finding IDs, round numbers and "the slice" go only in commit messages and hand-backs.
 
+No command you run calls a real model: a paid run is the drive's, through `.claude/skills/drive/capture.sh`. A PreToolUse hook (`.claude/hooks/no-live-key.sh`) unsets `HYPOTRAIL_ANTHROPIC_API_KEY` for every other Bash command, so `--mode llm_live` is refused before any call.
+
 For a new command, add its parser entry and a handler that does nothing before the first red run.
 
 For a review fix, your hand-back also lists every file you touched beyond the finding's cited paths, and why.
