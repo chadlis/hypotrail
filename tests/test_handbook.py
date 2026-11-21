@@ -2719,11 +2719,11 @@ def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_wi
     charter_base, charter_light = _root_tokens(template, ":root"), _root_tokens(template, ':root[data-mode="light"]')
     assert base and light
     assert all(charter_base.get(name) == value for name, value in base.items()), "a base token that is not the template's"
-    assert all(charter_light.get(name) == value for name, value in light.items() if name != "color-scheme"), "a light token that is not the template's"
+    assert all(charter_light.get(name) == value for name, value in light.items()), "a light token that is not the template's"
     used = set(re.findall(r"var\((--[a-z0-9-]+)\)", style))
     assert set(base) == used, ("declared and unused", set(base) - used, "used and undeclared", used - set(base))  # every declared token is used
-    assert set(light) - {"color-scheme"} == used & set(charter_light) and 'data-mode="light"' in style
-    assert re.search(r"color-scheme:light", style)
+    assert set(light) == used & set(charter_light) and 'data-mode="light"' in style
+    assert "color-scheme" not in style  # no declaration beyond the template's tokens: the page's tokens equal the template's exactly
     switch = re.search(r'<div class="mode".*?</div>', template, re.S)[0]
     assert switch in page and page.index(switch) < page.index("<main>")  # the template's switch markup
     css = [line for line in template.split("<style>", 1)[1].split("</style>", 1)[0].splitlines() if line.startswith(".mode")]
