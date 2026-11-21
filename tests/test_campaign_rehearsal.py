@@ -288,7 +288,7 @@ def test_assess_twice_compare_with_plain_as_control_and_report_exit_0_and_the_co
     assert record["warnings"] == []  # compatible with no warning is what strict means here
 
 
-# --- D-028 condition 2: start and end times and the model the provider reported, for each invocation ------------------------------------
+# --- D-028 on chadlis/hypotrail#75, condition 2: start and end times and the model the provider reported, for each invocation ------------------------------------
 
 
 def test_each_invocation_records_its_start_and_end_times_and_the_model_the_provider_reported_and_plain_ran_before_verify(rehearsal):
@@ -304,7 +304,7 @@ def test_each_invocation_records_its_start_and_end_times_and_the_model_the_provi
         provenance = json.loads((folder / "observation_set.json").read_text(encoding="utf-8"))["provenance"]
         assert provenance["served_model"] == SERVED_MODEL, side
         stamps[side] = (manifest["started_at"], manifest["finished_at"])
-    assert stamps["plain"][1] <= stamps["verify"][0]  # two invocations back to back, plain then verify (D-028)
+    assert stamps["plain"][1] <= stamps["verify"][0]  # two invocations back to back, plain then verify (D-028 on chadlis/hypotrail#75)
 
 
 # --- C5: no model, no key that is real, no network -------------------------------------------------------------------------------------

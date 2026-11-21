@@ -1,4 +1,4 @@
-"""Ticket #94 (D-025 option B, D-026, D-027): E07's Case text states the format of `year`, and the change is a new Protocol revision.
+"""Ticket #94 (D-025 on chadlis/hypotrail#75, option B; D-026 on chadlis/hypotrail#75; D-027 on chadlis/hypotrail#75): E07's Case text states the format of `year`, and the change is a new Protocol revision.
 
 The Reference and the Scorer are not touched here. The suffix states the format only, never a value.
 """

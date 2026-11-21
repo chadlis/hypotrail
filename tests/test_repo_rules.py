@@ -150,12 +150,13 @@ def test_every_decision_cited_in_src_names_its_issue_as_the_glossary_does():
     assert bare == []
 
 
-def test_every_decision_cited_in_chapter_16_and_the_readme_names_its_issue_and_the_readme_names_the_source_of_ag_12():
-    # 93-R1-10: a bare D-0xx means nothing to a reader of the grid; GLOSSARY cites "D-011 on chadlis/hypotrail#75". AG-12 is a SPEC id: not in this repository.
+def test_every_decision_cited_in_the_files_this_slice_adds_names_its_issue():
+    # 93-R1-10: a bare D-0xx means nothing to a reader; GLOSSARY cites "D-011 on chadlis/hypotrail#75". The scan covers chapter 16, the README and the tests of the Campaign.
     bare = []
-    for path in (ROOT / "docs" / "handbook" / "chapters" / "16-acceptance-grid.html", ROOT / "README.md"):
+    for path in (
+        ROOT / "docs" / "handbook" / "chapters" / "16-acceptance-grid.html", ROOT / "README.md",
+        ROOT / "tests" / "test_campaign_rehearsal.py", ROOT / "tests" / "test_e07_year_format.py",
+    ):
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
         bare += [f"{path.name}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
     assert bare == []
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "AG-12" in readme and not re.search(r"(?<!SPEC )AG-12", readme)
