@@ -66,7 +66,7 @@ def read_sequence_fault(read_sequence) -> str | None:
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:
-    """An `INVALID_ARGUMENTS` refusal as the command line gives it: `details` `{"command"}` is the parser's `prog`, `hypotrail <command>`. The one place the core builds it."""
+    """An `INVALID_ARGUMENTS` refusal whose `details` are `{"command": "hypotrail <command>"}`, the form the parser gives. The one place the core builds it."""
     return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {command}"})
 
 
