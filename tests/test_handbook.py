@@ -3620,6 +3620,16 @@ def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_sli
     assert all(f'href="traces/campaign-public-check/commands/{name}.exit"' in chapter_16() for name in ("plain", "verify"))
 
 
+def test_chapter_16_says_where_the_served_model_of_each_episode_is_recorded(page):
+    # 93-R1-02, #98 Tightened A: the per-Episode record is the kept Inspect log, read through Inspect's log API (ADR 0001); run.json has the summary.
+    text = plain_text(chapter_16())
+    for part in (
+        "The served model of each Episode is recorded in the kept Inspect log, in the output.model of its sample, read through Inspect's log API",
+        "served_models in run.json is the per-Attempt summary",
+    ):
+        assert part in text, part
+
+
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
     # #99 C7: D-025 on chadlis/hypotrail#75, option B, #94's Case text, #95's verdict "holds".
     paragraph = re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1]
