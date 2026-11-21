@@ -65,21 +65,6 @@ def read_sequence_fault(read_sequence) -> str | None:
     return None
 
 
-def invalid_arguments(message: str, command: str) -> InvalidInputError:
-    """An `INVALID_ARGUMENTS` refusal whose `details` are `{"command": "hypotrail <command>"}`, the form the parser gives. The one place the core builds it."""
-    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {command}"})
-
-
-def require_valid_read_sequence(read_sequence, command: str) -> None:
-    """Refuse a `read_sequence` that `read_sequence_fault` names, as the command line does (`INVALID_ARGUMENTS`, exit 2): the first argument check of a writer, before any lock.
-
-    `command` is the command's name as the command line shows it (`details` `{"command"}` is then the one the parser gives).
-    """
-    fault = read_sequence_fault(read_sequence)
-    if fault is not None:
-        raise invalid_arguments(fault, command)
-
-
 def require_current(study, read_sequence) -> None:
     """Refuse a write made on a write sequence that is not the Study's: the caller holds the writer lock. `None` (not given) is never refused."""
     if read_sequence is None:
