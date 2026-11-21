@@ -17,7 +17,19 @@ from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
 from _order_probe import LOCK_HELD as LOCK_HELD_CALLS
 from _order_probe import UNDER_THE_LOCK as UNDER_THE_LOCK_CALLS
 from _order_probe import of
-from _order_table import AFTER, BEFORE, CHECKS_BEFORE_THE_LOCK, LOCK_HELD, LOCKED_PATHS, REPLAYED, SKIPPED_CALLS, THE_CHECK, UNDER_THE_LOCK
+from _order_table import (
+    AFTER,
+    BEFORE,
+    CHECKS_BEFORE_THE_LOCK,
+    ENTERS,
+    ENTERS_NONE,
+    LOCK_HELD,
+    LOCKED_PATHS,
+    REPLAYED,
+    SKIPPED_CALLS,
+    THE_CHECK,
+    UNDER_THE_LOCK,
+)
 from test_study_lock import held_by_another_process
 from test_write_sequence import seq, tree
 
@@ -133,20 +145,46 @@ def test_with_the_lock_held_each_row_enters_the_locked_function_of_its_path_and_
     assert called() == {path_of("lock_held", case)}
 
 
-@pytest.mark.parametrize("case", sorted(case for case, row in UNDER_THE_LOCK.items() if row[1] == AFTER))
-def test_with_the_lock_free_each_after_row_enters_the_locked_function_of_its_path_and_no_other_locked_function(case, tmp_path):
-    study, call = UNDER_THE_LOCK_CALLS[case](tmp_path)
-    with entered(*LOCKED_PATHS) as called:
-        call(below(study))
-    assert called() == {path_of("after", case)}
+def entered_by(call_of_the_row, study, held):
+    """The locked functions of `LOCKED_PATHS` that the call enters, with the lock held by another process or free."""
+    with (held_by_another_process(study) if held else contextlib.nullcontext()), entered(*LOCKED_PATHS) as called:
+        call_of_the_row(below(study))
+    return called()
 
 
+@pytest.mark.parametrize("case", sorted(ENTERS))
+def test_each_row_of_the_other_tables_enters_the_locked_function_it_names_and_no_other_locked_function(case, tmp_path):
+    held = case in CHECKS_BEFORE_THE_LOCK
+    study, call = (CHECK_CALLS if held else UNDER_THE_LOCK_CALLS)[case](tmp_path)
+    assert entered_by(call, study, held) == {ENTERS[case]}
+
+
+@pytest.mark.parametrize("case", sorted(ENTERS_NONE))
+def test_each_row_that_is_refused_before_any_locked_function_enters_none(case, tmp_path):
+    held = case in CHECKS_BEFORE_THE_LOCK
+    study, call = (CHECK_CALLS if held else UNDER_THE_LOCK_CALLS)[case](tmp_path)
+    assert entered_by(call, study, held) == set()
+
+
+def test_every_row_of_the_two_tables_names_a_locked_function_of_its_writer_or_gives_the_reason_none_is_entered():
+    rows = {**{case: writer for case, (writer, _, _) in CHECKS_BEFORE_THE_LOCK.items()}, **{case: row[0] for case, row in UNDER_THE_LOCK.items()}}
+    assert not set(ENTERS) & set(ENTERS_NONE)
+    assert set(ENTERS) | set(ENTERS_NONE) == set(rows)
+    assert all(ENTERS_NONE.values()), "each row that enters none gives its reason"
+    for case, key in ENTERS.items():
+        assert LOCKED_PATHS[key]["writer"] == rows[case], case
+    for key, path in LOCKED_PATHS.items():
+        if path["after"]:
+            assert ENTERS[path["after"]] == key
+
+
+# `tests/_order_table.py` (`SKIPPED_CALLS`) rests on the two routing tests below for the calls it skips because the command line picks the module.
 NEW_REVISION = ("hypotrail.ml.study:new_revision", "hypotrail.agentic.study:new_revision")
 ASSESS = ("hypotrail.ml.assess:assess", "hypotrail.agentic.assess:assess")
 
 
 @pytest.mark.parametrize(("world", "module"), [("bike", NEW_REVISION[0]), ("chinook", NEW_REVISION[1])])
-def test_init_new_revision_enters_the_new_revision_of_the_domain_of_the_study_and_not_the_other(world, module, tmp_path):
+def test_init_new_revision_enters_the_new_revision_of_the_track_of_the_study_and_not_the_other(world, module, tmp_path):
     study, call = of("init --new-revision", world=world)(tmp_path)
     with held_by_another_process(study), entered(*NEW_REVISION) as called:
         call(below(study))

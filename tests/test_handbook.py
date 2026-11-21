@@ -4179,6 +4179,11 @@ def prose_of(chapter: str) -> str:
     return re.sub(r"<pre.*?</pre>", "", re.sub(r"<table.*?</table>", "", chapter, flags=re.S), flags=re.S)
 
 
+# Two sentences, each quoted from its own source: the first names the two exceptions, the second exempts their flags from the prose guard.
+THE_TWO_FLAGS_OF_TIGHTENED_M = (
+    "\"Chapter 04's order paragraph names these two exceptions.\" (chadlis/hypotrail#108, Tightened M); "
+    "\"The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)"
+)
 # R2-S-01, R2-S-02: the handbook rule of the drive skill, "The prose around such a table does not restate it", checked over the whole class.
 # A word the prose of a section must use to explain what its tables do not say; each is named by a table (a code, a flag or a key) and has its reason.
 PROSE_MAY_NAME = {
@@ -4191,8 +4196,8 @@ PROSE_MAY_NAME = {
     "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
     "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
     "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
-    "--factor": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table. Their codes and conditions stay in the table only. The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)",
-    "--out": "\"The order paragraph names the two checks by command, `compare --factor` and `report --out`, and points to the `checks-before-the-lock` table. Their codes and conditions stay in the table only. The prose guard test exempts those two flags, citing Tightened M.\" (D-041 on chadlis/hypotrail#75, item 2)",
+    "--factor": THE_TWO_FLAGS_OF_TIGHTENED_M,
+    "--out": THE_TWO_FLAGS_OF_TIGHTENED_M,
     "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
 }
 
