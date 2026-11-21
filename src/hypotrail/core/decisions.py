@@ -47,14 +47,9 @@ AUTHORS = ("human", "proxy")
 IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids")
 
 
-def _names(study) -> list:
-    folder = Path(study) / DECISIONS_DIR
-    return sorted(p.name for p in folder.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if folder.is_dir() else []
-
-
 def records(study) -> list:
     """The Study's decisions, in the order they were recorded; each is validated after it is read."""
-    return [layout.read_record(study, f"{DECISIONS_DIR}/{name}") for name in _names(study)]
+    return [layout.read_record(study, f"{DECISIONS_DIR}/{name}") for name in layout.record_names(study, DECISIONS_DIR)]
 
 
 def find_by_request(study, request_id: str):
@@ -211,7 +206,7 @@ def _decide_locked(study: Path, wanted: dict, request_id: str, read_sequence: in
     }
     contracts.validate(record)
     write_journal.begin()
-    position = len(_names(study)) + 1
+    position = len(layout.record_names(study, DECISIONS_DIR)) + 1
     artifacts.publish_record(study, f"{DECISIONS_DIR}/{position:06d}-{decision_id}.json", record, role="decision")
     write_journal.wrote("decision", decision_id)
     return record, False

@@ -130,6 +130,12 @@ def read_spec(study) -> dict:
     return spec
 
 
+def record_names(study, folder: str) -> list:
+    """The names of the JSON records in `<study>/<folder>`, sorted (position order, as the names start with it); none when the folder is absent."""
+    path = Path(study) / folder
+    return sorted(p.name for p in path.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if path.is_dir() else []
+
+
 def read_record(study, relative: str) -> dict:
     """A record kept in the Study, read back and validated."""
     path = artifacts.resolve(study, relative)

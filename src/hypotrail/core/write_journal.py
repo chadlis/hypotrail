@@ -43,19 +43,14 @@ SEQUENCE_STAGE = "sequence"
 _active = contextvars.ContextVar("write_journal_session", default=None)
 
 
-def _names(study) -> list:
-    folder = Path(study) / JOURNAL_DIR
-    return sorted(p.name for p in folder.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if folder.is_dir() else []
-
-
 def write_sequence(study) -> int:
     """The write sequence of the Study: the number of entries of its journal (0 for a Study written before the journal)."""
-    return len(_names(study))
+    return len(layout.record_names(study, JOURNAL_DIR))
 
 
 def entries(study) -> list:
     """The journal's entries, in the order they were appended."""
-    return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in _names(study)]
+    return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in layout.record_names(study, JOURNAL_DIR)]
 
 
 def require_a_valid_value(read_sequence, command: str) -> None:
