@@ -36,7 +36,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock, write_journal
+from hypotrail.core import artifacts, canonical, contracts, exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -218,7 +218,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
     `public_check` Items, to freeze the Workload's digests (see `hypotrail.core.exposure`).
     """
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "compare")
+    study_write.check_read_sequence(study_write.COMPARE, read_sequence)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if factor is not None and spec["domain"] != AGENTIC:
         raise InvalidInputError(
@@ -227,9 +227,9 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             stage=STAGE,
             details={"factor": factor, "study_domain": spec["domain"]},
         )
-    with lock.writer_lock(study), write_journal.writing(study, "compare"):
-        write_journal.require_current(study, read_sequence)
-        return _compare_locked(study, control_id, candidate_id, factor, live_basis)
+    with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence) as write:
+        write.require_current()
+        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis)
 
 
 def check_partition(partition) -> bool:
@@ -256,14 +256,14 @@ def record_exposure(study: Path, control: dict, candidate: dict, comparison_id: 
     )
 
 
-def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str | None, live_basis) -> dict:
+def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis) -> dict:
     control = _side(study, "control", control_id)
     candidate = _side(study, "candidate", candidate_id)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
-        return agent_comparison.compare_sides(study, control, candidate, factor, live_basis)
+        return agent_comparison.compare_sides(study, write, control, candidate, factor, live_basis)
 
     for side in (control, candidate):
         side["items"] = {row["row_id"]: row for row in side["per_item"]}
@@ -364,9 +364,9 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
         "count": len(row_ids),
         "row_ids": row_ids,
     }
-    write_journal.begin()  # a Comparison of dev Items writes nothing before this; an Exposure began the command already
+    write.begin()  # a Comparison of dev Items writes nothing before this; an Exposure began the command already
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
-    write_journal.wrote("comparison", comparison_id)
+    write.wrote(study_write.COMPARISON, comparison_id)
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(PAIRED_COLUMNS)
