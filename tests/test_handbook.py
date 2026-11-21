@@ -3642,7 +3642,7 @@ def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_sli
     for part in (  # 93-R1-08, round 4: what commands/ does not hold, who has times, and how long after the invocations the files were committed
         "start and end times for the two paid invocations only (plain.start, plain.end, verify.start, verify.end), none for the other five commands",
         "commands/ holds no argv", "assembled after the invocations", "The full argv strings are recorded only in command-output.json",
-        "records the --config and --request-id of each paid invocation", "each run.json records the Configuration, the model and the effective limits",
+        "the state comment of #93, last edited at 04:37:01Z, records the --config and --request-id of each paid invocation", "each run.json records the Configuration, the model and the effective limits",
         f"The two paid invocations ran from {kept_times()['first']}Z (plain.start) to {kept_times()['last']}Z (verify.end) on 2026-11-21", "committed at 04:36:35Z (067e917)", "captures at 05:35:16Z (c5c1b08), about one hour later",
     ):
         assert part in text, part
