@@ -323,7 +323,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 11 | Check pending decisions and authority. Default mode: give the brief with the open PR and stop. `merge`/`chain`: a pending decision gets a STOP and waits. Continue to step 12 only with a completed review on the accepted head, required checks passing, no unresolved blocker, no unmet owner reservation and no other floor | you | no unresolved decision or blocker is passed over |
 | 12 | *(`merge`)* Squash-merge with subject `feat: <what the slice does> (#<slice>)`, close the slice, add the squash SHA to the note and any already linked selected objective. Give the ordinary brief now, or once at the end under `chain` | you | merged state and learning reference are truthful |
 
-Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments. A line without a quoted source is your decision: it goes to brief item 2, not into the ticket. A vocabulary correction rewrites the sentence in place, with the old words struck through, never a « read X as Y » line; text you write into an issue (slice body, amendment, decision log, state comment) uses `GLOSSARY.md` terms the same way; « paid live run » as the budget unit this skill defines is exempt everywhere until #82 is settled.
+Between steps 3 and 4 you may tighten an `INFERRED` ticket only by quoting the source sentence that settles it. A tightening goes in a dated `## Tightened` section of the ticket body, never in a comment, because a body is read without its comments; edit a local copy of the body (`docs/agents/issue-tracker.md`, « Changing part of a long body »). A line without a quoted source is your decision: it goes to brief item 2, not into the ticket. A vocabulary correction rewrites the sentence in place, with the old words struck through, never a « read X as Y » line; text you write into an issue (slice body, amendment, decision log, state comment) uses `GLOSSARY.md` terms the same way; « paid live run » as the budget unit this skill defines is exempt everywhere until #82 is settled.
 
 An `UNCOVERED` rule is tightened into the ticket that owns the input it governs, quoting the rule. For a refusal rule, the tightened criteria list the neighbouring cases of "Fixing a family of defects".
 
@@ -336,6 +336,8 @@ Complete affected product documentation before the first review of record. When 
 ## Routing findings
 
 A citation and a line number support investigation, but do not by themselves establish a valid finding. Missing behaviour may be cited without an existing implementation line. A finding that only proposes an improvement is out of scope, whoever raised it.
+
+**Check the premise before you route.** When a finding states what a file holds (a declaration present or absent, a value, a line), run one command that shows it (`grep -n`, `sed -n`) before the finding gets a row, and put the command and its output in the register's evidence column. A premise the command contradicts goes back to the reader who raised it as a disposition check, never into a fix prompt. Every fact your own fix prompt states about a file gets the same check.
 
 Take the first row that applies:
 
@@ -351,7 +353,7 @@ Take the first row that applies:
 Five readings of this table that it does not say on its face:
 - Missing required documentation is a requirement, row 1.
 - Duplicated code or an unflattering name is not, by itself, behaviour nobody asked for. Row 2 is about what the code does.
-- A product ambiguity is not settled by routing it to row 3. It follows the owner-decision gate of "Who decides".
+- A product ambiguity is not settled by routing it to row 1 or row 3. It follows the owner-decision gate of "Who decides". A finding that a decided definition (a decision-log entry, a Tightened line) does not say how it treats a case, and that no quoted source settles, is one: the decision is a new log entry naming the one it amends (a Tightened line is still rewritten under the Tightened rule), and the fix prompt quotes that entry instead of a reading of its own.
 - A finding that turns on what a `GLOSSARY.md` term covers (its definition and its relationships disagree, or the readers do) is a product ambiguity from its second round on. It goes to the owner-decision gate, which may choose a `needs-triage` issue for `/domain-modeling`, not to another wording fix; the reader who raised it verifies that the decided disposition was applied.
 - A wording finding (a word a `GLOSSARY.md` entry lists under _Avoid_, or a term applied to what it does not cover) is row 1 only for text the diff adds or changes, or an identifier it adds or renames, unless it turns on what a term covers from its second round on (the reading above). The same word in text the diff leaves alone goes to row 4, as one `needs-triage` issue for all of it. The structural option for a wording class covers the same diff text; widening the rule to the whole corpus is a decision for the owner-decision gate (under the autonomous protocol, the proxy), never a fix.
 
@@ -369,7 +371,7 @@ For a suspected regression, distinguish demonstrated before/after failure, an ol
 
 Before rounds 4 and 5, record the outstanding requirements, bounded correction scope and verification plan. Include tests for the relevant failure class. Do not add unrelated refactoring or change product scope.
 
-When one requirement has produced row-1 blockers in two or more rounds, the plan sets a structural option (one that removes the class of defect, such as reading input once into typed objects) beside the point fix, and says why the chosen one converges. If only the structural option is credible, that is the judgement floor, with this record as its evidence.
+When one requirement has produced row-1 blockers in two or more rounds, the next fix prompt sets a structural option (one that removes the class of defect, such as reading input once into typed objects) beside the point fix, whatever the round, and that round's comment says why the chosen one converges. If only the structural option is credible, that is the judgement floor, with this record as its evidence.
 
 Incremental review includes affected dependencies and verification of earlier blockers. From round 2 on, the Spec reader's sources include the register's open entries as written (finding and cited requirement), without your disposition. Both readers start from the diff since the last reviewed head, and may read the callers, dependencies, tests and requirements a fix affects. Acceptance names the exact reviewed head and requires all blockers to be resolved, required checks to pass, and no later unreviewed change affecting behaviour or the accepted contract.
 

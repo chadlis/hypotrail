@@ -45,9 +45,22 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
 
-## Cloud sessions (no authenticated `gh`)
+## Cloud sessions
 
-In Claude Code cloud sessions `gh` is not authenticated. Use the GitHub MCP tools instead:
+In Claude Code cloud sessions GraphQL is refused: `gh issue view` fails with « GitHub GraphQL is not available ». `gh api` on REST routes (`repos/chadlis/hypotrail/…`) works through the session's proxy, and so do the GitHub MCP tools.
+
+**Changing part of a long body** (a `## Tightened` section, one line of a state comment): edit a local copy, so only the changed lines pass through your context. `issue_write` and `update_issue_comment` resend the whole body; keep them for short bodies and for state and labels.
+
+```bash
+S=<your scratchpad>
+gh api repos/chadlis/hypotrail/issues/<n> --jq .body > "$S/b<n>.md"    # a comment: issues/comments/<id>
+# change $S/b<n>.md with the Edit tool
+gh api -X PATCH repos/chadlis/hypotrail/issues/<n> -F body=@"$S/b<n>.md" --jq .number
+```
+
+If the PATCH is refused, use the MCP tool.
+
+The MCP tools:
 
 | Operation | Tool |
 |---|---|

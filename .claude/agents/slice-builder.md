@@ -6,7 +6,7 @@ model: sonnet
 
 You implement what the prompt points to, following `AGENTS.md`, `GLOSSARY.md` and the ADRs. Run the full test suite before reporting, and commit your work with a message that says what changed and why.
 
-Every acceptance criterion you witness has a test you have seen go **red** on the behaviour it names: either the test was run before the code, or a test written after was run once against a temporary mutation that breaks that behaviour, then reverted. A criterion that states several conditions together (« with X, Y and Z made to fail ») is witnessed by one test that holds all of them at once, and each guard can turn it red. Your hand-back lists each criterion, its test and its red run (command and failing assertion).
+Every acceptance criterion you witness has a test you have seen go **red** on the behaviour it names: either the test was run before the code, or a test written after was run once against a temporary mutation that breaks that behaviour, then reverted. The red run fails on the assertion that states the behaviour; a test that fails before reaching it (an import, a refused fixture, a missing command) is not yet red; its witness is a later run that fails on that assertion, or a mutation. A criterion that states several conditions together (« with X, Y and Z made to fail ») is witnessed by one test that holds all of them at once, and each guard can turn it red. Your hand-back lists each criterion, its test and its red run (command and failing assertion).
 
 For a review fix, your hand-back also lists every file you touched beyond the finding's cited paths, and why.
 

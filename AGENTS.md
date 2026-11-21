@@ -13,7 +13,7 @@
 
 ### Issue tracker
 
-GitHub Issues on chadlis/hypotrail (`gh` locally, GitHub MCP tools in cloud sessions). See `docs/agents/issue-tracker.md`.
+GitHub Issues on chadlis/hypotrail (`gh` locally; `gh api` and GitHub MCP tools in cloud sessions). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
