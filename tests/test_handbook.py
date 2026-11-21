@@ -3595,13 +3595,13 @@ COMMIT_TIMES = {"067e917": "2026-11-21T04:36:35+00:00", "c5c1b08": "2026-11-21T0
 
 
 def kept_times():
-    """The start of the first and the end of the last paid invocation (HH:MM), read from the files; commands/ holds times for these two only."""
+    """The start of the first and the end of the last paid invocation (HH:MM:SS), read from the files; commands/ holds times for these two only."""
     folder = CAMPAIGN_DIR / "commands"
     assert sorted(path.name for path in folder.glob("*.start")) + sorted(path.name for path in folder.glob("*.end")) == ["plain.start", "verify.start", "plain.end", "verify.end"]
     assert not [path.name for path in folder.iterdir() if path.suffix not in (".out", ".err", ".exit", ".start", ".end") and path.name != "commit.txt"]  # no argv file
     first = (folder / "plain.start").read_text(encoding="utf-8").strip()
     last = (folder / "verify.end").read_text(encoding="utf-8").strip()
-    return {"first": first[11:16], "last": last[11:16]}
+    return {"first": first[11:19], "last": last[11:19]}
 
 
 def test_the_literal_commit_times_chapter_16_gives_are_those_of_git_where_history_is_available():
@@ -3641,11 +3641,12 @@ def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_sli
         assert part in text, part
     for part in (  # 93-R1-08, round 4: what commands/ does not hold, who has times, and how long after the invocations the files were committed
         "start and end times for the two paid invocations only (plain.start, plain.end, verify.start, verify.end), none for the other five commands",
-        "commands/ holds no argv", "the only record of the argv", "assembled after the invocations",
-        f"ran between {kept_times()['first']} and {kept_times()['last']}Z on 2026-11-21", "committed at 04:36:35Z (067e917)", "captures at 05:35:16Z (c5c1b08), about one hour later",
+        "commands/ holds no argv", "assembled after the invocations", "The full argv strings are recorded only in command-output.json",
+        "records the --config and --request-id of each paid invocation", "each run.json records the Configuration, the model and the effective limits",
+        f"The two paid invocations ran from {kept_times()['first']}Z (plain.start) to {kept_times()['last']}Z (verify.end) on 2026-11-21", "committed at 04:36:35Z (067e917)", "captures at 05:35:16Z (c5c1b08), about one hour later",
     ):
         assert part in text, part
-    assert "times of each command" not in text and "and times" not in text
+    assert "times of each command" not in text and "and times" not in text and "the only record of the argv" not in text and "ran between" not in text
     assert "assembled by the drive" not in text and "assembled_by" not in (CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8")
     assert all(f'href="traces/campaign-public-check/commands/{name}.exit"' in chapter_16() for name in ("plain", "verify"))
 
