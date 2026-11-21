@@ -2,31 +2,48 @@
 
 import argparse
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from hypotrail.cli import build_parser
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def _committed_files_under(directory, pattern="*"):
-    """Every file under `directory` matching `pattern`, leaving out interpreter caches, which are not committed."""
-    return sorted(p for p in directory.rglob(pattern) if p.is_file() and "__pycache__" not in p.parts)
+# The committed files each wording rule scans, as `git ls-files` pathspecs. Both rules draw their file lists from this one table.
+SCOPE = {
+    "source": "src/",
+    "source_python": ":(glob)src/**/*.py",
+    "tests": "tests/",
+    "handbook_chapters": ":(glob)docs/handbook/chapters/*.html",
+    "readme": "README.md",
+    "adr_0004": "docs/adr/0004-panel-cli-contract.md",
+}
 
 
-# AGENTS.md: everything committed is in English, and French is the only language quoted with the French quotation marks. The files held to it: the source,
-# the handbook chapters, every file under `tests/` and ADR 0004. The other ADRs are left out: ADR 0002 holds a recorded quotation in those marks, and its own
-# 2026-11-08 note records the harm of rewriting an ADR in place. The two characters are spelled with Python escapes below, so that this module passes its own scan.
-FILES_FREE_OF_FRENCH_QUOTATION = [
-    *_committed_files_under(ROOT / "src", "*.py"),
-    *sorted((ROOT / "docs" / "handbook" / "chapters").glob("*.html")),
-    ROOT / "docs" / "adr" / "0004-panel-cli-contract.md",
-    *_committed_files_under(ROOT / "tests"),
-]
+def _git_ls_files_in_scope(*parts):
+    """The committed files of the named parts of `SCOPE`, listed by `git ls-files`: an untracked or ignored file is not in the list."""
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z", "--", *(SCOPE[part] for part in parts)], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        pytest.fail(f"`git ls-files` is unavailable, so the committed files cannot be listed: {error}")
+    return sorted(ROOT / name for name in done.stdout.split("\0") if name and (ROOT / name).is_file())
 
 
+# AGENTS.md: everything committed is in English, and French is the only language quoted with the French quotation marks. No opening or closing French quotation
+# mark may appear in the files held to it: the source, the handbook chapters, every committed file under `tests/` and ADR 0004. French quoted in a test is written
+# with Python escapes, and this module spells the two characters with escapes too, so that it passes its own scan. The other ADRs are left out: ADR 0002 holds a
+# recorded quotation in those marks, and its own 2026-11-08 note records the harm of rewriting an ADR in place.
 def test_no_guillemet_in_the_source_the_chapters_the_tests_or_adr_0004():
-    found = [str(p.relative_to(ROOT)) for p in FILES_FREE_OF_FRENCH_QUOTATION if set("\u00ab\u00bb") & set(p.read_text(encoding="utf-8"))]
+    found = [
+        str(p.relative_to(ROOT))
+        for p in _git_ls_files_in_scope("source_python", "handbook_chapters", "tests", "adr_0004")
+        if set("\u00ab\u00bb") & set(p.read_text(encoding="utf-8"))
+    ]
     assert found == []
 
 
@@ -158,14 +175,8 @@ def test_the_readme_names_an_attempt_only_for_what_a_study_records():
 def test_no_decision_is_cited_without_its_issue_in_the_source_the_tests_the_chapters_or_the_readme():
     # GLOSSARY cites a Decision as "D-011 on chadlis/hypotrail#75": a bare ID means nothing to a reader. Whitespace is collapsed, as a citation may wrap over two
     # lines. An ID that is the whole of a double-quoted string ("D-025") is a string an assertion looks for, not a citation, wherever it stands.
-    files = [
-        *_committed_files_under(ROOT / "src"),
-        *_committed_files_under(ROOT / "tests"),
-        *sorted((ROOT / "docs" / "handbook" / "chapters").glob("*.html")),
-        ROOT / "README.md",
-    ]
     bare = []
-    for path in files:
+    for path in _git_ls_files_in_scope("source", "tests", "handbook_chapters", "readme"):
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
         bare += [
             f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}"

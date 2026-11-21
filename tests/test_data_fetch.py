@@ -305,7 +305,7 @@ def named_bundle(error, err=""):
 
 
 def test_k_an_unframed_response_shorter_than_the_lock_size_is_a_cut_transfer_exit_4(stand, tmp_path):
-    # 10-R1-06, #22 Tightened K (D-020 on chadlis/hypotrail#75): no Content-Length, not chunked, fewer bytes than size_bytes.
+    # #22 Tightened K (D-020 on chadlis/hypotrail#75): no Content-Length, not chunked, fewer bytes than size_bytes.
     stand.routes["/short"] = cut_without_length(BODY, 5)
     entry = source(stand, "/short", BODY, "data/a.csv")
     dest = tmp_path / "dest"

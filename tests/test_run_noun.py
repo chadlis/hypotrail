@@ -1,4 +1,4 @@
-"""R3-01, #77 Tightened B2, GLOSSARY Attempt (_Avoid_: run, job, execution record), D-012 on chadlis/hypotrail#75 item 17.
+"""#77 Tightened B2, GLOSSARY Attempt (_Avoid_: run, job, execution record), D-012 on chadlis/hypotrail#75 item 17.
 
 "run" is not the noun for an Attempt or for an execution anywhere in the corpus: `src/`, `tests/`, the handbook chapters and
 `README.md`. What is let through is an explicit allow-list: the command names (`run agent`, `run ml`, `spike live`), the file

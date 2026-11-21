@@ -9,7 +9,7 @@
 <div class="tblwrap"><table class="tbl" id="decide-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
 <tr data-command="decide" data-required="--study --question --option --author --artifact --request-id --read-sequence" data-optional="--source --json"><td><code>decide</code></td><td><code>--study DIR</code>, <code>--question TEXT</code>, <code>--option TEXT</code>, <code>--author human|proxy</code>, <code>--artifact ID</code> (repeatable), <code>--request-id ID</code>, <code>--read-sequence N</code></td><td><code>--source TEXT</code>, <code>--json</code></td></tr>
 </tbody></table></div>
-<pre class="code"><span class="cm"># read the write sequence, then decide on it: the ids come from the records the Study holds</span>
+<pre class="code"><span class="cm"># read the Write sequence, then decide on it: the ids come from the records the Study holds</span>
 uv run python -m hypotrail status --study runs/bike --json
 uv run python -m hypotrail decide --study runs/bike --question "Which Configuration do we keep?" --option ridge_v1 --author human --artifact ASSESSMENT_ID --artifact COMPARISON_ID --request-id decide-a --read-sequence N</pre>
 <p class="prose">With <code>--json</code>, stdout holds one object, <code>{"ok", "replayed", "decision"}</code>, the same shape as <code>run</code>'s with the Decision in place of the Attempt.</p>

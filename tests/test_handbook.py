@@ -2147,7 +2147,7 @@ def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_ev
 
 
 def test_chapter_13_says_both_models_are_always_recorded_and_a_provider_prefix_alone_is_no_difference():
-    """R2-03, D-012 on chadlis/hypotrail#75 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
+    """D-012 on chadlis/hypotrail#75 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
     text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
     assert "are always recorded side by side" in text and "a provider prefix alone is not a difference" in text
     assert "when they differ, both are shown" not in text
@@ -2413,7 +2413,7 @@ def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(n
 
 
 def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_the_word_run():
-    """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: "run" is not the noun for an execution or an Attempt."""
+    """#77 Tightened B2 and GLOSSARY Attempt's avoid-list: "run" is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
     # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule "run is not the noun" is guarded over the corpus by test_run_noun.py
@@ -2686,7 +2686,7 @@ def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acq
 
 
 def test_the_data_fetch_chapter_states_how_each_cut_transfer_ends_and_the_limit_where_the_lock_gives_no_size():
-    # 10-R1-06, #22 Tightened K (D-020 on chadlis/hypotrail#75): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
+    # #22 Tightened K (D-020 on chadlis/hypotrail#75): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
     # are exit 4 (interrupted); an equal size with a wrong hash, a framed whole body that differs, and an unframed short body where
     # the lock gives no size (archive, notice) are exit 3 and name the verified bundle; the handbook states this limit.
     chapter = (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")
@@ -2840,7 +2840,7 @@ def _rule_declarations(css, selector):
 
 
 def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_with_the_templates_tokens_switch_and_scripts():
-    # 10-R1-01, D-021 on chadlis/hypotrail#75 (B), #1 amendment "light mode by default": `data-mode="light"`, the template's base and
+    # D-021 on chadlis/hypotrail#75 (B), #1 amendment "light mode by default": `data-mode="light"`, the template's base and
     # light token blocks for the tokens the page uses, its `.mode` switch (markup and CSS) and its two small scripts, all as in template.html.
     page = WALK.read_text(encoding="utf-8")
     template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
@@ -3744,7 +3744,7 @@ def test_every_stdout_stderr_exit_and_time_of_the_index_equals_the_file_the_comm
 
 
 def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_slice_from_the_files_of_commands(page):
-    # 93-R1-08, 93-R2-02: the index is not the commands' own output; "the drive" is named for a reader of the handbook (ADR 0003).
+    # the index is not the commands' own output; "the drive" is named for a reader of the handbook (ADR 0003).
     text = plain_text(chapter_16())
     for part in (
         "command-output.json is an index", "assembled after the invocations from the files in commands/", "the agent that drove the slice (.claude/skills/drive/)",
