@@ -40,7 +40,7 @@ from pathlib import Path
 
 from hypotrail.agentic.counts import counters
 from hypotrail.agentic.unproduced import criteria_of_unproduced
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
@@ -136,15 +136,17 @@ def _per_item_csv(verdicts: list) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None) -> dict:
+def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None, read_sequence: int | None = None) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
     Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
     read only for an Assessment of `public_check` Episodes, to freeze the Workload's digests (default: the repository's).
     """
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "assess")
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "assess"):
+        write_journal.require_current(study, read_sequence)
         return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
 
 
@@ -275,7 +277,9 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         "detailed_metrics_ref": detailed_ref,
     }
     contracts.validate(record)
+    write_journal.begin()  # a dev Assessment writes nothing before this; an Exposure began the command already
     artifacts.publish_bytes(study, per_item_ref["path"], per_item, media_type="text/csv", role="per_item")
+    write_journal.wrote("assessment", assessment_id)
     artifacts.publish_bytes(study, detailed_ref["path"], detailed_bytes, media_type="application/json", role="detailed_metrics")
     artifacts.publish_record(study, f"{folder}/assessment.json", record, role="assessment")
     return record

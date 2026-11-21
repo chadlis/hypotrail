@@ -94,6 +94,8 @@ def test_every_earlier_revision_stays_readable_and_every_earlier_file_keeps_its_
         "revisions/1/study.json",
         "revisions/2/study.json",
         entry_of(spec_of(study), "references")["ref"]["path"],
+        "write_journal/000003.json",  # the two entries of `init --new-revision` (chadlis/hypotrail#107)
+        "write_journal/000004.json",
     }
 
 

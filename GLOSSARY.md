@@ -11,6 +11,14 @@ The folder-scoped record of one investigation of one Workload under one frozen P
 Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds successive revisions, and a Protocol change is a new revision inside the same Study (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: project, run folder, experiment
 
+**Write sequence**:
+The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes, or one when the writer was killed between its first write and its last. Nothing else changes it, and `status --json` shows it as `write_sequence`.
+_Avoid_: revision
+
+**Decision**:
+One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
+_Avoid_: note, verdict, conclusion
+
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
 _Avoid_: case (for this meaning), task type, family, pipeline
@@ -26,6 +34,7 @@ _Avoid_: pipeline, method, setup
 
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
+Clarification, 2026-11-21: a live view of artifacts already recorded is not a "report": such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
 _Avoid_: use, peek, leak
 
 **Partition**:
@@ -137,6 +146,7 @@ _Avoid_: variant (as a role), challenger, treatment
 - An **Attempt** runs one **Configuration** in one **Mode** and yields exactly one **Observation set**.
 - An **Assessment** applies one **Scorer** to one **Observation set** and one **Reference** set; one Observation set can have many Assessments.
 - A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
+- A **Decision** is a record of one **Study**: it cites at least one record the Study holds, is made on the **Write sequence** its author read, and advances that sequence when it is recorded.
 
 ## Correspondence with Inspect
 

@@ -84,7 +84,7 @@ def test_the_criterion_states_and_counters_are_those_of_the_1_amendment():
 
 def test_the_record_kinds_are_the_five_of_the_kit_plus_the_freeze_record_and_the_journal_entry():
     kinds = {definition["properties"]["kind"]["const"] for name, definition in contracts.schema()["$defs"].items() if "kind" in definition.get("properties", {})}
-    assert kinds == {"study", "attempt", "observations", "assessment", "comparison", "freeze", "exposure"}
+    assert kinds == {"study", "attempt", "observations", "assessment", "comparison", "freeze", "exposure", "decision"}  # #109: the decision record
 
 
 def test_a_complete_terminal_attempt_manifest_is_valid():

@@ -48,7 +48,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
 from hypotrail.agentic.study import DOMAIN, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, lock, requests
+from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, exposure, lock, requests, write_journal
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
@@ -147,6 +147,10 @@ class _Writes:
         if self.secret and self.secret.encode() in data:
             raise leak([where])
 
+    def scan(self, relative: str, data) -> None:
+        """Refuse a file that holds the key before anything is written: not even the journal's `begin` entry follows."""
+        self._scanned(data, relative)
+
     def replace(self, relative: str, data) -> None:
         self._scanned(data, relative)
         artifacts.replace_bytes(self.study, relative, data)
@@ -203,9 +207,11 @@ def run_agent(
     retry_of: str | None = None,
     examples_dir: Path | None = None,
     environ=None,
+    read_sequence: int | None = None,
 ) -> tuple[dict, bool, list]:
     """Run (or replay) one request under the Study's writer lock: (the Attempt manifest, whether it was recorded already, warnings)."""
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "run agent")
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
@@ -213,8 +219,8 @@ def run_agent(
     examples = data.resolve_examples_dir(examples_dir)
     workload = load_workload(examples / spec["workload"])
     plan = _checked_flags(workload, mode, config, partition, repeats, model, cases)
-    with lock.writer_lock(study):
-        return _run_locked(study, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ)
+    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
+        return _run_locked(study, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ, read_sequence)
 
 
 def _digest_of(path: Path):
@@ -224,7 +230,7 @@ def _digest_of(path: Path):
         return None  # a file that is not there is `DATA_INTEGRITY` at the data verification, not an input of the identity
 
 
-def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, environ):
+def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, environ, read_sequence=None):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
     if retry_of is not None and retry_of not in layout.attempt_ids(study):
@@ -261,6 +267,8 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
         return recorded, True, []  # no key, no Inspect, no provider, no scan
+    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
+    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-037 on chadlis/hypotrail#75)
 
     data.verify_workloads(examples, [workload_name])
     for ref in study_refs:
@@ -301,7 +309,11 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
         **exposure.marks(study, [{"effective_config": effective_config}]),
     }
     contracts.validate(manifest)
-    writes.replace(manifest_path, canonical.dumps(manifest))  # a hit here writes nothing and leaves no Attempt
+    running = canonical.dumps(manifest)
+    writes.scan(manifest_path, running)  # a hit here writes nothing, not even the journal's `begin` entry, and leaves no Attempt
+    write_journal.begin()  # the running manifest is the first write
+    write_journal.attempt(attempt_id)
+    writes.replace(manifest_path, running)
     try:
         terminal = _record(study, writes, workload, examples, manifest, plan, api_key)
         writes.replace(manifest_path, canonical.dumps(terminal))

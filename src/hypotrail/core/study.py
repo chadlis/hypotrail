@@ -18,6 +18,8 @@ DIR/
   comparisons/<comparison_id>/comparison.json     the Comparison record (written last)
   revisions/<n>/freeze.json          the freeze record of revision n, written before its first public_check use (core/exposure.py)
   exposures/<seq>-<entry_id>.json    one Exposure journal entry each, appended and never rewritten (core/exposure.py)
+  write_journal/<n>.json             one write journal entry each, appended and never rewritten (core/write_journal.py)
+  decisions/<seq>-<decision_id>.json one decision each, appended and never rewritten (core/decisions.py)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 
@@ -128,12 +130,28 @@ def read_spec(study) -> dict:
     return spec
 
 
+def record_names(study, folder: str) -> list:
+    """The names of the JSON records in `<study>/<folder>`, sorted (position order, as the names start with it); none when the folder is absent."""
+    path = Path(study) / folder
+    return sorted(p.name for p in path.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if path.is_dir() else []
+
+
+def next_position(study, folder: str) -> int:
+    """The position, from 1, of the next record of `<study>/<folder>`: the count of its records + 1."""
+    return len(record_names(study, folder)) + 1
+
+
 def read_record(study, relative: str) -> dict:
     """A record kept in the Study, read back and validated."""
     path = artifacts.resolve(study, relative)
     record = canonical.loads(path.read_bytes())
     contracts.validate(record)
     return record
+
+
+def read_records(study, folder: str) -> list:
+    """Every record of `<study>/<folder>`, in position order, each validated after it is read."""
+    return [read_record(study, f"{folder}/{name}") for name in record_names(study, folder)]
 
 
 def read_manifest(study, attempt_id: str) -> dict:

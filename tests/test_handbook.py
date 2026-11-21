@@ -698,6 +698,19 @@ def words(text):
     return set(text.split())
 
 
+JOURNAL_FILE = re.compile(r"^write_journal/[0-9]{6}\.json$")
+
+
+def generic_journal(path):
+    """The write journal's entries are one row of chapter 04's `study-layout`, whatever their position."""
+    return "write_journal/SEQ.json" if JOURNAL_FILE.match(path) else path
+
+
+def without_the_journal(paths):
+    """The files of a command, less the write journal's entries: they are listed once, in chapter 04's `study-layout` (chadlis/hypotrail#107)."""
+    return {path for path in paths if not JOURNAL_FILE.match(path)}
+
+
 def test_the_commands_table_equals_the_flags_the_parser_defines(page):
     from hypotrail.cli import build_parser
 
@@ -729,11 +742,11 @@ def test_the_layout_table_equals_the_files_init_and_run_ml_write(page, tmp_path)
     from _study_helpers import init_study, run_ml
 
     study, _ = init_study(tmp_path)
-    after_init = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    after_init = {generic_journal(p.relative_to(study).as_posix()) for p in study.rglob("*") if p.is_file()}
     _, seasonal, _ = run_ml(study, "seasonal_7", "dev", "a")
     _, ridge, _ = run_ml(study, "ridge_v1", "dev", "b")
     ids = {seasonal["attempt"]["attempt_id"], ridge["attempt"]["attempt_id"]}
-    everything = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    everything = {generic_journal(p.relative_to(study).as_posix()) for p in study.rglob("*") if p.is_file()}
     generic = set()
     for path in everything:
         for attempt_id in ids:
@@ -755,7 +768,56 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
+
+
+def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
+    from _study_helpers import init_study, run_json
+
+    study, _ = init_study(tmp_path)
+    _, listing, _ = run_json("status", "--study", study)
+    assert set(attrs_of(page, "status-keys", "data-field")) == set(listing) - {"ok"}
+    assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
+    assert "decisions" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#110: the decision history
+
+
+def test_the_write_sequence_table_equals_the_commands_that_write_and_what_each_names(page, tmp_path):
+    from test_write_sequence import WRITERS, entries, seq
+
+    rows = attrs_of(page, "write-sequence-commands", "data-command")
+    assert set(rows) == set(WRITERS)  # every command that writes to a Study, each once
+    for number, (command, scenario) in enumerate(WRITERS.items()):
+        folder = tmp_path / f"w{number}"
+        folder.mkdir()
+        study, act = scenario(folder)
+        before, kept = seq(study), len(entries(study))
+        code, payload, err = act()
+        assert code == 0, (command, payload, err)
+        assert seq(study) - before == int(rows[command]["data-advances"]), command
+        added = entries(study)[kept:]
+        assert [e["command"] for e in added] == [command, command]
+        assert set(rows[command]["data-written"].split()) <= {item["kind"] for item in added[-1]["written"]}, command
+
+
+def test_chapter_04_says_where_the_write_sequence_is_kept_what_an_entry_holds_and_the_outcomes_the_code_gives(page):
+    from hypotrail.core import write_journal
+
+    chapter = (HANDBOOK / "chapters" / "04-study-and-attempts.html").read_text(encoding="utf-8")
+    assert f"<code>{write_journal.JOURNAL_DIR}/SEQ.json</code>" in chapter
+    for outcome in (write_journal.COMPLETED, write_journal.REFUSED, write_journal.FAILED):
+        assert f"<code>{outcome}</code>" in chapter, outcome
+    assert "may gain values" in chapter and "shows <code>write_sequence</code> 0" in chapter
+    assert "write_journal/SEQ.json" in attrs_of(page, "study-layout", "data-path")
+
+
+def test_the_readme_names_the_write_sequence_a_study_keeps():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "write sequence" in readme and "`status`" in readme
+
+
+def test_the_readme_names_the_read_sequence_option_and_the_refusal_of_a_stale_write():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "--read-sequence" in readme and "STUDY_CHANGED" in readme
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -809,6 +871,53 @@ def test_the_exit_code_table_equals_the_constants_of_the_errors_module(page):
     }
 
 
+WRITING_COMMANDS = ["init", "run ml", "run agent", "import ml", "import agent", "assess", "compare", "recover", "report", "decide"]
+
+
+def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_its_flags_says_so(page):
+    # #108 Tightened B, E and G: the option is `--read-sequence`; `init` takes it for `--new-revision` only; no other flag is new.
+    from hypotrail.cli import build_parser
+
+    def flags(*path):
+        node = build_parser()
+        for name in path:
+            node = next(a for a in node._actions if getattr(a, "choices", None) and name in a.choices).choices[name]
+        return {flag for a in node._actions for flag in a.option_strings}
+
+    paths = {c: c.split() for c in WRITING_COMMANDS}
+    assert {c for c, path in paths.items() if "--read-sequence" in flags(*path)} == set(WRITING_COMMANDS)
+    assert "--read-sequence" not in flags("status")
+    assert "--request-id" not in flags("assess") | flags("compare") | flags("recover") | flags("init")
+    tables = {"study-commands": [c for c in WRITING_COMMANDS if c not in ("assess", "compare", "decide")], "assess-command": ["assess"], "import-command": ["import ml"], "compare-command": ["compare"], "agent-import-command": ["import agent"]}
+    for table, commands in tables.items():
+        rows = attrs_of(page, table, "data-command")
+        for command in commands:
+            assert "--read-sequence" in words(rows[command]["data-optional"]), (table, command)
+    assert "--read-sequence" in attrs_of(page, "run-agent-flags", "data-flag")
+    # #109 Tightened A: `decide` requires it, and no other command does
+    assert "--read-sequence" in words(attrs_of(page, "decide-command", "data-command")["decide"]["data-required"])
+    init_row = table_rows(page, "study-commands", "data-command")["init"]["text"]
+    assert "--read-sequence" in init_row and "--new-revision" in init_row.split("--read-sequence")[1]
+
+
+def test_the_status_keys_row_for_write_sequence_counts_one_for_a_writer_killed_between_its_first_and_its_last_write(page, tmp_path):
+    # R2-P-02, #107 Tightened B: a killed writer leaves its `begin` entry only
+    from _study_helpers import run_json
+    from test_run_ml import killed
+
+    study, _ = killed(tmp_path, kill_at=4)
+    assert run_json("status", "--study", study)[1]["write_sequence"] == 2 + 1  # `init`'s two entries and the `begin` entry of the killed `run ml`
+    row = " ".join(table_rows(page, "status-keys", "data-field")["write_sequence"]["text"].split())
+    assert "2 more for every command that writes" in row
+    assert "1 more for a writer killed between its first and its last write" in row
+
+
+def test_the_exit_code_six_meaning_covers_a_study_changed_after_it_was_read(page):
+    rows = attrs_of(page, "exit-codes", "data-exit")
+    assert "changed" in table_rows(page, "exit-codes", "data-exit")["6"]["text"].lower()
+    assert rows["6"]["data-name"] == "EXIT_LOCK_OR_CONFLICT"
+
+
 def study_refusals(tmp_path):
     """Provoke each refusal of the table; return {code: (exit code, stage, set of details keys)}."""
     from _study_helpers import examples_copy, init_study, run_json, run_ml
@@ -840,6 +949,8 @@ def study_refusals(tmp_path):
     record_cli(*run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev"))
     _, first, _ = run_ml(study, "seasonal_7", "dev", "first")
     record_cli(*run_ml(study, "ridge_v1", "dev", "first"))  # REQUEST_CONFLICT
+    record_cli(*run_ml(study, "seasonal_7", "dev", "stale", "--read-sequence", 0))  # STUDY_CHANGED
+    record_cli(*run_ml(study, "seasonal_7", "dev", "ahead", "--read-sequence", 10**6))  # WRITE_SEQUENCE_AHEAD
     record_cli(*run_json("recover", "--study", study, "--attempt", first["attempt"]["attempt_id"]))  # ATTEMPT_TERMINAL
     record_cli(*run_json("recover", "--study", study, "--attempt", "none"))  # ATTEMPT_NOT_FOUND
     with lock.writer_lock(study):
@@ -879,6 +990,8 @@ def study_refusals(tmp_path):
 def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     rows = attrs_of(page, "study-codes", "data-code")
     found = study_refusals(tmp_path)
+    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "differs"}  # #109 Tightened K
+    assert {"STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD"} <= set(rows) and found["STUDY_CHANGED"][0] == 6 and found["WRITE_SEQUENCE_AHEAD"][1] == "sequence"
     assert set(rows) == set(found)
     for code, row in rows.items():
         exit_code, stage, details = found[code]
@@ -1062,6 +1175,7 @@ def test_the_import_layout_table_equals_the_files_an_import_writes(page, tmp_pat
         for p in study.rglob("*")
         if p.is_file()
     } - before
+    written = without_the_journal(written)
     rows = attrs_of(page, "import-layout", "data-path")
     assert set(rows) == written
     roles = {ref["path"].replace(attempt_id, "ATTEMPT_ID").replace(f"source/{source.name}", "source/NAME"): ref["role"]
@@ -1240,7 +1354,7 @@ def test_the_agent_study_layout_table_equals_the_files_init_writes_for_chinook(p
     from _chinook_helpers import init_chinook
 
     study, _ = init_chinook(tmp_path)
-    written = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    written = without_the_journal(p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file())
     rows = attrs_of(page, "agent-study-layout", "data-path")
     assert set(rows) == written
 
@@ -1517,7 +1631,7 @@ def _corrected_chinook_study(tmp_path, *, name="chapter-09", revisions=1):
 def test_the_revision_layout_table_equals_the_files_a_new_revision_writes(page, tmp_path):
     study, before, after = _corrected_chinook_study(tmp_path, revisions=2)
     generic = set()
-    for path in after - before:
+    for path in without_the_journal(after - before):
         path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
         generic.add(re.sub(r"-[0-9a-f]{16}\.", "-SHA16.", path))
     rows = attrs_of(page, "revision-layout", "data-path")
@@ -1779,7 +1893,7 @@ def test_the_exposure_layout_table_equals_the_files_an_exposure_writes(page, tmp
     before = set(snapshot_files(study))
     assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
     generic = set()
-    for path in set(snapshot_files(study)) - before:
+    for path in without_the_journal(set(snapshot_files(study)) - before):
         if path.startswith("assessments/"):
             continue  # an Assessment's own files are chapter 05's
         path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
@@ -2302,8 +2416,7 @@ def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_
     """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "an opt-in paid live Attempt" in readme  # the rule « run is not the noun » is guarded over the corpus by test_run_noun.py
+    # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule "run is not the noun" is guarded over the corpus by test_run_noun.py
 
 
 def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
@@ -3782,7 +3895,8 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 13
+    assert len(parser_commands()) == 14
+    assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     for command, row in rows.items():
         section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
         assert section, command
@@ -3803,6 +3917,9 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "Delta": ("record", "comparison-parts"),
     "FreezeRecord": ("field", "freeze-fields", "freeze"),
     "ExposureEntry": ("field", "entry-fields", None),
+    "WriteJournalBegin": ("record", "write-journal-fields"),
+    "WriteJournalEnd": ("record", "write-journal-fields"),
+    "DecisionRecord": ("record", "decision-fields"),
 }
 
 
@@ -3939,3 +4056,424 @@ def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_
             assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
             seen += 1
     assert seen == 7 + 5 + 17 + 2 + 1
+
+
+# --- #109: `decide` and the decision record (chapter 17) ---------------------------------------------------------------------------------
+
+
+def chapter_text(name):
+    return (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
+
+
+def test_the_decide_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    decide = next(a for a in parser._actions if getattr(a, "choices", None) and "decide" in a.choices).choices["decide"]
+    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    row = attrs_of(page, "decide-command", "data-command")["decide"]
+    assert words(row["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(row["data-optional"]) == {flag for flag, required in options.items() if not required}
+    assert words(row["data-required"]) >= {"--study", "--question", "--option", "--author", "--artifact", "--request-id", "--read-sequence"}
+    assert words(row["data-optional"]) >= {"--source", "--json"}
+
+
+def _decided(tmp_path, name="chapter-17"):
+    """(Study, the files it holds before and after one `decide`, the record it wrote)."""
+    from _study_helpers import init_study, run_json, run_ml
+
+    study, _ = init_study(tmp_path, name=name)
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    before = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "proxy",
+        "--source", "a rule", "--artifact", attempt["attempt"]["attempt_id"], "--request-id", "d-1", "--read-sequence", 4,
+    )
+    assert code == 0, (payload, err)
+    after = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    return study, before, after, payload["decision"]
+
+
+def test_the_decision_record_table_equals_the_contract_schema_and_the_fields_the_code_writes(page, tmp_path):
+    from hypotrail.core import contracts
+
+    definition = contracts.schema()["$defs"]["DecisionRecord"]
+    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecord"]
+    assert words(row["data-required"]) == set(definition["required"])
+    assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
+    assert row["data-kind"] == "decision" == definition["properties"]["kind"]["const"]
+    _, _, _, record = _decided(tmp_path)
+    assert set(record) == words(row["data-required"]) | words(row["data-optional"])
+    assert set(attrs_of(page, "decision-field-meaning", "data-field")) == set(definition["properties"])
+
+
+def test_the_decision_layout_table_equals_the_files_decide_writes(page, tmp_path):
+    study, before, after, record = _decided(tmp_path)
+    added = {path.replace(record["decision_id"], "DECISION_ID") for path in after - before}
+    added = {re.sub(r"decisions/[0-9]{6}-", "decisions/SEQ-", path) for path in added}
+    rows = attrs_of(page, "decision-layout", "data-path")
+    assert {path for path in added if path.startswith("decisions/")} == set(rows) == {"decisions/SEQ-DECISION_ID.json"}
+    assert {path for path in added if not path.startswith("decisions/")} == {"write_journal/000005.json", "write_journal/000006.json"}  # chapter 04's row
+    assert "write_journal/SEQ.json" in attrs_of(page, "study-layout", "data-path")
+    assert "decide" in rows["decisions/SEQ-DECISION_ID.json"]["data-written-by"].split()
+
+
+def decide_refusals(tmp_path):
+    """Provoke each refusal of the table with `decide`; return {code: (exit code, stage, set of details keys)}."""
+    from _study_helpers import init_study, run_json, run_ml
+
+    from hypotrail.core import lock
+
+    found = {}
+    study, _ = init_study(tmp_path, name="chapter-17-refusals")
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    cited = attempt["attempt"]["attempt_id"]
+
+    def call(*, study=study, cited=cited, omit=(), **fields):
+        values = {"question": "Q?", "option": "o", "author": "human", "request_id": "d-1", "read_sequence": 2 + 2, **fields}
+        flags = [("--study", study), ("--question", values["question"]), ("--option", values["option"]), ("--author", values["author"]),
+                 ("--request-id", values["request_id"]), ("--read-sequence", values["read_sequence"]), ("--artifact", cited)]
+        code, payload, err = run_json("decide", *[x for flag, value in flags if flag not in omit for x in (flag, value)])
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    call(omit=("--artifact",))  # INVALID_ARGUMENTS
+    call(request_id="")  # REQUEST_ID_EMPTY
+    call(study=tmp_path / "none")  # STUDY_NOT_FOUND
+    call(question="")  # DECISION_FIELD_EMPTY
+    with lock.writer_lock(study):
+        call()  # STUDY_LOCKED
+    call(request_id="held")  # REQUEST_CONFLICT: the request_id of the Attempt
+    call(read_sequence=0)  # STUDY_CHANGED
+    call(read_sequence=10**6)  # WRITE_SEQUENCE_AHEAD
+    call(cited="unknown")  # CITED_ID_NOT_FOUND
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", "Q?", "--option", "o", "--author", "human", "--artifact", cited, "--request-id", "d-ok", "--read-sequence", 4
+    )
+    assert code == 0, (payload, err)
+    [file] = sorted((study / "decisions").glob("*.json"))
+    record = json.loads(file.read_text(encoding="utf-8"))
+    del record["option"]
+    file.write_text(json.dumps(record), encoding="utf-8")
+    call(request_id="d-ok", read_sequence=6)  # CONTRACT_VIOLATION when the record is read for a replay
+    return found
+
+
+def test_the_decide_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    found = decide_refusals(tmp_path)
+    rows = attrs_of(page, "decide-codes", "data-code")
+    assert {"DECISION_FIELD_EMPTY", "CITED_ID_NOT_FOUND"} <= set(rows)
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+    assert found["DECISION_FIELD_EMPTY"] == (2, "decision", {"field"})
+    assert found["CITED_ID_NOT_FOUND"] == (2, "decision", {"ids"})
+
+
+def prose_of(chapter: str) -> str:
+    """A chapter without its tables and code blocks: what is left is the prose around them, which does not restate them."""
+    return re.sub(r"<pre.*?</pre>", "", re.sub(r"<table.*?</table>", "", chapter, flags=re.S), flags=re.S)
+
+
+# R2-S-01, R2-S-02: the handbook rule of the drive skill, "The prose around such a table does not restate it", checked over the whole class.
+# A word the prose of a section must use to explain what its tables do not say; each is named by a table (a code, a flag or a key) and has its reason.
+PROSE_MAY_NAME = {
+    "--read-sequence": "the option chapter 04's read-sequence section is about; it is also the flag of chapter 17's decide row",
+    "--json": "the output mode whose shape chapter 17 describes and whose `status --json` chapter 17 says what it lists and does not list",
+    "write_sequence": "the number the section explains; a table names it as a key, no table says what advances it or what a record's copy is",
+    "read_sequence": "chapter 17 says how a record's read_sequence relates to its write_sequence (always one less), which no table says",
+    "request_id": "the identity of a replay and of the one namespace, which the sections explain; the tables only name it as a key",
+    "decision_id": "chapter 17 says a decision is cited by this id; the tables only name it as a key",
+    "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
+    "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
+    "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
+    "--factor": "chapter 04's order paragraph names `compare --factor` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
+    "--out": "chapter 04's order paragraph names `report --out` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
+    "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
+}
+
+
+def tables_with_data_attributes(*chapters):
+    """The codes, reasons, keys and flags the tables with data attributes of the chapters list, and the numbers their rows advance the sequence by."""
+    listed, advances = set(), set()
+    for chapter in chapters:
+        for table in re.findall(r"<table.*?</table>", chapter, re.S):
+            for row in re.findall(r"<tr ([^>]*data-[^>]*)>", table):
+                attributes = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', row))
+                listed.update(attributes[name] for name in ("code", "reason", "field") if name in attributes)
+                listed.update(word for name in ("required", "optional", "details") for word in attributes.get(name, "").split())
+                listed.update(word for word in attributes.get("command", "").split() if word.startswith("--"))  # the flag a row names beside its command
+                if "advances" in attributes:
+                    advances.add(attributes["advances"])
+    return listed, advances
+
+
+def words_in_code(prose):
+    """The words of every <code> element of `prose`, as a reader sees them (a flag with its dash, a path whole). An element of more than three words is a sample of output, not a name."""
+    text = [html.unescape(re.sub(r"<[^>]+>", "", code)) for code in re.findall(r"<code>(.*?)</code>", prose, re.S)]
+    return {word.strip(".,;:()[]{}\"'") for each in text if len(each.split()) <= 3 for word in each.split()} - {""}
+
+
+def sections_whose_prose_leaves_the_tables_to_state_the_rules():
+    """Chapter 17 and chapter 04's write-sequence section: the sections whose rules (codes, flags, keys, advances) live in tables with data attributes.
+
+    A section belongs here when a table of it states a rule that its prose could repeat; the prose of such a section only says what no table says."""
+    chapter_04, chapter_17 = chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html")
+    write_sequence = chapter_04.split('<p class="sub2">The write sequence</p>')[1].split('<p class="sub2">Exit codes and refusals</p>')[0]
+    return {"chapter 04, the write sequence": write_sequence, "chapter 17": chapter_17}
+
+
+def test_the_prose_of_chapter_17_and_chapter_04_write_sequence_section_names_none_of_the_codes_flags_or_keys_the_tables_list():
+    listed, advances = tables_with_data_attributes(chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html"))
+    assert {"STUDY_CHANGED", "REQUEST_CONFLICT", "--read-sequence", "request_id", "applies"} <= listed  # the collection reads the tables
+    assert advances == {"2"}
+    assert set(PROSE_MAY_NAME) <= listed, set(PROSE_MAY_NAME) - listed  # an entry that no table lists is not an exception to anything
+    used = set().union(*(words_in_code(prose_of(section)) for section in sections_whose_prose_leaves_the_tables_to_state_the_rules().values()))
+    assert set(PROSE_MAY_NAME) <= used, set(PROSE_MAY_NAME) - used  # the list stays what the prose needs
+    for name, section in sections_whose_prose_leaves_the_tables_to_state_the_rules().items():
+        prose = prose_of(section)
+        assert sorted((listed & words_in_code(prose)) - set(PROSE_MAY_NAME)) == [], name
+        assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
+
+
+def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock_and_points_to_the_table_that_gives_them():
+    # #108 Tightened M (D-038 on chadlis/hypotrail#75, kept by D-041 on chadlis/hypotrail#75): the paragraph names the two commands; the table gives their codes and conditions
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    assert "<code>compare --factor</code>" in paragraph and "<code>report --out</code>" in paragraph
+    assert "before the lock" in paragraph
+    assert 'id="checks-before-the-lock"' in chapter  # the table the paragraph points to
+    assert "UNSUPPORTED_CAPABILITY" not in paragraph and "REPORT_OUTPUT_INVALID" not in paragraph  # the table gives them, the prose does not restate them
+
+
+def test_chapter_04_table_gives_the_commands_that_take_the_read_sequence_as_the_parser_defines_them(page):
+    # R1-S-02: the commands are a column of `write-sequence-commands`, not a list in prose
+    from hypotrail.cli import build_parser
+
+    rows = attrs_of(page, "write-sequence-commands", "data-command")
+    given = {command: row.get("data-read-sequence") for command, row in rows.items()}
+    assert set(given.values()) <= {"none", "optional", "required"}, given
+    assert {c for c, v in given.items() if v == "none"} == {"init"}  # `init` that creates a Study is refused the option (tests/test_stale_sequence.py)
+
+    def option(*path):
+        node = build_parser()
+        for name in path:
+            node = next(a for a in node._actions if getattr(a, "choices", None) and name in a.choices).choices[name]
+        return next((a for a in node._actions if "--read-sequence" in a.option_strings), None)
+
+    for command, value in given.items():
+        if value == "none":
+            continue
+        action = option(*[word for word in command.split() if not word.startswith("--")])
+        assert action is not None, command
+        assert ("required" if action.required else "optional") == value, command
+    assert given["decide"] == "required" and given["report"] == "optional"
+
+
+def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the_commands_that_take_the_read_sequence():
+    # R1-S-02, the handbook rule of the drive skill: "The prose around such a table does not restate it."
+    chapter = chapter_text("04-study-and-attempts.html")
+    prose = prose_of(chapter)
+    assert "advances the sequence by 2" not in prose  # `write-sequence-commands`
+    assert "<code>phase</code>" not in prose  # `write-journal-fields`
+    reading = next(p for p in re.findall(r"<p>.*?</p>", prose, re.S) if "Reading the sequence before a write" in p)
+    assert not [c for c in ("run ml", "run agent", "import ml", "import agent", "assess", "compare") if f"<code>{c}</code>" in reading]
+    assert "<code>decision_id</code>" in chapter and "one <code>request_id</code> namespace" in chapter
+    assert 'data-command="decide"' in chapter  # its row in `write-sequence-commands` and in `commands-index`
+
+
+def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
+    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision"):
+        assert kind in chapter, kind
+    assert "revision_number" in chapter and "not citable" in chapter
+    assert "status --json" in chapter
+
+
+def test_the_readme_names_decide_in_its_status_and_gives_its_command_after_the_walked_path_with_the_required_options():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    status = readme.split("## Status\n", 1)[1].split("\n## ", 1)[0]
+    assert "`decide`" in status
+    block, after = readme.split("```")[1], readme.split("```", 2)[2]
+    assert "decide" not in block  # the block is the path the T24 walk record keeps: a command is not added to it without a walk
+    sentence = next(part for part in re.split(r"\n\n", after) if "`decide` records one decision" in part)
+    for flag in ("--study", "--question", "--option", "--author", "--artifact", "--request-id", "--read-sequence"):
+        assert flag in sentence, flag
+
+
+# --- #110: the decision history in `status --json` (chapter 17) ---------------------------------------------------------------------------
+
+
+def _history(tmp_path, name="chapter-17-history"):
+    """(the rows `status --json` lists, the reasons they hold) for a Study with one decision of each kind of reason, and one that applies."""
+    from _assess_helpers import assess, observation_set_id, references_id
+    from _study_helpers import examples_copy, init_study, run_json, run_ml
+    from _revision_helpers import new_revision
+
+    def corrected_day(table):
+        row = next(r for r in table if r["dteday"] == "2012-03-15")
+        row["cnt"], row["registered"] = str(int(row["cnt"]) + 1000), str(int(row["registered"]) + 1000)
+
+    study, _ = init_study(tmp_path, name=name)
+    _, run, _ = run_ml(study, "seasonal_7", "dev", "held")
+    attempt = run["attempt"]
+    observations, references = observation_set_id(study, attempt), references_id(study)
+    _, first, _ = assess(study, observations, "regression_mae_v1", references)
+
+    def decide(request_id, cited):
+        flags = ["--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "human", "--request-id", request_id]
+        sequence = run_json("status", "--study", study)[1]["write_sequence"]
+        code, payload, err = run_json("decide", *flags, "--read-sequence", sequence, *[x for each in cited for x in ("--artifact", each)])
+        assert code == 0, (payload, err)
+        return payload["decision"]
+
+    on_an_attempt = decide("d-1", [attempt["attempt_id"]])
+    decide("d-2", [first["assessment"]["assessment_id"]])
+    decide("d-3", [on_an_attempt["decision_id"]])
+    code, again, err = assess(study, observations, "regression_mae_v1", references)
+    assert code == 0, (again, err)  # d-2 is superseded
+    next(p for p in (study / "decisions").glob(f"*-{on_an_attempt['decision_id']}.json")).unlink()  # d-3 cites an id no longer held
+    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"))
+    assert code == 0, (payload, err)  # every decision made before it is outdated for the revision
+    listing = run_json("status", "--study", study)[1]
+    assert "decisions" in listing, "status --json lists no decisions"
+    rows = listing["decisions"]
+    return rows, {reason["reason"] for row in rows for reason in row["reasons"]}
+
+
+def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decision(page, tmp_path):
+    from hypotrail.core import contracts
+
+    rows, _ = _history(tmp_path)
+    keys = set(attrs_of(page, "decision-history-keys", "data-field"))
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons"}
+    assert all(set(row) == keys for row in rows)
+
+
+def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+    rows, reasons = _history(tmp_path)
+    table = attrs_of(page, "decision-reasons", "data-reason")
+    assert set(table) == reasons == {"cited_id_not_held", "revision_changed", "assessment_superseded"}
+    assert {tuple(sorted(reason)) for row in rows for reason in row["reasons"]} == {("id", "reason")}
+
+
+def test_chapter_17_gives_the_rule_of_still_applies_in_its_table_and_what_the_table_does_not_say_in_words(page):
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
+    table = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<table[^>]*id="decision-reasons".*?</table>', chapter_text("17-decisions.html"), re.S)[0]).split())
+    assert "A decision no longer applies when" in chapter
+    for part in ("A cited id is no longer held by the Study", "differs from the decision's revision", "later Assessment of the same Observation set and Scorer id"):
+        assert part in table, part
+    assert "never stored" in chapter and "any version" in chapter and "write journal" in chapter
+    assert "later decision on the same question" in chapter
+    assert "does not list decisions yet" not in chapter and "does not list the decisions" not in chapter
+    assert "Decisions: 4 recorded, 1 no longer applies" in chapter
+
+
+def test_chapter_17_prose_does_not_restate_the_decide_command_the_history_keys_or_the_reasons_tables(page):
+    # R1-S-01, the handbook rule of the drive skill: "The prose around such a table does not restate it."
+    prose = prose_of(chapter_text("17-decisions.html"))
+    row = attrs_of(page, "decide-command", "data-command")["decide"]
+    flags = (words(row["data-required"]) | words(row["data-optional"])) - {"--json"}
+    assert [flag for flag in flags if flag in prose] == []  # `decide-command`: which flags there are, and whether each is required
+    assert "<code>applies</code>" not in prose and "<code>reasons</code>" not in prose  # `decision-history-keys`
+    assert "two keys that are not in the record" not in prose
+    assert [name for name in attrs_of(page, "decision-reasons", "data-reason") if name in prose] == []  # `decision-reasons`
+
+
+def test_the_readme_status_keeps_the_claims_the_slice_dropped():
+    # R1-P-02, D-039 on chadlis/hypotrail#75: no ticket asked to weaken these claims
+    status = " ".join(readme_status().split())
+    for claim in ("end to end", "SQLite", "self-contained", "writes a Comparison of two Assessments of either Track"):
+        assert claim in status, claim
+
+
+def test_the_readme_status_names_the_study_whose_state_and_decision_history_status_shows():
+    # R2-P-03: "its state" had no Study before it (the nearest noun was a Comparison)
+    assert "`status` shows a Study's state and decision history" in " ".join(readme_status().split())
+
+
+def test_the_readme_names_the_decision_history_in_the_status_command():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    line = next(l for l in readme.splitlines() if "hypotrail status --study" in l)
+    assert "decisions" in line and "still applies" in line
+
+
+CHANGED_BY_THE_WRITE_SEQUENCE_AND_DECISIONS = [
+    "04-study-and-attempts.html",
+    "05-assessments.html",
+    "06-import.html",
+    "07-comparison.html",
+    "08-agent-answers.html",
+    "13-run-agent.html",
+    "14-report.html",
+    "17-decisions.html",
+]
+
+
+@pytest.mark.parametrize("chapter", CHANGED_BY_THE_WRITE_SEQUENCE_AND_DECISIONS)
+def test_every_chapter_that_the_write_sequence_and_decisions_changed_links_the_panel_cli_adr_in_its_adr_table(chapter):
+    # #111: the chapters #107 to #110 changed (`git diff 607740c 0e81949 --stat -- docs/handbook/chapters`)
+    text = (HANDBOOK / "chapters" / chapter).read_text(encoding="utf-8")
+    heading = '<p class="sub2">Which ADR explains what</p>'
+    assert heading in text, f"{chapter} has no « Which ADR explains what » table"
+    table = text.split(heading, 1)[1].split("</table>", 1)[0]
+    adr = sorted((ROOT / "docs" / "adr").glob("0004-*.md"))
+    assert len(adr) == 1, "there is no ADR 0004"
+    assert f'<a href="../adr/{adr[0].name}">0004</a>' in table, f"{chapter}: its ADR table has no row that links {adr[0].name}"
+
+
+def test_chapter_04_read_sequence_paragraph_says_a_command_given_no_option_behaves_as_before():
+    # R4-P-01 (#108 "when it is not given, the command behaves exactly as today"): one sentence on direct use, no row of a table restated
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "Reading the sequence before a write" in p)
+    sentence = "A command for which the table makes the option optional, given none, behaves as it did before the option existed"  # R5-P-01 narrowed it
+    assert sentence in " ".join(paragraph.replace("<code>", "").replace("</code>", "").split())
+
+
+def test_chapter_13_lead_points_to_the_order_paragraph_of_chapter_04_where_run_agent_differs_from_run_ml():
+    # R4-P-02 (#108 Tightened L): `run agent` does not have "the same order of checks" as `run ml`; chapter 04's order paragraph says where it differs
+    lead = re.search(r'<p class="lead">.*?</p>', chapter_text("13-run-agent.html"), re.S).group(0)
+    assert "the same order of checks" not in lead
+    assert 'order paragraph of <a href="#study-and-attempts">chapter 04</a>, where <code>run agent</code> differs from <code>run ml</code>' in lead
+
+
+def test_chapter_04_read_sequence_paragraph_leaves_decide_and_the_journal_out_of_the_as_before_sentence():
+    # R5-P-01, R5-S-05 (#108 "when it is not given, the command behaves exactly as today" is for the commands that take the option as an option; `decide` requires it)
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "Reading the sequence before a write" in p)
+    text = " ".join(re.sub(r"<[^>]+>", "", paragraph).split())
+    assert "A command given no --read-sequence behaves as it did before the option existed." not in text  # it covered `decide`
+    sentence = next(s for s in re.split(r"(?<=\.) ", text) if "before the option existed" in s)
+    assert "optional" in sentence and "table" in sentence  # limited to the commands the table makes optional, without restating a row
+    assert "journal entries" in sentence and "all the same" in sentence  # a command given no option still appends its entries
+
+
+def test_chapter_13_order_section_holds_the_read_sequence_steps_between_the_request_identity_and_the_data_check():
+    # R5-P-02 (#108 Tightened L): the sequence argument check, then the stale-sequence refusal straight after the request identity, before `DATA_INTEGRITY`
+    chapter = chapter_text("13-run-agent.html")
+    section = chapter.split('<p class="sub2">The order</p>')[1].split("</ol>", 1)[0]
+    steps = re.findall(r"<li>(.*?)</li>", section, re.S)
+    index = lambda *needles: next((i for i, s in enumerate(steps) if all(n in s for n in needles)), -1)  # -1: no such step
+    identity = index("The request is identified")
+    stale = index("STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD")
+    data = index("DATA_INTEGRITY", "ARTIFACT_INTEGRITY")
+    assert stale != -1, "the list has no stale-sequence step"
+    assert identity + 1 == stale and stale + 1 == data
+    assert "--read-sequence" in steps[0] and "INVALID_ARGUMENTS" in steps[0]  # the argument check of the value is among the flag checks, before the lock
+    first = steps[0]
+    assert "argument alone" in first, "step 1 does not say the read-sequence check looks at the argument alone"
+    assert first.index("--read-sequence") < first.index("declaration"), "step 1 names the read-sequence check after the declaration checks"  # run.py runs it first, before the Study and declaration reads
+    assert first.index("INVALID_ARGUMENTS") < first.index("declaration")
+
+
+def test_chapter_04_order_paragraph_says_only_the_data_and_artifact_checks_of_run_agent_come_after_the_comparison():
+    # R5-P-03 (#108 Tightened L): for `run agent`, `DATA_INTEGRITY` and the `ARTIFACT_*` codes fall in step (6); the others keep their place, named by no code here (a table gives the codes)
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    text = " ".join(re.sub(r"<[^>]+>", "", paragraph).split())
+    assert "in run agent, whose identity reads its input bytes directly, only the data check and the artifact checks come after the comparison" in text
+    assert "the others keep their place, before the lock or before the identity" in text
+    assert "DATA_INTEGRITY" not in paragraph and "ARTIFACT_" not in paragraph  # the refusals table gives them

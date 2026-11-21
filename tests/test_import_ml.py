@@ -404,6 +404,7 @@ def test_the_same_request_id_with_another_request_is_request_conflict_exit_6(tmp
     code, payload, _ = import_ml(study, source, mapping, population, "imp")
     assert (code, payload["error"]["code"]) == (EXIT_LOCK_OR_CONFLICT, "REQUEST_CONFLICT")
     assert payload["error"]["details"]["differs"] == expect
+    assert payload["error"]["details"]["decision_id"] is None and payload["error"]["details"]["attempt_id"]  # #109 Tightened K
     assert snapshot(study) == before
 
 

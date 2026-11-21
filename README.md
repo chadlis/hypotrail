@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (scenarios on Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere, `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` and `recover` show and repair a Study's state, `data verify` and `data fetch` check and acquire public data, and `report` renders one self-contained page for a Study. A Study holds one frozen Protocol per revision, a freeze record and an Exposure journal for `public_check`. The handbook gives each capability in detail.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt, `import ml` and `import agent` adopt outputs produced elsewhere, `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` shows a Study's state and decision history, `recover` repairs it, `decide` records a decision, `data verify` and `data fetch` check and acquire public data, and `report` renders one self-contained page for a Study. The handbook gives each capability in detail. A Study holds one frozen Protocol per revision, a freeze record, an Exposure journal for `public_check` and a write sequence.
 
 Acceptance is test by test in the [acceptance grid](docs/handbook/handbook.html#acceptance-grid) (T01–T24). `OFFLINE_ACCEPTED` reached. `LIVE_ACCEPTED` conditional: References E01–E10 reviewed by proxy, owner review pending. The 2026-11-21 Campaign (T20 holds) did not alternate its Configurations, against AG-12 of the L1 specification (`SPEC-LOT-1.md`, linked from chadlis/hypotrail#1; chapter 16). `USABILITY_REVIEW_PENDING` open: an agent walked the README path, no other reader has; it is not claimed usable by a third party until one has.
 
@@ -32,8 +32,12 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --c
 uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study
 uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html    # the same page for a Chinook Study
 uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file or a changed Cases file in the Workload
-uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
+uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal, the check_informed marks, the write sequence, and the decisions with whether each still applies
 ```
+
+Every command that writes to an existing Study takes `--read-sequence N`, the write sequence its author read (`write_sequence` of `status --json`): when the Study was written to since, the command is refused with `STUDY_CHANGED` and writes nothing; not given, nothing is checked. `init` that creates a Study takes none (it is refused), and `report` compares it only when its page records an Exposure. The contract between a client and the CLI is [ADR 0004](docs/adr/0004-panel-cli-contract.md).
+
+`decide` records one decision in a Study and requires `--read-sequence`: `decide --study runs/bike --question TEXT --option TEXT --author human --artifact ASSESSMENT_ID --request-id decide-a --read-sequence N` (`--author human|proxy`, `--artifact` repeatable, `--source TEXT` optional). It is not part of the path above: that path is the one walked for T24.
 
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 

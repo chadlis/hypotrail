@@ -7,7 +7,7 @@
 <p><code>compare</code> writes to the Study, so it holds the Study's writer lock for its whole execution, as <code>init</code>, <code>run ml</code>, <code>import ml</code>, <code>recover</code> and <code>assess</code> do: while another writer holds it, <code>compare</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (chapter 04).</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="compare-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
-<tr data-command="compare" data-required="--study --control --candidate" data-optional="--factor --examples-dir --json"><td><code>compare</code></td><td><code>--study DIR</code>, <code>--control ASSESSMENT_ID</code>, <code>--candidate ASSESSMENT_ID</code></td><td><code>--factor</code> (agent Studies only, chapter 11), <code>--examples-dir</code> (read only for <code>public_check</code> Items, <a href="#freeze-exposure">chapter 12</a>), <code>--json</code></td></tr>
+<tr data-command="compare" data-required="--study --control --candidate" data-optional="--factor --examples-dir --read-sequence --json"><td><code>compare</code></td><td><code>--study DIR</code>, <code>--control ASSESSMENT_ID</code>, <code>--candidate ASSESSMENT_ID</code></td><td><code>--factor</code> (agent Studies only, chapter 11), <code>--examples-dir</code> (read only for <code>public_check</code> Items, <a href="#freeze-exposure">chapter 12</a>), <code>--read-sequence N</code>, <code>--json</code></td></tr>
 </tbody></table></div>
 <pre class="code"><span class="cm"># the bike Study of chapter 04: seasonal_7 and ridge_v1 run on dev and assessed with the same Scorer (chapter 05)</span>
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_SEASONAL_7 --candidate ASSESSMENT_ID_OF_RIDGE_V1 --json</pre>
@@ -86,5 +86,6 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Comparison is a core module, with no Track and no Inspect behind it.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles: a Comparison is on <code>dev</code>, or on <code>public_check</code> through the Exposure journal.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>compare</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_compare.py</code>, <code>test_compare_refusals.py</code> and <code>test_compare_scope.py</code>; they run offline and call no model. The library Comparison of chapter 02 (<code>hypotrail/ml/comparison.py</code>, on two predictions files) is kept unchanged and is the oracle the <code>dev</code> test compares against, to 1e-9.</p>

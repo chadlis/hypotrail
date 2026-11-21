@@ -36,7 +36,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -209,7 +209,7 @@ def import_scope_warning(imports: list) -> dict:
     return {"code": WARNING_DESCRIPTIVE, "message": message}
 
 
-def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None) -> dict:
+def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None, read_sequence: int | None = None) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
@@ -218,6 +218,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
     `public_check` Items, to freeze the Workload's digests (see `hypotrail.core.exposure`).
     """
     study = Path(study)
+    write_journal.require_valid_read_sequence(read_sequence, "compare")
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if factor is not None and spec["domain"] != AGENTIC:
         raise InvalidInputError(
@@ -226,7 +227,8 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             stage=STAGE,
             details={"factor": factor, "study_domain": spec["domain"]},
         )
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "compare"):
+        write_journal.require_current(study, read_sequence)
         return _compare_locked(study, control_id, candidate_id, factor, live_basis)
 
 
@@ -362,7 +364,9 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
         "count": len(row_ids),
         "row_ids": row_ids,
     }
+    write_journal.begin()  # a Comparison of dev Items writes nothing before this; an Exposure began the command already
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
+    write_journal.wrote("comparison", comparison_id)
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(PAIRED_COLUMNS)

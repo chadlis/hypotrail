@@ -1181,6 +1181,83 @@
       ],
       "additionalProperties": false
     },
+    "WriteJournalBegin": {
+      "type": "object",
+      "description": "The entry a command appends to the write journal just before its first write (chadlis/hypotrail#107).",
+      "properties": {
+        "phase": {
+          "const": "begin"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "phase",
+        "command",
+        "request_id"
+      ],
+      "additionalProperties": false
+    },
+    "WriteJournalEnd": {
+      "type": "object",
+      "description": "The entry a command appends to the write journal after its last write. `outcome` may gain values: a reader does not treat `completed`, `refused` and `failed` as closed.",
+      "properties": {
+        "phase": {
+          "const": "end"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "written": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "phase",
+        "command",
+        "request_id",
+        "outcome",
+        "written"
+      ],
+      "additionalProperties": false
+    },
     "ExposureEntry": {
       "type": "object",
       "properties": {
@@ -1283,6 +1360,82 @@
         "definition"
       ],
       "additionalProperties": false
+    },
+    "DecisionRecord": {
+      "type": "object",
+      "description": "One decision of a Study, kept in decisions/<seq>-<decision_id>.json and never rewritten (chadlis/hypotrail#109). `cited_ids` are the ids of records the Study held, de-duplicated and sorted; `revision` is the `revision` of the Study's current StudySpec when it was recorded; `write_sequence` is the position of the `begin` entry of the command that recorded it in the write journal, and `read_sequence` the write sequence its author read, which is one below it.",
+      "properties": {
+        "kind": {
+          "const": "decision"
+        },
+        "schema_version": {
+          "const": "decision/1"
+        },
+        "decision_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "option": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "enum": [
+            "human",
+            "proxy"
+          ]
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cited_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "write_sequence": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "decision_id",
+        "request_id",
+        "question",
+        "option",
+        "author",
+        "source",
+        "cited_ids",
+        "revision",
+        "read_sequence",
+        "write_sequence"
+      ],
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1306,6 +1459,15 @@
     },
     {
       "$ref": "#/$defs/ExposureEntry"
+    },
+    {
+      "$ref": "#/$defs/WriteJournalBegin"
+    },
+    {
+      "$ref": "#/$defs/WriteJournalEnd"
+    },
+    {
+      "$ref": "#/$defs/DecisionRecord"
     }
   ]
 }

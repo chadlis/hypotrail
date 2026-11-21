@@ -352,6 +352,7 @@ def conflict(study, *args, **more):
     assert code == EXIT_LOCK_OR_CONFLICT, payload
     assert payload["error"]["code"] == "REQUEST_CONFLICT" and payload["error"]["stage"] == "request"
     assert snapshot(study) == before  # nothing written
+    assert payload["error"]["details"]["decision_id"] is None and payload["error"]["details"]["attempt_id"]  # #109 Tightened K: it names an Attempt, no decision
     return payload["error"]["details"]
 
 
@@ -486,6 +487,8 @@ KILL = textwrap.dedent(
     real = os.replace
 
     def counting_replace(source, target, *args, **kwargs):
+        if "write_journal" in str(target):  # the write journal's entries are not publications of the Attempt
+            return real(source, target, *args, **kwargs)
         replaced[0] += 1
         if replaced[0] == kill_at:
             os._exit(9)  # the writing process dies at this publication

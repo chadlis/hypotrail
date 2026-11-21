@@ -37,7 +37,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, environment
+from hypotrail.core import artifacts, canonical, contracts, environment, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -76,9 +76,7 @@ def freeze_records(study) -> list:
 
 def entries(study) -> list:
     """The journal entries, in the order they were appended."""
-    folder = Path(study) / JOURNAL_DIR
-    names = sorted(p.name for p in folder.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if folder.is_dir() else []
-    return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in names]
+    return layout.read_records(study, JOURNAL_DIR)
 
 
 def first_freeze(study):
@@ -205,9 +203,12 @@ def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), 
     Items; this is called before it computes anything on them.
     """
     live = checked_basis(spec, live_basis)
-    freeze = read_freeze(study, spec.get("revision_number", 1)) or _write_freeze(study, spec, live)
-    folder = Path(study) / JOURNAL_DIR
-    sequence = (sum(1 for p in folder.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if folder.is_dir() else 0) + 1
+    write_journal.begin()  # the freeze record and the entry are the first writes of a command that records an Exposure
+    freeze = read_freeze(study, spec.get("revision_number", 1))
+    if freeze is None:
+        freeze = _write_freeze(study, spec, live)
+        write_journal.wrote("freeze", freeze["freeze_id"])
+    sequence = layout.next_position(study, JOURNAL_DIR)
     entry = {
         "kind": "exposure",
         "schema_version": "exposure/1",
@@ -220,4 +221,5 @@ def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), 
     }
     contracts.validate(entry)
     artifacts.publish_record(study, f"{JOURNAL_DIR}/{sequence:06d}-{entry['entry_id']}.json", entry, role="exposure")
+    write_journal.wrote("exposure", entry["entry_id"])
     return entry
