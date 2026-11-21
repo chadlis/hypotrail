@@ -600,7 +600,7 @@ print(result["delta_mae"]["value"])</pre>
 <div class="card" style="--c:var(--violet)"><h3>Malformed means not exact, unless it only wears a wrapper</h3><p>What the other two Criteria read is set out in <a href="#chinook-wrapped-answers">the table of wrapped answers</a>; a failure to read is the system's failure, not the instrument's.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Failed and missing Episodes</h3><p>Every expected Episode has a state for every Criterion, with a Reason for each non-score (<code>rescore.rescore_episodes</code>). An Episode <code>failed</code> by an execution error has every Criterion <code>unscored</code> with <code>execution_failed</code>; an Episode absent from the log is <code>missing</code>, every Criterion <code>unscored</code> with <code>observation_missing</code>. Neither is scored false, and neither has an empty list. An Episode stopped by one of our limits is <code>failed</code> too (see the <code>scripted_fixture</code> section), with Criteria that depend on who stopped it.</p></div>
 <div class="card" style="--c:var(--gold)"><h3>The schema is an input</h3><p>The Scorer is given the Workload's <code>table-answer/1</code> schema; it does not read it from disk, so rescoring opens no Workload file.</p></div>
-<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>An Inspect <code>@scorer</code> adapter (ADR 0001's parity test applies if one is built), and the report. An Inspect log is imported into a Study since #69: see <a href="#inspect-log-import">chapter 09</a>. Answers imported as JSONL without a trace, the Assessment contract with its counters and shares, and the closed Scorer registry that holds this Scorer exist since #68: see <a href="#agent-answers">chapter 08</a>.</p></div>
+<div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>An Inspect <code>@scorer</code> adapter (ADR 0001's parity test applies if one is built). The report of a Chinook Study exists since #86: see <a href="#report">chapter 14</a>. An Inspect log is imported into a Study since #69: see <a href="#inspect-log-import">chapter 09</a>. Answers imported as JSONL without a trace, the Assessment contract with its counters and shares, and the closed Scorer registry that holds this Scorer exist since #68: see <a href="#agent-answers">chapter 08</a>.</p></div>
 </div>
 
 <p class="sub2">The live command</p>
@@ -972,7 +972,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>One writer</h3><p><code>assess</code> holds the Study's writer lock for the whole command, as <code>init</code>, <code>run ml</code>, <code>import ml</code>, <code>recover</code> and <code>compare</code> do: while another writer holds it, <code>assess</code> is refused at once with <code>STUDY_LOCKED</code> (exit 6) and writes nothing (<a href="#study-and-attempts">chapter 04</a>).</p></div>
-<div class="card" style="--c:var(--violet)"><h3>Summarised by the report</h3><p>Two Assessments are compared by <code>compare</code> (<a href="#comparison">chapter 07</a>), and <code>report</code> sets Assessments and Comparisons of a Bike Study out on one page (<a href="#report">chapter 14</a>). The record's <code>rescoring</code> field says which earlier Assessment of the same Observation set the new one differs from and why (<a href="#revisions-rescoring">chapter 10</a>).</p></div>
+<div class="card" style="--c:var(--violet)"><h3>Summarised by the report</h3><p>Two Assessments are compared by <code>compare</code> (<a href="#comparison">chapter 07</a>), and <code>report</code> sets Assessments and Comparisons of a Study out on one page (<a href="#report">chapter 14</a>). The record's <code>rescoring</code> field says which earlier Assessment of the same Observation set the new one differs from and why (<a href="#revisions-rescoring">chapter 10</a>).</p></div>
 <div class="card" style="--c:var(--sky)"><h3>Dev, and public_check with a journal</h3><p>Items of <code>public_check</code> can be assessed because the Study journals the Exposure (<a href="#freeze-exposure">chapter 12</a>); Items of <code>train</code> never can. <code>PROTOCOL_CHANGED</code> (exit 3) refuses an Assessment of <code>public_check</code> Items when the Workload's Protocol is no longer the revision's.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Two Scorers' shapes</h3><p>The two regression Scorers aggregate one Criterion into a Metric and leave <code>correct</code> and <code>incorrect</code> null. <code>chinook_contract_v1</code> scores four Criteria per Episode and counts them: its Assessment is the subject of <a href="#agent-answers">chapter 08</a>.</p></div>
 </div>
@@ -1668,7 +1668,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <div class="tblwrap"><table class="tbl" id="exposure-entry-points"><thead><tr><th>Entry point</th><th>In a Study</th><th>On <code>public_check</code></th><th>Refusal code without a Study</th></tr></thead><tbody>
 <tr data-entry="assess" data-study="yes" data-writes="journal" data-code=""><td><code>assess</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
 <tr data-entry="compare" data-study="yes" data-writes="journal" data-code=""><td><code>compare</code> (bike and Chinook)</td><td>yes</td><td>allowed; one journal entry</td><td>none</td></tr>
-<tr data-entry="report" data-study="yes" data-writes="journal" data-code=""><td><code>report</code> (Bike)</td><td>yes</td><td>allowed; one journal entry when the page shows <code>public_check</code> Items</td><td>none</td></tr>
+<tr data-entry="report" data-study="yes" data-writes="journal" data-code=""><td><code>report</code></td><td>yes</td><td>allowed; one journal entry when the page shows <code>public_check</code> Items</td><td>none</td></tr>
 <tr data-entry="run ml" data-study="yes" data-writes="" data-code=""><td><code>run ml</code></td><td>yes</td><td>allowed, not an Exposure: no score is computed</td><td>none</td></tr>
 <tr data-entry="metrics.compute_metrics" data-study="no" data-writes="" data-code="PUBLIC_CHECK_METRICS_REFUSED"><td><code>hypotrail.ml.metrics.compute_metrics</code></td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_METRICS_REFUSED</code></td></tr>
 <tr data-entry="comparison.compare" data-study="no" data-writes="" data-code="PUBLIC_CHECK_COMPARISON_REFUSED"><td><code>hypotrail.ml.comparison.compare</code> (two predictions files)</td><td>no</td><td>refused</td><td><code>PUBLIC_CHECK_COMPARISON_REFUSED</code></td></tr>
@@ -1757,7 +1757,7 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--sky)"><h3>Not a proof of non-exposure</h3><p>No lock can prove that the user never read the public CSV elsewhere, and a new Study is not evidence that <code>public_check</code> was unseen. The journal records what this Study did.</p></div>
-<div class="card" style="--c:var(--violet)"><h3>A report for Bike Studies, no live campaign</h3><p>The report of a Bike Study has an Exposure section and shows the <code>check_informed</code> marks (<a href="#report">chapter 14</a>); the agent Track's report and the live campaign on <code>public_check</code> are later work. No path here calls a model.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>A report for both Tracks, no live campaign</h3><p>The report of a Bike or a Chinook Study has an Exposure section and shows the <code>check_informed</code> marks (<a href="#report">chapter 14</a>); the live campaign on <code>public_check</code> is later work. No path here calls a model.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A revision is not marked into its Assessments</h3><p>An Assessment made under a <code>check_informed</code> revision is not itself marked unless a Configuration marks it. The revision's own mark is in <code>status</code>.</p></div>
 <div class="card" style="--c:var(--coral)"><h3>Exposure before the score</h3><p>The entry is written before the Items are scored or paired, so a crash between the entry and the Assessment leaves an entry whose Assessment ID names no Assessment. The journal errs on the side of recording.</p></div>
 </div>
@@ -1918,13 +1918,13 @@ uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --conf
 </div>
 </section>
 <section id="report" style="--ac:var(--sky)"><div class="sh"><div class="n">14</div><div><p class="k">Report</p><h2>The Study report</h2></div></div>
-<p class="lead"><code>report</code> renders one HTML page for a Study of the temporal regression Track, from the Study's records alone: the Attempts, Observation sets, Assessments, Comparisons, the freeze record and the Exposure journal. The page holds its text, styles and tables inline, loads nothing, has no script and computes nothing when it is opened. A page that shows <code>public_check</code> Items is an Exposure and is recorded as one.</p>
+<p class="lead"><code>report</code> renders one HTML page for a Study of either Track, the temporal regression Track (Bike) or the tool-using agent Track (Chinook), from the Study's records alone: the Attempts, Observation sets, Assessments, Comparisons, the freeze record and the Exposure journal. The page holds its text, styles and tables inline, loads nothing, has no script and computes nothing when it is opened. A page that shows <code>public_check</code> Items is an Exposure and is recorded as one.</p>
 
 <p class="sub2">The command</p>
 <div class="prose">
-<p><code>python -m hypotrail report --study DIR --out FILE</code>, with <code>--json</code> and <code>--examples-dir DIR</code> (the flags are in the commands table of <a href="#study-and-attempts">chapter 04</a>). The code is <code>src/hypotrail/report/</code>: <code>gather.py</code> reads and verifies the records, <code>render.py</code> writes the page, <code>command.py</code> is the command. It imports neither Inspect nor scikit-learn nor NumPy (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>), and it calls no fit, no prediction, no model and no tool, so it works with the network cut.</p>
+<p><code>python -m hypotrail report --study DIR --out FILE</code>, with <code>--json</code> and <code>--examples-dir DIR</code> (the flags are in the commands table of <a href="#study-and-attempts">chapter 04</a>). The code is <code>src/hypotrail/report/</code>: <code>gather.py</code> reads and verifies the records (<code>gather_agent.py</code> adds what a Chinook Study holds), <code>render.py</code> writes the page and its sections (<code>render_agent.py</code> writes the sections that differ for a Chinook Study, <code>markup.py</code> holds the escaping building blocks), <code>command.py</code> is the command. It imports neither Inspect nor scikit-learn nor NumPy (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>), and it calls no fit, no prediction, no model and no tool, so it works with the network cut. An Inspect log is never opened: the page links to it.</p>
 <ol>
-<li>The Study is read; a Study of another Track is refused (the tool-using agent Track is the next ticket's). <code>--out</code> must not be inside the Study, nor a directory, and its folder must exist.</li>
+<li>The Study is read, whichever Track it is of. <code>--out</code> must not be inside the Study, nor a directory, and its folder must exist.</li>
 <li>Every artifact the page shows is read back against its digest: a changed byte is <code>ARTIFACT_INTEGRITY</code> (exit 3) and no page is written.</li>
 <li>If the page shows <code>public_check</code> Items, the Study's writer lock is taken (a second writer is <code>STUDY_LOCKED</code>, exit 6), the Workload is found through the one resolver of <a href="#study-and-attempts">chapter 04</a> and its Protocol is checked against the revision's (<code>PROTOCOL_CHANGED</code>, exit 3), the freeze record is written first if the revision has none, then one journal entry names the Attempts, Assessments and Comparisons the page shows of those Items (<a href="#freeze-exposure">chapter 12</a>). A Study whose Items are all <code>dev</code> records nothing, takes no lock and reads no Workload.</li>
 <li>The page is written to a temporary file beside <code>--out</code> and renamed onto it: an existing file is replaced.</li>
@@ -1932,7 +1932,8 @@ uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --conf
 <p>The page is rebuilt from the Study each time it is asked for; it is never stored as a record. Two reports of the same <code>public_check</code> Study record two Exposures.</p>
 </div>
 <pre class="code"><span class="cm"># a page for a Study; --out is outside the Study</span>
-uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html</pre>
+uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html
+uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html</pre>
 
 <p class="sub2">The sections</p>
 <div class="prose">
@@ -1941,11 +1942,11 @@ uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html<
 <div class="tblwrap"><table class="tbl" id="report-sections"><thead><tr><th>Order</th><th>Id</th><th>Heading</th><th>What it shows</th></tr></thead><tbody>
 <tr data-section="question-mode" data-order="1" data-heading="Question and Mode"><td>1</td><td><code>question-mode</code></td><td>Question and Mode</td><td>The question and objective of the Study, its Track, its Primary Metric, the Modes of its Attempts.</td></tr>
 <tr data-section="data-licences" data-order="2" data-heading="Data and licences"><td>2</td><td><code>data-licences</code></td><td>Data and licences</td><td>The dataset the Study keeps, with its digest, and the licence notice file the Workload names. The notice text stays with the Workload: the page reads the Study alone.</td></tr>
-<tr data-section="protocol-partitions" data-order="3" data-heading="Protocol and Partitions"><td>3</td><td><code>protocol-partitions</code></td><td>Protocol and Partitions</td><td>The Protocol and revision, and each Partition's Items and date range, read from the Study's population.</td></tr>
-<tr data-section="configurations" data-order="4" data-heading="Configurations compared"><td>4</td><td><code>configurations</code></td><td>Configurations compared</td><td>Each Attempt's Configuration and its declared content; an Import declares none.</td></tr>
-<tr data-section="coverage-statuses" data-order="5" data-heading="Coverage and statuses"><td>5</td><td><code>coverage-statuses</code></td><td>Coverage and statuses</td><td>Each Attempt with its Mode, technical status, <code>request_id</code>, <code>outcome_unknown</code> and its produced, failed and missing Items; each Assessment's counts and, per Criterion, its states and Reasons. A null is shown as <code>unknown</code>, never as 0.</td></tr>
-<tr data-section="metrics-differences" data-order="6" data-heading="Metrics and differences"><td>6</td><td><code>metrics-differences</code></td><td>Metrics and differences</td><td>Each Assessment's Metric, its revision, the earlier Assessment it differs from and the recorded cause; a table by month; each Comparison.</td></tr>
-<tr data-section="individual-errors" data-order="7" data-heading="Individual errors"><td>7</td><td><code>individual-errors</code></td><td>Individual errors</td><td>The ten Items with the largest absolute error of each Assessment, with date, true and predicted values, and where each is found.</td></tr>
+<tr data-section="protocol-partitions" data-order="3" data-heading="Protocol and Partitions"><td>3</td><td><code>protocol-partitions</code></td><td>Protocol and Partitions</td><td>The Protocol and revision, and each Partition's Items and date range (Bike), or its Cases (Chinook), read from the Study's population.</td></tr>
+<tr data-section="configurations" data-order="4" data-heading="Configurations compared"><td>4</td><td><code>configurations</code></td><td>Configurations compared</td><td>Each Attempt's Configuration and its declared content (Chinook: its id, declared content and exact system text, and an <code>llm_live</code> Attempt's recorded facts); an Import declares none.</td></tr>
+<tr data-section="coverage-statuses" data-order="5" data-heading="Coverage and statuses"><td>5</td><td><code>coverage-statuses</code></td><td>Coverage and statuses</td><td>Each Attempt with its Mode, technical status, <code>request_id</code>, <code>outcome_unknown</code> and its produced, failed and missing Items; each Assessment's counts and, per Criterion, its states and Reasons; for a scenario Attempt, its self-check. A null is shown as <code>unknown</code>, never as 0.</td></tr>
+<tr data-section="metrics-differences" data-order="6" data-heading="Metrics and differences"><td>6</td><td><code>metrics-differences</code></td><td>Metrics and differences</td><td>Each Assessment's Metric, its revision, the earlier Assessment it differs from and the recorded cause; a table by month (Bike) or the counters and the two named rates per Criterion (Chinook); each Comparison.</td></tr>
+<tr data-section="individual-errors" data-order="7" data-heading="Individual errors"><td>7</td><td><code>individual-errors</code></td><td>Individual errors</td><td>Bike: the ten Items with the largest absolute error of each Assessment, with date, true and predicted values, and where each is found. Chinook: the Case by Repeat matrix of each Assessment, and each Attempt's answers shown as text.</td></tr>
 <tr data-section="limits" data-order="8" data-heading="Limits"><td>8</td><td><code>limits</code></td><td>Limits</td><td>The limitations the StudySpec, the Assessments and the Comparisons record.</td></tr>
 <tr data-section="artifact-origin" data-order="9" data-heading="Origin of the artifacts"><td>9</td><td><code>artifact-origin</code></td><td>Origin of the artifacts</td><td>Each artifact with its relative link, SHA-256, size and role; an Import's producer fields with their origin, <code>declared</code> or <code>unknown</code>.</td></tr>
 <tr data-section="exposure" data-order="10" data-heading="Exposure"><td>10</td><td><code>exposure</code></td><td>Exposure</td><td>The count of Exposures this Study recorded, the journal, the statement that any earlier exposure is unknown, and every record marked <code>check_informed</code>.</td></tr>
@@ -1953,6 +1954,52 @@ uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html<
 <div class="prose">
 <p>The tenth section is not one of the nine of the specification: the ticket asks for it, and it sits after them so that the nine keep their order.</p>
 </div>
+
+<p class="sub2">The tool-using agent Track's page</p>
+<div class="prose">
+<p>A Chinook Study has the same page, sections and rules. Where Bike shows a table by month and the ten largest errors, Chinook shows, for each Assessment, a matrix with one row per Case and one column per Repeat. Each cell names its Case and Repeat and holds the lines of the table below. An Instrument failure (a Criterion <code>unscored</code> or <code>errored</code>, with its Reason) is written apart from a format failure of the system (a Criterion scored false, with its Reason): the first is never held against the evaluated system. A Wrapped answer is named as such and carries the Reason <code>invalid_response_format</code>. The trace line is a relative link to the Attempt's Inspect log with its SHA-256 (the log itself is never opened); for an Import of a JSON Lines file it links the import source, which holds the steps; an Episode with no trace says <code>trace absent</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-matrix-cell"><thead><tr><th>Order</th><th>Line</th><th>What it says</th></tr></thead><tbody>
+<tr data-line="Case and Repeat" data-order="1"><td>1</td><td>Case and Repeat</td><td>The Case ID and the Repeat the cell stands for.</td></tr>
+<tr data-line="Execution" data-order="2"><td>2</td><td>Execution</td><td><code>produced</code>, or <code>failed</code> or <code>missing</code> with its Reason (<code>unknown</code> when none is recorded).</td></tr>
+<tr data-line="Answer read from" data-order="3"><td>3</td><td>Answer read from</td><td>For a produced answer: <code>raw_answer</code>, <code>embedded_object (Wrapped answer)</code> or <code>nothing read</code>.</td></tr>
+<tr data-line="exact_table" data-order="4"><td>4</td><td><code>exact_table</code></td><td><code>true</code> or <code>false</code> with its Reason, or <code>unscored</code> or <code>errored</code> with its Reason and the words Instrument failure.</td></tr>
+<tr data-line="format_valid" data-order="5"><td>5</td><td><code>format_valid</code></td><td>As above.</td></tr>
+<tr data-line="evidence_link_valid" data-order="6"><td>6</td><td><code>evidence_link_valid</code></td><td>As above (the tool evidence).</td></tr>
+<tr data-line="contract_success" data-order="7"><td>7</td><td><code>contract_success</code></td><td>As above (the primary Criterion).</td></tr>
+<tr data-line="Trace" data-order="8"><td>8</td><td>Trace</td><td>The Study-relative path and SHA-256 of the Inspect log, linked; <code>Trace in the import source</code> for a JSON Lines Import; <code>trace absent</code> when the Episode has none.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>For each Assessment the page also gives, per Criterion, the counters of the contract and the two named rates (CMP-03, CMP-04), read from the Assessment record and its detailed metrics file. A rate whose denominator is zero is shown <code>null</code> with its Reason, never 0, and the unknowns (unscored, errored, and their Reasons counted from the per-Item file) stand beside the rates.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-criteria-columns"><thead><tr><th>Order</th><th>Column</th></tr></thead><tbody>
+<tr data-column="Criterion" data-order="1"><td>1</td><td>Criterion</td></tr>
+<tr data-column="N_expected" data-order="2"><td>2</td><td>N_expected</td></tr>
+<tr data-column="N_attempted" data-order="3"><td>3</td><td>N_attempted</td></tr>
+<tr data-column="N_produced" data-order="4"><td>4</td><td>N_produced</td></tr>
+<tr data-column="N_scored" data-order="5"><td>5</td><td>N_scored</td></tr>
+<tr data-column="N_correct" data-order="6"><td>6</td><td>N_correct</td></tr>
+<tr data-column="N_incorrect" data-order="7"><td>7</td><td>N_incorrect</td></tr>
+<tr data-column="N_unscored" data-order="8"><td>8</td><td>N_unscored</td></tr>
+<tr data-column="N_errored" data-order="9"><td>9</td><td>N_errored</td></tr>
+<tr data-column="Quality among the scored (N_correct / N_scored)" data-order="10"><td>10</td><td>Quality among the scored (N_correct / N_scored)</td></tr>
+<tr data-column="Share of the planned Episodes with a confirmed success (N_correct / N_expected)" data-order="11"><td>11</td><td>Share of the planned Episodes with a confirmed success (N_correct / N_expected)</td></tr>
+<tr data-column="Unknowns" data-order="12"><td>12</td><td>Unknowns</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>An agent Comparison is shown as recorded: its Control and Candidate Assessments, its comparability and the checks behind it, its coverage and coverage rates, its deltas and the definition of the delta (for this Criterion a positive delta means the Candidate is better), and, aggregated by Case first, the shares of each Case from the paired-deltas file. When the record withholds the main delta (CMP-05) the page shows only <code>withheld</code>, with the coverage rates beside it and no bounds; no interval is computed over Episodes. Its descriptive measures show a null as <code>unknown</code>.</p>
+<p>A Study that holds a scenario Attempt (Mode <code>scripted_fixture</code>) shows the banner at the top of the page, before the first section, whatever else the Study holds: <code>"test simulation, no LLM evaluated"</code> is the text of the banner, and it names the scenario Attempts it covers by their IDs. Every element the page writes for a scenario Attempt carries a <code>data-attempt-id</code> attribute equal to that ID, and its text names no LLM. Its statuses and counts are shown under the heading <b>Self-check of the scripted scenarios, not an Assessment</b>: a scenario Attempt is neither assessed nor compared. Its final answers are shown as text like every answer. The page states no milestone status: the live acceptance status is shown by the grid and the README, not by a report of one Study.</p>
+<p>An <code>llm_live</code> Attempt is shown with these fields beside its Configuration, each as the Attempt recorded it; a value it does not hold is shown <code>unknown</code>, never 0 (the served model is never replaced by the requested one). The tokens, cost and latency of each Episode follow.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-live-fields"><thead><tr><th>Order</th><th>Field</th><th>Where it comes from</th></tr></thead><tbody>
+<tr data-field="Model (requested)" data-order="1"><td>1</td><td>Model (requested)</td><td>The <code>model</code> the Attempt asked for.</td></tr>
+<tr data-field="Served model (reported)" data-order="2"><td>2</td><td>Served model (reported)</td><td>The <code>served_model</code> the provider reported, beside the requested one.</td></tr>
+<tr data-field="Effective limits" data-order="3"><td>3</td><td>Effective limits</td><td>The limits read back from the log.</td></tr>
+<tr data-field="Limit note, &lt;name&gt;" data-order="4"><td>4</td><td>Limit note, <code>&lt;name&gt;</code></td><td>One row for each note of <code>limit_notes</code>, such as the number of tool calls Inspect does not enforce.</td></tr>
+<tr data-field="Effective parameters" data-order="5"><td>5</td><td>Effective parameters</td><td>The parameters the log shows were sent.</td></tr>
+<tr data-field="Chinook file SHA-256 before" data-order="6"><td>6</td><td>Chinook file SHA-256 before</td><td>The run record's hash of the database before the Episodes.</td></tr>
+<tr data-field="Chinook file SHA-256 after" data-order="7"><td>7</td><td>Chinook file SHA-256 after</td><td>The same, after.</td></tr>
+</tbody></table></div>
 
 <p class="sub2">What the numbers are</p>
 <div class="prose">
@@ -1971,7 +2018,6 @@ uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html<
 <p class="sub2">Refusals</p>
 <div class="tblwrap"><table class="tbl" id="report-refusals"><thead><tr><th>Case</th><th>Code</th><th>Exit</th><th>Stage</th><th>Details</th></tr></thead><tbody>
 <tr data-code="STUDY_NOT_FOUND" data-exit="2" data-stage="study" data-details="study"><td>No Study at <code>--study</code></td><td><code>STUDY_NOT_FOUND</code></td><td>2</td><td><code>study</code></td><td><code>study</code></td></tr>
-<tr data-code="UNSUPPORTED_CAPABILITY" data-exit="2" data-stage="study" data-details="command study_domain command_domain"><td>A Study of the tool-using agent Track</td><td><code>UNSUPPORTED_CAPABILITY</code></td><td>2</td><td><code>study</code></td><td><code>command</code>, <code>study_domain</code>, <code>command_domain</code></td></tr>
 <tr data-code="REPORT_OUTPUT_INVALID" data-exit="2" data-stage="report" data-details="out reason"><td><code>--out</code> inside the Study (<code>inside_study</code>), a directory (<code>is_directory</code>) or in a folder that does not exist (<code>no_folder</code>)</td><td><code>REPORT_OUTPUT_INVALID</code></td><td>2</td><td><code>report</code></td><td><code>out</code>, <code>reason</code></td></tr>
 <tr data-code="ARTIFACT_INTEGRITY" data-exit="3" data-stage="artifact" data-details="path expected_sha256 actual_sha256 expected_size_bytes actual_size_bytes"><td>An artifact whose bytes no longer match its reference</td><td><code>ARTIFACT_INTEGRITY</code></td><td>3</td><td><code>artifact</code></td><td><code>path</code>, <code>expected_sha256</code>, <code>actual_sha256</code>, <code>expected_size_bytes</code>, <code>actual_size_bytes</code></td></tr>
 <tr data-code="STUDY_LOCKED" data-exit="6" data-stage="lock" data-details="study"><td>A second writer, while an Exposure is recorded</td><td><code>STUDY_LOCKED</code></td><td>6</td><td><code>lock</code></td><td><code>study</code></td></tr>
@@ -1983,7 +2029,7 @@ uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html<
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--violet)"><h3>Bike Studies only</h3><p>A Study of the tool-using agent Track is refused. Its Case by Repeat matrix, the <code>scripted_fixture</code> banner and the Episode traces are the next ticket's.</p></div>
+<div class="card" style="--c:var(--violet)"><h3>Logs are linked, not read</h3><p>The page links to an Inspect log with its SHA-256 and shows no event of it (Inspect owns its viewer). A Study that holds a log still renders where Inspect is not installed.</p></div>
 <div class="card" style="--c:var(--coral)"><h3>A report is an Exposure</h3><p>Showing <code>public_check</code> outputs is an Exposure even with no Assessment. The entry is written before the page, so a failure to write the page leaves the entry.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>No licence text</h3><p>The Study keeps the dataset, not the licence notice or its attribution addresses: the page names the notice file the Workload declared and shows no notice text.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>No in-page links</h3><p>The only links are relative links to Study artifacts, from the folder of <code>--out</code>, each with its SHA-256. Moving the page without the Study breaks them.</p></div>

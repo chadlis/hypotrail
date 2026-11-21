@@ -6,14 +6,10 @@ turned into a link or a resource: the only `href` is a relative path to a Study 
 loads nothing and computes nothing when it is opened.
 """
 
-import html
-import json
-import math
-import os
-import urllib.parse
-from pathlib import Path
-
 from hypotrail.report import gather
+from hypotrail.report import render_agent
+from hypotrail.report.markup import Links, Row, Safe, UNKNOWN, cell, esc, join, json_block, number, paragraph, rescoring_note, scoped, sub, table, tag
+from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 
 # The sections of SPEC §9 in their order (id, heading), then the Exposure section the ticket adds. The handbook lists them.
 SECTIONS = (
@@ -30,7 +26,6 @@ SECTIONS = (
 )
 DELTA_SENTENCE = "A positive delta means the Candidate is worse: the delta is the Metric of the Candidate minus the Metric of the Control, and the Metric is lower-is-better."
 DENIAL = "This report does not state that any output, Configuration or Study is production-ready, safe or independent."
-UNKNOWN = "unknown"
 CHARTER_STYLE = """
 :root{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--faint:#7A7187;--line:rgba(21,17,28,.10);--line2:rgba(21,17,28,.20);
 --gold:#9C7633;--pink:#C2306D;--green:#4E8A25;--teal:#21806F;--violet:#8A4FA6;--sky:#2F64A3;--coral:#C9500F;--amber:#A86E1E;--paper:#FFFFFF;
@@ -64,6 +59,8 @@ pre.code{margin:0;padding:10px 14px;background:var(--paper);border:1px solid var
 .tbl th{font:500 11px/1.2 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:var(--ac);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line2);white-space:nowrap}
 .tbl td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink2);vertical-align:top}
 .tbl tr:first-child td{border-top:0}
+.banner{margin:0;padding:18px var(--pad);background:var(--bg2);border-bottom:2px solid var(--coral)}
+.banner p{margin:0 0 4px;color:var(--ink)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 a{color:var(--sky)}
 footer{padding-top:24px;padding-bottom:24px;background:var(--bg);font-size:13px;color:var(--faint)}
@@ -73,73 +70,6 @@ footer{padding-top:24px;padding-bottom:24px;background:var(--bg);font-size:13px;
 ACCENTS = ("gold", "teal", "violet", "sky", "green", "pink", "amber", "coral", "gold", "teal")
 
 
-class Safe(str):
-    """A fragment of HTML this module built itself: not escaped again."""
-
-
-def esc(value) -> Safe:
-    return Safe(html.escape(str(value), quote=True))
-
-
-def cell(value) -> Safe:
-    """A value as HTML: a `Safe` fragment as it is, anything else escaped."""
-    return value if isinstance(value, Safe) else esc(value)
-
-
-def tag(name: str, content="", **attributes) -> Safe:
-    attrs = "".join(f' {key.rstrip("_").replace("_", "-")}="{esc(value)}"' for key, value in attributes.items())
-    return Safe(f"<{name}{attrs}>{cell(content)}</{name}>")
-
-
-def join(fragments) -> Safe:
-    return Safe("".join(cell(f) for f in fragments))
-
-
-def number(value, digits=6) -> Safe:
-    """A number, or `unknown` for a null and for a value that is not a finite number: never 0, never NaN."""
-    if value is None:
-        return esc(UNKNOWN)
-    if isinstance(value, int) and not isinstance(value, bool):
-        return esc(str(value))
-    if isinstance(value, float) and math.isfinite(value):
-        return esc(format(value, f".{digits}g"))
-    return esc(UNKNOWN)
-
-
-def table(table_id: str, headers, rows, *, numeric=()) -> Safe:
-    head = join(tag("th", h) for h in headers)
-    body = join(
-        tag("tr", join(tag("td", c, class_="num") if i in numeric else tag("td", c) for i, c in enumerate(row))) for row in rows
-    )
-    return tag("div", tag("table", join([tag("thead", tag("tr", head)), tag("tbody", body)]), id=table_id, class_="tbl"), class_="tblwrap")
-
-
-def paragraph(text) -> Safe:
-    return tag("p", text)
-
-
-def sub(text) -> Safe:
-    return tag("p", text, class_="sub2")
-
-
-class Links:
-    """Relative links from the page to Study artifacts, written from the directory of `--out`."""
-
-    def __init__(self, study: Path, out: Path):
-        self.study = Path(study).resolve()
-        self.base = Path(out).resolve().parent
-
-    def href(self, relative: str) -> str:
-        link = urllib.parse.quote(Path(os.path.relpath(self.study / relative, self.base)).as_posix())
-        return link if link.startswith("..") else f"./{link}"
-
-    def artifact(self, ref: dict) -> Safe:
-        return tag("a", ref["path"], href=self.href(ref["path"]))
-
-    def file(self, relative: str, label=None) -> Safe:
-        return tag("a", label or relative, href=self.href(relative))
-
-
 def _section(index: int, section_id: str, heading: str, body) -> Safe:
     head = tag(
         "div",
@@ -147,10 +77,6 @@ def _section(index: int, section_id: str, heading: str, body) -> Safe:
         class_="sh",
     )
     return tag("section", join([head, *body]), id=section_id, style=f"--ac:var(--{ACCENTS[index - 1]})")
-
-
-def _json(value) -> Safe:
-    return tag("pre", json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False), class_="code")
 
 
 def _status(text) -> Safe:
@@ -215,7 +141,7 @@ def _configurations(model) -> list:
         manifest = a["manifest"]
         configuration = manifest["effective_config"].get("configuration")
         if isinstance(configuration, dict):
-            body = join([tag("p", join([tag("b", "Configuration "), configuration.get("id", UNKNOWN)])), _json(configuration.get("declared"))])
+            body = join([tag("p", join([tag("b", "Configuration "), configuration.get("id", UNKNOWN)])), json_block(configuration.get("declared"))])
         else:
             body = paragraph("An Import: it declares no Configuration. How its outputs were produced is declared or unknown per field, in the origin of the artifacts below.")
         out.append(tag("div", join([tag("p", join([tag("b", "Attempt "), manifest["attempt_id"], f" (Mode {manifest['mode']})"])), body]), class_="card"))
@@ -228,7 +154,8 @@ def _attempts(model) -> list:
         m = a["manifest"]
         counts = m.get("item_counts")
         rows.append(
-            [
+            Row(
+                [
                 m["attempt_id"],
                 m["mode"],
                 _status(m["technical_status"]),
@@ -238,7 +165,9 @@ def _attempts(model) -> list:
                 number(counts["failed"] if counts else None),
                 number(counts["missing"] if counts else None),
                 m.get("reason") or "none",
-            ]
+                ],
+                **({"data_attempt_id": m["attempt_id"]} if m["mode"] == SCENARIO_MODE else {}),
+            )
         )
     return rows
 
@@ -275,7 +204,7 @@ def _coverage(model) -> list:
     reason_rows = [[a["record"]["assessment_id"], *[(x if x is not None else "none") for x in entry[:3]], number(entry[3])] for a in model["assessments"] for entry in gather.reasons(a)]
     if reason_rows:
         out += [sub("Criteria, states and Reasons"), table("reasons", ["Assessment", "Criterion", "State", "Reason", "Items"], reason_rows, numeric=(4,))]
-    return out
+    return out + (render_agent.self_checks(model) if model["domain"] == gather.AGENTIC else [])
 
 
 def _metrics(model) -> list:
@@ -296,23 +225,8 @@ def _metrics(model) -> list:
             ["References set", join([r["references_ref"]["sha256"]])],
         ]
         body = [tag("p", join([tag("b", "Assessment "), r["assessment_id"]])), table(f"assessment-{index}", ["Field", "Value"], rows)]
-        rescoring = r.get("rescoring")
-        if rescoring:
-            body.append(
-                tag(
-                    "div",
-                    join(
-                        [
-                            tag("b", "Differs from an earlier Assessment. "),
-                            f"This Assessment follows Assessment {rescoring['earlier_assessment_id']}, which stays shown above or below, unchanged. ",
-                            f"Recorded cause: {rescoring['cause']}",
-                            f" (also changed: {', '.join(rescoring['other_changes'])})" if rescoring.get("other_changes") else "",
-                            f". Criteria whose verdict changed: {len(rescoring['changed_items'])}.",
-                        ]
-                    ),
-                    class_="note",
-                )
-            )
+        if r.get("rescoring"):
+            body.append(rescoring_note(r["rescoring"]))
         body += [
             sub(f"By month, Assessment {r['assessment_id']}"),
             table(
@@ -395,19 +309,30 @@ def _origin(model, links) -> list:
     for index, a in enumerate(model["attempts"]):
         m = a["manifest"]
         refs = list(m.get("output_refs", []))
-        out.append(sub(f"Attempt {m['attempt_id']}"))
-        out.append(table(f"attempt-artifacts-{index}", headers, rows_of(refs), numeric=(2,)) if refs else paragraph("This Attempt lists no output artifact."))
+        block = [sub(f"Attempt {m['attempt_id']}")]
+        block.append(table(f"attempt-artifacts-{index}", headers, rows_of(refs), numeric=(2,)) if refs else paragraph("This Attempt lists no output artifact."))
         producer = m["effective_config"].get("producer")
         if isinstance(producer, dict):
-            out.append(
+            block.append(
                 table(
                     f"producer-{index}",
                     ["Producer field", "Value", "Origin"],
                     [[field, entry["value"] if entry["value"] is not None else UNKNOWN, entry["origin"]] for field, entry in sorted(producer.items())],
                 )
             )
-    files = [r["per_item_ref"] for r in (a["record"] for a in model["assessments"])]
-    files += [ref for c in model["comparisons"] for ref in (c["population_ref"], c["paired_deltas_ref"])]
+        declared = m["effective_config"].get("log")
+        if isinstance(declared, dict):  # what an Inspect log declares of its execution, kept by an Import of the log
+            block.append(
+                table(
+                    f"log-{index}",
+                    ["Log field", "Value", "Origin"],
+                    [[field, entry["value"] if entry["value"] is not None else UNKNOWN, entry["origin"]] for field, entry in sorted(declared.items())],
+                )
+            )
+        out.append(scoped(m, join(block), SCENARIO_MODE))
+    records = [a["record"] for a in model["assessments"]]
+    files = [r["per_item_ref"] for r in records] + [r["detailed_metrics_ref"] for r in records if r.get("detailed_metrics_ref")]
+    files += [ref for c in model["comparisons"] for ref in (c["population_ref"], c.get("paired_deltas_ref"), c.get("matrix_ref")) if ref]
     if files:
         out += [sub("Assessment and Comparison files"), table("record-artifacts", headers, rows_of(files), numeric=(2,))]
     return out
@@ -436,14 +361,15 @@ def _exposure(model, recorded) -> list:
 
 def render(model: dict, links: Links, recorded=None) -> str:
     """The page for `model`; `recorded` is the journal entry this report appended, or None."""
+    agent = model["domain"] == gather.AGENTIC
     bodies = {
         "question-mode": _question(model),
         "data-licences": _data(model),
-        "protocol-partitions": _protocol(model),
-        "configurations": _configurations(model),
+        "protocol-partitions": render_agent.protocol(model) if agent else _protocol(model),
+        "configurations": render_agent.configurations(model) if agent else _configurations(model),
         "coverage-statuses": _coverage(model),
-        "metrics-differences": _metrics(model),
-        "individual-errors": _errors(model, links),
+        "metrics-differences": render_agent.metrics(model) if agent else _metrics(model),
+        "individual-errors": render_agent.errors(model, links) if agent else _errors(model, links),
         "limits": _limits(model),
         "artifact-origin": _origin(model, links),
         "exposure": _exposure(model, recorded),
@@ -462,12 +388,23 @@ def render(model: dict, links: Links, recorded=None) -> str:
         ),
         class_="hero",
     )
+    scenarios = [a["manifest"]["attempt_id"] for a in model["attempts"] if a["manifest"]["mode"] == SCENARIO_MODE]
+    banner = (
+        tag(
+            "aside",
+            join([tag("p", tag("b", SCENARIO_BANNER)), tag("p", f"Scenario Attempts of this Study, covered by this banner: {', '.join(scenarios)}.")]),
+            id="scenario-banner",
+            class_="banner",
+        )
+        if scenarios
+        else ""
+    )
     page = join(
         [
             Safe('<!doctype html><html lang="en" data-mode="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'),
             tag("title", f"Hypotrail report, Study {spec['study_id']}"),
             Safe(f"<style>{CHARTER_STYLE}</style></head><body>"),
-            tag("div", join([hero, sections, tag("footer", "Hypotrail · report · the Study's records are the source; this page is rebuilt, never stored as one.")]), class_="page"),
+            tag("div", join([hero, banner, sections, tag("footer", "Hypotrail · report · the Study's records are the source; this page is rebuilt, never stored as one.")]), class_="page"),
             Safe("</body></html>\n"),
         ]
     )

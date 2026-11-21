@@ -15,6 +15,7 @@ from urllib.parse import unquote
 import pytest
 from _assess_helpers import assess, construct, fresh_study, observation_set_id, references_id
 from _compare_helpers import compare, forged
+from _report_tracks import TRACKS
 from _report_helpers import (
     constructed_attempt,
     dates_of,
@@ -36,31 +37,51 @@ from hypotrail.core import canonical, exposure, lock
 from hypotrail.report import render
 
 HANDBOOK = ROOT / "docs" / "handbook"
-MARKUP = {
-    "model": 'https://evil.example/model <script>alert(1)</script> "><xx-marker>m</xx-marker>',
-    "generated_at": "//evil.example/generated <img src=x onerror=alert(1)>",
-    "historical_protocol": 'x" onmouseover="alert(1)" y="',
-    "tool_use": "</td><xx-marker>t</xx-marker> &amp; &lt;b&gt;",
-}
+MARKUP = TRACKS["bike"].markup
+_WORLDS = {}
+
+
+class World(tuple):
+    """`(study, facts, out, doc, payload)` of one Track's world, and the Track that built it."""
+
+    track = None
+
+
+def _world(name, tmp_path_factory):
+    """A Study (folder name with markup characters) with two native Attempts, an Import whose declared fields hold markup, their Assessments and Comparisons; its page, in another folder."""
+    if name not in _WORLDS:
+        track = TRACKS[name]
+        base = tmp_path_factory.mktemp(f"world-{name}")
+        study, facts = track.world(base, name='st"<udy>')
+        out = base / "elsewhere" / "deep" / "report.html"
+        out.parent.mkdir(parents=True)
+        code, payload, err = report(study, out)
+        assert code == 0, (payload, err)
+        _WORLDS[name] = world = World((study, facts, out, doc_of(out), payload))
+        world.track = track
+    return _WORLDS[name]
+
+
+@pytest.fixture(scope="module", params=list(TRACKS))
+def world(request, tmp_path_factory):
+    return _world(request.param, tmp_path_factory)
 
 
 @pytest.fixture(scope="module")
-def world(tmp_path_factory):
-    """A Study (folder name with markup characters) with two native Attempts, an Import whose declared fields hold markup, their Assessments and Comparisons; its page, in another folder."""
-    base = tmp_path_factory.mktemp("world")
-    study, facts = dev_world(base, name='st"<udy>', markup=MARKUP)
-    out = base / "elsewhere" / "deep" / "report.html"
-    out.parent.mkdir(parents=True)
-    code, payload, err = report(study, out)
-    assert code == 0, (payload, err)
-    return study, facts, out, doc_of(out), payload
+def bike_world(tmp_path_factory):
+    return _world("bike", tmp_path_factory)
+
+
+@pytest.fixture(params=list(TRACKS))
+def track(request):
+    return TRACKS[request.param]
 
 
 # --- the command ------------------------------------------------------------------------------------------------------
 
 
-def test_the_command_publishes_the_page_by_a_rename_prints_one_json_object_and_refuses_with_the_four_fields_and_the_exit_codes(tmp_path, monkeypatch):
-    study, facts = dev_world(tmp_path, imported=False)
+def test_the_command_publishes_the_page_by_a_rename_prints_one_json_object_and_refuses_with_the_four_fields_and_the_exit_codes(track, tmp_path, monkeypatch):
+    study = track.dev_study(tmp_path)
     out = tmp_path / "site" / "report.html"
     out.parent.mkdir()
     seen = []
@@ -88,21 +109,22 @@ def test_the_command_publishes_the_page_by_a_rename_prints_one_json_object_and_r
     code, payload, _ = report(broken, out.parent / "no.html")
     assert code == 2 and set(payload["error"]) == {"code", "message", "stage", "details"} and not (out.parent / "no.html").exists()
     tampered = tmp_path / "tampered"
-    study2, _ = dev_world(tampered, imported=False)
-    dataset = study2 / "datasets" / "day.csv"
+    tampered.mkdir()
+    study2 = track.dev_study(tampered)
+    dataset = study2 / track.dataset
     dataset.write_bytes(dataset.read_bytes() + b"\n")
     code, payload, stderr = report(study2, out.parent / "no.html")
     assert (code, payload["error"]["code"]) == (3, "ARTIFACT_INTEGRITY") and "ARTIFACT_INTEGRITY" in stderr
     assert not (out.parent / "no.html").exists()
-    exposed, _ = fresh_study(tmp_path / "locked", "seasonal_7", partition="public_check")
+    exposed, _ = track.public_outputs(tmp_path, name="locked")
     with lock.writer_lock(exposed):
         code, payload, _ = report(exposed, out.parent / "no.html")
     assert (code, payload["error"]["code"]) == (6, "STUDY_LOCKED") and not (out.parent / "no.html").exists()
     assert journal_of(exposed) == []
 
 
-def test_J_an_existing_output_is_replaced_and_an_output_inside_the_study_is_refused_before_anything_is_written(tmp_path):
-    study, _ = dev_world(tmp_path, imported=False)
+def test_J_an_existing_output_is_replaced_and_an_output_inside_the_study_is_refused_before_anything_is_written(track, tmp_path):
+    study = track.dev_study(tmp_path)
     out = tmp_path / "page.html"
     out.write_text("old", encoding="utf-8")
     code, payload, _ = report(study, out)
@@ -129,10 +151,12 @@ def test_A_nothing_is_loaded_from_outside_and_an_external_address_is_shown_as_te
     assert "url(" not in doc.style and "@import" not in doc.style
     assert not re.search(r"https?:|(?<![\w:])//", doc.style)
     # the declared fields hold addresses: they are shown, escaped, as the text the Study records
-    for claim in ("model", "generated_at"):
-        assert MARKUP[claim] in doc.text
-    producer = doc.body("producer-2")
-    assert {row[0]: row[1] for row in producer}["model"] == MARKUP["model"]
+    markup = world.track.markup
+    for value in markup.values():
+        assert value in doc.text
+    producer = doc.body(f"producer-{facts['import_index']}")
+    for claim in world.track.producer_claims:
+        assert {row[0]: row[1] for row in producer}[claim] == markup[claim]
 
 
 def test_B_every_relative_link_resolves_from_the_folder_of_the_output_to_the_artifact_it_names_with_its_sha256_beside_it(world):
@@ -145,7 +169,7 @@ def test_B_every_relative_link_resolves_from_the_folder_of_the_output_to_the_art
                     assert not re.match(r"^[a-z][a-z0-9+.-]*:|^/", href, re.I), href
                     target = (out.parent / unquote(href)).resolve()
                     assert target.is_file() and target.is_relative_to(study.resolve()), href
-                    assert sha_of(target) in [c["text"] for c in row], (href, row)
+                    assert any(sha_of(target) in c["text"] for c in row), (href, row)  # beside the link: in its row, or in its matrix cell
                     links += 1
     assert links > 20
     assert {href for _, attrs in doc.elements for name, href in attrs.items() if name == "href"} and all(
@@ -163,17 +187,19 @@ def test_C_the_page_holds_no_script_so_nothing_is_computed_when_it_is_opened(wor
 def test_the_report_succeeds_with_the_network_guard_on_and_fit_prediction_generation_and_tools_replaced_by_functions_that_fail(world, tmp_path, network_guard, monkeypatch):
     from _ml_helpers import fit_probe
 
-    from hypotrail.agentic import runner, sql_tool
+    from hypotrail.agentic import inspect_log, runner, sql_tool
+    from hypotrail.agentic import live as agentic_live
     from hypotrail.ml import baselines, ridge, run
 
     study, _, _, _, _ = world
-    exposed, _ = fresh_study(tmp_path / "pub", "seasonal_7", partition="public_check")
+    exposed, _ = world.track.public_outputs(tmp_path, name="pub")
 
     def forbidden(*args, **kwargs):
         raise AssertionError("report called something that fits, predicts, generates or uses a tool")
 
     for module, names in ((run, ["run_ml"]), (ridge, ["write_outputs"]), (baselines, ["write_seasonal_baseline"]), (runner, [n for n in dir(runner) if n.startswith(("run", "generate"))]),
-                          (sql_tool, [n for n in ("execute", "run_query", "query") if hasattr(sql_tool, n)])):
+                          (agentic_live, ["prepared_model", "live_model", "run_live"]), (inspect_log, ["read"]),
+                          (sql_tool, ["run_query", "describe_schema", "query_readonly"])):
         for name in names:
             if callable(getattr(module, name, None)):
                 monkeypatch.setattr(module, name, forbidden)
@@ -184,33 +210,39 @@ def test_the_report_succeeds_with_the_network_guard_on_and_fit_prediction_genera
     assert probe.calls == [] and network_guard.attempts == []
 
 
-def test_G_report_renders_a_bike_study_in_a_fresh_interpreter_where_inspect_anthropic_sklearn_and_numpy_cannot_be_imported(world, tmp_path):
+def test_G_report_renders_a_study_in_a_fresh_interpreter_where_inspect_anthropic_sklearn_and_numpy_cannot_be_imported(world, tmp_path):
+    """Bike (#85 G): `inspect_ai`, `anthropic`, `sklearn` and `numpy`; Chinook (#86 A): `inspect_ai` and `anthropic`, over an Import and Attempts projected from an Inspect log."""
     study, _, _, _, _ = world
-    exposed, _ = fresh_study(tmp_path / "pub", "seasonal_7", partition="public_check")
+    exposed, _ = world.track.public_outputs(tmp_path, name="pub")
+    blocked = sorted(world.track.blocked)
     script = textwrap.dedent(
         """
         import importlib.abc, json, sys
 
+        BLOCKED = set(json.loads(sys.argv[1]))
+
         class Blocker(importlib.abc.MetaPathFinder):
             def find_spec(self, name, path, target=None):
-                if name.split(".")[0] in {"inspect_ai", "sklearn", "numpy", "anthropic"}:
+                if name.split(".")[0] in BLOCKED:
                     raise ImportError(f"{name} is blocked in this environment")
 
         sys.meta_path.insert(0, Blocker())
-        try:
-            import numpy
-        except ImportError:
-            pass
-        else:
-            raise SystemExit("numpy is importable: the blocker does not work")
+        for name in sorted(BLOCKED):
+            try:
+                __import__(name)
+            except ImportError:
+                pass
+            else:
+                raise SystemExit(f"{name} is importable: the blocker does not work")
         from hypotrail import cli
 
-        codes = [cli.main(["report", "--study", s, "--out", o, "--json"]) for s, o in zip(sys.argv[1::2], sys.argv[2::2])]
-        sys.stderr.write(json.dumps({"codes": codes, "loaded": sorted(m for m in sys.modules if m.split(".")[0] in {"inspect_ai", "sklearn", "numpy", "anthropic"})}))
+        pairs = sys.argv[2:]
+        codes = [cli.main(["report", "--study", s, "--out", o, "--json"]) for s, o in zip(pairs[0::2], pairs[1::2])]
+        sys.stderr.write(json.dumps({"codes": codes, "loaded": sorted(m for m in sys.modules if m.split(".")[0] in BLOCKED)}))
         """
     )
     done = subprocess.run(
-        [sys.executable, "-c", script, str(study), str(tmp_path / "a.html"), str(exposed), str(tmp_path / "b.html")], capture_output=True, text=True
+        [sys.executable, "-c", script, json.dumps(blocked), str(study), str(tmp_path / "a.html"), str(exposed), str(tmp_path / "b.html")], capture_output=True, text=True
     )
     assert done.returncode == 0, done.stderr
     assert json.loads(done.stderr.splitlines()[-1]) == {"codes": [0, 0], "loaded": []}
@@ -220,10 +252,9 @@ def test_G_report_renders_a_bike_study_in_a_fresh_interpreter_where_inspect_anth
 # --- the page: charter, English, sections -----------------------------------------------------------------------------
 
 
-def test_D_the_pages_own_text_is_english_external_strings_are_shown_as_given_and_light_mode_is_fixed(tmp_path):
+def test_D_the_pages_own_text_is_english_external_strings_are_shown_as_given_and_light_mode_is_fixed(track, tmp_path):
     french = "Au début du jour t, estimer le nombre de locations <b>du jour</b> : « cnt[t] »."
-    examples = examples_copy(tmp_path, edit=lambda d: d.update(question=french))
-    study, _ = init_study(tmp_path, examples=examples)
+    study = track.question_study(tmp_path, french)
     out = tmp_path / "page.html"
     code, payload, err = report(study, out)
     assert code == 0, (payload, err)
@@ -264,8 +295,8 @@ def test_every_external_string_is_escaped_in_text_and_in_attributes(world):
     assert not [tag for tag, _ in doc.elements if tag in ("xx-marker", "img", "script")]
     for tag, attrs in doc.elements:
         assert not [name for name in attrs if name.startswith("on") or name == "src"], (tag, attrs)
-        assert set(attrs) <= {"lang", "data-mode", "charset", "name", "content", "id", "class", "style", "href"}, (tag, attrs)
-    for claim, value in MARKUP.items():
+        assert set(attrs) <= {"lang", "data-mode", "charset", "name", "content", "id", "class", "style", "href", "data-attempt-id"}, (tag, attrs)
+    for claim, value in world.track.markup.items():
         assert value in doc.text, claim  # shown as the same characters
     hrefs = [attrs["href"] for tag, attrs in doc.elements if "href" in attrs]
     assert hrefs and all('"' not in h and "<" not in h and ">" not in h for h in hrefs)  # the quote and the angle bracket of the folder name never reach an attribute as they are
@@ -299,10 +330,10 @@ def own_text(doc, study) -> str:
 
     for path in Path(study).rglob("*.json"):
         walk(json.loads(path.read_text(encoding="utf-8")))
-    text = doc.text
+    text = doc.text.replace(render.DENIAL, "\x00")  # the sentence the handbook lists stays whole, whatever words the records hold
     for string in sorted((s for s in strings if len(s) >= 4), key=len, reverse=True):
         text = text.replace(" ".join(string.split()), " ")
-    return text
+    return text.replace("\x00", render.DENIAL)
 
 
 # --- what the page shows ----------------------------------------------------------------------------------------------
@@ -370,10 +401,10 @@ def test_each_attempt_shows_its_mode_status_request_id_and_outcome_unknown_each_
     assert not re.search(r"\b(nan|inf|infinity)\b", text, re.I)
 
 
-def test_F_a_running_attempt_is_shown_as_running_even_while_its_writer_lock_is_held_and_an_interrupted_one_as_interrupted(tmp_path):
-    study, _ = dev_world(tmp_path, imported=False)
-    running = constructed_attempt(study, "running", request_id="going")
-    interrupted = constructed_attempt(study, "interrupted", request_id="stopped", outcome_unknown=True)
+def test_F_a_running_attempt_is_shown_as_running_even_while_its_writer_lock_is_held_and_an_interrupted_one_as_interrupted(track, tmp_path):
+    study = track.dev_study(tmp_path)
+    running = constructed_attempt(study, "running", request_id="going", mode=track.native_mode)
+    interrupted = constructed_attempt(study, "interrupted", request_id="stopped", outcome_unknown=True, mode=track.native_mode)
     holder = subprocess.Popen(
         [sys.executable, "-c", "import sys, time\nfrom hypotrail.core import lock\nwith lock.writer_lock(sys.argv[1]):\n    print('held', flush=True)\n    time.sleep(60)", str(study)],
         stdout=subprocess.PIPE, text=True,
@@ -392,8 +423,8 @@ def test_F_a_running_attempt_is_shown_as_running_even_while_its_writer_lock_is_h
         holder.wait()
 
 
-def test_the_ten_largest_errors_show_their_date_true_predicted_difference_attempt_and_assessment(world):
-    study, facts, out, doc, _ = world
+def test_the_ten_largest_errors_show_their_date_true_predicted_difference_attempt_and_assessment(bike_world):
+    study, facts, out, doc, _ = bike_world
     dates, truth = dates_of(study), targets_of(study)
     checked = 0
     for index in range(3):
@@ -416,8 +447,8 @@ def test_the_ten_largest_errors_show_their_date_true_predicted_difference_attemp
     assert checked == 30
 
 
-def test_K_the_monthly_table_gives_the_items_and_the_mean_absolute_error_of_each_month_from_the_per_item_errors(world):
-    study, facts, _, doc, _ = world
+def test_K_the_monthly_table_gives_the_items_and_the_mean_absolute_error_of_each_month_from_the_per_item_errors(bike_world):
+    study, facts, _, doc, _ = bike_world
     dates = dates_of(study)
     seen = 0
     for index in range(3):
@@ -435,8 +466,8 @@ def test_K_the_monthly_table_gives_the_items_and_the_mean_absolute_error_of_each
     assert seen == 18
 
 
-def test_each_comparison_shows_its_sides_comparability_warnings_coverage_deltas_and_the_sign_sentence_and_an_import_comparison_is_descriptive_with_its_warning(world):
-    study, facts, out, doc, _ = world
+def test_each_comparison_shows_its_sides_comparability_warnings_coverage_deltas_and_the_sign_sentence_and_an_import_comparison_is_descriptive_with_its_warning(bike_world):
+    study, facts, out, doc, _ = bike_world
     tables = [{r[0]: r[1] for r in doc.body(f"comparison-{i}")} for i in range(2)]
     native = next(t for t in tables if t["Candidate Assessment"] == facts["assessments"]["ridge_v1"])
     descriptive = next(t for t in tables if t["Candidate Assessment"] == facts["import_assessment"])
@@ -469,12 +500,13 @@ def test_the_artifacts_are_listed_with_path_sha256_size_and_role_the_producer_fi
     study, facts, out, doc, _ = world
     listed = [row for rows in (doc.body(t) for t in doc.tables if t.startswith(("attempt-artifacts-", "study-artifacts", "record-artifacts"))) for row in rows]
     by_path = {row[0]: row for row in listed}
-    for attempt_id in [facts["attempts"]["seasonal_7"]["attempt_id"], facts["import"]["attempt_id"]]:
+    for attempt_id in [next(iter(facts["attempts"].values()))["attempt_id"], facts["import"]["attempt_id"]]:
         manifest = json.loads((study / "attempts" / attempt_id / "attempt.json").read_text())
         for ref in manifest["output_refs"]:
             assert by_path[ref["path"]][1:] == [ref["sha256"], str(ref["size_bytes"]), ref["role"]], ref["path"]
-    producer = {row[0]: row[1:] for row in doc.body("producer-2")}
-    assert producer["model"] == [MARKUP["model"], "declared"] and producer["historical_protocol"] == [MARKUP["historical_protocol"], "declared"]
+    producer = {row[0]: row[1:] for row in doc.body(f"producer-{facts['import_index']}")}
+    for claim in world.track.producer_claims:
+        assert producer[claim] == [world.track.markup[claim], "declared"]
     assert producer["saw_public_check"] == ["unknown", "unknown"]
     recorded = json.loads((study / "study.json").read_text())["limitations"]
     recorded += [t for a in facts["assessments"].values() for t in json.loads((study / "assessments" / a / "assessment.json").read_text())["limitations"]]
@@ -486,16 +518,9 @@ def test_the_artifacts_are_listed_with_path_sha256_size_and_role_the_producer_fi
 # --- Exposure ---------------------------------------------------------------------------------------------------------
 
 
-def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_one_entry_naming_what_it_shows_and_a_dev_only_report_records_nothing(tmp_path, monkeypatch):
+def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_one_entry_naming_what_it_shows_and_a_dev_only_report_records_nothing(track, tmp_path, monkeypatch):
     # a Study with Assessments and a Comparison of public_check Items: one more entry names all of them
-    exposed, attempts = fresh_study(tmp_path / "p", "seasonal_7", "ridge_v1", partition="public_check")
-    ids = []
-    for config in ("seasonal_7", "ridge_v1"):
-        code, payload, err = assess(exposed, observation_set_id(exposed, attempts[config]), "regression_mae_v1", references_id(exposed))
-        assert code == 0, (payload, err)
-        ids.append(payload["assessment"]["assessment_id"])
-    code, both, err = compare(exposed, ids[0], ids[1])
-    assert code == 0, (both, err)
+    exposed, attempts, ids, both = track.public_world(tmp_path)
     before, freezes_before = journal_of(exposed), [f.read_bytes() for f in freeze_files(exposed)]
     code, payload, err = report(exposed, tmp_path / "p.html")
     assert code == 0, (payload, err)
@@ -503,10 +528,10 @@ def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_o
     assert len(after) == len(before) + 1 and after[:-1] == before and [f.read_bytes() for f in freeze_files(exposed)] == freezes_before
     entry = after[-1]
     assert entry["attempt_ids"] == sorted(a["attempt_id"] for a in attempts.values())
-    assert entry["assessment_ids"] == sorted(ids) and entry["comparison_ids"] == [both["comparison"]["comparison_id"]]
+    assert entry["assessment_ids"] == sorted(ids) and entry["comparison_ids"] == [both["comparison_id"]]
     assert json.loads(freeze_files(exposed)[0].read_text())["freeze_id"] == entry["freeze_id"]
     # the report is the Study's first use of public_check: the freeze record is written first, then the entry
-    first, _ = fresh_study(tmp_path / "q", "seasonal_7", partition="public_check")
+    first, _ = track.public_outputs(tmp_path, name="q")
     assert journal_of(first) == [] and freeze_files(first) == []
     roles = []
     real = exposure.artifacts.publish_record
@@ -517,7 +542,7 @@ def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_o
     [freeze], [only] = freeze_files(first), journal_of(first)
     assert only["freeze_id"] == json.loads(freeze.read_text())["freeze_id"] and payload["report"]["exposure"]["recorded"] is True
     # a Study with dev Items only records nothing and takes no lock
-    dev, _ = dev_world(tmp_path, name="d", imported=False)
+    dev, _ = track.world(tmp_path, name="d", imported=False)
     snapshot_before = tree(dev)
     with lock.writer_lock(dev):
         code, payload, err = report(dev, tmp_path / "d.html")
@@ -525,20 +550,20 @@ def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_o
     assert tree(dev) == snapshot_before and journal_of(dev) == [] and freeze_files(dev) == []
 
 
-def test_L_a_report_that_shows_only_public_check_outputs_with_no_assessment_is_an_exposure_and_a_dev_only_study_gains_no_entry(tmp_path):
-    only_outputs, attempts = fresh_study(tmp_path / "p", "seasonal_7", partition="public_check")
+def test_L_a_report_that_shows_only_public_check_outputs_with_no_assessment_is_an_exposure_and_a_dev_only_study_gains_no_entry(track, tmp_path):
+    only_outputs, attempt = track.public_outputs(tmp_path, name="p")
     assert journal_of(only_outputs) == []
     code, payload, err = report(only_outputs, tmp_path / "p.html")
     assert code == 0, (payload, err)
     [entry] = journal_of(only_outputs)
-    assert entry["attempt_ids"] == [attempts["seasonal_7"]["attempt_id"]] and entry["assessment_ids"] == [] and entry["comparison_ids"] == []
-    dev, _ = fresh_study(tmp_path / "d", "seasonal_7")
+    assert entry["attempt_ids"] == [attempt["attempt_id"]] and entry["assessment_ids"] == [] and entry["comparison_ids"] == []
+    dev = track.dev_study(tmp_path, name="d")
     code, payload, err = report(dev, tmp_path / "d.html")
     assert code == 0 and journal_of(dev) == []
 
 
-def test_the_exposure_section_states_that_earlier_exposure_is_unknown_and_names_every_check_informed_record(tmp_path):
-    study, revised = exposed_study(tmp_path)
+def test_the_exposure_section_states_that_earlier_exposure_is_unknown_and_names_every_check_informed_record(track, tmp_path):
+    study, revised = track.exposed_study(tmp_path)
     out = tmp_path / "page.html"
     code, payload, err = report(study, out, "--examples-dir", revised)
     assert code == 0, (payload, err)
@@ -552,10 +577,9 @@ def test_the_exposure_section_states_that_earlier_exposure_is_unknown_and_names_
     assert journal == {e["entry_id"] for e in journal_of(study)}
 
 
-def test_M_the_exposure_count_includes_the_entry_this_report_recorded(tmp_path):
-    study, attempts = fresh_study(tmp_path, "seasonal_7", partition="public_check")
-    code, payload, err = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
-    assert code == 0 and len(journal_of(study)) == 1
+def test_M_the_exposure_count_includes_the_entry_this_report_recorded(track, tmp_path):
+    study, _ = track.public_assessed(tmp_path)
+    assert len(journal_of(study)) == 1
     out = tmp_path / "page.html"
     code, payload, err = report(study, out)
     assert code == 0, (payload, err)
@@ -564,24 +588,7 @@ def test_M_the_exposure_count_includes_the_entry_this_report_recorded(tmp_path):
 
 
 def exposed_study(tmp_path, *, name="chapter"):
-    """A Bike Study with a freeze record, journal entries and one record of each kind marked check_informed (as chapter 12 builds it)."""
-    from _revision_helpers import new_revision
-
-    study, attempts = fresh_study(tmp_path / name, "seasonal_7", partition="public_check")
-    _, first, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
-    changed = examples_copy(tmp_path / name, edit=lambda d: d["configurations"]["ridge_v1"]["ridge"].update(alpha=2.5))
-    _, ridge, _ = run_ml(study, "ridge_v1", "public_check", "changed", "--examples-dir", changed)
-    _, second, _ = assess(study, observation_set_id(study, ridge["attempt"]), "regression_mae_v1", references_id(study), "--examples-dir", changed)
-    code, both, err = compare(study, first["assessment"]["assessment_id"], second["assessment"]["assessment_id"], "--examples-dir", changed)
-    assert code == 0, (both, err)
-
-    def corrected_day(table):
-        row = next(r for r in table if r["dteday"] == "2012-03-15")
-        row["cnt"], row["registered"] = str(int(row["cnt"]) + 1000), str(int(row["registered"]) + 1000)
-
-    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path / name, rows=corrected_day, name="revised"))
-    assert code == 0, (payload, err)
-    return study, tmp_path / name / "revised"
+    return TRACKS["bike"].exposed_study(tmp_path, name=name)
 
 
 def test_an_assessment_under_a_corrected_references_set_is_shown_with_its_revision_the_earlier_assessment_and_the_recorded_cause_and_the_earlier_one_stays(tmp_path):

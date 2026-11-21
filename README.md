@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` and `recover` show and repair a Study's local state, and `data verify` and `data fetch` check and acquire the public data against its lock. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. `report` renders one self-contained HTML page for a Bike Study from its records alone (a page that shows `public_check` Items is an Exposure); the tool-using agent Track's report comes next. The handbook chapters give each capability in detail.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere (a predictions CSV, agent answers, an Inspect log), `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` and `recover` show and repair a Study's local state, and `data verify` and `data fetch` check and acquire the public data against its lock. A Study holds one frozen Protocol per revision (`init --new-revision`), a freeze record and an Exposure journal for `public_check`. `report` renders one self-contained HTML page for a Bike or a Chinook Study from its records alone (a page that shows `public_check` Items is an Exposure; a scenario Attempt carries its banner at the top). The handbook chapters give each capability in detail.
 
 ## Install
 
@@ -28,7 +28,8 @@ uv run python -m hypotrail import agent --study runs/chinook --source answers.js
 uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
 uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]   # two agent Assessments
-uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study; a Bike Study for now
+uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study
+uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html    # the same page for a Chinook Study
 uv run python -m hypotrail init --study runs/chinook --new-revision    # after a corrected References file in the Workload
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal and the check_informed marks too
 ```

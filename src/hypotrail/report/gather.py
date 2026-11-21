@@ -13,6 +13,7 @@ from hypotrail.core import study as layout
 
 PUBLIC_CHECK = "public_check"
 REGRESSION = "regression"
+AGENTIC = "agentic"
 TOP_ERRORS = 10
 
 
@@ -43,7 +44,7 @@ class Reader:
         return self._seen[key]
 
 
-def _observation_set(reader: Reader, manifest: dict):
+def observation_set_of(reader: Reader, manifest: dict):
     ref = next((r for r in manifest.get("output_refs", []) if r["role"] == "observation_set"), None)
     if ref is None:
         return None
@@ -69,22 +70,14 @@ def partition_of(manifest: dict, observation_set):
     return manifest["effective_config"].get("partition")
 
 
-def load(study) -> dict:
-    """The model of the page: every record of the Study the page shows, verified, in a fixed order."""
-    spec = layout.read_spec(study)
-    layout.require_domain(spec, REGRESSION, "report")
-    reader = Reader(study)
-    for ref in [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]:
-        reader.bytes_of(ref)
-    memberships_ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
-    memberships = {row["row_id"]: row for row in _rows(reader.bytes_of(memberships_ref))}
-
+def attempts_of(study, reader: Reader) -> list:
+    """Every Attempt of the Study with its Observation set, in a fixed order; every artifact it references is read back against its digest."""
     attempts = []
     for attempt_id in layout.attempt_ids(study):
         manifest = layout.read_manifest(study, attempt_id)
         for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
             reader.bytes_of(ref)
-        observation_set = _observation_set(reader, manifest)
+        observation_set = observation_set_of(reader, manifest)
         attempts.append(
             {
                 "manifest": manifest,
@@ -94,6 +87,36 @@ def load(study) -> dict:
             }
         )
     attempts.sort(key=lambda a: (a["manifest"]["started_at"], a["manifest"]["attempt_id"]))
+    return attempts
+
+
+def comparisons_of(study, reader: Reader) -> list:
+    comparisons = []
+    for record in layout.comparison_records(study):
+        for ref in (record["population_ref"], record.get("paired_deltas_ref"), record.get("matrix_ref")):
+            if ref is not None:
+                reader.bytes_of(ref)
+        comparisons.append(record)
+    return comparisons
+
+
+def load(study) -> dict:
+    """The model of the page: every record of the Study the page shows, verified, in a fixed order."""
+    spec = layout.read_spec(study)
+    reader = Reader(study)
+    for ref in [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]:
+        reader.bytes_of(ref)
+    if spec["domain"] == AGENTIC:
+        from hypotrail.report import gather_agent
+
+        return gather_agent.load(study, spec, reader)
+    return _load_regression(study, spec, reader)
+
+
+def _load_regression(study, spec: dict, reader: Reader) -> dict:
+    memberships_ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
+    memberships = {row["row_id"]: row for row in _rows(reader.bytes_of(memberships_ref))}
+    attempts = attempts_of(study, reader)
     by_observation_set = {a["observation_set"]["observation_set_id"]: a for a in attempts if a["observation_set"] is not None}
 
     assessments = []
@@ -112,19 +135,14 @@ def load(study) -> dict:
         )
     assessments.sort(key=lambda a: (a["record"].get("recorded_at", ""), a["record"]["assessment_id"]))
 
-    comparisons = []
-    for record in layout.comparison_records(study):
-        for ref in (record["population_ref"], record["paired_deltas_ref"]):
-            reader.bytes_of(ref)
-        comparisons.append(record)
-
     return {
+        "domain": REGRESSION,
         "spec": spec,
         "revision_number": revisions.revision_number(spec),
         "memberships": memberships,
         "attempts": attempts,
         "assessments": assessments,
-        "comparisons": comparisons,
+        "comparisons": comparisons_of(study, reader),
         "exposure": exposure_of(study),
     }
 

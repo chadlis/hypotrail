@@ -16,7 +16,16 @@ from hypotrail.core import artifacts, canonical, contracts
 
 
 def report(study, out, *more):
-    return run_json("report", "--study", study, "--out", out, *more)
+    """Run `report`; every page the suite renders is checked for the milestone status it must not state (#86 Tightened F)."""
+    code, payload, err = run_json("report", "--study", study, "--out", out, *more)
+    if code == 0:
+        assert_no_milestone_status(Path(out).read_text(encoding="utf-8"))
+    return code, payload, err
+
+
+def assert_no_milestone_status(raw: str) -> None:
+    """A per-Study page states no milestone status: `LIVE_ACCEPTED` and the live acceptance status are for the grid and the README (D-017 item 7)."""
+    assert "LIVE_ACCEPTED" not in raw and "live acceptance" not in raw.lower(), "a per-Study page states a milestone status"
 
 
 class Doc(HTMLParser):
@@ -25,13 +34,17 @@ class Doc(HTMLParser):
     def __init__(self, text):
         super().__init__()
         self.elements, self.text_pieces, self.tables, self.sections, self.style = [], [], {}, [], ""
-        self._table, self._row, self._cell, self._section, self._in = None, None, None, None, []
+        self.scoped = {}  # {data-attempt-id: the text pieces of every element marked with it}
+        self._table, self._row, self._cell, self._section, self._in, self._scopes = None, None, None, None, [], []
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         self.elements.append((tag, attrs))
         self._in.append(tag)
+        self._scopes.append(attrs.get("data-attempt-id"))
+        if attrs.get("data-attempt-id"):
+            self.scoped.setdefault(attrs["data-attempt-id"], [])
         if tag == "section":
             self._section = {"id": attrs.get("id"), "headings": []}
             self.sections.append(self._section)
@@ -41,15 +54,18 @@ class Doc(HTMLParser):
             self._row = []
             self._table.append(self._row)
         elif tag in ("td", "th") and self._row is not None:
-            self._cell = {"text": "", "links": []}
+            self._cell = {"text": "", "links": [], "pieces": [], "lines": [""]}
             self._row.append(self._cell)
         elif tag == "a" and self._cell is not None and "href" in attrs:
             self._cell["links"].append(attrs["href"])
+        if tag == "div" and self._cell is not None:
+            self._cell["lines"].append("")
 
     def handle_endtag(self, tag):
         if tag in self._in:
             while self._in and self._in.pop() != tag:
-                pass
+                self._scopes.pop()
+            self._scopes.pop()
         if tag in ("td", "th"):
             self._cell = None
         elif tag == "tr":
@@ -62,8 +78,12 @@ class Doc(HTMLParser):
             self.style += data
             return
         self.text_pieces.append(data)
+        for scope in {s for s in self._scopes if s}:
+            self.scoped[scope].append(data)
         if self._cell is not None:
             self._cell["text"] += data
+            self._cell["pieces"].append(data)
+            self._cell["lines"][-1] += data
         if self._in and self._in[-1] == "h2" and self._section is not None:
             self._section["headings"].append(data)
 
@@ -77,6 +97,13 @@ class Doc(HTMLParser):
 
     def body(self, table_id):
         return self.rows(table_id)[1:]
+
+    def cells(self, table_id):
+        """The table's body as lists of cells, each `{"text", "links", "pieces"}`."""
+        return self.tables[table_id][1:]
+
+    def scope_text(self, attempt_id) -> str:
+        return " ".join(" ".join(self.scoped.get(attempt_id, [])).split())
 
 
 def doc_of(out) -> Doc:
@@ -176,3 +203,8 @@ def freeze_files(study) -> list:
 
 def tree(folder) -> dict:
     return {p.relative_to(folder).as_posix(): sha_of(p) for p in sorted(Path(folder).rglob("*")) if p.is_file()}
+
+
+def lines_of(cell) -> list:
+    """The lines of a table cell, one per element the page wrote for it, empty ones dropped."""
+    return [" ".join(line.split()) for line in cell["lines"] if line.strip()]

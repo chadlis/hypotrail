@@ -2416,12 +2416,10 @@ def test_the_report_refusal_table_equals_the_code_exit_stage_and_details_of_each
     out = tmp_path / "out.html"
     dev, _ = fresh_study(tmp_path / "dev", "seasonal_7")
     public, _ = fresh_study(tmp_path / "public", "seasonal_7", partition="public_check")
-    chinook, _ = init_chinook(tmp_path / "chinook")
     tampered, _ = fresh_study(tmp_path / "tampered", "seasonal_7")
     (tampered / "datasets" / "day.csv").write_bytes((tampered / "datasets" / "day.csv").read_bytes() + b"\n")
     refusals = {
         "STUDY_NOT_FOUND": [report(tmp_path / "nothing", out)],
-        "UNSUPPORTED_CAPABILITY": [report(chinook, out)],
         "REPORT_OUTPUT_INVALID": [report(dev, dev / "r.html"), report(dev, tmp_path), report(dev, tmp_path / "no-folder" / "r.html")],
         "ARTIFACT_INTEGRITY": [report(tampered, out)],
         "PROTOCOL_CHANGED": [report(public, out, "--examples-dir", examples_copy(tmp_path, rows=lambda t: t[0].update(cnt=str(int(t[0]["cnt"]) + 1))))],
@@ -2429,7 +2427,9 @@ def test_the_report_refusal_table_equals_the_code_exit_stage_and_details_of_each
     with lock.writer_lock(public):
         refusals["STUDY_LOCKED"] = [report(public, out)]
     rows = attrs_of(page, "report-refusals", "data-code")
-    assert set(rows) == set(refusals)
+    assert set(rows) == set(refusals)  # a Study of either Track is reported: no refusal names a Track any more
+    chinook, _ = init_chinook(tmp_path / "chinook")
+    assert report(chinook, tmp_path / "chinook.html")[0] == 0
     for code, cases in refusals.items():
         for status, payload, _ in cases:
             error, row = payload["error"], rows[code]
@@ -2445,6 +2445,78 @@ def test_the_readme_and_chapters_05_and_12_say_a_report_exists():
     for name in ("05-assessments.html", "12-freeze-and-exposure.html"):
         text = (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
         assert 'href="#report"' in text and "nothing summarises them yet" not in text and "are issue #10" not in text, name
+
+
+def _chinook_page(tmp_path):
+    """(page document, Attempt of a native llm_live execution, the cell lines of one matrix cell) of a Chinook Study rendered by `report`."""
+    from _chinook_helpers import init_chinook
+    from _report_helpers import doc_of, lines_of, report
+    from _run_agent_helpers import ok, patch_model
+    from _run_agent_helpers import live as live_through_mock
+
+    study, _ = init_chinook(tmp_path)
+    with pytest.MonkeyPatch.context() as mp:
+        patch_model(mp)
+        attempt = ok(live_through_mock(study, "plain", "live", cases=["D03"], repeats=1))
+    from _agent_compare_helpers import assess, observation_set_of
+
+    assessment = assess(study, observation_set_of(study, attempt))
+    out = tmp_path / "page.html"
+    assert report(study, out)[0] == 0
+    doc = doc_of(out)
+    cell = doc.cells(f"matrix-{assessment['assessment_id']}")[0][1]
+    return doc, attempt, lines_of(cell)
+
+
+def test_the_report_matrix_cell_table_equals_the_lines_the_code_writes_for_a_cell_and_the_criteria_it_renders(page, tmp_path):
+    from hypotrail.core.chinook_contract import CRITERIA
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-matrix-cell", "data-line")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.CELL_LINES
+    assert tuple(key for key in ordered if key in CRITERIA) == CRITERIA
+    _, _, lines = _chinook_page(tmp_path)
+    rendered = [line.split(":")[0] for line in lines]
+    assert [name for name in rendered if name in CRITERIA] == list(CRITERIA)  # the cell of a real page holds these Criteria, in this order
+    assert rendered[1] == "Execution" and rendered[-1] == "Trace" and lines[0].startswith("Case ")
+
+
+def test_the_report_counter_columns_table_equals_the_columns_the_code_writes_per_criterion(page, tmp_path):
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-criteria-columns", "data-column")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.CRITERIA_COLUMNS
+    doc, _, _ = _chinook_page(tmp_path)
+    [name] = [t for t in doc.tables if t.startswith("criteria-")]
+    assert tuple(c["text"] for c in doc.tables[name][0]) == render_agent.CRITERIA_COLUMNS
+
+
+def test_the_report_live_fields_table_equals_the_rows_the_code_writes_for_a_live_attempt_and_the_banner_is_quoted(page, tmp_path):
+    from hypotrail.agentic import fixture
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-live-fields", "data-field")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.LIVE_FIELDS
+    doc, attempt, _ = _chinook_page(tmp_path)
+    shown = []
+    for name in (row[0] for row in doc.body(f"live-{attempt['attempt_id']}")):
+        name = "Limit note, <name>" if name.startswith("Limit note, ") else name
+        if name not in shown:
+            shown.append(name)
+    assert shown == list(render_agent.LIVE_FIELDS)
+    chapter = (HANDBOOK / "chapters" / "14-report.html").read_text(encoding="utf-8")
+    assert f'"{fixture.BANNER}"' in chapter and render_agent.SELF_CHECK_HEADING in chapter
+
+
+def test_the_readme_and_chapters_say_the_report_covers_both_tracks():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "a Bike Study for now" not in readme and "the tool-using agent Track's report comes next" not in readme
+    chapters = {name: (HANDBOOK / "chapters" / name).read_text(encoding="utf-8") for name in ("05-assessments.html", "12-freeze-and-exposure.html", "14-report.html")}
+    assert "<code>report</code> (Bike)" not in chapters["12-freeze-and-exposure.html"] and "A report for Bike Studies" not in chapters["12-freeze-and-exposure.html"]
+    assert "Bike Studies only" not in chapters["14-report.html"] and "the next ticket" not in chapters["14-report.html"]
 
 
 # --- chapter 15: data fetch (#22) -----------------------------------------------------------------------------------

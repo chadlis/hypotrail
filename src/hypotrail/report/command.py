@@ -2,8 +2,7 @@
 
 The order (nothing is written before the checks that precede it):
 
-1. the Study is read (`STUDY_NOT_FOUND`, exit 2, when there is none) and must be of the regression Track
-   (`UNSUPPORTED_CAPABILITY`, exit 2); `--out` must not be inside the Study, nor a directory, and its folder must exist
+1. the Study is read (`STUDY_NOT_FOUND`, exit 2, when there is none), of either Track; `--out` must not be inside the Study, nor a directory, and its folder must exist
    (`REPORT_OUTPUT_INVALID`, exit 2);
 2. the records are read, each artifact against its digest (`ARTIFACT_INTEGRITY`, exit 3);
 3. a page that shows `public_check` Items is an Exposure (GLOSSARY): under the Study's writer lock (`STUDY_LOCKED`,
@@ -66,7 +65,6 @@ def report(study, out, *, live_basis=None) -> dict:
     """
     study, out = Path(study), Path(out)
     spec = layout.read_spec(study)
-    layout.require_domain(spec, gather.REGRESSION, "report")
     check_output(study, out)
     model = gather.load(study)
     shown = gather.touched(model)
