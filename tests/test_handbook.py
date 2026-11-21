@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import html
 import importlib.util
 import json
 import re
@@ -2638,9 +2639,20 @@ def same_command(written, recorded):
     return len(words) == len(filled) and all(re.fullmatch(r"[A-Z]+(?:_[A-Z]+)*_ID", word) or word == token for word, token in zip(words, filled))
 
 
-def walk_problems(steps, path):
-    """What is wrong with a walk record against the README's path; an empty list when it holds."""
-    problems = []
+def walk_removed_commands(text=None):
+    """The commands the record names as removed from the README's path after the walk (`<code data-removed-command>`)."""
+    page = WALK.read_text(encoding="utf-8") if text is None else text
+    return [html.unescape(command) for command in re.findall(r"<code data-removed-command>(.*?)</code>", page, re.S)]
+
+
+def walk_problems(steps, path, removed=None):
+    """What is wrong with a walk record against the README's path; an empty list when it holds.
+
+    A recorded README command that is no longer in the path is accepted only when the record names it as removed
+    (`removed`, by default read from the record); a command that is in the path is never excused.
+    """
+    removed = walk_removed_commands() if removed is None else removed
+    problems = [f"the removed command is still in the README path: {command}" for command in removed if command in path]
     paid = [command for command in path if "--mode llm_live" in command]
     ran = [command for command in path if command not in paid]
     not_run = [step for step in steps if step["kind"] == "not-run"]
@@ -2649,6 +2661,7 @@ def walk_problems(steps, path):
     if any(step["exit"] is not None or step["output"] is not None for step in not_run):
         problems.append("a command listed as not run carries an exit code or an output")
     recorded = [step["command"] for step in steps if step["kind"] == "readme"]
+    recorded = [command for command in recorded if not any(same_command(written, command) for written in removed)]  # named as removed by the record
     if len(recorded) != len(ran) or not all(same_command(written, command) for written, command in zip(ran, recorded)):
         problems.append("the recorded README commands, in order, are not the commands of the README's path")
     for index, step in enumerate(steps):
@@ -2711,18 +2724,36 @@ def test_the_t24_walk_record_is_light_only_on_the_charter_tokens_it_uses_with_no
     assert {"--bg", "--ink", "--ink2", "--line", "--gold"} <= set(declared)
 
 
-def test_the_readme_chinook_compare_line_says_what_its_own_path_gives_and_the_walk_record_names_the_correction():
-    # 10-R1-04, #87 C5: the walk saw that line refused (D7, COMPARISON_POPULATION_DIFFERS, exit 3). The line's command is unchanged
-    # (the walk ran it, and walk_problems ignores comments); its comment now says so, and the record names the correction as made after the walk.
+def test_the_readme_path_carries_no_command_it_says_is_refused_and_the_walk_record_names_the_removed_command_as_a_correction():
+    # 10-R1-04, #87 C5: the walk saw the Chinook `compare` line refused (D7, COMPARISON_POPULATION_DIFFERS, exit 3). The README moves it out
+    # of the code block into a sentence; the record names the removal as a correction made after the walk, and marks D7's old wording.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    line = next(line for line in readme.splitlines() if "compare --study runs/chinook" in line)
-    comment = line.split("#", 1)[1]
-    assert "COMPARISON_POPULATION_DIFFERS" in comment and "exit 3" in comment and "same Cases" in comment
-    assert "compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]" in line
-    corrections = re.search(r'<h2 id="corrections">.*?(?=<h2 )', WALK.read_text(encoding="utf-8"), re.S)[0]
+    block, after = readme.split("```")[1], readme.split("```", 2)[2]
+    assert "compare --study runs/chinook" not in block and "COMPARISON_POPULATION_DIFFERS" not in block
+    sentence = next(part for part in re.split(r"\n\n", after) if "compare --study runs/chinook" in part)
+    assert "same Cases" in sentence and "`plain`" in sentence and "`verify`" in sentence and "makes none" in sentence
+    page = WALK.read_text(encoding="utf-8")
+    corrections = re.search(r'<h2 id="corrections">.*?(?=<h2 )', page, re.S)[0]
     assert 'data-corrections="none"' not in corrections
-    assert "10-R1-04" in corrections and "after the walk" in corrections and "D7" in corrections
-    assert walk_problems(walk_steps(), readme_path()) == []  # the comment change leaves the README path the walk recorded
+    assert "10-R1-04" in corrections and "after the walk" in corrections and "D7" in corrections and "removed" in corrections
+    removed = walk_removed_commands()
+    assert len(removed) == 1 and removed[0].startswith("uv run python -m hypotrail compare --study runs/chinook ")
+    assert any(same_command(removed[0], step["command"]) for step in walk_steps() if step["kind"] == "readme")  # the walk did run it
+    d7 = re.search(r'<li data-difficulty="D7">.*?</li>', page, re.S)[0]
+    assert "wording before the correction" in d7
+    assert walk_problems(walk_steps(), readme_path()) == []
+
+
+def test_the_walk_check_excuses_a_missing_readme_command_only_when_the_record_names_it_as_removed():
+    # #87 B stays strict: it ignores no README command in general.
+    steps, path = walk_steps(), readme_path()
+    removed = walk_removed_commands()
+    assert walk_problems(steps, path, removed=[]) != []  # the record would not name the Chinook compare: the check fails
+    status = next(command for command in path if " status " in command)
+    shorter = [command for command in path if command != status]
+    assert walk_problems(steps, shorter) != []  # another command missing from the README, not named by the record
+    assert walk_problems(steps, path + removed) != []  # a command the record names as removed that is back in the path
+    assert walk_problems(steps, path, removed=removed) == []
 
 
 def test_the_walk_record_hands_difficulty_d3_back_to_issue_89_in_plain_text_without_a_closing_keyword():
