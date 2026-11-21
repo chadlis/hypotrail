@@ -302,11 +302,13 @@ A review of record reads one slice's diff. Drift across slices (parallel modules
 A pending architecture review comes before « Picking the slice ».
 
 **Steps.**
-1. **Reading.** A fresh `slice-gate` reads and follows `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering/improve-codebase-architecture/SKILL.md` up to its report, on `src/`, `tests/`, `GLOSSARY.md` and `docs/adr/` at `main`'s head. It stops before the grilling step. Its prompt names no candidate.
-   - It returns candidates. Each names its files, the problem in the vocabulary of `mattpocock-skills:codebase-design`, the proposed change, its cost, and whether a test can enforce the rule.
-   - Done when every module under `src/` has been read and named in the report.
-2. **Evidence.** Check each candidate's premise with one command, as under "Routing findings". A candidate the command contradicts goes back to the reader.
-3. **Record.** One issue, label `needs-triage`, lists the candidates with their evidence. This review's reading and decisions are recorded on that issue and on #75, not on a slice issue.
+1. **Two readings, in parallel.** Each is a fresh `slice-gate`, reading `src/`, `tests/`, `GLOSSARY.md` and `docs/adr/` at `main`'s head. Neither prompt names a candidate, and neither reader sees the other's report.
+   - **Depth.** The first reader follows `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering/improve-codebase-architecture/SKILL.md` up to its HTML report, and stops before the grilling step. Its candidates are named in the vocabulary of `mattpocock-skills:codebase-design`.
+   - **Coherence.** The second reader applies the Standards brief and the smell baseline of `mattpocock-skills:code-review`, using that skill's text, to the whole tree instead of a diff. It looks for parallel modules that diverge, a rule written in several places, and one change scattered across many files.
+   - Each candidate names its files, the problem, the proposed change, its cost, and whether a test can enforce the rule.
+   - **Done** when every module under `src/` has been read and is named in each report.
+2. **Evidence.** Check each candidate's premise with one command, as under "Routing findings". A candidate the command contradicts goes back to its reader.
+3. **Record.** One issue, label `needs-triage`, lists the candidates of both readings with their evidence and which reading raised each. Both reports are posted on it word for word, split as under the review of record when one exceeds a comment. Publish the depth reader's HTML report as an artifact and give Salah its link. This review's readings and decisions are recorded on that issue and on #75, not on a slice issue.
 4. **Choice.** The `owner-proxy` stands in for the grilling. It picks which candidates to do now, later or never, in one decision-log entry, with a sealed drive choice posted first.
    - A candidate that changes a public contract (a command's output, a refusal, a record format) is a product decision, not a refactoring. It goes to the owner-decision gate.
 5. **Refactoring slice.** The candidates picked for now become one slice under the current milestone, driven like any other: tickets, ticket gate, build, review of record, merge.
