@@ -3236,6 +3236,8 @@ def test_T20_is_proven_by_the_kept_campaign_and_its_row_cites_the_spike_report_a
     text = plain_text(chapter_16())
     assert 'href="#feasibility-spike"' in chapter_16()
     assert "docs/handbook/traces/live-spike" in text and "docs/handbook/traces/run-agent-live-plain" in text
+    assert "does not really test the join" not in text and "LEFT JOIN" not in text  # 93-R1-06: the critique stays in the inspection comment on #93
+    assert "7057388641" in text  # and the row still names that comment
 
 
 def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_count_is_off_or_an_Attempt_failed_whole(tmp_path):
