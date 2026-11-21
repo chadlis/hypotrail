@@ -33,7 +33,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 | step | agent type | model |
 |---|---|---|
 | 2 tickets, 10 retro | `slice-planner` | opus |
-| 3 ticket gate, pre-run gate, 5 review axes | `slice-gate` | opus |
+| 3 ticket gate, pre-run gate, 5 review axes, architecture review | `slice-gate` | opus |
 | 4 implementation and product docs, 6 fixes, 7 learning notes | `slice-builder` | sonnet |
 | owner decisions under the autonomous protocol | `owner-proxy`, fresh each time | fable |
 
@@ -290,6 +290,30 @@ With `/drive #n`, the slice is `#n`. With a bare `/drive`:
 3. If no slice is startable, the run ends: say which slices are open and what blocks each. This is not a STOP.
 
 Announce the pick in an EXÉCUTION turn: « je prends #n (<titre>), parce que <raison> ; pour une autre : `/drive #m` ». Never ask him to choose. Picking by size or by what looks easiest is not a reason.
+
+## Architecture review (owner decision, 2026-11-21)
+
+A review of record reads one slice's diff. Drift across slices (parallel modules that diverge, one change scattered over many files, a check written three times) is read by a separate **architecture review** of the whole codebase.
+
+**When.** Between slices, never inside one, at these points:
+- at every milestone boundary, before the first slice of the next milestone starts;
+- once more after L2.1 (#104) merges.
+
+A pending architecture review comes before « Picking the slice ».
+
+**Steps.**
+1. **Reading.** A fresh `slice-gate` reads and follows `~/.claude/plugins/cache/*/mattpocock-skills/*/skills/engineering/improve-codebase-architecture/SKILL.md` up to its report, on `src/`, `tests/`, `GLOSSARY.md` and `docs/adr/` at `main`'s head. It stops before the grilling step. Its prompt names no candidate.
+   - It returns candidates. Each names its files, the problem in the vocabulary of `mattpocock-skills:codebase-design`, the proposed change, its cost, and whether a test can enforce the rule.
+   - Done when every module under `src/` has been read and named in the report.
+2. **Evidence.** Check each candidate's premise with one command, as under "Routing findings". A candidate the command contradicts goes back to the reader.
+3. **Record.** One issue, label `needs-triage`, lists the candidates with their evidence. This review's reading and decisions are recorded on that issue and on #75, not on a slice issue.
+4. **Choice.** The `owner-proxy` stands in for the grilling. It picks which candidates to do now, later or never, in one decision-log entry, with a sealed drive choice posted first.
+   - A candidate that changes a public contract (a command's output, a refusal, a record format) is a product decision, not a refactoring. It goes to the owner-decision gate.
+5. **Refactoring slice.** The candidates picked for now become one slice under the current milestone, driven like any other: tickets, ticket gate, build, review of record, merge.
+   - Its tickets state that behaviour is unchanged. The full existing suite is the witness.
+6. **Fitness tests.** A rule that a test can enforce (an import boundary, one check order shared by every writer, a duplication bound) becomes a test in `tests/test_architecture.py`. It is shown red once on a planted violation. The architecture is then checked on every commit, not only at the next review.
+
+**Bounds.** No paid live run. At most one refactoring slice per review. The review's counters go into the state comment of the next slice.
 
 ## Preflight: before step 0 and on every resume
 
