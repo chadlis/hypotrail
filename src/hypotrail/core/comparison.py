@@ -36,7 +36,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -226,7 +226,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             stage=STAGE,
             details={"factor": factor, "study_domain": spec["domain"]},
         )
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "compare"):
         return _compare_locked(study, control_id, candidate_id, factor, live_basis)
 
 
@@ -362,7 +362,9 @@ def _compare_locked(study: Path, control_id: str, candidate_id: str, factor: str
         "count": len(row_ids),
         "row_ids": row_ids,
     }
+    write_journal.begin()  # a Comparison of dev Items writes nothing before this; an Exposure began the command already
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
+    write_journal.wrote("comparison", comparison_id)
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
     writer.writerow(PAIRED_COLUMNS)

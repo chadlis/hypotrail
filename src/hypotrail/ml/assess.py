@@ -31,7 +31,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, rescoring, revisions, scorers, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.partitions import requires_exposure
@@ -120,7 +120,7 @@ def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: 
     """
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "assess"):
         return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
 
 
@@ -233,6 +233,8 @@ def _assess_locked(study: Path, observation_set_id: str, scorer_id: str, referen
         ),
     }
     contracts.validate(record)
+    write_journal.begin()  # a dev Assessment writes nothing before this; an Exposure began the command already
     artifacts.publish_bytes(study, per_item_ref["path"], per_item, media_type="text/csv", role="per_item")
+    write_journal.wrote("assessment", assessment_id)
     artifacts.publish_record(study, f"{folder}/assessment.json", record, role="assessment")
     return record

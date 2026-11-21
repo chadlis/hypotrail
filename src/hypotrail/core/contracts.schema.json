@@ -1181,6 +1181,83 @@
       ],
       "additionalProperties": false
     },
+    "WriteJournalBegin": {
+      "type": "object",
+      "description": "The entry a command appends to the write journal just before its first write (chadlis/hypotrail#107).",
+      "properties": {
+        "phase": {
+          "const": "begin"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "phase",
+        "command",
+        "request_id"
+      ],
+      "additionalProperties": false
+    },
+    "WriteJournalEnd": {
+      "type": "object",
+      "description": "The entry a command appends to the write journal after its last write. `outcome` may gain values: a reader does not treat `completed`, `refused` and `failed` as closed.",
+      "properties": {
+        "phase": {
+          "const": "end"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "minLength": 1
+        },
+        "written": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "phase",
+        "command",
+        "request_id",
+        "outcome",
+        "written"
+      ],
+      "additionalProperties": false
+    },
     "ExposureEntry": {
       "type": "object",
       "properties": {
@@ -1306,6 +1383,12 @@
     },
     {
       "$ref": "#/$defs/ExposureEntry"
+    },
+    {
+      "$ref": "#/$defs/WriteJournalBegin"
+    },
+    {
+      "$ref": "#/$defs/WriteJournalEnd"
     }
   ]
 }

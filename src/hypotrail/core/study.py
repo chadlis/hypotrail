@@ -18,6 +18,7 @@ DIR/
   comparisons/<comparison_id>/comparison.json     the Comparison record (written last)
   revisions/<n>/freeze.json          the freeze record of revision n, written before its first public_check use (core/exposure.py)
   exposures/<seq>-<entry_id>.json    one Exposure journal entry each, appended and never rewritten (core/exposure.py)
+  write_journal/<n>.json             one write journal entry each, appended and never rewritten (core/write_journal.py)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 

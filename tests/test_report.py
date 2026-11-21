@@ -538,7 +538,7 @@ def test_a_report_that_shows_public_check_items_records_the_freeze_record_then_o
     assert journal_of(first) == [] and freeze_files(first) == []
     roles = []
     real = exposure.artifacts.publish_record
-    monkeypatch.setattr(exposure.artifacts, "publish_record", lambda *a, **k: (roles.append(k["role"]), real(*a, **k))[1])
+    monkeypatch.setattr(exposure.artifacts, "publish_record", lambda *a, **k: (roles.append(k["role"]) if k["role"] != "write_journal" else None, real(*a, **k))[1])
     code, payload, err = report(first, tmp_path / "q.html")
     assert code == 0, (payload, err)
     assert roles == ["freeze", "exposure"]

@@ -698,6 +698,19 @@ def words(text):
     return set(text.split())
 
 
+JOURNAL_FILE = re.compile(r"^write_journal/[0-9]{6}\.json$")
+
+
+def generic_journal(path):
+    """The write journal's entries are one row of chapter 04's `study-layout`, whatever their position."""
+    return "write_journal/SEQ.json" if JOURNAL_FILE.match(path) else path
+
+
+def without_the_journal(paths):
+    """The files of a command, less the write journal's entries: they are listed once, in chapter 04's `study-layout` (chadlis/hypotrail#107)."""
+    return {path for path in paths if not JOURNAL_FILE.match(path)}
+
+
 def test_the_commands_table_equals_the_flags_the_parser_defines(page):
     from hypotrail.cli import build_parser
 
@@ -729,11 +742,11 @@ def test_the_layout_table_equals_the_files_init_and_run_ml_write(page, tmp_path)
     from _study_helpers import init_study, run_ml
 
     study, _ = init_study(tmp_path)
-    after_init = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    after_init = {generic_journal(p.relative_to(study).as_posix()) for p in study.rglob("*") if p.is_file()}
     _, seasonal, _ = run_ml(study, "seasonal_7", "dev", "a")
     _, ridge, _ = run_ml(study, "ridge_v1", "dev", "b")
     ids = {seasonal["attempt"]["attempt_id"], ridge["attempt"]["attempt_id"]}
-    everything = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    everything = {generic_journal(p.relative_to(study).as_posix()) for p in study.rglob("*") if p.is_file()}
     generic = set()
     for path in everything:
         for attempt_id in ids:
@@ -755,7 +768,50 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence"}
+
+
+def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
+    from _study_helpers import init_study, run_json
+
+    study, _ = init_study(tmp_path)
+    _, listing, _ = run_json("status", "--study", study)
+    assert set(attrs_of(page, "status-keys", "data-field")) == set(listing) - {"ok"}
+    assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
+
+
+def test_the_write_sequence_table_equals_the_commands_that_write_and_what_each_names(page, tmp_path):
+    from test_write_sequence import WRITERS, entries, seq
+
+    rows = attrs_of(page, "write-sequence-commands", "data-command")
+    assert set(rows) == set(WRITERS)  # every command that writes to a Study, each once
+    for number, (command, scenario) in enumerate(WRITERS.items()):
+        folder = tmp_path / f"w{number}"
+        folder.mkdir()
+        study, act = scenario(folder)
+        before, kept = seq(study), len(entries(study))
+        code, payload, err = act()
+        assert code == 0, (command, payload, err)
+        assert seq(study) - before == int(rows[command]["data-advances"]), command
+        added = entries(study)[kept:]
+        assert [e["command"] for e in added] == [command, command]
+        assert set(rows[command]["data-written"].split()) <= {item["kind"] for item in added[-1]["written"]}, command
+
+
+def test_chapter_04_says_where_the_write_sequence_is_kept_what_an_entry_holds_and_the_outcomes_the_code_gives(page):
+    from hypotrail.core import write_journal
+
+    chapter = (HANDBOOK / "chapters" / "04-study-and-attempts.html").read_text(encoding="utf-8")
+    assert f"<code>{write_journal.JOURNAL_DIR}/SEQ.json</code>" in chapter
+    for outcome in (write_journal.COMPLETED, write_journal.REFUSED, write_journal.FAILED):
+        assert f"<code>{outcome}</code>" in chapter, outcome
+    assert "may gain values" in chapter and "shows <code>write_sequence</code> 0" in chapter
+    assert "write_journal/SEQ.json" in attrs_of(page, "study-layout", "data-path")
+
+
+def test_the_readme_names_the_write_sequence_a_study_keeps():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "write sequence" in readme and "`status`" in readme
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -1062,6 +1118,7 @@ def test_the_import_layout_table_equals_the_files_an_import_writes(page, tmp_pat
         for p in study.rglob("*")
         if p.is_file()
     } - before
+    written = without_the_journal(written)
     rows = attrs_of(page, "import-layout", "data-path")
     assert set(rows) == written
     roles = {ref["path"].replace(attempt_id, "ATTEMPT_ID").replace(f"source/{source.name}", "source/NAME"): ref["role"]
@@ -1240,7 +1297,7 @@ def test_the_agent_study_layout_table_equals_the_files_init_writes_for_chinook(p
     from _chinook_helpers import init_chinook
 
     study, _ = init_chinook(tmp_path)
-    written = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    written = without_the_journal(p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file())
     rows = attrs_of(page, "agent-study-layout", "data-path")
     assert set(rows) == written
 
@@ -1517,7 +1574,7 @@ def _corrected_chinook_study(tmp_path, *, name="chapter-09", revisions=1):
 def test_the_revision_layout_table_equals_the_files_a_new_revision_writes(page, tmp_path):
     study, before, after = _corrected_chinook_study(tmp_path, revisions=2)
     generic = set()
-    for path in after - before:
+    for path in without_the_journal(after - before):
         path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
         generic.add(re.sub(r"-[0-9a-f]{16}\.", "-SHA16.", path))
     rows = attrs_of(page, "revision-layout", "data-path")
@@ -1779,7 +1836,7 @@ def test_the_exposure_layout_table_equals_the_files_an_exposure_writes(page, tmp
     before = set(snapshot_files(study))
     assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
     generic = set()
-    for path in set(snapshot_files(study)) - before:
+    for path in without_the_journal(set(snapshot_files(study)) - before):
         if path.startswith("assessments/"):
             continue  # an Assessment's own files are chapter 05's
         path = re.sub(r"^revisions/[0-9]+/", "revisions/N/", path)
@@ -3803,6 +3860,8 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "Delta": ("record", "comparison-parts"),
     "FreezeRecord": ("field", "freeze-fields", "freeze"),
     "ExposureEntry": ("field", "entry-fields", None),
+    "WriteJournalBegin": ("record", "write-journal-fields"),
+    "WriteJournalEnd": ("record", "write-journal-fields"),
 }
 
 

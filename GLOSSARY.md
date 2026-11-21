@@ -11,6 +11,10 @@ The folder-scoped record of one investigation of one Workload under one frozen P
 Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds successive revisions, and a Protocol change is a new revision inside the same Study (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: project, run folder, experiment
 
+**Write sequence**:
+The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes. Nothing else changes it, and `status --json` shows it as `write_sequence`.
+_Avoid_: revision
+
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
 _Avoid_: case (for this meaning), task type, family, pipeline

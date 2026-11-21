@@ -6,7 +6,8 @@ reached its terminal manifest included, each with the digest of its bytes) and w
 holds the Study; and every revision of the Study (`hypotrail.core.revisions`) with its Protocol digest and
 its Protocol artifacts; the freeze records, the Exposure journal and every `check_informed` mark
 (`hypotrail.core.exposure`). A Study with no journal entry reports zero Exposures recorded in this Study and
-says that any earlier exposure is unknown. It takes no lock and writes nothing.
+says that any earlier exposure is unknown. It shows the Study's write sequence, the number of entries of its write journal
+(`hypotrail.core.write_journal`), as the top-level key `write_sequence`. It takes no lock and writes nothing.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
 lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`
@@ -22,7 +23,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 import datetime
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, lock, revisions
+from hypotrail.core import artifacts, canonical, contracts, exposure, lock, revisions, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -123,6 +124,7 @@ def status(study) -> dict:
         "freeze_records": exposure.freeze_records(study),
         "exposures": exposure.summary(study),
         "check_informed": check_informed(study),
+        "write_sequence": write_journal.write_sequence(study),
     }
 
 
@@ -130,7 +132,7 @@ def recover(study, attempt_id: str) -> dict:
     """Record the Attempt `attempt_id`, running with no live writer, as interrupted; return its manifest."""
     study = Path(study)
     layout.read_spec(study)
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "recover"):
         if attempt_id not in layout.attempt_ids(study):
             raise InvalidInputError(
                 "ATTEMPT_NOT_FOUND",
@@ -149,5 +151,7 @@ def recover(study, attempt_id: str) -> dict:
             "outcome_unknown": manifest["outcome_unknown"] or manifest["mode"] in PROVIDER_MODES,
         }
         contracts.validate(interrupted)
+        write_journal.begin()
         artifacts.replace_bytes(study, layout.attempt_manifest_path(attempt_id), canonical.dumps(interrupted))
+        write_journal.wrote("attempt", attempt_id)
         return interrupted

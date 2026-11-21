@@ -15,7 +15,7 @@ import os
 import uuid
 from pathlib import Path
 
-from hypotrail.core import exposure, lock
+from hypotrail.core import exposure, lock, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.report import gather, render
@@ -71,7 +71,7 @@ def report(study, out, *, live_basis=None) -> dict:
     entry = None
     links = render.Links(study, out)
     if any(shown.values()):
-        with lock.writer_lock(study):
+        with lock.writer_lock(study), write_journal.writing(study, "report"):
             model = gather.load(study)  # again, under the lock: what the page shows is what the entry names
             shown = gather.touched(model)
             entry = exposure.record(

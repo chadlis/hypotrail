@@ -21,7 +21,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -142,6 +142,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
     )
     if previous is not None:
         revisions.refuse_unchanged(previous, canonical.digest(protocol))
+    write_journal.begin()  # the first write of `init` and of `init --new-revision`
     before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
     dataset, _ = revisions.place(
         study,
@@ -182,6 +183,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
         artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
     else:
         revisions.publish(study, previous, spec)
+    write_journal.wrote("revision", spec["revision"])
     return spec
 
 
@@ -207,7 +209,7 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     require_keys(declaration, "data_file", "question", "objective", "limitations")
 
     study.mkdir(parents=True, exist_ok=True)
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "init"):
         if (study / STUDY_FILE).exists():
             raise _exists(study)
         return _write_spec(study, workload, source, declaration, None)
@@ -221,7 +223,7 @@ def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
     """
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, "init --new-revision"):
         previous = layout.read_spec(study)
         layout.require_domain(previous, DOMAIN, "init --new-revision")
         examples = data.resolve_examples_dir(examples_dir)

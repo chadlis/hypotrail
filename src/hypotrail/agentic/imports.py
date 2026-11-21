@@ -44,7 +44,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
+from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
@@ -442,7 +442,7 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if is_log(source):
         require_inspect()  # before the lock, and before anything is read or written
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
         return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir)
 
 
@@ -541,6 +541,8 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
         "retry_of": None,
     }
     contracts.validate(manifest)
+    write_journal.begin()  # the running manifest is the first write
+    write_journal.attempt(attempt_id)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
     try:
         original = Path(source).name or "source.jsonl"

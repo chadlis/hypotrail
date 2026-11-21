@@ -37,7 +37,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests
+from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.ml.declaration import load_declaration
@@ -296,7 +296,7 @@ def import_ml(
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study):
+    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
         return _import_locked(study, Path(source), Path(mapping), Path(population), request_id, examples_dir=examples_dir)
 
 
@@ -401,6 +401,8 @@ def _import_locked(study, source, mapping_path, population_path, request_id, *, 
         "retry_of": None,
     }
     contracts.validate(manifest)
+    write_journal.begin()  # the running manifest is the first write
+    write_journal.attempt(attempt_id)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
     try:
         original = Path(source).name or "source.csv"

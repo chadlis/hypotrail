@@ -486,6 +486,8 @@ KILL = textwrap.dedent(
     real = os.replace
 
     def counting_replace(source, target, *args, **kwargs):
+        if "write_journal" in str(target):  # the write journal's entries are not publications of the Attempt
+            return real(source, target, *args, **kwargs)
         replaced[0] += 1
         if replaced[0] == kill_at:
             os._exit(9)  # the writing process dies at this publication
