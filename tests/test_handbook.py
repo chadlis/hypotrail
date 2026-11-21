@@ -768,7 +768,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -778,6 +778,7 @@ def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_name
     _, listing, _ = run_json("status", "--study", study)
     assert set(attrs_of(page, "status-keys", "data-field")) == set(listing) - {"ok"}
     assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
+    assert "decisions" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#110: the decision history
 
 
 def test_the_write_sequence_table_equals_the_commands_that_write_and_what_each_names(page, tmp_path):
@@ -4185,3 +4186,76 @@ def test_the_readme_names_decide_in_its_status_and_gives_its_command_after_the_w
     sentence = next(part for part in re.split(r"\n\n", after) if "`decide` records one decision" in part)
     for flag in ("--study", "--question", "--option", "--author", "--artifact", "--request-id", "--read-sequence"):
         assert flag in sentence, flag
+
+
+# --- #110: the decision history in `status --json` (chapter 17) ---------------------------------------------------------------------------
+
+
+def _history(tmp_path, name="chapter-17-history"):
+    """(the rows `status --json` lists, the reasons they hold) for a Study with one decision of each kind of reason, and one that applies."""
+    from _assess_helpers import assess, observation_set_id, references_id
+    from _study_helpers import examples_copy, init_study, run_json, run_ml
+    from _revision_helpers import new_revision
+
+    def corrected_day(table):
+        row = next(r for r in table if r["dteday"] == "2012-03-15")
+        row["cnt"], row["registered"] = str(int(row["cnt"]) + 1000), str(int(row["registered"]) + 1000)
+
+    study, _ = init_study(tmp_path, name=name)
+    _, run, _ = run_ml(study, "seasonal_7", "dev", "held")
+    attempt = run["attempt"]
+    observations, references = observation_set_id(study, attempt), references_id(study)
+    _, first, _ = assess(study, observations, "regression_mae_v1", references)
+
+    def decide(request_id, cited):
+        flags = ["--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "human", "--request-id", request_id]
+        sequence = run_json("status", "--study", study)[1]["write_sequence"]
+        code, payload, err = run_json("decide", *flags, "--read-sequence", sequence, *[x for each in cited for x in ("--artifact", each)])
+        assert code == 0, (payload, err)
+        return payload["decision"]
+
+    on_an_attempt = decide("d-1", [attempt["attempt_id"]])
+    decide("d-2", [first["assessment"]["assessment_id"]])
+    decide("d-3", [on_an_attempt["decision_id"]])
+    code, again, err = assess(study, observations, "regression_mae_v1", references)
+    assert code == 0, (again, err)  # d-2 is superseded
+    next(p for p in (study / "decisions").glob(f"*-{on_an_attempt['decision_id']}.json")).unlink()  # d-3 cites an id no longer held
+    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"))
+    assert code == 0, (payload, err)  # every decision made before it is outdated for the revision
+    listing = run_json("status", "--study", study)[1]
+    assert "decisions" in listing, "status --json lists no decisions"
+    rows = listing["decisions"]
+    return rows, {reason["reason"] for row in rows for reason in row["reasons"]}
+
+
+def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decision(page, tmp_path):
+    from hypotrail.core import contracts
+
+    rows, _ = _history(tmp_path)
+    keys = set(attrs_of(page, "decision-history-keys", "data-field"))
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons"}
+    assert all(set(row) == keys for row in rows)
+
+
+def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+    rows, reasons = _history(tmp_path)
+    table = attrs_of(page, "decision-reasons", "data-reason")
+    assert set(table) == reasons == {"cited_id_not_held", "revision_changed", "assessment_superseded"}
+    assert {tuple(sorted(reason)) for row in rows for reason in row["reasons"]} == {("id", "reason")}
+
+
+def test_chapter_17_gives_the_rule_of_still_applies_in_words_and_says_status_lists_the_decisions():
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
+    assert "A decision no longer applies when" in chapter
+    for part in ("a cited id is no longer held by the Study", "differs from the revision its record stores", "a later Assessment of the same Observation set and the same Scorer id"):
+        assert part in chapter, part
+    assert "never stored" in chapter and "any version" in chapter and "write journal" in chapter
+    assert "later decision on the same question" in chapter
+    assert "does not list decisions yet" not in chapter and "does not list the decisions" not in chapter
+    assert "Decisions: 4 recorded, 1 no longer applies" in chapter
+
+
+def test_the_readme_names_the_decision_history_in_the_status_command():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    line = next(l for l in readme.splitlines() if "hypotrail status --study" in l)
+    assert "decisions" in line and "still applies" in line

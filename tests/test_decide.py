@@ -190,9 +190,10 @@ def test_a_decision_record_with_a_wrong_value_or_an_extra_field_is_refused_with_
 def test_a_decision_file_that_no_longer_matches_the_contract_is_refused_when_it_is_read(study):
     first = made(study)
     [file] = decision_files(study)
+    sequence = seq(study)  # `status` reads the decisions too (#110): the sequence is read before the file is broken
     broken = {key: value for key, value in first.items() if key != "option"}
     file.write_text(json.dumps(broken), encoding="utf-8")
-    code, payload, err = decide(study, read_sequence=seq(study))  # a replay reads the record
+    code, payload, err = decide(study, read_sequence=sequence)  # a replay reads the record
     error = error_of(payload)
     assert (code, error["code"], error["details"]["kind"]) == (3, "CONTRACT_VIOLATION", "decision"), payload
     assert "'option' is a required property" in error["details"]["message"]
@@ -413,7 +414,7 @@ def test_status_json_gains_no_list_of_observation_sets_assessments_or_comparison
     made(study)
     code, payload, err = run_json("status", "--study", study)
     assert code == 0, err
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
     assert not {"observation_sets", "assessments", "comparisons"} & set(payload)
 
 

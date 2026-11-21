@@ -648,6 +648,9 @@ def _status(args) -> int:
         f"  {exposures['recorded_in_this_study']} Exposures recorded in this Study; any earlier exposure to public_check is {exposures['earlier_exposure']}"
         + (f"; marked check_informed: {len(report['check_informed'])}" if report["check_informed"] else "")
     )
+    if report["decisions"]:
+        outdated = sum(1 for decision in report["decisions"] if not decision["applies"])
+        lines.append(f"Decisions: {len(report['decisions'])} recorded, {outdated} no longer {'applies' if outdated == 1 else 'apply'}")
     for attempt in report["attempts"]:
         lines.append(
             f"  {attempt['attempt_id']} {attempt['technical_status']} request {attempt['request_id']}, "

@@ -196,6 +196,7 @@
 <tr data-field="exposures"><td><code>exposures</code></td><td>The Exposure journal and what is unknown of earlier exposure (chapter 12).</td></tr>
 <tr data-field="check_informed"><td><code>check_informed</code></td><td>Every record that carries the mark (chapter 12).</td></tr>
 <tr data-field="write_sequence"><td><code>write_sequence</code></td><td>The number of entries of the write journal: 0 for a Study written before it, 2 for a new Study, and 2 more for every command that writes.</td></tr>
+<tr data-field="decisions"><td><code>decisions</code></td><td>The Study's decisions, in the order they were recorded, each with whether it still applies (chapter 17).</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="write-sequence-commands"><thead><tr><th>Command</th><th>Advances the sequence by</th><th>Names in <code>written</code></th></tr></thead><tbody>
 <tr data-command="init" data-advances="2" data-written="revision"><td><code>init</code> (creating the Study)</td><td>2</td><td>the revision</td></tr>

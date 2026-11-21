@@ -363,7 +363,7 @@ def test_status_json_gains_the_one_top_level_key_write_sequence_and_keeps_the_ot
     study, _ = init_study(tmp_path)
     payload = run_json("status", "--study", study)[1]
     assert "write_sequence" in payload, "status --json shows no write_sequence"
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
 
 
 # --- Tightened F, G, I, J: what an entry holds --------------------------------------------------------------------------
