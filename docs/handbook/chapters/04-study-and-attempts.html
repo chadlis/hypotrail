@@ -49,6 +49,23 @@
 <tr data-command="report"><td><code>report</code></td><td>the digests to freeze, for <code>public_check</code> Items shown (a page of <code>dev</code> Items reads no Workload)</td></tr>
 <tr data-command="spike live"><td><code>spike live</code></td><td>the Chinook declaration and Cases</td></tr>
 </tbody></table></div>
+<p class="sub2">Every command</p>
+<div class="prose"><p>The 13 commands the parser defines, each with the chapter that describes it. A command added to the parser without its row here fails the handbook's tests.</p></div>
+<div class="tblwrap"><table class="tbl" id="commands-index"><thead><tr><th>Command</th><th>Described in</th><th>What it does</th></tr></thead><tbody>
+<tr data-command="data verify" data-chapter="feasibility-spike"><td><code>data verify</code></td><td><a href="#feasibility-spike">chapter 01</a></td><td>Check the public datasets against their lock.</td></tr>
+<tr data-command="data fetch" data-chapter="data-fetch"><td><code>data fetch</code></td><td><a href="#data-fetch">chapter 15</a></td><td>Acquire a missing data file from its lock's URL, checked against the lock.</td></tr>
+<tr data-command="init" data-chapter="study-and-attempts"><td><code>init</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Create a Study, or add a revision to it.</td></tr>
+<tr data-command="run ml" data-chapter="study-and-attempts"><td><code>run ml</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Record one Bike Attempt.</td></tr>
+<tr data-command="run agent" data-chapter="run-agent"><td><code>run agent</code></td><td><a href="#run-agent">chapter 13</a></td><td>Record a Chinook Attempt: the scenarios, or a paid live Attempt.</td></tr>
+<tr data-command="import ml" data-chapter="import"><td><code>import ml</code></td><td><a href="#import">chapter 06</a></td><td>Adopt a predictions CSV produced elsewhere.</td></tr>
+<tr data-command="import agent" data-chapter="agent-answers"><td><code>import agent</code></td><td><a href="#agent-answers">chapter 08</a></td><td>Adopt agent answers or an Inspect log produced elsewhere.</td></tr>
+<tr data-command="assess" data-chapter="assessments"><td><code>assess</code></td><td><a href="#assessments">chapter 05</a></td><td>Score one Observation set against the Study's References.</td></tr>
+<tr data-command="compare" data-chapter="comparison"><td><code>compare</code></td><td><a href="#comparison">chapter 07</a></td><td>Compare two Assessments as Control and Candidate.</td></tr>
+<tr data-command="report" data-chapter="report"><td><code>report</code></td><td><a href="#report">chapter 14</a></td><td>Render one HTML page for a Study.</td></tr>
+<tr data-command="status" data-chapter="study-and-attempts"><td><code>status</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Show the local state of a Study.</td></tr>
+<tr data-command="recover" data-chapter="study-and-attempts"><td><code>recover</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Record an Attempt left running as interrupted.</td></tr>
+<tr data-command="spike live" data-chapter="feasibility-spike"><td><code>spike live</code></td><td><a href="#feasibility-spike">chapter 01</a></td><td>Run one Configuration of the spike task against a real model, opt-in and paid.</td></tr>
+</tbody></table></div>
 
 <p class="sub2">The Study on disk</p>
 <div class="prose">
@@ -84,6 +101,9 @@
 <div class="tblwrap"><table class="tbl" id="statuses"><thead><tr><th>Level</th><th>Values</th></tr></thead><tbody>
 <tr data-level="attempt" data-values="running completed failed interrupted"><td>Attempt (<code>technical_status</code>)</td><td><code>running</code>, <code>completed</code>, <code>failed</code>, <code>interrupted</code>. <code>run ml</code> writes <code>running</code>, then <code>completed</code>, or <code>failed</code> when an error stops it inside the live process; <code>recover</code> writes <code>interrupted</code>. Every non-completed terminal state has a Reason. A terminal manifest has <code>finished_at</code>; a <code>running</code> one does not.</td></tr>
 <tr data-level="item" data-values="produced failed missing"><td>Item (execution status)</td><td><code>produced</code>, <code>failed</code>, <code>missing</code>. Separate from how an Item is scored. A native Attempt of a declared Configuration produces every Item.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="item-counts-fields"><thead><tr><th>Record</th><th>Required fields</th><th>Optional fields</th></tr></thead><tbody>
+<tr data-record="ItemCounts" data-required="produced failed missing" data-optional=""><td>ItemCounts (<code>item_counts</code> of the manifest)</td><td><code>produced</code>, <code>failed</code>, <code>missing</code>: the numbers of Items in each execution status, each a non-negative integer</td><td>none</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Artifacts and integrity</p>
@@ -213,4 +233,11 @@ uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partitio
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Study, Attempt and Observation set records are core contracts shared by both Tracks, and the core imports neither Inspect nor scikit-learn.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the question, the objective and the limitations of a Study are declared by the Workload.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Failures no command refuses</p>
+<div class="prose"><p>These two codes are not refusals of an input. A command ends with exit 4 when an operating-system error or any other exception reaches it, and reports the exception by its type.</p></div>
+<div class="tblwrap"><table class="tbl" id="unexpected-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="INFRASTRUCTURE_FAILURE" data-exit="4" data-stage="infrastructure" data-details="type"><td><code>INFRASTRUCTURE_FAILURE</code></td><td>An operating-system error ends a command (a full disk, a file that cannot be read). <code>run agent</code> reports it by its type alone, any other command by its type and message.</td><td>4</td><td>infrastructure</td><td><code>type</code></td></tr>
+<tr data-code="UNEXPECTED_ERROR" data-exit="4" data-stage="infrastructure" data-details="type"><td><code>UNEXPECTED_ERROR</code></td><td>Any other exception ends a command. It is reported by its type only, because the text of a foreign exception can carry anything, a provider key included.</td><td>4</td><td>infrastructure</td><td><code>type</code></td></tr>
 </tbody></table></div>

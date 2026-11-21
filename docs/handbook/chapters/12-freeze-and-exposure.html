@@ -127,3 +127,9 @@ uv run python -m hypotrail status --study runs/bike --json</pre>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_exposure.py</code> and the tables above are compared with the code in <code>tests/test_handbook.py</code>; they run offline and call no model.</p>
+
+<p class="sub2">Recording an Exposure without a Workload</p>
+<div class="prose"><p>A code of the Exposure entry points that the table of refusals above does not list.</p></div>
+<div class="tblwrap"><table class="tbl" id="exposure-basis-code"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="WORKLOAD_BASIS_REQUIRED" data-exit="2" data-stage="exposure" data-details=""><td><code>WORKLOAD_BASIS_REQUIRED</code></td><td>A command that records an Exposure was given no way to read the Workload, whose digests the freeze record needs. Nothing is written.</td><td>2</td><td>exposure</td><td>none</td></tr>
+</tbody></table></div>

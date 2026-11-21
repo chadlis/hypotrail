@@ -1,5 +1,7 @@
 """Ticket #21: the handbook builds from chapter sources and its first chapter is true."""
 
+import argparse
+import ast
 import importlib.util
 import json
 import re
@@ -2670,3 +2672,589 @@ def test_the_t24_walk_record_names_the_walker_the_commit_and_that_an_agent_walke
     assert "not by the owner" in fields["executed-by"]
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields["date"])
     assert all(fields[name].strip() for name in ("os", "python", "uv"))
+
+
+# --- #88: the acceptance grid T01-T24 (chapter 16), its statuses and the handbook's completeness -------------------------
+
+ACCEPTANCE_IDS = [f"T{n:02d}" for n in range(1, 25)]
+OFFLINE_IDS = [test for test in ACCEPTANCE_IDS if test != "T20"]  # SPEC §10: T01-T19 and T21-T24 found OFFLINE_ACCEPTED
+GRID_CELLS = ("data-what", "data-expected", "data-reason")
+
+
+class Grid(HTMLParser):
+    """Reads the grid chapter: the rows of `acceptance-grid`, the rows of `acceptance-status`, the campaign's command lines."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows, self.statuses, self.campaign = [], {}, {}
+        self._table = self._row = self._status = None
+        self._open = []  # the elements whose text is being kept: (tag, where it goes, under which key)
+
+    def _keep(self, tag, target, key):
+        self._open.append((tag, target, key))
+        if key is None:
+            target.append("")
+        else:
+            target[key] = ""
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "table":
+            self._table = attrs.get("id")
+        elif tag == "tr" and self._table == "acceptance-grid" and "data-test" in attrs:
+            self._row = {
+                "test": attrs["data-test"], "proof": attrs.get("data-proof"), "exit": attrs.get("data-exit"),
+                "what": None, "expected": None, "reason": None, "nodes": [], "walk": [], "command": None, "output": None,
+            }
+            self.rows.append(self._row)
+        elif tag == "tr" and self._table == "acceptance-status" and "data-status" in attrs:
+            self._status = self.statuses.setdefault(attrs["data-status"], {"attrs": attrs, "text": ""})
+        elif tag == "td" and self._row is not None:
+            for name in GRID_CELLS:
+                if name in attrs:
+                    self._keep(tag, self._row, name[len("data-"):])
+        elif tag == "td" and self._status is not None:
+            self._keep(tag, self._status, "text")
+        elif tag == "code" and self._row is not None and "data-node" in attrs:
+            self._keep(tag, self._row["nodes"], None)
+        elif tag == "code" and "data-campaign" in attrs:
+            self._keep(tag, self.campaign, attrs["data-campaign"])
+        elif tag == "pre" and self._row is not None:
+            for field in ("command", "output"):
+                if f"data-{field}" in attrs:
+                    self._keep(tag, self._row, field)
+        elif tag == "a" and self._row is not None and "data-walk" in attrs:
+            self._row["walk"].append(attrs.get("href"))
+
+    def handle_endtag(self, tag):
+        if self._open and self._open[-1][0] == tag:
+            self._open.pop()
+        if tag == "tr":
+            self._row = self._status = None
+        elif tag == "table":
+            self._table = None
+
+    def handle_data(self, data):
+        for _, target, key in self._open:
+            if key is None:
+                target[-1] += data
+            else:
+                target[key] += data
+
+
+def grid_of(text):
+    grid = Grid()
+    grid.feed(text)
+    return grid
+
+
+@pytest.fixture(scope="module")
+def collected():
+    """The node IDs the whole suite collects (a collection only: no test of the suite is run by this)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "tests"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+    return {line.split(" ")[0] for line in result.stdout.splitlines() if "::" in line}
+
+
+def node_is_collected(node, collected):
+    return node in collected or any(item.startswith(node + "[") for item in collected)
+
+
+def node_declares(node, test_id):
+    """Whether the test function a node ID names carries `test_id` (T05, not T050) in its name or its docstring."""
+    path, *scopes = node.split("::")
+    tree = ast.parse((ROOT / path).read_text(encoding="utf-8"))
+    body = tree.body
+    for scope in scopes[:-1]:
+        body = next(item for item in body if isinstance(item, ast.ClassDef) and item.name == scope).body
+    function = next(item for item in body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == scopes[-1])
+    return re.search(rf"(?<![A-Za-z0-9]){test_id}(?![0-9])", f"{function.name}\n{ast.get_docstring(function) or ''}") is not None
+
+
+def row_faults(row, collected):
+    """What is wrong with a row of the grid itself, before anything is said about whether its proof passes."""
+    faults = []
+    if row["proof"] not in {"pytest", "command", "walk", "not-run"}:
+        return [f"{row['test']}: proof kind {row['proof']!r}"]
+    if not (row["what"] or "").strip() or not (row["expected"] or "").strip():
+        faults.append(f"{row['test']}: no text of what it does or of its expected result")
+    if row["proof"] == "not-run":
+        if not (row["reason"] or "").strip():
+            faults.append(f"{row['test']}: not run, with no reason")
+    elif (row["reason"] or "").strip():
+        faults.append(f"{row['test']}: a proof and a not-run reason together")
+    if row["proof"] == "pytest":
+        if not row["nodes"]:
+            faults.append(f"{row['test']}: a pytest proof that names no node")
+        for node in row["nodes"]:
+            if not node_is_collected(node, collected):
+                faults.append(f"{row['test']}: {node} is not collected by the suite")
+            elif not node_declares(node, row["test"]):
+                faults.append(f"{row['test']}: {node} does not declare {row['test']} in its name or its docstring")
+    if row["proof"] == "command" and not (row["command"] or "").strip():
+        faults.append(f"{row['test']}: a command proof with no command")
+    if row["proof"] == "walk" and not row["walk"]:
+        faults.append(f"{row['test']}: a walk proof that links no record")
+    return faults
+
+
+WALK_FIELDS = ("walker", "executed-by", "date", "commit")
+
+
+def walk_row_problems(text=None, steps=None, path=None):
+    """#88 K, the T24 row: why the walk record does not pass as T24's proof; an empty list when it does.
+
+    The record exists and passes #87 B's test, and holds what T24 expects (SPEC §10: the walker identified, a failure and a limit
+    found, the difficulties recorded). A difficulty that is recorded does not fail the row; one that kept the walker from finding
+    the failure or the limit shows as an empty failure or limit below, and does.
+    """
+    if text is None:
+        if not WALK.is_file():
+            return ["the walk record does not exist"]
+        text = WALK.read_text(encoding="utf-8")
+    problems = [f"#87 B: {problem}" for problem in walk_problems(walk_steps(text) if steps is None else steps, readme_path() if path is None else path)]
+    fields = dict(re.findall(r'<dd data-field="([a-z-]+)">(.*?)</dd>', text, re.S))
+    for name in WALK_FIELDS:
+        if not re.sub(r"<[^>]+>", "", fields.get(name, "")).strip():
+            problems.append(f"the walker is not identified: no {name}")
+    failure = re.search(r'<h3 id="failure">.*?<blockquote data-found="failure">(.*?)</blockquote>', text, re.S)
+    if not failure or not re.sub(r"<[^>]+>", "", failure.group(1)).strip():
+        problems.append("no failure found")
+    limit = re.search(r'<h3 id="limit">[^<]*</h3>(.*?)<h2 id="difficulties">', text, re.S)
+    if not limit or not re.sub(r"<[^>]+>", "", limit.group(1)).strip():
+        problems.append("no limit found")
+    difficulties = re.search(r'<ol class="diffs" id="walk-difficulties">(.*?)</ol>', text, re.S)
+    if not difficulties or not re.search(r'<li data-difficulty="D\d+">', difficulties.group(1)):
+        problems.append("the difficulties are not recorded")
+    return problems
+
+
+def proof_problems(row, collected, walk_text=None):
+    """Why a row's proof does not pass (K); an empty list when it does. A row marked not run never passes."""
+    if row["proof"] == "not-run":
+        return ["not run"]
+    problems = row_faults(row, collected)
+    if row["proof"] == "command":
+        if row["exit"] != "0" or not (row["output"] or "").strip():
+            problems.append("the recorded output does not show exit 0")
+    if row["proof"] == "walk":
+        problems += walk_row_problems(walk_text)
+    return problems
+
+
+def held_back_by(rows, collected, walk_text=None):
+    return [row["test"] for row in rows if row["test"] in OFFLINE_IDS and proof_problems(row, collected, walk_text)]
+
+
+def chapter_16():
+    return (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
+
+
+def test_the_grid_has_exactly_one_row_per_test_T01_to_T24_each_with_what_it_does_its_expected_result_and_a_proof_or_a_reason(page):
+    # #88 C1: the rows are exactly T01-T24, in order, once each; a row has its text and either a proof or a « not run » reason.
+    rows = grid_of(page).rows
+    assert [row["test"] for row in rows] == ACCEPTANCE_IDS
+    for row in rows:
+        assert (row["what"] or "").strip() and (row["expected"] or "").strip(), row["test"]
+        assert (row["proof"] == "not-run") == bool((row["reason"] or "").strip()), row["test"]
+
+
+def test_every_pytest_node_a_row_names_is_collected_by_the_suite_and_declares_that_rows_test(page, collected):
+    # #88 A: a collected but unrelated test fails the grid unless it declares the row.
+    assert [fault for row in grid_of(page).rows for fault in row_faults(row, collected)] == []
+
+
+def test_a_row_naming_a_test_that_is_not_collected_or_does_not_declare_it_is_a_fault(collected):
+    # #88 A, the witness of the witness: a node that exists and passes but is about another row, and a node that does not exist.
+    unrelated = "tests/test_data_verify.py::test_both_datasets_verify_with_no_workload_given"
+    row = {"test": "T02", "proof": "pytest", "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [unrelated], "walk": [], "command": None, "output": None}
+    assert node_is_collected(unrelated, collected)
+    assert row_faults(row, collected) == [f"T02: {unrelated} does not declare T02 in its name or its docstring"]
+    assert row_faults({**row, "nodes": ["tests/test_data_verify.py::test_nothing_like_it"]}, collected) == [
+        "T02: tests/test_data_verify.py::test_nothing_like_it is not collected by the suite"
+    ]
+    assert node_declares("tests/test_report_agent.py::test_T22_markup_in_a_scenarios_final_answer_is_shown_as_the_same_characters_and_the_rest_of_the_page_is_intact", "T22")
+    assert not node_declares("tests/test_report_agent.py::test_T22_markup_in_a_scenarios_final_answer_is_shown_as_the_same_characters_and_the_rest_of_the_page_is_intact", "T2")
+
+
+def grid_row(test, proof="pytest", **fields):
+    return {"test": test, "proof": proof, "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [], "walk": [], "command": None, "output": None, **fields}
+
+
+def test_a_row_marked_not_run_holds_offline_accepted_back_and_a_command_row_passes_only_with_exit_0(collected):
+    # #88 B and K: OFFLINE_ACCEPTED is computed from the rows; a not-run row among T01-T19 and T21-T24 holds it back, T20 does not.
+    declared = "tests/test_data_verify.py::test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file"
+    ok = grid_row("T01", nodes=[declared])
+    assert held_back_by([ok], collected) == []
+    assert held_back_by([grid_row("T05", "not-run", reason="r")], collected) == ["T05"]
+    assert held_back_by([grid_row("T20", "not-run", reason="r")], collected) == []
+    assert held_back_by([grid_row("T01", "command", command="x", output="o", exit="0")], collected) == []
+    assert held_back_by([grid_row("T01", "command", command="x", output="o", exit="1")], collected) == ["T01"]
+    assert held_back_by([grid_row("T01", "command", command="x", output="", exit="0")], collected) == ["T01"]
+    assert held_back_by([grid_row("T01", nodes=[])], collected) == ["T01"]
+
+
+def test_the_status_table_has_the_three_statuses_each_with_its_own_value_and_offline_accepted_is_the_one_the_rows_compute(page, collected):
+    # #88 B: LIVE_ACCEPTED pending (not LIVE_NOT_VALIDATED), USABILITY_REVIEW_PENDING open, OFFLINE_ACCEPTED computed from the rows.
+    grid = grid_of(page)
+    statuses = {name: row["attrs"] for name, row in grid.statuses.items()}
+    assert set(statuses) == {"OFFLINE_ACCEPTED", "LIVE_ACCEPTED", "USABILITY_REVIEW_PENDING"}
+    assert statuses["LIVE_ACCEPTED"]["data-value"] == "pending"
+    assert statuses["USABILITY_REVIEW_PENDING"]["data-value"] == "open"
+    held = held_back_by(grid.rows, collected)
+    assert statuses["OFFLINE_ACCEPTED"]["data-value"] == ("pending" if held else "reached")
+    assert statuses["OFFLINE_ACCEPTED"].get("data-held-by", "").split() == held
+    assert all("LIVE_NOT_VALIDATED" not in row["text"] for row in grid.statuses.values())
+    for name, row in grid.statuses.items():  # each status has its own evidence, none derived from another
+        assert row["text"].strip(), name
+    assert "T20" in grid.statuses["LIVE_ACCEPTED"]["text"] and "T20" not in grid.statuses["OFFLINE_ACCEPTED"]["text"]
+    assert "T01" in grid.statuses["OFFLINE_ACCEPTED"]["text"] and "T24" in grid.statuses["OFFLINE_ACCEPTED"]["text"]
+
+
+def test_T20_is_not_run_with_the_reason_the_references_review_found_E07_ambiguous_and_the_live_evidence_is_cited(page):
+    # #88 C3: the reason (D-015 condition 1, E07, the owner's review), the spike report and the kept live traces as evidence.
+    rows = {row["test"]: row for row in grid_of(page).rows}
+    assert rows["T20"]["proof"] == "not-run"
+    reason = " ".join(rows["T20"]["reason"].split())
+    for part in ("found E07 ambiguous", "a column type", "D-015 condition (1)", "owner's review of E07", "References of E01-E10", "pending"):
+        assert part in reason, part
+    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+    assert 'href="#feasibility-spike"' in chapter_16()
+    assert "docs/handbook/traces/live-spike" in text and "docs/handbook/traces/run-agent-live-plain" in text
+    assert "does not by itself" in text
+
+
+def split_sentences(text):
+    """The sentences and the cells of a text with its markup removed, one per element that holds text."""
+    blocks = re.split(r"</(?:p|li|td|th|h\d|pre|div|dd|dt|blockquote)>|<br\s*/?>|\n\s*\n", text)
+    sentences = []
+    for block in blocks:
+        plain = " ".join(re.sub(r"<[^>]+>", " ", block).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").split())
+        sentences += [s for s in re.split(r"(?<=[.!?;])\s+", plain) if s]
+    return sentences
+
+
+def bare_live_accepted(text):
+    """Sentences or cells that hold LIVE_ACCEPTED without « pending » (D-015 condition 3)."""
+    return [s for s in split_sentences(text) if "LIVE_ACCEPTED" in s and not re.search(r"(?<![A-Za-z_])pending(?![A-Za-z_])", s, re.I)]
+
+
+def test_no_sentence_or_cell_outside_the_status_table_holds_live_accepted_without_pending():
+    # #88 C: the README and every handbook chapter's source; a sentence like « LIVE_ACCEPTED is reached once the Campaign runs » fails.
+    assert bare_live_accepted("<p>LIVE_ACCEPTED is reached once the Campaign runs.</p>") == ["LIVE_ACCEPTED is reached once the Campaign runs."]
+    assert bare_live_accepted("<p>LIVE_ACCEPTED is pending. LIVE_ACCEPTED is reached.</p>") == ["LIVE_ACCEPTED is reached."]
+    assert bare_live_accepted("<table><tr><td>LIVE_ACCEPTED</td><td>pending</td></tr></table>") == ["LIVE_ACCEPTED"]
+    assert bare_live_accepted("<p>LIVE_ACCEPTED and USABILITY_REVIEW_PENDING are kept apart.</p>") == ["LIVE_ACCEPTED and USABILITY_REVIEW_PENDING are kept apart."]
+    sources = {"README.md": (ROOT / "README.md").read_text(encoding="utf-8")}
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        sources[path.name] = re.sub(r'<table class="tbl" id="acceptance-status">.*?</table>', "", text, flags=re.S)
+    assert {name: bare_live_accepted(text) for name, text in sources.items() if bare_live_accepted(text)} == {}
+    assert "LIVE_ACCEPTED" in sources["README.md"] and "LIVE_ACCEPTED" in sources["16-acceptance-grid.html"]  # the check reads what it is about
+
+
+def readme_status():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    return text.split("## Status", 1)[1].split("\n## ", 1)[0]
+
+
+def test_the_readme_status_states_the_three_statuses_as_the_grid_has_them_links_the_grid_and_where_to_look_names_it(page):
+    # #88 C9 (the README's criterion) and E: USABILITY_REVIEW_PENDING is open; nothing says the README path is usable by a third party.
+    grid = grid_of(page)
+    status = " ".join(readme_status().split())
+    values = {name: row["attrs"]["data-value"] for name, row in grid.statuses.items()}
+    assert f"`OFFLINE_ACCEPTED` {values['OFFLINE_ACCEPTED']}" in status
+    assert "`LIVE_ACCEPTED` pending" in status and "E07" in status and "owner" in status
+    assert "`USABILITY_REVIEW_PENDING` open" in status
+    assert "docs/handbook/handbook.html#acceptance-grid" in status
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look", 1)[1]
+    assert "acceptance grid" in where.lower() and "handbook.html#acceptance-grid" in where
+    for text in (status, " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())):
+        for sentence in split_sentences(text):
+            if re.search(r"third part(?:y|ies)", sentence):
+                assert re.search(r"\bnot\b|\bpending\b|\buntil\b|\bbefore\b|\bnever\b", sentence), sentence
+    assert 'data-status="USABILITY_REVIEW_PENDING"' in page and "another person" in " ".join(page.split())
+
+
+def test_the_grid_links_the_walk_record_of_t24_and_the_t24_row_passes_by_k(page):
+    # #88 K and #87 E: the T24 row's proof is the walk record, linked from the grid.
+    row = {row["test"]: row for row in grid_of(page).rows}["T24"]
+    assert row["proof"] == "walk" and row["walk"] == ["walk-t24.html"]
+    assert walk_row_problems() == []
+
+
+def test_the_t24_row_fails_when_the_record_is_missing_unwalked_or_has_no_failure_or_no_limit_and_survives_a_recorded_difficulty():
+    # #88 K: a recorded difficulty does not fail the row; one that kept the walker from the failure or the limit does.
+    text = WALK.read_text(encoding="utf-8")
+    assert walk_row_problems(text) == []
+    extra = text.replace('<li data-difficulty="D9">', '<li data-difficulty="D10"><b>D10.</b> a difficulty that was recorded and changed nothing.</li>\n<li data-difficulty="D9">')
+    assert extra != text and walk_row_problems(extra) == []
+    no_failure = re.sub(r'(<blockquote data-found="failure">).*?(</blockquote>)', r"\1\2", text, flags=re.S)
+    assert walk_row_problems(no_failure) == ["no failure found"]
+    no_limit = re.sub(r'(<h3 id="limit">[^<]*</h3>).*?(<h2 id="difficulties">)', r"\1\2", text, flags=re.S)
+    assert walk_row_problems(no_limit) == ["no limit found"]
+    no_walker = text.replace('data-field="walker"', 'data-field="nobody"')
+    assert walk_row_problems(no_walker) == ["the walker is not identified: no walker"]
+    no_difficulties = text.replace("data-difficulty=", "data-nothing=")
+    assert walk_row_problems(no_difficulties) == ["the difficulties are not recorded"]
+    unwalked = [step for step in walk_steps(text) if step["kind"] != "readme"]
+    assert any(problem.startswith("#87 B:") for problem in walk_row_problems(text, steps=unwalked))
+    assert walk_row_problems(text, path=readme_path()[:-1]) != []
+
+
+CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
+
+
+def campaign_argv(line):
+    """A documented command line as the parser takes it: the program removed, each placeholder filled with itself in lower case."""
+    words = CAMPAIGN_PLACEHOLDER.sub(lambda match: match.group(0).lower(), line).split()
+    assert words[:5] == ["uv", "run", "python", "-m", "hypotrail"], line
+    return words[5:]
+
+
+def test_every_campaign_command_the_grid_documents_parses_with_the_clis_parser_with_its_required_flags(page):
+    # #88 D: the two `run agent` invocations, `assess` of each, `compare` and `report`; a line missing a required flag fails.
+    from hypotrail.cli import build_parser
+
+    lines = grid_of(page).campaign
+    assert list(lines) == ["run-plain", "run-verify", "assess-plain", "assess-verify", "compare", "report"]
+    parsed = {name: build_parser().parse_args(campaign_argv(" ".join(line.split()))) for name, line in lines.items()}
+    for config in ("plain", "verify"):
+        run = parsed[f"run-{config}"]
+        assert (run.mode, run.config, run.partition, run.repeats, run.model) == ("llm_live", config, "public_check", 3, "anthropic/claude-sonnet-5-5")
+    assert parsed["run-plain"].request_id != parsed["run-verify"].request_id
+    assert all(parsed[name].scorer == "chinook_contract_v1" for name in ("assess-plain", "assess-verify"))
+    assert parsed["assess-plain"].observations != parsed["assess-verify"].observations
+    assert lines["run-plain"].split() != lines["run-verify"].split()
+    for name in ("run-plain", "run-verify"):  # the one flags the Campaign must not carry: another Configuration and a cache or a retry knob
+        assert "--cases" not in lines[name] and "--retry-of" not in lines[name]
+    for name, line in lines.items():  # a line missing one of its required flags is refused by the parser
+        for flag in re.findall(r"--[a-z-]+", line):
+            argv = campaign_argv(" ".join(line.split()))
+            index = argv.index(flag)
+            required = {a.dest for a in _command_parser(argv)._actions if a.required}
+            if flag.lstrip("-").replace("-", "_") in required:
+                with pytest.raises(InvalidInputError):
+                    build_parser().parse_args(argv[:index] + argv[index + 2:])
+
+
+def _command_parser(argv):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    for word in argv:
+        action = next((a for a in parser._actions if getattr(a, "choices", None) and word in a.choices), None)
+        if action is None:
+            return parser
+        parser = action.choices[word]
+    return parser
+
+
+def test_in_the_campaigns_comparison_plain_is_the_control_and_verify_the_candidate(page):
+    # #88 H (D-017 item 9, AG-06: `verify` adds the instruction).
+    from hypotrail.cli import build_parser
+
+    lines = grid_of(page).campaign
+    compare = build_parser().parse_args(campaign_argv(" ".join(lines["compare"].split())))
+    assert "plain" in compare.control and "verify" not in compare.control
+    assert "verify" in compare.candidate and "plain" not in compare.candidate
+    assert compare.factor is None  # the Configuration is the declared factor of an agent Comparison
+
+
+def test_the_grid_documents_the_campaign_its_conditions_and_the_open_point_of_the_order(page):
+    # #88 C4 and C5: 72 Episodes, the same model and limits, cache off, retries zero; the conditions; the order is not alternated.
+    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+    for part in (
+        "12 Cases", "3 Repeats", "2 Configurations", "72 Episodes", "public_check", "the same model and limits", "response cache off", "retries at zero",
+        "only after the owner's review of the References", "Inspect logs and Observation sets kept whole", "no further paid invocation except after a technical failure",
+        "USD 30", "five paid live invocations per slice", "No command of this grid was run against a real model",
+        "is not alternated Episode by Episode", "AG-12", "case_index + repeat_index", "owner-decision gate",
+    ):
+        assert part in text, part
+
+
+# --- #88 I: the handbook is complete for the milestone: every command, record and refusal, with the report and the grid ---------
+
+
+def parser_commands():
+    """Every command the parser defines, a command that has sub-commands standing for its leaves (`run agent`, `data fetch`)."""
+    from hypotrail.cli import build_parser
+
+    names = []
+
+    def walk(parser, prefix):
+        subparsers = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+        if not subparsers:
+            names.append(prefix)
+        for action in subparsers:
+            for name, child in action.choices.items():
+                walk(child, f"{prefix} {name}".strip())
+
+    walk(build_parser(), "")
+    return names
+
+
+def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_and_each_is_described_in_the_chapter_it_names(page):
+    # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
+    rows = attrs_of(page, "commands-index", "data-command")
+    assert sorted(rows) == sorted(parser_commands())
+    assert len(parser_commands()) == 13
+    for command, row in rows.items():
+        section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
+        assert section, command
+        assert f"hypotrail {command}" in section.group(0), (command, row["data-chapter"])
+
+
+RECORD_TABLES = {  # each record definition of the contract schema: where the handbook lists its fields
+    "ArtifactRef": ("record", "record-fields"),
+    "StudySpec": ("record", "record-fields"),
+    "AttemptManifest": ("record", "record-fields"),
+    "ObservationSet": ("record", "record-fields"),
+    "ItemCounts": ("record", "item-counts-fields"),
+    "Metric": ("record", "assessment-fields"),
+    "Counts": ("record", "assessment-fields"),
+    "Assessment": ("record", "assessment-fields"),
+    "Comparison": ("record", "comparison-fields"),
+    "DescriptiveMeasures": ("record", "comparison-parts"),
+    "Delta": ("record", "comparison-parts"),
+    "FreezeRecord": ("field", "freeze-fields", "freeze"),
+    "ExposureEntry": ("field", "entry-fields", None),
+}
+
+
+def handbook_fields(page, name):
+    """The fields the handbook's table of a record lists (required and optional), or None when it has no table of it."""
+    how = RECORD_TABLES[name]
+    if how[0] == "record":
+        row = attrs_of(page, how[1], "data-record").get(name)
+        return None if row is None else words(row["data-required"]) | words(row["data-optional"])
+    rows = attrs_of(page, how[1], "data-field")
+    return {field for field, row in rows.items() if how[2] is None or row.get("data-where") == how[2]}
+
+
+def test_each_record_definition_of_the_contract_schema_has_a_handbook_table_of_its_fields_equal_to_the_schemas(page):
+    # #88 I: a record definition added to the schema without its handbook table fails.
+    from hypotrail.core import contracts
+
+    definitions = contracts.schema()["$defs"]
+    assert set(definitions) == set(RECORD_TABLES)
+    for name, definition in definitions.items():
+        assert handbook_fields(page, name) == set(definition["properties"]), name
+
+
+def raised_codes(root):
+    """The error codes the code raises: a literal first argument of an `...Error(...)` call, or the literal a call gives a helper
+    that passes its own `code` parameter to one (`_refuse("DUPLICATE_DATE", ...)`)."""
+    code = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
+
+    def called(node):
+        return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+
+    def literal(node):
+        return isinstance(node, ast.Constant) and isinstance(node.value, str) and code.fullmatch(node.value)
+
+    trees = [ast.parse(path.read_text(encoding="utf-8")) for path in sorted(Path(root).rglob("*.py"))]
+    helpers = {
+        function.name
+        for tree in trees
+        for function in ast.walk(tree)
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for call in ast.walk(function)
+        if isinstance(call, ast.Call) and called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Name)
+        and call.args[0].id in [a.arg for a in function.args.posonlyargs + function.args.args + function.args.kwonlyargs]
+    }
+    found = set()
+    for tree in trees:
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            if called(call).endswith("Error") and call.args and literal(call.args[0]):
+                found.add(call.args[0].value)
+            if called(call) in helpers:
+                found |= {a.value for a in call.args + [k.value for k in call.keywords] if literal(a)}
+    return found
+
+
+def codes_in_table_rows(page):
+    rows = re.findall(r"<tr[^>]*>.*?</tr>", page, re.S)
+    return {code for row in rows for code in re.findall(r"<code>([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)</code>", row)}
+
+
+def test_every_error_code_the_code_raises_has_a_row_in_a_handbook_table(page):
+    # #88 I: a code added without its handbook row fails (a row is a table row that shows the code in a `code` element).
+    raised = raised_codes(ROOT / "src" / "hypotrail")
+    assert {"DATA_INTEGRITY", "DUPLICATE_DATE", "STUDY_LOCKED", "DOWNLOAD_FAILED", "UNEXPECTED_ERROR"} <= raised  # the scan reads direct and helper-raised codes
+    assert len(raised) > 140
+    assert sorted(raised - codes_in_table_rows(page)) == []
+
+
+def test_the_scan_of_raised_codes_sees_a_code_raised_directly_or_through_a_helper_and_a_code_without_a_row_is_found(tmp_path):
+    # #88 I, the witness of the witness: a new code is seen, whichever way it is raised, and is missing from a table that lacks it.
+    (tmp_path / "module.py").write_text(
+        "from hypotrail.core.errors import InvalidInputError\n"
+        "def _refuse(code, message):\n    return InvalidInputError(code, message, stage='x')\n"
+        "def one():\n    raise InvalidInputError('A_NEW_CODE', 'm', stage='x')\n"
+        "def two():\n    raise _refuse('ANOTHER_NEW_CODE', 'm')\n"
+        "def three():\n    return 'NOT_A_RAISED_CODE'\n",
+        encoding="utf-8",
+    )
+    assert raised_codes(tmp_path) == {"A_NEW_CODE", "ANOTHER_NEW_CODE"}
+    assert codes_in_table_rows("<table><tr><td><code>A_NEW_CODE</code></td></tr></table><p><code>ANOTHER_NEW_CODE</code></p>") == {"A_NEW_CODE"}
+
+
+EXIT_OF_CLASS = {"InvalidInputError": 2, "IntegrityError": 3, "HypotrailError": 4}
+LIBRARY_CODE_TABLES = ("data-verify-codes", "spike-live-codes", "ml-library-codes", "unexpected-codes", "exposure-basis-code")
+
+
+def raise_sites(root):
+    """{code: {(exit, stage)}} of the places the code raises it: a direct `...Error("CODE", ...)` call or a call to a helper of its own
+    module that passes `code` on (`_refuse("CODE", ...)`); a stage given by a module constant is read from it."""
+    code = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
+
+    def called(node):
+        return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+
+    sites = {}
+    for path in sorted(Path(root).rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        constants = {t.id: n.value.value for n in tree.body if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant)
+                     for t in n.targets if isinstance(t, ast.Name)}
+
+        def where(call):
+            keywords = {k.arg: k.value for k in call.keywords}
+            stage = keywords.get("stage")
+            stage = constants.get(stage.id) if isinstance(stage, ast.Name) else getattr(stage, "value", None)
+            exit_code = keywords.get("exit_code")
+            return (exit_code.value if isinstance(exit_code, ast.Constant) else EXIT_OF_CLASS.get(called(call)), stage)
+
+        helpers = {}
+        for function in ast.walk(tree):
+            if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                parameters = [a.arg for a in function.args.posonlyargs + function.args.args + function.args.kwonlyargs]
+                for call in ast.walk(function):
+                    if isinstance(call, ast.Call) and called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Name) and call.args[0].id in parameters:
+                        helpers[function.name] = where(call)
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            if called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str) and code.fullmatch(call.args[0].value):
+                sites.setdefault(call.args[0].value, set()).add(where(call))
+            elif called(call) in helpers:
+                for argument in call.args + [k.value for k in call.keywords]:
+                    if isinstance(argument, ast.Constant) and isinstance(argument.value, str) and code.fullmatch(argument.value):
+                        sites.setdefault(argument.value, set()).add(helpers[called(call)])
+    return sites
+
+
+def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_of_the_places_the_code_raises_it(page):
+    # #88 I: the rows added for the codes no other table had state the exit code and the stage(s) the code gives; none is left to memory.
+    sites = raise_sites(ROOT / "src" / "hypotrail")
+    seen = 0
+    for table_id in LIBRARY_CODE_TABLES:
+        for code, row in attrs_of(page, table_id, "data-code").items():
+            assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
+            seen += 1
+    assert seen == 7 + 5 + 17 + 2 + 1
