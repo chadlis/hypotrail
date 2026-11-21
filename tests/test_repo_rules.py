@@ -78,7 +78,7 @@ def test_the_readme_claims_the_kept_live_episodes_come_from_spike_live_which_rec
 
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "A live Attempt" not in text
-    paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line)
+    paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line and not line.startswith("uv run"))  # not the `import agent` command line (#87 D)
     assert "spike live" in paragraph and "Episodes" in paragraph  # where the kept live Episodes come from
     assert re.search(r"\b(?:no|nothing|not)\b[^.;:]*\bStudy\b", paragraph)  # that command records nothing in a Study
     # the README names the kept outputs Episodes; whether a `spike live` execution is an Attempt is open
