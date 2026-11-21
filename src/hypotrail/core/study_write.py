@@ -23,11 +23,13 @@ INIT = "init"
 INIT_NEW_REVISION = "init --new-revision"
 ASSESS = "assess"
 COMPARE = "compare"
+RECOVER = "recover"
 
 DECISION = "decision"
 REVISION = "revision"
 ASSESSMENT = "assessment"
 COMPARISON = "comparison"
+ATTEMPT = "attempt"
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:
