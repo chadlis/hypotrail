@@ -1,4 +1,4 @@
-"""What the Study-write module owns, read in the code of `src` with the standard library `ast` (see `tests/_resolve.py` for how a call is resolved).
+"""What the Study-write module owns, read in the code of `src` with the standard library `ast` (see `tests/_architecture.py` for how a call is resolved).
 
 Each check takes the root of a source tree, so the same check runs on `src` and on a tree planted with one violation. No model is called.
 """
@@ -7,9 +7,8 @@ import ast
 from pathlib import Path
 
 import pytest
-from _locked_paths import SOURCE, dotted
+from _architecture import SOURCE, calls, defined_functions, dotted, names_of, owners_in, parse_all, reached_from, resolve
 from _order_inventory import LOCKED_PATHS
-from _resolve import calls, defined_functions, names_of, owners_in, parse_all, reached_from, resolve
 
 STUDY_WRITE = "hypotrail.core.study_write"
 WRITE_JOURNAL = "hypotrail.core.write_journal"

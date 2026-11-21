@@ -4,24 +4,14 @@ import ast
 import builtins
 from pathlib import Path
 
-SOURCE = Path(__file__).resolve().parent.parent / "src"
+from _architecture import calls, dotted, parse_all
 
 # The module that owns the writer lock for the writers that share the write protocol, and the call by which a writer takes it there.
 STUDY_WRITE = "hypotrail.core.study_write"
-STUDY_WRITE_LOCK_CALL = "study_write.locked"
+STUDY_WRITE_LOCK_CALL = "hypotrail.core.study_write.locked"
+WRITER_LOCK_CALL = "hypotrail.core.lock.writer_lock"
 # A call that holds the stale check: `require_current` itself, or a step of the Study-write module that runs it after the replay lookup.
 STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision"}
-
-
-def dotted(node):
-    """`a.b.c` for a name or a chain of attributes on a name, None for anything else (a method of a literal or of a call's result)."""
-    parts = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr)
-        node = node.value
-    if isinstance(node, ast.Name):
-        return ".".join([node.id, *reversed(parts)])
-    return None
 
 
 def _parse(path):
@@ -44,30 +34,16 @@ def _calls(node):
     return sorted(found, key=lambda call: (call.end_lineno, call.end_col_offset))
 
 
-def _module_name(root, path):
-    return ".".join(Path(path).relative_to(root).with_suffix("").parts)
-
-
 def locked_functions(root):
     """{`module:function`} of every function under `root` that takes the writer lock, by `writer_lock` or by `study_write.locked`; a call outside any function is `module:<module>`.
 
     The call of `writer_lock` inside the Study-write module is the one that `study_write.locked` stands for, so it is not a path of its own.
     """
-    found = set()
-    for path in sorted(Path(root).rglob("*.py")):
-        module = _module_name(root, path)
-
-        def visit(node, inside):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                inside = node.name
-            name = dotted(node.func) if isinstance(node, ast.Call) else None
-            if name is not None and (name == STUDY_WRITE_LOCK_CALL or (name.split(".")[-1] == "writer_lock" and module != STUDY_WRITE)):
-                found.add(f"{module}:{inside or '<module>'}")
-            for child in ast.iter_child_nodes(node):
-                visit(child, inside)
-
-        visit(_parse(path), None)
-    return found
+    return {
+        site.innermost
+        for site in calls(parse_all(root))
+        if site.callee == STUDY_WRITE_LOCK_CALL or (site.callee == WRITER_LOCK_CALL and site.module != STUDY_WRITE)
+    }
 
 
 def takes_the_read_sequence(root, path_key):

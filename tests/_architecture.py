@@ -1,26 +1,41 @@
-"""The calls of `src`, each resolved to the function it calls, with the standard library `ast`.
+"""The one resolver of the architecture tests, with the standard library `ast`: what each name of a module stands for, the modules a module imports and the call that each call site resolves to.
 
-A call is resolved by what its name stands for in the module that holds it: an import (`import a.b as c`, `from a import b as c`, also inside a
-function), a function defined in the module (a bare name), or a name that is assigned another name (`g = layout.find_by_request`). The resolved name is
-`package.module.function`; it is built from the names, not read from the target's file, so a call of a function that was removed still resolves.
-A call that no name of the module explains (a method of a parameter, a builtin) has no resolved name, only its dotted spelling.
+Every module under a root is found with `rglob`, subpackages included, and named by its dotted path (`pkg/sub/__init__.py` is `pkg.sub`). A relative import is resolved against
+the module that holds it to the absolute module it names, so `from ..core import y` in `hypotrail.agentic.run` is `hypotrail.core.y`.
+
+A call is resolved by what its name stands for in the module that holds it: an import (`import a.b as c`, `from a import b as c`, also inside a function), a function defined in
+the module (a bare name), or a name that is assigned another name (`g = layout.find_by_request`). The resolved name is `package.module.function`; it is built from the names,
+not read from the target's file, so a call of a function that was removed still resolves. A call that no name of the module explains (a method of a parameter, a builtin)
+has no resolved name, only its dotted spelling.
 """
 
 import ast
 from pathlib import Path
 from typing import NamedTuple
 
-from _locked_paths import dotted
+SOURCE = Path(__file__).resolve().parent.parent / "src"
 
 
 class Site(NamedTuple):
-    """One call: the module and the function that hold it (`module:function`, `module:<module>` outside any), what it resolves to, its spelling, its node."""
+    """One call: the module and the outermost function that hold it (`module:function`, `module:<module>` outside any), what it resolves to, its spelling, its node, and the innermost function that holds it."""
 
     module: str
     owner: str
     callee: str | None
     raw: str | None
     node: ast.Call
+    innermost: str
+
+
+def dotted(node):
+    """`a.b.c` for a name or a chain of attributes on a name, None for anything else (a method of a literal or of a call's result)."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        return ".".join([node.id, *reversed(parts)])
+    return None
 
 
 def module_name(root, path) -> str:
@@ -29,30 +44,47 @@ def module_name(root, path) -> str:
 
 
 def parse_all(root) -> dict:
-    """{module name: its tree} for every `.py` under `root`."""
-    return {module_name(root, path): ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in sorted(Path(root).rglob("*.py"))}
+    """{module name: its tree} for every `.py` under `root`, subpackages included; the tree of a package's `__init__.py` has `is_package` set."""
+    trees = {}
+    for path in sorted(Path(root).rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree.is_package = path.name == "__init__.py"
+        trees[module_name(root, path)] = tree
+    return trees
+
+
+def import_targets(module: str, tree):
+    """Yield (the name the import binds, what that name stands for, the absolute name the import names) for every import of the tree, relative imports resolved.
+
+    `import a.b` binds `a`, which stands for `a`, and names `a.b`; `import a.b as c` binds `c`, which stands for `a.b`; `from . import x` in `pkg.m` binds `x`, which stands for `pkg.x`.
+    """
+    package = module if getattr(tree, "is_package", False) else module.rpartition(".")[0]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                head = alias.name.split(".")[0]
+                yield alias.asname or head, alias.name if alias.asname else head, alias.name
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                anchor = package.split(".") if package else []
+                anchor = anchor[: len(anchor) - (node.level - 1)]
+                base = ".".join([*anchor, *([node.module] if node.module else [])])
+            for alias in node.names:
+                full = f"{base}.{alias.name}" if base else alias.name
+                yield alias.asname or alias.name, full, full
+
+
+def imports(trees: dict) -> dict:
+    """{module: the absolute names it imports}: `from a import b` is `a.b`, which names a module or a name of `a`."""
+    return {module: {target for _, _, target in import_targets(module, tree)} for module, tree in trees.items()}
 
 
 def names_of(module: str, tree) -> dict:
     """What each name of the module stands for: {name: qualified name}."""
     names: dict = {}
-    package = module.rsplit(".", 1)[0] if "." in module else module
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.asname:
-                    names[alias.asname] = alias.name
-                else:
-                    head = alias.name.split(".")[0]
-                    names[head] = head
-        elif isinstance(node, ast.ImportFrom):
-            base = node.module or ""
-            if node.level:
-                anchor = package.split(".")
-                anchor = anchor[: len(anchor) - (node.level - 1)]
-                base = ".".join([*anchor, *([node.module] if node.module else [])])
-            for alias in node.names:
-                names[alias.asname or alias.name] = f"{base}.{alias.name}"
+    for bound, stands_for, _ in import_targets(module, tree):
+        names[bound] = stands_for
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             names[node.name] = f"{module}.{node.name}"
@@ -95,15 +127,31 @@ def owners_in(module: str, tree):
     yield from visit(tree, None)
 
 
+def innermost_owners_in(module: str, tree) -> dict:
+    """{id(node): `module:function`} for every node of the tree: the innermost function that holds it, `module:<module>` when none does."""
+    found = {}
+
+    def visit(node, owner):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            owner = node.name
+        found[id(node)] = f"{module}:{owner or '<module>'}"
+        for child in ast.iter_child_nodes(node):
+            visit(child, owner)
+
+    visit(tree, None)
+    return found
+
+
 def calls(trees: dict) -> list:
     """Every call of every module, as a `Site`."""
     found = []
     for module, tree in trees.items():
         names = names_of(module, tree)
+        innermost = innermost_owners_in(module, tree)
         for node, owner in owners_in(module, tree):
             if isinstance(node, ast.Call):
                 spelling = dotted(node.func)
-                found.append(Site(module, owner, resolve(names, spelling), spelling, node))
+                found.append(Site(module, owner, resolve(names, spelling), spelling, node, innermost[id(node)]))
     return found
 
 

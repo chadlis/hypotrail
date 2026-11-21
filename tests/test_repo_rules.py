@@ -76,20 +76,6 @@ def test_the_readme_status_stays_short():
     assert len(status.split()) <= 200
 
 
-def test_the_core_imports_no_track():
-    # R1-04, ADR 0001, core/comparison.py docstring: the core never imports hypotrail.agentic or hypotrail.ml.
-    import ast
-
-    offenders = []
-    for path in sorted((ROOT / "src" / "hypotrail" / "core").glob("*.py")):
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
-            if isinstance(node, ast.ImportFrom) and node.module == "hypotrail":
-                names = [f"hypotrail.{a.name}" for a in node.names]
-            offenders += [f"{path.name}: {n}" for n in names if n.startswith(("hypotrail.agentic", "hypotrail.ml"))]
-    assert offenders == []
-
-
 def test_both_tracks_read_the_memberships_with_the_one_shared_reader():
     # R1-05: the agentic copy split on the first comma, kept empty Partitions and ignored CSV quoting.
     from hypotrail.agentic import imports as agent_imports

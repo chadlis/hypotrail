@@ -12,7 +12,8 @@ import unittest.mock
 
 import pytest
 from _checks_table import rows_of, rows_of_chapter_04
-from _locked_paths import SOURCE, calls_after_the_stale_check, first_call_after_the_stale_check, locked_functions, takes_the_read_sequence
+from _architecture import SOURCE
+from _locked_paths import calls_after_the_stale_check, first_call_after_the_stale_check, locked_functions, takes_the_read_sequence
 from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
 from _order_probe import LOCK_HELD as LOCK_HELD_CALLS
 from _order_probe import UNDER_THE_LOCK as UNDER_THE_LOCK_CALLS
@@ -53,23 +54,25 @@ def test_the_inventory_of_locked_paths_is_the_set_of_functions_of_src_that_take_
 def test_the_search_for_locked_functions_finds_a_lock_taken_in_a_with_or_by_another_name_and_attributes_it_to_the_innermost_function(tmp_path):
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "a.py").write_text(
+        "from hypotrail.core import lock\nfrom hypotrail.core.lock import writer_lock\nfrom hypotrail.core.lock import writer_lock as hold\n\n"
         "def plain(study):\n    with lock.writer_lock(study):\n        pass\n\n"
         "def other_name(study):\n    stack.enter_context(writer_lock(study))\n\n"
+        "def renamed(study):\n    with hold(study):\n        pass\n\n"
         "def outer(study):\n    def inner():\n        with lock.writer_lock(study):\n            pass\n\n"
         "def free(study):\n    return lock.is_held(study)\n",
         encoding="utf-8",
     )
-    assert locked_functions(tmp_path) == {"pkg.a:plain", "pkg.a:other_name", "pkg.a:inner"}
+    assert locked_functions(tmp_path) == {"pkg.a:plain", "pkg.a:other_name", "pkg.a:renamed", "pkg.a:inner"}
 
 
 def test_the_search_for_locked_functions_finds_a_lock_taken_through_the_study_write_module_in_its_caller_and_not_the_call_inside_the_module(tmp_path):
     (tmp_path / "hypotrail" / "core").mkdir(parents=True)
     (tmp_path / "hypotrail" / "ml").mkdir()
     (tmp_path / "hypotrail" / "core" / "study_write.py").write_text(
-        "def locked(study):\n    with lock.writer_lock(study):\n        yield\n", encoding="utf-8"
+        "from hypotrail.core import lock\n\ndef locked(study):\n    with lock.writer_lock(study):\n        yield\n", encoding="utf-8"
     )
     (tmp_path / "hypotrail" / "ml" / "w.py").write_text(
-        "def writer(study):\n    with study_write.locked(study, 'x', 'r', read_sequence=None):\n        pass\n", encoding="utf-8"
+        "from hypotrail.core import study_write\n\ndef writer(study):\n    with study_write.locked(study, 'x', 'r', read_sequence=None):\n        pass\n", encoding="utf-8"
     )
     assert locked_functions(tmp_path) == {"hypotrail.ml.w:writer"}
 
