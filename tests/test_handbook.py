@@ -900,6 +900,14 @@ def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_it
     assert "--read-sequence" in init_row and "--new-revision" in init_row.split("--read-sequence")[1]
 
 
+def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock():
+    # #108 Tightened M (D-038): `compare --factor` on a Study that is not of the agent Track, and `report`'s `--out` check
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter_text("04-study-and-attempts.html"), re.S) if "The refusals come in this order" in p)
+    assert "<code>compare --factor</code>" in paragraph and "<code>UNSUPPORTED_CAPABILITY</code>" in paragraph
+    assert "<code>report</code>" in paragraph and "<code>--out</code>" in paragraph and "<code>REPORT_OUTPUT_INVALID</code>" in paragraph
+    assert "before the lock" in paragraph
+
+
 def test_the_exit_code_six_meaning_covers_a_study_changed_after_it_was_read(page):
     rows = attrs_of(page, "exit-codes", "data-exit")
     assert "changed" in table_rows(page, "exit-codes", "data-exit")["6"]["text"].lower()
@@ -4162,9 +4170,43 @@ def test_the_decide_refusal_table_equals_the_code_exit_stage_and_details_of_each
     assert found["CITED_ID_NOT_FOUND"] == (2, "decision", {"ids"})
 
 
-def test_chapter_04_names_decide_among_the_commands_that_take_the_read_sequence_and_the_decision_in_the_request_identity():
+def prose_of(chapter: str) -> str:
+    """A chapter without its tables and code blocks: what is left is the prose around them, which does not restate them."""
+    return re.sub(r"<pre.*?</pre>", "", re.sub(r"<table.*?</table>", "", chapter, flags=re.S), flags=re.S)
+
+
+def test_chapter_04_table_gives_the_commands_that_take_the_read_sequence_as_the_parser_defines_them(page):
+    # R1-S-02: the commands are a column of `write-sequence-commands`, not a list in prose
+    from hypotrail.cli import build_parser
+
+    rows = attrs_of(page, "write-sequence-commands", "data-command")
+    given = {command: row.get("data-read-sequence") for command, row in rows.items()}
+    assert set(given.values()) <= {"none", "optional", "required"}, given
+    assert {c for c, v in given.items() if v == "none"} == {"init"}  # `init` that creates a Study is refused the option (tests/test_stale_sequence.py)
+
+    def option(*path):
+        node = build_parser()
+        for name in path:
+            node = next(a for a in node._actions if getattr(a, "choices", None) and name in a.choices).choices[name]
+        return next((a for a in node._actions if "--read-sequence" in a.option_strings), None)
+
+    for command, value in given.items():
+        if value == "none":
+            continue
+        action = option(*[word for word in command.split() if not word.startswith("--")])
+        assert action is not None, command
+        assert ("required" if action.required else "optional") == value, command
+    assert given["decide"] == "required" and given["report"] == "optional"
+
+
+def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the_commands_that_take_the_read_sequence():
+    # R1-S-02, the handbook rule of the drive skill: "The prose around such a table does not restate it."
     chapter = chapter_text("04-study-and-attempts.html")
-    assert "<code>decide</code>" in chapter.split("Reading the sequence before a write", 1)[1].split("</p>", 1)[0]
+    prose = prose_of(chapter)
+    assert "advances the sequence by 2" not in prose  # `write-sequence-commands`
+    assert "<code>phase</code>" not in prose  # `write-journal-fields`
+    reading = next(p for p in re.findall(r"<p>.*?</p>", prose, re.S) if "Reading the sequence before a write" in p)
+    assert not [c for c in ("run ml", "run agent", "import ml", "import agent", "assess", "compare") if f"<code>{c}</code>" in reading]
     assert "<code>decision_id</code>" in chapter and "one <code>request_id</code> namespace" in chapter
     assert 'data-command="decide"' in chapter  # its row in `write-sequence-commands` and in `commands-index`
 
@@ -4244,15 +4286,27 @@ def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_ke
     assert {tuple(sorted(reason)) for row in rows for reason in row["reasons"]} == {("id", "reason")}
 
 
-def test_chapter_17_gives_the_rule_of_still_applies_in_words_and_says_status_lists_the_decisions():
+def test_chapter_17_gives_the_rule_of_still_applies_in_its_table_and_what_the_table_does_not_say_in_words(page):
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
+    table = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<table[^>]*id="decision-reasons".*?</table>', chapter_text("17-decisions.html"), re.S)[0]).split())
     assert "A decision no longer applies when" in chapter
-    for part in ("a cited id is no longer held by the Study", "differs from the revision its record stores", "a later Assessment of the same Observation set and the same Scorer id"):
-        assert part in chapter, part
+    for part in ("A cited id is no longer held by the Study", "differs from the decision's revision", "later Assessment of the same Observation set and Scorer id"):
+        assert part in table, part
     assert "never stored" in chapter and "any version" in chapter and "write journal" in chapter
     assert "later decision on the same question" in chapter
     assert "does not list decisions yet" not in chapter and "does not list the decisions" not in chapter
     assert "Decisions: 4 recorded, 1 no longer applies" in chapter
+
+
+def test_chapter_17_prose_does_not_restate_the_decide_command_the_history_keys_or_the_reasons_tables(page):
+    # R1-S-01, the handbook rule of the drive skill: "The prose around such a table does not restate it."
+    prose = prose_of(chapter_text("17-decisions.html"))
+    row = attrs_of(page, "decide-command", "data-command")["decide"]
+    flags = (words(row["data-required"]) | words(row["data-optional"])) - {"--json"}
+    assert [flag for flag in flags if flag in prose] == []  # `decide-command`: which flags there are, and whether each is required
+    assert "<code>applies</code>" not in prose and "<code>reasons</code>" not in prose  # `decision-history-keys`
+    assert "two keys that are not in the record" not in prose
+    assert [name for name in attrs_of(page, "decision-reasons", "data-reason") if name in prose] == []  # `decision-reasons`
 
 
 def test_the_readme_names_the_decision_history_in_the_status_command():
