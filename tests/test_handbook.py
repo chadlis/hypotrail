@@ -1,5 +1,8 @@
 """Ticket #21: the handbook builds from chapter sources and its first chapter is true."""
 
+import argparse
+import ast
+import html
 import importlib.util
 import json
 import re
@@ -708,6 +711,7 @@ def test_the_commands_table_equals_the_flags_the_parser_defines(page):
         "run agent": subparser(subparser(parser, "run"), "agent"),
         "import ml": subparser(subparser(parser, "import"), "ml"),
         "import agent": subparser(subparser(parser, "import"), "agent"),
+        "report": subparser(parser, "report"),
         "status": subparser(parser, "status"),
         "recover": subparser(parser, "recover"),
     }
@@ -1780,7 +1784,7 @@ def test_the_exposure_layout_table_equals_the_files_an_exposure_writes(page, tmp
         generic.add(re.sub(r"^exposures/[0-9]{6}-[0-9a-f-]{36}\.json$", "exposures/SEQ-ENTRY_ID.json", path))
     rows = attrs_of(page, "exposure-layout", "data-path")
     assert set(rows) == generic
-    assert all(set(row["data-written-by"].split()) == {"assess", "compare"} for row in rows.values())
+    assert all(set(row["data-written-by"].split()) == {"assess", "compare", "report"} for row in rows.values())
 
 
 def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code_each_refusal_has(page, tmp_path):
@@ -1800,7 +1804,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
         "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], workload=workload),
     }
     rows = attrs_of(page, "exposure-entry-points", "data-entry")
-    assert set(rows) == {"assess", "compare", "run ml", *calls}
+    assert set(rows) == {"assess", "compare", "report", "run ml", *calls}
     for entry, call in calls.items():
         assert rows[entry]["data-study"] == "no"
         with pytest.raises(HypotrailError) as refusal:
@@ -1811,6 +1815,9 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
     _, payload, _ = assess(study, observation_set_id(study, attempts["seasonal_7"]), "regression_mae_v1", references_id(study))
     assert rows["assess"]["data-writes"] == "journal" and len(list((study / "exposures").glob("*.json"))) == 1
     assert rows["compare"]["data-writes"] == "journal" and rows["compare"]["data-study"] == rows["assess"]["data-study"] == "yes"
+    only_outputs, _ = fresh_study(tmp_path / "r", "seasonal_7", partition="public_check")  # `report` shows them: one entry, with no Assessment
+    assert run_json("report", "--study", only_outputs, "--out", tmp_path / "r.html")[0] == 0
+    assert rows["report"]["data-writes"] == "journal" and rows["report"]["data-study"] == "yes" and len(list((only_outputs / "exposures").glob("*.json"))) == 1
 
 
 def test_the_check_informed_table_equals_the_records_that_carry_the_mark_and_what_status_lists(page, tmp_path):
@@ -2316,3 +2323,1099 @@ def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_
     assert "execution" in text and "the request the Attempt itself made" not in text
     assert "spike live" in text and "run agent" in text
 
+
+
+# --- chapter 04: where the Workloads are found (#23, D-016) ------------------------------------------------------------------------
+
+
+def _commands_taking_the_examples_flag():
+    import argparse
+
+    from hypotrail.cli import build_parser
+
+    found = set()
+
+    def walk(parser, path):
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for name, child in action.choices.items():
+                    walk(child, [*path, name])
+        if any("--examples-dir" in a.option_strings for a in parser._actions):
+            found.add(" ".join(path))
+
+    walk(build_parser(), [])
+    return found
+
+
+def test_the_workload_inputs_table_lists_exactly_what_the_resolver_reads(page):
+    """D-016, #23: the resolver takes the flag and the checkout default, and reads no environment variable."""
+    import inspect
+
+    from hypotrail.core import data
+
+    resolver = data.resolve_examples_dir
+    rows = attrs_of(page, "workload-inputs", "data-input")
+    assert set(rows) == {"--examples-dir", "checkout-default"}
+    assert [rows[k]["data-order"] for k in ("--examples-dir", "checkout-default")] == ["1", "2"]
+    assert list(inspect.signature(resolver).parameters) == ["examples_dir"]  # the flag's dest, and nothing else
+    assert "default_examples_dir" in resolver.__code__.co_names  # the checkout default
+    assert not {"environ", "getenv", "environb"} & set(resolver.__code__.co_names)  # no variable
+    assert not {"environ", "getenv"} & set(data.default_examples_dir.__code__.co_names)
+    assert "HYPOTRAIL_EXAMPLES_DIR" not in page.split('id="workload-inputs"')[1].split("</table>")[0]  # the table names no variable
+
+
+def test_the_chapter_04_refusal_row_names_the_four_cases_the_resolver_observes_of_the_default_examples():
+    # 10-R4-05, ADR 0003 (the handbook describes the behaviour): the same four facts as the resolver's messages.
+    chapter = (HANDBOOK / "chapters" / "04-study-and-attempts.html").read_text(encoding="utf-8")
+    row = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<tr data-code="EXAMPLES_DIR_NOT_FOUND".*?</tr>', chapter, re.S)[0]).split())
+    for fact in ("does not exist", "a link whose target does not exist", "is not a directory", "holds no Workload lock"):
+        assert fact in row, fact
+
+
+def test_the_workload_commands_table_equals_the_commands_the_parser_gives_the_flag(page):
+    rows = attrs_of(page, "workload-commands", "data-command")
+    assert set(rows) == _commands_taking_the_examples_flag()
+
+
+def test_the_workload_refusal_table_equals_the_code_exit_stage_and_details_of_the_refusal(page, monkeypatch, tmp_path):
+    from hypotrail.core import data
+
+    monkeypatch.setattr(data, "default_examples_dir", lambda: tmp_path / "no-such-checkout" / "examples")
+    with pytest.raises(Exception) as caught:
+        data.resolve_examples_dir(None)
+    error = caught.value
+    rows = attrs_of(page, "workload-refusal", "data-code")
+    assert set(rows) == {error.code}
+    row = rows[error.code]
+    assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (error.exit_code, error.stage, set(error.details))
+    assert "--examples-dir" in error.message
+
+
+def test_the_readme_states_the_supported_install_and_that_any_other_install_passes_the_flag():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "The supported install is a checkout with `uv sync`" in readme
+    assert "any other install passes `--examples-dir`" in readme
+
+
+# --- chapter 14: the Study report (#85) ----------------------------------------------------------------------------------------
+
+
+def test_the_report_sections_table_equals_the_sections_the_code_renders_in_order(page):
+    from hypotrail.report import render
+
+    rows = attrs_of(page, "report-sections", "data-section")
+    ordered = sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))
+    assert [int(row["data-order"]) for _, row in ordered] == list(range(1, len(render.SECTIONS) + 1))
+    assert [(key, row["data-heading"]) for key, row in ordered] == list(render.SECTIONS)
+
+
+def test_the_report_denial_table_lists_the_one_sentence_the_code_writes_that_names_readiness_safety_and_independence(page):
+    from hypotrail.report import render
+
+    rows = table_rows(page, "report-denials", "data-denial")
+    assert [r["text"].strip() for r in rows.values()] == [render.DENIAL]
+
+
+def test_the_report_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _assess_helpers import fresh_study
+    from _chinook_helpers import init_chinook
+    from _report_helpers import report
+    from _study_helpers import examples_copy
+
+    from hypotrail.core import lock
+
+    out = tmp_path / "out.html"
+    dev, _ = fresh_study(tmp_path / "dev", "seasonal_7")
+    public, _ = fresh_study(tmp_path / "public", "seasonal_7", partition="public_check")
+    tampered, _ = fresh_study(tmp_path / "tampered", "seasonal_7")
+    (tampered / "datasets" / "day.csv").write_bytes((tampered / "datasets" / "day.csv").read_bytes() + b"\n")
+    refusals = {
+        "STUDY_NOT_FOUND": [report(tmp_path / "nothing", out)],
+        "REPORT_OUTPUT_INVALID": [report(dev, dev / "r.html"), report(dev, tmp_path), report(dev, tmp_path / "no-folder" / "r.html")],
+        "ARTIFACT_INTEGRITY": [report(tampered, out)],
+        "PROTOCOL_CHANGED": [report(public, out, "--examples-dir", examples_copy(tmp_path, rows=lambda t: t[0].update(cnt=str(int(t[0]["cnt"]) + 1))))],
+    }
+    with lock.writer_lock(public):
+        refusals["STUDY_LOCKED"] = [report(public, out)]
+    rows = attrs_of(page, "report-refusals", "data-code")
+    assert set(rows) == set(refusals)  # a Study of either Track is reported: no refusal names a Track any more
+    chinook, _ = init_chinook(tmp_path / "chinook")
+    assert report(chinook, tmp_path / "chinook.html")[0] == 0
+    for code, cases in refusals.items():
+        for status, payload, _ in cases:
+            error, row = payload["error"], rows[code]
+            assert error["code"] == code
+            assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (status, error["stage"], set(error["details"])), code
+    assert {payload["error"]["details"]["reason"] for _, payload, _ in refusals["REPORT_OUTPUT_INVALID"]} == {"inside_study", "is_directory", "no_folder"}
+    assert not out.exists()
+
+
+def test_the_readme_and_chapters_05_and_12_say_a_report_exists():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "There is no report yet" not in readme and "hypotrail report --study runs/bike --out" in readme and "`report/`" in readme
+    for name in ("05-assessments.html", "12-freeze-and-exposure.html"):
+        text = (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
+        assert 'href="#report"' in text and "nothing summarises them yet" not in text and "are issue #10" not in text, name
+
+
+def _chinook_page(tmp_path):
+    """(page document, Attempt of a native llm_live execution, the cell lines of one matrix cell) of a Chinook Study rendered by `report`."""
+    from _chinook_helpers import init_chinook
+    from _report_helpers import doc_of, lines_of, report
+    from _run_agent_helpers import ok, patch_model
+    from _run_agent_helpers import live as live_through_mock
+
+    study, _ = init_chinook(tmp_path)
+    with pytest.MonkeyPatch.context() as mp:
+        patch_model(mp)
+        attempt = ok(live_through_mock(study, "plain", "live", cases=["D03"], repeats=1))
+    from _agent_compare_helpers import assess, observation_set_of
+
+    assessment = assess(study, observation_set_of(study, attempt))
+    out = tmp_path / "page.html"
+    assert report(study, out)[0] == 0
+    doc = doc_of(out)
+    cell = doc.cells(f"matrix-{assessment['assessment_id']}")[0][1]
+    return doc, attempt, lines_of(cell)
+
+
+def test_the_report_matrix_cell_table_equals_the_lines_the_code_writes_for_a_cell_and_the_criteria_it_renders(page, tmp_path):
+    from hypotrail.core.chinook_contract import CRITERIA
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-matrix-cell", "data-line")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.CELL_LINES
+    assert tuple(key for key in ordered if key in CRITERIA) == CRITERIA
+    _, _, lines = _chinook_page(tmp_path)
+    rendered = [line.split(":")[0] for line in lines]
+    assert [name for name in rendered if name in CRITERIA] == list(CRITERIA)  # the cell of a real page holds these Criteria, in this order
+    assert rendered[1] == "Execution" and rendered[-1] == "Trace" and lines[0].startswith("Case ")
+
+
+def test_the_report_counter_columns_table_equals_the_columns_the_code_writes_per_criterion(page, tmp_path):
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-criteria-columns", "data-column")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.CRITERIA_COLUMNS
+    doc, _, _ = _chinook_page(tmp_path)
+    [name] = [t for t in doc.tables if t.startswith("criteria-")]
+    assert tuple(c["text"] for c in doc.tables[name][0]) == render_agent.CRITERIA_COLUMNS
+
+
+def test_the_report_live_fields_table_equals_the_rows_the_code_writes_for_a_live_attempt_and_the_banner_is_quoted(page, tmp_path):
+    from hypotrail.agentic import fixture
+    from hypotrail.report import render_agent
+
+    rows = attrs_of(page, "report-live-fields", "data-field")
+    ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
+    assert tuple(ordered) == render_agent.LIVE_FIELDS
+    doc, attempt, _ = _chinook_page(tmp_path)
+    shown = []
+    for name in (row[0] for row in doc.body(f"live-{attempt['attempt_id']}")):
+        name = "Limit note, <name>" if name.startswith("Limit note, ") else name
+        if name not in shown:
+            shown.append(name)
+    assert shown == list(render_agent.LIVE_FIELDS)
+    chapter = (HANDBOOK / "chapters" / "14-report.html").read_text(encoding="utf-8")
+    assert f'"{fixture.BANNER}"' in chapter and render_agent.SELF_CHECK_HEADING in chapter
+
+
+def test_the_readme_and_chapters_say_the_report_covers_both_tracks():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "a Bike Study for now" not in readme and "the tool-using agent Track's report comes next" not in readme
+    chapters = {name: (HANDBOOK / "chapters" / name).read_text(encoding="utf-8") for name in ("05-assessments.html", "12-freeze-and-exposure.html", "14-report.html")}
+    assert "<code>report</code> (Bike)" not in chapters["12-freeze-and-exposure.html"] and "A report for Bike Studies" not in chapters["12-freeze-and-exposure.html"]
+    assert "Bike Studies only" not in chapters["14-report.html"] and "the next ticket" not in chapters["14-report.html"]
+
+
+# --- chapter 15: data fetch (#22) -----------------------------------------------------------------------------------
+
+
+def test_the_data_fetch_flag_table_equals_the_parser(page):
+    from hypotrail.cli import build_parser
+
+    data = next(a for a in build_parser()._actions if getattr(a, "choices", None) and "data" in a.choices).choices["data"]
+    fetch = next(a for a in data._actions if getattr(a, "choices", None) and "fetch" in a.choices).choices["fetch"]
+    options = {flag: a.required for a in fetch._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    rows = attrs_of(page, "data-fetch-flags", "data-flag")
+    assert {flag: row["data-required"] == "true" for flag, row in rows.items()} == options
+
+
+def test_the_data_fetch_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from _fetch_helpers import fetch_refusals
+
+    found = fetch_refusals(tmp_path)
+    rows = attrs_of(page, "data-fetch-refusals", "data-code")
+    assert set(rows) == set(found)
+    for code, cases in found.items():
+        for status, error in cases:
+            row = rows[code]
+            assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (status, error["stage"], set(error["details"])), code
+    reasons = {code: {error["details"]["reason"] for _, error in cases if "reason" in error["details"]} for code, cases in found.items()}
+    text = {code: row["text"] for code, row in table_rows(page, "data-fetch-refusals", "data-code").items()}
+    for code, named in reasons.items():
+        for reason in named:
+            assert reason in text[code], (code, reason)  # each reason the code gives is named in its row
+
+
+def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acquired_by_removing_it_first(page):
+    from hypotrail.core import fetch
+
+    match = re.search(r"<code data-cap>(\d+) bytes</code>", page)
+    assert match and int(match.group(1)) == fetch.GENERIC_CAP_BYTES
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")).split())
+    assert "To acquire a file again, remove it first." in chapter
+    assert "never replaces a file" in chapter and "no automatic mirror" in chapter
+
+
+def test_the_data_fetch_chapter_states_how_each_cut_transfer_ends_and_the_limit_where_the_lock_gives_no_size():
+    # 10-R1-06, #22 Tightened K (D-020): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
+    # are exit 4 (interrupted); an equal size with a wrong hash, a framed whole body that differs, and an unframed short body where
+    # the lock gives no size (archive, notice) are exit 3 and name the verified bundle; the handbook states this limit.
+    chapter = (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")
+    cut = re.search(r"<p data-cut-transfers>(.*?)</p>", chapter, re.S)
+    assert cut, "no paragraph states how a cut transfer ends"
+    text = " ".join(re.sub(r"<[^>]+>", " ", cut[1]).split())
+    for word in ("Content-Length", "chunked", "unframed", "size_bytes", "interrupted", "DOWNLOAD_FAILED", "DOWNLOAD_INTEGRITY", "data verify", "exit 4", "exit 3"):
+        assert word in text, word
+    assert "the framing http.client computed" in text and "+12" in text and "negative" in text and "ignores" in text  # #22 L
+    assert "no usable Content-Length" not in text  # the command parses no header: the framing is http.client's
+    assert "fewer bytes" in text and "equal size" in text and "no size" in text and "archive" in text and "notice" in text
+    assert "is not used to call a short body a cut one" not in text
+
+
+def test_the_readme_install_block_has_the_data_fetch_line_and_says_how_a_clean_install_acquires_the_data():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    block = readme.split("```")[1]
+    assert re.search(r"^uv run python -m hypotrail data fetch --lock \S+ --dest \S+", block, re.M)
+    flat = " ".join(readme.split())
+    assert "acquires it with `data fetch`" in flat and "to acquire it again, remove it first" in flat
+
+
+# --- #87: the record of the T24 walk (clean install, README path) -------------------------------------
+
+WALK = HANDBOOK / "walk-t24.html"
+README_ID_FLAGS = ("--observations", "--references", "--control", "--candidate")
+
+
+class WalkSteps(HTMLParser):
+    """Reads the steps of the walk record: kind, exit code, command and output of each `li.step`."""
+
+    def __init__(self):
+        super().__init__()
+        self.steps, self._step, self._into = [], None, None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "li" and "data-step" in attrs:
+            exit_code = attrs.get("data-exit")
+            self._step = {"kind": attrs["data-kind"], "exit": None if exit_code is None else int(exit_code), "command": None, "output": None}
+            self.steps.append(self._step)
+        elif tag == "pre" and self._step is not None:
+            for field in ("command", "output"):
+                if f"data-{field}" in attrs:
+                    self._into = field
+                    self._step[field] = ""
+
+    def handle_endtag(self, tag):
+        if tag == "pre":
+            self._into = None
+        elif tag == "li":
+            self._step = None
+
+    def handle_data(self, data):
+        if self._into is not None:
+            self._step[self._into] += data
+
+
+def walk_steps(text=None):
+    parser = WalkSteps()
+    parser.feed(WALK.read_text(encoding="utf-8") if text is None else text)
+    return parser.steps
+
+
+def readme_path(readme_text=None):
+    """The commands of the README's install block: comments and `[optional]` parts removed."""
+    block = (readme_text or (ROOT / "README.md").read_text(encoding="utf-8")).split("```")[1]
+    lines = (re.sub(r"\s+#.*$", "", line).strip() for line in block.splitlines())
+    return [re.sub(r"\s*\[[^\]]*\]", "", line) for line in lines if line]
+
+
+def same_command(written, recorded):
+    """The recorded command is the README's, each ID placeholder (`OBSERVATION_SET_ID`) filled by one token."""
+    words, filled = written.split(), recorded.split()
+    return len(words) == len(filled) and all(re.fullmatch(r"[A-Z]+(?:_[A-Z]+)*_ID", word) or word == token for word, token in zip(words, filled))
+
+
+def walk_removed_commands(text=None):
+    """The commands the record names as removed from the README's path after the walk (`<code data-removed-command>`)."""
+    page = WALK.read_text(encoding="utf-8") if text is None else text
+    return [html.unescape(command) for command in re.findall(r"<code data-removed-command>(.*?)</code>", page, re.S)]
+
+
+def walk_problems(steps, path, removed=None):
+    """What is wrong with a walk record against the README's path; an empty list when it holds.
+
+    A recorded README command that is no longer in the path is accepted only when the record names it as removed
+    (`removed`, by default read from the record); a command that is in the path is never excused.
+    """
+    removed = walk_removed_commands() if removed is None else removed
+    removed = [re.sub(r"\s*\[[^\]]*\]", "", command) for command in removed]  # an optional part is no part of the path, as in readme_path
+    problems = [f"the removed command is still in the README path: {command}" for command in removed if command in path]
+    paid = [command for command in path if "--mode llm_live" in command]
+    ran = [command for command in path if command not in paid]
+    not_run = [step for step in steps if step["kind"] == "not-run"]
+    if [step["command"] for step in not_run if "llm_live" in step["command"]] != paid:
+        problems.append("the paid README commands are not listed as not run, as written")
+    if any(step["exit"] is not None or step["output"] is not None for step in not_run):
+        problems.append("a command listed as not run carries an exit code or an output")
+    recorded = [step["command"] for step in steps if step["kind"] == "readme"]
+    recorded = [command for command in recorded if not any(same_command(written, command) for written in removed)]  # named as removed by the record
+    if len(recorded) != len(ran) or not all(same_command(written, command) for written, command in zip(ran, recorded)):
+        problems.append("the recorded README commands, in order, are not the commands of the README's path")
+    for index, step in enumerate(steps):
+        if step["kind"] == "not-run":
+            continue
+        if step["exit"] is None or not step["output"]:
+            problems.append(f"step {index + 1} keeps no exit code or no output")
+        before = "\n".join(earlier["output"] or "" for earlier in steps[:index])
+        for flag in README_ID_FLAGS:
+            for value in re.findall(rf"{flag} (\S+)", step["command"]):
+                if value not in before:
+                    problems.append(f"step {index + 1}: {flag} {value} is in no output of an earlier step")
+        for study in re.findall(r"--study (\S+)", step["command"]):
+            if " init --workload " in step["command"]:
+                continue  # the command that creates the Study
+            if not any(re.search(rf"\binit --workload \S+ --study {re.escape(study)}$", earlier["command"] or "") for earlier in steps[:index]):
+                problems.append(f"step {index + 1}: the Study {study} was not created by an earlier init")
+    return problems
+
+
+def test_the_t24_walk_record_keeps_the_commands_of_the_readme_path_with_the_ids_they_were_filled_from():
+    # #87 Tightened B: a record written without running the commands (IDs from elsewhere, an output missing, a command
+    # not run) or left behind by a change to the README's commands fails; the paid commands are listed, never run.
+    steps = walk_steps()
+    assert walk_problems(steps, readme_path()) == []
+    assert any(step["kind"] == "not-run" and "spike live" in step["command"] for step in steps)  # the paid command of the README's prose
+    assert "spike live" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_the_t24_walk_record_names_the_walker_the_commit_and_that_an_agent_walked():
+    # #87 C1: who walked, on which commit, in which environment.
+    fields = dict(re.findall(r'<dd data-field="([a-z-]+)">(.*?)</dd>', WALK.read_text(encoding="utf-8"), re.S))
+    assert re.search(r"<code>[0-9a-f]{40}</code>", fields["commit"])
+    assert "slice-builder" in fields["walker"] and "claude.ai/code/session_" in fields["walker"]
+    assert "not by the owner" in fields["executed-by"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields["date"])
+    assert all(fields[name].strip() for name in ("os", "python", "uv"))
+
+
+def _root_tokens(css, selector):
+    """The `--name: value` declarations of the first `selector{...}` rule of a style block."""
+    body = css.split(selector + "{", 1)[1].split("}", 1)[0]
+    return dict(re.findall(r"(--[a-z0-9-]+):([^;]+);?", body))
+
+
+def _rule_declarations(css, selector):
+    """Every declaration (custom properties and others) of the first `selector{...}` rule, by name."""
+    body = css.split(selector + "{", 1)[1].split("}", 1)[0]
+    return {name.strip(): value.strip() for name, _, value in (part.partition(":") for part in body.split(";")) if name.strip()}
+
+
+def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_with_the_templates_tokens_switch_and_scripts():
+    # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, #1 amendment « light mode by default »: `data-mode="light"`, the template's base and
+    # light token blocks for the tokens the page uses, its `.mode` switch (markup and CSS) and its two small scripts, all as in template.html.
+    page = WALK.read_text(encoding="utf-8")
+    template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
+    assert re.search(r'<html[^>]*\bdata-mode="light"', page) and "prefers-color-scheme" not in page
+    style = page.split("<style>", 1)[1].split("</style>", 1)[0]
+    base, light = _root_tokens(style, ":root"), _root_tokens(style, ':root[data-mode="light"]')
+    charter_base, charter_light = _root_tokens(template, ":root"), _root_tokens(template, ':root[data-mode="light"]')
+    assert base and light
+    assert all(charter_base.get(name) == value for name, value in base.items()), "a base token that is not the template's"
+    page_rule, template_rule = _rule_declarations(style, ':root[data-mode="light"]'), _rule_declarations(template, ':root[data-mode="light"]')
+    assert page_rule and all(template_rule.get(name) == value for name, value in page_rule.items()), "a light declaration that is not the template's"
+    assert page_rule.get("color-scheme") == "light"  # the whole light rule, not only its tokens: removing color-scheme fails
+    used = set(re.findall(r"var\((--[a-z0-9-]+)\)", style))
+    assert set(base) == used, ("declared and unused", set(base) - used, "used and undeclared", used - set(base))  # every declared token is used
+    assert set(light) == used & set(charter_light) and 'data-mode="light"' in style
+    switch = re.search(r'<div class="mode".*?</div>', template, re.S)[0]
+    assert switch in page and page.index(switch) < page.index("<main>")  # the template's switch markup
+    css = [line for line in template.split("<style>", 1)[1].split("</style>", 1)[0].splitlines() if line.startswith(".mode")]
+    assert len(css) == 4 and all(line in style for line in css)  # the template's .mode rules
+    scripts = re.findall(r"<script>.*?</script>", template, re.S)
+    assert len(scripts) == 2 and all(script in page for script in scripts)  # `?mode=` and localStorage `doc-mode`, then the switch handler
+    assert "?mode=" not in page.replace(scripts[0], "") and 'localStorage.getItem("doc-mode")' in scripts[0]
+WALKED_REMOVED_COMMAND = "uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]"  # as README.md had it at 2d1583f, the commit walked
+
+
+def test_the_readme_path_carries_no_command_it_says_is_refused_and_the_walk_record_names_the_removed_command_as_it_stood():
+    # 10-R1-04, #87 C5: the walk saw the Chinook `compare` line refused (D7, COMPARISON_POPULATION_DIFFERS, exit 3). The README moves it out
+    # of the code block into a sentence that names no Assessment that does not exist; the record names the removal, exactly as the
+    # command stood at the walked commit, as a correction made after the walk, and marks D7's old wording.
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    block, after = readme.split("```")[1], readme.split("```", 2)[2]
+    assert "compare --study runs/chinook" not in block and "COMPARISON_POPULATION_DIFFERS" not in block
+    sentence = next(part for part in re.split(r"\n\n", after) if "compare --study runs/chinook" in part)
+    assert "two agent Assessments over the same Cases" in sentence and "makes none" in sentence
+    assert "Campaign" not in sentence and "`plain`" not in sentence  # the live Campaign did not run: no Assessment of it exists to name
+    page = WALK.read_text(encoding="utf-8")
+    corrections = re.search(r'<h2 id="corrections">.*?(?=<h2 )', page, re.S)[0]
+    assert 'data-corrections="none"' not in corrections and "Campaign" not in corrections
+    assert "10-R1-04" in corrections and "after the walk" in corrections and "D7" in corrections and "removed" in corrections
+    assert walk_removed_commands() == [WALKED_REMOVED_COMMAND]
+    assert any(same_command(re.sub(r"\s*\[[^\]]*\]", "", WALKED_REMOVED_COMMAND), step["command"]) for step in walk_steps() if step["kind"] == "readme")
+    d7 = re.search(r'<li data-difficulty="D7">.*?</li>', page, re.S)[0]
+    assert "wording before the correction" in d7
+    assert walk_problems(walk_steps(), readme_path()) == []
+
+
+def test_the_removed_command_is_the_line_the_readme_had_at_the_commit_the_walk_ran():
+    walked = subprocess.run(["git", "show", "2d1583f:README.md"], cwd=ROOT, capture_output=True, text=True)
+    if walked.returncode != 0:
+        pytest.skip("the walked commit 2d1583f is not in this clone; the fixed copy WALKED_REMOVED_COMMAND is what the other test reads")
+    line = next(line for line in walked.stdout.splitlines() if "compare --study runs/chinook" in line)
+    assert re.sub(r"\s+#.*$", "", line).strip() == WALKED_REMOVED_COMMAND
+
+
+def test_the_walk_check_excuses_a_missing_readme_command_only_when_the_record_names_it_as_removed():
+    # #87 B stays strict: it ignores no README command in general.
+    steps, path = walk_steps(), readme_path()
+    removed = walk_removed_commands()
+    assert walk_problems(steps, path, removed=[]) != []  # the record would not name the Chinook compare: the check fails
+    status = next(command for command in path if " status " in command)
+    shorter = [command for command in path if command != status]
+    assert walk_problems(steps, shorter) != []  # another command missing from the README, not named by the record
+    assert walk_problems(steps, path + removed) != []  # a command the record names as removed that is back in the path
+    assert walk_problems(steps, path, removed=removed) == []
+
+
+def test_the_walk_record_says_only_d3_was_handed_back_to_89_for_triage_which_was_open_on_the_record_date_with_no_code_or_readme_label():
+    # 10-R1-05, #87 C5: #89 is `needs-triage` and asks whether the code or the README changes, so the record labels D3 neither. D3 says what
+    # #89 says (`status --json` lists the References id, but it comes last in the path).
+    text = WALK.read_text(encoding="utf-8")
+    record_date = re.search(r'<dd data-field="date">(.*?)</dd>', text, re.S)[1]  # the record's own date, read from the record
+    intro = re.search(r'<h2 id="difficulties">.*?</h2>\s*<p>(.*?)</p>', text, re.S)[1]
+    assert "Only D3 was handed back" in intro and "chadlis/hypotrail#89 for triage" in intro and f"triage was open when this record was written ({record_date})" in intro and "triage is open" not in intro  # dated: the test never reads #89
+    assert "defect" not in intro and not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", intro, re.I) and "<a " not in intro
+    d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
+    assert "handed back to chadlis/hypotrail#89 for triage" in d3 and "defect" not in d3 and "says nothing untrue" not in d3
+    assert "no README command prints either" not in d3
+    assert "<code>status --json</code> lists the References id" in d3 and "comes last in the path" in d3
+    handed = [d for d in re.findall(r'<li data-difficulty="(D\d+)">', text) if "handed back" in re.search(rf'<li data-difficulty="{d}">.*?</li>', text, re.S)[0]]
+    assert handed == ["D3"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "status --study runs/bike --json" in readme.split("```")[1].strip().splitlines()[-1]  # D3: it comes last in the path
+
+
+def test_what_the_walk_record_says_of_the_readme_is_in_the_readme_it_describes():
+    # 10-R1-05 consistency pass: a quotation of the README in the record is in the README; the paid commands are the two not run.
+    text = WALK.read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    d6 = re.search(r'<li data-difficulty="D6">.*?</li>', text, re.S)[0]
+    assert "self-check" not in d6 and "the scenarios: mock model, no key" in d6 and "the scenarios: mock model, no key" in readme
+    claim = re.search(r"<p>Steps are numbered.*?</p>", text, re.S)[0]
+    assert "Two commands of the README are paid and were not run" in claim and "spike live" in claim and "spike live" in readme
+    assert len([step for step in walk_steps() if step["kind"] == "not-run"]) == 2
+def test_the_walk_record_hands_difficulty_d3_back_to_issue_89_in_plain_text_without_a_closing_keyword():
+    # 10-R1-05, #87 C5: D3 is handed back to #89 for triage, named in plain text; no keyword closes the issue.
+    text = WALK.read_text(encoding="utf-8")
+    d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
+    assert "chadlis/hypotrail#89" in d3 and "<a " not in d3
+    assert not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", d3, re.I)
+
+
+# --- #88: the acceptance grid T01-T24 (chapter 16), its statuses and the handbook's completeness -------------------------
+
+ACCEPTANCE_IDS = [f"T{n:02d}" for n in range(1, 25)]
+OFFLINE_IDS = [test for test in ACCEPTANCE_IDS if test != "T20"]  # SPEC §10: T01-T19 and T21-T24 found OFFLINE_ACCEPTED
+GRID_CELLS = ("data-what", "data-expected", "data-reason")
+
+
+class Grid(HTMLParser):
+    """Reads the grid chapter: the rows of `acceptance-grid`, the rows of `acceptance-status`, the campaign's command lines."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows, self.statuses, self.campaign = [], {}, {}
+        self._table = self._row = self._status = None
+        self._open = []  # the elements whose text is being kept: (tag, where it goes, under which key)
+
+    def _keep(self, tag, target, key):
+        self._open.append((tag, target, key))
+        if key is None:
+            target.append("")
+        else:
+            target[key] = ""
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "table":
+            self._table = attrs.get("id")
+        elif tag == "tr" and self._table == "acceptance-grid" and "data-test" in attrs:
+            self._row = {
+                "test": attrs["data-test"], "proof": attrs.get("data-proof"), "exit": attrs.get("data-exit"),
+                "what": None, "expected": None, "reason": None, "nodes": [], "walk": [], "command": None, "output": None,
+            }
+            self.rows.append(self._row)
+        elif tag == "tr" and self._table == "acceptance-status" and "data-status" in attrs:
+            self._status = self.statuses.setdefault(attrs["data-status"], {"attrs": attrs, "text": ""})
+        elif tag == "td" and self._row is not None:
+            for name in GRID_CELLS:
+                if name in attrs:
+                    self._keep(tag, self._row, name[len("data-"):])
+        elif tag == "td" and self._status is not None:
+            self._keep(tag, self._status, "text")
+        elif tag == "code" and self._row is not None and "data-node" in attrs:
+            self._keep(tag, self._row["nodes"], None)
+        elif tag == "code" and "data-campaign" in attrs:
+            self._keep(tag, self.campaign, attrs["data-campaign"])
+        elif tag == "pre" and self._row is not None:
+            for field in ("command", "output"):
+                if f"data-{field}" in attrs:
+                    self._keep(tag, self._row, field)
+        elif tag == "a" and self._row is not None and "data-walk" in attrs:
+            self._row["walk"].append(attrs.get("href"))
+
+    def handle_endtag(self, tag):
+        if self._open and self._open[-1][0] == tag:
+            self._open.pop()
+        if tag == "tr":
+            self._row = self._status = None
+        elif tag == "table":
+            self._table = None
+
+    def handle_data(self, data):
+        for _, target, key in self._open:
+            if key is None:
+                target[-1] += data
+            else:
+                target[key] += data
+
+
+def grid_of(text):
+    grid = Grid()
+    grid.feed(text)
+    return grid
+
+
+@pytest.fixture(scope="module")
+def collected():
+    """The node IDs the whole suite collects (a collection only: no test of the suite is run by this)."""
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "tests"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout[-2000:] + result.stderr[-2000:]
+    return {line.split(" ")[0] for line in result.stdout.splitlines() if "::" in line}
+
+
+def node_is_collected(node, collected):
+    return node in collected or any(item.startswith(node + "[") for item in collected)
+
+
+def node_declares(node, test_id):
+    """Whether the test function a node ID names carries `test_id` (T05, not T050) in its name or its docstring."""
+    path, *scopes = node.split("::")
+    tree = ast.parse((ROOT / path).read_text(encoding="utf-8"))
+    body = tree.body
+    for scope in scopes[:-1]:
+        body = next(item for item in body if isinstance(item, ast.ClassDef) and item.name == scope).body
+    function = next(item for item in body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == scopes[-1])
+    return re.search(rf"(?<![A-Za-z0-9]){test_id}(?![0-9])", f"{function.name}\n{ast.get_docstring(function) or ''}") is not None
+
+
+def row_faults(row, collected):
+    """What is wrong with a row of the grid itself, before anything is said about whether its proof passes."""
+    faults = []
+    if row["proof"] not in {"pytest", "command", "walk", "not-run"}:
+        return [f"{row['test']}: proof kind {row['proof']!r}"]
+    if not (row["what"] or "").strip() or not (row["expected"] or "").strip():
+        faults.append(f"{row['test']}: no text of what it does or of its expected result")
+    if row["proof"] == "not-run":
+        if not (row["reason"] or "").strip():
+            faults.append(f"{row['test']}: not run, with no reason")
+    elif (row["reason"] or "").strip():
+        faults.append(f"{row['test']}: a proof and a not-run reason together")
+    if row["proof"] == "pytest":
+        if not row["nodes"]:
+            faults.append(f"{row['test']}: a pytest proof that names no node")
+        for node in row["nodes"]:
+            if not node_is_collected(node, collected):
+                faults.append(f"{row['test']}: {node} is not collected by the suite")
+            elif not node_declares(node, row["test"]):
+                faults.append(f"{row['test']}: {node} does not declare {row['test']} in its name or its docstring")
+    if row["proof"] == "command" and not (row["command"] or "").strip():
+        faults.append(f"{row['test']}: a command proof with no command")
+    if row["proof"] == "walk" and not row["walk"]:
+        faults.append(f"{row['test']}: a walk proof that links no record")
+    return faults
+
+
+WALK_FIELDS = ("walker", "executed-by", "date", "commit")
+
+
+def walk_row_problems(text=None, steps=None, path=None):
+    """#88 K, the T24 row: why the walk record does not pass as T24's proof; an empty list when it does.
+
+    The record exists and passes #87 B's test, and holds what T24 expects (SPEC §10: the walker identified, a failure and a limit
+    found, the difficulties recorded). A difficulty that is recorded does not fail the row; one that kept the walker from finding
+    the failure or the limit shows as an empty failure or limit below, and does.
+    """
+    if text is None:
+        if not WALK.is_file():
+            return ["the walk record does not exist"]
+        text = WALK.read_text(encoding="utf-8")
+    problems = [f"#87 B: {problem}" for problem in walk_problems(walk_steps(text) if steps is None else steps, readme_path() if path is None else path)]
+    fields = dict(re.findall(r'<dd data-field="([a-z-]+)">(.*?)</dd>', text, re.S))
+    for name in WALK_FIELDS:
+        if not re.sub(r"<[^>]+>", "", fields.get(name, "")).strip():
+            problems.append(f"the walker is not identified: no {name}")
+    failure = re.search(r'<h3 id="failure">.*?<blockquote data-found="failure">(.*?)</blockquote>', text, re.S)
+    if not failure or not re.sub(r"<[^>]+>", "", failure.group(1)).strip():
+        problems.append("no failure found")
+    limit = re.search(r'<h3 id="limit">[^<]*</h3>(.*?)<h2 id="difficulties">', text, re.S)
+    if not limit or not re.sub(r"<[^>]+>", "", limit.group(1)).strip():
+        problems.append("no limit found")
+    difficulties = re.search(r'<ol class="diffs" id="walk-difficulties">(.*?)</ol>', text, re.S)
+    if not difficulties or not re.search(r'<li data-difficulty="D\d+">', difficulties.group(1)):
+        problems.append("the difficulties are not recorded")
+    return problems
+
+
+def proof_problems(row, collected, walk_text=None):
+    """Why a row's proof does not pass (K); an empty list when it does. A row marked not run never passes."""
+    if row["proof"] == "not-run":
+        return ["not run"]
+    problems = row_faults(row, collected)
+    if row["proof"] == "command":
+        if row["exit"] != "0" or not (row["output"] or "").strip():
+            problems.append("the recorded output does not show exit 0")
+    if row["proof"] == "walk":
+        problems += walk_row_problems(walk_text)
+    return problems
+
+
+def held_back_by(rows, collected, walk_text=None):
+    return [row["test"] for row in rows if row["test"] in OFFLINE_IDS and proof_problems(row, collected, walk_text)]
+
+
+def chapter_16():
+    return (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
+
+
+def test_the_grid_has_exactly_one_row_per_test_T01_to_T24_each_with_what_it_does_its_expected_result_and_a_proof_or_a_reason(page):
+    # #88 C1: the rows are exactly T01-T24, in order, once each; a row has its text and either a proof or a « not run » reason.
+    rows = grid_of(page).rows
+    assert [row["test"] for row in rows] == ACCEPTANCE_IDS
+    for row in rows:
+        assert (row["what"] or "").strip() and (row["expected"] or "").strip(), row["test"]
+        assert (row["proof"] == "not-run") == bool((row["reason"] or "").strip()), row["test"]
+
+
+def test_every_pytest_node_a_row_names_is_collected_by_the_suite_and_declares_that_rows_test(page, collected):
+    # #88 A: a collected but unrelated test fails the grid unless it declares the row.
+    assert [fault for row in grid_of(page).rows for fault in row_faults(row, collected)] == []
+
+
+def test_a_row_naming_a_test_that_is_not_collected_or_does_not_declare_it_is_a_fault(collected):
+    # #88 A, the witness of the witness: a node that exists and passes but is about another row, and a node that does not exist.
+    unrelated = "tests/test_data_verify.py::test_both_datasets_verify_with_no_workload_given"
+    row = {"test": "T02", "proof": "pytest", "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [unrelated], "walk": [], "command": None, "output": None}
+    assert node_is_collected(unrelated, collected)
+    assert row_faults(row, collected) == [f"T02: {unrelated} does not declare T02 in its name or its docstring"]
+    assert row_faults({**row, "nodes": ["tests/test_data_verify.py::test_nothing_like_it"]}, collected) == [
+        "T02: tests/test_data_verify.py::test_nothing_like_it is not collected by the suite"
+    ]
+    assert node_declares("tests/test_report_agent.py::test_T22_markup_in_a_scenarios_final_answer_is_shown_as_the_same_characters_and_the_rest_of_the_page_is_intact", "T22")
+    assert not node_declares("tests/test_report_agent.py::test_T22_markup_in_a_scenarios_final_answer_is_shown_as_the_same_characters_and_the_rest_of_the_page_is_intact", "T2")
+
+
+def grid_row(test, proof="pytest", **fields):
+    return {"test": test, "proof": proof, "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [], "walk": [], "command": None, "output": None, **fields}
+
+
+def test_a_row_marked_not_run_holds_offline_accepted_back_and_a_command_row_passes_only_with_exit_0(collected):
+    # #88 B and K: OFFLINE_ACCEPTED is computed from the rows; a not-run row among T01-T19 and T21-T24 holds it back, T20 does not.
+    declared = "tests/test_data_verify.py::test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file"
+    ok = grid_row("T01", nodes=[declared])
+    assert held_back_by([ok], collected) == []
+    assert held_back_by([grid_row("T05", "not-run", reason="r")], collected) == ["T05"]
+    assert held_back_by([grid_row("T20", "not-run", reason="r")], collected) == []
+    assert held_back_by([grid_row("T01", "command", command="x", output="o", exit="0")], collected) == []
+    assert held_back_by([grid_row("T01", "command", command="x", output="o", exit="1")], collected) == ["T01"]
+    assert held_back_by([grid_row("T01", "command", command="x", output="", exit="0")], collected) == ["T01"]
+    assert held_back_by([grid_row("T01", nodes=[])], collected) == ["T01"]
+
+
+def test_the_status_table_has_the_three_statuses_each_with_its_own_value_and_offline_accepted_is_the_one_the_rows_compute(page, collected):
+    # #88 B: LIVE_ACCEPTED pending (not LIVE_NOT_VALIDATED), USABILITY_REVIEW_PENDING open, OFFLINE_ACCEPTED computed from the rows.
+    grid = grid_of(page)
+    statuses = {name: row["attrs"] for name, row in grid.statuses.items()}
+    assert set(statuses) == {"OFFLINE_ACCEPTED", "LIVE_ACCEPTED", "USABILITY_REVIEW_PENDING"}
+    assert statuses["LIVE_ACCEPTED"]["data-value"] == "pending"
+    assert statuses["USABILITY_REVIEW_PENDING"]["data-value"] == "open"
+    held = held_back_by(grid.rows, collected)
+    assert statuses["OFFLINE_ACCEPTED"]["data-value"] == ("pending" if held else "reached")
+    assert statuses["OFFLINE_ACCEPTED"].get("data-held-by", "").split() == held
+    assert all("LIVE_NOT_VALIDATED" not in row["text"] for row in grid.statuses.values())
+    for name, row in grid.statuses.items():  # each status has its own evidence, none derived from another
+        assert row["text"].strip(), name
+    assert "T20" in grid.statuses["LIVE_ACCEPTED"]["text"] and "T20" not in grid.statuses["OFFLINE_ACCEPTED"]["text"]
+    assert "T01" in grid.statuses["OFFLINE_ACCEPTED"]["text"] and "T24" in grid.statuses["OFFLINE_ACCEPTED"]["text"]
+
+
+def test_T20_is_not_run_with_the_reason_the_references_review_found_E07_ambiguous_and_the_live_evidence_is_cited(page):
+    # #88 C3: the reason (D-015 condition 1, E07, the owner's review), the spike report and the kept live traces as evidence.
+    rows = {row["test"]: row for row in grid_of(page).rows}
+    assert rows["T20"]["proof"] == "not-run"
+    reason = " ".join(rows["T20"]["reason"].split())
+    for part in ("found E07 ambiguous", "a column type", "D-015 condition (1)", "owner's review of E07", "References of E01-E10", "pending"):
+        assert part in reason, part
+    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+    assert 'href="#feasibility-spike"' in chapter_16()
+    assert "docs/handbook/traces/live-spike" in text and "docs/handbook/traces/run-agent-live-plain" in text
+    assert "does not by itself" in text
+
+
+def split_sentences(text):
+    """The sentences and the cells of a text with its markup removed, one per element that holds text."""
+    blocks = re.split(r"</(?:p|li|td|th|h\d|pre|div|dd|dt|blockquote)>|<br\s*/?>|\n\s*\n", text)
+    sentences = []
+    for block in blocks:
+        plain = " ".join(re.sub(r"<[^>]+>", " ", block).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&").split())
+        sentences += [s for s in re.split(r"(?<=[.!?;])\s+", plain) if s]
+    return sentences
+
+
+def bare_live_accepted(text):
+    """Sentences or cells that hold LIVE_ACCEPTED without « pending » (D-015 condition 3)."""
+    return [s for s in split_sentences(text) if "LIVE_ACCEPTED" in s and not re.search(r"(?<![A-Za-z_])pending(?![A-Za-z_])", s, re.I)]
+
+
+def test_no_sentence_or_cell_outside_the_status_table_holds_live_accepted_without_pending():
+    # #88 C: the README and every handbook chapter's source; a sentence like « LIVE_ACCEPTED is reached once the Campaign runs » fails.
+    assert bare_live_accepted("<p>LIVE_ACCEPTED is reached once the Campaign runs.</p>") == ["LIVE_ACCEPTED is reached once the Campaign runs."]
+    assert bare_live_accepted("<p>LIVE_ACCEPTED is pending. LIVE_ACCEPTED is reached.</p>") == ["LIVE_ACCEPTED is reached."]
+    assert bare_live_accepted("<table><tr><td>LIVE_ACCEPTED</td><td>pending</td></tr></table>") == ["LIVE_ACCEPTED"]
+    assert bare_live_accepted("<p>LIVE_ACCEPTED and USABILITY_REVIEW_PENDING are kept apart.</p>") == ["LIVE_ACCEPTED and USABILITY_REVIEW_PENDING are kept apart."]
+    sources = {"README.md": (ROOT / "README.md").read_text(encoding="utf-8")}
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        sources[path.name] = re.sub(r'<table class="tbl" id="acceptance-status">.*?</table>', "", text, flags=re.S)
+    assert {name: bare_live_accepted(text) for name, text in sources.items() if bare_live_accepted(text)} == {}
+    assert "LIVE_ACCEPTED" in sources["README.md"] and "LIVE_ACCEPTED" in sources["16-acceptance-grid.html"]  # the check reads what it is about
+
+
+def readme_status():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    return text.split("## Status", 1)[1].split("\n## ", 1)[0]
+
+
+def test_the_readme_status_states_the_three_statuses_as_the_grid_has_them_links_the_grid_and_where_to_look_names_it(page):
+    # #88 C9 (the README's criterion) and E: USABILITY_REVIEW_PENDING is open; nothing says the README path is usable by a third party.
+    grid = grid_of(page)
+    status = " ".join(readme_status().split())
+    values = {name: row["attrs"]["data-value"] for name, row in grid.statuses.items()}
+    assert f"`OFFLINE_ACCEPTED` {values['OFFLINE_ACCEPTED']}" in status
+    assert "`LIVE_ACCEPTED` pending" in status and "E07" in status and "owner" in status
+    assert "`USABILITY_REVIEW_PENDING` open" in status
+    assert "docs/handbook/handbook.html#acceptance-grid" in status
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look", 1)[1]
+    assert "acceptance grid" in where.lower() and "handbook.html#acceptance-grid" in where
+    for text in (status, " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())):
+        for sentence in split_sentences(text):
+            if re.search(r"third part(?:y|ies)", sentence):
+                assert re.search(r"\bnot\b|\bpending\b|\buntil\b|\bbefore\b|\bnever\b", sentence), sentence
+    assert 'data-status="USABILITY_REVIEW_PENDING"' in page and "another person" in " ".join(page.split())
+
+
+def test_the_grid_links_the_walk_record_of_t24_and_the_t24_row_passes_by_k(page):
+    # #88 K and #87 E: the T24 row's proof is the walk record, linked from the grid.
+    row = {row["test"]: row for row in grid_of(page).rows}["T24"]
+    assert row["proof"] == "walk" and row["walk"] == ["walk-t24.html"]
+    assert walk_row_problems() == []
+
+
+def test_the_t24_row_fails_when_the_record_is_missing_unwalked_or_has_no_failure_or_no_limit_and_survives_a_recorded_difficulty():
+    # #88 K: a recorded difficulty does not fail the row; one that kept the walker from the failure or the limit does.
+    text = WALK.read_text(encoding="utf-8")
+    assert walk_row_problems(text) == []
+    extra = text.replace('<li data-difficulty="D9">', '<li data-difficulty="D10"><b>D10.</b> a difficulty that was recorded and changed nothing.</li>\n<li data-difficulty="D9">')
+    assert extra != text and walk_row_problems(extra) == []
+    no_failure = re.sub(r'(<blockquote data-found="failure">).*?(</blockquote>)', r"\1\2", text, flags=re.S)
+    assert walk_row_problems(no_failure) == ["no failure found"]
+    no_limit = re.sub(r'(<h3 id="limit">[^<]*</h3>).*?(<h2 id="difficulties">)', r"\1\2", text, flags=re.S)
+    assert walk_row_problems(no_limit) == ["no limit found"]
+    no_walker = text.replace('data-field="walker"', 'data-field="nobody"')
+    assert walk_row_problems(no_walker) == ["the walker is not identified: no walker"]
+    no_difficulties = text.replace("data-difficulty=", "data-nothing=")
+    assert walk_row_problems(no_difficulties) == ["the difficulties are not recorded"]
+    unwalked = [step for step in walk_steps(text) if step["kind"] != "readme"]
+    assert any(problem.startswith("#87 B:") for problem in walk_row_problems(text, steps=unwalked))
+    assert walk_row_problems(text, path=readme_path()[:-1]) != []
+
+
+def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_as_a_role():
+    # 10-R1-02, GLOSSARY Control (_Avoid_: baseline as a role): the open point on the order of the Configurations names `plain` and `verify`.
+    chapter = (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
+    point = re.search(r'<span data-open-point="order">(.*?)</span>', chapter, re.S)[1]
+    assert "order of <code>plain</code> and <code>verify</code>" in point
+    assert "baseline" not in point.replace("« baseline »", "")  # a verbatim SPEC quote in « » may keep the word
+
+
+CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
+
+
+def campaign_argv(line):
+    """A documented command line as the parser takes it: the program removed, each placeholder filled with itself in lower case."""
+    words = CAMPAIGN_PLACEHOLDER.sub(lambda match: match.group(0).lower(), line).split()
+    assert words[:5] == ["uv", "run", "python", "-m", "hypotrail"], line
+    return words[5:]
+
+
+def test_every_campaign_command_the_grid_documents_parses_with_the_clis_parser_with_its_required_flags(page):
+    # #88 D: the two `run agent` invocations, `assess` of each, `compare` and `report`; a line missing a required flag fails.
+    from hypotrail.cli import build_parser
+
+    lines = grid_of(page).campaign
+    assert list(lines) == ["run-plain", "run-verify", "assess-plain", "assess-verify", "compare", "report"]
+    parsed = {name: build_parser().parse_args(campaign_argv(" ".join(line.split()))) for name, line in lines.items()}
+    for config in ("plain", "verify"):
+        run = parsed[f"run-{config}"]
+        assert (run.mode, run.config, run.partition, run.repeats, run.model) == ("llm_live", config, "public_check", 3, "anthropic/claude-sonnet-5-5")
+    assert parsed["run-plain"].request_id != parsed["run-verify"].request_id
+    assert all(parsed[name].scorer == "chinook_contract_v1" for name in ("assess-plain", "assess-verify"))
+    assert parsed["assess-plain"].observations != parsed["assess-verify"].observations
+    assert lines["run-plain"].split() != lines["run-verify"].split()
+    for name in ("run-plain", "run-verify"):  # the one flags the Campaign must not carry: another Configuration and a cache or a retry knob
+        assert "--cases" not in lines[name] and "--retry-of" not in lines[name]
+    for name, line in lines.items():  # a line missing one of its required flags is refused by the parser
+        for flag in re.findall(r"--[a-z-]+", line):
+            argv = campaign_argv(" ".join(line.split()))
+            index = argv.index(flag)
+            required = {a.dest for a in _command_parser(argv)._actions if a.required}
+            if flag.lstrip("-").replace("-", "_") in required:
+                with pytest.raises(InvalidInputError):
+                    build_parser().parse_args(argv[:index] + argv[index + 2:])
+
+
+def _command_parser(argv):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    for word in argv:
+        action = next((a for a in parser._actions if getattr(a, "choices", None) and word in a.choices), None)
+        if action is None:
+            return parser
+        parser = action.choices[word]
+    return parser
+
+
+def test_in_the_campaigns_comparison_plain_is_the_control_and_verify_the_candidate(page):
+    # #88 H (D-017 item 9, AG-06: `verify` adds the instruction).
+    from hypotrail.cli import build_parser
+
+    lines = grid_of(page).campaign
+    compare = build_parser().parse_args(campaign_argv(" ".join(lines["compare"].split())))
+    assert "plain" in compare.control and "verify" not in compare.control
+    assert "verify" in compare.candidate and "plain" not in compare.candidate
+    assert compare.factor is None  # the Configuration is the declared factor of an agent Comparison
+
+
+def test_the_grid_documents_the_campaign_its_conditions_and_the_open_point_of_the_order(page):
+    # #88 C4 and C5: 72 Episodes, the same model and limits, cache off, retries zero; the conditions; the order is not alternated.
+    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+    for part in (
+        "12 Cases", "3 Repeats", "2 Configurations", "72 Episodes", "public_check", "the same model and limits", "response cache off", "retries at zero",
+        "only after the owner's review of the References", "Inspect logs and Observation sets kept whole", "no further paid invocation except after a technical failure",
+        "USD 30", "five paid live invocations per slice", "No command of this grid was run against a real model",
+        "is not alternated Episode by Episode", "AG-12", "case_index + repeat_index", "owner-decision gate",
+    ):
+        assert part in text, part
+
+
+# --- #88 I: the handbook is complete for the milestone: every command, record and refusal, with the report and the grid ---------
+
+
+def parser_commands():
+    """Every command the parser defines, a command that has sub-commands standing for its leaves (`run agent`, `data fetch`)."""
+    from hypotrail.cli import build_parser
+
+    names = []
+
+    def walk(parser, prefix):
+        subparsers = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+        if not subparsers:
+            names.append(prefix)
+        for action in subparsers:
+            for name, child in action.choices.items():
+                walk(child, f"{prefix} {name}".strip())
+
+    walk(build_parser(), "")
+    return names
+
+
+def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_and_each_is_described_in_the_chapter_it_names(page):
+    # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
+    rows = attrs_of(page, "commands-index", "data-command")
+    assert sorted(rows) == sorted(parser_commands())
+    assert len(parser_commands()) == 13
+    for command, row in rows.items():
+        section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
+        assert section, command
+        assert f"hypotrail {command}" in section.group(0), (command, row["data-chapter"])
+
+
+RECORD_TABLES = {  # each record definition of the contract schema: where the handbook lists its fields
+    "ArtifactRef": ("record", "record-fields"),
+    "StudySpec": ("record", "record-fields"),
+    "AttemptManifest": ("record", "record-fields"),
+    "ObservationSet": ("record", "record-fields"),
+    "ItemCounts": ("record", "item-counts-fields"),
+    "Metric": ("record", "assessment-fields"),
+    "Counts": ("record", "assessment-fields"),
+    "Assessment": ("record", "assessment-fields"),
+    "Comparison": ("record", "comparison-fields"),
+    "DescriptiveMeasures": ("record", "comparison-parts"),
+    "Delta": ("record", "comparison-parts"),
+    "FreezeRecord": ("field", "freeze-fields", "freeze"),
+    "ExposureEntry": ("field", "entry-fields", None),
+}
+
+
+def handbook_fields(page, name):
+    """The fields the handbook's table of a record lists (required and optional), or None when it has no table of it."""
+    how = RECORD_TABLES[name]
+    if how[0] == "record":
+        row = attrs_of(page, how[1], "data-record").get(name)
+        return None if row is None else words(row["data-required"]) | words(row["data-optional"])
+    rows = attrs_of(page, how[1], "data-field")
+    return {field for field, row in rows.items() if how[2] is None or row.get("data-where") == how[2]}
+
+
+def test_each_record_definition_of_the_contract_schema_has_a_handbook_table_of_its_fields_equal_to_the_schemas(page):
+    # #88 I: a record definition added to the schema without its handbook table fails.
+    from hypotrail.core import contracts
+
+    definitions = contracts.schema()["$defs"]
+    assert set(definitions) == set(RECORD_TABLES)
+    for name, definition in definitions.items():
+        assert handbook_fields(page, name) == set(definition["properties"]), name
+
+
+def raised_codes(root):
+    """The error codes the code raises: a literal first argument of an `...Error(...)` call, or the literal a call gives a helper
+    that passes its own `code` parameter to one (`_refuse("DUPLICATE_DATE", ...)`)."""
+    code = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
+
+    def called(node):
+        return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+
+    def literal(node):
+        return isinstance(node, ast.Constant) and isinstance(node.value, str) and code.fullmatch(node.value)
+
+    trees = [ast.parse(path.read_text(encoding="utf-8")) for path in sorted(Path(root).rglob("*.py"))]
+    helpers = {
+        function.name
+        for tree in trees
+        for function in ast.walk(tree)
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for call in ast.walk(function)
+        if isinstance(call, ast.Call) and called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Name)
+        and call.args[0].id in [a.arg for a in function.args.posonlyargs + function.args.args + function.args.kwonlyargs]
+    }
+    found = set()
+    for tree in trees:
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            if called(call).endswith("Error") and call.args and literal(call.args[0]):
+                found.add(call.args[0].value)
+            if called(call) in helpers:
+                found |= {a.value for a in call.args + [k.value for k in call.keywords] if literal(a)}
+    return found
+
+
+def codes_in_table_rows(page):
+    rows = re.findall(r"<tr[^>]*>.*?</tr>", page, re.S)
+    return {code for row in rows for code in re.findall(r"<code>([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)</code>", row)}
+
+
+def test_every_error_code_the_code_raises_has_a_row_in_a_handbook_table(page):
+    # #88 I: a code added without its handbook row fails (a row is a table row that shows the code in a `code` element).
+    raised = raised_codes(ROOT / "src" / "hypotrail")
+    assert {"DATA_INTEGRITY", "DUPLICATE_DATE", "STUDY_LOCKED", "DOWNLOAD_FAILED", "UNEXPECTED_ERROR"} <= raised  # the scan reads direct and helper-raised codes
+    assert len(raised) > 140
+    assert sorted(raised - codes_in_table_rows(page)) == []
+
+
+def test_the_scan_of_raised_codes_sees_a_code_raised_directly_or_through_a_helper_and_a_code_without_a_row_is_found(tmp_path):
+    # #88 I, the witness of the witness: a new code is seen, whichever way it is raised, and is missing from a table that lacks it.
+    (tmp_path / "module.py").write_text(
+        "from hypotrail.core.errors import InvalidInputError\n"
+        "def _refuse(code, message):\n    return InvalidInputError(code, message, stage='x')\n"
+        "def one():\n    raise InvalidInputError('A_NEW_CODE', 'm', stage='x')\n"
+        "def two():\n    raise _refuse('ANOTHER_NEW_CODE', 'm')\n"
+        "def three():\n    return 'NOT_A_RAISED_CODE'\n",
+        encoding="utf-8",
+    )
+    assert raised_codes(tmp_path) == {"A_NEW_CODE", "ANOTHER_NEW_CODE"}
+    assert codes_in_table_rows("<table><tr><td><code>A_NEW_CODE</code></td></tr></table><p><code>ANOTHER_NEW_CODE</code></p>") == {"A_NEW_CODE"}
+
+
+EXIT_OF_CLASS = {"InvalidInputError": 2, "IntegrityError": 3, "HypotrailError": 4}
+LIBRARY_CODE_TABLES = ("data-verify-codes", "spike-live-codes", "ml-library-codes", "unexpected-codes", "exposure-basis-code")
+
+
+def raise_sites(root):
+    """{code: {(exit, stage)}} of the places the code raises it: a direct `...Error("CODE", ...)` call or a call to a helper of its own
+    module that passes `code` on (`_refuse("CODE", ...)`); a stage given by a module constant is read from it."""
+    code = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
+
+    def called(node):
+        return node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+
+    sites = {}
+    for path in sorted(Path(root).rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        constants = {t.id: n.value.value for n in tree.body if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant)
+                     for t in n.targets if isinstance(t, ast.Name)}
+
+        def where(call):
+            keywords = {k.arg: k.value for k in call.keywords}
+            stage = keywords.get("stage")
+            stage = constants.get(stage.id) if isinstance(stage, ast.Name) else getattr(stage, "value", None)
+            exit_code = keywords.get("exit_code")
+            return (exit_code.value if isinstance(exit_code, ast.Constant) else EXIT_OF_CLASS.get(called(call)), stage)
+
+        helpers = {}
+        for function in ast.walk(tree):
+            if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                parameters = [a.arg for a in function.args.posonlyargs + function.args.args + function.args.kwonlyargs]
+                for call in ast.walk(function):
+                    if isinstance(call, ast.Call) and called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Name) and call.args[0].id in parameters:
+                        helpers[function.name] = where(call)
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            if called(call).endswith("Error") and call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str) and code.fullmatch(call.args[0].value):
+                sites.setdefault(call.args[0].value, set()).add(where(call))
+            elif called(call) in helpers:
+                for argument in call.args + [k.value for k in call.keywords]:
+                    if isinstance(argument, ast.Constant) and isinstance(argument.value, str) and code.fullmatch(argument.value):
+                        sites.setdefault(argument.value, set()).add(helpers[called(call)])
+    return sites
+
+
+def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_of_the_places_the_code_raises_it(page):
+    # #88 I: the rows added for the codes no other table had state the exit code and the stage(s) the code gives; none is left to memory.
+    sites = raise_sites(ROOT / "src" / "hypotrail")
+    seen = 0
+    for table_id in LIBRARY_CODE_TABLES:
+        for code, row in attrs_of(page, table_id, "data-code").items():
+            assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
+            seen += 1
+    assert seen == 7 + 5 + 17 + 2 + 1

@@ -377,6 +377,7 @@ def test_different_code_environments_are_said_and_never_called_identical(tmp_pat
 
 
 def test_latency_and_calls_are_descriptive_and_tokens_and_cost_are_null_never_zero(plain_and_verify):
+    """T21 (SPEC §10)."""
     study, plain, verify = plain_and_verify
     record = compare(study, plain, verify)[1]["comparison"]
     for side in ("control", "candidate"):

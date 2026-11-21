@@ -64,6 +64,7 @@ class Rig:
 
 
 def test_the_same_request_returns_the_recorded_attempt_and_runs_nothing_in_either_mode(tmp_path, monkeypatch):
+    """T18 (SPEC §10)."""
     rig = Rig(tmp_path, monkeypatch)
     first = ok(rig.live("plain", "same"))
     scenario = ok(rig.fixture("plain", "same-fixture"))
@@ -80,6 +81,7 @@ def test_the_same_request_returns_the_recorded_attempt_and_runs_nothing_in_eithe
 
 
 def test_another_configuration_under_the_same_request_id_is_a_conflict_on_configuration(tmp_path, monkeypatch):
+    """T18 (SPEC §10)."""
     rig = Rig(tmp_path, monkeypatch)
     ok(rig.live("plain", "r"))
     rig.conflict(rig.live("verify", "r"), "configuration")

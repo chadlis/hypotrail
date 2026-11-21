@@ -29,7 +29,37 @@ class DataCheckError(IntegrityError):
 
 
 def default_examples_dir() -> Path:
+    """The `examples/` beside the source checkout; an install that is not a checkout has no such directory."""
     return Path(__file__).resolve().parents[3] / "examples"
+
+
+def resolve_examples_dir(examples_dir: Path | str | None = None) -> Path:
+    """The directory holding the Workloads, for every command that reads one (D-016 on chadlis/hypotrail#75).
+
+    In this order: `--examples-dir` when it is given; otherwise the checkout's `examples/`, only if it exists and
+    holds at least one Workload lock; otherwise a refusal that names the flag. No environment variable is read and no
+    Workload is packaged in the wheel, so an install that is not a checkout finds the Workloads only through the flag.
+    """
+    if examples_dir is not None:
+        return Path(examples_dir)
+    default = default_examples_dir()
+    if default.is_dir() and discover_workloads(default):
+        return default
+    if default.is_dir():
+        fact = f"{default} exists but holds no Workload lock ({LOCK_NAME})"
+    elif default.exists():
+        fact = f"{default} exists but is not a directory"
+    elif default.is_symlink():
+        fact = f"{default} is a link whose target does not exist"
+    else:
+        fact = f"{default} does not exist"
+    reason = f"{fact}; give the directory that holds the Workloads with --examples-dir DIR"
+    raise InvalidInputError(
+        "EXAMPLES_DIR_NOT_FOUND",
+        f"no Workloads found: {reason}",
+        stage="config",
+        details={"examples_dir": str(default)},
+    )
 
 
 def sha256_file(path: Path) -> str:

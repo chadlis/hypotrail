@@ -30,6 +30,7 @@ def kept(tmp_path):
 
 
 def test_assess_succeeds_with_fit_prediction_and_tools_replaced_by_functions_that_fail(kept, monkeypatch):
+    """T10 (SPEC §10)."""
     from hypotrail.agentic import sql_tool
     from hypotrail.ml import baselines, ridge, run
 

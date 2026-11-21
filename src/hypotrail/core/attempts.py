@@ -12,6 +12,13 @@ from hypotrail.core import artifacts, canonical, contracts
 from hypotrail.core.errors import HypotrailError
 
 ITEM_STATUSES = ("produced", "failed", "missing")
+SCENARIO_MODE = "scripted_fixture"
+SCENARIO_BANNER = "test simulation, no LLM evaluated"
+"""What a `scripted_fixture` Attempt carries wherever it is shown: it tests the harness and evaluates no model.
+
+Held here, in the core, so that `hypotrail.agentic.fixture` (which imports Inspect) and `hypotrail.report` (which never does)
+say the same words.
+"""
 
 
 def now() -> str:

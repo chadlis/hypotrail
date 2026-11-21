@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hypotrail T24 walk record</title>
+<script>(function(){var q=/[?&]mode=(light|dark)/.exec(location.search),m=null;try{m=localStorage.getItem("doc-mode")}catch(e){}if(q)m=q[1];var d=document.documentElement;d.setAttribute("data-mode",m==="light"||m==="dark"?m:(d.getAttribute("data-mode")==="light"?"light":"dark"))})();</script>
+<style>
+:root{--bg:#0B0912;--bg2:#171320;--ink:#F5EFE3;--ink2:#CFC5D8;--line:rgba(241,234,221,.14);--line2:rgba(241,234,221,.30);--faint:#857D97;--gold:#E1C48C;--coral:#F2681E;--sans:'Jost','Avenir Next',Avenir,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+:root[data-mode="light"]{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--line:rgba(21,17,28,.10);--line2:rgba(21,17,28,.20);--faint:#7A7187;--gold:#9C7633;--coral:#C9500F;color-scheme:light}
+html{background:#050409}
+:root[data-mode="light"],:root[data-mode="light"] body{background:#EDE6DA}
+*{box-sizing:border-box}
+body{margin:0;background:#050409;color:var(--ink);font:300 16px/1.55 var(--sans)}
+main{max-width:980px;margin:0 auto;padding:32px 16px 64px;background:var(--bg)}
+h1{font-size:28px;margin:0 0 4px}
+h2{font-size:20px;margin:40px 0 8px;border-top:1px solid var(--line);padding-top:16px}
+h3{font-size:15px;margin:0 0 6px}
+p,li,dd{color:var(--ink)}
+.lead{color:var(--ink2)}
+code,pre{font:400 13px/1.45 var(--mono)}
+code{background:var(--bg2);padding:1px 4px;border-radius:3px}
+pre{background:var(--bg2);padding:10px 12px;margin:6px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-word;border-radius:4px}
+pre code{background:none;padding:0}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px}
+dt{color:var(--ink2)} dd{margin:0}
+ol.steps{list-style:none;padding:0}
+li.step{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0 0 12px}
+.tag{font-weight:400;color:var(--gold)}
+.exit{font-weight:600;float:right}
+li.step[data-exit]:not([data-exit="0"]) .exit{color:var(--coral)}
+.note{color:var(--ink2);margin:6px 0 0;font-size:14px}
+blockquote{margin:6px 0;padding:6px 12px;border-left:3px solid var(--line);color:var(--ink)}
+ol.diffs>li{margin:0 0 14px}
+.mode{position:fixed;top:16px;right:16px;z-index:50;display:flex;gap:2px;padding:3px;border:1px solid var(--line2);border-radius:99px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.mode button{all:unset;cursor:pointer;font:400 12.5px/1 var(--sans);letter-spacing:.04em;color:var(--faint);padding:7px 12px;border-radius:99px;transition:background .2s,color .2s}
+.mode button:hover{color:var(--ink)}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+</style>
+</head>
+<body>
+<div class="mode" role="group" aria-label="Theme" translate="no"><button data-m="dark">&#9790; Dark</button><button data-m="light">&#9728; Light</button></div>
+<main>
+<h1>T24 walk record</h1>
+<p class="lead">A clean-install walk of the README path, kept as a record (chadlis/hypotrail#87). It sits beside the handbook, not in it. T24 was executed by an agent, not by the owner. The reading by another person stays <code>USABILITY_REVIEW_PENDING</code>.</p>
+
+<h2 id="who">Who, when, where</h2>
+<dl id="walk-identity">
+<dt>Walker</dt><dd data-field="walker">the <code>slice-builder</code> agent type, model Sonnet 5.5 (<code>claude-sonnet-5-5</code>), session <a href="https://claude.ai/code/session_014N3DRHr6Mxdp96QxHJy1m5">https://claude.ai/code/session_014N3DRHr6Mxdp96QxHJy1m5</a></dd>
+<dt>Executed by</dt><dd data-field="executed-by">an agent, not by the owner</dd>
+<dt>Date</dt><dd data-field="date">2026-11-21</dd>
+<dt>Commit walked</dt><dd data-field="commit"><code>2d1583fd2b32c99882da3183fce365ad6c64f488</code>, the head of the slice branch when the walk ran. The squash commit that carries it does not exist yet; it is named where the merge is recorded.</dd>
+<dt>Operating system</dt><dd data-field="os">Ubuntu 24.04.5 LTS, Linux 6.18.44-fc-v726, x86_64</dd>
+<dt>Python</dt><dd data-field="python">3.13.18 (<code>/usr/local/bin/python3.13</code>, chosen by <code>uv</code>)</dd>
+<dt><code>uv</code></dt><dd data-field="uv">0.11.32</dd>
+<dt>Network</dt><dd data-field="network">through the agent proxy of the cloud session; outbound HTTPS allowed</dd>
+</dl>
+
+<h2 id="clean">Clean state</h2>
+<p>The commit was cloned with <code>git clone</code> from the worktree that holds the slice branch into a new directory, then checked out by its SHA. The clone held no <code>.venv</code>, no <code>runs/</code> and no Study from an earlier session. The install is the README's: a checkout with <code>uv sync</code> (no wheel was built; the README's sentence that any other install passes <code>--examples-dir</code> was read, not walked).</p>
+<p>What was already on the machine: the <code>uv</code> package cache (<code>~/.cache/uv</code>, with <code>archive-v0</code> and <code>builds-v0</code>). That is all the record says about it.</p>
+<p>The session's environment held <code>HYPOTRAIL_ANTHROPIC_API_KEY</code>. Every command of the walk ran as <code>env -u HYPOTRAIL_ANTHROPIC_API_KEY</code>, so none could read it. Each output below is the standard output and the standard error of the command together, whole.</p>
+
+<h2 id="before">Change made before the walk</h2>
+<p data-change="before-walk">By D-017 item 8 and D-018 point 4, this ticket owns the change to the README's <code>import agent</code> line, and it was made before the walk, in the commit walked: its <code>--source</code> is now the kept Inspect log <code>docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval</code> (it was <code>answers.jsonl</code>, with <code>or --source LOG.eval, an Inspect log</code> in the comment). The same commit changes one line of <code>tests/test_repo_rules.py</code>: a test picked the first README line that holds <code>docs/handbook/traces</code>, which became the command line, so it now skips lines that start with <code>uv run</code>.</p>
+
+<h2 id="steps">The walk</h2>
+<p>Steps are numbered in the order they ran. A step of kind <b>README command</b> is a command of the README's install block, as written, with its placeholders filled from the output of an earlier step. A step of kind <b>walker's own command</b> is not a README line: the walker ran it to find an id, to prepare a file the README names without giving it, or to try another way after a refusal; its command and its whole output are kept like the others. Two commands of the README are paid and were not run: the live <code>run agent</code> line of the install block, and <code>spike live</code>, which the README gives in a sentence after it.</p>
+<ol class="steps" id="walk-steps">
+<li class="step" id="step-1" data-step="1" data-kind="readme" data-exit="0"><h3>Step 1 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv sync --locked --all-extras</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Using CPython 3.13.18 interpreter at: /usr/local/bin/python3.13
+Creating virtual environment at: .venv
+Resolved 98 packages in 6ms
+   Building hypotrail @ file:///tmp/claude-0/-home-user-hypotrail/26a05190-0d00-5b92-969c-51cf0d507994/scratchpad/walk-87/clone
+      Built hypotrail @ file:///tmp/claude-0/-home-user-hypotrail/26a05190-0d00-5b92-969c-51cf0d507994/scratchpad/walk-87/clone
+Prepared 1 package in 593ms
+Installed 96 packages in 747ms
+ + agent-client-protocol==0.12.1
+ + aiobotocore==3.10.0
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.14.5
+ + aioitertools==0.13.0
+ + aiosignal==1.4.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anthropic==2.3.0
+ + anyio==4.16.0
+ + attrs==26.1.0
+ + beautifulsoup4==4.15.0
+ + boto3==1.43.117
+ + botocore==1.43.117
+ + certifi==2026.10.23
+ + charset-normalizer==3.5.2
+ + click==8.5.0
+ + cloudpickle==3.1.2
+ + debugpy==1.8.22
+ + docstring-parser==0.18.0
+ + fastapi==0.162.0
+ + frozenlist==1.8.0
+ + fsspec==2026.6.0
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpcore2==2.16.0
+ + httpx==0.28.1
+ + httpx2==2.16.0
+ + hypotrail==0.0.0 (from file:///tmp/claude-0/-home-user-hypotrail/26a05190-0d00-5b92-969c-51cf0d507994/scratchpad/walk-87/clone)
+ + idna==3.20
+ + ijson==3.6.0
+ + iniconfig==2.3.1
+ + inspect-ai==0.3.287
+ + jiter==0.18.0
+ + jmespath==1.1.0
+ + joblib==1.6.0
+ + jsonlines==4.0.0
+ + jsonpatch==1.39
+ + jsonpath-ng==1.15.0
+ + jsonpointer==3.7
+ + jsonref==1.1.0
+ + jsonschema==4.26.0
+ + jsonschema-specifications==2025.9.1
+ + linkify-it-py==2.2.0
+ + markdown-it-py==4.2.0
+ + mdit-py-plugins==0.6.1
+ + mdurl==0.1.2
+ + mmh3==5.3.1
+ + multidict==7.2.1
+ + narwhals==2.28.0
+ + nest-asyncio2==1.7.4
+ + numpy==2.5.4
+ + opentelemetry-api==1.45.2
+ + packaging==26.3
+ + pathlib-abc==0.5.2
+ + platformdirs==4.14.3
+ + pluggy==1.7.0
+ + propcache==0.5.4
+ + psutil==7.2.2
+ + pydantic==2.14.2
+ + pydantic-core==2.50.2
+ + pygments==2.21.0
+ + pytest==9.2.0
+ + python-dateutil==2.9.0.post0
+ + python-dotenv==1.2.4
+ + pyyaml==6.0.3
+ + referencing==0.37.0
+ + regex==2026.9.29
+ + requests==2.34.2
+ + rich==15.0.0
+ + rpds-py==2026.9.1
+ + s3fs==2026.6.0
+ + s3transfer==0.19.3
+ + scikit-learn==1.9.1
+ + scipy==1.18.1
+ + semver==3.1.0
+ + shortuuid==1.0.13
+ + six==1.17.0
+ + sniffio==1.3.1
+ + soupsieve==3.0.4
+ + starlette==1.10.0
+ + tenacity==9.2.1
+ + textual==8.2.8
+ + threadpoolctl==3.7.0
+ + tiktoken==0.14.0
+ + truststore==0.10.5
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + universal-pathlib==0.3.10
+ + urllib3==2.8.0
+ + uvicorn==0.54.0
+ + wrapt==2.5.2
+ + yarl==1.25.1
+ + zipfile-zstd==0.0.4
+ + zipp==4.1.2
+ + zstandard==0.25.0
+</pre><p class="note">The install: a checkout with <code>uv sync</code>. No <code>.venv</code> existed before it. Python 3.13.18 was chosen by uv from <code>/usr/local/bin/python3.13</code>.</p></li>
+<li class="step" id="step-2" data-step="2" data-kind="readme" data-exit="0"><h3>Step 2 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run --locked --all-extras pytest</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0
+rootdir: /tmp/claude-0/-home-user-hypotrail/26a05190-0d00-5b92-969c-51cf0d507994/scratchpad/walk-87/clone
+configfile: pyproject.toml
+testpaths: tests
+plugins: platformdirs-4.14.3, anyio-4.16.0
+collected 2688 items
+
+tests/test_agent_declaration.py ........................................ [  1%]
+..............                                                           [  2%]
+tests/test_agent_spike.py ......................                         [  2%]
+tests/test_agent_study.py ..........                                     [  3%]
+tests/test_agent_task.py ........................................        [  4%]
+tests/test_answer_scoring.py ........................................... [  6%]
+......................                                                   [  7%]
+tests/test_artifacts.py ...............                                  [  7%]
+tests/test_assess.py .                                                   [  7%]
+tests/test_assess_agent.py .........................                     [  8%]
+tests/test_assess_criteria.py .........                                  [  8%]
+tests/test_assess_refusals.py .....................                      [  9%]
+tests/test_bike_scoring.py .........................                     [ 10%]
+tests/test_canonical_json.py ..............                              [ 11%]
+tests/test_chinook_contract.py ......................................... [ 12%]
+..................................................................       [ 15%]
+tests/test_chinook_evidence.py ......................................... [ 16%]
+..................                                                       [ 17%]
+tests/test_chinook_file_unreadable.py .......                            [ 17%]
+tests/test_compare.py ...                                                [ 17%]
+tests/test_compare_agent.py ..................................           [ 19%]
+tests/test_compare_refusals.py .............                             [ 19%]
+tests/test_compare_scope.py ...........                                  [ 19%]
+tests/test_contracts.py ...................                              [ 20%]
+tests/test_data_fetch.py .....................................           [ 21%]
+tests/test_data_verify.py .....................................          [ 23%]
+tests/test_environment.py ........                                       [ 23%]
+tests/test_exposure.py ................................                  [ 24%]
+tests/test_handbook.py ................................................. [ 26%]
+........................................................................ [ 29%]
+...                                                                      [ 29%]
+tests/test_import_agent.py ............................................. [ 31%]
+.......                                                                  [ 31%]
+tests/test_import_log.py ..............................                  [ 32%]
+tests/test_import_ml.py ................................................ [ 34%]
+...                                                                      [ 34%]
+tests/test_limit_stop_criteria.py ...........................            [ 35%]
+tests/test_limits.py ...........................                         [ 36%]
+tests/test_live.py ..................................................... [ 38%]
+.............................................                            [ 40%]
+tests/test_ml_baseline_metrics.py ........................               [ 40%]
+tests/test_ml_bike_end_to_end.py ..                                      [ 41%]
+tests/test_ml_causality.py ................                              [ 41%]
+tests/test_ml_comparison.py ...........                                  [ 42%]
+tests/test_ml_configuration.py ......................................... [ 43%]
+.....................................                                    [ 44%]
+tests/test_ml_declaration_schema.py .................................... [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+.........................................                                [ 66%]
+tests/test_ml_declaration_shape.py ..................................... [ 67%]
+........................................................................ [ 70%]
+................................                                         [ 71%]
+tests/test_ml_input_errors.py ........                                   [ 72%]
+tests/test_ml_lags.py ..........                                         [ 72%]
+tests/test_ml_memberships.py ..........                                  [ 72%]
+tests/test_ml_period_shift.py .......                                    [ 73%]
+tests/test_ml_predictions.py ..                                          [ 73%]
+tests/test_ml_ridge.py ...............                                   [ 73%]
+tests/test_ml_typed_declaration.py ....................                  [ 74%]
+tests/test_network_guard.py .                                            [ 74%]
+tests/test_repo_rules.py ...........                                     [ 74%]
+tests/test_report.py .........................................           [ 76%]
+tests/test_report_agent.py .............                                 [ 76%]
+tests/test_rescoring.py ................                                 [ 77%]
+tests/test_run_agent_command.py ...............                          [ 78%]
+tests/test_run_agent_compare.py ..                                       [ 78%]
+tests/test_run_agent_identity.py .................                       [ 78%]
+tests/test_run_agent_record.py ................................          [ 79%]
+tests/test_run_agent_scenarios.py ....                                   [ 80%]
+tests/test_run_ml.py ....................................                [ 81%]
+tests/test_run_noun.py ................................................. [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+........                                                                 [ 88%]
+tests/test_run_record_source.py ..........                               [ 89%]
+tests/test_scripted_fixture.py ......................................... [ 90%]
+...                                                                      [ 90%]
+tests/test_sql_authorizer.py ........................................... [ 92%]
+..........................................                               [ 94%]
+tests/test_sql_caps.py ................                                  [ 94%]
+tests/test_study_init.py ..............                                  [ 95%]
+tests/test_study_lock.py ..................................              [ 96%]
+tests/test_study_revision.py .............                               [ 96%]
+tests/test_tool_loop.py .............                                    [ 97%]
+tests/test_workload_resolution.py ...................................... [ 98%]
+..............................                                           [100%]
+
+======================= 2688 passed in 195.69s (0:03:15) =======================
+</pre><p class="note">The README&#x27;s test line, run with the key unset: 2688 passed in 3 min 15 s.</p></li>
+<li class="step" id="step-3" data-step="3" data-kind="readme" data-exit="0"><h3>Step 3 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail data verify</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+bike_day: uci-bike-day-v1 verified (data/day.csv, sha256 a6bcf826782d..., licence CC-BY-4.0)
+chinook: chinook-sqlite-1.4.5 verified (data/Chinook_Sqlite.sqlite, sha256 bdf635be6985..., licence MIT)
+</pre></li>
+<li class="step" id="step-4" data-step="4" data-kind="readme" data-exit="0"><h3>Step 4 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail data fetch --lock examples/bike_day/data-sources.lock.json --dest examples/bike_day</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+uci-bike-day-v1: data/day.csv present (sha256 a6bcf826782d..., checked against the lock)
+  notice licenses/Bike-Sharing-attribution.md: absent
+</pre><p class="note">Nothing is fetched here: the checkout already holds <code>day.csv</code>, so the file is reported present and checked against the lock. See difficulty D2.</p></li>
+<li class="step" id="step-5" data-step="5" data-kind="readme" data-exit="0"><h3>Step 5 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail init --workload bike_day --study runs/bike</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Study created in runs/bike: Workload bike_day, protocol d4a1c2cbeb43..., study_id e30229bd-4d2b-47e6-be60-2a8e049aa72a
+</pre></li>
+<li class="step" id="step-6" data-step="6" data-kind="readme" data-exit="0"><h3>Step 6 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition dev --request-id ml-dev-a</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Attempt 77a0494a-f716-4abb-abfa-0aec447757e3 completed (182 Items produced, 0 failed, 0 missing)
+</pre><p class="note">The output does not name the Observation set. See difficulty D3.</p></li>
+<li class="step" id="step-7" data-step="7" data-kind="walker" data-exit="0"><h3>Step 7 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail status --study runs/bike --json</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+{
+  &quot;ok&quot;: true,
+  &quot;study&quot;: {
+    &quot;study_id&quot;: &quot;e30229bd-4d2b-47e6-be60-2a8e049aa72a&quot;,
+    &quot;workload&quot;: &quot;bike_day&quot;,
+    &quot;protocol_id&quot;: &quot;bike_day:protocol&quot;,
+    &quot;protocol_digest&quot;: &quot;d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0&quot;,
+    &quot;revision&quot;: &quot;3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654&quot;,
+    &quot;revision_number&quot;: 1
+  },
+  &quot;writer_alive&quot;: false,
+  &quot;revisions&quot;: [
+    {
+      &quot;revision_number&quot;: 1,
+      &quot;revision&quot;: &quot;3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654&quot;,
+      &quot;previous_revision&quot;: null,
+      &quot;protocol_digest&quot;: &quot;d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0&quot;,
+      &quot;artifacts&quot;: [
+        {
+          &quot;artifact_id&quot;: &quot;memberships-204bf1f9317286f8&quot;,
+          &quot;role&quot;: &quot;memberships&quot;,
+          &quot;version&quot;: 1,
+          &quot;sha256&quot;: &quot;204bf1f9317286f8ea0d572d3606fd7d15d4b1e04a5df4d6b14c81a94c7d024b&quot;
+        },
+        {
+          &quot;artifact_id&quot;: &quot;references-7520d791bfe31924&quot;,
+          &quot;role&quot;: &quot;references&quot;,
+          &quot;version&quot;: 1,
+          &quot;sha256&quot;: &quot;7520d791bfe31924448b27a16ac439b1ae983404d3a838881838b298bdfc83e0&quot;
+        }
+      ]
+    }
+  ],
+  &quot;attempts&quot;: [
+    {
+      &quot;attempt_id&quot;: &quot;77a0494a-f716-4abb-abfa-0aec447757e3&quot;,
+      &quot;request_id&quot;: &quot;ml-dev-a&quot;,
+      &quot;operation&quot;: &quot;execute&quot;,
+      &quot;mode&quot;: &quot;native_ml&quot;,
+      &quot;technical_status&quot;: &quot;completed&quot;,
+      &quot;started_at&quot;: &quot;2026-11-21T00:53:04.950758+00:00&quot;,
+      &quot;finished_at&quot;: &quot;2026-11-21T00:53:04.976387+00:00&quot;,
+      &quot;outcome_unknown&quot;: false,
+      &quot;retry_of&quot;: null,
+      &quot;reason&quot;: null,
+      &quot;item_counts&quot;: {
+        &quot;failed&quot;: 0,
+        &quot;missing&quot;: 0,
+        &quot;produced&quot;: 182
+      },
+      &quot;writer_alive&quot;: false,
+      &quot;recoverable&quot;: false,
+      &quot;artifacts&quot;: [
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/observation_set.json&quot;,
+          &quot;sha256&quot;: &quot;bd8f9835cb4a65aff20475fd6d6a6b9f8f2e11224c47fbd5a0dc31d2229e5afe&quot;,
+          &quot;size_bytes&quot;: 989,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observation_set&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/observations.csv&quot;,
+          &quot;sha256&quot;: &quot;56794cdb3b690bd3b1c0c8d6c8e0038bfcf78d036e2a17662b126667474e11b3&quot;,
+          &quot;size_bytes&quot;: 7317,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observations&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/predictions.csv&quot;,
+          &quot;sha256&quot;: &quot;3fced18a420df42d7fe676ee579d72785eba0d608ba807e34c5ba384dc2afd46&quot;,
+          &quot;size_bytes&quot;: 7495,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;predictions&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/workload.json&quot;,
+          &quot;sha256&quot;: &quot;ac82d8834af38543c1f2d31ee3bfc15cb276b75afc8d008b709aa662252c81d9&quot;,
+          &quot;size_bytes&quot;: 2430,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;workload_declaration&quot;
+        }
+      ],
+      &quot;temporary_files&quot;: []
+    }
+  ],
+  &quot;freeze_records&quot;: [],
+  &quot;exposures&quot;: {
+    &quot;recorded_in_this_study&quot;: 0,
+    &quot;earlier_exposure&quot;: &quot;unknown&quot;,
+    &quot;statement&quot;: &quot;This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.&quot;,
+    &quot;entries&quot;: []
+  },
+  &quot;check_informed&quot;: []
+}
+</pre><p class="note">Not a README line: <code>status --json</code> run early to find the References id that <code>assess</code> asks for (difficulty D3).</p></li>
+<li class="step" id="step-8" data-step="8" data-kind="walker" data-exit="0"><h3>Step 8 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>cat runs/bike/attempts/*/observation_set.json</pre><pre data-output>{&quot;attempt_id&quot;:&quot;77a0494a-f716-4abb-abfa-0aec447757e3&quot;,&quot;domain&quot;:&quot;regression&quot;,&quot;kind&quot;:&quot;observations&quot;,&quot;mode&quot;:&quot;native_ml&quot;,&quot;normalized_ref&quot;:{&quot;media_type&quot;:&quot;text/csv&quot;,&quot;path&quot;:&quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/observations.csv&quot;,&quot;role&quot;:&quot;observations&quot;,&quot;sha256&quot;:&quot;56794cdb3b690bd3b1c0c8d6c8e0038bfcf78d036e2a17662b126667474e11b3&quot;,&quot;size_bytes&quot;:7317},&quot;observation_set_id&quot;:&quot;a80db045-f294-4e55-8002-c37ad0fed5bf&quot;,&quot;origin&quot;:&quot;generated&quot;,&quot;population_ref&quot;:{&quot;media_type&quot;:&quot;text/csv&quot;,&quot;path&quot;:&quot;artifacts/memberships.csv&quot;,&quot;role&quot;:&quot;memberships&quot;,&quot;sha256&quot;:&quot;204bf1f9317286f8ea0d572d3606fd7d15d4b1e04a5df4d6b14c81a94c7d024b&quot;,&quot;size_bytes&quot;:28846},&quot;provenance&quot;:{&quot;configuration&quot;:&quot;seasonal_7&quot;,&quot;partition&quot;:&quot;dev&quot;,&quot;produced_by&quot;:&quot;hypotrail&quot;},&quot;raw_refs&quot;:[{&quot;media_type&quot;:&quot;text/csv&quot;,&quot;path&quot;:&quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/predictions.csv&quot;,&quot;role&quot;:&quot;predictions&quot;,&quot;sha256&quot;:&quot;3fced18a420df42d7fe676ee579d72785eba0d608ba807e34c5ba384dc2afd46&quot;,&quot;size_bytes&quot;:7495}],&quot;schema_version&quot;:&quot;observations/1&quot;,&quot;unknown_fields&quot;:[]}</pre><p class="note">Not a README line: the Observation set&#x27;s record read to find its id (difficulty D3).</p></li>
+<li class="step" id="step-9" data-step="9" data-kind="readme" data-exit="0"><h3>Step 9 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/bike --observations a80db045-f294-4e55-8002-c37ad0fed5bf --scorer regression_mae_v1 --references references-7520d791bfe31924</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Assessment 1f94669e-a5eb-4b93-a380-a55366db31c2: mae 1090.79 rentals per day over 182 of 182 expected Items (0 unscored, 0 errored)
+</pre><p class="note">Placeholders filled from the output of steps 07 and 08.</p></li>
+<li class="step" id="step-10" data-step="10" data-kind="walker" data-exit="0"><h3>Step 10 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>python3 examples/external/bike_trailing_mean.py --data examples/bike_day/data/day.csv --first 2012-01-01 --last 2012-06-30 --id-prefix bike-day --out predictions.csv</pre><pre data-output>a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be
+</pre><p class="note">Not a README line: the external program of chapter 06 writes the <code>predictions.csv</code> that <code>import ml</code> reads (difficulty D4).</p></li>
+<li class="step" id="step-11" data-step="11" data-kind="walker" data-exit="0"><h3>Step 11 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>echo &#x27;{&quot;row_id&quot;: &quot;day_key&quot;, &quot;y_pred&quot;: &quot;forecast_rentals&quot;, &quot;dataset_sha256&quot;: &quot;a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be&quot;}&#x27; &gt; mapping.json &amp;&amp; python3 -c &quot;import csv,json;print(json.dumps({&#x27;item_ids&#x27;:[r[&#x27;day_key&#x27;] for r in csv.DictReader(open(&#x27;predictions.csv&#x27;))]}))&quot; &gt; population.json &amp;&amp; cat mapping.json &amp;&amp; head -c 200 population.json</pre><pre data-output>{&quot;row_id&quot;: &quot;day_key&quot;, &quot;y_pred&quot;: &quot;forecast_rentals&quot;, &quot;dataset_sha256&quot;: &quot;a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be&quot;}
+{&quot;item_ids&quot;: [&quot;bike-day:2012-01-01&quot;, &quot;bike-day:2012-01-02&quot;, &quot;bike-day:2012-01-03&quot;, &quot;bike-day:2012-01-04&quot;, &quot;bike-day:2012-01-05&quot;, &quot;bike-day:2012-01-06&quot;, &quot;bike-day:2012-01-07&quot;, &quot;bike-day:2012-01-08&quot;, &quot;b</pre><p class="note">Not a README line: <code>mapping.json</code> and <code>population.json</code> written as chapter 06 describes them (difficulty D4).</p></li>
+<li class="step" id="step-12" data-step="12" data-kind="readme" data-exit="0"><h3>Step 12 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail import ml --study runs/bike --source predictions.csv --mapping mapping.json --population population.json --request-id import-a</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Import 2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc completed (182 Items produced, Mode external_unknown)
+</pre></li>
+<li class="step" id="step-13" data-step="13" data-kind="readme" data-exit="0"><h3>Step 13 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail init --workload chinook --study runs/chinook</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Study created in runs/chinook: Workload chinook, protocol f8e32b30e2ee..., study_id 1c725636-15c8-4146-89f2-9bdb17f9b76b
+</pre></li>
+<li class="step" id="step-14" data-step="14" data-kind="readme" data-exit="0"><h3>Step 14 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail run agent --study runs/chinook --mode scripted_fixture --config plain --request-id fixture-a</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Attempt 519ee28f-75f9-4f10-8e90-6be090c0e43b completed (Mode scripted_fixture) (model mockllm/model, served_model mockllm/model) (5 Episodes produced, 1 failed, 1 missing)
+</pre><p class="note">The scenarios: mock model, no key. 1 failed and 1 missing are scenarios built to fail.</p></li>
+<li class="step" id="step-15" data-step="15" data-kind="not-run"><h3>Step 15 <span class="tag">not run: paid, opt-in</span></h3><pre data-command>uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --config plain --partition dev --cases D03 --cases D05 --repeats 1 --model anthropic/&lt;model&gt; --request-id live-a</pre><p class="note">Not run: paid, opt-in.</p></li>
+<li class="step" id="step-16" data-step="16" data-kind="walker" data-exit="0"><h3>Step 16 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>echo &#x27;{&quot;episodes&quot;: [{&quot;case_id&quot;: &quot;D03&quot;, &quot;repeat&quot;: 0}, {&quot;case_id&quot;: &quot;D05&quot;, &quot;repeat&quot;: 0}]}&#x27; &gt; population.json &amp;&amp; cat population.json</pre><pre data-output>{&quot;episodes&quot;: [{&quot;case_id&quot;: &quot;D03&quot;, &quot;repeat&quot;: 0}, {&quot;case_id&quot;: &quot;D05&quot;, &quot;repeat&quot;: 0}]}
+</pre><p class="note">Not a README line: <code>population.json</code> rewritten for the Chinook import. It replaces the Bike one, already copied into the Study by step 12 (difficulty D4).</p></li>
+<li class="step" id="step-17" data-step="17" data-kind="readme" data-exit="0"><h3>Step 17 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail import agent --study runs/chinook --source docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval --population population.json --request-id import-b</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Import 5e30c007-8694-4a93-a486-459fdc248a3a completed (2 Episodes produced, 0 failed, 0 missing; Mode external_unknown)
+</pre><p class="note"><code>--source</code> is the kept Inspect log named by the README line changed before the walk.</p></li>
+<li class="step" id="step-18" data-step="18" data-kind="walker" data-exit="0"><h3>Step 18 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail status --study runs/chinook --json | grep -n &#x27;references-\|attempt_id\|request_id&#x27;; grep -o &#x27;&quot;observation_set_id&quot;:&quot;[^&quot;]*&quot;&#x27; runs/chinook/attempts/*/observation_set.json; grep -o &#x27;&quot;observation_set_id&quot;:&quot;[^&quot;]*&quot;&#x27; runs/bike/attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/observation_set.json</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+26:          &quot;artifact_id&quot;: &quot;references-7a47fd1bc0547255&quot;,
+42:      &quot;attempt_id&quot;: &quot;519ee28f-75f9-4f10-8e90-6be090c0e43b&quot;,
+43:      &quot;request_id&quot;: &quot;fixture-a&quot;,
+120:      &quot;attempt_id&quot;: &quot;5e30c007-8694-4a93-a486-459fdc248a3a&quot;,
+121:      &quot;request_id&quot;: &quot;import-b&quot;,
+runs/chinook/attempts/519ee28f-75f9-4f10-8e90-6be090c0e43b/observation_set.json:&quot;observation_set_id&quot;:&quot;33c85877-457b-4068-8e89-eba67352af22&quot;
+runs/chinook/attempts/5e30c007-8694-4a93-a486-459fdc248a3a/observation_set.json:&quot;observation_set_id&quot;:&quot;01327bec-8382-454d-b97c-a3a0dbc360b6&quot;
+&quot;observation_set_id&quot;:&quot;727e936b-8e94-4a1a-b651-424121223625&quot;
+</pre><p class="note">Not a README line: the ids that <code>assess</code> and <code>compare</code> ask for, read from <code>status --json</code> and from the Observation set records (difficulty D3).</p></li>
+<li class="step" id="step-19" data-step="19" data-kind="readme" data-exit="0"><h3>Step 19 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/chinook --observations 01327bec-8382-454d-b97c-a3a0dbc360b6 --scorer chinook_contract_v1 --references references-7a47fd1bc0547255</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Assessment 3442cb51-3aa2-41ef-953a-a581193d1390: primary Criterion contract_success: 0 correct of 2 expected Episodes (2 scored, 0 unscored, 0 errored); quality_among_scored 0, confirmed_share_of_expected 0
+</pre><p class="note">The Assessment the failure is found from: 0 correct of 2.</p></li>
+<li class="step" id="step-20" data-step="20" data-kind="walker" data-exit="2"><h3>Step 20 <span class="tag">walker's own command</span> <span class="exit">exit 2</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/chinook --observations 33c85877-457b-4068-8e89-eba67352af22 --scorer chinook_contract_v1 --references references-7a47fd1bc0547255</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+UNSUPPORTED_CAPABILITY [assess]: an Observation set of the scripted_fixture Mode records scenarios, not the Workload&#x27;s Cases: it is neither assessed nor compared
+</pre><p class="note">Tried: assess the scenario Attempt. Refused, exit 2 (difficulty D6).</p></li>
+<li class="step" id="step-21" data-step="21" data-kind="walker" data-exit="0"><h3>Step 21 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/bike --observations 727e936b-8e94-4a1a-b651-424121223625 --scorer regression_mae_v1 --references references-7520d791bfe31924</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Assessment c05a7361-f941-484d-836b-2ce426e61539: mae 2553.75 rentals per day over 182 of 182 expected Items (0 unscored, 0 errored)
+</pre><p class="note">Not a README line: the second Bike Assessment, of the import, that <code>compare</code> needs (difficulty D5).</p></li>
+<li class="step" id="step-22" data-step="22" data-kind="walker" data-exit="0"><h3>Step 22 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>echo &#x27;{&quot;episodes&quot;: [{&quot;case_id&quot;: &quot;D01&quot;, &quot;repeat&quot;: 0}, {&quot;case_id&quot;: &quot;D03&quot;, &quot;repeat&quot;: 0}, {&quot;case_id&quot;: &quot;D07&quot;, &quot;repeat&quot;: 0}, {&quot;case_id&quot;: &quot;D08&quot;, &quot;repeat&quot;: 0}]}&#x27; &gt; population-authored.json &amp;&amp; uv run python -m hypotrail import agent --study runs/chinook --source examples/chinook/fixtures/agent-answers-authored.jsonl --population population-authored.json --request-id import-c</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Import 9d110798-3673-4514-9721-12e7070bf946 completed (4 Episodes produced, 0 failed, 0 missing; Mode external_unknown)
+</pre><p class="note">Not a README line: a second Chinook import, of the authored answers the README&#x27;s <code>answers.jsonl</code> stands for, with its own population file (difficulty D7).</p></li>
+<li class="step" id="step-23" data-step="23" data-kind="walker" data-exit="0"><h3>Step 23 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>grep -o &#x27;&quot;observation_set_id&quot;:&quot;[^&quot;]*&quot;&#x27; runs/chinook/attempts/9d110798-3673-4514-9721-12e7070bf946/observation_set.json</pre><pre data-output>&quot;observation_set_id&quot;:&quot;68e71171-fb5c-4c22-99de-a31bbd406dd6&quot;
+</pre><p class="note">Not a README line: the Observation set id of step 22.</p></li>
+<li class="step" id="step-24" data-step="24" data-kind="walker" data-exit="0"><h3>Step 24 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/chinook --observations 68e71171-fb5c-4c22-99de-a31bbd406dd6 --scorer chinook_contract_v1 --references references-7a47fd1bc0547255</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Assessment 0bfc126d-e604-4a4a-bb9d-55c384045d8c: primary Criterion contract_success: 2 correct of 4 expected Episodes (2 scored, 2 unscored, 0 errored); quality_among_scored 1, confirmed_share_of_expected 0.5
+</pre><p class="note">Not a README line: the Assessment of step 22&#x27;s import.</p></li>
+<li class="step" id="step-25" data-step="25" data-kind="readme" data-exit="0"><h3>Step 25 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail compare --study runs/bike --control 1f94669e-a5eb-4b93-a380-a55366db31c2 --candidate c05a7361-f941-484d-836b-2ce426e61539</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+COMPARISON_DESCRIPTIVE_IMPORT: The candidate of this Comparison is an Import (Mode external_unknown): its producer, model, generation time and exposure to public_check are declared or unknown, never verified. The Comparison is descriptive, not strict: it supports no claim that the two sides were produced under the same conditions.
+Comparison 1c97110f-c94e-4e13-9795-010a00050700 (descriptive_only): delta mae +1462.96 rentals per day (Candidate minus Control; positive means the Candidate is worse) over 182 of 182 paired Items
+</pre><p class="note">The Bike Comparison, descriptive because one side is an Import.</p></li>
+<li class="step" id="step-26" data-step="26" data-kind="readme" data-exit="3"><h3>Step 26 <span class="tag">README command, as written</span> <span class="exit">exit 3</span></h3><pre data-command>uv run python -m hypotrail compare --study runs/chinook --control 3442cb51-3aa2-41ef-953a-a581193d1390 --candidate 0bfc126d-e604-4a4a-bb9d-55c384045d8c</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+COMPARISON_POPULATION_DIFFERS [compare]: the Control is on &#x27;dev&#x27; and the Candidate on &#x27;dev&#x27;, or the two cover other Cases: not the same population
+</pre><p class="note">Refused, exit 3: the two Assessments cover other Cases (difficulty D7).</p></li>
+<li class="step" id="step-27" data-step="27" data-kind="walker" data-exit="0"><h3>Step 27 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>echo &#x27;{&quot;episodes&quot;: [{&quot;case_id&quot;: &quot;D03&quot;, &quot;repeat&quot;: 0}]}&#x27; &gt; population-d03.json &amp;&amp; grep &#x27;&quot;D03&quot;&#x27; examples/chinook/fixtures/agent-answers-authored.jsonl &gt; answers-d03.jsonl &amp;&amp; wc -l answers-d03.jsonl &amp;&amp; uv run python -m hypotrail import agent --study runs/chinook --source answers-d03.jsonl --population population-d03.json --request-id import-d</pre><pre data-output>1 answers-d03.jsonl
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Import 13b5d2cc-6195-417b-814e-7f9ec072e9bd completed (1 Episodes produced, 0 failed, 0 missing; Mode external_unknown)
+</pre><p class="note">Tried: a one-Case pair, D03 only, from the authored answers (difficulty D7).</p></li>
+<li class="step" id="step-28" data-step="28" data-kind="walker" data-exit="2"><h3>Step 28 <span class="tag">walker's own command</span> <span class="exit">exit 2</span></h3><pre data-command>uv run python -m hypotrail import agent --study runs/chinook --source docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval --population population-d03.json --request-id import-e</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+LOG_EPISODE_OUTSIDE_POPULATION [import]: (D05, repeat 0) is in the log and is not an Episode of the population
+</pre><p class="note">Tried: the kept log with the population D03 only. Refused, exit 2 (difficulty D7).</p></li>
+<li class="step" id="step-29" data-step="29" data-kind="walker" data-exit="0"><h3>Step 29 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail import agent --study runs/chinook --source docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval --population population.json --request-id import-e</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Import db60e77b-c817-4b76-80a2-9d1ef9ade3c6 completed (2 Episodes produced, 0 failed, 0 missing; Mode external_unknown)
+</pre><p class="note">Not a README line: the kept log imported a second time under another request id, to have two Assessments on one population (difficulty D7).</p></li>
+<li class="step" id="step-30" data-step="30" data-kind="walker" data-exit="0"><h3>Step 30 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>grep -o &#x27;&quot;observation_set_id&quot;:&quot;[^&quot;]*&quot;&#x27; runs/chinook/attempts/db60e77b-c817-4b76-80a2-9d1ef9ade3c6/observation_set.json</pre><pre data-output>&quot;observation_set_id&quot;:&quot;d31305e7-39d6-482e-a21c-64d4165e0d7f&quot;
+</pre><p class="note">Not a README line: the Observation set id of step 29.</p></li>
+<li class="step" id="step-31" data-step="31" data-kind="walker" data-exit="0"><h3>Step 31 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail assess --study runs/chinook --observations d31305e7-39d6-482e-a21c-64d4165e0d7f --scorer chinook_contract_v1 --references references-7a47fd1bc0547255</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Assessment cdfb1170-3bb2-42bf-bafa-abf50d1db01a: primary Criterion contract_success: 0 correct of 2 expected Episodes (2 scored, 0 unscored, 0 errored); quality_among_scored 0, confirmed_share_of_expected 0
+</pre><p class="note">Not a README line: the Assessment of step 29&#x27;s import.</p></li>
+<li class="step" id="step-32" data-step="32" data-kind="walker" data-exit="0"><h3>Step 32 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail compare --study runs/chinook --control 3442cb51-3aa2-41ef-953a-a581193d1390 --candidate cdfb1170-3bb2-42bf-bafa-abf50d1db01a</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+COMPARISON_DESCRIPTIVE_IMPORT: The control and candidate of this Comparison is an Import (Mode external_unknown): its producer, model, generation time and exposure to public_check are declared or unknown, never verified. The Comparison is descriptive, not strict: it supports no claim that the two sides were produced under the same conditions.
+Comparison a1fc17fa-073c-4692-8c8d-524f3d7756d8 (descriptive_only): delta contract_success +0 share of Repeats per Case, every Case weighted equally (Candidate minus Control; positive means the Candidate is better) over 2 of 2 paired Episodes
+</pre><p class="note">The Chinook Comparison of the kept log with itself. Delta 0 (difficulty D7).</p></li>
+<li class="step" id="step-33" data-step="33" data-kind="readme" data-exit="0"><h3>Step 33 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Report written to runs/bike-report.html (no public_check Item shown: no Exposure recorded)
+</pre></li>
+<li class="step" id="step-34" data-step="34" data-kind="readme" data-exit="0"><h3>Step 34 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+Report written to runs/chinook-report.html (no public_check Item shown: no Exposure recorded)
+</pre><p class="note">The page the failure and the limit are found on (section 6).</p></li>
+<li class="step" id="step-35" data-step="35" data-kind="readme" data-exit="2"><h3>Step 35 <span class="tag">README command, as written</span> <span class="exit">exit 2</span></h3><pre data-command>uv run python -m hypotrail init --study runs/chinook --new-revision</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+PROTOCOL_UNCHANGED [study]: the Workload&#x27;s Protocol is the one revision 1 already holds: there is nothing to add
+</pre><p class="note">Refused, exit 2: no corrected References file exists, so there is nothing to add (difficulty D8).</p></li>
+<li class="step" id="step-36" data-step="36" data-kind="readme" data-exit="0"><h3>Step 36 <span class="tag">README command, as written</span> <span class="exit">exit 0</span></h3><pre data-command>uv run python -m hypotrail status --study runs/bike --json</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+{
+  &quot;ok&quot;: true,
+  &quot;study&quot;: {
+    &quot;study_id&quot;: &quot;e30229bd-4d2b-47e6-be60-2a8e049aa72a&quot;,
+    &quot;workload&quot;: &quot;bike_day&quot;,
+    &quot;protocol_id&quot;: &quot;bike_day:protocol&quot;,
+    &quot;protocol_digest&quot;: &quot;d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0&quot;,
+    &quot;revision&quot;: &quot;3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654&quot;,
+    &quot;revision_number&quot;: 1
+  },
+  &quot;writer_alive&quot;: false,
+  &quot;revisions&quot;: [
+    {
+      &quot;revision_number&quot;: 1,
+      &quot;revision&quot;: &quot;3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654&quot;,
+      &quot;previous_revision&quot;: null,
+      &quot;protocol_digest&quot;: &quot;d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0&quot;,
+      &quot;artifacts&quot;: [
+        {
+          &quot;artifact_id&quot;: &quot;memberships-204bf1f9317286f8&quot;,
+          &quot;role&quot;: &quot;memberships&quot;,
+          &quot;version&quot;: 1,
+          &quot;sha256&quot;: &quot;204bf1f9317286f8ea0d572d3606fd7d15d4b1e04a5df4d6b14c81a94c7d024b&quot;
+        },
+        {
+          &quot;artifact_id&quot;: &quot;references-7520d791bfe31924&quot;,
+          &quot;role&quot;: &quot;references&quot;,
+          &quot;version&quot;: 1,
+          &quot;sha256&quot;: &quot;7520d791bfe31924448b27a16ac439b1ae983404d3a838881838b298bdfc83e0&quot;
+        }
+      ]
+    }
+  ],
+  &quot;attempts&quot;: [
+    {
+      &quot;attempt_id&quot;: &quot;2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc&quot;,
+      &quot;request_id&quot;: &quot;import-a&quot;,
+      &quot;operation&quot;: &quot;import&quot;,
+      &quot;mode&quot;: &quot;external_unknown&quot;,
+      &quot;technical_status&quot;: &quot;completed&quot;,
+      &quot;started_at&quot;: &quot;2026-11-21T00:53:28.676962+00:00&quot;,
+      &quot;finished_at&quot;: &quot;2026-11-21T00:53:28.689336+00:00&quot;,
+      &quot;outcome_unknown&quot;: false,
+      &quot;retry_of&quot;: null,
+      &quot;reason&quot;: null,
+      &quot;item_counts&quot;: {
+        &quot;failed&quot;: 0,
+        &quot;missing&quot;: 0,
+        &quot;produced&quot;: 182
+      },
+      &quot;writer_alive&quot;: false,
+      &quot;recoverable&quot;: false,
+      &quot;artifacts&quot;: [
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/mapping.json&quot;,
+          &quot;sha256&quot;: &quot;cd41d835cec160878295958a5e0315f17f0ee4ac82dbe77a2c2eb2e6275d16f8&quot;,
+          &quot;size_bytes&quot;: 138,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;import_mapping&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/observation_set.json&quot;,
+          &quot;sha256&quot;: &quot;d5327defc2d011ad5cffb96af3422dd8637fab2b35c5c95beaded014d50b6f66&quot;,
+          &quot;size_bytes&quot;: 1397,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observation_set&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/observations.csv&quot;,
+          &quot;sha256&quot;: &quot;eee6c9fbe425e144f66d33104d0c71d4d7319b69d0438e3c0e6dc94bdb4ecdcd&quot;,
+          &quot;size_bytes&quot;: 6955,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observations&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/population.json&quot;,
+          &quot;sha256&quot;: &quot;cbdd5966577153ce4c1d905e02378ee04f6f275be876ea12fca2bb86d98bf388&quot;,
+          &quot;size_bytes&quot;: 4201,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;import_population&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/source/predictions.csv&quot;,
+          &quot;sha256&quot;: &quot;2735d6790853f9a01b5e961c24d8c86f739abbde55a4381e2b286db5aaed8daf&quot;,
+          &quot;size_bytes&quot;: 7870,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;import_source&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/2f1fb36d-5051-4075-a2c4-c3c9ea24a7cc/validation_report.json&quot;,
+          &quot;sha256&quot;: &quot;17c1dc4ed7105a1ca345b0387196300c2c6a112eaef62369e9340ae0e2c5c1a3&quot;,
+          &quot;size_bytes&quot;: 1054,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;validation_report&quot;
+        }
+      ],
+      &quot;temporary_files&quot;: []
+    },
+    {
+      &quot;attempt_id&quot;: &quot;77a0494a-f716-4abb-abfa-0aec447757e3&quot;,
+      &quot;request_id&quot;: &quot;ml-dev-a&quot;,
+      &quot;operation&quot;: &quot;execute&quot;,
+      &quot;mode&quot;: &quot;native_ml&quot;,
+      &quot;technical_status&quot;: &quot;completed&quot;,
+      &quot;started_at&quot;: &quot;2026-11-21T00:53:04.950758+00:00&quot;,
+      &quot;finished_at&quot;: &quot;2026-11-21T00:53:04.976387+00:00&quot;,
+      &quot;outcome_unknown&quot;: false,
+      &quot;retry_of&quot;: null,
+      &quot;reason&quot;: null,
+      &quot;item_counts&quot;: {
+        &quot;failed&quot;: 0,
+        &quot;missing&quot;: 0,
+        &quot;produced&quot;: 182
+      },
+      &quot;writer_alive&quot;: false,
+      &quot;recoverable&quot;: false,
+      &quot;artifacts&quot;: [
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/observation_set.json&quot;,
+          &quot;sha256&quot;: &quot;bd8f9835cb4a65aff20475fd6d6a6b9f8f2e11224c47fbd5a0dc31d2229e5afe&quot;,
+          &quot;size_bytes&quot;: 989,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observation_set&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/observations.csv&quot;,
+          &quot;sha256&quot;: &quot;56794cdb3b690bd3b1c0c8d6c8e0038bfcf78d036e2a17662b126667474e11b3&quot;,
+          &quot;size_bytes&quot;: 7317,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;observations&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/predictions.csv&quot;,
+          &quot;sha256&quot;: &quot;3fced18a420df42d7fe676ee579d72785eba0d608ba807e34c5ba384dc2afd46&quot;,
+          &quot;size_bytes&quot;: 7495,
+          &quot;media_type&quot;: &quot;text/csv&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;predictions&quot;
+        },
+        {
+          &quot;path&quot;: &quot;attempts/77a0494a-f716-4abb-abfa-0aec447757e3/workload.json&quot;,
+          &quot;sha256&quot;: &quot;ac82d8834af38543c1f2d31ee3bfc15cb276b75afc8d008b709aa662252c81d9&quot;,
+          &quot;size_bytes&quot;: 2430,
+          &quot;media_type&quot;: &quot;application/json&quot;,
+          &quot;referenced&quot;: true,
+          &quot;role&quot;: &quot;workload_declaration&quot;
+        }
+      ],
+      &quot;temporary_files&quot;: []
+    }
+  ],
+  &quot;freeze_records&quot;: [],
+  &quot;exposures&quot;: {
+    &quot;recorded_in_this_study&quot;: 0,
+    &quot;earlier_exposure&quot;: &quot;unknown&quot;,
+    &quot;statement&quot;: &quot;This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.&quot;,
+    &quot;entries&quot;: []
+  },
+  &quot;check_informed&quot;: []
+}
+</pre></li>
+<li class="step" id="step-37" data-step="37" data-kind="walker" data-exit="0"><h3>Step 37 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>mkdir -p ../fetch-copy &amp;&amp; cp -r examples/bike_day ../fetch-copy/bike_day &amp;&amp; rm ../fetch-copy/bike_day/data/day.csv &amp;&amp; ls ../fetch-copy/bike_day/data | wc -l &amp;&amp; uv run python -m hypotrail data fetch --lock examples/bike_day/data-sources.lock.json --dest ../fetch-copy/bike_day &amp;&amp; sha256sum ../fetch-copy/bike_day/data/day.csv</pre><pre data-output>0
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+uci-bike-day-v1: data/day.csv fetched (sha256 a6bcf826782d..., checked against the lock)
+  notice licenses/Bike-Sharing-attribution.md: absent
+a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be  ../fetch-copy/bike_day/data/day.csv
+</pre><p class="note">Not a README line: <code>data fetch</code> against the real URL of the Bike lock, into a copy of <code>examples/bike_day</code> that lacks <code>data/day.csv</code>. Network allowed; this is not an LLM call.</p></li>
+<li class="step" id="step-38" data-step="38" data-kind="walker" data-exit="0"><h3>Step 38 <span class="tag">walker's own command</span> <span class="exit">exit 0</span></h3><pre data-command>mkdir -p ../fetch-copy &amp;&amp; cp -r examples/chinook ../fetch-copy/chinook &amp;&amp; rm ../fetch-copy/chinook/data/Chinook_Sqlite.sqlite &amp;&amp; uv run python -m hypotrail data fetch --lock examples/chinook/data-sources.lock.json --dest ../fetch-copy/chinook &amp;&amp; sha256sum ../fetch-copy/chinook/data/Chinook_Sqlite.sqlite</pre><pre data-output>warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+chinook-sqlite-1.4.5: data/Chinook_Sqlite.sqlite fetched (sha256 bdf635be6985..., checked against the lock)
+  notice licenses/Chinook-MIT.txt: present
+bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a  ../fetch-copy/chinook/data/Chinook_Sqlite.sqlite
+</pre><p class="note">Not a README line: the same for the Chinook lock.</p></li>
+<li class="step" id="step-39" data-step="39" data-kind="not-run"><h3>Step 39 <span class="tag">not run: paid, opt-in</span></h3><pre data-command>python -m hypotrail spike live --config plain|verify --model anthropic/&lt;model&gt; --out DIR [--examples-dir DIR]</pre><p class="note">Not run: paid, opt-in. The README gives this command in a sentence, not in its install block.</p></li>
+</ol>
+
+<h2 id="found">What the walker found on the rendered page</h2>
+<p>From <code>runs/chinook-report.html</code>, written by step 34 (<code>report --study runs/chinook</code>) for the Study of this walk. The page was read as text with its tags removed. The walker opened no file of <code>src/hypotrail/</code> to find either entry.</p>
+<h3 id="failure">One failure</h3>
+<p>An Episode of the kept log, scored incorrect: Case D03, Repeat 0 (and Case D05, Repeat 0 beside it), Reason <code>invalid_response_format</code>. Found in section <b>07, Individual errors</b>, under the heading <b>Case by Repeat matrix, Assessment 3442cb51-3aa2-41ef-953a-a581193d1390</b>:</p>
+<blockquote data-found="failure"><code>D03</code> / <code>Case D03, Repeat 0</code> / <code>Execution: produced</code> / <code>Answer read from: embedded_object (Wrapped answer)</code> / <code>exact_table: true</code> / <code>format_valid: false (Reason: invalid_response_format)</code> / <code>evidence_link_valid: true</code> / <code>contract_success: false (Reason: invalid_response_format)</code> / <code>Trace: attempts/5e30c007-8694-4a93-a486-459fdc248a3a/source/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval</code></blockquote>
+<p>The same two Episodes appear in section <b>05, Coverage and statuses</b>, <b>Criteria, states and Reasons</b>: <code>3442cb51-3aa2-41ef-953a-a581193d1390 contract_success scored invalid_response_format 2</code>, and in the Assessments table with Correct 0 and Incorrect 2. The wrapped answer is the one the README line names (a Wrapped answer, <code>contract_success</code> false).</p>
+<h3 id="limit">One limit</h3>
+<p>Two were found. A recorded limitation, in section <b>08, Limits</b>, row <b>Study</b>: <q>Twenty authored questions on one small database: the shares describe these Cases, not agents in general.</q> An effective limit, in section <b>09, Origin of the artifacts</b>, under <b>Attempt 5e30c007-8694-4a93-a486-459fdc248a3a</b>, table <b>Log field</b>, row <code>limits</code> (origin <code>declared</code>): <code>{'concurrency': 1, 'max_connections': 1, 'max_output_tokens': 1024, 'model_turns': 6, 'output_token_budget': 4000, ... 'time_seconds': 60, ...}</code>, that is six model turns and 4000 output tokens per Episode.</p>
+
+<h2 id="difficulties">Difficulties</h2>
+<p>Each difficulty names the command, what happened and what the walker did next. Only D3 was handed back: to chadlis/hypotrail#89 for triage, and that triage was open when this record was written (2026-11-21). No other difficulty was handed back; D4 to D7 are gaps between the README path and what its commands print or need.</p>
+<ol class="diffs" id="walk-difficulties">
+<li data-difficulty="D1"><b>D1. Every <code>uv</code> command, steps 1 to 38.</b> It prints <code>warning: The `UV_NATIVE_TLS` environment variable is deprecated</code> first. The variable is the cloud session's, not the repository's. Nothing was done; the line stays in the outputs.</li>
+<li data-difficulty="D2"><b>D2. <code>data fetch</code>, step 4.</b> On a checkout it fetches nothing: <code>day.csv</code> is reported present, checked against the lock, and <code>notice licenses/Bike-Sharing-attribution.md: absent</code> reads as if the notice were missing although the file is in the checkout (chapter 15 explains: the Bike lock has no notice URL, so the committed notice stays where it is). The walker read chapter 15, then ran <code>data fetch</code> against the real URLs of both locks into copies that lack their data file (steps 37 and 38): both files were downloaded and checked against their locks, exit 0. The network refused no host.</li>
+<li data-difficulty="D3"><b>D3. <code>run ml</code>, step 6, then <code>assess</code>, step 9.</b> <code>run ml</code> prints the Attempt id, not the Observation set id; <code>assess</code> needs <code>OBSERVATION_SET_ID</code> and <code>REFERENCES_ID</code>. No command before <code>assess</code> in the README path prints the Observation set id; <code>status --json</code> lists the References id, but it comes last in the path. The walker ran <code>status --json</code> early (step 7), which lists the References id but not the Observation set id, and read the Observation set record in the Study (step 8). The same happened for every Assessment after it (steps 18, 23, 30). The README was not changed. What to do about it is handed back to chadlis/hypotrail#89 for triage.</li>
+<li data-difficulty="D4"><b>D4. <code>import ml</code>, step 12; <code>import agent</code>, step 17.</b> The README names <code>predictions.csv</code>, <code>mapping.json</code> and <code>population.json</code> without saying where they come from. The walker took them from chapter 06 (the external program of <code>examples/external</code>, steps 10 and 11) and chapter 08 (step 16). Both import lines name <code>population.json</code>, so the Chinook one replaced the Bike one in the working directory; the Study kept the Bike copy at step 12.</li>
+<li data-difficulty="D5"><b>D5. <code>compare --study runs/bike</code>, step 25.</b> It takes two Assessments of the Study; the README path assesses one Bike Observation set. The walker assessed the import's Observation set too (step 21) and compared the two. Exit 0, descriptive only, because one side is an Import.</li>
+<li data-difficulty="D6"><b>D6. <code>assess</code> on the scenario Attempt, step 20.</b> Refused, exit 2, <code>UNSUPPORTED_CAPABILITY</code>: a scenario Attempt is not assessed. The README's line for this Attempt says <code>the scenarios: mock model, no key</code> and nothing of assessing it; the walker did not need the Assessment and moved on to the imports.</li>
+<li data-difficulty="D7"><b>D7. <code>compare --study runs/chinook</code>, step 26 (the README line, as written).</b> The README said two agent Assessments (the wording before the correction, see README corrections). The two the path leads to (the kept log, Cases D03 and D05; the authored answers, Cases D01, D03, D07 and D08) cover other Cases: exit 3, <code>COMPARISON_POPULATION_DIFFERS</code>. The walker tried a D03-only pair: the authored line for D03 imported (step 27) and the kept log did not (step 28, exit 2, <code>LOG_EPISODE_OUTSIDE_POPULATION</code>). It then imported the kept log a second time under another request id (steps 29 to 31) and compared the log with itself (step 32): exit 0, delta 0. That comparison says nothing about two configurations; the path holds no pair of agent outputs that share a population. The first D03-only import (step 27) stays in the Study as a fifth Attempt, and the report lists it.</li>
+<li data-difficulty="D8"><b>D8. <code>init --new-revision</code>, step 35.</b> Exit 2, <code>PROTOCOL_UNCHANGED</code>. The README line says it is for after a corrected References file, and none exists; the refusal is the right answer. Nothing was done.</li>
+<li data-difficulty="D9"><b>D9. The rendered page, section 05.</b> The Assessments table shows the scorer as <code>chinook_contract_v1 3</code>; the <code>3</code> is not labelled. The walker took it for the scorer's version after reading the two numbers that follow. Nothing was done.</li>
+</ol>
+
+<h2 id="corrections">README corrections</h2>
+<p data-corrections="after-walk">None during the walk: it ran the README's commands as written and changed no line. One correction was made after the walk, by review finding 10-R1-04 of chadlis/hypotrail#10: the walked command <code data-removed-command>uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]</code> (step 26), as it stood in the README at the commit walked, was removed from the README's path, because the path makes no two agent Assessments over the same Cases and the command is refused (difficulty D7, <code>COMPARISON_POPULATION_DIFFERS</code>, exit 3). The README now says in a sentence after the path that Chinook <code>compare</code> needs two agent Assessments over the same Cases and that the path makes none. Step 26 stays recorded as the walk ran it. The change made before the walk is the one named above.</p>
+
+<h2 id="notrun">Not run</h2>
+<ul data-not-run>
+<li><code>run agent --mode llm_live</code>: not run: paid, opt-in (step 15).</li>
+<li><code>spike live</code>: not run: paid, opt-in (step 39).</li>
+</ul>
+</main>
+<script>(function(){var r=document.documentElement,b=document.querySelectorAll(".mode button[data-m]");function set(m){r.setAttribute("data-mode",m);b.forEach(function(x){x.setAttribute("aria-pressed",x.dataset.m===m)});try{localStorage.setItem("doc-mode",m)}catch(e){}}b.forEach(function(x){x.onclick=function(){set(x.dataset.m)}});set(r.getAttribute("data-mode"))})();</script>
+</body>
+</html>

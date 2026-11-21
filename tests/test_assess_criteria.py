@@ -41,6 +41,7 @@ def test_every_expected_item_is_scored_with_its_absolute_error_and_the_counts_sa
 
 
 def test_a_failed_item_and_a_missing_item_are_unscored_with_their_own_reason_never_zero(tmp_path):
+    """T21 (SPEC §10)."""
     study, attempts = fresh_study(tmp_path, "seasonal_7")
     attempt = attempts["seasonal_7"]
     first, second = (r["row_id"] for r in observations_of(study, attempt)[:2])

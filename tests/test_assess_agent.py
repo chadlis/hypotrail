@@ -110,6 +110,7 @@ def test_every_expected_episode_has_a_state_for_every_criterion_and_a_reason_for
 
 
 def test_an_answer_without_a_trace_has_its_content_scored_and_its_evidence_link_unscored(fixture_assessment):
+    """T23 (SPEC §10)."""
     study, _, record = fixture_assessment
     rows = per_item(study, record)
     for case in ("D01", "D03"):
@@ -178,6 +179,7 @@ def test_scored_is_correct_plus_incorrect_for_every_criterion(tmp_path):
 
 
 def test_a_zero_denominator_gives_a_null_rate_with_a_reason_never_zero(tmp_path):
+    """T21 (SPEC §10)."""
     lines = [line(case, status="missing") for case in FIXTURE_CASES]
     study, observation_set = imported(tmp_path, lines)
     record = assessed(study, observation_set)
@@ -188,6 +190,7 @@ def test_a_zero_denominator_gives_a_null_rate_with_a_reason_never_zero(tmp_path)
 
 
 def test_a_wrong_table_without_a_trace_is_incorrect_not_unscored_and_a_malformed_answer_too(tmp_path):
+    """T17 (SPEC §10)."""
     lines = [
         line("D01", final(rows=[[1]])),
         line("D03", '```json\n{"status": "answered"}\n```'),
@@ -252,6 +255,7 @@ def test_a_failed_or_missing_episode_is_unscored_with_a_reason_and_counted_apart
 
 
 def test_a_scoring_crash_is_errored_for_that_episode_only(tmp_path, monkeypatch):
+    """T17 (SPEC §10)."""
     from hypotrail.agentic import assess as agent_assess
     from hypotrail.core import chinook_contract
 
@@ -273,6 +277,7 @@ def test_a_scoring_crash_is_errored_for_that_episode_only(tmp_path, monkeypatch)
 
 
 def test_a_missing_reference_makes_exact_table_unscored_not_false(tmp_path):
+    """T17 (SPEC §10)."""
     study, observation_set = imported(tmp_path)
     spec = spec_of(study)
     entry = next(e for e in spec["artifacts"] if e["ref"]["role"] == "references")
@@ -406,7 +411,7 @@ _AC7_CHILD = textwrap.dedent(
 
 @pytest.mark.parametrize("mode", ["with-examples", "default-examples"])
 def test_ac7_import_agent_and_assess_succeed_with_every_condition_at_once(tmp_path, mode):
-    """#68 AC7 (R4-02, R5-01): in a fresh interpreter Inspect and the providers are not importable, the network is patched
+    """T10 (SPEC §10). #68 AC7 (R4-02, R5-01): in a fresh interpreter Inspect and the providers are not importable, the network is patched
     (a child does not inherit the conftest guard) and every use (`open`, `io.open`, `os.open`, `sqlite3.connect`) of the
     Study-side and of the repository's Chinook file raises, both files being present through `import agent` and `assess`.
     Both succeed, load no blocked module and none of the model or tool modules, and record zero uses and zero network attempts."""

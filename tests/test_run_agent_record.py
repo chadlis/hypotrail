@@ -304,6 +304,7 @@ def test_a_change_of_the_chinook_file_during_the_attempt_is_database_changed_and
 
 
 def test_tokens_and_cost_are_null_where_the_log_gives_none_and_each_repeat_is_its_own_inspect_epoch(tmp_path, monkeypatch):
+    """T21 (SPEC §10)."""
     study = study_of(tmp_path)
     patch_model(monkeypatch, scripted(error_on=("D03", 1)))
     attempt = ok(live(study, "plain", "h", repeats=3, cases=["D03", "D05"]))

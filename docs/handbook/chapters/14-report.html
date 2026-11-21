@@ -1,0 +1,117 @@
+<!-- chapter: id=report; kicker=Report; title=The Study report; accent=sky -->
+<p class="lead"><code>report</code> renders one HTML page for a Study of either Track, the temporal regression Track (Bike) or the tool-using agent Track (Chinook), from the Study's records alone: the Attempts, Observation sets, Assessments, Comparisons, the freeze record and the Exposure journal. The page holds its text, styles and tables inline, loads nothing, has no script and computes nothing when it is opened. A page that shows <code>public_check</code> Items is an Exposure and is recorded as one.</p>
+
+<p class="sub2">The command</p>
+<div class="prose">
+<p><code>python -m hypotrail report --study DIR --out FILE</code>, with <code>--json</code> and <code>--examples-dir DIR</code> (the flags are in the commands table of <a href="#study-and-attempts">chapter 04</a>). The code is <code>src/hypotrail/report/</code>: <code>gather.py</code> reads and verifies the records (<code>gather_agent.py</code> adds what a Chinook Study holds), <code>render.py</code> writes the page and its sections (<code>render_agent.py</code> writes the sections that differ for a Chinook Study, <code>markup.py</code> holds the escaping building blocks), <code>command.py</code> is the command. It imports neither Inspect nor scikit-learn nor NumPy (<a href="../adr/0001-core-independent-of-inspect.md">ADR 0001</a>), and it calls no fit, no prediction, no model and no tool, so it works with the network cut. An Inspect log is never opened: the page links to it.</p>
+<ol>
+<li>The Study is read, whichever Track it is of. <code>--out</code> must not be inside the Study, nor a directory, and its folder must exist.</li>
+<li>Every artifact the page shows is read back against its digest: a changed byte is <code>ARTIFACT_INTEGRITY</code> (exit 3) and no page is written.</li>
+<li>If the page shows <code>public_check</code> Items, the Study's writer lock is taken (a second writer is <code>STUDY_LOCKED</code>, exit 6), the Workload is found through the one resolver of <a href="#study-and-attempts">chapter 04</a> and its Protocol is checked against the revision's (<code>PROTOCOL_CHANGED</code>, exit 3), the freeze record is written first if the revision has none, then one journal entry names the Attempts, Assessments and Comparisons the page shows of those Items (<a href="#freeze-exposure">chapter 12</a>). A Study whose Items are all <code>dev</code> records nothing, takes no lock and reads no Workload.</li>
+<li>The page is written to a temporary file beside <code>--out</code> and renamed onto it: an existing file is replaced.</li>
+</ol>
+<p>The page is rebuilt from the Study each time it is asked for; it is never stored as a record. Two reports of the same <code>public_check</code> Study record two Exposures.</p>
+</div>
+<pre class="code"><span class="cm"># a page for a Study; --out is outside the Study</span>
+uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html
+uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html</pre>
+
+<p class="sub2">The sections</p>
+<div class="prose">
+<p>The nine sections of the specification, in its order, then the Exposure section. Each has a stable <code>id</code>. The page's own headings, labels and sentences are in English; a string that comes from outside the code (a question, an ID, a declared field) is shown as given, HTML-escaped, in text and in attributes, and a web address in it is text, never a link.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-sections"><thead><tr><th>Order</th><th>Id</th><th>Heading</th><th>What it shows</th></tr></thead><tbody>
+<tr data-section="question-mode" data-order="1" data-heading="Question and Mode"><td>1</td><td><code>question-mode</code></td><td>Question and Mode</td><td>The question and objective of the Study, its Track, its Primary Metric, the Modes of its Attempts.</td></tr>
+<tr data-section="data-licences" data-order="2" data-heading="Data and licences"><td>2</td><td><code>data-licences</code></td><td>Data and licences</td><td>The dataset the Study keeps, with its digest, and the licence notice file the Workload names. The notice text stays with the Workload: the page reads the Study alone.</td></tr>
+<tr data-section="protocol-partitions" data-order="3" data-heading="Protocol and Partitions"><td>3</td><td><code>protocol-partitions</code></td><td>Protocol and Partitions</td><td>The Protocol and revision, and each Partition's Items and date range (Bike), or its Cases (Chinook), read from the Study's population.</td></tr>
+<tr data-section="configurations" data-order="4" data-heading="Configurations compared"><td>4</td><td><code>configurations</code></td><td>Configurations compared</td><td>Each Attempt's Configuration and its declared content (Chinook: its id, declared content and exact system text, and an <code>llm_live</code> Attempt's recorded facts); an Import declares none.</td></tr>
+<tr data-section="coverage-statuses" data-order="5" data-heading="Coverage and statuses"><td>5</td><td><code>coverage-statuses</code></td><td>Coverage and statuses</td><td>Each Attempt with its Mode, technical status, <code>request_id</code>, <code>outcome_unknown</code> and its produced, failed and missing Items; each Assessment's counts and, per Criterion, its states and Reasons; for a scenario Attempt, its self-check. A null is shown as <code>unknown</code>, never as 0.</td></tr>
+<tr data-section="metrics-differences" data-order="6" data-heading="Metrics and differences"><td>6</td><td><code>metrics-differences</code></td><td>Metrics and differences</td><td>Each Assessment's Metric, its revision, the earlier Assessment it differs from and the recorded cause; a table by month (Bike) or the counters and the two named rates per Criterion (Chinook); each Comparison.</td></tr>
+<tr data-section="individual-errors" data-order="7" data-heading="Individual errors"><td>7</td><td><code>individual-errors</code></td><td>Individual errors</td><td>Bike: the ten Items with the largest absolute error of each Assessment, with date, true and predicted values, and where each is found. Chinook: the Case by Repeat matrix of each Assessment, and each Attempt's answers shown as text.</td></tr>
+<tr data-section="limits" data-order="8" data-heading="Limits"><td>8</td><td><code>limits</code></td><td>Limits</td><td>The limitations the StudySpec, the Assessments and the Comparisons record.</td></tr>
+<tr data-section="artifact-origin" data-order="9" data-heading="Origin of the artifacts"><td>9</td><td><code>artifact-origin</code></td><td>Origin of the artifacts</td><td>Each artifact with its relative link, SHA-256, size and role; an Import's producer fields with their origin, <code>declared</code> or <code>unknown</code>.</td></tr>
+<tr data-section="exposure" data-order="10" data-heading="Exposure"><td>10</td><td><code>exposure</code></td><td>Exposure</td><td>The count of Exposures this Study recorded, the journal, the statement that any earlier exposure is unknown, and every record marked <code>check_informed</code>.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The tenth section is not one of the nine of the specification: the ticket asks for it, and it sits after them so that the nine keep their order.</p>
+</div>
+
+<p class="sub2">The tool-using agent Track's page</p>
+<div class="prose">
+<p>A Chinook Study has the same page, sections and rules. Where Bike shows a table by month and the ten largest errors, Chinook shows, for each Assessment, a matrix with one row per Case and one column per Repeat. Each cell names its Case and Repeat and holds the lines of the table below. An Instrument failure (a Criterion <code>unscored</code> or <code>errored</code>, with its Reason) is written apart from a format failure of the system (a Criterion scored false, with its Reason): the first is never held against the evaluated system. A Wrapped answer is named as such and carries the Reason <code>invalid_response_format</code>. The trace line is a relative link to the Attempt's Inspect log with its SHA-256 (the log itself is never opened); for an Import of a JSON Lines file it links the import source, which holds the steps; an Episode with no trace says <code>trace absent</code>.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-matrix-cell"><thead><tr><th>Order</th><th>Line</th><th>What it says</th></tr></thead><tbody>
+<tr data-line="Case and Repeat" data-order="1"><td>1</td><td>Case and Repeat</td><td>The Case ID and the Repeat the cell stands for.</td></tr>
+<tr data-line="Execution" data-order="2"><td>2</td><td>Execution</td><td><code>produced</code>, or <code>failed</code> or <code>missing</code> with its Reason (<code>unknown</code> when none is recorded).</td></tr>
+<tr data-line="Answer read from" data-order="3"><td>3</td><td>Answer read from</td><td>For a produced answer: <code>raw_answer</code>, <code>embedded_object (Wrapped answer)</code> or <code>nothing read</code>.</td></tr>
+<tr data-line="exact_table" data-order="4"><td>4</td><td><code>exact_table</code></td><td><code>true</code> or <code>false</code> with its Reason, or <code>unscored</code> or <code>errored</code> with its Reason and the words Instrument failure.</td></tr>
+<tr data-line="format_valid" data-order="5"><td>5</td><td><code>format_valid</code></td><td>As above.</td></tr>
+<tr data-line="evidence_link_valid" data-order="6"><td>6</td><td><code>evidence_link_valid</code></td><td>As above (the tool evidence).</td></tr>
+<tr data-line="contract_success" data-order="7"><td>7</td><td><code>contract_success</code></td><td>As above (the primary Criterion).</td></tr>
+<tr data-line="Trace" data-order="8"><td>8</td><td>Trace</td><td>The Study-relative path and SHA-256 of the Inspect log, linked; <code>Trace in the import source</code> for a JSON Lines Import; <code>trace absent</code> when the Episode has none.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>For each Assessment the page also gives, per Criterion, the counters of the contract and the two named rates (CMP-03, CMP-04), read from the Assessment record and its detailed metrics file. A rate whose denominator is zero is shown <code>null</code> with its Reason, never 0, and the unknowns (unscored, errored, and their Reasons counted from the per-Item file) stand beside the rates.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-criteria-columns"><thead><tr><th>Order</th><th>Column</th></tr></thead><tbody>
+<tr data-column="Criterion" data-order="1"><td>1</td><td>Criterion</td></tr>
+<tr data-column="N_expected" data-order="2"><td>2</td><td>N_expected</td></tr>
+<tr data-column="N_attempted" data-order="3"><td>3</td><td>N_attempted</td></tr>
+<tr data-column="N_produced" data-order="4"><td>4</td><td>N_produced</td></tr>
+<tr data-column="N_scored" data-order="5"><td>5</td><td>N_scored</td></tr>
+<tr data-column="N_correct" data-order="6"><td>6</td><td>N_correct</td></tr>
+<tr data-column="N_incorrect" data-order="7"><td>7</td><td>N_incorrect</td></tr>
+<tr data-column="N_unscored" data-order="8"><td>8</td><td>N_unscored</td></tr>
+<tr data-column="N_errored" data-order="9"><td>9</td><td>N_errored</td></tr>
+<tr data-column="Quality among the scored (N_correct / N_scored)" data-order="10"><td>10</td><td>Quality among the scored (N_correct / N_scored)</td></tr>
+<tr data-column="Share of the planned Episodes with a confirmed success (N_correct / N_expected)" data-order="11"><td>11</td><td>Share of the planned Episodes with a confirmed success (N_correct / N_expected)</td></tr>
+<tr data-column="Unknowns" data-order="12"><td>12</td><td>Unknowns</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>An agent Comparison is shown as recorded: its Control and Candidate Assessments, its comparability and the checks behind it, its coverage and coverage rates, its deltas and the definition of the delta (for this Criterion a positive delta means the Candidate is better), and, aggregated by Case first, the shares of each Case from the paired-deltas file. When the record withholds the main delta (CMP-05) the page shows only <code>withheld</code>, with the coverage rates beside it and no bounds; no interval is computed over Episodes. Its descriptive measures show a null as <code>unknown</code>.</p>
+<p>A Study that holds a scenario Attempt (Mode <code>scripted_fixture</code>) shows the banner at the top of the page, before the first section, whatever else the Study holds: <code>"test simulation, no LLM evaluated"</code> is the text of the banner, and it names the scenario Attempts it covers by their IDs. Every element the page writes for a scenario Attempt carries a <code>data-attempt-id</code> attribute equal to that ID, and its text names no LLM. Its statuses and counts are shown under the heading <b>Self-check of the scripted scenarios, not an Assessment</b>: a scenario Attempt is neither assessed nor compared. Its final answers are shown as text like every answer. The page states no milestone status: the live acceptance status is shown by the grid and the README, not by a report of one Study.</p>
+<p>An <code>llm_live</code> Attempt is shown with these fields beside its Configuration, each as the Attempt recorded it; a value it does not hold is shown <code>unknown</code>, never 0 (the served model is never replaced by the requested one). The tokens, cost and latency of each Episode follow.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-live-fields"><thead><tr><th>Order</th><th>Field</th><th>Where it comes from</th></tr></thead><tbody>
+<tr data-field="Model (requested)" data-order="1"><td>1</td><td>Model (requested)</td><td>The <code>model</code> the Attempt asked for.</td></tr>
+<tr data-field="Served model (reported)" data-order="2"><td>2</td><td>Served model (reported)</td><td>The <code>served_model</code> the provider reported, beside the requested one.</td></tr>
+<tr data-field="Effective limits" data-order="3"><td>3</td><td>Effective limits</td><td>The limits read back from the log.</td></tr>
+<tr data-field="Limit note, &lt;name&gt;" data-order="4"><td>4</td><td>Limit note, <code>&lt;name&gt;</code></td><td>One row for each note of <code>limit_notes</code>, such as the number of tool calls Inspect does not enforce.</td></tr>
+<tr data-field="Effective parameters" data-order="5"><td>5</td><td>Effective parameters</td><td>The parameters the log shows were sent.</td></tr>
+<tr data-field="Chinook file SHA-256 before" data-order="6"><td>6</td><td>Chinook file SHA-256 before</td><td>The run record's hash of the database before the Episodes.</td></tr>
+<tr data-field="Chinook file SHA-256 after" data-order="7"><td>7</td><td>Chinook file SHA-256 after</td><td>The same, after.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What the numbers are</p>
+<div class="prose">
+<p>Every value is written into the HTML when the page is rendered. The values the records hold (Metrics, counters, deltas, coverage) are read as recorded. Two tables hold values the records do not: the table by month (the Items of the month and the mean of the Assessment's per-Item absolute errors, with the number scored) and the Reasons per Criterion (the per-Item states, counted). Both are computed from the recorded per-Item file when the page is rendered, never when it is opened. The ten largest errors are ranked by absolute error, the larger first and equal errors by Item ID; the difference column is predicted minus true.</p>
+<p>A Comparison is shown with its Control and Candidate Assessments, its comparability status and warnings, its coverage and its deltas as recorded. A positive delta means the Candidate is worse. A Comparison against an Import is shown as descriptive, with its warning. An Attempt that is <code>running</code> is shown as running, whether or not its writer is alive, and an <code>interrupted</code> one as interrupted.</p>
+</div>
+
+<p class="sub2">What the page does not say</p>
+<div class="prose">
+<p>The page never attributes readiness, safety or independence to an output, a Configuration or a Study. The one sentence that names those words denies them; it is listed here so that the test over the page's own text can allow it by its exact text.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="report-denials"><thead><tr><th>Sentence</th></tr></thead><tbody>
+<tr data-denial="limits"><td>This report does not state that any output, Configuration or Study is production-ready, safe or independent.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals</p>
+<div class="tblwrap"><table class="tbl" id="report-refusals"><thead><tr><th>Case</th><th>Code</th><th>Exit</th><th>Stage</th><th>Details</th></tr></thead><tbody>
+<tr data-code="STUDY_NOT_FOUND" data-exit="2" data-stage="study" data-details="study"><td>No Study at <code>--study</code></td><td><code>STUDY_NOT_FOUND</code></td><td>2</td><td><code>study</code></td><td><code>study</code></td></tr>
+<tr data-code="REPORT_OUTPUT_INVALID" data-exit="2" data-stage="report" data-details="out reason"><td><code>--out</code> inside the Study (<code>inside_study</code>), a directory (<code>is_directory</code>) or in a folder that does not exist (<code>no_folder</code>)</td><td><code>REPORT_OUTPUT_INVALID</code></td><td>2</td><td><code>report</code></td><td><code>out</code>, <code>reason</code></td></tr>
+<tr data-code="ARTIFACT_INTEGRITY" data-exit="3" data-stage="artifact" data-details="path expected_sha256 actual_sha256 expected_size_bytes actual_size_bytes"><td>An artifact whose bytes no longer match its reference</td><td><code>ARTIFACT_INTEGRITY</code></td><td>3</td><td><code>artifact</code></td><td><code>path</code>, <code>expected_sha256</code>, <code>actual_sha256</code>, <code>expected_size_bytes</code>, <code>actual_size_bytes</code></td></tr>
+<tr data-code="STUDY_LOCKED" data-exit="6" data-stage="lock" data-details="study"><td>A second writer, while an Exposure is recorded</td><td><code>STUDY_LOCKED</code></td><td>6</td><td><code>lock</code></td><td><code>study</code></td></tr>
+<tr data-code="PROTOCOL_CHANGED" data-exit="3" data-stage="exposure" data-details="expected_protocol_digest actual_protocol_digest"><td>The Workload's Protocol is no longer the revision's, when an Exposure is recorded</td><td><code>PROTOCOL_CHANGED</code></td><td>3</td><td><code>exposure</code></td><td><code>expected_protocol_digest</code>, <code>actual_protocol_digest</code></td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>A page that shows <code>public_check</code> Items also needs the Workload: without <code>--examples-dir</code>, outside a checkout, it is refused before anything is written, as every command that reads a Workload is (<a href="#study-and-attempts">chapter 04</a>).</p>
+</div>
+
+<p class="sub2">Limits</p>
+<div class="grid2">
+<div class="card" style="--c:var(--violet)"><h3>Logs are linked, not read</h3><p>The page links to an Inspect log with its SHA-256 and shows no event of it (Inspect owns its viewer). A Study that holds a log still renders where Inspect is not installed.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>A report is an Exposure</h3><p>Showing <code>public_check</code> outputs is an Exposure even with no Assessment. The entry is written before the page, so a failure to write the page leaves the entry.</p></div>
+<div class="card" style="--c:var(--amber)"><h3>No licence text</h3><p>The Study keeps the dataset, not the licence notice or its attribution addresses: the page names the notice file the Workload declared and shows no notice text.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>No in-page links</h3><p>The only links are relative links to Study artifacts, from the folder of <code>--out</code>, each with its SHA-256. Moving the page without the Study breaks them.</p></div>
+</div>

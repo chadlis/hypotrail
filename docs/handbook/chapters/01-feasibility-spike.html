@@ -101,3 +101,25 @@ uv run python -m hypotrail data verify --workload chinook --json</pre>
 <div class="card" style="--c:var(--teal)"><h3>Rehearsal</h3><p>The live path is exercised in the suite against a fake endpoint on loopback, so the real Anthropic client, the key header and the key scan are tested without a real call.</p></div>
 <div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>The Import and Assessment contracts.</p></div>
 </div>
+
+<p class="sub2">Refusals of data verify</p>
+<div class="prose"><p>The refusals of <code>data verify</code> besides the integrity ones above, with their exit code, stage and <code>details</code> keys.</p></div>
+<div class="tblwrap"><table class="tbl" id="data-verify-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="UNKNOWN_WORKLOAD" data-exit="2" data-stage="config" data-details="workload known"><td><code>UNKNOWN_WORKLOAD</code></td><td><code>--workload</code> names a Workload that has no <code>data-sources.lock.json</code> in the examples directory.</td><td>2</td><td>config</td><td><code>workload</code>, <code>known</code></td></tr>
+<tr data-code="NO_WORKLOAD" data-exit="2" data-stage="config" data-details="examples_dir"><td><code>NO_WORKLOAD</code></td><td>No Workload is named and the examples directory holds none: nothing is verified, and that is a refusal, not a success.</td><td>2</td><td>config</td><td><code>examples_dir</code></td></tr>
+<tr data-code="CHECKS_WITHOUT_SOURCE" data-exit="2" data-stage="config" data-details="workload dataset_id"><td><code>CHECKS_WITHOUT_SOURCE</code></td><td>The Workload's <code>data-checks.json</code> names a dataset the lock does not list.</td><td>2</td><td>config</td><td><code>workload</code>, <code>dataset_id</code></td></tr>
+<tr data-code="UNKNOWN_CHECK_KIND" data-exit="2" data-stage="config" data-details="workload kind"><td><code>UNKNOWN_CHECK_KIND</code></td><td>A check of <code>data-checks.json</code> has a kind the verifier does not know.</td><td>2</td><td>config</td><td><code>workload</code>, <code>kind</code></td></tr>
+<tr data-code="DATA_MISSING" data-exit="3" data-stage="integrity" data-details="workload file"><td><code>DATA_MISSING</code></td><td>The data file the lock names is not there. This is checked before its bytes are.</td><td>3</td><td>integrity</td><td><code>workload</code>, <code>file</code></td></tr>
+<tr data-code="LICENCE_NOTICE_MISSING" data-exit="3" data-stage="licence" data-details="workload file"><td><code>LICENCE_NOTICE_MISSING</code></td><td>The licence notice the lock names is missing or empty.</td><td>3</td><td>licence</td><td><code>workload</code>, <code>file</code></td></tr>
+<tr data-code="LICENCE_NOTICE_CHANGED" data-exit="3" data-stage="licence" data-details="workload file expected_sha256"><td><code>LICENCE_NOTICE_CHANGED</code></td><td>The licence notice differs from the lock's <code>notice_sha256</code>.</td><td>3</td><td>licence</td><td><code>workload</code>, <code>file</code>, <code>expected_sha256</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Refusals of the live execution</p>
+<div class="prose"><p>Refusals of <code>spike live</code>, and of the live execution <code>run agent</code> shares with it, that come before anything is sent.</p></div>
+<div class="tblwrap"><table class="tbl" id="spike-live-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="CASE_NOT_DEV" data-exit="2" data-stage="live" data-details="cases"><td><code>CASE_NOT_DEV</code></td><td>A live execution is asked for a Case that is not a <code>dev</code> Case of the Workload; it is limited to <code>dev</code> Cases.</td><td>2</td><td>live</td><td><code>cases</code></td></tr>
+<tr data-code="EPISODES_OUT_OF_BOUNDS" data-exit="2" data-stage="live" data-details="episodes maximum"><td><code>EPISODES_OUT_OF_BOUNDS</code></td><td>The execution would run fewer than one or more than the maximum number of Episodes (distinct Cases times Repeats), or names a Case twice.</td><td>2</td><td>live</td><td><code>episodes</code>, <code>maximum</code></td></tr>
+<tr data-code="REASONING_NOT_EXPLICIT" data-exit="2" data-stage="live" data-details="model"><td><code>REASONING_NOT_EXPLICIT</code></td><td>The request for the model would not state the reasoning setting; nothing is sent.</td><td>2</td><td>live</td><td><code>model</code></td></tr>
+<tr data-code="OUTPUT_NOT_EMPTY" data-exit="2" data-stage="fixture live" data-details="out"><td><code>OUTPUT_NOT_EMPTY</code></td><td>The output directory of <code>spike live</code>, or of the offline fixture execution, exists and is not empty. Nothing is written.</td><td>2</td><td>fixture, live</td><td><code>out</code></td></tr>
+<tr data-code="LOG_NOT_FULLY_SCANNED" data-exit="4" data-stage="live" data-details="files"><td><code>LOG_NOT_FULLY_SCANNED</code></td><td>The Inspect log could not be fully scanned for the API key and no hit was found: it is not reported clean, and it must not be kept or committed.</td><td>4</td><td>live</td><td><code>files</code></td></tr>
+</tbody></table></div>

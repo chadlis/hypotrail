@@ -137,6 +137,7 @@ def test_shuffling_the_rows_changes_no_input_and_no_prediction(tmp_path, fitted)
 
 
 def test_every_fit_receives_exactly_the_train_items():
+    """T05 (SPEC §10)."""
     memberships = derive_memberships(BIKE)
     train_ids = {m["row_id"] for m in memberships if m["partition"] == "train"}
     assert len(train_ids) == 358
@@ -168,6 +169,7 @@ def test_every_fit_receives_exactly_the_train_items():
 
 
 def test_predicting_dev_or_public_check_fits_nothing(fitted):
+    """T05 (SPEC §10)."""
     before = fitted.pipeline.steps[-1][1].coef_.copy()
 
     with fit_probe(strict=True) as probe:
@@ -183,6 +185,7 @@ def test_predicting_dev_or_public_check_fits_nothing(fitted):
 
 
 def test_dev_predictions_are_182_and_y_pred_is_the_clipped_raw(fitted, tmp_path):
+    """T06 (SPEC §10)."""
     write_outputs(BIKE, tmp_path, "ridge_v1", "dev")
     rows = read_csv(tmp_path / "predictions.csv")
 

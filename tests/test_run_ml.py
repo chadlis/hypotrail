@@ -215,6 +215,7 @@ def test_a_partition_the_workload_does_not_declare_and_an_undeclared_configurati
 
 
 def test_one_altered_byte_of_the_data_is_refused_with_the_verification_code_and_no_attempt_is_written(tmp_path):
+    """T01 (SPEC §10)."""
     examples = examples_copy(tmp_path)
     study, _ = init_study(tmp_path, examples=examples)
     data = examples / "bike_day" / "data" / "day.csv"
@@ -312,6 +313,7 @@ class Instruments:
 
 @pytest.mark.parametrize("config", ["seasonal_7", "ridge_v1"])
 def test_the_same_request_returns_the_recorded_attempt_with_neither_a_fit_nor_a_prediction(tmp_path, monkeypatch, config):
+    """T18 (SPEC §10)."""
     study, _ = init_study(tmp_path)
     _, first, _ = run_ml(study, config, "dev", "same")
     before = snapshot(study)
@@ -354,6 +356,7 @@ def conflict(study, *args, **more):
 
 
 def test_the_same_request_id_with_another_configuration_or_partition_is_a_conflict_that_writes_nothing(tmp_path):
+    """T18 (SPEC §10)."""
     study, _ = init_study(tmp_path)
     _, first, _ = run_ml(study, "seasonal_7", "dev", "same")
     details = conflict(study, "ridge_v1", "dev", "same")

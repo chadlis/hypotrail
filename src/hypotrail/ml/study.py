@@ -105,7 +105,7 @@ def live_basis(examples_dir: Path | None = None):
     """
 
     def basis(spec: dict) -> dict:
-        examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+        examples = data.resolve_examples_dir(examples_dir)
         return freeze_basis(spec, examples / spec["workload"])
 
     return basis
@@ -188,7 +188,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
 def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
-    examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+    examples = data.resolve_examples_dir(examples_dir)
     if (study / STUDY_FILE).exists():
         with lock.writer_lock(study):  # a Study that has a writer answers with the lock first
             raise _exists(study)
@@ -224,7 +224,7 @@ def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
     with lock.writer_lock(study):
         previous = layout.read_spec(study)
         layout.require_domain(previous, DOMAIN, "init --new-revision")
-        examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+        examples = data.resolve_examples_dir(examples_dir)
         workload = previous["workload"]
         data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is written
         source = examples / workload

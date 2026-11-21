@@ -78,7 +78,7 @@ def test_the_readme_claims_the_kept_live_episodes_come_from_spike_live_which_rec
 
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "A live Attempt" not in text
-    paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line)
+    paragraph = next(line for line in text.splitlines() if "docs/handbook/traces" in line and not line.startswith("uv run"))  # not the `import agent` command line (#87 D)
     assert "spike live" in paragraph and "Episodes" in paragraph  # where the kept live Episodes come from
     assert re.search(r"\b(?:no|nothing|not)\b[^.;:]*\bStudy\b", paragraph)  # that command records nothing in a Study
     # the README names the kept outputs Episodes; whether a `spike live` execution is an Attempt is open
@@ -139,3 +139,12 @@ def test_the_readme_names_an_attempt_only_for_what_a_study_records():
     assert [s for s in sentences if "spike live" in s and re.search(r"\bAttempts?\b", s)] == []
     status = next(s for s in sentences if "`run agent` records a Chinook Attempt" in s)
     assert "`init` creates a Study" in status and "`run ml` records a Bike Attempt" in status
+
+
+def test_every_decision_cited_in_src_names_its_issue_as_the_glossary_does():
+    # 10-R3-02: a bare D-0xx means nothing to a reader of the source; GLOSSARY cites "D-011 on chadlis/hypotrail#75".
+    bare = []
+    for path in sorted((ROOT / "src" / "hypotrail").rglob("*.py")):
+        text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))  # a citation may wrap over two lines
+        bare += [f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
+    assert bare == []

@@ -27,11 +27,12 @@ from inspect_ai.model import ModelOutput
 
 from hypotrail.agentic import counts, limits as limits_module, projection, rescore, runner
 from hypotrail.agentic.declaration import SCENARIOS, check_document, load_workload, read_json
+from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
-MODE = "scripted_fixture"
-BANNER = "test simulation, no LLM evaluated"
+MODE = SCENARIO_MODE
+BANNER = SCENARIO_BANNER
 MODEL = "mockllm/model"
 
 

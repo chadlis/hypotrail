@@ -25,6 +25,7 @@ def rows_of(path):
 
 
 def test_the_verified_bike_workload_gives_memberships_and_dev_predictions_of_both_configurations(tmp_path):
+    """T06 (SPEC §10)."""
     reports = data.verify_workloads(EXAMPLES, ["bike_day"])
     assert [(r["workload"], r["status"]) for r in reports] == [("bike_day", "verified")]
 

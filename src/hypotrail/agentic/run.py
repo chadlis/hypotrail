@@ -210,7 +210,7 @@ def run_agent(
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     layout.require_domain(spec, DOMAIN, COMMAND)
-    examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+    examples = data.resolve_examples_dir(examples_dir)
     workload = load_workload(examples / spec["workload"])
     plan = _checked_flags(workload, mode, config, partition, repeats, model, cases)
     with lock.writer_lock(study):

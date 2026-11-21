@@ -303,7 +303,7 @@ def import_ml(
 def _import_locked(study, source, mapping_path, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
-    examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+    examples = data.resolve_examples_dir(examples_dir)
     workload = spec["workload"]
     data.verify_workloads(examples, [workload])
     study_refs = [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]

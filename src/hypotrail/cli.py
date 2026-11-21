@@ -52,10 +52,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
+
+    fetch = data_commands.add_parser(
+        "fetch", help="acquire a Workload's public sources from the URLs of its lock, checked against the lock"
+    )
+    fetch.add_argument("--lock", required=True, type=Path, metavar="LOCK", help="the data-sources.lock.json to acquire")
+    fetch.add_argument(
+        "--dest",
+        required=True,
+        type=Path,
+        metavar="DIR",
+        help="the Workload directory the files are published in: each source lands at its lock's local_path under it (for example examples/bike_day)",
+    )
+    fetch.add_argument("--json", action="store_true", help="print one JSON object")
+    fetch.set_defaults(handler=_data_fetch)
 
     init = commands.add_parser("init", help="create a Study for a Workload, or add a revision to a Study (--new-revision)")
     init.add_argument("--workload", metavar="NAME", help="the Workload to study (for example bike_day); required unless --new-revision")
@@ -70,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
@@ -95,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
@@ -134,7 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     run_agent.add_argument("--json", action="store_true", help="print one JSON object")
     run_agent.set_defaults(handler=_run_agent)
@@ -159,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     import_ml.add_argument("--json", action="store_true", help="print one JSON object")
     import_ml.set_defaults(handler=_import_ml)
@@ -189,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/)",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     import_agent.add_argument("--json", action="store_true", help="print one JSON object")
     import_agent.set_defaults(handler=_import_agent)
@@ -205,7 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/); read only for an Assessment of public_check Items, to freeze the Workload's digests",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only for an Assessment of public_check Items, to freeze the Workload's digests",
     )
     assess.add_argument("--json", action="store_true", help="print one JSON object")
     assess.set_defaults(handler=_assess)
@@ -224,7 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the repository's examples/); read only for a Comparison of public_check Items, to freeze the Workload's digests",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only for a Comparison of public_check Items, to freeze the Workload's digests",
     )
     compare.add_argument("--json", action="store_true", help="print one JSON object")
     compare.set_defaults(handler=_compare)
@@ -242,6 +256,20 @@ def build_parser() -> argparse.ArgumentParser:
     recover.add_argument("--attempt", required=True, metavar="ATTEMPT_ID", help="the running Attempt to record as interrupted")
     recover.add_argument("--json", action="store_true", help="print one JSON object")
     recover.set_defaults(handler=_recover)
+
+    report = commands.add_parser(
+        "report", help="render one self-contained HTML page for a Study, from its records alone (a page that shows public_check Items is an Exposure)"
+    )
+    report.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to report")
+    report.add_argument("--out", required=True, type=Path, metavar="FILE", help="the page to write (an existing file is replaced; not inside the Study)")
+    report.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only when the page shows public_check Items, to freeze the Workload's digests",
+    )
+    report.add_argument("--json", action="store_true", help="print one JSON object")
+    report.set_defaults(handler=_report_command)
 
     spike = commands.add_parser("spike", help="feasibility spike entry points")
     spike_commands = spike.add_subparsers(dest="spike_command", metavar="ACTION")
@@ -264,6 +292,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="a dev Case (repeatable; default: D03 and D05)",
     )
     live.add_argument("--repeats", type=int, default=1, help="Repeats per Case (default 1)")
+    live.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
+    )
     live.add_argument("--out", type=Path, required=True, metavar="DIR", help="empty output directory")
     live.add_argument("--json", action="store_true", help="print one JSON object")
     live.set_defaults(handler=_spike_live)
@@ -277,7 +311,7 @@ def _emit(payload: dict, as_json: bool, human: str) -> None:
 def _data_verify(args) -> int:
     from hypotrail.core import data
 
-    examples = args.examples_dir or data.default_examples_dir()
+    examples = data.resolve_examples_dir(args.examples_dir)
     reports = data.verify_workloads(examples, args.workload)
     lines = [
         f"{r['workload']}: {r['dataset_id']} verified "
@@ -285,6 +319,18 @@ def _data_verify(args) -> int:
         for r in reports
     ]
     _emit({"ok": True, "datasets": reports}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _data_fetch(args) -> int:
+    from hypotrail.core import fetch
+
+    reports = fetch.fetch(args.lock, args.dest)
+    lines = []
+    for r in reports:
+        lines.append(f"{r['dataset_id']}: {r['file']} {r['status']} (sha256 {r['sha256'][:12]}..., checked against the lock)")
+        lines.append(f"  notice {r['notice']['file'] or '(none)'}: {r['notice']['status']}")
+    _emit({"ok": True, "sources": reports}, args.json, "\n".join(lines))
     return EXIT_OK
 
 
@@ -301,13 +347,13 @@ def _init(args) -> int:
             stage="config",
             details={"command": "init"},
         )
-    examples = args.examples_dir or data.default_examples_dir()
+    examples = data.resolve_examples_dir(args.examples_dir)
     if declared_track(Path(examples) / args.workload) == "tool_using_agent":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
 
-    spec = study.init_study(args.workload, args.study, args.examples_dir)
+    spec = study.init_study(args.workload, args.study, examples)
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
         f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
@@ -473,7 +519,7 @@ def _assess_agent(args) -> int:
 
 
 def _live_basis(examples_dir):
-    """What `compare` hands the core to freeze a Workload on an Exposure: the Study's Track reads it, the core imports no Track.
+    """What `compare` and `report` hand the core to freeze a Workload on an Exposure: the Study's Track reads it, the core imports no Track.
 
     It reads nothing itself: the core calls it with the spec it read under the writer lock.
     """
@@ -504,6 +550,16 @@ def _compare(args) -> int:
     )
     _print_warnings(record["warnings"])
     _emit({"ok": True, "comparison": record}, args.json, human)
+    return EXIT_OK
+
+
+def _report_command(args) -> int:
+    from hypotrail.report import command
+
+    result = command.report(args.study, args.out, live_basis=_live_basis(args.examples_dir))
+    recorded = result["exposure"]
+    human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
+    _emit({"ok": True, "report": result}, args.json, human)
     return EXIT_OK
 
 
@@ -544,7 +600,7 @@ def _spike_live(args) -> int:
     from hypotrail.core import data, live
 
     model = live.require_model(args.model)
-    examples = data.default_examples_dir()
+    examples = data.resolve_examples_dir(args.examples_dir)
     workload_dir = examples / "chinook"
     workload = load_workload(workload_dir)
     # An undeclared Configuration is refused here, before the key is read and before Inspect is

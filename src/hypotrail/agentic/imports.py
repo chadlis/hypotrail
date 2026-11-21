@@ -449,7 +449,7 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
 def _import_locked(study, source, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
-    examples = Path(examples_dir) if examples_dir is not None else data.default_examples_dir()
+    examples = data.resolve_examples_dir(examples_dir)
     workload_name = spec["workload"]
     data.verify_workload_files(examples, workload_name)  # the Workload's other files and notices: the live database is never opened
     study_refs = [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]

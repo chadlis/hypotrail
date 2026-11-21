@@ -36,6 +36,7 @@ def examples_copy(tmp_path):
 
 
 def test_both_datasets_verify_with_no_workload_given():
+    """T01 (SPEC §10)."""
     code, out, _ = run_cli("data", "verify", "--json")
     assert code == 0
     report = json.loads(out)
@@ -85,6 +86,7 @@ def test_unknown_workload_is_an_invalid_input():
 def test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file(
     examples_copy, workload, relative
 ):
+    """T01 (SPEC §10)."""
     path = examples_copy / workload / relative
     raw = bytearray(path.read_bytes())
     raw[len(raw) // 2] ^= 0x01
@@ -102,6 +104,7 @@ def test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file(
 
 
 def test_the_content_checks_never_run_on_tampered_bytes(examples_copy, monkeypatch):
+    """T01 (SPEC §10)."""
     def must_not_run(*args, **kwargs):
         raise AssertionError("a content check ran before the bytes were verified")
 
@@ -389,6 +392,48 @@ def test_a_missing_examples_directory_is_an_invalid_input_not_an_infrastructure_
     assert error["code"] == "EXAMPLES_DIR_NOT_FOUND"
     assert error["stage"] == "config"
     assert error["details"] == {"examples_dir": str(tmp_path / "nope")}
+
+
+@pytest.mark.parametrize(
+    ("state", "said"),
+    [
+        ("missing", "does not exist"),
+        ("dangling_link", "is a link whose target does not exist"),
+        ("file", "exists but is not a directory"),
+        ("empty_directory", "exists but holds no Workload lock"),
+        ("directory_without_lock", "exists but holds no Workload lock"),
+        ("valid", None),
+    ],
+)
+def test_the_resolver_states_only_what_it_observed_of_the_default_examples_and_never_calls_it_a_checkout(tmp_path, monkeypatch, state, said):
+    # 10-R2-02 (rounds 2 and 3, #23 B): the four facts, each naming --examples-dir; code, exit 2 and details are those of every refusal.
+    from hypotrail.core import data
+
+    default = tmp_path / "somewhere" / "examples"
+    default.parent.mkdir()
+    if state == "dangling_link":
+        default.symlink_to(tmp_path / "no-such-target", target_is_directory=True)
+    elif state == "file":
+        default.write_text("not a directory")
+    elif state in ("empty_directory", "directory_without_lock"):
+        default.mkdir()
+        if state == "directory_without_lock":
+            (default / "a_workload").mkdir()
+    elif state == "valid":
+        (default / "a_workload").mkdir(parents=True)
+        (default / "a_workload" / data.LOCK_NAME).write_text("{}")
+    monkeypatch.setattr(data, "default_examples_dir", lambda: default)
+    if said is None:
+        assert data.resolve_examples_dir(None) == default
+        return
+    code, out, _ = run_cli("data", "verify", "--json")
+    assert code == 2
+    error = json.loads(out)["error"]
+    assert (error["code"], error["stage"], error["details"]) == ("EXAMPLES_DIR_NOT_FOUND", "config", {"examples_dir": str(default)})
+    assert said in error["message"] and "--examples-dir" in error["message"]
+    assert "source checkout" not in error["message"]
+    others = {"does not exist", "is a link whose target does not exist", "exists but is not a directory", "exists but holds no Workload lock"}
+    assert not any(other in error["message"] for other in others if other not in said)  # one fact, the observed one
 
 
 @pytest.mark.parametrize(

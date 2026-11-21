@@ -98,6 +98,7 @@ def writers(study):
 
 @pytest.mark.parametrize("command", ["run ml", "recover", "assess", "assess agent", "compare", "init", "init --new-revision", "import ml", "import agent", "import agent log"])
 def test_while_a_writer_holds_the_lock_every_other_writer_is_refused_at_once_with_exit_6_and_writes_nothing(tmp_path, command):
+    """T19 (SPEC §10)."""
     study, _ = init_study(tmp_path)
     before = snapshot(study)
     with held_by_another_process(study):
@@ -136,6 +137,7 @@ def test_a_platform_without_file_locking_is_refused_with_a_code(tmp_path, monkey
 
 
 def test_a_killed_writer_leaves_its_partial_artifacts_and_a_manifest_that_is_not_terminal(tmp_path):
+    """T19 (SPEC §10)."""
     study, folder = killed(tmp_path, kill_at=4)  # the Attempt's first output is published, the rest is not
     published = sorted(p.name for p in folder.iterdir())
     assert "attempt.json" in published and "workload.json" in published and "predictions.csv" in published
@@ -194,6 +196,7 @@ def test_status_of_a_folder_that_is_no_study_is_a_json_error(tmp_path):
 
 
 def test_recover_records_an_attempt_without_a_live_writer_as_interrupted_keeps_its_artifacts_and_resubmits_nothing(tmp_path, monkeypatch):
+    """T19 (SPEC §10)."""
     study, folder = killed(tmp_path, kill_at=4)
     files_before = {p.name: p.read_bytes() for p in folder.iterdir() if p.name != "attempt.json"}
     instruments = Instruments(monkeypatch)
@@ -298,6 +301,7 @@ def test_the_same_request_id_after_an_interruption_returns_that_attempt_without_
 
 
 def test_a_retry_with_a_new_request_id_and_retry_of_is_a_new_attempt_and_the_interrupted_one_keeps_its_digests(tmp_path):
+    """T19 (SPEC §10)."""
     study, folder = killed(tmp_path, kill_at=4)
     assert recover(study, folder.name)[0] == 0
     before = {k: v for k, v in snapshot(study).items()}

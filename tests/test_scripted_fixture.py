@@ -251,6 +251,7 @@ def test_the_verdicts_are_those_a_rescoring_of_the_kept_log_gives(fixture_execut
 
 
 def test_at_least_six_scenarios_run_and_a_seventh_is_absent_from_the_log(fixture_execution):
+    """T16 (SPEC §10)."""
     _, record = fixture_execution
     statuses = {s["scenario_id"]: s["status"] for s in record["scenarios"]}
     assert statuses == {
@@ -261,6 +262,7 @@ def test_at_least_six_scenarios_run_and_a_seventh_is_absent_from_the_log(fixture
 
 
 def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_different_combination(fixture_execution):
+    """T16 (SPEC §10)."""
     out, record = fixture_execution
     for name in CRITERIA:
         c = record["counts"][name]
@@ -312,6 +314,7 @@ def test_every_artifact_names_the_mode_and_carries_the_banner(fixture_execution)
 
 
 def test_the_recorded_model_is_inspects_mock_model_and_no_record_names_a_provider_model(fixture_execution):
+    """T16 (SPEC §10)."""
     out, record = fixture_execution
     assert (record["model"], record["provider"]) == ("mockllm/model", "mockllm")
     assert {e["model"] for e in episodes_of(out)} == {"mockllm/model"}
