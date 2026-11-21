@@ -118,6 +118,20 @@ def cut_without_length(body: bytes, sent: int):
     return route
 
 
+def cut_with_bad_length(body: bytes, sent: int):
+    """A route whose `Content-Length` is not a number: `http.client` ignores it and reads to the close, as for an unframed body."""
+
+    def route(handler):
+        handler.send_response(200)
+        handler.send_header("Content-Length", "many")
+        handler.end_headers()
+        handler.wfile.write(body[:sent])
+        handler.wfile.flush()
+        handler.close_connection = True
+
+    return route
+
+
 def chunked_whole(body: bytes):
     """A route that answers in chunked encoding and sends the whole `body` with its last chunk."""
 

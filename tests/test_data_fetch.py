@@ -16,6 +16,7 @@ from _fetch_helpers import (
     cut_after,
     chunked_whole,
     cut_chunked,
+    cut_with_bad_length,
     cut_without_length,
     fetch,
     fetch_refusals,
@@ -351,7 +352,7 @@ ARCHIVE = make_zip({"day.csv": BODY})
 HINT = "cut short"  # the hint that a server may have cut an unframed body short, which HTTP cannot tell from a differing one
 INTEGRITY_KEYS = {"file", "what", "expected_sha256", "actual_sha256", "size_bytes", "actual_size_bytes"}
 FAILED_KEYS = {"file", "host", "reason", "status"}
-FRAMINGS = ("Content-Length", "chunked", "unframed")
+FRAMINGS = ("Content-Length", "chunked", "unframed", "non-numeric Content-Length")  # the last is delimited as an unframed body (http.client reads to the close)
 LOCKS = ("data file", "archive", "notice")  # the data file's lock gives a size_bytes; the archive's and the notice's give none
 RESULTS = ("whole and equal", "whole and different hash", "size-only difference", "short")
 
@@ -361,12 +362,14 @@ def _served(framing, body, sent):
         return body if sent == len(body) else cut_after(body, sent)
     if framing == "chunked":
         return chunked_whole(body) if sent == len(body) else cut_chunked(body, sent)
+    if framing == "non-numeric Content-Length":
+        return cut_with_bad_length(body, sent)
     return cut_without_length(body, sent)
 
 
 def _expected(framing, lock, result):
     """(exit, code, reason, hint) of a cell; None for a transfer that succeeds."""
-    framed = framing != "unframed"
+    framed = framing not in ("unframed", "non-numeric Content-Length")  # no usable Content-Length and not chunked
     if result == "whole and equal":
         return None
     if lock == "data file":
