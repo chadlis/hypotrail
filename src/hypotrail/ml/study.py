@@ -21,7 +21,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions, study_write, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -222,12 +222,12 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
     current revision's is refused (`PROTOCOL_UNCHANGED`). Holds the Study's writer lock for the whole command.
     """
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "init")
+    study_write.check_read_sequence(study_write.INIT, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study), write_journal.writing(study, "init --new-revision") as write:
-        write_journal.require_current(study, read_sequence)
+    with study_write.locked(study, study_write.INIT_NEW_REVISION, read_sequence=read_sequence) as write:
+        write.require_current()
         previous = layout.read_spec(study)
-        layout.require_domain(previous, DOMAIN, "init --new-revision")
+        layout.require_domain(previous, DOMAIN, study_write.INIT_NEW_REVISION)
         examples = data.resolve_examples_dir(examples_dir)
         workload = previous["workload"]
         data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is written

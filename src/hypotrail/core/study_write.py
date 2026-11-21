@@ -20,6 +20,7 @@ IMPORT_ML = "import ml"
 IMPORT_AGENT = "import agent"
 DECIDE = "decide"
 INIT = "init"
+INIT_NEW_REVISION = "init --new-revision"
 
 DECISION = "decision"
 REVISION = "revision"
@@ -30,11 +31,19 @@ def invalid_arguments(message: str, command: str) -> InvalidInputError:
     return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {command}"})
 
 
-def check_arguments(command: str, read_sequence, request_id) -> None:
-    """The first two argument checks of a writer, before any lock: the value of `--read-sequence`, then that `--request-id` is not empty."""
+def check_read_sequence(command: str, read_sequence) -> None:
+    """The first argument check of a writer, before any lock: the value of `--read-sequence`.
+
+    `command` is the command's name as the command line shows it, which `init --new-revision` gives as `init`.
+    """
     fault = write_journal.read_sequence_fault(read_sequence)
     if fault is not None:
         raise invalid_arguments(fault, command)
+
+
+def check_arguments(command: str, read_sequence, request_id) -> None:
+    """The first two argument checks of a writer that has a `request_id`, before any lock: the value of `--read-sequence`, then that `--request-id` is not empty."""
+    check_read_sequence(command, read_sequence)
     if not request_id:
         raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
 
@@ -48,6 +57,10 @@ class Write:
     def begin(self) -> None:
         """Append the `begin` entry, once: call it just before the command's first write."""
         self._journal.begin()
+
+    def require_current(self) -> None:
+        """Refuse a write made on a write sequence that is not the Study's: the writer has no replay to run first."""
+        write_journal.require_current(self.study, self.read_sequence)
 
     def attempt(self, attempt_id: str) -> None:
         """Name the Attempt the command writes: its `end` entry names the Attempt and, once it exists, its Observation set."""
