@@ -3531,6 +3531,18 @@ def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_d
             assert command["started_at"] in text and command["finished_at"] in text
 
 
+def test_the_kept_command_output_says_how_it_was_made_and_chapter_16_says_the_same():
+    # 93-R1-08, #98 C6: the drive assembled the file after the invocations from each command's captured output; the commands printed human output.
+    kept = json.loads((CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8"))
+    how = kept.get("assembled_by", "")
+    for part in ("drive", "after the invocations", "captured stdout and stderr", "human output, not --json"):
+        assert part in how, part
+    assert all("--json" not in command["argv"] for command in kept["commands"])  # what the field says of the commands is true of them
+    text = plain_text(chapter_16())
+    for part in ("assembled by the drive after the invocations", "captured stdout and stderr", "human output, not --json"):
+        assert part in text, part
+
+
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
     # #99 C7: D-025 option B, #94's Case text, #95's verdict "holds".
     paragraph = re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1]
