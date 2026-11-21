@@ -3613,7 +3613,8 @@ def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_sli
     text = plain_text(chapter_16())
     for part in (
         "command-output.json is an index", "assembled after the invocations from the files in commands/", "the agent that drove the slice (.claude/skills/drive/)",
-        "stdout, stderr, exit status and times",
+        "stdout, stderr, exit status and times", "commands/ of the kept folder holds the shell's captures, unedited", "it carries the argv of each command",
+        "tied to the invocations only by commit c5c1b08", "#93's state comment, written at the time", "no digest was posted at run time",  # D-030 on chadlis/hypotrail#75, item 3
     ):
         assert part in text, part
     assert "assembled by the drive" not in text and "assembled_by" not in (CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8")
