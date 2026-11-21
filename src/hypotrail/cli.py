@@ -31,7 +31,7 @@ class _ArgumentParser(argparse.ArgumentParser):
         )
 
 
-def _write_sequence(text: str) -> int:
+def _read_sequence_value(text: str) -> int:
     """The value of `--read-sequence`: a non-negative integer."""
     if not re.fullmatch(r"-?[0-9]+", text):
         raise argparse.ArgumentTypeError(f"--read-sequence takes an integer, not {text!r}")
@@ -43,7 +43,7 @@ def _write_sequence(text: str) -> int:
 def _add_read_sequence(parser, *, required: bool = False) -> None:
     parser.add_argument(
         "--read-sequence",
-        type=_write_sequence,
+        type=_read_sequence_value,
         required=required,
         metavar="N",
         help="the write sequence the author read (`status --json`, `write_sequence`): when the Study was written to since, "
