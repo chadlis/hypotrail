@@ -2708,23 +2708,29 @@ def _root_tokens(css, selector):
     return dict(re.findall(r"(--[a-z0-9-]+):([^;]+);?", body))
 
 
-def test_the_t24_walk_record_is_light_only_on_the_charter_tokens_it_uses_with_no_dark_block_script_or_mode_switch():
-    # 10-R1-01, #1 amendment « All HTML uses the cosmic-couture charter, light mode by default », and #85 I as the report page does it:
-    # the template's light tokens, no script, no mode switch. Every token the page declares is used, and its value is the template's.
+def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_with_the_templates_tokens_switch_and_scripts():
+    # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, #1 amendment « light mode by default »: `data-mode="light"`, the template's base and
+    # light token blocks for the tokens the page uses, its `.mode` switch (markup and CSS) and its two small scripts, all as in template.html.
     page = WALK.read_text(encoding="utf-8")
     template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
-    assert re.search(r'<html[^>]*\bdata-mode="light"', page)
-    assert "prefers-color-scheme" not in page and "<script" not in page and 'class="mode"' not in page
+    assert re.search(r'<html[^>]*\bdata-mode="light"', page) and "prefers-color-scheme" not in page
     style = page.split("<style>", 1)[1].split("</style>", 1)[0]
-    assert style.count(":root{") == 1 and ":root[data-mode" not in style  # one light block, no dark one
-    charter = {**_root_tokens(template, ":root"), **_root_tokens(template, ':root[data-mode="light"]')}  # the light mode over the base
-    declared = _root_tokens(style, ":root")
-    assert declared and all(name in charter and value == charter[name] for name, value in declared.items()), "a token that is not the charter's"
+    base, light = _root_tokens(style, ":root"), _root_tokens(style, ':root[data-mode="light"]')
+    charter_base, charter_light = _root_tokens(template, ":root"), _root_tokens(template, ':root[data-mode="light"]')
+    assert base and light
+    assert all(charter_base.get(name) == value for name, value in base.items()), "a base token that is not the template's"
+    assert all(charter_light.get(name) == value for name, value in light.items() if name != "color-scheme"), "a light token that is not the template's"
     used = set(re.findall(r"var\((--[a-z0-9-]+)\)", style))
-    assert set(declared) == used, ("declared and unused", set(declared) - used, "used and undeclared", used - set(declared))
-    assert {"--bg", "--ink", "--ink2", "--line", "--gold"} <= set(declared)
-
-
+    assert set(base) == used, ("declared and unused", set(base) - used, "used and undeclared", used - set(base))  # every declared token is used
+    assert set(light) - {"color-scheme"} == used & set(charter_light) and 'data-mode="light"' in style
+    assert re.search(r"color-scheme:light", style)
+    switch = re.search(r'<div class="mode".*?</div>', template, re.S)[0]
+    assert switch in page and page.index(switch) < page.index("<main>")  # the template's switch markup
+    css = [line for line in template.split("<style>", 1)[1].split("</style>", 1)[0].splitlines() if line.startswith(".mode")]
+    assert len(css) == 4 and all(line in style for line in css)  # the template's .mode rules
+    scripts = re.findall(r"<script>.*?</script>", template, re.S)
+    assert len(scripts) == 2 and all(script in page for script in scripts)  # `?mode=` and localStorage `doc-mode`, then the switch handler
+    assert "?mode=" not in page.replace(scripts[0], "") and 'localStorage.getItem("doc-mode")' in scripts[0]
 WALKED_REMOVED_COMMAND = "uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]"  # as README.md had it at 2d1583f, the commit walked
 
 

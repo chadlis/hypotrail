@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hypotrail T24 walk record</title>
+<script>(function(){var q=/[?&]mode=(light|dark)/.exec(location.search),m=null;try{m=localStorage.getItem("doc-mode")}catch(e){}if(q)m=q[1];var d=document.documentElement;d.setAttribute("data-mode",m==="light"||m==="dark"?m:(d.getAttribute("data-mode")==="light"?"light":"dark"))})();</script>
 <style>
-:root{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--line:rgba(21,17,28,.10);--gold:#9C7633;--coral:#C9500F;
---sans:'Jost','Avenir Next',Avenir,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;color-scheme:light}
+:root{--bg:#0B0912;--bg2:#171320;--ink:#F5EFE3;--ink2:#CFC5D8;--line:rgba(241,234,221,.14);--line2:rgba(241,234,221,.30);--faint:#857D97;--gold:#E1C48C;--coral:#F2681E;--sans:'Jost','Avenir Next',Avenir,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace}
+:root[data-mode="light"]{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--line:rgba(21,17,28,.10);--line2:rgba(21,17,28,.20);--faint:#7A7187;--gold:#9C7633;--coral:#C9500F;color-scheme:light}
+html{background:#050409}
+:root[data-mode="light"],:root[data-mode="light"] body{background:#EDE6DA}
 *{box-sizing:border-box}
-body{margin:0;background:#EDE6DA;color:var(--ink);font:300 16px/1.55 var(--sans)}
+body{margin:0;background:#050409;color:var(--ink);font:300 16px/1.55 var(--sans)}
 main{max-width:980px;margin:0 auto;padding:32px 16px 64px;background:var(--bg)}
 h1{font-size:28px;margin:0 0 4px}
 h2{font-size:20px;margin:40px 0 8px;border-top:1px solid var(--line);padding-top:16px}
@@ -29,9 +32,14 @@ li.step[data-exit]:not([data-exit="0"]) .exit{color:var(--coral)}
 .note{color:var(--ink2);margin:6px 0 0;font-size:14px}
 blockquote{margin:6px 0;padding:6px 12px;border-left:3px solid var(--line);color:var(--ink)}
 ol.diffs>li{margin:0 0 14px}
+.mode{position:fixed;top:16px;right:16px;z-index:50;display:flex;gap:2px;padding:3px;border:1px solid var(--line2);border-radius:99px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.mode button{all:unset;cursor:pointer;font:400 12.5px/1 var(--sans);letter-spacing:.04em;color:var(--faint);padding:7px 12px;border-radius:99px;transition:background .2s,color .2s}
+.mode button:hover{color:var(--ink)}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 </style>
 </head>
 <body>
+<div class="mode" role="group" aria-label="Theme" translate="no"><button data-m="dark">&#9790; Dark</button><button data-m="light">&#9728; Light</button></div>
 <main>
 <h1>T24 walk record</h1>
 <p class="lead">A clean-install walk of the README path, kept as a record (chadlis/hypotrail#87). It sits beside the handbook, not in it. T24 was executed by an agent, not by the owner. The reading by another person stays <code>USABILITY_REVIEW_PENDING</code>.</p>
@@ -683,5 +691,6 @@ bdf635be69850bd3be09c9a2dbeef7ddfb80036bd3ef3381383cd03b61e4a61a  ../fetch-copy/
 <li><code>spike live</code>: not run: paid, opt-in (step 39).</li>
 </ul>
 </main>
+<script>(function(){var r=document.documentElement,b=document.querySelectorAll(".mode button[data-m]");function set(m){r.setAttribute("data-mode",m);b.forEach(function(x){x.setAttribute("aria-pressed",x.dataset.m===m)});try{localStorage.setItem("doc-mode",m)}catch(e){}}b.forEach(function(x){x.onclick=function(){set(x.dataset.m)}});set(r.getAttribute("data-mode"))})();</script>
 </body>
 </html>
