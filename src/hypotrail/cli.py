@@ -31,7 +31,7 @@ class _ArgumentParser(argparse.ArgumentParser):
         )
 
 
-def _read_sequence_value(text: str):
+def _read_sequence_value(text: str) -> int:
     """The value of `--read-sequence`: an integer when the text is one, which the rule of the write journal then judges (the library's rule)."""
     from hypotrail.core import write_journal  # imported when a value is given: `--help` loads no more than the standard library
 
