@@ -155,7 +155,7 @@ def native(study, attempt, *, mode="llm_live", configuration="plain", model="mod
 def reclassified(study, manifest, record, mode):
     """The same Attempt recorded under another Mode, after it was assessed.
 
-    `assess` refuses an Observation set of the `scripted_fixture` Mode (#74, D-012 item 15), so a native side of that
+    `assess` refuses an Observation set of the `scripted_fixture` Mode (#74, D-012 on chadlis/hypotrail#75 item 15), so a native side of that
     Mode, which `compare` must still refuse next to a `llm_live` one, is an assessed side whose records say so afterwards.
     """
     if mode == manifest["mode"]:

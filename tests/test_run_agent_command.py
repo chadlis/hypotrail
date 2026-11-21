@@ -198,7 +198,7 @@ def test_the_exit_codes_of_run_agent_are_those_of_section_8(tmp_path, monkeypatc
     assert (code, error["code"]) == (EXIT_LOCK_OR_CONFLICT, "REQUEST_CONFLICT")
 
 
-# --- The other Mode's flags (D-012 item 13) ----------------------------------------------------------------------------------------
+# --- The other Mode's flags (D-012 on chadlis/hypotrail#75 item 13) ----------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("flag, value", [("--partition", "dev"), ("--repeats", "1"), ("--model", MODEL), ("--cases", "D03")])
@@ -212,7 +212,7 @@ def test_a_flag_of_the_other_mode_is_refused_with_unsupported_capability(tmp_pat
     assert tree(study) == before
 
 
-# --- The order of the checks (Tightened K, D-012 item 10) -------------------------------------------------------------------------
+# --- The order of the checks (Tightened K, D-012 on chadlis/hypotrail#75 item 10) -------------------------------------------------------------------------
 
 
 def test_the_checks_run_in_the_order_of_the_ticket_and_each_pair_of_adjacent_refusals_ends_at_the_earlier(tmp_path, monkeypatch):

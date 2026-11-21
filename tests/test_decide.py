@@ -1,6 +1,6 @@
 """Ticket #109 (slice #104, L2.1): the `decide` command and the decision record.
 
-D-031, D-033, D-034, D-035, D-036 and D-037 on chadlis/hypotrail#75 settle what is tested here. A decision is one record of the Study, one
+D-031 on chadlis/hypotrail#75, D-033 on chadlis/hypotrail#75, D-034 on chadlis/hypotrail#75, D-035 on chadlis/hypotrail#75, D-036 on chadlis/hypotrail#75 and D-037 on chadlis/hypotrail#75 settle what is tested here. A decision is one record of the Study, one
 file `decisions/<seq>-<id>.json` that is never rewritten. `decide` requires `--request-id` and `--read-sequence`, holds the writer lock, and
 cites at least one id the Study holds. The rows of #108's and #107's parametrised tests that name `decide` are in `test_stale_sequence.py`
 and `test_write_sequence.py`. No model is called.

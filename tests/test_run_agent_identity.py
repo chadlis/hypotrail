@@ -171,7 +171,7 @@ def test_a_changed_dataset_whose_lock_is_rewritten_is_a_conflict_on_the_input_di
 
 
 def test_a_changed_live_database_whose_lock_is_not_rewritten_is_a_conflict_not_an_integrity_refusal(tmp_path, monkeypatch):
-    """The request is identified before the data is verified (D-012 addendum 2, item 19)."""
+    """The request is identified before the data is verified (D-012 on chadlis/hypotrail#75 addendum 2, item 19)."""
     rig = Rig(tmp_path, monkeypatch)
     ok(rig.live("plain", "r"))
     database = database_of(rig.examples)

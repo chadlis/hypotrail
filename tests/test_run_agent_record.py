@@ -83,13 +83,13 @@ def test_the_manifest_is_an_attempt_record_with_the_keys_compare_reads_the_proto
     assert config["input_digests"]["cases"] == canonical.sha256_hex((CHINOOK / "cases" / "chinook-dev.jsonl").read_bytes())
     assert attempt["effective_config_digest"] == canonical.digest(config)
     assert set(attempt["code_environment"]) == {"python", "dependency_lock", "code_revision"} == set(environment.code_environment())
-    # the requested model is the one of the identity; the model the log reports stands beside it, never hidden (D-012 item 11)
+    # the requested model is the one of the identity; the model the log reports stands beside it, never hidden (D-012 on chadlis/hypotrail#75 item 11)
     assert config["model"] == MODEL and config["served_model"] == "mockllm/model" != config["model"]
     assert config["served_model"] == log.eval.model
 
 
 def test_the_served_model_is_the_one_the_episodes_outputs_report_not_the_name_the_eval_was_given(tmp_path, monkeypatch):
-    """R1-04, D-012 item 11: `served_model` is what the provider reports (`output.model`, as `run.json`'s `served_models`), so a difference shows."""
+    """R1-04, D-012 on chadlis/hypotrail#75 item 11: `served_model` is what the provider reports (`output.model`, as `run.json`'s `served_models`), so a difference shows."""
     study = study_of(tmp_path)
     script = scripted()
 
@@ -110,7 +110,7 @@ def test_the_served_model_is_the_one_the_episodes_outputs_report_not_the_name_th
 
 
 def test_a_provider_prefix_alone_is_no_difference_and_both_names_are_recorded_as_given(tmp_path, monkeypatch):
-    """R2-03, D-012 item 11: the shape of the kept traces (requested `anthropic/claude-sonnet-5-5`, outputs `claude-sonnet-5-5`) records both as given."""
+    """R2-03, D-012 on chadlis/hypotrail#75 item 11: the shape of the kept traces (requested `anthropic/claude-sonnet-5-5`, outputs `claude-sonnet-5-5`) records both as given."""
     study = study_of(tmp_path)
     script = scripted()
 
@@ -125,7 +125,7 @@ def test_a_provider_prefix_alone_is_no_difference_and_both_names_are_recorded_as
 
 
 def test_the_human_output_of_run_agent_shows_the_model_and_the_served_model_of_the_attempt_as_recorded(tmp_path, monkeypatch):
-    """R3-02, D-012 item 11 and addendum 3: both names are displayed as given, with no computed flag, in the output without `--json`."""
+    """R3-02, D-012 on chadlis/hypotrail#75 item 11 and addendum 3: both names are displayed as given, with no computed flag, in the output without `--json`."""
     study = study_of(tmp_path)
     script = scripted()
 
@@ -463,7 +463,7 @@ def test_a_key_found_elsewhere_in_the_study_is_a_warning_that_changes_no_recorde
 
 
 def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_attempt_too_and_a_hit_elsewhere_is_a_warning_on_the_error(tmp_path, monkeypatch):
-    """#74: « the Study folder is scanned for the key after an `llm_live` Attempt, whether or not it failed »."""
+    """#74: "the Study folder is scanned for the key after an `llm_live` Attempt, whether or not it failed"."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
     patch_model(monkeypatch)
@@ -488,7 +488,7 @@ def test_the_study_is_scanned_for_the_key_after_a_failed_llm_live_attempt_too_an
 
 @pytest.mark.parametrize("raised, code", [(RuntimeError("provider down"), "UNEXPECTED_ERROR"), (OSError("disk gone"), "INFRASTRUCTURE_FAILURE")])
 def test_the_warnings_of_the_study_scan_reach_the_json_error_whatever_exception_ended_the_attempt(tmp_path, monkeypatch, raised, code):
-    """R2-01, #74 U4 « a warning on stderr (and in the `--json` object) naming the file »: not only for a Hypotrail error."""
+    """R2-01, #74 U4 "a warning on stderr (and in the `--json` object) naming the file": not only for a Hypotrail error."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
     patch_model(monkeypatch)
@@ -531,7 +531,7 @@ def test_run_agent_raises_a_hypotrail_error_with_the_warnings_whatever_exception
 
 @pytest.mark.parametrize("raised", [OSError(f"disk gone {FAKE_KEY}"), RuntimeError(f"provider down {FAKE_KEY}")])
 def test_the_failed_manifest_of_run_agent_and_the_whole_study_never_hold_a_foreign_exceptions_text(tmp_path, monkeypatch, raised):
-    """R4-04, #74 U4 « every file this Attempt writes, the terminal manifest included, with no file holding the key »: a foreign exception is recorded by its type only."""
+    """R4-04, #74 U4 "every file this Attempt writes, the terminal manifest included, with no file holding the key": a foreign exception is recorded by its type only."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
     patch_model(monkeypatch)
@@ -554,7 +554,7 @@ def test_the_failed_manifest_of_run_agent_and_the_whole_study_never_hold_a_forei
 
 
 def test_a_key_in_a_hypotrail_errors_message_ends_the_attempt_failed_with_secret_in_output_and_no_message_text(tmp_path, monkeypatch):
-    """R5-02, #74 U4 « the terminal manifests included, is scanned »: the failed manifest is scanned like the others, and a hit is the Reason, not left `running`."""
+    """R5-02, #74 U4 "the terminal manifests included, is scanned": the failed manifest is scanned like the others, and a hit is the Reason, not left `running`."""
     examples = chinook_examples(tmp_path)
     study, _ = init_chinook(tmp_path, name="failing", examples=examples)
     patch_model(monkeypatch)

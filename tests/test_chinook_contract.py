@@ -626,7 +626,7 @@ def test_the_three_tokens_stay_refused(token):
 
 
 def test_an_integer_beyond_pythons_parse_limit_leaves_the_answer_unreadable_unless_an_object_is_readable_inside():
-    """#61 B3 / B4 / D-012 item 18."""
+    """#61 B3 / B4 / D-012 on chadlis/hypotrail#75 item 18."""
     huge = "9" * 4301
     result = chinook_contract.score_episode(_answer_text_holding("rows", huge), REFS["D03"], SCHEMA, None)
     assert _states(result) == [(n, "scored", False, "invalid_response_format") for n in chinook_contract.CRITERIA]
@@ -638,7 +638,7 @@ def test_an_integer_beyond_pythons_parse_limit_leaves_the_answer_unreadable_unle
 
 
 def test_the_answer_schema_is_unchanged():
-    """#61 AC6 (D-012 item 2): the bytes of `table-answer/1` are part of every Chinook Protocol digest."""
+    """#61 AC6 (D-012 on chadlis/hypotrail#75 item 2): the bytes of `table-answer/1` are part of every Chinook Protocol digest."""
     import hashlib
 
     digest = hashlib.sha256((CHINOOK / "schemas" / "table-answer.schema.json").read_bytes()).hexdigest()

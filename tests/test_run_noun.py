@@ -1,10 +1,10 @@
-"""R3-01, #77 Tightened B2, GLOSSARY Attempt (_Avoid_: run, job, execution record), D-012 item 17.
+"""R3-01, #77 Tightened B2, GLOSSARY Attempt (_Avoid_: run, job, execution record), D-012 on chadlis/hypotrail#75 item 17.
 
-« run » is not the noun for an Attempt or for an execution anywhere in the corpus: `src/`, `tests/`, the handbook chapters and
+"run" is not the noun for an Attempt or for an execution anywhere in the corpus: `src/`, `tests/`, the handbook chapters and
 `README.md`. What is let through is an explicit allow-list: the command names (`run agent`, `run ml`, `spike live`), the file
-`run.json` (`run_json` in an identifier), the name « run record », the words « run command » and « run subcommand » (the command and its parser), and the verb.
-The noun is found after a determiner or an adjective that only a noun takes, with a noun between the adjective and « run » allowed
-(« a live model run »). An identifier is read as words (`_` separates them), a `.py` file is read as text (its `<` and `>` are
+`run.json` (`run_json` in an identifier), the name "run record", the words "run command" and "run subcommand" (the command and its parser), and the verb.
+The noun is found after a determiner or an adjective that only a noun takes, with a noun between the adjective and "run" allowed
+("a live model run"). An identifier is read as words (`_` separates them), a `.py` file is read as text (its `<` and `>` are
 operators, not tags), and only a chapter is read as its reader reads it (tags stripped). This file is the one file of the corpus left out of the scan, because its sentences quote the noun on purpose.
 """
 
@@ -23,10 +23,10 @@ ADJECTIVES = (
     r"live|paid|failed|failing|scripted|offline|kept|first|last|next|previous|recorded|single|real|new|earlier|fresh|spike|library|native|"
     r"imported|successful|full|complete|aborted|interrupted|opt-in|bounded|dry|good|bad"
 )
-# The Mode names are adjectives only after a determiner (« an llm_live run »): alone they are a subject (« llm_live runs one Partition »).
+# The Mode names are adjectives only after a determiner ("an llm_live run"): alone they are a subject ("llm_live runs one Partition").
 # The Mode names are kept whole when an identifier is read as words.
 MODE_ADJECTIVES = r"llmlive|scriptedfixture"
-# A noun that sits between an adjective and the noun « run » (« a live model run »); after a determiner alone it is a subject (« the model runs »).
+# A noun that sits between an adjective and the noun "run" ("a live model run"); after a determiner alone it is a subject ("the model runs").
 MODIFIERS = r"model|llm|provider|agent|ml|study"
 # Names that contain the word without using it as the noun: `run agent`, `run ml`, `run record`, `run command`, `run subcommand` and `run.json`.
 ALLOWED_AFTER = r"(?!\.json|\s+(?:json|agent|ml|record|command|subcommand)\b)"
@@ -37,7 +37,7 @@ NOUN = re.compile(
 
 
 def run_as_a_noun(text, markup=False):
-    """The places of `text` where « run » or « runs » is the noun, each with its surroundings. `markup`: a chapter, read with its tags stripped."""
+    """The places of `text` where "run" or "runs" is the noun, each with its surroundings. `markup`: a chapter, read with its tags stripped."""
     text = re.sub(r"\s*\n\s*(?:(?:#|\"\"\")\s*)?", " ", text)  # a sentence continued on the next line or the next comment line
     if markup:
         text = re.sub(r"<[^>]+>", " ", html.unescape(text))  # a chapter as its reader reads it
