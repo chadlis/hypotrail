@@ -7,6 +7,7 @@
 - Live LLM calls are opt-in, bounded, and never run in CI.
 - Reference answers are never shown to an evaluated agent, and a reference is never changed to improve a score.
 - Leave the software license choice to the owner.
+- Text you add or change quotes English with "…"; « » quotes French only. Older text: #115.
 - Keep `README.md` short and true: update it in the same pull request when a change affects what it says (purpose, status, install, usage, layout or where to look).
 
 ## Agent skills
