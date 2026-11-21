@@ -2652,6 +2652,7 @@ def walk_problems(steps, path, removed=None):
     (`removed`, by default read from the record); a command that is in the path is never excused.
     """
     removed = walk_removed_commands() if removed is None else removed
+    removed = [re.sub(r"\s*\[[^\]]*\]", "", command) for command in removed]  # an optional part is no part of the path, as in readme_path
     problems = [f"the removed command is still in the README path: {command}" for command in removed if command in path]
     paid = [command for command in path if "--mode llm_live" in command]
     ran = [command for command in path if command not in paid]
@@ -2724,24 +2725,36 @@ def test_the_t24_walk_record_is_light_only_on_the_charter_tokens_it_uses_with_no
     assert {"--bg", "--ink", "--ink2", "--line", "--gold"} <= set(declared)
 
 
-def test_the_readme_path_carries_no_command_it_says_is_refused_and_the_walk_record_names_the_removed_command_as_a_correction():
+WALKED_REMOVED_COMMAND = "uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]"  # as README.md had it at 2d1583f, the commit walked
+
+
+def test_the_readme_path_carries_no_command_it_says_is_refused_and_the_walk_record_names_the_removed_command_as_it_stood():
     # 10-R1-04, #87 C5: the walk saw the Chinook `compare` line refused (D7, COMPARISON_POPULATION_DIFFERS, exit 3). The README moves it out
-    # of the code block into a sentence; the record names the removal as a correction made after the walk, and marks D7's old wording.
+    # of the code block into a sentence that names no Assessment that does not exist; the record names the removal, exactly as the
+    # command stood at the walked commit, as a correction made after the walk, and marks D7's old wording.
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     block, after = readme.split("```")[1], readme.split("```", 2)[2]
     assert "compare --study runs/chinook" not in block and "COMPARISON_POPULATION_DIFFERS" not in block
     sentence = next(part for part in re.split(r"\n\n", after) if "compare --study runs/chinook" in part)
-    assert "same Cases" in sentence and "`plain`" in sentence and "`verify`" in sentence and "makes none" in sentence
+    assert "two agent Assessments over the same Cases" in sentence and "makes none" in sentence
+    assert "Campaign" not in sentence and "`plain`" not in sentence  # the live Campaign did not run: no Assessment of it exists to name
     page = WALK.read_text(encoding="utf-8")
     corrections = re.search(r'<h2 id="corrections">.*?(?=<h2 )', page, re.S)[0]
-    assert 'data-corrections="none"' not in corrections
+    assert 'data-corrections="none"' not in corrections and "Campaign" not in corrections
     assert "10-R1-04" in corrections and "after the walk" in corrections and "D7" in corrections and "removed" in corrections
-    removed = walk_removed_commands()
-    assert len(removed) == 1 and removed[0].startswith("uv run python -m hypotrail compare --study runs/chinook ")
-    assert any(same_command(removed[0], step["command"]) for step in walk_steps() if step["kind"] == "readme")  # the walk did run it
+    assert walk_removed_commands() == [WALKED_REMOVED_COMMAND]
+    assert any(same_command(re.sub(r"\s*\[[^\]]*\]", "", WALKED_REMOVED_COMMAND), step["command"]) for step in walk_steps() if step["kind"] == "readme")
     d7 = re.search(r'<li data-difficulty="D7">.*?</li>', page, re.S)[0]
     assert "wording before the correction" in d7
     assert walk_problems(walk_steps(), readme_path()) == []
+
+
+def test_the_removed_command_is_the_line_the_readme_had_at_the_commit_the_walk_ran():
+    walked = subprocess.run(["git", "show", "2d1583f:README.md"], cwd=ROOT, capture_output=True, text=True)
+    if walked.returncode != 0:
+        pytest.skip("the walked commit 2d1583f is not in this clone; the fixed copy WALKED_REMOVED_COMMAND is what the other test reads")
+    line = next(line for line in walked.stdout.splitlines() if "compare --study runs/chinook" in line)
+    assert re.sub(r"\s+#.*$", "", line).strip() == WALKED_REMOVED_COMMAND
 
 
 def test_the_walk_check_excuses_a_missing_readme_command_only_when_the_record_names_it_as_removed():
@@ -2756,21 +2769,32 @@ def test_the_walk_check_excuses_a_missing_readme_command_only_when_the_record_na
     assert walk_problems(steps, path, removed=removed) == []
 
 
-def test_the_walk_record_says_d3_is_the_one_difficulty_handed_back_as_a_code_defect_and_agrees_with_issue_89():
-    # 10-R1-05, #87 C5: the intro no longer says no difficulty is a defect of the code; D3 says what #89 says (`status --json` lists
-    # the References id, but it comes last in the path), and no sentence of the record hands another difficulty back.
+def test_the_walk_record_says_only_d3_was_handed_back_to_89_for_triage_which_is_open_with_no_code_or_readme_label():
+    # 10-R1-05, #87 C5: #89 is `needs-triage` and asks whether the code or the README changes, so the record labels D3 neither. D3 says what
+    # #89 says (`status --json` lists the References id, but it comes last in the path).
     text = WALK.read_text(encoding="utf-8")
     intro = re.search(r'<h2 id="difficulties">.*?</h2>\s*<p>(.*?)</p>', text, re.S)[1]
-    assert "None is a defect of the code" not in intro
-    assert "D3" in intro and "handed back" in intro and "chadlis/hypotrail#89" in intro and "defect of the code" in intro
-    assert not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", intro, re.I) and "<a " not in intro
+    assert "Only D3 was handed back" in intro and "chadlis/hypotrail#89 for triage" in intro and "triage is open" in intro
+    assert "defect" not in intro and not re.search(r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[^.]*#89", intro, re.I) and "<a " not in intro
     d3 = re.search(r'<li data-difficulty="D3">.*?</li>', text, re.S)[0]
+    assert "handed back to chadlis/hypotrail#89 for triage" in d3 and "defect" not in d3 and "says nothing untrue" not in d3
     assert "no README command prints either" not in d3
     assert "<code>status --json</code> lists the References id" in d3 and "comes last in the path" in d3
-    handed = [d for d in re.findall(r'<li data-difficulty="(D\d+)">.*?</li>', text, re.S) if "handed back" in re.search(rf'<li data-difficulty="{d}">.*?</li>', text, re.S)[0]]
+    handed = [d for d in re.findall(r'<li data-difficulty="(D\d+)">', text) if "handed back" in re.search(rf'<li data-difficulty="{d}">.*?</li>', text, re.S)[0]]
     assert handed == ["D3"]
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "status --study runs/bike --json" in readme.split("```")[1].strip().splitlines()[-1]  # D3: it comes last in the path
 
 
+def test_what_the_walk_record_says_of_the_readme_is_in_the_readme_it_describes():
+    # 10-R1-05 consistency pass: a quotation of the README in the record is in the README; the paid commands are the two not run.
+    text = WALK.read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    d6 = re.search(r'<li data-difficulty="D6">.*?</li>', text, re.S)[0]
+    assert "self-check" not in d6 and "the scenarios: mock model, no key" in d6 and "the scenarios: mock model, no key" in readme
+    claim = re.search(r"<p>Steps are numbered.*?</p>", text, re.S)[0]
+    assert "Two commands of the README are paid and were not run" in claim and "spike live" in claim and "spike live" in readme
+    assert len([step for step in walk_steps() if step["kind"] == "not-run"]) == 2
 def test_the_walk_record_hands_difficulty_d3_back_to_issue_89_in_plain_text_without_a_closing_keyword():
     # 10-R1-05, #87 C5 « a defect in the code is recorded and handed back »: D3 names where it went; no keyword closes the issue.
     text = WALK.read_text(encoding="utf-8")
