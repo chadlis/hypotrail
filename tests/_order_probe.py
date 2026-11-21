@@ -2,7 +2,7 @@
 
 Each Study a call works on is built once (a template folder) and copied for every row. A builder takes the row's `tmp_path` and gives
 `(study, call)`: `call(read)` runs the command line with `--read-sequence read` (`init` that creates a Study takes no such option, so its
-`call` leaves it out). Nothing here calls a model: the only Mode of `run agent` that reaches the lock is `scripted_fixture`, and every
+`call` leaves it out and ignores `read`). Nothing here calls a model: the only Mode of `run agent` that reaches the lock is `scripted_fixture`, and every
 `llm_live` call here is refused by a check that comes before the lock.
 """
 
@@ -144,11 +144,9 @@ def options_of(writer, built):
 
 
 def flat(options):
-    """The flags of `options`: a value of `None` leaves the option out, `True` is a flag without a value, a list repeats the option."""
+    """The flags of `options`: `True` is a flag without a value, a list repeats the option."""
     argv = []
     for flag, value in options.items():
-        if value is None:
-            continue
         for each in value if isinstance(value, list) else [value]:
             argv += [flag] if each is True else [flag, each]
     return argv
@@ -166,7 +164,7 @@ def of(writer, *, world=None, setup=None, around=None, **change):
     """The call of `writer`, with `change` applied to its options.
 
     `world` names the Study the command is called on when it is not the writer's own. `change` is a dict of options, or a function of the
-    built Study that returns one (`setup(built)` has run on the copy first). A value of `None` leaves an option out.
+    built Study that returns one (`setup(built)` has run on the copy first).
     """
 
     def build(tmp_path):
@@ -233,6 +231,37 @@ def spoil_the_study_dataset(built):
     flipped(built.study / spec["dataset_refs"][0]["path"])
 
 
+def bike_declaration_replaced(built, text=None):
+    """The Workload's declaration is not there (`text` None) or holds `text`."""
+    examples = bike_examples(built, name="broken")
+    declaration = examples / "bike_day" / "workload.json"
+    if text is None:
+        declaration.unlink()
+    else:
+        declaration.write_text(text, encoding="utf-8")
+    return {"--examples-dir": examples}
+
+
+def spoil_the_recorded_outputs(request_id):
+    """A byte of the first output the Study recorded for `request_id` is no longer the one its reference holds."""
+
+    def setup(built):
+        for folder in (built.study / "attempts").iterdir():
+            manifest = json.loads((folder / "attempt.json").read_text(encoding="utf-8"))
+            if manifest["request_id"] == request_id:
+                flipped(built.study / manifest["output_refs"][0]["path"])
+                return
+        raise AssertionError(f"the Study records no Attempt of the request {request_id!r}")
+
+    return setup
+
+
+def a_log_that_is_not_one(built):
+    junk = built.tmp_path / "junk.eval"
+    junk.write_bytes(b"not a log")
+    return {"--source": junk}
+
+
 def another_copy_of(path, built, name):
     """The same file with one more byte: the same request with another digest."""
     target = built.tmp_path / name
@@ -261,23 +290,36 @@ def inspect_is_not_installed():
     return unittest.mock.patch.dict(sys.modules, {"inspect_ai": None})
 
 
-def new_study(tmp_path, *, edit=None, spoil=None, read=False):
-    """An `init` that creates a Study in a folder whose lock another process holds: `(study, call)`.
+def new_study(tmp_path, *, workload="bike_day", examples=None, around=None):
+    """An `init` that creates a Study of `workload` in a folder whose lock another process holds: `(study, call)`.
 
-    The folder holds the (empty) lock file already, so the files of the Study are the same before and after the call.
+    The folder holds the (empty) lock file already, so the files of the Study are the same before and after the call. `init` that creates a
+    Study takes no `--read-sequence`: `call` ignores the value it is given.
     """
     study = Path(tmp_path) / "fresh"
     study.mkdir()
     (study / "writer.lock").touch()
+
+    def call(_):
+        argv = ["init", "--workload", workload, "--study", study, *(["--examples-dir", examples] if examples else [])]
+        with around() if around else contextlib.nullcontext():
+            return run_json(*argv)
+
+    return study, call
+
+
+def new_bike_study(tmp_path, *, edit=None, spoil=False, around=None):
     examples = examples_copy(Path(tmp_path), edit=edit, name="examples") if edit or spoil else None
     if spoil:
         flipped(examples / "bike_day" / "data" / "day.csv")
+    return new_study(tmp_path, examples=examples, around=around)
 
-    def call(stale):
-        argv = ["init", "--workload", "bike_day", "--study", study, *(["--examples-dir", examples] if examples else [])]
-        return run_json(*argv, *(["--read-sequence", stale] if read else []))
 
-    return study, call
+def new_chinook_study(tmp_path, *, edit=None, spoil=False):
+    examples = chinook_examples(Path(tmp_path), edit=edit, name="examples") if edit or spoil else None
+    if spoil:
+        flipped(database_of(examples))
+    return new_study(tmp_path, workload="chinook", examples=examples)
 
 
 def a_track_the_study_cannot_have(declaration):
@@ -288,31 +330,39 @@ def without_a_question(declaration):
     del declaration["question"]
 
 
+def without_the_train_partition(declaration):
+    del declaration["partitions"]["train"]
+
+
+def with_a_key_the_track_does_not_know(declaration):
+    declaration["not_a_key"] = 1
+
+
 # --- the table's rows, as calls --------------------------------------------------------------------------------------------------------------
 
 LOCK_HELD = {
-    "init": lambda tmp_path: new_study(tmp_path, read=True),
+    "init": lambda tmp_path: new_bike_study(tmp_path),
+    "init agent": lambda tmp_path: new_chinook_study(tmp_path),
+    "init --new-revision agent": of("init --new-revision", world="chinook"),
     **{writer: of(writer) for writer in WORLD_OF},
 }
 
 CHECKS_BEFORE_THE_LOCK = {
-    "init data": lambda tmp_path: new_study(tmp_path, spoil=True),
-    "init Track": lambda tmp_path: new_study(tmp_path, edit=a_track_the_study_cannot_have),
-    "init declaration": lambda tmp_path: new_study(tmp_path, edit=without_a_question),
+    "init examples": lambda tmp_path: new_bike_study(tmp_path, around=the_default_examples_are_missing),
+    "init data": lambda tmp_path: new_bike_study(tmp_path, spoil=True),
+    "init Track": lambda tmp_path: new_bike_study(tmp_path, edit=a_track_the_study_cannot_have),
+    "init declaration schema": lambda tmp_path: new_bike_study(tmp_path, edit=without_the_train_partition),
+    "init declaration": lambda tmp_path: new_bike_study(tmp_path, edit=without_a_question),
+    "init agent data": lambda tmp_path: new_chinook_study(tmp_path, spoil=True),
+    "init agent Workload": lambda tmp_path: new_chinook_study(tmp_path, edit=with_a_key_the_track_does_not_know),
+    "init agent declaration": lambda tmp_path: new_chinook_study(tmp_path, edit=without_a_question),
     "run agent Track": of("run agent", world="bike"),
     "run agent examples": of("run agent", around=the_default_examples_are_missing),
     "run agent Workload": of("run agent", options=lambda b: chinook_without(b, remove="workload.json")),
-    "run agent flags of llm_live in scripted_fixture": of("run agent", **{"--partition": "dev"}),
-    "run agent --partition missing": of("run agent", **{"--mode": "llm_live"}),
-    "run agent --repeats missing": of("run agent", **{"--mode": "llm_live", "--partition": "dev"}),
-    "run agent --model missing": of("run agent", **{"--mode": "llm_live", "--partition": "dev", "--repeats": "1"}),
     "run agent --config": of("run agent", **{"--config": "not_declared"}),
     "run agent scenarios not declared": of("run agent", options=lambda b: chinook_without(b, edit=lambda d: d.pop("scenarios"))),
     "run agent scenarios file": of("run agent", options=lambda b: chinook_without(b, remove="fixtures/scenarios.json")),
-    "run agent --partition": of("run agent", **live(**{"--partition": "not_a_partition"})),
-    "run agent --repeats": of("run agent", **live(**{"--repeats": "9"})),
     "run agent Partition cases": of("run agent", options=lambda b: {**chinook_without(b, edit=lambda d: d["cases"].pop("public_check")), **live(**{"--partition": "public_check"})}),
-    "run agent --cases repeated": of("run agent", **live(**{"--cases": ["D03", "D03"]})),
     "run agent --cases outside": of("run agent", **live(**{"--partition": "public_check", "--cases": ["D03"]})),
     "import agent Inspect": of("import agent", options=lambda b: {"--source": b.tmp_path / "log.eval"}, around=inspect_is_not_installed),
     "compare --factor": of("compare", **{"--factor": "model"}),
@@ -322,6 +372,11 @@ CHECKS_BEFORE_THE_LOCK = {
 
 UNDER_THE_LOCK = {
     "init --new-revision data": of("init --new-revision", options=spoiled_bike_data),
+    "init --new-revision agent data": of("init --new-revision", world="chinook", options=spoiled_chinook_data),
+    "run ml examples": of("run ml", around=the_default_examples_are_missing),
+    "run ml declaration file": of("run ml", options=bike_declaration_replaced),
+    "run ml declaration JSON": of("run ml", options=lambda b: bike_declaration_replaced(b, "{")),
+    "run ml replay artifacts": of("run ml", setup=spoil_the_recorded_outputs("r1"), **{"--request-id": "r1"}),
     "run ml Track": of("run ml", world="chinook"),
     "run ml data": of("run ml", options=spoiled_bike_data),
     "run ml Study artifact": of("run ml", setup=spoil_the_study_dataset),
@@ -334,6 +389,7 @@ UNDER_THE_LOCK = {
     "run ml Protocol": of("run ml", options=shifted_bike_partitions),
     "run agent --retry-of": of("run agent", **{"--retry-of": "no_attempt"}),
     "run agent replay": of("run agent", **{"--request-id": "r1"}),
+    "run agent replay artifacts": of("run agent", setup=spoil_the_recorded_outputs("r1"), **{"--request-id": "r1"}),
     "run agent request conflict": of("run agent", **{"--request-id": "r1", "--config": "verify"}),
     "run agent request_id of a decision": of("run agent", **{"--request-id": "d1"}),
     "run agent data": of("run agent", options=spoiled_chinook_data),
@@ -343,7 +399,11 @@ UNDER_THE_LOCK = {
     "import ml source": of("import ml", options=lambda b: {"--source": b.tmp_path / "none.csv"}),
     "import ml mapping": of("import ml", options=lambda b: {"--mapping": b.tmp_path / "none.json"}),
     "import ml population": of("import ml", options=lambda b: {"--population": b.tmp_path / "none.json"}),
+    "import ml examples": of("import ml", around=the_default_examples_are_missing),
+    "import ml declaration file": of("import ml", options=bike_declaration_replaced),
+    "import ml declaration JSON": of("import ml", options=lambda b: bike_declaration_replaced(b, "{")),
     "import ml replay": of("import ml", **{"--request-id": "i1"}),
+    "import ml replay artifacts": of("import ml", setup=spoil_the_recorded_outputs("i1"), **{"--request-id": "i1"}),
     "import ml request conflict": of("import ml", options=lambda b: {"--request-id": "i1", "--mapping": another_copy_of(b.facts["mapping"], b, "mapping.json")}),
     "import ml request_id of a decision": of("import ml", **{"--request-id": "d1"}),
     "import ml Protocol": of("import ml", options=shifted_bike_partitions),
@@ -352,7 +412,11 @@ UNDER_THE_LOCK = {
     "import agent Study artifact": of("import agent", setup=spoil_the_study_dataset),
     "import agent source": of("import agent", options=lambda b: {"--source": b.tmp_path / "none.jsonl"}),
     "import agent population": of("import agent", options=lambda b: {"--population": b.tmp_path / "none.json"}),
+    "import agent examples": of("import agent", around=the_default_examples_are_missing),
+    "import agent Workload": of("import agent", options=lambda b: chinook_without(b, remove="workload.json")),
+    "import agent log": of("import agent", options=a_log_that_is_not_one),
     "import agent replay": of("import agent", **{"--request-id": "i1"}),
+    "import agent replay artifacts": of("import agent", setup=spoil_the_recorded_outputs("i1"), **{"--request-id": "i1"}),
     "import agent request conflict": of("import agent", options=lambda b: {"--request-id": "i1", "--source": another_copy_of(b.facts["source"], b, "answers.jsonl")}),
     "import agent request_id of a decision": of("import agent", **{"--request-id": "d1"}),
     "import agent Protocol": of("import agent", options=changed_chinook_protocol),
@@ -361,6 +425,7 @@ UNDER_THE_LOCK = {
     "compare Assessment": of("compare", **{"--control": "no_assessment"}),
     "recover Attempt": of("recover", **{"--attempt": "no_attempt"}),
     "report Exposure": of("report"),
+    "report Protocol": of("report", options=shifted_bike_partitions),
     "decide replay": of("decide", **{"--request-id": "d1"}),
     "decide request conflict": of("decide", **{"--request-id": "d1", "--question": "Another question?"}),
     "decide request_id of an Attempt": of("decide", **{"--request-id": "r1"}),

@@ -16,6 +16,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+from _checks_table import rows_of as rows_of_checks_table
 from inspect_ai.log import read_eval_log, write_eval_log
 
 from hypotrail.core.errors import InvalidInputError
@@ -4190,6 +4191,8 @@ PROSE_MAY_NAME = {
     "revision": "chapter 17 says when the revision of a decision is read (under the lock, after the sequence check), which no table says",
     "revision_number": "chapter 17 says it is not citable, so that one revision never appears under two ids (#109 asks for it); no table says so",
     "outcome": "chapter 04 says which values the outcome of an end entry takes and when; the table only names the key",
+    "--factor": "chapter 04's order paragraph names `compare --factor` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
+    "--out": "chapter 04's order paragraph names `report --out` by command, as #108 Tightened M asks (kept by D-041 on chadlis/hypotrail#75); its code and condition stay in the table",
     "failed": "a value of outcome, in chapter 04's account of how each command ends; the item-counts table also has a `failed` key",
 }
 
@@ -4237,15 +4240,15 @@ def test_the_prose_of_chapter_17_and_chapter_04_write_sequence_section_names_non
         assert [n for n in advances if re.search(rf"advances? (the (write )?sequence )?by ({n}|two)\b", " ".join(re.sub(r"<[^>]+>", "", prose).split()))] == [], name
 
 
-def test_chapter_04_order_paragraph_points_to_the_table_of_the_checks_before_the_lock_and_restates_none_of_its_rows():
-    # the paragraph says what no row says: the table's checks come before the lock; the rows give the commands, codes and conditions
+def test_chapter_04_order_paragraph_names_compare_factor_and_report_out_and_points_to_the_table_that_gives_them():
+    # the paragraph names the two checks by command and points to the table; the table gives every row's code and condition
     chapter = chapter_text("04-study-and-attempts.html")
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    assert "<code>compare --factor</code>" in paragraph and "<code>report --out</code>" in paragraph
     assert "before the lock" in paragraph and "table of checks before the lock" in paragraph
     assert 'id="checks-before-the-lock"' in chapter  # the table the paragraph points to
-    table = re.search(r'<table[^>]*id="checks-before-the-lock".*?</table>', chapter, re.S)[0]
-    for row_check, code in re.findall(r'<tr data-command="([^"]+)" data-exit="\d+" data-code="([^"]+)"', table):
-        assert f"<code>{row_check}</code>" not in paragraph and code not in paragraph, row_check
+    for check, (_, code) in rows_of_checks_table(chapter).items():
+        assert code not in paragraph, check  # the table gives the codes, the prose does not restate them
     assert not re.search(r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+) (checks|rows)\b", paragraph)  # the table grows: no count
 
 

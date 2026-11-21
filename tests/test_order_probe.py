@@ -6,10 +6,9 @@ as a Study writer or a non-writer, and holds the writers equal to the writers th
 """
 
 import argparse
-import re
-from pathlib import Path
 
 import pytest
+from _checks_table import rows_of, rows_of_chapter_04
 from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
 from _order_probe import LOCK_HELD as LOCK_HELD_CALLS
 from _order_probe import UNDER_THE_LOCK as UNDER_THE_LOCK_CALLS
@@ -18,8 +17,6 @@ from test_study_lock import held_by_another_process
 from test_write_sequence import seq, tree
 
 from hypotrail.cli import build_parser
-
-CHAPTER_04 = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "chapters" / "04-study-and-attempts.html"
 
 
 def result_of(payload):
@@ -85,16 +82,39 @@ def test_with_the_lock_free_and_an_older_value_each_check_gives_its_place_relati
 # --- the table `checks-before-the-lock` of chapter 04 -------------------------------------------------------------------------
 
 
-def rows_of_the_chapter_table():
-    """{check: (exit code, error code)} of the table `checks-before-the-lock`."""
-    table = re.search(r'<table[^>]*id="checks-before-the-lock".*?</table>', CHAPTER_04.read_text(encoding="utf-8"), re.S)
-    assert table, "chapter 04 has no table `checks-before-the-lock`"
-    return {check: (int(exit_code), code) for check, exit_code, code in re.findall(r'<tr data-command="([^"]+)" data-exit="(\d+)" data-code="([^"]+)"', table[0])}
-
-
 def test_the_table_of_the_checks_before_the_lock_lists_the_checks_the_probe_provokes_and_no_other():
     provoked = {case: (exit_code, code) for case, (_, exit_code, code) in CHECKS_BEFORE_THE_LOCK.items()}
-    assert rows_of_the_chapter_table() == provoked
+    assert rows_of_chapter_04() == provoked
+
+
+def table_of(*rows):
+    return f'<table class="tbl" id="checks-before-the-lock"><thead><tr><th>Check</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
+
+
+def test_the_table_parser_reads_a_row_whose_attributes_come_in_another_order():
+    row = '<tr data-code="A_CODE" data-exit="2" data-command="a check"><td>x</td></tr>'
+    assert rows_of(table_of(row)) == {"a check": (2, "A_CODE")}
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        '<tr data-command="a check" data-code="A_CODE"><td>x</td></tr>',
+        '<tr data-command="a check" data-exit="two" data-code="A_CODE"><td>x</td></tr>',
+        '<tr><td>x</td></tr>',
+    ],
+    ids=["no exit", "exit not an integer", "no attributes"],
+)
+def test_the_table_parser_fails_on_a_row_it_cannot_read(row):
+    good = '<tr data-command="b" data-exit="2" data-code="B_CODE"><td>x</td></tr>'
+    with pytest.raises(AssertionError):
+        rows_of(table_of(good, row))
+
+
+def test_the_table_parser_fails_on_a_check_that_appears_twice():
+    row = '<tr data-command="a check" data-exit="2" data-code="A_CODE"><td>x</td></tr>'
+    with pytest.raises(AssertionError):
+        rows_of(table_of(row, row))
 
 
 # --- every leaf command is a Study writer or is not ---------------------------------------------------------------------------

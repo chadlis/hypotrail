@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from _assess_helpers import fresh_study, observation_set_id, references_id
 from _chinook_helpers import chinook_examples, database_of, fixture_lines, fixture_population, init_chinook, write_lines
+from _checks_table import rows_of_chapter_04
 from _compare_helpers import assessed
 from _import_helpers import ready
 from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
@@ -556,17 +557,7 @@ def test_run_ml_with_an_unknown_retry_of_and_an_older_value_gives_retry_of_unkno
     assert tree(study) == files
 
 
-# --- Tightened M (D-038 on chadlis/hypotrail#75): two checks that read only the arguments and the spec keep their place before the lock ---------------
-
-
-CHAPTER_04 = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "chapters" / "04-study-and-attempts.html"
-
-
-def checks_before_the_lock():
-    """{command: code} of the table `checks-before-the-lock` of chapter 04 (R2-S-01): what the handbook says keeps its place before the lock."""
-    table = re.search(r'<table[^>]*id="checks-before-the-lock".*?</table>', CHAPTER_04.read_text(encoding="utf-8"), re.S)
-    assert table, "chapter 04 has no table `checks-before-the-lock`"
-    return {command: code for command, code in re.findall(r'<tr data-command="([^"]+)" data-exit="\d+" data-code="([^"]+)"', table[0])}
+# --- the checks of the table `checks-before-the-lock`: with the lock held and an older value, each gives its own code ------------------------
 
 
 def provoked(case):
@@ -583,7 +574,7 @@ PROVOKED = {case: provoked(case) for case in CHECKS_BEFORE_THE_LOCK}
 
 
 def test_the_table_of_the_checks_before_the_lock_lists_the_checks_the_test_provokes():
-    assert set(checks_before_the_lock()) == set(PROVOKED)
+    assert set(rows_of_chapter_04()) == set(PROVOKED)
 
 
 @pytest.mark.parametrize("command", sorted(PROVOKED))
@@ -592,7 +583,7 @@ def test_each_check_of_the_table_before_the_lock_gives_its_code_with_the_lock_he
     study, files, call = PROVOKED[command](tmp_path)
     with held_by_another_process(study):
         code, payload, err = call()
-    assert (code, error_of(payload)["code"]) == (CHECKS_BEFORE_THE_LOCK[command][1], checks_before_the_lock()[command]), (payload, err)
+    assert (code, error_of(payload)["code"]) == (CHECKS_BEFORE_THE_LOCK[command][1], rows_of_chapter_04()[command][1]), (payload, err)
     assert tree(study) == files
 
 
