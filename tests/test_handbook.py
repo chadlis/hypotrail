@@ -3519,6 +3519,7 @@ def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_d
         "T20 is not proven by an Attempt whose Episodes all failed",
     ):
         assert part in text, part
+    assert "A repeat of the Campaign with alternation" in text and "rerun" not in text  # 93-R1-11, GLOSSARY Attempt (_Avoid_: run)
     for stale in (  # the wording of the plan, pinned by #88 and replaced by #99 C7
         "only after the owner's review of the References", "No command of this grid was run against a real model", "is not alternated Episode by Episode",
         "owner-decision gate", "for after the owner's review", "Open point", "did not run",
