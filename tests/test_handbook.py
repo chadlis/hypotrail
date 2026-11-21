@@ -901,7 +901,7 @@ def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_it
 
 
 def test_chapter_04_order_paragraph_names_the_two_checks_that_keep_their_place_before_the_lock():
-    # #108 Tightened M (D-038): `compare --factor` on a Study that is not of the agent Track, and `report`'s `--out` check
+    # #108 Tightened M (D-038 on chadlis/hypotrail#75): `compare --factor` on a Study that is not of the agent Track, and `report`'s `--out` check
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter_text("04-study-and-attempts.html"), re.S) if "The refusals come in this order" in p)
     assert "<code>compare --factor</code>" in paragraph and "<code>UNSUPPORTED_CAPABILITY</code>" in paragraph
     assert "<code>report</code>" in paragraph and "<code>--out</code>" in paragraph and "<code>REPORT_OUTPUT_INVALID</code>" in paragraph
