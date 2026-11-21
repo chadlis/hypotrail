@@ -119,7 +119,8 @@ class Rehearsal:
         shutil.copytree(ROOT, self.checkout, ignore=lambda folder, names: [n for n in names if n in skip])
         self.lines = campaign_lines(self.checkout)
         # The README's install line, as the live Campaign's checkout had it: `uv run` then resolves the copy's own environment (93-R1-01).
-        synced = subprocess.run(["uv", "sync", "--locked", "--all-extras"], cwd=self.checkout, capture_output=True, text=True)
+        self.sync_argv = ["uv", "sync", "--offline", "--locked", "--all-extras"]  # offline: uv's cache only, left at its default location
+        synced = subprocess.run(self.sync_argv, cwd=self.checkout, capture_output=True, text=True)
         assert synced.returncode == 0, synced.stderr
         self.launched = []  # the argv each line was started with
         self.ran = []  # (argv text after the prefix, exit code, stdout, stderr)
@@ -134,7 +135,7 @@ class Rehearsal:
         """Run one line, as it reads after the prefix, in the copy's root."""
         assert text.startswith(PREFIX), text
         args = text[len(PREFIX):].split()
-        launched = ["uv", "run", "python", str(self.driver), *args]  # the live line's launcher, `uv run python`, then the driver in place of `-m hypotrail`
+        launched = ["uv", "run", "--offline", "python", str(self.driver), *args]  # the live line's launcher, `uv run python`, then the driver in place of `-m hypotrail`
         self.launched.append(launched)
         done = subprocess.run(launched, cwd=self.checkout, env=self.env, capture_output=True, text=True)
         self.ran.append((text, done.returncode, done.stdout, done.stderr))
@@ -282,8 +283,9 @@ def test_each_line_is_started_with_the_live_launcher_uv_run_python_and_not_the_t
     # 93-R1-01, #97 Tightened A: `uv`'s environment resolution is rehearsed; only the provider patch (the driver) differs from the live line.
     r = rehearsal
     assert len(r.launched) == len(r.ran) and r.launched
+    assert "--offline" in r.sync_argv and "UV_CACHE_DIR" not in r.env  # 93-R1-01: no index is reached, and the cache is the caller's
     for argv in r.launched:
-        assert argv[:3] == ["uv", "run", "python"] and argv[3] == str(r.driver), argv
+        assert argv[:4] == ["uv", "run", "--offline", "python"] and argv[4] == str(r.driver), argv  # offline: only uv's cache, no index (the suite is offline)
         assert sys.executable not in argv
 
 
