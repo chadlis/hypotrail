@@ -3173,7 +3173,7 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
             for name in (attempt["id"], f"{case} Repeat {episode['repeat']}"):
                 if name not in flat_row:
                     problems.append(f"the row does not name {name}")
-    for name in ("chadlis/hypotrail#93", "7057388641", "chadlis/hypotrail#95", "7057075785", "order not alternated (AG-12)"):
+    for name in ("chadlis/hypotrail#93", "7057388641", "chadlis/hypotrail#95", "7057075785", "order not alternated (AG-12 of the L1 specification"):
         if name not in flat_row:
             problems.append(f"the row does not name {name}")
     return problems
@@ -3534,7 +3534,7 @@ def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_d
         "Inspect logs and Observation sets kept whole", "no further paid invocation", "USD 30", "five paid live invocations per slice",
         "D-025", "conditions 1 to 5", "chadlis/hypotrail#95", "7057075785", "holds", "chadlis/hypotrail#96", "D-028",
         "2026-11-21", "f696f58", "exited 0",
-        "order not alternated (AG-12)", "case_index + repeat_index", "confounded with the time block", "back to back",
+        "order not alternated (AG-12 of the L1 specification", "case_index + repeat_index", "confounded with the time block", "back to back",
         "T20 is not proven by an Attempt whose Episodes all failed",
     ):
         assert part in text, part
@@ -3629,6 +3629,21 @@ def test_chapter_16_says_where_the_served_model_of_each_episode_is_recorded(page
         "served_models in run.json is the per-Attempt summary",
     ):
         assert part in text, part
+
+
+AG_12_SOURCE = "AG-12 of the L1 specification"
+
+
+def test_the_ag_12_deviation_names_its_source_in_chapter_16_and_the_readme_next_to_the_pending_owner_review():
+    # 93-R3-01: AG-12 is an ID of the L1 specification (SPEC-LOT-1.md, in the kit linked from chadlis/hypotrail#1), which this repository does not hold.
+    # D-028 on chadlis/hypotrail#75 asks for the deviation named next to the pending owner review.
+    for name, text in (("16-acceptance-grid.html", plain_text(chapter_16())), ("README.md", " ".join((ROOT / "README.md").read_text(encoding="utf-8").split()))):
+        assert [m.start() for m in re.finditer("AG-12", text) if not text.startswith(AG_12_SOURCE, m.start())] == [], name
+        assert AG_12_SOURCE in text and "SPEC-LOT-1.md" in text and "chadlis/hypotrail#1" in text, name
+    status = " ".join(readme_status().split())
+    words = status.index(CONDITIONAL_WORDS)
+    assert 0 < status.index(AG_12_SOURCE) - words < len(CONDITIONAL_WORDS) + 120  # next to the pending owner review
+    assert len(readme_status().split()) <= 200
 
 
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
