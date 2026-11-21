@@ -5,7 +5,7 @@ the lock, then works inside `locked(...)`, which takes the writer lock and opens
 in the order the writer keeps: for a writer with a `request_id`, the replay lookup, the guard on the Study's one `request_id` namespace, then the stale
 check; for the others, `require_current()`. Creating a Study (`init`) takes neither check, and `report` takes the lock only when its page records
 an Exposure. A writer supplies its command, what identifies its request, its own check of a record already recorded, its own checks and its writes;
-it calls `begin()` just before its first write.
+it calls `begin()` just before its first write (`exposure.record`, which `assess`, `compare` and `report` call, calls it for them when the command records an Exposure).
 """
 
 import contextlib

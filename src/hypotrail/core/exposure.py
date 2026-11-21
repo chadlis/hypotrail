@@ -28,7 +28,7 @@ Exposure, whatever its revision, is the one that counts (Tightened C).
 A Study with no entry has recorded no Exposure *in this Study*; that says nothing about what the user or an
 Import's producer saw elsewhere (SPEC §2), and no record here claims that `public_check` was never seen.
 
-Commands that write call `record` under the Study's writer lock. It refuses (`PROTOCOL_CHANGED`, exit 3,
+Commands that write call `record` under the Study's writer lock, with the `Write` they hold (`hypotrail.core.study_write`). It refuses (`PROTOCOL_CHANGED`, exit 3,
 nothing written) when the Workload's live Protocol is not the revision's. Which Items an entry point may
 compute on is the entry point's own rule; this module only records.
 """
