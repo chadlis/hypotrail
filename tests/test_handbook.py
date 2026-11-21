@@ -4429,8 +4429,8 @@ def test_chapter_04_read_sequence_paragraph_says_a_command_given_no_option_behav
     # R4-P-01 (#108 "when it is not given, the command behaves exactly as today"): one sentence on direct use, no row of a table restated
     chapter = chapter_text("04-study-and-attempts.html")
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "Reading the sequence before a write" in p)
-    sentence = "A command given no <code>--read-sequence</code> behaves as it did before the option existed."
-    assert sentence in paragraph
+    sentence = "A command for which the table makes the option optional, given none, behaves as it did before the option existed"  # R5-P-01 narrowed it
+    assert sentence in " ".join(paragraph.replace("<code>", "").replace("</code>", "").split())
 
 
 def test_chapter_13_lead_points_to_the_order_paragraph_of_chapter_04_where_run_agent_differs_from_run_ml():
@@ -4438,3 +4438,38 @@ def test_chapter_13_lead_points_to_the_order_paragraph_of_chapter_04_where_run_a
     lead = re.search(r'<p class="lead">.*?</p>', chapter_text("13-run-agent.html"), re.S).group(0)
     assert "the same order of checks" not in lead
     assert 'order paragraph of <a href="#study-and-attempts">chapter 04</a>, where <code>run agent</code> differs from <code>run ml</code>' in lead
+
+
+def test_chapter_04_read_sequence_paragraph_leaves_decide_and_the_journal_out_of_the_as_before_sentence():
+    # R5-P-01, R5-S-05 (#108 "when it is not given, the command behaves exactly as today" is for the commands that take the option as an option; `decide` requires it)
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "Reading the sequence before a write" in p)
+    text = " ".join(re.sub(r"<[^>]+>", "", paragraph).split())
+    assert "A command given no --read-sequence behaves as it did before the option existed." not in text  # it covered `decide`
+    sentence = next(s for s in re.split(r"(?<=\.) ", text) if "before the option existed" in s)
+    assert "optional" in sentence and "table" in sentence  # limited to the commands the table makes optional, without restating a row
+    assert "journal entries" in sentence and "all the same" in sentence  # a command given no option still appends its entries
+
+
+def test_chapter_13_order_section_holds_the_read_sequence_steps_between_the_request_identity_and_the_data_check():
+    # R5-P-02 (#108 Tightened L): the sequence argument check, then the stale-sequence refusal straight after the request identity, before `DATA_INTEGRITY`
+    chapter = chapter_text("13-run-agent.html")
+    section = chapter.split('<p class="sub2">The order</p>')[1].split("</ol>", 1)[0]
+    steps = re.findall(r"<li>(.*?)</li>", section, re.S)
+    index = lambda *needles: next((i for i, s in enumerate(steps) if all(n in s for n in needles)), -1)  # -1: no such step
+    identity = index("The request is identified")
+    stale = index("STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD")
+    data = index("DATA_INTEGRITY", "ARTIFACT_INTEGRITY")
+    assert stale != -1, "the list has no stale-sequence step"
+    assert identity + 1 == stale and stale + 1 == data
+    assert "--read-sequence" in steps[0] and "INVALID_ARGUMENTS" in steps[0]  # the argument check of the value is among the flag checks, before the lock
+
+
+def test_chapter_04_order_paragraph_says_only_the_data_and_artifact_checks_of_run_agent_come_after_the_comparison():
+    # R5-P-03 (#108 Tightened L): for `run agent`, `DATA_INTEGRITY` and the `ARTIFACT_*` codes fall in step (6); the others keep their place, named by no code here (a table gives the codes)
+    chapter = chapter_text("04-study-and-attempts.html")
+    paragraph = next(p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "The refusals come in this order" in p)
+    text = " ".join(re.sub(r"<[^>]+>", "", paragraph).split())
+    assert "in run agent, whose identity reads its input bytes directly, only the data check and the artifact checks come after the comparison" in text
+    assert "the others keep their place, before the lock or before the identity" in text
+    assert "DATA_INTEGRITY" not in paragraph and "ARTIFACT_" not in paragraph  # the refusals table gives them
