@@ -16,6 +16,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+from inspect_ai.log import read_eval_log, write_eval_log
 
 from hypotrail.core.errors import InvalidInputError
 
@@ -3033,7 +3034,7 @@ def kept_campaign(kept_dir):
         run = json.loads((folder / "run.json").read_text(encoding="utf-8"))
         attempt = json.loads((folder / "attempt.json").read_text(encoding="utf-8"))
         lines = (folder / "observations.jsonl").read_text(encoding="utf-8").splitlines()
-        attempts[run["configuration"]] = {"id": folder.name, "run": run, "attempt": attempt, "observations": [json.loads(line) for line in lines if line.strip()]}
+        attempts[run["configuration"]] = {"id": folder.name, "folder": folder, "run": run, "attempt": attempt, "observations": [json.loads(line) for line in lines if line.strip()]}
     return output, attempts
 
 
@@ -3129,6 +3130,17 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
     if len(served) != 1:
         problems.append(f"the Attempts were served by different models: {sorted(served)}")
     problems += [f"the row does not name the served model {model}" for model in served if model not in flat_row]
+    for config, attempt in attempts.items():  # 93-R1-02, #98 Tightened A: the model every sample of the kept Inspect log reports is the served model
+        logs = sorted((attempt["folder"] / "inspect").glob("*.eval"))
+        if len(logs) != 1:
+            problems.append(f"{config}: {len(logs)} Inspect logs, not 1")
+            continue
+        samples = read_eval_log(str(logs[0])).samples or []
+        reported = {sample.output.model for sample in samples}
+        if len(samples) != 36:
+            problems.append(f"{config}: the Inspect log holds {len(samples)} samples, not 36")
+        if reported != served:
+            problems.append(f"{config}: the samples of the Inspect log report {sorted(reported)}, not the served model {sorted(served)}")
     for config, attempt in attempts.items():
         case, episode = join_episode(attempt)
         if episode is None:
@@ -3234,7 +3246,7 @@ def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_coun
 
     def broken(change):
         copy = tmp_path / f"copy-{len(list(tmp_path.iterdir()))}"
-        shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+        shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html"))
         change(copy)
         return campaign_proof_problems(row, text, copy)
 
@@ -3282,6 +3294,15 @@ def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_coun
 
     assert "no tool was called in any Episode" in broken(no_tool_called)
 
+    def another_model_in_one_sample(copy):  # one sample of a copied Inspect log reports another model, written through Inspect's own API
+        path = next((copy / "study" / "attempts").glob("*/inspect/*.eval"))
+        log = read_eval_log(str(path))
+        log.samples[0].output.model = "claude-other"
+        write_eval_log(log, str(path))
+
+    reported = broken(another_model_in_one_sample)
+    assert len(reported) == 1 and "report ['claude-other', 'claude-sonnet-5-5'], not the served model ['claude-sonnet-5-5']" in reported[0]
+
     def another_limit(copy):
         path = next((copy / "study" / "attempts").glob("*/run.json"))
         run = json.loads(path.read_text())
@@ -3301,7 +3322,7 @@ def test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_
     assert no_spike != page and live_value(no_spike) == "pending"
     assert live_value(page, owner_review="done") == "pending"
     copy = tmp_path / "campaign"
-    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html"))
     output = json.loads((copy / "command-output.json").read_text())
     output["commands"][1]["exit_code"] = 1
     (copy / "command-output.json").write_text(json.dumps(output))
@@ -3551,7 +3572,7 @@ def test_the_E07_note_is_written_exactly_when_an_integer_year_answer_occurs_in_t
     assert "no E07 answer of the Campaign has an integer year" in plain_text(re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1])
     # the witness of the witness: one integer year in a copy of the kept answers makes the note necessary, and a note without one is refused.
     copy = tmp_path / "campaign"
-    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html"))
     path = next(copy.glob("study/attempts/*/observations.jsonl"))
     lines = path.read_text().splitlines()
     path.write_text("\n".join(line.replace('[\\"2009\\",83]', "[2009,83]") for line in lines) + "\n")
