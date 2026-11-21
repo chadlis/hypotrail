@@ -3526,6 +3526,11 @@ def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_ver
     text = plain_text(paragraph)
     for part in ("D-025", "chadlis/hypotrail#94", "four-character text", "chadlis/hypotrail#95", "7057075785", "holds"):
         assert part in text, part
+    # 93-R1-05, D-015 (2) on chadlis/hypotrail#75: no Reference answer is pasted into the chapter's account of E07.
+    reference = next(json.loads(line) for line in (CAMPAIGN_DIR / "study" / "artifacts" / "chinook-references.jsonl").read_text().splitlines() if '"case_id": "E07"' in line)
+    cells = {str(cell) for row in reference["rows"] for cell in row}
+    assert cells and {cell for cell in cells if re.search(rf"(?<![\w.]){re.escape(cell)}(?![\w.])", text)} == set()
+    assert "every E07 answer gave the years as text and matched the Reference" in text
 
 
 def integer_year_answers(kept_dir):
