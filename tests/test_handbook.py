@@ -3625,7 +3625,7 @@ def test_chapter_16_says_where_the_served_model_of_each_episode_is_recorded(page
     # 93-R1-02, #98 Tightened A: the per-Episode record is the kept Inspect log, read through Inspect's log API (ADR 0001); run.json has the summary.
     text = plain_text(chapter_16())
     for part in (
-        "The served model of each Episode is recorded in the kept Inspect log, in the output.model of its sample, read through Inspect's log API",
+        "The served model of each Episode is recorded in the kept Inspect log, in the output.model of its Inspect sample at its epoch, read through Inspect's log API",
         "served_models in run.json is the per-Attempt summary",
     ):
         assert part in text, part
