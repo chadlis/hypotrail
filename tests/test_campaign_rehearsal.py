@@ -3,9 +3,10 @@
 The commands are read from chapter 16's `data-campaign` lines, their placeholders are filled with the fixed values below
 (the values the paid Campaign of #98 uses unchanged), and each line is run as a separate process in a fresh copy of the
 checkout: the working directory is the copy's root, the code is the copy's, and `--study` is the same relative path in
-every line. The one thing changed is the provider: a small driver (`DRIVER`) replaces `prepared_model` with Inspect's mock
-model, then runs `hypotrail.__main__` with the line's own arguments. No model is called and the network is guarded in the
-driver as it is in the suite.
+every line. Two things differ from the live line: the provider, patched (a small driver, `DRIVER`, replaces `prepared_model`
+with Inspect's mock model, then runs `hypotrail.__main__` with the line's own arguments), and the launcher (the live line
+starts with `uv run python -m hypotrail`; the driver runs under the test interpreter, so `uv run` was not rehearsed, as
+D-029 on chadlis/hypotrail#75 records). No model is called and the network is guarded in the driver as it is in the suite.
 """
 
 import json
@@ -317,3 +318,11 @@ def test_the_rehearsal_calls_no_model_and_makes_no_network_attempt_and_the_real_
     assert [m["detail"]["requested"] for m in models] == ["anthropic/claude-sonnet-5-5"] * 2
     assert all(m["detail"]["key_given"] for m in models)
     assert r.env["HYPOTRAIL_ANTHROPIC_API_KEY"] == FAKE_KEY
+
+
+def test_the_module_docstring_says_what_differs_from_the_live_line_the_provider_and_the_launcher():
+    # 93-R3-04: the rehearsal is not the live line in two respects; D-029 on chadlis/hypotrail#75 records that the launcher was not rehearsed.
+    doc = " ".join(__doc__.split())
+    assert "The one thing changed" not in doc
+    for part in ("Two things differ from the live line", "the provider, patched", "the launcher", "`uv run` was not rehearsed", "D-029 on chadlis/hypotrail#75"):
+        assert part in doc, part
