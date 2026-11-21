@@ -56,13 +56,6 @@ def find_by_request(study, request_id: str):
     return next((record for record in records(study) if record["request_id"] == request_id), None)
 
 
-def refuse_if_a_decision_holds(study, request_id: str) -> None:
-    """Refuse a `run` or an `import` whose `request_id` names a decision: a Study has one request_id namespace."""
-    recorded = find_by_request(study, request_id)
-    if recorded is not None:
-        raise requests.conflict_with_a_decision(request_id, recorded["decision_id"])
-
-
 def held_ids(study) -> set:
     """The ids of the records of the Study that a decision may cite."""
     study = Path(study)
