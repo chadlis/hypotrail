@@ -3591,6 +3591,28 @@ def index_problems(kept_dir=CAMPAIGN_DIR):
     return problems
 
 
+COMMIT_TIMES = {"067e917": "2026-11-21T04:36:35+00:00", "c5c1b08": "2026-11-21T05:35:16+00:00"}  # literal: a shallow CI checkout has no history to ask
+
+
+def kept_times():
+    """The start of the first and the end of the last paid invocation (HH:MM), read from the files; commands/ holds times for these two only."""
+    folder = CAMPAIGN_DIR / "commands"
+    assert sorted(path.name for path in folder.glob("*.start")) + sorted(path.name for path in folder.glob("*.end")) == ["plain.start", "verify.start", "plain.end", "verify.end"]
+    assert not [path.name for path in folder.iterdir() if path.suffix not in (".out", ".err", ".exit", ".start", ".end") and path.name != "commit.txt"]  # no argv file
+    first = (folder / "plain.start").read_text(encoding="utf-8").strip()
+    last = (folder / "verify.end").read_text(encoding="utf-8").strip()
+    return {"first": first[11:16], "last": last[11:16]}
+
+
+def test_the_literal_commit_times_chapter_16_gives_are_those_of_git_where_history_is_available():
+    # 93-R1-08, round 4: the index (067e917) and the captures (c5c1b08) were committed about one hour apart, after the invocations.
+    for commit, stamp in COMMIT_TIMES.items():
+        done = subprocess.run(["git", "log", "-1", "--format=%cI", commit], cwd=ROOT, capture_output=True, text=True)
+        if done.returncode != 0 or not done.stdout.strip():
+            pytest.skip("no git history here (a shallow checkout): the literal time stays")
+        assert done.stdout.strip() == stamp, commit
+
+
 def test_every_stdout_stderr_exit_and_time_of_the_index_equals_the_file_the_command_left_in_commands(tmp_path):
     # 93-R1-08 (structural): `command-output.json` is an index assembled after the invocations; `commands/` is the output itself.
     assert index_problems() == []
@@ -3613,10 +3635,17 @@ def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_sli
     text = plain_text(chapter_16())
     for part in (
         "command-output.json is an index", "assembled after the invocations from the files in commands/", "the agent that drove the slice (.claude/skills/drive/)",
-        "stdout, stderr, exit status and times", "commands/ of the kept folder holds the shell's captures, unedited", "it carries the argv of each command",
+        "stdout, stderr and exit status of each command", "commands/ of the kept folder holds the shell's captures, unedited", "it carries the argv of each command",
         "tied to the invocations only by commit c5c1b08", "#93's state comment, written at the time", "no digest was posted at run time",  # D-030 on chadlis/hypotrail#75, item 3
     ):
         assert part in text, part
+    for part in (  # 93-R1-08, round 4: what commands/ does not hold, who has times, and how long after the invocations the files were committed
+        "start and end times for the two paid invocations only (plain.start, plain.end, verify.start, verify.end), none for the other five commands",
+        "commands/ holds no argv", "the only record of the argv", "assembled after the invocations",
+        f"ran between {kept_times()['first']} and {kept_times()['last']}Z on 2026-11-21", "committed at 04:36:35Z (067e917)", "captures at 05:35:16Z (c5c1b08), about one hour later",
+    ):
+        assert part in text, part
+    assert "times of each command" not in text and "and times" not in text
     assert "assembled by the drive" not in text and "assembled_by" not in (CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8")
     assert all(f'href="traces/campaign-public-check/commands/{name}.exit"' in chapter_16() for name in ("plain", "verify"))
 
