@@ -14,6 +14,8 @@ import pytest
 from _fetch_helpers import (
     Stand,
     cut_after,
+    cut_chunked,
+    cut_without_length,
     fetch,
     fetch_refusals,
     make_zip,
@@ -278,6 +280,30 @@ def test_c6_a_failed_transfer_is_exit_4_publishes_nothing_and_names_the_verified
     assert error["details"]["reason"] == kind and error["details"]["host"] == urlsplit(url).netloc
     assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []
     assert "/ok" not in stand.requests and stand.requests.count(urlpath(url)) <= 1  # no other source, no second try
+
+
+def test_c6_a_chunked_response_cut_mid_body_is_exit_4_publishes_nothing_removes_the_temporary_file_and_names_the_verified_bundle(stand, tmp_path):
+    # 10-R1-06: the body is read in chunked encoding, and the connection closes before the last chunk (http.client.IncompleteRead).
+    stand.routes["/chunked"] = cut_chunked(BODY, 5)
+    entry = source(stand, "/chunked", BODY, "data/a.csv")
+    dest = tmp_path / "dest"
+    status, payload, err = fetch(write_lock(tmp_path / "l", entry), dest)
+    error = payload["error"]
+    assert (status, error["code"], error["details"]["reason"]) == (4, "DOWNLOAD_FAILED", "interrupted")
+    assert "data verify" in error["message"] and "verified bundle" in error["message"] and "data verify" in err
+    assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []  # nothing published, no .part left
+
+
+def test_c6_a_response_with_neither_length_nor_chunking_closed_early_stays_a_hash_mismatch_that_names_the_verified_bundle(stand, tmp_path):
+    # 10-R1-06: HTTP cannot tell this body from a complete one, so it is exit 3, DOWNLOAD_INTEGRITY, and the message names the alternative.
+    stand.routes["/short"] = cut_without_length(BODY, 5)
+    entry = source(stand, "/short", BODY, "data/a.csv")
+    dest = tmp_path / "dest"
+    status, payload, err = fetch(write_lock(tmp_path / "l", entry), dest)
+    error = payload["error"]
+    assert (status, error["code"], error["stage"]) == (3, "DOWNLOAD_INTEGRITY", "integrity")
+    assert "data verify" in error["message"] and "verified bundle" in error["message"] and "data verify" in err
+    assert not (dest / "data" / "a.csv").exists() and list((dest / "data").iterdir()) == []
 
 
 def urlpath(url):

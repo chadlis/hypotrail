@@ -91,6 +91,33 @@ def cut_after(body: bytes, sent: int):
     return route
 
 
+def cut_chunked(body: bytes, sent: int):
+    """A route that answers in chunked encoding, sends `sent` bytes of `body` as one whole chunk and closes before the last chunk."""
+
+    def route(handler):
+        handler.send_response(200)
+        handler.send_header("Transfer-Encoding", "chunked")
+        handler.end_headers()
+        handler.wfile.write(f"{sent:x}\r\n".encode() + body[:sent] + b"\r\n")
+        handler.wfile.flush()
+        handler.close_connection = True
+
+    return route
+
+
+def cut_without_length(body: bytes, sent: int):
+    """A route that announces neither a length nor chunking, sends `sent` bytes of `body` and closes: HTTP cannot tell it from a complete body."""
+
+    def route(handler):
+        handler.send_response(200)
+        handler.end_headers()
+        handler.wfile.write(body[:sent])
+        handler.wfile.flush()
+        handler.close_connection = True
+
+    return route
+
+
 def redirect_to(location: str):
     def route(handler):
         handler.send_response(302)

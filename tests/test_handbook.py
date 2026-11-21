@@ -2561,6 +2561,18 @@ def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acq
     assert "never replaces a file" in chapter and "no automatic mirror" in chapter
 
 
+def test_the_data_fetch_chapter_states_the_three_ways_a_transfer_is_cut_and_what_each_ends_in():
+    # 10-R1-06, #22 C6: a cut with a Content-Length and a cut chunked body are exit 4 (interrupted); a body that announces neither
+    # cannot be told from a complete one, stays a hash mismatch, exit 3, and its message names the verified bundle.
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")).split())
+    cut = re.search(r"<p data-cut-transfers>(.*?)</p>", (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8"), re.S)
+    assert cut, "no paragraph states how a cut transfer ends"
+    text = " ".join(re.sub(r"<[^>]+>", " ", cut[1]).split())
+    assert "Content-Length" in text and "chunked" in text and "neither" in text
+    assert text.count("DOWNLOAD_FAILED") >= 1 and "interrupted" in text and "DOWNLOAD_INTEGRITY" in text and "data verify" in text
+    assert "exit 4" in text and "exit 3" in text and text in chapter
+
+
 def test_the_readme_install_block_has_the_data_fetch_line_and_says_how_a_clean_install_acquires_the_data():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     block = readme.split("```")[1]

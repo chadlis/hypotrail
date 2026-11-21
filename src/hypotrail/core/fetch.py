@@ -300,7 +300,9 @@ def _too_large(file: str, what: str, bound: int) -> IntegrityError:
 def _mismatch(file: str, what: str, expected: str, actual: str) -> IntegrityError:
     return IntegrityError(
         "DOWNLOAD_INTEGRITY",
-        f"the {what} of {file} does not match the lock (expected sha256 {expected}, got {actual}): nothing was published",
+        f"the {what} of {file} does not match the lock (expected sha256 {expected}, got {actual}): nothing was published; "
+        "a body that a server cut short without announcing a length looks like this one, and the already verified bundle "
+        "is the explicit alternative: run `data verify` on the committed data",
         stage="integrity",
         details={"file": file, "what": what, "expected_sha256": expected, "actual_sha256": actual},
     )
