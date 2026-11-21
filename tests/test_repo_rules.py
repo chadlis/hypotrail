@@ -12,7 +12,7 @@ from hypotrail.cli import build_parser
 ROOT = Path(__file__).resolve().parent.parent
 
 
-# The pathspecs that both scans below share, as the requirement of chadlis/hypotrail#122 asks.
+# The pathspecs that both scans below use, written once.
 HANDBOOK_CHAPTERS_PATHSPEC = ":(glob)docs/handbook/chapters/*.html"
 TESTS_PATHSPEC = "tests/"
 
@@ -35,8 +35,8 @@ def _git_ls_files(pathspecs):
 
 
 # This test enforces a stricter form of AGENTS.md's rule on French quotation marks: no opening French quotation
-# mark (U+00AB) and no closing one (U+00BB) appears in any file it scans. Here the two characters are spelled as
-# escapes, because this test scans its own module.
+# mark (U+00AB) and no closing one (U+00BB) appears in any file it scans. The code below spells the two characters
+# as escapes, because this test scans its own module.
 # docs/adr/ beyond ADR 0004 is not scanned: ADR 0002's French quotation marks hold a recorded quotation, and its
 # 2026-11-08 note records the harm of rewriting an ADR in place.
 # The French string in tests/test_report.py is written as escapes, so the scan keeps no named exception
