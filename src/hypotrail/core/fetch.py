@@ -24,6 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from hypotrail.core.errors import (
@@ -277,11 +278,14 @@ class _Temporary:
             self.path.unlink(missing_ok=True)
 
 
+# The explicit alternative every refusal of a download names (#22 C6): the one place its words are written.
+VERIFIED_BUNDLE = "the already verified bundle is the explicit alternative: run `data verify` on the committed data"
+
+
 def _failed(file: str, host: str, reason: str, status: int | None = None) -> HypotrailError:
     return HypotrailError(
         "DOWNLOAD_FAILED",
-        f"could not download {file} (host {host}: {reason}); nothing was published and no other source is tried; "
-        "the already verified bundle is the explicit alternative: run `data verify` on the committed data",
+        f"could not download {file} (host {host}: {reason}); nothing was published and no other source is tried; {VERIFIED_BUNDLE}",
         stage="download",
         details={"file": file, "host": host, "reason": reason, "status": status},
         exit_code=EXIT_INFRASTRUCTURE,
@@ -297,30 +301,64 @@ def _too_large(file: str, what: str, bound: int) -> IntegrityError:
     )
 
 
-_BUNDLE = "the already verified bundle is the explicit alternative: run `data verify` on the committed data"
+@dataclass(frozen=True)
+class _Outcome:
+    """What one transfer (or one extraction) came to, computed once; `_check` decides from it and from nothing else."""
+
+    file: str
+    what: str  # "file", "archive", "notice" or "member"
+    host: str | None  # the final host of a transfer
+    framing: str | None  # "length" (a Content-Length), "chunked", "unframed" (neither); None for a member, which was not transferred
+    announced: int | None  # the Content-Length, when there is one
+    received: int  # bytes that arrived
+    lock_size: int | None  # the lock's size_bytes for this body, or None where the lock gives none (the archive, a notice)
+    sha256: str  # of the bytes that arrived
 
 
-def _mismatch(file: str, what: str, expected: str, actual: str, *, sizes: tuple[int, int] | None = None, unsized: bool = False) -> IntegrityError:
-    """A download that differs from the lock. `sizes` (the lock's, then the received) when only the size differs; `unsized` for a
-    transfer whose lock gives no size, where a server may have cut an unframed body short and HTTP cannot tell it from a differing one."""
-    if sizes is not None:
-        what_differs = f"does not match the lock: its size is {sizes[1]} bytes and the lock says {sizes[0]} bytes (the sha256 matches)"
+def _check(outcome: _Outcome, expected_sha256: str) -> None:
+    """The one table from an outcome to its refusal; return when the body is whole and equal to the lock.
+
+    Exits are those of #22 C4, C6, H, J and K. In order:
+    - a body that announced a `Content-Length` and delivered fewer bytes is a cut transfer (`DOWNLOAD_FAILED`, `interrupted`, exit 4);
+    - an unframed body (no `Content-Length`, not chunked) shorter than the lock's `size_bytes` is a cut transfer too (D-020 on
+      chadlis/hypotrail#75, #22 Tightened K); only `received < size_bytes` triggers it;
+    - a different SHA-256 is `DOWNLOAD_INTEGRITY`, exit 3, and so is the same SHA-256 with a different size;
+    - the hint that a server may have cut the body short is given only where HTTP cannot tell that from a differing body: an
+      unframed transfer whose lock gives no size.
+    """
+    o = outcome
+    if o.framing == "length" and o.received != o.announced:
+        raise _failed(o.file, o.host, "interrupted")
+    if o.framing == "unframed" and o.lock_size is not None and o.received < o.lock_size:
+        raise _failed(o.file, o.host, "interrupted")
+    hash_differs = o.sha256 != expected_sha256
+    if not hash_differs and (o.lock_size is None or o.received == o.lock_size):
+        return
+    if hash_differs:
+        differs = f"does not match the lock (expected sha256 {expected_sha256}, got {o.sha256})"
     else:
-        what_differs = f"does not match the lock (expected sha256 {expected}, got {actual})"
-    hint = "; a body that a server cut short without announcing a length cannot be told from a differing one here" if unsized else ""
-    return IntegrityError(
+        differs = f"does not match the lock: its size is {o.received} bytes and the lock says {o.lock_size} bytes (the sha256 matches)"
+    hint = "; a body that a server cut short without announcing a length cannot be told from a differing one here" if o.framing == "unframed" and o.lock_size is None else ""
+    raise IntegrityError(
         "DOWNLOAD_INTEGRITY",
-        f"the {what} of {file} {what_differs}: nothing was published{hint}; {_BUNDLE}",
+        f"the {o.what} of {o.file} {differs}: nothing was published{hint}; {VERIFIED_BUNDLE}",
         stage="integrity",
-        details={"file": file, "what": what, "expected_sha256": expected, "actual_sha256": actual},
+        details={
+            "file": o.file,
+            "what": o.what,
+            "expected_sha256": expected_sha256,
+            "actual_sha256": o.sha256,
+            "size_bytes": o.lock_size,  # the lock's, or None
+            "actual_size_bytes": o.received,
+        },
     )
 
 
-def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary, lock_size: int | None = None) -> tuple[str, int]:
-    """Write the body of `url` to the temporary file, stopping as soon as it passes `bound`; return its SHA-256 and size.
+def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary, lock_size: int | None = None) -> _Outcome:
+    """Write the body of `url` to the temporary file, stopping as soon as it passes `bound`; return what arrived.
 
-    A body that is framed (a `Content-Length`, or chunked) and ends short is a cut transfer. An unframed one is a cut transfer
-    only when it is shorter than `lock_size` (D-020); where the lock gives no size it cannot be told from a differing body.
+    A read that fails (a reset, a timeout, a chunked body that ends before its last chunk) is a cut transfer at once; every other
+    judgement is `_check`'s, made on the returned outcome.
     """
     try:
         response = open_url(url)
@@ -333,9 +371,10 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary,
     digest, total = hashlib.sha256(), 0
     host = host_of(response.geturl()) if hasattr(response, "geturl") else host_of(url)  # the final host, after any redirect
     with response:
-        announced = response.headers.get("Content-Length")
+        length = response.headers.get("Content-Length")
+        announced = int(length) if length is not None and length.isdigit() else None
         chunked = "chunked" in (response.headers.get("Transfer-Encoding") or "").lower()
-        if announced is not None and announced.isdigit() and int(announced) > bound:
+        if announced is not None and announced > bound:
             raise _too_large(file, what, bound)
         while True:
             try:
@@ -349,22 +388,15 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary,
                 raise _too_large(file, what, bound)
             digest.update(block)
             temporary.handle.write(block)
-    if announced is not None and announced.isdigit() and total != int(announced):
-        raise _failed(file, host, "interrupted")  # the connection closed before the announced length arrived
-    if announced is None and not chunked and lock_size is not None and total < lock_size:
-        raise _failed(file, host, "interrupted")  # unframed, and fewer bytes than the lock says: the connection was cut
-    return digest.hexdigest(), total
+    framing = "length" if announced is not None else "chunked" if chunked else "unframed"
+    return _Outcome(file, what, host, framing, announced, total, lock_size, digest.hexdigest())
 
 
 def _fetch_file(url: str, target: Path, file: str, sha256: str, size: int | None, what: str) -> None:
     """Download `url` and publish it at `target`: temporary file, bound, hash (and size), atomic rename."""
     bound = GENERIC_CAP_BYTES if size is None else size
     with _Temporary(target) as temporary:
-        actual, total = _transfer(url, file, what, bound, temporary, size)
-        if actual != sha256:
-            raise _mismatch(file, what, sha256, actual, unsized=size is None)
-        if size is not None and total != size:
-            raise _mismatch(file, what, sha256, actual, sizes=(size, total))
+        _check(_transfer(url, file, what, bound, temporary, size), sha256)
         temporary.publish(target)
 
 
@@ -381,9 +413,7 @@ def _fetch_member(source: dict, target: Path, file: str) -> None:
     """Download the archive, check it against `archive_sha256`, and only then open it to extract the one `member`."""
     member = source["member"]
     with _Temporary(target) as archive:
-        actual, _ = _transfer(source["download_url"], file, "archive", GENERIC_CAP_BYTES, archive)
-        if actual != source["archive_sha256"]:
-            raise _mismatch(file, "archive", source["archive_sha256"], actual, unsized=True)
+        _check(_transfer(source["download_url"], file, "archive", GENERIC_CAP_BYTES, archive), source["archive_sha256"])
         archive.handle.flush()
         try:
             with zipfile.ZipFile(archive.path) as zipped:
@@ -405,10 +435,7 @@ def _fetch_member(source: dict, target: Path, file: str) -> None:
                             raise _too_large(file, "member", bound)
                         digest.update(block)
                         extracted.handle.write(block)
-                    if digest.hexdigest() != source["sha256"]:
-                        raise _mismatch(file, "member", source["sha256"], digest.hexdigest())
-                    if total != bound:
-                        raise _mismatch(file, "member", source["sha256"], digest.hexdigest(), sizes=(bound, total))
+                    _check(_Outcome(file, "member", None, None, None, total, bound, digest.hexdigest()), source["sha256"])
                     extracted.publish(target)
         except (zipfile.BadZipFile, RuntimeError, NotImplementedError, EOFError):
             raise _member_refused(file, member, "unreadable") from None

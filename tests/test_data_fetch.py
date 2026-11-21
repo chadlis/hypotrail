@@ -344,38 +344,96 @@ def test_k_where_the_lock_gives_no_size_an_unframed_short_archive_or_notice_stay
     assert named_bundle(payload["error"], err) and not (tmp_path / "dn" / "licenses" / "N.txt").exists()
 
 
-def test_r2_01_each_integrity_message_says_only_what_can_be_true_of_its_transfer_and_names_the_bundle(stand, tmp_path):
-    cut = "cut short"  # the hint that a server may have cut an unframed body that the lock gives no size for
-    wrong = b"alpha,beta\n9,9\n"
-    # a data file whose lock gives a size: the hint cannot be true
-    stand.routes["/wrong"] = wrong
-    status, payload, err = fetch(write_lock(tmp_path / "f", source(stand, "/wrong", BODY, "data/a.csv")), tmp_path / "df")
-    message = payload["error"]["message"]
-    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err) and cut not in message
-    assert f"expected sha256 {sha256(BODY)}, got {sha256(wrong)}" in message
-    # the same file, hash right and size wrong in the lock: the sizes are stated, not « expected sha256 X, got X »
-    stand.routes["/ok"] = BODY
-    status, payload, err = fetch(write_lock(tmp_path / "s", source(stand, "/ok", BODY, "data/a.csv", size_bytes=len(BODY) + 3)), tmp_path / "ds")
-    message = payload["error"]["message"]
-    assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err)
-    assert f"{len(BODY)} bytes" in message and f"{len(BODY) + 3} bytes" in message and "got " + sha256(BODY) not in message and cut not in message
-    # an archive and a notice, which have no size in the lock: the hint can be true
-    archive = make_zip({"day.csv": BODY})
-    stand.routes["/archive"] = archive
-    entry = source(stand, "/archive", BODY, "data/day.csv", archive_sha256="2" * 64, member="day.csv")
-    status, payload, err = fetch(write_lock(tmp_path / "a", entry), tmp_path / "da")
-    assert (payload["error"]["details"]["what"], cut in payload["error"]["message"]) == ("archive", True) and named_bundle(payload["error"], err)
-    stand.routes["/notice"] = b"other\n"
-    entry = source(stand, "/ok", BODY, "data/a.csv", notice="licenses/N.txt", notice_url=stand.url("/notice"), notice_sha256=sha256(b"licence\n"))
-    status, payload, err = fetch(write_lock(tmp_path / "n", entry), tmp_path / "dn")
-    assert (payload["error"]["details"]["what"], cut in payload["error"]["message"]) == ("notice", True) and named_bundle(payload["error"], err)
-    # a member extracted from an archive that matched archive_sha256: never cut, for a wrong hash and for a wrong size
+# The outcome matrix of one transfer (10-R2-01, 10-R3-01): framing x what the lock gives x result. Each cell is fixed by #22 C4, C6, H, J and K.
+
+NOTICE = b"licence text of the test source\n"
+ARCHIVE = make_zip({"day.csv": BODY})
+HINT = "cut short"  # the hint that a server may have cut an unframed body short, which HTTP cannot tell from a differing one
+INTEGRITY_KEYS = {"file", "what", "expected_sha256", "actual_sha256", "size_bytes", "actual_size_bytes"}
+FAILED_KEYS = {"file", "host", "reason", "status"}
+FRAMINGS = ("Content-Length", "chunked", "unframed")
+LOCKS = ("data file", "archive", "notice")  # the data file's lock gives a size_bytes; the archive's and the notice's give none
+RESULTS = ("whole and equal", "whole and different hash", "size-only difference", "short")
+
+
+def _served(framing, body, sent):
+    if framing == "Content-Length":
+        return body if sent == len(body) else cut_after(body, sent)
+    if framing == "chunked":
+        return chunked_whole(body) if sent == len(body) else cut_chunked(body, sent)
+    return cut_without_length(body, sent)
+
+
+def _expected(framing, lock, result):
+    """(exit, code, reason, hint) of a cell; None for a transfer that succeeds."""
+    framed = framing != "unframed"
+    if result == "whole and equal":
+        return None
+    if lock == "data file":
+        if result == "whole and different hash":
+            return (3, "DOWNLOAD_INTEGRITY", None, False)
+        if result == "size-only difference" and framed:
+            return (3, "DOWNLOAD_INTEGRITY", None, False)
+        return (4, "DOWNLOAD_FAILED", "interrupted", False)  # a cut, or (D-020) an unframed body shorter than the lock's size
+    if result == "whole and different hash":
+        return (3, "DOWNLOAD_INTEGRITY", None, not framed)
+    return (4, "DOWNLOAD_FAILED", "interrupted", False) if framed else (3, "DOWNLOAD_INTEGRITY", None, True)  # unframed and unsized: no telling
+
+
+def _cells():
+    for framing in FRAMINGS:
+        for lock in LOCKS:
+            for result in RESULTS:
+                marks = ()
+                if lock != "data file" and result == "size-only difference":
+                    marks = (pytest.mark.skip(reason="cannot occur: the archive's and the notice's lock give no size_bytes for the body to differ from"),)
+                yield pytest.param(framing, lock, result, marks=marks, id=f"{framing}-{lock}-{result}".replace(" ", "_"))
+
+
+@pytest.mark.parametrize(("framing", "lock", "result"), list(_cells()))
+def test_the_outcome_matrix_gives_each_framing_lock_and_result_its_exit_code_reason_hint_bundle_and_details(stand, tmp_path, framing, lock, result):
+    full = {"data file": BODY, "archive": ARCHIVE, "notice": NOTICE}[lock]
+    served = {"whole and equal": full, "whole and different hash": b"z" * len(full), "size-only difference": full, "short": full}[result]
+    sent = 5 if result == "short" else len(full)
+    stand.routes["/body"], stand.routes["/ok"] = _served(framing, served, sent), BODY
+    if lock == "data file":
+        size = len(BODY) + 3 if result == "size-only difference" else len(BODY)
+        entry, published = source(stand, "/body", BODY, "data/a.csv", size_bytes=size), "data/a.csv"
+    elif lock == "archive":
+        entry, published = source(stand, "/body", BODY, "data/day.csv", archive_sha256=sha256(ARCHIVE), member="day.csv"), "data/day.csv"
+    else:
+        entry = source(stand, "/ok", BODY, "data/a.csv", notice="licenses/N.txt", notice_url=stand.url("/body"), notice_sha256=sha256(NOTICE))
+        published = "licenses/N.txt"
+    dest = tmp_path / "dest"
+    status, payload, err = fetch(write_lock(tmp_path / "l", entry), dest)
+    expected = _expected(framing, lock, result)
+    if expected is None:
+        assert status == 0 and (dest / published).read_bytes() == (BODY if lock != "notice" else NOTICE)
+        return
+    exit_code, code, reason, hint = expected
+    error = payload["error"]
+    assert (status, error["code"], error["details"].get("reason")) == (exit_code, code, reason)
+    assert (HINT in error["message"]) is hint
+    assert "verified bundle" in error["message"] and "data verify" in error["message"] and "data verify" in err
+    assert set(error["details"]) == (INTEGRITY_KEYS if code == "DOWNLOAD_INTEGRITY" else FAILED_KEYS)
+    assert not (dest / published).exists() and not list(dest.rglob("*.part"))  # nothing published, no temporary file left
+    if code == "DOWNLOAD_INTEGRITY":
+        details = error["details"]
+        assert details["actual_size_bytes"] == sent
+        assert details["size_bytes"] == (None if lock != "data file" else (len(BODY) + 3 if result == "size-only difference" else len(BODY)))
+        if result == "size-only difference":  # the hash matches: the sizes are stated, not « expected sha256 X, got X »
+            assert details["expected_sha256"] == details["actual_sha256"]
+            assert f"{len(BODY)} bytes" in error["message"] and f"{len(BODY) + 3} bytes" in error["message"] and "got " not in error["message"]
+
+
+def test_the_extracted_member_mismatch_carries_no_cut_hint_names_the_bundle_and_keeps_the_integrity_details(stand, tmp_path):
+    # the member came out of an archive that already matched archive_sha256: it cannot be a cut body (framing: none, nothing transferred).
     for changes in ({"sha256": "1" * 64}, {"size_bytes": len(BODY) + 1}):
-        status, payload, err = fetch(archive_lock(stand, tmp_path, archive, **changes), tmp_path / "dm")
-        message = payload["error"]["message"]
-        assert (payload["error"]["details"]["what"], cut in message) == ("member", False) and named_bundle(payload["error"], err), changes
-        if "size_bytes" in changes:
-            assert "got " + sha256(BODY) not in message and f"{len(BODY)} bytes" in message and f"{len(BODY) + 1} bytes" in message
+        status, payload, err = fetch(archive_lock(stand, tmp_path, ARCHIVE, **changes), tmp_path / "dm")
+        error = payload["error"]
+        assert (status, error["code"], error["details"]["what"]) == (3, "DOWNLOAD_INTEGRITY", "member") and HINT not in error["message"]
+        assert "verified bundle" in error["message"] and "data verify" in err and set(error["details"]) == INTEGRITY_KEYS
+        assert error["details"]["actual_size_bytes"] == len(BODY) and error["details"]["size_bytes"] == changes.get("size_bytes", len(BODY))
 
 
 def urlpath(url):
