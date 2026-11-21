@@ -127,6 +127,7 @@ def test_the_dates_cover_dev_and_public_check():
 
 @pytest.mark.parametrize("day", DATES)
 def test_seasonal_7_prediction_for_t_ignores_cnt_from_t_on(tmp_path, day):
+    """T04 (SPEC §10)."""
     original = make_workload(tmp_path, "orig")
     changed = make_workload(tmp_path, "changed", change_from=day)
     assert seasonal_prediction(original, day, tmp_path / "a") == seasonal_prediction(changed, day, tmp_path / "b")
@@ -134,6 +135,7 @@ def test_seasonal_7_prediction_for_t_ignores_cnt_from_t_on(tmp_path, day):
 
 @pytest.mark.parametrize("day", DATES)
 def test_ridge_v1_prediction_for_t_and_train_parameters_ignore_cnt_from_t_on(tmp_path, original_ridge, day):
+    """T04 (SPEC §10)."""
     changed = make_workload(tmp_path, "changed", change_from=day)
     prediction, state = ridge_run(changed, day)
     original_prediction, original_state = original_ridge[day]

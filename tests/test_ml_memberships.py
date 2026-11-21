@@ -22,6 +22,7 @@ def read_memberships(out_dir):
 
 
 def test_bike_memberships_counts_and_warm_up(tmp_path):
+    """T02 (SPEC §10)."""
     write_memberships(BIKE, tmp_path)
     rows = read_memberships(tmp_path)
 

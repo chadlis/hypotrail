@@ -61,6 +61,7 @@ class CountingCursor(sqlite3.Cursor):
 
 
 def test_more_than_200_rows_return_the_first_200_in_order_and_fetch_at_most_201():
+    """T15 (SPEC §10)."""
     CountingCursor.fetched = 0
     result = sql_tool.run_query(
         DATABASE, "SELECT TrackId FROM Track ORDER BY TrackId", cursor_factory=CountingCursor
@@ -83,6 +84,7 @@ def test_exactly_200_rows_are_not_truncated():
 
 def test_a_result_over_64_kib_is_cut_to_at_most_64_kib_and_flagged():
     # 150 rows of about 1 KiB or more each: under 200 rows, over 64 KiB
+    """T15 (SPEC §10)."""
     sql = "SELECT TrackId, " + " || ".join(["Name"] * 40) + " FROM Track LIMIT 150"
     full = sql_tool.run_query(DATABASE, sql, caps=QueryCaps(max_bytes=10**9))
     assert len(json.dumps(full["rows"])) > 64 * 1024  # the case is real
@@ -118,6 +120,7 @@ def test_the_instruction_ceiling_alone_stops_a_costly_query():
 
 
 def test_the_default_caps_stop_the_costly_query_with_a_code_naming_a_limit_in_bounded_time():
+    """T15 (SPEC §10)."""
     started = time.monotonic()
     result = sql_tool.run_query(DATABASE, CROSS_JOIN)
     assert result["error"]["code"] in {"TIME_LIMIT", "INSTRUCTION_LIMIT"}

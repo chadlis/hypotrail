@@ -36,6 +36,7 @@ def examples_copy(tmp_path):
 
 
 def test_both_datasets_verify_with_no_workload_given():
+    """T01 (SPEC §10)."""
     code, out, _ = run_cli("data", "verify", "--json")
     assert code == 0
     report = json.loads(out)
@@ -85,6 +86,7 @@ def test_unknown_workload_is_an_invalid_input():
 def test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file(
     examples_copy, workload, relative
 ):
+    """T01 (SPEC §10)."""
     path = examples_copy / workload / relative
     raw = bytearray(path.read_bytes())
     raw[len(raw) // 2] ^= 0x01
@@ -102,6 +104,7 @@ def test_a_flipped_byte_is_refused_with_the_integrity_code_naming_the_file(
 
 
 def test_the_content_checks_never_run_on_tampered_bytes(examples_copy, monkeypatch):
+    """T01 (SPEC §10)."""
     def must_not_run(*args, **kwargs):
         raise AssertionError("a content check ran before the bytes were verified")
 

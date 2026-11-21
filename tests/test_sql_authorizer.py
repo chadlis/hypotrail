@@ -32,6 +32,7 @@ def test_the_references_with_an_oracle_sql_are_the_sixteen_of_the_kit():
 
 @pytest.mark.parametrize("reference", ORACLES, ids=lambda r: r["case_id"])
 def test_the_tool_returns_exactly_the_reference_columns_and_rows(reference):
+    """T13 (SPEC §10)."""
     result = sql_tool.run_query(DATABASE, reference["oracle_sql"])
     assert result["error"] is None
     assert result["truncated"] is False
@@ -41,6 +42,7 @@ def test_the_tool_returns_exactly_the_reference_columns_and_rows(reference):
 
 
 def test_a_scripted_join_episode_projects_the_call_then_the_same_rows_with_the_tool_call_id(tmp_path):
+    """T13 (SPEC §10)."""
     cases = case_module.load_cases(CASES, ["D03"])
     location = runner.run_episodes(
         cases,
@@ -91,6 +93,7 @@ REFUSED_AS_DENIED = [
 
 @pytest.mark.parametrize("statement", REFUSED_AS_DENIED)
 def test_a_refused_statement_has_the_denied_code_and_leaves_the_file_unchanged(tmp_path, statement):
+    """T14 (SPEC §10)."""
     before = sha(DATABASE)
     result = sql_tool.run_query(DATABASE, statement.format(path=tmp_path / "out.db"))
     assert result["error"]["code"] == DENIED
@@ -100,6 +103,7 @@ def test_a_refused_statement_has_the_denied_code_and_leaves_the_file_unchanged(t
 
 
 def test_two_statements_in_one_call_have_their_own_code_and_leave_the_file_unchanged():
+    """T14 (SPEC §10)."""
     before = sha(DATABASE)
     result = sql_tool.run_query(DATABASE, "SELECT 1; DROP TABLE Genre")
     assert result["error"]["code"] == MULTIPLE

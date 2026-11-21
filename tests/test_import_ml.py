@@ -39,6 +39,7 @@ def measures(study, attempt, scorer="regression_mae_v1"):
 
 
 def test_the_exporter_runs_where_hypotrail_cannot_be_imported_and_writes_its_csv(tmp_path):
+    """T07 (SPEC §10)."""
     out = tmp_path / "out.csv"
     blocker = textwrap.dedent(
         """
@@ -67,6 +68,7 @@ def test_the_exporter_runs_where_hypotrail_cannot_be_imported_and_writes_its_csv
 
 
 def test_the_export_is_accepted_and_its_permutation_is_too_with_the_same_measures(tmp_path, study):
+    """T07 (SPEC §10)."""
     source, mapping, population, digest = ready(tmp_path)
     code, payload, err = import_ml(study, source, mapping, population, "imp-a")
     assert code == 0, (payload, err)
@@ -112,6 +114,7 @@ CASES = {
 
 @pytest.mark.parametrize("case", sorted(CASES))
 def test_each_fault_of_the_file_is_refused_with_exit_2_its_code_and_nothing_is_published(tmp_path, study, case):
+    """T08 (SPEC §10)."""
     edit, expected = CASES[case]
     good, digest = export(tmp_path)
     source = write_rows(tmp_path / "broken.csv", edit(rows_of(good)), FIELDS)
@@ -154,6 +157,7 @@ def test_a_mapping_without_the_dataset_digest_is_refused_with_a_code_exit_2(tmp_
 
 
 def test_a_dataset_digest_other_than_the_workload_locks_is_an_integrity_refusal_exit_3_and_publishes_nothing(tmp_path, study):
+    """T08 (SPEC §10)."""
     source, digest = export(tmp_path)
     wrong = ("0" if digest[0] != "0" else "1") + digest[1:]
     before = snapshot(study)
@@ -262,6 +266,7 @@ def test_the_observation_set_of_an_import_is_imported_and_scored_like_a_native_o
 
 
 def test_an_import_with_no_producer_information_keeps_its_unknowns_can_be_assessed_and_claims_no_independence(tmp_path, study):
+    """T09 (SPEC §10)."""
     source, mapping, population, _ = ready(tmp_path)
     _, payload, _ = import_ml(study, source, mapping, population, "imp")
     folder = attempt_dir(study, payload["attempt"])
@@ -274,6 +279,7 @@ def test_an_import_with_no_producer_information_keeps_its_unknowns_can_be_assess
 
 
 def test_whether_the_producer_saw_public_check_stays_unknown_even_when_the_mapping_declares_the_rest(tmp_path, study):
+    """T09 (SPEC §10)."""
     source, mapping, population, _ = ready(tmp_path, model="m", generated_at="2026-10-01", historical_protocol="rolling", tool_use="none")
     _, payload, _ = import_ml(study, source, mapping, population, "imp")
     record = json.loads((attempt_dir(study, payload["attempt"]) / "observation_set.json").read_text())

@@ -25,6 +25,7 @@ def refused(study, control, candidate, code, check, reason):
 
 
 def test_two_populations_are_refused(fresh):
+    """T12 (SPEC §10)."""
     study, attempts, control, candidate = fresh
     other = construct(study, attempts["ridge_v1"], lambda rows: rows, provenance={"partition": "train"})
     train = forged(study, candidate, lambda r: r.update(observation_set_id=other))
@@ -41,6 +42,7 @@ def test_two_references_sets_are_refused(fresh):
 
 @pytest.mark.parametrize("field,value", [("id", "regression_rmse_v1"), ("version", "2"), ("config_digest", "c" * 64)])
 def test_two_scorers_or_two_versions_or_digests_of_one_scorer_are_refused(fresh, field, value):
+    """T12 (SPEC §10)."""
     study, _, control, candidate = fresh
     other = forged(study, candidate, lambda r: r["scorer"].update({field: value}))
     details = refused(study, control, other, "COMPARISON_SCORER_DIFFERS", "scorer", "scorer_differs")
@@ -48,6 +50,7 @@ def test_two_scorers_or_two_versions_or_digests_of_one_scorer_are_refused(fresh,
 
 
 def test_two_units_are_refused(fresh):
+    """T12 (SPEC §10)."""
     study, _, control, candidate = fresh
     other = forged(study, candidate, lambda r: r["metrics"][0].update(unit="visits per day"))
     details = refused(study, control, other, "COMPARISON_UNIT_DIFFERS", "unit", "unit_differs")
@@ -55,6 +58,7 @@ def test_two_units_are_refused(fresh):
 
 
 def test_items_that_differ_by_one_are_refused_with_the_counts_on_each_side_and_no_intersection(fresh):
+    """T12 (SPEC §10)."""
     study, _, control, candidate = fresh
     other = forged(study, candidate, per_item=lambda rows: rows[:-1])
     details = refused(study, control, other, "COMPARISON_ITEMS_DIFFER", "items", "items_differ")
@@ -112,6 +116,7 @@ def test_an_unknown_assessment_is_refused_and_its_id_is_never_a_path(fresh):
 
 
 def test_two_modes_of_production_that_are_not_an_import_are_refused(fresh):
+    """T12 (SPEC §10)."""
     study, attempts, control, candidate = fresh
     scripted = construct(study, attempts["ridge_v1"], lambda rows: rows, mode="scripted_fixture")
     other = forged(study, candidate, lambda r: r.update(observation_set_id=scripted))

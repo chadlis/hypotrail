@@ -48,6 +48,7 @@ def imported(tmp_path, study, log, population_keys, request_id="log"):
 
 
 def test_a_log_is_accepted_as_an_import_attempt_with_every_expected_episode(tmp_path, study):
+    """T23 (SPEC §10)."""
     log = scripted_log(tmp_path, ("D01", "D03"), repeats=2)
     attempt = imported(tmp_path, study, log, keys("D01", "D03", repeats=2))
     contracts.validate(attempt)
@@ -202,6 +203,7 @@ def refs_of(attempt):
 
 
 def test_the_original_log_is_copied_with_its_digest_and_a_validation_report_is_kept(tmp_path, study):
+    """T23 (SPEC §10)."""
     log = scripted_log(tmp_path, ("D01", "D03"))
     population = episodes_file(tmp_path, keys("D01", "D03"))
     attempt = imported(tmp_path, study, log, keys("D01", "D03"))

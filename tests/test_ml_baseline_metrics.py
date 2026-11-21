@@ -58,6 +58,7 @@ def bike_outputs(tmp_path):
 
 
 def test_seasonal_7_predicts_cnt_seven_days_earlier_for_each_dev_item(bike_outputs):
+    """T06 (SPEC §10)."""
     predictions = rows_of(bike_outputs / "predictions.csv")
     cnt = bike_cnt()
 
@@ -92,6 +93,7 @@ def test_references_artifact_holds_row_id_and_y_true(bike_outputs):
 
 
 def test_seasonal_7_makes_no_fit_call_and_the_probe_does_fire_when_ridge_v1_is_produced(tmp_path):
+    """T05 (SPEC §10)."""
     write_memberships(BIKE, tmp_path)
     with fit_probe(strict=True) as probe:
         write_seasonal_baseline(BIKE, tmp_path, "seasonal_7", "dev")
@@ -108,6 +110,7 @@ def test_seasonal_7_makes_no_fit_call_and_the_probe_does_fire_when_ridge_v1_is_p
 
 
 def test_metrics_match_an_independent_calculation(bike_outputs):
+    """T06 (SPEC §10)."""
     cnt = bike_cnt()
     errors, by_month = [], {}
     for d in dev_dates():

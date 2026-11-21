@@ -189,6 +189,7 @@ def test_the_concurrency_probe_would_see_parallel_episodes(tmp_path):
 
 
 def test_the_response_cache_is_off(tmp_path, monkeypatch):
+    """T21 (SPEC §10)."""
     monkeypatch.setenv("INSPECT_CACHE_DIR", str(tmp_path / "cache"))
     script = ScriptedModel(cases())
     run(tmp_path, script, repeats=2)

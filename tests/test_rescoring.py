@@ -78,6 +78,7 @@ def verdict(state, score, reason=None):
 
 
 def test_the_new_assessment_scores_the_same_observation_set_against_the_corrected_set_and_every_earlier_file_keeps_its_digest(tmp_path):
+    """T11 (SPEC §10)."""
     study, observation_set = imported(tmp_path)
     first = assessed(study, observation_set)
     old_references = first["references_ref"]
@@ -123,6 +124,7 @@ def test_an_assessment_applies_the_references_of_its_own_revision(tmp_path):
 
 
 def test_a_corrected_reference_version_flips_the_expected_item_and_the_new_assessment_says_why(tmp_path):
+    """T11 (SPEC §10)."""
     study, observation_set = imported(tmp_path)
     first = assessed(study, observation_set)
     revised(study, correct_d03, tmp_path, "corrected")

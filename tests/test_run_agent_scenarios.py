@@ -28,6 +28,7 @@ def scenario_attempt(tmp_path_factory):
 
 
 def test_the_scenario_attempt_runs_the_seven_scenarios_with_the_mock_model_and_holds_no_episode_of_a_workload_case(scenario_attempt):
+    """T16 (SPEC §10)."""
     study, attempt = scenario_attempt
     contracts.validate(attempt)
     assert (attempt["mode"], attempt["operation"], attempt["technical_status"]) == ("scripted_fixture", "execute", "completed")

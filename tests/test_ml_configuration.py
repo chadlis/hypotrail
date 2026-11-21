@@ -84,6 +84,7 @@ def test_a_workload_needs_a_train_partition(tmp_path, partitions):
 
 
 def test_the_workload_declares_the_eight_forbidden_features():
+    """T03 (SPEC §10)."""
     declared = json.loads((BIKE / "workload.json").read_text(encoding="utf-8"))["forbidden_features"]
     assert declared == FORBIDDEN
 
@@ -91,6 +92,7 @@ def test_the_workload_declares_the_eight_forbidden_features():
 @pytest.mark.parametrize("where", ["calendar_columns", "encoder", "scaler", "lag_features"])
 @pytest.mark.parametrize("column", FORBIDDEN)
 def test_forbidden_column_is_refused_in_every_input_list(tmp_path, column, where):
+    """T03 (SPEC §10)."""
     error = refusal(workload_with(tmp_path, inject(column, where)))
     assert error.code == "FORBIDDEN_FEATURE"
     assert error.details["feature"] == column
@@ -99,6 +101,7 @@ def test_forbidden_column_is_refused_in_every_input_list(tmp_path, column, where
 
 @pytest.mark.parametrize("column", FORBIDDEN)
 def test_refusal_writes_no_predictions(tmp_path, column):
+    """T03 (SPEC §10)."""
     workload = workload_with(tmp_path, inject(column, "calendar_columns"))
     out = tmp_path / "out"
     with pytest.raises(InvalidInputError):
@@ -130,6 +133,7 @@ def test_missing_forbidden_declaration_fails_closed(tmp_path):
 
 @pytest.mark.parametrize("period", [0, -1, -7])
 def test_target_feature_reaching_date_t_or_later_is_refused(tmp_path, period):
+    """T03 (SPEC §10)."""
     def edit(declaration):
         declaration["configurations"]["ridge_v1"]["lag_features"][0]["period"] = period
 

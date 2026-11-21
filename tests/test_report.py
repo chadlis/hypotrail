@@ -142,6 +142,7 @@ def test_J_an_existing_output_is_replaced_and_an_output_inside_the_study_is_refu
 
 
 def test_A_nothing_is_loaded_from_outside_and_an_external_address_is_shown_as_text(world):
+    """T22 (SPEC §10)."""
     _, facts, out, doc, _ = world
     for tag, attrs in doc.elements:
         assert tag not in ("link", "script", "iframe", "img", "object", "embed", "base"), tag
@@ -178,6 +179,7 @@ def test_B_every_relative_link_resolves_from_the_folder_of_the_output_to_the_art
 
 
 def test_C_the_page_holds_no_script_so_nothing_is_computed_when_it_is_opened(world):
+    """T22 (SPEC §10)."""
     _, _, out, doc, _ = world
     text = out.read_text(encoding="utf-8").lower()
     assert not [tag for tag, _ in doc.elements if tag in ("script", "noscript")]
@@ -185,6 +187,7 @@ def test_C_the_page_holds_no_script_so_nothing_is_computed_when_it_is_opened(wor
 
 
 def test_the_report_succeeds_with_the_network_guard_on_and_fit_prediction_generation_and_tools_replaced_by_functions_that_fail(world, tmp_path, network_guard, monkeypatch):
+    """T10, T22 (SPEC §10)."""
     from _ml_helpers import fit_probe
 
     from hypotrail.agentic import inspect_log, runner, sql_tool

@@ -25,6 +25,7 @@ def test_the_order_of_a_list_is_part_of_the_digest():
 
 @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
 def test_nan_and_infinity_are_refused_never_written(value):
+    """T21 (SPEC §10)."""
     with pytest.raises(InvalidInputError) as caught:
         canonical.dumps({"metrics": {"mae": value}})
     assert caught.value.code == "NON_CANONICAL_VALUE"

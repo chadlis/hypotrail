@@ -143,6 +143,7 @@ def test_each_assessment_shows_a_matrix_one_row_per_case_one_column_per_repeat_e
 
 
 def test_an_import_with_no_trace_says_trace_absent_and_an_instrument_failure_is_shown_apart_from_a_format_failure_of_the_system(tmp_path):
+    """T17 (SPEC §10)."""
     study, _ = init_chinook(tmp_path)
     lines = answer_lines(repeats=1, traced=False, failed={("D07", 0)})
     by_case = {line["case_id"]: line for line in lines}

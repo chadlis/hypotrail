@@ -48,6 +48,7 @@ def error_of(payload):
 
 
 def test_a_complete_file_is_accepted_as_an_import_attempt(tmp_path, study):
+    """T23 (SPEC §10)."""
     code, payload, err = import_agent(study, FIXTURE, fixture_population(tmp_path), "imp")
     assert code == 0, (payload, err)
     attempt = payload["attempt"]
@@ -180,6 +181,7 @@ def test_a_failed_and_a_missing_line_stand_for_an_episode_without_an_answer_and_
 
 
 def test_the_import_keeps_the_original_file_its_report_and_the_normalized_observations(tmp_path, study):
+    """T23 (SPEC §10)."""
     population = fixture_population(tmp_path)
     _, payload, _ = import_agent(study, FIXTURE, population, "imp")
     attempt = payload["attempt"]

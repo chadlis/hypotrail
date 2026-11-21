@@ -92,6 +92,7 @@ def independent(predictions_path, cnt):
 
 
 def test_comparison_metrics_and_delta_match_an_independent_calculation(dirs):
+    """T06 (SPEC §10)."""
     result = run(dirs)
     cnt = cnt_by_date()
     control = independent(dirs[1] / "predictions.csv", cnt)
@@ -187,6 +188,7 @@ def test_pairing_is_by_row_id_not_by_position(dirs):
 
 
 def test_a_worse_candidate_still_gives_a_comparison_with_a_positive_delta(dirs):
+    """T06 (SPEC §10)."""
     path = dirs[2] / "predictions.csv"
     rows = rows_of(path)
     with path.open("w", newline="") as h:
