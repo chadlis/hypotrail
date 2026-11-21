@@ -6,7 +6,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). What exists: `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt (the scenarios with Inspect's mock model, or an opt-in paid live Attempt), `import ml` and `import agent` adopt outputs produced elsewhere, `assess` scores them against the Study's References, `compare` writes a Comparison of two Assessments of either Track, `status` and `recover` show and repair a Study's state, `data verify` and `data fetch` check and acquire the public data, and `report` renders one self-contained HTML page for a Study. A Study holds one frozen Protocol per revision, a freeze record and an Exposure journal for `public_check`. The handbook gives each capability in detail.
 
-Acceptance is test by test in the [acceptance grid](docs/handbook/handbook.html#acceptance-grid) (T01–T24). `OFFLINE_ACCEPTED` reached. `LIVE_ACCEPTED` pending: the References review by proxy found E07 ambiguous (a column type), so the live Campaign did not run, and the owner's review is pending. `USABILITY_REVIEW_PENDING` open: an agent walked the README path, no other reader has, and it is not claimed usable by a third party until one has.
+Acceptance is test by test in the [acceptance grid](docs/handbook/handbook.html#acceptance-grid) (T01–T24). `OFFLINE_ACCEPTED` reached. `LIVE_ACCEPTED` conditional: References E01–E10 reviewed by proxy, owner review pending. The Campaign ran on 2026-11-21 (T20 holds); its Configurations' order was not alternated (AG-12). `USABILITY_REVIEW_PENDING` open: an agent walked the README path, no other reader has, and it is not claimed usable by a third party until one has.
 
 ## Install
 
@@ -39,12 +39,12 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 `spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR [--examples-dir DIR]`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
 
-The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`.
+The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
-- [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the live Campaign documented for after the owner's review.
+- [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the account of the live Campaign (T20).
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.

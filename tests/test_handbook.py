@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tomllib
 import unittest.mock
+from collections import Counter
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -2857,7 +2858,7 @@ class Grid(HTMLParser):
         elif tag == "tr" and self._table == "acceptance-grid" and "data-test" in attrs:
             self._row = {
                 "test": attrs["data-test"], "proof": attrs.get("data-proof"), "exit": attrs.get("data-exit"),
-                "what": None, "expected": None, "reason": None, "nodes": [], "walk": [], "command": None, "output": None,
+                "what": None, "expected": None, "reason": None, "nodes": [], "walk": [], "kept": [], "command": None, "output": None,
             }
             self.rows.append(self._row)
         elif tag == "tr" and self._table == "acceptance-status" and "data-status" in attrs:
@@ -2878,6 +2879,8 @@ class Grid(HTMLParser):
                     self._keep(tag, self._row, field)
         elif tag == "a" and self._row is not None and "data-walk" in attrs:
             self._row["walk"].append(attrs.get("href"))
+        elif tag == "a" and self._row is not None and "data-kept" in attrs:
+            self._row["kept"].append(attrs.get("href"))
 
     def handle_endtag(self, tag):
         if self._open and self._open[-1][0] == tag:
@@ -3006,6 +3009,152 @@ def chapter_16():
     return (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
 
 
+# --- #99: T20's proof is the Campaign of #98, kept whole; LIVE_ACCEPTED is conditional, computed from it ----------------------
+
+CAMPAIGN_DIR = HANDBOOK / "traces" / "campaign-public-check"
+CONDITIONAL_WORDS = "References E01–E10 reviewed by proxy, owner review pending"  # D-025 condition 3, verbatim
+OWNER_REVIEW_OF_REFERENCES = "pending"  # not a fact the grid can compute: only the owner lifts it (D-025 condition 3)
+JOIN_SEQUENCE = ("model_turn", "tool_call", "tool_result", "model_turn", "final_answer")  # SPEC AG-10
+
+
+def plain_text(markup):
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", markup)).split())
+
+
+def row_html(page, test_id):
+    return re.search(rf'<tr data-test="{test_id}".*?</tr>', page, re.S)[0]
+
+
+def kept_campaign(kept_dir):
+    """The kept command output and, per Configuration, the Attempt folder with its run record, manifest and observations."""
+    output = json.loads((kept_dir / "command-output.json").read_text(encoding="utf-8"))
+    attempts = {}
+    for folder in sorted((kept_dir / "study" / "attempts").iterdir()):
+        run = json.loads((folder / "run.json").read_text(encoding="utf-8"))
+        attempt = json.loads((folder / "attempt.json").read_text(encoding="utf-8"))
+        lines = (folder / "observations.jsonl").read_text(encoding="utf-8").splitlines()
+        attempts[run["configuration"]] = {"id": folder.name, "run": run, "attempt": attempt, "observations": [json.loads(line) for line in lines if line.strip()]}
+    return output, attempts
+
+
+def flat_limits(limits):
+    flat = {}
+    for key, value in limits.items():
+        if isinstance(value, dict):
+            flat.update({f"{key}.{inner}": inner_value for inner, inner_value in value.items()})
+        elif value is not None:  # `tool_calls` is null: Inspect has no such limit, the chapter says so in words
+            flat[key] = value
+    return flat
+
+
+def limit_text(value):
+    return str(value).lower() if isinstance(value, bool) else str(value)
+
+
+def join_episode(attempt):
+    """The Episode that stands for the Configuration's join trace: Case E02, or E06 if E02 has none produced (D-027 item 7)."""
+    for case in ("E02", "E06"):
+        produced = [o for o in attempt["observations"] if o["case_id"] == case and o["status"] == "produced"]
+        if produced:
+            return case, min(produced, key=lambda o: o["repeat"])
+    return None, None
+
+
+def has_sequence(trace, sequence):
+    kinds = iter(step["kind"] for step in trace)
+    return all(kind in kinds for kind in sequence)
+
+
+def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
+    """#99 A, K, I and #98's conditions: why T20's row is not proven by the kept Campaign; an empty list when it is.
+
+    `row` is the grid's row, `text` its plain text. The row is a command proof with exit 0, every file it names exists, the kept
+    outputs hold 72 Episodes (36 per Attempt) and each recorded exit is 0, no Attempt has all its Episodes failed, the row shows
+    the commands as recorded, the statuses, the tools actually called, the effective limits and the times, and it names one
+    Episode per Configuration on a join Case whose trace holds the sequence of AG-10.
+    """
+    problems = []
+    if row["proof"] != "command" or row["exit"] != "0" or not (row["command"] or "").strip() or not (row["output"] or "").strip():
+        problems.append("the row is not a command proof with exit 0 and its recorded output")
+    if not row["kept"]:
+        problems.append("the row names no kept file")
+    problems += [f"the row names {href}, which does not exist" for href in row["kept"] if not (base / href).resolve().is_file()]
+    try:
+        output, attempts = kept_campaign(kept_dir)
+    except (OSError, ValueError, KeyError) as error:
+        return problems + [f"the kept outputs cannot be read: {error}"]
+    steps = {command["step"]: command for command in output["commands"]}
+    if not steps or any(command["exit_code"] != 0 for command in steps.values()):
+        problems.append(f"a recorded exit is not 0: {sorted(s for s, c in steps.items() if c['exit_code'] != 0)}")
+    if sorted(attempts) != ["plain", "verify"]:
+        return problems + [f"the kept Attempts are {sorted(attempts)}, not plain and verify"]
+    for config, attempt in attempts.items():
+        if len(attempt["observations"]) != 36:
+            problems.append(f"{config}: {len(attempt['observations'])} Episodes, not 36")
+        if not any(o["status"] == "produced" for o in attempt["observations"]):
+            problems.append(f"{config}: every Episode failed, so no model-tool loop is shown (K)")
+    episodes = [o for attempt in attempts.values() for o in attempt["observations"]]
+    if len(episodes) != 72:
+        problems.append(f"{len(episodes)} Episodes, not 72")
+    flat_row = " ".join(text.split())
+    for step in ("run-plain", "run-verify"):
+        command = steps.get(step)
+        if command is None:
+            problems.append(f"{step}: no recorded command")
+            continue
+        if " ".join(command["argv"].split()) not in " ".join((row["command"] or "").split()):
+            problems.append(f"{step}: its recorded command line is not in the row")
+        if " ".join(command["stdout"].split()) not in " ".join((row["output"] or "").split()):
+            problems.append(f"{step}: its recorded output is not in the row")
+        for stamp in (command["started_at"], command["finished_at"]):
+            if not stamp or stamp not in flat_row:
+                problems.append(f"{step}: the time {stamp} is not in the row")
+    if f"{len(episodes)} Episodes" not in flat_row:
+        problems.append("the row does not state the number of Episodes")
+    for status, count in Counter(o["status"] for o in episodes).items():
+        if f"{count} {status}" not in flat_row:
+            problems.append(f"the row does not state {count} {status}")
+    calls = Counter()
+    for attempt in attempts.values():
+        for o in attempt["observations"]:
+            calls.update(step["function"] for step in o["trace"] if step["kind"] == "tool_call")
+    if not calls:
+        problems.append("no tool was called in any Episode")
+    problems += [f"the row does not state {function} {count}" for function, count in sorted(calls.items()) if f"{function} {count}" not in flat_row]
+    limits = {config: flat_limits(attempt["run"]["effective_limits"]) for config, attempt in attempts.items()}
+    if limits["plain"] != limits["verify"]:
+        problems.append("the two Attempts do not record the same effective limits")
+    problems += [f"the row does not state the limit {key} {limit_text(value)}" for key, value in limits["plain"].items() if f"{key} {limit_text(value)}" not in flat_row]
+    served = {attempt["attempt"]["effective_config"]["served_model"] for attempt in attempts.values()}
+    if len(served) != 1:
+        problems.append(f"the Attempts were served by different models: {sorted(served)}")
+    problems += [f"the row does not name the served model {model}" for model in served if model not in flat_row]
+    for config, attempt in attempts.items():
+        case, episode = join_episode(attempt)
+        if episode is None:
+            problems.append(f"{config}: no produced Episode on E02 or E06")
+        elif not has_sequence(episode["trace"], JOIN_SEQUENCE):
+            problems.append(f"{config}: the trace of {case} Repeat {episode['repeat']} has no model, tool, model, final answer sequence")
+        else:
+            for name in (attempt["id"], f"{case} Repeat {episode['repeat']}"):
+                if name not in flat_row:
+                    problems.append(f"the row does not name {name}")
+    for name in ("chadlis/hypotrail#93", "7057388641", "chadlis/hypotrail#95", "7057075785", "order not alternated (AG-12)"):
+        if name not in flat_row:
+            problems.append(f"the row does not name {name}")
+    return problems
+
+
+def live_value(page, kept_dir=CAMPAIGN_DIR, owner_review=OWNER_REVIEW_OF_REFERENCES):
+    """#99 B and J: `conditional` when T20's row has a passing proof, the spike's report is cited as evidence and the owner's
+    review of the References is pending; `pending` otherwise."""
+    rows = {row["test"]: row for row in grid_of(page).rows}
+    proof = campaign_proof_problems(rows["T20"], plain_text(row_html(page, "T20")), kept_dir)
+    evidence = re.search(r'<tr data-status="LIVE_ACCEPTED".*?</tr>', page, re.S)[0]
+    spike_cited = 'href="#feasibility-spike"' in evidence
+    return "conditional" if not proof and spike_cited and owner_review == "pending" else "pending"
+
+
 def test_the_grid_has_exactly_one_row_per_test_T01_to_T24_each_with_what_it_does_its_expected_result_and_a_proof_or_a_reason(page):
     # #88 C1: the rows are exactly T01-T24, in order, once each; a row has its text and either a proof or a « not run » reason.
     rows = grid_of(page).rows
@@ -3034,7 +3183,7 @@ def test_a_row_naming_a_test_that_is_not_collected_or_does_not_declare_it_is_a_f
 
 
 def grid_row(test, proof="pytest", **fields):
-    return {"test": test, "proof": proof, "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [], "walk": [], "command": None, "output": None, **fields}
+    return {"test": test, "proof": proof, "exit": None, "what": "w", "expected": "e", "reason": None, "nodes": [], "walk": [], "kept": [], "command": None, "output": None, **fields}
 
 
 def test_a_row_marked_not_run_holds_offline_accepted_back_and_a_command_row_passes_only_with_exit_0(collected):
@@ -3051,11 +3200,11 @@ def test_a_row_marked_not_run_holds_offline_accepted_back_and_a_command_row_pass
 
 
 def test_the_status_table_has_the_three_statuses_each_with_its_own_value_and_offline_accepted_is_the_one_the_rows_compute(page, collected):
-    # #88 B: LIVE_ACCEPTED pending (not LIVE_NOT_VALIDATED), USABILITY_REVIEW_PENDING open, OFFLINE_ACCEPTED computed from the rows.
+    # #88 B: LIVE_ACCEPTED conditional since #99 (not LIVE_NOT_VALIDATED), USABILITY_REVIEW_PENDING open, OFFLINE_ACCEPTED computed from the rows.
     grid = grid_of(page)
     statuses = {name: row["attrs"] for name, row in grid.statuses.items()}
     assert set(statuses) == {"OFFLINE_ACCEPTED", "LIVE_ACCEPTED", "USABILITY_REVIEW_PENDING"}
-    assert statuses["LIVE_ACCEPTED"]["data-value"] == "pending"
+    assert statuses["LIVE_ACCEPTED"]["data-value"] == "conditional"
     assert statuses["USABILITY_REVIEW_PENDING"]["data-value"] == "open"
     held = held_back_by(grid.rows, collected)
     assert statuses["OFFLINE_ACCEPTED"]["data-value"] == ("pending" if held else "reached")
@@ -3067,17 +3216,115 @@ def test_the_status_table_has_the_three_statuses_each_with_its_own_value_and_off
     assert "T01" in grid.statuses["OFFLINE_ACCEPTED"]["text"] and "T24" in grid.statuses["OFFLINE_ACCEPTED"]["text"]
 
 
-def test_T20_is_not_run_with_the_reason_the_references_review_found_E07_ambiguous_and_the_live_evidence_is_cited(page):
-    # #88 C3: the reason (D-015 condition 1, E07, the owner's review), the spike report and the kept live traces as evidence.
+def test_T20_is_proven_by_the_kept_campaign_and_its_row_cites_the_spike_report_and_the_live_traces(page):
+    # #99 A: T20's row is a command proof; its files exist, the kept outputs hold 72 Episodes and every recorded exit is 0.
     rows = {row["test"]: row for row in grid_of(page).rows}
-    assert rows["T20"]["proof"] == "not-run"
-    reason = " ".join(rows["T20"]["reason"].split())
-    for part in ("found E07 ambiguous", "a column type", "D-015 condition (1)", "owner's review of E07", "References of E01-E10", "pending"):
-        assert part in reason, part
-    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+    assert rows["T20"]["proof"] == "command" and rows["T20"]["exit"] == "0"
+    assert campaign_proof_problems(rows["T20"], plain_text(row_html(page, "T20"))) == []
+    text = plain_text(chapter_16())
     assert 'href="#feasibility-spike"' in chapter_16()
     assert "docs/handbook/traces/live-spike" in text and "docs/handbook/traces/run-agent-live-plain" in text
-    assert "does not by itself" in text
+
+
+def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_count_is_off_or_an_Attempt_failed_whole(tmp_path):
+    # #99 A and K, the witness of the witness: each guard of the proof turns it red on its own, on a copy of the kept outputs.
+    page = BUILT.read_text(encoding="utf-8")
+    row, text = grid_of(page).rows[19], plain_text(row_html(page, "T20"))
+    assert row["test"] == "T20"
+
+    def broken(change):
+        copy = tmp_path / f"copy-{len(list(tmp_path.iterdir()))}"
+        shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+        change(copy)
+        return campaign_proof_problems(row, text, copy)
+
+    assert campaign_proof_problems(row, text) == []
+    assert campaign_proof_problems({**row, "kept": row["kept"] + ["traces/campaign-public-check/nothing.json"]}, text) == [
+        "the row names traces/campaign-public-check/nothing.json, which does not exist"
+    ]
+    assert campaign_proof_problems({**row, "kept": []}, text) == ["the row names no kept file"]
+    assert campaign_proof_problems({**row, "exit": "1"}, text) == ["the row is not a command proof with exit 0 and its recorded output"]
+    no_output = campaign_proof_problems({**row, "output": ""}, text)
+    assert no_output[0] == "the row is not a command proof with exit 0 and its recorded output" and "run-plain: its recorded output is not in the row" in no_output
+
+    def exit_1(copy):
+        output = json.loads((copy / "command-output.json").read_text())
+        output["commands"][1]["exit_code"] = 1
+        (copy / "command-output.json").write_text(json.dumps(output))
+
+    assert broken(exit_1) == ["a recorded exit is not 0: ['run-plain']"]
+
+    def drop_an_episode(copy):
+        path = next((copy / "study" / "attempts").glob("*/observations.jsonl"))
+        lines = path.read_text().splitlines()
+        path.write_text("\n".join(lines[:-1]) + "\n")
+
+    dropped = broken(drop_an_episode)
+    assert any("Episodes, not 36" in problem for problem in dropped) and any("not 72" in problem for problem in dropped)
+
+    def all_failed(copy):  # every Episode of the verify Attempt failed: no model-tool loop is shown for that Configuration
+        for folder in (copy / "study" / "attempts").iterdir():
+            if json.loads((folder / "run.json").read_text())["configuration"] == "verify":
+                lines = [json.loads(line) for line in (folder / "observations.jsonl").read_text().splitlines()]
+                for line in lines:
+                    line["status"] = "failed"
+                (folder / "observations.jsonl").write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+
+    failed = broken(all_failed)
+    assert any("every Episode failed" in problem for problem in failed)
+
+    def no_tool_called(copy):
+        for path in (copy / "study" / "attempts").glob("*/observations.jsonl"):
+            lines = [json.loads(line) for line in path.read_text().splitlines()]
+            for line in lines:
+                line["trace"] = [step for step in line["trace"] if step["kind"] not in ("tool_call", "tool_result")]
+            path.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+
+    assert "no tool was called in any Episode" in broken(no_tool_called)
+
+    def another_limit(copy):
+        path = next((copy / "study" / "attempts").glob("*/run.json"))
+        run = json.loads(path.read_text())
+        run["effective_limits"]["model_turns"] = 7
+        path.write_text(json.dumps(run))
+
+    assert "the two Attempts do not record the same effective limits" in broken(another_limit)
+
+
+def test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_report_and_the_owners_pending_review(page, tmp_path):
+    # #99 B and J: `conditional` when T20's row passes, the spike's report is cited and the owner's review is pending; `pending` otherwise.
+    value = grid_of(page).statuses["LIVE_ACCEPTED"]["attrs"]["data-value"]
+    assert value == live_value(page) == "conditional"
+    not_run = page.replace(row_html(page, "T20"), row_html(page, "T20").replace('data-proof="command"', 'data-proof="not-run"', 1))
+    assert not_run != page and live_value(not_run) == "pending"
+    no_spike = re.sub(r'(<tr data-status="LIVE_ACCEPTED".*?)href="#feasibility-spike"(.*?</tr>)', r"\1\2", page, count=1, flags=re.S)
+    assert no_spike != page and live_value(no_spike) == "pending"
+    assert live_value(page, owner_review="done") == "pending"
+    copy = tmp_path / "campaign"
+    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+    output = json.loads((copy / "command-output.json").read_text())
+    output["commands"][1]["exit_code"] = 1
+    (copy / "command-output.json").write_text(json.dumps(output))
+    assert live_value(page, kept_dir=copy) == "pending"
+
+
+def conditional_words_missing(text):
+    """Sentences holding LIVE_ACCEPTED without the conditional words beside them (D-025 condition 3, #99)."""
+    return [s for s in split_sentences(text) if "LIVE_ACCEPTED" in s and CONDITIONAL_WORDS not in s]
+
+
+def test_every_statement_of_live_accepteds_value_holds_the_conditional_words_beside_it(page):
+    # #99 C3: the status table's row, the rest of the handbook and the README. The bare-pending test of #88 still passes beside it.
+    assert conditional_words_missing("<p>LIVE_ACCEPTED is conditional.</p>") == ["LIVE_ACCEPTED is conditional."]
+    assert conditional_words_missing(f"<p>LIVE_ACCEPTED is conditional: {CONDITIONAL_WORDS}.</p>") == []
+    row = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<tr data-status="LIVE_ACCEPTED".*?</tr>', page, re.S)[0]).split())
+    assert CONDITIONAL_WORDS in row and "conditional" in row
+    sources = {"README.md": (ROOT / "README.md").read_text(encoding="utf-8")}
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        text = path.read_text(encoding="utf-8")
+        sources[path.name] = re.sub(r'<table class="tbl" id="acceptance-status">.*?</table>', "", text, flags=re.S)
+    assert {name: conditional_words_missing(text) for name, text in sources.items() if conditional_words_missing(text)} == {}
+    assert "LIVE_ACCEPTED" in sources["README.md"] and "LIVE_ACCEPTED" in sources["16-acceptance-grid.html"]
 
 
 def split_sentences(text):
@@ -3120,11 +3367,13 @@ def test_the_readme_status_states_the_three_statuses_as_the_grid_has_them_links_
     status = " ".join(readme_status().split())
     values = {name: row["attrs"]["data-value"] for name, row in grid.statuses.items()}
     assert f"`OFFLINE_ACCEPTED` {values['OFFLINE_ACCEPTED']}" in status
-    assert "`LIVE_ACCEPTED` pending" in status and "E07" in status and "owner" in status
+    assert values["LIVE_ACCEPTED"] == "conditional"
+    assert f"`LIVE_ACCEPTED` {values['LIVE_ACCEPTED']}: {CONDITIONAL_WORDS}" in status  # #99 C3: the grid's value, in the grid's words
     assert "`USABILITY_REVIEW_PENDING` open" in status
     assert "docs/handbook/handbook.html#acceptance-grid" in status
     where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look", 1)[1]
     assert "acceptance grid" in where.lower() and "handbook.html#acceptance-grid" in where
+    assert "documented for after the owner's review" not in where and "documented for after" not in where  # #99 C9: the Campaign ran
     for text in (status, " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())):
         for sentence in split_sentences(text):
             if re.search(r"third part(?:y|ies)", sentence):
@@ -3159,9 +3408,10 @@ def test_the_t24_row_fails_when_the_record_is_missing_unwalked_or_has_no_failure
 
 
 def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_as_a_role():
-    # 10-R1-02, GLOSSARY Control (_Avoid_: baseline as a role): the open point on the order of the Configurations names `plain` and `verify`.
+    # 10-R1-02, GLOSSARY Control (_Avoid_: baseline as a role): the limit on the order of the Configurations names `plain` and `verify`.
     chapter = (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
-    point = re.search(r'<span data-open-point="order">(.*?)</span>', chapter, re.S)[1]
+    assert 'data-open-point="order"' not in chapter  # #99 C7 (D-028): the open point is settled; it is a limit now
+    point = re.search(r'<span data-limit="order">(.*?)</span>', chapter, re.S)[1]
     assert "order of <code>plain</code> and <code>verify</code>" in point
     assert "baseline" not in point.replace("« baseline »", "")  # a verbatim SPEC quote in « » may keep the word
 
@@ -3225,16 +3475,103 @@ def test_in_the_campaigns_comparison_plain_is_the_control_and_verify_the_candida
     assert compare.factor is None  # the Configuration is the declared factor of an agent Comparison
 
 
-def test_the_grid_documents_the_campaign_its_conditions_and_the_open_point_of_the_order(page):
-    # #88 C4 and C5: 72 Episodes, the same model and limits, cache off, retries zero; the conditions; the order is not alternated.
-    text = " ".join(re.sub(r"<[^>]+>", " ", chapter_16()).split())
+def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_dates_commit_exits_and_the_limit_on_the_order(page):
+    # #88 C4 and C5, brought up to date by #99 C7: 72 Episodes, the same model and limits, cache off, retries zero; what happened, not what was planned.
+    text = plain_text(chapter_16())
     for part in (
         "12 Cases", "3 Repeats", "2 Configurations", "72 Episodes", "public_check", "the same model and limits", "response cache off", "retries at zero",
-        "only after the owner's review of the References", "Inspect logs and Observation sets kept whole", "no further paid invocation except after a technical failure",
-        "USD 30", "five paid live invocations per slice", "No command of this grid was run against a real model",
-        "is not alternated Episode by Episode", "AG-12", "case_index + repeat_index", "owner-decision gate",
+        "Inspect logs and Observation sets kept whole", "no further paid invocation", "USD 30", "five paid live invocations per slice",
+        "D-025", "conditions 1 to 5", "chadlis/hypotrail#95", "7057075785", "holds", "chadlis/hypotrail#96", "D-028",
+        "2026-11-21", "f696f58", "exited 0",
+        "order not alternated (AG-12)", "case_index + repeat_index", "confounded with the time block", "back to back",
+        "T20 is not proven by an Attempt whose Episodes all failed",
     ):
         assert part in text, part
+    for stale in (  # the wording of the plan, pinned by #88 and replaced by #99 C7
+        "only after the owner's review of the References", "No command of this grid was run against a real model", "is not alternated Episode by Episode",
+        "owner-decision gate", "for after the owner's review", "Open point", "did not run",
+    ):
+        assert stale not in text, stale
+    kept = json.loads((CAMPAIGN_DIR / "command-output.json").read_text())
+    assert kept["commit"] in text and all(command["exit_code"] == 0 for command in kept["commands"])
+    for command in kept["commands"]:
+        if command["started_at"]:
+            assert command["started_at"] in text and command["finished_at"] in text
+
+
+def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
+    # #99 C7: D-025 option B, #94's Case text, #95's verdict "holds".
+    paragraph = re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1]
+    text = plain_text(paragraph)
+    for part in ("D-025", "chadlis/hypotrail#94", "four-character text", "chadlis/hypotrail#95", "7057075785", "holds"):
+        assert part in text, part
+
+
+def integer_year_answers(kept_dir):
+    """The (Configuration, Repeat) of every kept E07 answer whose year cell is an integer, not text."""
+    found = []
+    _, attempts = kept_campaign(kept_dir)
+    for config, attempt in attempts.items():
+        for observation in attempt["observations"]:
+            if observation["case_id"] != "E07":
+                continue
+            raw, decoder = observation["raw_answer"] or "", json.JSONDecoder()
+            for index in (m.start() for m in re.finditer(r"\{", raw)):
+                try:
+                    answer, _ = decoder.raw_decode(raw[index:])
+                except ValueError:
+                    continue
+                if isinstance(answer, dict) and "year" in (answer.get("columns") or []):
+                    column = answer["columns"].index("year")
+                    if any(isinstance(row[column], int) and not isinstance(row[column], bool) for row in answer["rows"]):
+                        found.append((config, observation["repeat"]))
+                    break
+    return found
+
+
+def e07_note_problems(chapter, kept_dir=CAMPAIGN_DIR):
+    """#99 C, D (D-026 item 4): the note on an integer-year answer exists exactly when one occurs in the kept Observation sets."""
+    note = re.search(r'<p data-note="e07-integer-year">(.*?)</p>', chapter, re.S)
+    occurs = integer_year_answers(kept_dir)
+    if not occurs:
+        return ["a note on an integer-year answer, though none occurred"] if note else []
+    if not note:
+        return [f"{len(occurs)} integer-year answers occurred and the chapter has no note"]
+    text = plain_text(note[1])
+    problems = [f"the note lacks « {part} »" for part in ("table-answer.schema.json", "format_valid", "exact_table", "type") if part not in text]
+    if "format failure" in text:
+        problems.append("the note uses the phrase « format failure »")
+    return problems
+
+
+def test_the_E07_note_is_written_exactly_when_an_integer_year_answer_occurs_in_the_kept_observation_sets(page, tmp_path):
+    # #99 C (D-026 item 4, D-025 addendum 1): what the kept answers hold decides. They hold none, so there is no note, and the chapter says so.
+    assert integer_year_answers(CAMPAIGN_DIR) == []
+    assert e07_note_problems(chapter_16()) == []
+    assert "no E07 answer of the Campaign has an integer year" in plain_text(re.search(r'<p data-e07="resolution">(.*?)</p>', chapter_16(), re.S)[1])
+    # the witness of the witness: one integer year in a copy of the kept answers makes the note necessary, and a note without one is refused.
+    copy = tmp_path / "campaign"
+    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("inspect", "report.html"))
+    path = next(copy.glob("study/attempts/*/observations.jsonl"))
+    lines = path.read_text().splitlines()
+    path.write_text("\n".join(line.replace('[\\"2009\\",83]', "[2009,83]") for line in lines) + "\n")
+    assert integer_year_answers(copy) != [] and e07_note_problems(chapter_16(), copy) == [f"{len(integer_year_answers(copy))} integer-year answers occurred and the chapter has no note"]
+    good = '<p data-note="e07-integer-year">An integer year passes <code>format_valid</code> (table-answer.schema.json allows numbers in cells) and fails <code>exact_table</code>: its type differs from the text cell.</p>'
+    assert e07_note_problems(good, copy) == []
+    assert e07_note_problems(good.replace("format_valid", "validity"), copy) == ["the note lacks « format_valid »"]
+    assert e07_note_problems(good.replace("fails", "is a format failure and fails"), copy) == ["the note uses the phrase « format failure »"]
+    assert e07_note_problems(good) == ["a note on an integer-year answer, though none occurred"]
+
+
+def test_no_chapter_or_the_readme_calls_the_campaign_later_work_or_waiting_for_the_owners_review_and_chapter_13_says_where_it_is_kept():
+    # #99 C8 and C9.
+    sources = {"README.md": (ROOT / "README.md").read_text(encoding="utf-8")}
+    sources.update({path.name: path.read_text(encoding="utf-8") for path in sorted((HANDBOOK / "chapters").glob("*.html"))})
+    stale = re.compile(r"campaign[^.]{0,120}(?:later work|wait for the owner|waits? for the owner)|later work[^.]{0,120}campaign", re.I)
+    assert {name: [plain_text(m[0]) for m in stale.finditer(re.sub(r"\s+", " ", text))] for name, text in sources.items() if stale.search(re.sub(r"\s+", " ", text))} == {}
+    chapter_13 = plain_text(sources["13-run-agent.html"])
+    assert "traces/campaign-public-check" in chapter_13 and "72-Episode Campaign" in chapter_13
+    assert "traces/campaign-public-check" in sources["README.md"]
 
 
 # --- #88 I: the handbook is complete for the milestone: every command, record and refusal, with the report and the grid ---------
