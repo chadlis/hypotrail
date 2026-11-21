@@ -44,7 +44,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, lock, requests, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
@@ -495,6 +495,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir, 
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
         return recorded, True
+    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
     write_journal.require_current(study, read_sequence)  # straight after the request identity (D-033 on chadlis/hypotrail#75)
 
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)

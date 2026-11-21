@@ -14,6 +14,11 @@ compared by the sha256 of their bytes.
 
 The same request_id with the same request returns the recorded Attempt; with any element
 different it is `REQUEST_CONFLICT`, exit 6, naming the elements that differ.
+
+A Study has one request_id namespace, for its Attempts and its decisions (`hypotrail.core.decisions`, D-033 on chadlis/hypotrail#75).
+`REQUEST_CONFLICT`'s `details` carry both `attempt_id` and `decision_id`, the one that does not apply set to null (D-034 on
+chadlis/hypotrail#75). A request_id that names a record of the other kind is a conflict whose `differs` is `["command"]`, the first
+element of `IDENTITY_KEYS` (D-037 on chadlis/hypotrail#75); between two decisions `differs` names fields of the decision record.
 """
 
 from hypotrail.core import canonical
@@ -37,12 +42,57 @@ def differences(recorded: dict, requested: dict) -> list:
     return [key for key in ELEMENTS if canonical.dumps(recorded.get(key)) != canonical.dumps(requested.get(key))]
 
 
-def conflict(request_id: str, attempt_id: str, differs: list) -> HypotrailError:
+def _refusal(message: str, request_id: str, attempt_id, decision_id, differs: list) -> HypotrailError:
+    """`REQUEST_CONFLICT`: `details` carry both `attempt_id` and `decision_id`, the one that does not apply set to null (D-034 on chadlis/hypotrail#75)."""
     return HypotrailError(
         "REQUEST_CONFLICT",
+        message,
+        stage="request",
+        details={"request_id": request_id, "attempt_id": attempt_id, "decision_id": decision_id, "differs": differs},
+        exit_code=EXIT_LOCK_OR_CONFLICT,
+    )
+
+
+def conflict(request_id: str, attempt_id: str, differs: list) -> HypotrailError:
+    """A `run` or an `import` whose `request_id` names an Attempt of another request."""
+    return _refusal(
         f"request_id {request_id!r} already names an Attempt of another request (differs: {', '.join(differs)}); "
         "use a new request_id, with retry_of to repeat it on purpose",
-        stage="request",
-        details={"request_id": request_id, "attempt_id": attempt_id, "differs": differs},
-        exit_code=EXIT_LOCK_OR_CONFLICT,
+        request_id,
+        attempt_id,
+        None,
+        differs,
+    )
+
+
+def conflict_with_a_decision(request_id: str, decision_id: str) -> HypotrailError:
+    """A `run` or an `import` whose `request_id` names a decision: the elements of a request differ from the record's by its command."""
+    return _refusal(
+        f"request_id {request_id!r} already names a decision (differs: command); use a new request_id",
+        request_id,
+        None,
+        decision_id,
+        ["command"],
+    )
+
+
+def conflict_between_decisions(request_id: str, decision_id: str, differs: list) -> HypotrailError:
+    """A `decide` whose `request_id` names another decision: `differs` lists the fields of the decision record that differ."""
+    return _refusal(
+        f"request_id {request_id!r} already names another decision (differs: {', '.join(differs)}); use a new request_id",
+        request_id,
+        None,
+        decision_id,
+        differs,
+    )
+
+
+def conflict_with_an_attempt(request_id: str, attempt_id: str) -> HypotrailError:
+    """A `decide` whose `request_id` names an Attempt: one namespace holds the request_ids of a Study's Attempts and decisions."""
+    return _refusal(
+        f"request_id {request_id!r} already names an Attempt, which `decide` cannot repeat (differs: command); use a new request_id",
+        request_id,
+        attempt_id,
+        None,
+        ["command"],
     )

@@ -346,6 +346,7 @@ def test_the_same_request_id_with_another_request_is_request_conflict_exit_6(tmp
     error = error_of(payload)
     assert error["code"] == "REQUEST_CONFLICT" and error["details"]["attempt_id"] == first["attempt"]["attempt_id"]
     assert error["details"]["differs"] == ["input_digests"]
+    assert error["details"]["decision_id"] is None  # #109 Tightened K: it names an Attempt, no decision
     assert snapshot(study) == before
 
 

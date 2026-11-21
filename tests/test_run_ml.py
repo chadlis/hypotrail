@@ -352,6 +352,7 @@ def conflict(study, *args, **more):
     assert code == EXIT_LOCK_OR_CONFLICT, payload
     assert payload["error"]["code"] == "REQUEST_CONFLICT" and payload["error"]["stage"] == "request"
     assert snapshot(study) == before  # nothing written
+    assert payload["error"]["details"]["decision_id"] is None and payload["error"]["details"]["attempt_id"]  # #109 Tightened K: it names an Attempt, no decision
     return payload["error"]["details"]
 
 

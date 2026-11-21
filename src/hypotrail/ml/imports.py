@@ -37,7 +37,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, lock, requests, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.ml.declaration import load_declaration
@@ -349,6 +349,7 @@ def _import_locked(study, source, mapping_path, population_path, request_id, *, 
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         _verify_recorded(study, recorded)
         return recorded, True
+    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
     write_journal.require_current(study, read_sequence)  # straight after the request identity (D-033 on chadlis/hypotrail#75)
 
     protocol = protocol_content(

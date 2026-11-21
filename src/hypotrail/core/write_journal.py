@@ -12,7 +12,7 @@ Every command that writes appends two entries (D-033 on chadlis/hypotrail#75, am
   it after its first write) or `failed` (D-035 on chadlis/hypotrail#75, amended by D-036 on chadlis/hypotrail#75 and D-037 on chadlis/hypotrail#75). A reader does not treat that list as closed.
 
 A command refused before its first write appends nothing: a replay, `STUDY_LOCKED`, `REQUEST_CONFLICT`, `PROTOCOL_CHANGED`, a
-refusal of its arguments, and a `report` whose page shows `dev` Items only. A writer killed between its two entries leaves the
+refusal of its arguments or of the ids a `decide` cites, and a `report` whose page shows `dev` Items only. A writer killed between its two entries leaves the
 `begin` entry only: a killed writer has still written. A Study written before this slice holds no journal and shows 0.
 
 A command that is given the write sequence its author read (`--read-sequence`, chadlis/hypotrail#108, D-033 on chadlis/hypotrail#75,

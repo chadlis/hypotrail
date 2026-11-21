@@ -15,6 +15,10 @@ _Avoid_: project, run folder, experiment
 The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes. Nothing else changes it, and `status --json` shows it as `write_sequence`.
 _Avoid_: revision
 
+**Decision**:
+One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
+_Avoid_: note, verdict, conclusion
+
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
 _Avoid_: case (for this meaning), task type, family, pipeline
@@ -141,6 +145,7 @@ _Avoid_: variant (as a role), challenger, treatment
 - An **Attempt** runs one **Configuration** in one **Mode** and yields exactly one **Observation set**.
 - An **Assessment** applies one **Scorer** to one **Observation set** and one **Reference** set; one Observation set can have many Assessments.
 - A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
+- A **Decision** is a record of one **Study**: it cites at least one record the Study holds, is made on the **Write sequence** its author read, and advances that sequence when it is recorded.
 
 ## Correspondence with Inspect
 

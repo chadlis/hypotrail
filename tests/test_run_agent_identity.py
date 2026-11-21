@@ -57,6 +57,7 @@ class Rig:
         code, error = error_of(result)
         assert (code, error["code"], error["stage"]) == (CONFLICT, "REQUEST_CONFLICT", "request")
         assert error["details"]["differs"] == list(differs), error["details"]
+        assert error["details"]["decision_id"] is None and error["details"]["attempt_id"]  # #109 Tightened K: it names an Attempt, no decision
         assert tree_without_lock(self.study) == before  # nothing written
 
 

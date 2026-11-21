@@ -19,6 +19,7 @@ DIR/
   revisions/<n>/freeze.json          the freeze record of revision n, written before its first public_check use (core/exposure.py)
   exposures/<seq>-<entry_id>.json    one Exposure journal entry each, appended and never rewritten (core/exposure.py)
   write_journal/<n>.json             one write journal entry each, appended and never rewritten (core/write_journal.py)
+  decisions/<seq>-<decision_id>.json one decision each, appended and never rewritten (core/decisions.py)
   .scratch/<attempt_id>/             scratch files of the library writers, before publication
 ```
 

@@ -153,6 +153,17 @@ def compare_refused_for_coverage(tmp_path):
     return study, lambda: compare(study, made["seasonal_7"]["assessment_id"], other["assessment_id"])
 
 
+def decide_scenario(tmp_path):
+    study, _ = init_study(tmp_path)
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "w-held")
+    assert code == 0, (payload, err)
+    attempt = payload["attempt"]["attempt_id"]
+    return study, lambda: run_json(
+        "decide", "--study", study, "--question", "Which Configuration?", "--option", "seasonal_7", "--author", "human",
+        "--artifact", attempt, "--request-id", "w-decide", "--read-sequence", seq(study),
+    )
+
+
 WRITERS = {
     "init": init_new,
     "init --new-revision": init_new_revision,
@@ -164,6 +175,7 @@ WRITERS = {
     "compare": compare_scenario,
     "recover": recover_scenario,
     "report": report_scenario,
+    "decide": decide_scenario,
 }
 
 
@@ -335,6 +347,7 @@ KEYS = {
     "compare": {"ok", "comparison"},
     "recover": {"ok", "attempt"},
     "report": {"ok", "report"},
+    "decide": {"ok", "replayed", "decision"},
 }
 
 
@@ -369,6 +382,17 @@ def test_a_completed_run_ml_appends_a_begin_entry_with_its_three_keys_and_an_end
     observation_set = observation_set_id(study, payload["attempt"])
     assert end["written"] == [{"kind": "attempt", "id": attempt}, {"kind": "observation_set", "id": observation_set}]
     assert all(set(item) == {"kind", "id"} for item in end["written"])
+
+
+def test_a_decide_appends_a_begin_entry_with_its_request_id_and_an_end_entry_naming_the_decision(tmp_path):
+    study, act = decide_scenario(tmp_path)
+    kept = len(entries(study))
+    code, payload, err = act()
+    assert code == 0, (payload, err)
+    begin, end = appended(study, kept)
+    assert begin == {"phase": "begin", "command": "decide", "request_id": "w-decide"}
+    assert (end["request_id"], end["outcome"]) == ("w-decide", "completed")
+    assert end["written"] == [{"kind": "decision", "id": payload["decision"]["decision_id"]}]
 
 
 def test_an_assess_appends_entries_whose_request_id_is_null(tmp_path):

@@ -40,13 +40,15 @@ def _write_sequence(text: str) -> int:
     return int(text)
 
 
-def _add_read_sequence(parser) -> None:
+def _add_read_sequence(parser, *, required: bool = False) -> None:
     parser.add_argument(
         "--read-sequence",
         type=_write_sequence,
+        required=required,
         metavar="N",
         help="the write sequence the author read (`status --json`, `write_sequence`): when the Study was written to since, "
-        "the command is refused (STUDY_CHANGED) and writes nothing; not given, the command is not checked",
+        "the command is refused (STUDY_CHANGED) and writes nothing; "
+        + ("required" if required else "not given, the command is not checked"),
     )
 
 
@@ -274,6 +276,33 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to inspect")
     status.add_argument("--json", action="store_true", help="print one JSON object")
     status.set_defaults(handler=_status)
+
+    decide = commands.add_parser(
+        "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
+    )
+    decide.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the decision in")
+    decide.add_argument("--question", required=True, metavar="TEXT", help="the question the decision answers (free text, not empty)")
+    decide.add_argument("--option", required=True, metavar="TEXT", help="the option chosen (free text, not empty)")
+    decide.add_argument("--author", required=True, choices=["human", "proxy"], help="who decides: a human, or a proxy answering by rule")
+    decide.add_argument("--source", metavar="TEXT", help="a declared source of the decision, for either author")
+    decide.add_argument(
+        "--artifact",
+        required=True,
+        action="append",
+        metavar="ID",
+        help="the id of a record of the Study the decision concerns (repeatable, at least one): an Attempt, Observation set, Assessment, "
+        "Comparison, Study artifact, revision, freeze record, Exposure entry or decision",
+    )
+    decide.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same decision returns the recorded decision, "
+        "with another decision it is refused (REQUEST_CONFLICT)",
+    )
+    _add_read_sequence(decide, required=True)
+    decide.add_argument("--json", action="store_true", help="print one JSON object")
+    decide.set_defaults(handler=_decide)
 
     recover = commands.add_parser(
         "recover",
@@ -626,6 +655,28 @@ def _status(args) -> int:
             + (" (no live writer: `recover` can record it as interrupted)" if attempt["recoverable"] else "")
         )
     _emit({"ok": True, **report}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _decide(args) -> int:
+    from hypotrail.core import decisions
+
+    record, replayed = decisions.decide(
+        args.study,
+        question=args.question,
+        option=args.option,
+        author=args.author,
+        source=args.source,
+        cited_ids=args.artifact,
+        request_id=args.request_id,
+        read_sequence=args.read_sequence,
+    )
+    human = (
+        f"Decision {record['decision_id']} by {record['author']}: {record['option']} "
+        f"(cites {len(record['cited_ids'])} ids, write sequence {record['write_sequence']})"
+        + (" (recorded earlier: nothing was written)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "decision": record}, args.json, human)
     return EXIT_OK
 
 

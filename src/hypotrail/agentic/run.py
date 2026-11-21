@@ -48,7 +48,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
 from hypotrail.agentic.study import DOMAIN, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, exposure, lock, requests, write_journal
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
@@ -266,6 +266,7 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
         return recorded, True, []  # no key, no Inspect, no provider, no scan
+    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
     write_journal.require_current(study, read_sequence)  # straight after the request identity (D-037 on chadlis/hypotrail#75)
 
     data.verify_workloads(examples, [workload_name])

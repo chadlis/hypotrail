@@ -180,6 +180,27 @@ def report_scenario(tmp_path):
     return Scenario(study, argv, library, bike_bump)
 
 
+def decide_scenario(tmp_path):
+    study, _ = init_study(tmp_path)
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "w-held")
+    assert code == 0, (payload, err)
+    attempt = payload["attempt"]["attempt_id"]
+
+    def library(path, read_sequence):
+        from hypotrail.core import decisions
+
+        return decisions.decide(
+            path, question="Which Configuration?", option="seasonal_7", author="human", source=None, cited_ids=[attempt],
+            request_id="w-decide", read_sequence=read_sequence,
+        )
+
+    argv = lambda path, *more: [  # noqa: E731
+        "decide", "--study", path, "--question", "Which Configuration?", "--option", "seasonal_7", "--author", "human", "--artifact", attempt,
+        "--request-id", "w-decide", *more,
+    ]
+    return Scenario(study, argv, library, bike_bump)
+
+
 SCENARIOS = {
     "init --new-revision": new_revision_scenario,
     "run ml": run_ml_scenario,
@@ -190,7 +211,11 @@ SCENARIOS = {
     "compare": compare_scenario,
     "recover": recover_scenario,
     "report": report_scenario,
+    "decide": decide_scenario,
 }
+
+# `decide` requires the option: without it, it is refused, so the rows that run a command without the option leave it out (tests/test_decide.py)
+OPTIONAL = [command for command in SCENARIOS if command != "decide"]
 
 
 def error_of(payload):
@@ -231,7 +256,7 @@ def key_paths(value, prefix="") -> set:
     return set()
 
 
-@pytest.mark.parametrize("command", SCENARIOS)
+@pytest.mark.parametrize("command", OPTIONAL)
 def test_given_and_current_the_command_gives_what_it_gives_without_the_option_and_advances_the_sequence_by_two(command, tmp_path):
     scenario = SCENARIOS[command](tmp_path)
     with_option, without = scenario.copy_to(tmp_path / "with"), scenario.copy_to(tmp_path / "without")
@@ -476,7 +501,7 @@ def test_report_of_public_check_items_with_an_older_value_records_no_exposure_an
 # --- the third criterion: not given, nothing changes (the existing suite, and this row) ----------------------------------------
 
 
-@pytest.mark.parametrize("command", SCENARIOS)
+@pytest.mark.parametrize("command", OPTIONAL)
 def test_not_given_the_command_is_not_refused_on_an_older_study(command, tmp_path):
     scenario, _, _ = older(command, tmp_path)
     code, payload, err = scenario.call(scenario.study)

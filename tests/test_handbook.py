@@ -870,7 +870,7 @@ def test_the_exit_code_table_equals_the_constants_of_the_errors_module(page):
     }
 
 
-WRITING_COMMANDS = ["init", "run ml", "run agent", "import ml", "import agent", "assess", "compare", "recover", "report"]
+WRITING_COMMANDS = ["init", "run ml", "run agent", "import ml", "import agent", "assess", "compare", "recover", "report", "decide"]
 
 
 def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_its_flags_says_so(page):
@@ -887,12 +887,14 @@ def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_it
     assert {c for c, path in paths.items() if "--read-sequence" in flags(*path)} == set(WRITING_COMMANDS)
     assert "--read-sequence" not in flags("status")
     assert "--request-id" not in flags("assess") | flags("compare") | flags("recover") | flags("init")
-    tables = {"study-commands": [c for c in WRITING_COMMANDS if c not in ("assess", "compare")], "assess-command": ["assess"], "import-command": ["import ml"], "compare-command": ["compare"], "agent-import-command": ["import agent"]}
+    tables = {"study-commands": [c for c in WRITING_COMMANDS if c not in ("assess", "compare", "decide")], "assess-command": ["assess"], "import-command": ["import ml"], "compare-command": ["compare"], "agent-import-command": ["import agent"]}
     for table, commands in tables.items():
         rows = attrs_of(page, table, "data-command")
         for command in commands:
             assert "--read-sequence" in words(rows[command]["data-optional"]), (table, command)
     assert "--read-sequence" in attrs_of(page, "run-agent-flags", "data-flag")
+    # #109 Tightened A: `decide` requires it, and no other command does
+    assert "--read-sequence" in words(attrs_of(page, "decide-command", "data-command")["decide"]["data-required"])
     init_row = table_rows(page, "study-commands", "data-command")["init"]["text"]
     assert "--read-sequence" in init_row and "--new-revision" in init_row.split("--read-sequence")[1]
 
@@ -975,6 +977,7 @@ def study_refusals(tmp_path):
 def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     rows = attrs_of(page, "study-codes", "data-code")
     found = study_refusals(tmp_path)
+    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "differs"}  # #109 Tightened K
     assert {"STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD"} <= set(rows) and found["STUDY_CHANGED"][0] == 6 and found["WRITE_SEQUENCE_AHEAD"][1] == "sequence"
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -3880,7 +3883,8 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 13
+    assert len(parser_commands()) == 14
+    assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     for command, row in rows.items():
         section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
         assert section, command
@@ -3903,6 +3907,7 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "ExposureEntry": ("field", "entry-fields", None),
     "WriteJournalBegin": ("record", "write-journal-fields"),
     "WriteJournalEnd": ("record", "write-journal-fields"),
+    "DecisionRecord": ("record", "decision-fields"),
 }
 
 
@@ -4039,3 +4044,144 @@ def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_
             assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
             seen += 1
     assert seen == 7 + 5 + 17 + 2 + 1
+
+
+# --- #109: `decide` and the decision record (chapter 17) ---------------------------------------------------------------------------------
+
+
+def chapter_text(name):
+    return (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")
+
+
+def test_the_decide_command_table_equals_the_flags_the_parser_defines(page):
+    from hypotrail.cli import build_parser
+
+    parser = build_parser()
+    decide = next(a for a in parser._actions if getattr(a, "choices", None) and "decide" in a.choices).choices["decide"]
+    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    row = attrs_of(page, "decide-command", "data-command")["decide"]
+    assert words(row["data-required"]) == {flag for flag, required in options.items() if required}
+    assert words(row["data-optional"]) == {flag for flag, required in options.items() if not required}
+    assert words(row["data-required"]) >= {"--study", "--question", "--option", "--author", "--artifact", "--request-id", "--read-sequence"}
+    assert words(row["data-optional"]) >= {"--source", "--json"}
+
+
+def _decided(tmp_path, name="chapter-17"):
+    """(Study, the files it holds before and after one `decide`, the record it wrote)."""
+    from _study_helpers import init_study, run_json, run_ml
+
+    study, _ = init_study(tmp_path, name=name)
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    before = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "proxy",
+        "--source", "a rule", "--artifact", attempt["attempt"]["attempt_id"], "--request-id", "d-1", "--read-sequence", 4,
+    )
+    assert code == 0, (payload, err)
+    after = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    return study, before, after, payload["decision"]
+
+
+def test_the_decision_record_table_equals_the_contract_schema_and_the_fields_the_code_writes(page, tmp_path):
+    from hypotrail.core import contracts
+
+    definition = contracts.schema()["$defs"]["DecisionRecord"]
+    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecord"]
+    assert words(row["data-required"]) == set(definition["required"])
+    assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
+    assert row["data-kind"] == "decision" == definition["properties"]["kind"]["const"]
+    _, _, _, record = _decided(tmp_path)
+    assert set(record) == words(row["data-required"]) | words(row["data-optional"])
+    assert set(attrs_of(page, "decision-field-meaning", "data-field")) == set(definition["properties"])
+
+
+def test_the_decision_layout_table_equals_the_files_decide_writes(page, tmp_path):
+    study, before, after, record = _decided(tmp_path)
+    added = {path.replace(record["decision_id"], "DECISION_ID") for path in after - before}
+    added = {re.sub(r"decisions/[0-9]{6}-", "decisions/SEQ-", path) for path in added}
+    rows = attrs_of(page, "decision-layout", "data-path")
+    assert {path for path in added if path.startswith("decisions/")} == set(rows) == {"decisions/SEQ-DECISION_ID.json"}
+    assert {path for path in added if not path.startswith("decisions/")} == {"write_journal/000005.json", "write_journal/000006.json"}  # chapter 04's row
+    assert "write_journal/SEQ.json" in attrs_of(page, "study-layout", "data-path")
+    assert "decide" in rows["decisions/SEQ-DECISION_ID.json"]["data-written-by"].split()
+
+
+def decide_refusals(tmp_path):
+    """Provoke each refusal of the table with `decide`; return {code: (exit code, stage, set of details keys)}."""
+    from _study_helpers import init_study, run_json, run_ml
+
+    from hypotrail.core import lock
+
+    found = {}
+    study, _ = init_study(tmp_path, name="chapter-17-refusals")
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    cited = attempt["attempt"]["attempt_id"]
+
+    def call(*, study=study, cited=cited, omit=(), **fields):
+        values = {"question": "Q?", "option": "o", "author": "human", "request_id": "d-1", "read_sequence": 2 + 2, **fields}
+        flags = [("--study", study), ("--question", values["question"]), ("--option", values["option"]), ("--author", values["author"]),
+                 ("--request-id", values["request_id"]), ("--read-sequence", values["read_sequence"]), ("--artifact", cited)]
+        code, payload, err = run_json("decide", *[x for flag, value in flags if flag not in omit for x in (flag, value)])
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    call(omit=("--artifact",))  # INVALID_ARGUMENTS
+    call(request_id="")  # REQUEST_ID_EMPTY
+    call(study=tmp_path / "none")  # STUDY_NOT_FOUND
+    call(question="")  # DECISION_FIELD_EMPTY
+    with lock.writer_lock(study):
+        call()  # STUDY_LOCKED
+    call(request_id="held")  # REQUEST_CONFLICT: the request_id of the Attempt
+    call(read_sequence=0)  # STUDY_CHANGED
+    call(read_sequence=10**6)  # WRITE_SEQUENCE_AHEAD
+    call(cited="unknown")  # CITED_ID_NOT_FOUND
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", "Q?", "--option", "o", "--author", "human", "--artifact", cited, "--request-id", "d-ok", "--read-sequence", 4
+    )
+    assert code == 0, (payload, err)
+    [file] = sorted((study / "decisions").glob("*.json"))
+    record = json.loads(file.read_text(encoding="utf-8"))
+    del record["option"]
+    file.write_text(json.dumps(record), encoding="utf-8")
+    call(request_id="d-ok", read_sequence=6)  # CONTRACT_VIOLATION when the record is read for a replay
+    return found
+
+
+def test_the_decide_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    found = decide_refusals(tmp_path)
+    rows = attrs_of(page, "decide-codes", "data-code")
+    assert {"DECISION_FIELD_EMPTY", "CITED_ID_NOT_FOUND"} <= set(rows)
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert int(row["data-exit"]) == exit_code, code
+        assert row["data-stage"] == stage, code
+        assert words(row["data-details"]) == details, code
+    assert found["DECISION_FIELD_EMPTY"] == (2, "decision", {"field"})
+    assert found["CITED_ID_NOT_FOUND"] == (2, "decision", {"ids"})
+
+
+def test_chapter_04_names_decide_among_the_commands_that_take_the_read_sequence_and_the_decision_in_the_request_identity():
+    chapter = chapter_text("04-study-and-attempts.html")
+    assert "<code>decide</code>" in chapter.split("Reading the sequence before a write", 1)[1].split("</p>", 1)[0]
+    assert "<code>decision_id</code>" in chapter and "one <code>request_id</code> namespace" in chapter
+    assert 'data-command="decide"' in chapter  # its row in `write-sequence-commands` and in `commands-index`
+
+
+def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
+    chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
+    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision"):
+        assert kind in chapter, kind
+    assert "revision_number" in chapter and "not citable" in chapter
+    assert "status --json" in chapter
+
+
+def test_the_readme_names_decide_in_its_status_and_gives_its_command_after_the_walked_path_with_the_required_options():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    status = readme.split("## Status\n", 1)[1].split("\n## ", 1)[0]
+    assert "`decide`" in status
+    block, after = readme.split("```")[1], readme.split("```", 2)[2]
+    assert "decide" not in block  # the block is the path the T24 walk record keeps: a command is not added to it without a walk
+    sentence = next(part for part in re.split(r"\n\n", after) if "`decide` records one decision" in part)
+    for flag in ("--study", "--question", "--option", "--author", "--artifact", "--request-id", "--read-sequence"):
+        assert flag in sentence, flag
