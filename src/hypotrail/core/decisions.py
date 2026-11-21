@@ -12,8 +12,8 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first.
 
-The order of the checks, under the writer lock, is that of every writer: the arguments (the value of the read sequence first, as the command line's parser does, then `REQUEST_ID_EMPTY`, `DECISION_FIELD_EMPTY`, the author and the
-rest); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
+The order of the checks, under the writer lock, is that of every writer: the arguments (the read sequence value is the library's first argument check, then
+`REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, and `DECISION_FIELD_EMPTY`); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
 the same decision (question, option, author, source and cited ids; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
@@ -49,7 +49,7 @@ IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids")
 
 def records(study) -> list:
     """The Study's decisions, in the order they were recorded; each is validated after it is read."""
-    return [layout.read_record(study, f"{DECISIONS_DIR}/{name}") for name in layout.record_names(study, DECISIONS_DIR)]
+    return layout.read_records(study, DECISIONS_DIR)
 
 
 def find_by_request(study, request_id: str):
@@ -139,7 +139,7 @@ def history(study) -> list:
 
 
 def _invalid(message: str) -> InvalidInputError:
-    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": COMMAND})
+    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {COMMAND}"})  # as the command line gives it
 
 
 def decide(
@@ -206,7 +206,7 @@ def _decide_locked(study: Path, wanted: dict, request_id: str, read_sequence: in
     }
     contracts.validate(record)
     write_journal.begin()
-    position = len(layout.record_names(study, DECISIONS_DIR)) + 1
+    position = layout.next_position(study, DECISIONS_DIR)
     artifacts.publish_record(study, f"{DECISIONS_DIR}/{position:06d}-{decision_id}.json", record, role="decision")
     write_journal.wrote("decision", decision_id)
     return record, False

@@ -186,13 +186,11 @@ def decide_scenario(tmp_path):
     assert code == 0, (payload, err)
     attempt = payload["attempt"]["attempt_id"]
 
-    def library(path, read_sequence, request_id="w-decide", question="Which Configuration?"):
+    def library(path, read_sequence, request_id="w-decide", question="Which Configuration?", **fields):
         from hypotrail.core import decisions
 
-        return decisions.decide(
-            path, question=question, option="seasonal_7", author="human", source=None, cited_ids=[attempt],
-            request_id=request_id, read_sequence=read_sequence,
-        )
+        given = {"question": question, "option": "seasonal_7", "author": "human", "source": None, "cited_ids": [attempt], **fields}
+        return decisions.decide(path, request_id=request_id, read_sequence=read_sequence, **given)
 
     argv = lambda path, *more: [  # noqa: E731
         "decide", "--study", path, "--question", "Which Configuration?", "--option", "seasonal_7", "--author", "human", "--artifact", attempt,
@@ -391,6 +389,46 @@ def test_a_call_with_a_bad_read_sequence_and_another_argument_fault_gives_the_co
         scenario.library(scenario.study, -1, **fault)
     assert (caught.value.code, caught.value.stage, caught.value.details) == (cli["code"], cli["stage"], cli["details"])
     assert caught.value.message in cli["message"]  # R2-S-05: one rule, one message, for the parser and the library
+    assert tree(scenario.study) == files
+
+
+# D-041 item 1 on chadlis/hypotrail#75: a call with one argument fault gives the code and `details` of the command line, `decide`'s included.
+# A call with several faults need not report the same one first: the parser orders them by position on the command line.
+def _replace_value(argv, flag, value):
+    at = argv.index(flag) + 1
+    return [*argv[:at], value, *argv[at + 1:]]
+
+
+def _drop_option(argv, flag):
+    at = argv.index(flag)
+    return [*argv[:at], *argv[at + 2:]]
+
+
+# row: (the command line's edit, the library's fields, whether the command line gives --read-sequence)
+DECIDE_SINGLE_FAULTS = {
+    "read sequence missing": (lambda argv: argv, {"read_sequence": None}, False),
+    "author unknown": (lambda argv: _replace_value(argv, "--author", "robot"), {"author": "robot"}, True),
+    "no artifact": (lambda argv: _drop_option(argv, "--artifact"), {"cited_ids": []}, True),
+    "question empty": (lambda argv: _replace_value(argv, "--question", ""), {"question": ""}, True),
+    "option empty": (lambda argv: _replace_value(argv, "--option", ""), {"option": ""}, True),
+    "request id empty": (lambda argv: _replace_value(argv, "--request-id", ""), {"request_id": ""}, True),
+}
+
+
+@pytest.mark.parametrize("row", DECIDE_SINGLE_FAULTS)
+def test_decide_with_one_argument_fault_gives_the_library_the_code_stage_and_details_of_the_command_line(row, tmp_path):
+    edit, fault, gives_the_value = DECIDE_SINGLE_FAULTS[row]
+    scenario = SCENARIOS["decide"](tmp_path)
+    files, current = tree(scenario.study), seq(scenario.study)
+    argv = edit(scenario.argv(scenario.study, *(["--read-sequence", str(current)] if gives_the_value else [])))
+    code, payload, err = run_cli(*argv, "--json")
+    cli = error_of(json.loads(payload))
+    assert code == 2
+    library_fault = dict(fault)
+    read = library_fault.pop("read_sequence", current)
+    with pytest.raises(HypotrailError) as caught:
+        scenario.library(scenario.study, read, **library_fault)
+    assert (caught.value.code, caught.value.stage, caught.value.details) == (cli["code"], cli["stage"], cli["details"])
     assert tree(scenario.study) == files
 
 
