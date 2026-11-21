@@ -394,6 +394,26 @@ def test_a_missing_examples_directory_is_an_invalid_input_not_an_infrastructure_
     assert error["details"] == {"examples_dir": str(tmp_path / "nope")}
 
 
+def test_a_checkout_examples_directory_that_holds_no_workload_lock_is_not_called_a_missing_checkout(tmp_path, monkeypatch):
+    # 10-R1-07: `examples/` exists but holds no Workload lock: the message says that, still names --examples-dir; same code, exit 2, details.
+    from hypotrail.core import data
+
+    present, absent = tmp_path / "checkout" / "examples", tmp_path / "gone" / "examples"
+    (present / "empty_workload").mkdir(parents=True)
+    messages = {}
+    for name, default in (("present", present), ("absent", absent)):
+        monkeypatch.setattr(data, "default_examples_dir", lambda default=default: default)
+        code, out, _ = run_cli("data", "verify", "--json")
+        assert code == 2
+        error = json.loads(out)["error"]
+        assert (error["code"], error["stage"], error["details"]) == ("EXAMPLES_DIR_NOT_FOUND", "config", {"examples_dir": str(default)})
+        assert "--examples-dir" in error["message"]
+        messages[name] = error["message"]
+    assert "holds no Workload lock" in messages["present"] and "not a source checkout" not in messages["present"]
+    assert "does not exist" not in messages["present"]
+    assert "not a source checkout" in messages["absent"] and "does not exist" in messages["absent"]
+
+
 @pytest.mark.parametrize(
     "argv",
     [
