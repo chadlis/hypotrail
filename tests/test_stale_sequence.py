@@ -455,6 +455,16 @@ def test_an_empty_request_id_with_no_study_is_refused_as_request_id_empty(tmp_pa
     assert (code, error_of(payload)["code"]) == (2, "REQUEST_ID_EMPTY")
 
 
+@pytest.mark.parametrize("command", ["run ml", "run agent", "import ml", "import agent", "decide"])
+def test_an_empty_request_id_is_refused_with_stage_request_and_no_details_and_nothing_is_written(command, tmp_path):
+    scenario = SCENARIOS[command](tmp_path)
+    files = tree(scenario.study)
+    with pytest.raises(HypotrailError) as caught:
+        scenario.library(scenario.study, seq(scenario.study), request_id="")
+    assert (caught.value.exit_code, caught.value.code, caught.value.stage, caught.value.details) == (2, "REQUEST_ID_EMPTY", "request", {})
+    assert tree(scenario.study) == files
+
+
 def test_no_study_with_an_older_value_is_refused_as_study_not_found(tmp_path):
     code, payload, err = run_ml(tmp_path / "none", "seasonal_7", "dev", "r", "--read-sequence", 0)
     assert (code, error_of(payload)["code"]) == (2, "STUDY_NOT_FOUND")

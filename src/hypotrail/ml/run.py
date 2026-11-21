@@ -30,7 +30,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, exposure, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, requests, study_write
 from hypotrail.core.attempts import ITEM_STATUSES, now as _now, record_failure as _record_failure, verify_recorded as _verify_recorded
 from hypotrail.core import study as layout
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
@@ -41,7 +41,7 @@ from hypotrail.ml.partitions import TRAIN
 from hypotrail.ml.predictions import PREDICTIONS_NAME
 from hypotrail.ml.study import DOMAIN, MODE, protocol_content
 
-COMMAND = "run ml"
+COMMAND = study_write.RUN_ML
 OBSERVATIONS_COLUMNS = ["row_id", "status", "reason", "y_pred_raw", "y_pred"]
 PARAMETERS_NAME = "sklearn_params.json"
 
@@ -84,23 +84,21 @@ def run_ml(
 ) -> tuple[dict, bool]:
     """Run (or replay) one request under the Study's writer lock; a second writer is refused at once."""
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "run ml")
-    if not request_id:
-        raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    study_write.check_arguments(COMMAND, read_sequence, request_id)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
-        return _run_locked(study, config_id, partition, request_id, retry_of=retry_of, examples_dir=examples_dir, read_sequence=read_sequence)
+    with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
+        return _run_locked(study, write, config_id, partition, request_id, retry_of=retry_of, examples_dir=examples_dir)
 
 
 def _run_locked(
     study: Path,
+    write: study_write.Write,
     config_id: str,
     partition: str,
     request_id: str,
     *,
     retry_of: str | None = None,
     examples_dir: Path | None = None,
-    read_sequence: int | None = None,
 ) -> tuple[dict, bool]:
     """Run (or replay) one request; return the Attempt manifest and whether it was recorded already."""
     spec = layout.read_spec(study)
@@ -144,17 +142,15 @@ def _run_locked(
     code_environment = environment.code_environment()
     requested = requests.identity(effective_config, code_environment)
 
-    recorded = layout.find_by_request(study, request_id)
-    if recorded is not None:
-        differs = requests.differences(
-            requests.identity(recorded["effective_config"], recorded["code_environment"]), requested
-        )
+    def check_recorded(recorded: dict) -> None:
+        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
         if differs:
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         _verify_recorded(study, recorded)
+
+    recorded = write.replay_attempt(check_recorded)
+    if recorded is not None:
         return recorded, True
-    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
-    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-037 on chadlis/hypotrail#75)
 
     protocol = protocol_content(
         declaration,
@@ -193,8 +189,8 @@ def _run_locked(
         **exposure.marks(study, [{"effective_config": effective_config}]),
     }
     contracts.validate(manifest)
-    write_journal.begin()  # the running manifest is the first write
-    write_journal.attempt(attempt_id)
+    write.begin()  # the running manifest is the first write
+    write.attempt(attempt_id)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
 
     try:

@@ -6,6 +6,12 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent.parent / "src"
 
+# The module that owns the writer lock for the writers that share the write protocol, and the call by which a writer takes it there.
+STUDY_WRITE = "hypotrail.core.study_write"
+STUDY_WRITE_LOCK_CALL = "study_write.locked"
+# A call that holds the stale check: `require_current` itself, or a step of the Study-write module that runs it after the replay lookup.
+STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision"}
+
 
 def dotted(node):
     """`a.b.c` for a name or a chain of attributes on a name, None for anything else (a method of a literal or of a call's result)."""
@@ -43,7 +49,10 @@ def _module_name(root, path):
 
 
 def locked_functions(root):
-    """{`module:function`} of every function under `root` that calls `writer_lock`; a call outside any function is `module:<module>`."""
+    """{`module:function`} of every function under `root` that takes the writer lock, by `writer_lock` or by `study_write.locked`; a call outside any function is `module:<module>`.
+
+    The call of `writer_lock` inside the Study-write module is the one that `study_write.locked` stands for, so it is not a path of its own.
+    """
     found = set()
     for path in sorted(Path(root).rglob("*.py")):
         module = _module_name(root, path)
@@ -51,7 +60,8 @@ def locked_functions(root):
         def visit(node, inside):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 inside = node.name
-            if isinstance(node, ast.Call) and (dotted(node.func) or "").split(".")[-1] == "writer_lock":
+            name = dotted(node.func) if isinstance(node, ast.Call) else None
+            if name is not None and (name == STUDY_WRITE_LOCK_CALL or (name.split(".")[-1] == "writer_lock" and module != STUDY_WRITE)):
                 found.add(f"{module}:{inside or '<module>'}")
             for child in ast.iter_child_nodes(node):
                 visit(child, inside)
@@ -94,7 +104,7 @@ def calls_after_the_stale_check(root, path_key, *, stale_check_in=None, then=Non
         assert stale_check_in in {_counted(call) for call in _calls(locked)}, f"{path_key} does not call {stale_check_in}"
         holder = _function(tree, stale_check_in)
     calls = _calls(holder)
-    [stale] = [call for call in calls if (dotted(call.func) or "").split(".")[-1] == "require_current"]
+    [stale] = [call for call in calls if (dotted(call.func) or "").split(".")[-1] in STALE_CHECK_CALLS]
     after = [call for call in calls if (call.end_lineno, call.end_col_offset) > (stale.end_lineno, stale.end_col_offset)]
     names = []
     for call in after:

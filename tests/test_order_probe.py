@@ -62,6 +62,28 @@ def test_the_search_for_locked_functions_finds_a_lock_taken_in_a_with_or_by_anot
     assert locked_functions(tmp_path) == {"pkg.a:plain", "pkg.a:other_name", "pkg.a:inner"}
 
 
+def test_the_search_for_locked_functions_finds_a_lock_taken_through_the_study_write_module_in_its_caller_and_not_the_call_inside_the_module(tmp_path):
+    (tmp_path / "hypotrail" / "core").mkdir(parents=True)
+    (tmp_path / "hypotrail" / "ml").mkdir()
+    (tmp_path / "hypotrail" / "core" / "study_write.py").write_text(
+        "def locked(study):\n    with lock.writer_lock(study):\n        yield\n", encoding="utf-8"
+    )
+    (tmp_path / "hypotrail" / "ml" / "w.py").write_text(
+        "def writer(study):\n    with study_write.locked(study, 'x', 'r', read_sequence=None):\n        pass\n", encoding="utf-8"
+    )
+    assert locked_functions(tmp_path) == {"hypotrail.ml.w:writer"}
+
+
+def test_the_calls_after_the_stale_check_follow_the_replay_step_of_the_study_write_module_that_runs_it(tmp_path):
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "m.py").write_text(
+        "def locked(study, write):\n    with study_write.locked(study, 'x', 'r', read_sequence=None):\n        return _held(study, write)\n\n"
+        "def _held(study, write):\n    before()\n    recorded = write.replay_attempt(check)\n    first()\n",
+        encoding="utf-8",
+    )
+    assert calls_after_the_stale_check(tmp_path, "pkg.m:locked", stale_check_in="_held") == ["first"]
+
+
 def test_every_locked_path_has_its_lock_held_row_and_every_path_that_takes_the_read_sequence_has_its_after_row():
     assert not set(LOCK_HELD_ENTERS_NONE) & {path["lock_held"] for path in LOCKED_PATHS.values()}
     assert all(LOCK_HELD_ENTERS_NONE.values()), "each row of `LOCK_HELD` that has no locked path gives its reason"
