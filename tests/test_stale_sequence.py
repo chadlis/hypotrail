@@ -491,6 +491,27 @@ def test_run_ml_with_an_unknown_retry_of_and_an_older_value_gives_retry_of_unkno
     assert tree(study) == files
 
 
+# --- Tightened M (D-038): two checks that read only the arguments and the spec keep their place before the lock ---------------
+
+
+def test_compare_with_a_factor_on_a_bike_study_and_an_older_value_gives_unsupported_capability_and_writes_nothing(tmp_path):
+    scenario, read, files = older("compare", tmp_path)
+    code, payload, err = scenario.call(scenario.study, "--factor", "model", "--read-sequence", read)
+    error = error_of(payload)
+    assert (code, error["code"]) == (2, "UNSUPPORTED_CAPABILITY"), (payload, err)
+    assert tree(scenario.study) == files
+
+
+def test_report_with_an_output_inside_the_study_and_an_older_value_gives_its_existing_refusal_and_writes_nothing(tmp_path):
+    study, _ = TRACKS["bike"].public_outputs(tmp_path)  # a page that shows public_check Items is an Exposure: the value would be compared
+    read = seq(study)
+    bike_bump(study)
+    files = tree(study)
+    code, payload, err = report(study, study / "page.html", "--read-sequence", read)
+    assert (code, error_of(payload)["code"]) == (2, "REPORT_OUTPUT_INVALID"), (payload, err)
+    assert tree(study) == files
+
+
 # --- Tightened F: report compares the value only when its page would record an Exposure ----------------------------------------
 
 
