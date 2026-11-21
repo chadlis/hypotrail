@@ -2364,6 +2364,14 @@ def test_the_workload_inputs_table_lists_exactly_what_the_resolver_reads(page):
     assert "HYPOTRAIL_EXAMPLES_DIR" not in page.split('id="workload-inputs"')[1].split("</table>")[0]  # the table names no variable
 
 
+def test_the_chapter_04_refusal_row_names_the_four_cases_the_resolver_observes_of_the_default_examples():
+    # 10-R4-05, ADR 0003 (the handbook describes the behaviour): the same four facts as the resolver's messages.
+    chapter = (HANDBOOK / "chapters" / "04-study-and-attempts.html").read_text(encoding="utf-8")
+    row = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<tr data-code="EXAMPLES_DIR_NOT_FOUND".*?</tr>', chapter, re.S)[0]).split())
+    for fact in ("does not exist", "a link whose target does not exist", "is not a directory", "holds no Workload lock"):
+        assert fact in row, fact
+
+
 def test_the_workload_commands_table_equals_the_commands_the_parser_gives_the_flag(page):
     rows = attrs_of(page, "workload-commands", "data-command")
     assert set(rows) == _commands_taking_the_examples_flag()
