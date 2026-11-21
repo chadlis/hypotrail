@@ -37,7 +37,7 @@ from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.partitions import requires_exposure
 from hypotrail.ml.study import live_basis as _live_basis
 
-COMMAND = "assess"
+COMMAND = study_write.ASSESS
 STAGE = "assess"
 PER_ITEM_COLUMNS = ["row_id", "execution_status", "criterion", "state", "value", "reason"]
 LIMITATIONS = [

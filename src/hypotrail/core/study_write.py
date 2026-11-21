@@ -1,9 +1,10 @@
-"""The write protocol that `run ml`, `run agent`, `import ml`, `import agent` and `decide` share (ADR 0004).
+"""The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report` and `decide`.
 
-A writer calls `check_arguments` before anything else, does its own checks that come before the lock, then works inside `locked(...)`, which
-takes the writer lock and opens the write journal. Inside it, the session it yields runs the steps in the order every one of these writers
-keeps: the replay lookup under the `request_id`, the guard on the Study's one `request_id` namespace, then the stale check (`require_current`).
-A writer supplies its command, what identifies its request, its own check of a record already recorded, its own checks and its writes;
+A writer calls `check_arguments` (a writer with a `request_id`) or `check_read_sequence` before anything else, does its own checks that come before
+the lock, then works inside `locked(...)`, which takes the writer lock and opens the write journal. Inside it, the session it yields runs the steps
+in the order the writer keeps: for a writer with a `request_id`, the replay lookup, the guard on the Study's one `request_id` namespace, then the stale
+check; for the others, `require_current()`. Creating a Study (`init`) takes neither check, and `report` takes the lock only when its page records
+an Exposure. A writer supplies its command, what identifies its request, its own check of a record already recorded, its own checks and its writes;
 it calls `begin()` just before its first write.
 """
 
@@ -31,6 +32,8 @@ REVISION = "revision"
 ASSESSMENT = "assessment"
 COMPARISON = "comparison"
 ATTEMPT = "attempt"
+FREEZE = "freeze"
+EXPOSURE = "exposure"
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:
