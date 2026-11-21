@@ -1,0 +1,70 @@
+{
+  "commit": "f696f58",
+  "working_directory": "repository root",
+  "commands": [
+    {
+      "step": "init",
+      "argv": "uv run python -m hypotrail init --workload chinook --study campaign-study",
+      "exit_code": 0,
+      "stdout": "Study created in campaign-study: Workload chinook, protocol aaea8fd07070..., study_id bce90141-fc20-40c4-85c9-5b5f78119caa\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": null,
+      "finished_at": null
+    },
+    {
+      "step": "run-plain",
+      "argv": "uv run python -m hypotrail run agent --study campaign-study --mode llm_live --config plain --partition public_check --repeats 3 --model anthropic/claude-sonnet-5-5 --request-id campaign-plain",
+      "exit_code": 0,
+      "stdout": "Attempt b12c5535-cc0c-4e86-8ef3-47738c54ba8c completed (Mode llm_live) (model anthropic/claude-sonnet-5-5, served_model claude-sonnet-5-5) (36 Episodes produced, 0 failed, 0 missing)\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": "2026-11-21T04:27:42Z",
+      "finished_at": "2026-11-21T04:31:32Z"
+    },
+    {
+      "step": "run-verify",
+      "argv": "uv run python -m hypotrail run agent --study campaign-study --mode llm_live --config verify --partition public_check --repeats 3 --model anthropic/claude-sonnet-5-5 --request-id campaign-verify",
+      "exit_code": 0,
+      "stdout": "Attempt e8123b1b-5200-439b-bf46-8262d0daed8c completed (Mode llm_live) (model anthropic/claude-sonnet-5-5, served_model claude-sonnet-5-5) (36 Episodes produced, 0 failed, 0 missing)\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": "2026-11-21T04:31:43Z",
+      "finished_at": "2026-11-21T04:35:29Z"
+    },
+    {
+      "step": "assess-plain",
+      "argv": "uv run python -m hypotrail assess --study campaign-study --observations 6f83999f-c20f-4faa-af62-1e8ffbecf21a --scorer chinook_contract_v1 --references references-7a47fd1bc0547255",
+      "exit_code": 0,
+      "stdout": "Assessment 51fd8451-3795-44ea-9d50-138feab3b32a: primary Criterion contract_success: 27 correct of 36 expected Episodes (36 scored, 0 unscored, 0 errored); quality_among_scored 0.75, confirmed_share_of_expected 0.75\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": null,
+      "finished_at": null
+    },
+    {
+      "step": "assess-verify",
+      "argv": "uv run python -m hypotrail assess --study campaign-study --observations 7ecd1654-5fc3-40b4-a598-2c36cd6633f9 --scorer chinook_contract_v1 --references references-7a47fd1bc0547255",
+      "exit_code": 0,
+      "stdout": "Assessment d32b8cb7-300f-4c8e-8feb-d63e3ad4293a: primary Criterion contract_success: 21 correct of 36 expected Episodes (36 scored, 0 unscored, 0 errored); quality_among_scored 0.583, confirmed_share_of_expected 0.583\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": null,
+      "finished_at": null
+    },
+    {
+      "step": "compare",
+      "argv": "uv run python -m hypotrail compare --study campaign-study --control 51fd8451-3795-44ea-9d50-138feab3b32a --candidate d32b8cb7-300f-4c8e-8feb-d63e3ad4293a",
+      "exit_code": 0,
+      "stdout": "Comparison 4dd96c89-28d6-4414-8976-f2ccf7ac115b (compatible): delta contract_success -0.166667 share of Repeats per Case, every Case weighted equally (Candidate minus Control; positive means the Candidate is better) over 36 of 36 paired Episodes\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": null,
+      "finished_at": null
+    },
+    {
+      "step": "report",
+      "argv": "uv run python -m hypotrail report --study campaign-study --out campaign-report.html",
+      "exit_code": 0,
+      "stdout": "Report written to campaign-report.html (an Exposure: journal entry 94fb05fd-436f-4f53-83a3-2ac6fadfeb0e)\n",
+      "stderr": "warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.\n",
+      "started_at": null,
+      "finished_at": null
+    }
+  ],
+  "note": "The Study's copy of the Chinook database (datasets/) is not kept: it is the Workload's own file, by hash."
+}
