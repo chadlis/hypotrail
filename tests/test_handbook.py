@@ -3025,6 +3025,14 @@ def test_the_t24_row_fails_when_the_record_is_missing_unwalked_or_has_no_failure
     assert walk_row_problems(text, path=readme_path()[:-1]) != []
 
 
+def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_as_a_role():
+    # 10-R1-02, GLOSSARY Control (_Avoid_: baseline as a role): the open point on the order of the Configurations names `plain` and `verify`.
+    chapter = (HANDBOOK / "chapters" / "16-acceptance-grid.html").read_text(encoding="utf-8")
+    point = re.search(r'<span data-open-point="order">(.*?)</span>', chapter, re.S)[1]
+    assert "order of <code>plain</code> and <code>verify</code>" in point
+    assert "baseline" not in point.replace("« baseline »", "")  # a verbatim SPEC quote in « » may keep the word
+
+
 CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
 
 
