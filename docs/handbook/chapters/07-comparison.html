@@ -86,5 +86,6 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Comparison is a core module, with no Track and no Inspect behind it.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles: a Comparison is on <code>dev</code>, or on <code>public_check</code> through the Exposure journal.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>compare</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_compare.py</code>, <code>test_compare_refusals.py</code> and <code>test_compare_scope.py</code>; they run offline and call no model. The library Comparison of chapter 02 (<code>hypotrail/ml/comparison.py</code>, on two predictions files) is kept unchanged and is the oracle the <code>dev</code> test compares against, to 1e-9.</p>

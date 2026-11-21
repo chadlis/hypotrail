@@ -277,6 +277,7 @@ uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partitio
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Study, Attempt and Observation set records are core contracts shared by both Tracks, and the core imports neither Inspect nor scikit-learn.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the question, the objective and the limitations of a Study are declared by the Workload.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why a write to a Study takes the write sequence its author read, why a write on an older write sequence is refused with <code>STUDY_CHANGED</code> and nothing is written, and why the write sequence is a count of writes rather than a digest of <code>status --json</code> or the Protocol revision.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Failures no command refuses</p>

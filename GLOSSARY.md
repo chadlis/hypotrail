@@ -34,6 +34,7 @@ _Avoid_: pipeline, method, setup
 
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
+Clarification, 2026-11-21: a live view of artifacts already recorded is not a « report »: such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
 _Avoid_: use, peek, leak
 
 **Partition**:

@@ -123,5 +123,6 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <div class="tblwrap"><table class="tbl" id="adr-map-decisions"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the decision record and its command are in the core, which imports neither Inspect nor a Track.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> requires <code>--read-sequence</code> and <code>--request-id</code>, and why whether a decision still applies is computed when the Study is read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_decide.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>

@@ -4259,3 +4259,27 @@ def test_the_readme_names_the_decision_history_in_the_status_command():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     line = next(l for l in readme.splitlines() if "hypotrail status --study" in l)
     assert "decisions" in line and "still applies" in line
+
+
+CHANGED_BY_THE_WRITE_SEQUENCE_AND_DECISIONS = [
+    "04-study-and-attempts.html",
+    "05-assessments.html",
+    "06-import.html",
+    "07-comparison.html",
+    "08-agent-answers.html",
+    "13-run-agent.html",
+    "14-report.html",
+    "17-decisions.html",
+]
+
+
+@pytest.mark.parametrize("chapter", CHANGED_BY_THE_WRITE_SEQUENCE_AND_DECISIONS)
+def test_every_chapter_that_the_write_sequence_and_decisions_changed_links_the_panel_cli_adr_in_its_adr_table(chapter):
+    # #111: the chapters #107 to #110 changed (`git diff 607740c 0e81949 --stat -- docs/handbook/chapters`)
+    text = (HANDBOOK / "chapters" / chapter).read_text(encoding="utf-8")
+    heading = '<p class="sub2">Which ADR explains what</p>'
+    assert heading in text, f"{chapter} has no « Which ADR explains what » table"
+    table = text.split(heading, 1)[1].split("</table>", 1)[0]
+    adr = sorted((ROOT / "docs" / "adr").glob("0004-*.md"))
+    assert len(adr) == 1, "there is no ADR 0004"
+    assert f'<a href="../adr/{adr[0].name}">0004</a>' in table, f"{chapter}: its ADR table has no row that links {adr[0].name}"

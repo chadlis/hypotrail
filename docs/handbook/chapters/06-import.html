@@ -111,3 +111,8 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <div class="card" style="--c:var(--sky)"><h3>Claims are not checked</h3><p>The digest of the dataset is checked against the lock; the model, the date, the protocol and the tool use are only what the mapping says. A column whose name looks like a dotted name (<code>pred.v1</code>) cannot be mapped, because the same shape names a module.</p></div>
 </div>
 <p class="prose">The tests are <code>tests/test_import_ml.py</code> (every criterion of the ticket) and <code>tests/test_handbook.py</code> (the tables of this chapter against the code). They run offline and call no model.</p>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-import"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>import ml</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
+</tbody></table></div>

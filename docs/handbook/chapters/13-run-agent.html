@@ -145,3 +145,8 @@ uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --conf
 <div class="card" style="--c:var(--sky)"><h3>One provider</h3><p>Only <code>anthropic/&lt;model&gt;</code> is accepted, with the key sent to that provider alone. The model licence line of the specification does not apply to a remote provider, and no field records one.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A scan is not a proof</h3><p>The scan finds the key as written, in a file or decoded from a log; it does not find the key in an altered form.</p></div>
 </div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-run-agent"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>run agent</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
+</tbody></table></div>

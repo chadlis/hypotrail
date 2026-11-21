@@ -115,3 +115,8 @@ uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report
 <div class="card" style="--c:var(--amber)"><h3>No licence text</h3><p>The Study keeps the dataset, not the licence notice or its attribution addresses: the page names the notice file the Workload declared and shows no notice text.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>No in-page links</h3><p>The only links are relative links to Study artifacts, from the folder of <code>--out</code>, each with its SHA-256. Moving the page without the Study breaks them.</p></div>
 </div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-report"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>report</code> compares <code>--read-sequence</code> only when its page shows <code>public_check</code> Items and so records an Exposure: a page of <code>dev</code> Items only writes nothing.</td></tr>
+</tbody></table></div>

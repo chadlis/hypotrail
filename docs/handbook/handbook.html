@@ -997,6 +997,7 @@ uv run python -m hypotrail run ml --study runs/bike --config ridge_v1 --partitio
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Study, Attempt and Observation set records are core contracts shared by both Tracks, and the core imports neither Inspect nor scikit-learn.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the question, the objective and the limitations of a Study are declared by the Workload.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why a write to a Study takes the write sequence its author read, why a write on an older write sequence is refused with <code>STUDY_CHANGED</code> and nothing is written, and why the write sequence is a count of writes rather than a digest of <code>status --json</code> or the Protocol revision.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Failures no command refuses</p>
@@ -1097,6 +1098,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the registry and the Assessment record are core contracts, and <code>assess</code> imports neither scikit-learn nor Inspect.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles: fit on <code>train</code>, measure on <code>dev</code>, keep <code>public_check</code> for the Exposure-tracked check.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>assess</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_assess.py</code>, <code>test_assess_criteria.py</code> and <code>test_assess_refusals.py</code>; they run offline and call no model.</p>
 </section>
@@ -1213,6 +1215,11 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <div class="card" style="--c:var(--sky)"><h3>Claims are not checked</h3><p>The digest of the dataset is checked against the lock; the model, the date, the protocol and the tool use are only what the mapping says. A column whose name looks like a dotted name (<code>pred.v1</code>) cannot be mapped, because the same shape names a module.</p></div>
 </div>
 <p class="prose">The tests are <code>tests/test_import_ml.py</code> (every criterion of the ticket) and <code>tests/test_handbook.py</code> (the tables of this chapter against the code). They run offline and call no model.</p>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-import"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>import ml</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
+</tbody></table></div>
 </section>
 <section id="comparison" style="--ac:var(--violet)"><div class="sh"><div class="n">07</div><div><p class="k">Core</p><h2>Comparison</h2></div></div>
 <p class="lead"><code>compare</code> takes two Assessments of a Study, one named the Control and one the Candidate, and writes a Comparison record into the Study. It reads what the Study keeps (the Assessments, their per-Item files, the Observation sets and Attempt manifests they point to) and nothing else: it fits nothing, predicts nothing and calls no model. A Comparison is <em>strict</em> when everything that makes two Assessments comparable holds, and <em>descriptive</em> when one side is an Import. Items are aligned by <code>row_id</code>, and a Comparison never rests on a hidden intersection: if the Items differ by one, it is refused. This chapter describes the temporal regression Track, on <code>dev</code>; the Comparison of two agent Assessments, which aligns Episodes by Case and Repeat, is <a href="#agent-comparison">chapter 11</a>, and the report and the Exposure journal are later work (see Limits).</p>
@@ -1302,6 +1309,7 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Comparison is a core module, with no Track and no Inspect behind it.</td></tr>
 <tr><td><a href="../adr/0002-workloads-are-declarative.md">0002</a></td><td>Why the Partitions have fixed roles: a Comparison is on <code>dev</code>, or on <code>public_check</code> through the Exposure journal.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>compare</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_compare.py</code>, <code>test_compare_refusals.py</code> and <code>test_compare_scope.py</code>; they run offline and call no model. The library Comparison of chapter 02 (<code>hypotrail/ml/comparison.py</code>, on two predictions files) is kept unchanged and is the oracle the <code>dev</code> test compares against, to 1e-9.</p>
 </section>
@@ -1480,6 +1488,11 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <div class="card" style="--c:var(--pink)"><h3>Not built</h3><p>A command that runs the agent into a Study. Corrected References are <a href="#revisions-rescoring">chapter 10</a>, the Comparison of two agent Assessments and its matrix <a href="#agent-comparison">chapter 11</a>, and the Exposure journal that lets <code>assess</code> take <code>public_check</code> Episodes <a href="#freeze-exposure">chapter 12</a>.</p></div>
 </div>
 <p class="prose">The tests are <code>tests/test_agent_study.py</code>, <code>tests/test_import_agent.py</code> and <code>tests/test_assess_agent.py</code> (every criterion of the ticket), <code>tests/test_study_lock.py</code> (the second writer) and <code>tests/test_handbook.py</code> (the tables of this chapter against the code). They run offline and call no model.</p>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-agent-answers"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>import agent</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
+</tbody></table></div>
 </section>
 <section id="inspect-log-import" style="--ac:var(--sky)"><div class="sh"><div class="n">09</div><div><p class="k">Agent</p><h2>Importing an Inspect log</h2></div></div>
 <p class="lead"><code>import agent</code> also adopts an Inspect log (a <code>.eval</code> file written by the pinned Inspect) as an Import Attempt of a Chinook Study. The log is read once, through Inspect's public log API, and projected into one Episode per expected Case and Repeat with the projection that <code>rescore_log</code> uses. The trace of each Episode is kept in the Study, so <code>assess --scorer chinook_contract_v1</code> scores <code>evidence_link_valid</code> from it, and gives the same verdicts as <code>rescore_log</code> on the same log. Neither the import nor the Assessment calls a model, runs a tool or opens the Chinook file. This chapter extends <a href="#agent-answers">chapter 08</a>, which describes the Study, the population, the request and the Assessment; it only says what differs for a log.</p>
@@ -2042,6 +2055,11 @@ uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --conf
 <div class="card" style="--c:var(--sky)"><h3>One provider</h3><p>Only <code>anthropic/&lt;model&gt;</code> is accepted, with the key sent to that provider alone. The model licence line of the specification does not apply to a remote provider, and no field records one.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>A scan is not a proof</h3><p>The scan finds the key as written, in a file or decoded from a log; it does not find the key in an altered form.</p></div>
 </div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-run-agent"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>run agent</code> takes <code>--read-sequence</code> and is refused with <code>STUDY_CHANGED</code> when the Study was written to since the sequence was read.</td></tr>
+</tbody></table></div>
 </section>
 <section id="report" style="--ac:var(--sky)"><div class="sh"><div class="n">14</div><div><p class="k">Report</p><h2>The Study report</h2></div></div>
 <p class="lead"><code>report</code> renders one HTML page for a Study of either Track, the temporal regression Track (Bike) or the tool-using agent Track (Chinook), from the Study's records alone: the Attempts, Observation sets, Assessments, Comparisons, the freeze record and the Exposure journal. The page holds its text, styles and tables inline, loads nothing, has no script and computes nothing when it is opened. A page that shows <code>public_check</code> Items is an Exposure and is recorded as one.</p>
@@ -2160,6 +2178,11 @@ uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report
 <div class="card" style="--c:var(--amber)"><h3>No licence text</h3><p>The Study keeps the dataset, not the licence notice or its attribution addresses: the page names the notice file the Workload declared and shows no notice text.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>No in-page links</h3><p>The only links are relative links to Study artifacts, from the folder of <code>--out</code>, each with its SHA-256. Moving the page without the Study breaks them.</p></div>
 </div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl" id="adr-map-report"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why <code>report</code> compares <code>--read-sequence</code> only when its page shows <code>public_check</code> Items and so records an Exposure: a page of <code>dev</code> Items only writes nothing.</td></tr>
+</tbody></table></div>
 </section>
 <section id="data-fetch" style="--ac:var(--teal)"><div class="sh"><div class="n">15</div><div><p class="k">Data</p><h2>Acquiring the data: data fetch</h2></div></div>
 <p class="lead"><code>data fetch</code> acquires a Workload's public sources from the URLs of its <code>data-sources.lock.json</code>. Each file is downloaded to a temporary file, bounded while it arrives, checked against the lock's SHA-256 and published by an atomic rename. It never chooses a mirror or another URL, never replaces a file that is there, and the files it publishes pass <code>data verify</code> like the committed bundle.</p>
@@ -2450,6 +2473,7 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <div class="tblwrap"><table class="tbl" id="adr-map-decisions"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the decision record and its command are in the core, which imports neither Inspect nor a Track.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> requires <code>--read-sequence</code> and <code>--request-id</code>, and why whether a decision still applies is computed when the Study is read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_decide.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>
 </section>
