@@ -1,0 +1,35 @@
+{
+  "schema_version": "workload/1",
+  "track": "tool_using_agent",
+  "workload_id": "chinook",
+  "licence_notice": "licenses/Chinook-MIT.txt",
+  "question": "Does a tool-using agent answer questions about the Chinook music-store database with an exact table, in the requested format, citing the tool calls that support it?",
+  "objective": "Measure the contract success of an agent on the dev Cases: an exact table, a valid answer format and an evidence link to the Episode's own tool calls, for each Case and Repeat.",
+  "limitations": [
+    "Twenty authored questions on one small database: the shares describe these Cases, not agents in general.",
+    "The Repeats of a Case are not independent samples: no confidence interval and no significance claim is computed.",
+    "evidence_link_valid checks that the cited IDs designate successful calls of the Episode; it does not prove that every claim follows from the trace.",
+    "The public_check Partition names a role in the protocol, not a guarantee of novelty or secrecy: the database is public and known."
+  ],
+  "primary_criterion": "contract_success",
+  "database": {
+    "file": "data/Chinook_Sqlite.sqlite",
+    "dataset_id": "chinook-sqlite-1.4.5"
+  },
+  "cases": {
+    "dev": "cases/chinook-dev.jsonl",
+    "public_check": "cases/chinook-public-check.jsonl"
+  },
+  "references": "references/chinook-references.jsonl",
+  "answer_schema": "schemas/table-answer.schema.json",
+  "scenarios": "fixtures/scenarios.json",
+  "configurations": {
+    "plain": {
+      "system_text": "You answer questions about the Chinook music-store SQLite database. Answer each question with the tools available to you: describe_schema returns the tables, columns, types and foreign-key relations of the database, and query_readonly takes one SQL SELECT statement and returns columns, rows, row_count, truncated, error and a tool_call_id. Look the data up with the tools; do not guess.\n\nAnswer in the requested schema, table-answer/1. Distinguish three situations. If the question can be answered from the data, give the answer. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not available in the database, say so instead of inventing it.\n\nFinish with a single JSON object and nothing else: no Markdown fence, no extra prose. Its fields are:\n- \"status\": \"answered\", \"needs_clarification\" or \"not_answerable\".\n- \"reason_code\": null when answered; \"criterion_undefined\" for needs_clarification; \"field_not_available\" for not_answerable.\n- \"columns\": the requested columns, in order, when answered; otherwise [].\n- \"rows\": the result rows when answered; otherwise [].\n- \"unit\": the requested unit when answered; otherwise null.\n- \"evidence\": the tool_call_id values of the tool calls the answer relies on.\n"
+    },
+    "verify": {
+      "extends": "plain",
+      "added_instruction": "\nBefore you conclude, check your work: the scope of the question (which rows it covers and which it leaves out), the joins you used, the units of the values, and the result you obtained.\n"
+    }
+  }
+}

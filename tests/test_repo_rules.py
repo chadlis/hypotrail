@@ -148,3 +148,43 @@ def test_every_decision_cited_in_src_names_its_issue_as_the_glossary_does():
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))  # a citation may wrap over two lines
         bare += [f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
     assert bare == []
+
+
+def test_every_decision_cited_in_the_files_this_slice_adds_names_its_issue():
+    # 93-R1-10: a bare D-0xx means nothing to a reader; GLOSSARY cites "D-011 on chadlis/hypotrail#75". The scan covers chapter 16, the README and the tests of the Campaign.
+    bare = []
+    for path in (
+        ROOT / "docs" / "handbook" / "chapters" / "16-acceptance-grid.html", ROOT / "README.md",
+        ROOT / "tests" / "test_campaign_rehearsal.py", ROOT / "tests" / "test_e07_year_format.py",
+    ):
+        text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
+        bare += [f"{path.name}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
+    assert bare == []
+
+
+# tests/test_handbook.py holds bare decision IDs from before this slice (the contexts below, 30 characters either side, as at c4b3284 and still there; the
+# slice removed two of the 14 that stood there with a test it rewrote). Nothing else may be bare: a new or edited citation names its issue.
+OLD_BARE_IDS_IN_HANDBOOK_TESTS = [
+    'nothing_is_read(): """#61 A3 (D-012 item 20): the module docstrin',
+    '"""#61 AC7 (Tightened E), B3 (D-012 item 18): the chapter says wh',
+    's_not_apply(page): """#62 and D-012 items 4, 7 and 9: the prose a',
+    'is_no_difference(): """R2-03, D-012 item 11: nothing is hidden be',
+    'ing="utf-8")).split()) # #77, D-011 and Tightened B2: each phrase',
+    'rote_the_record(page): """#77 D-011 C: the value keeps its name; ',
+    'the Workloads are found (#23, D-016) ----------------------------',
+    '_the_resolver_reads(page): """D-016, #23: the resolver takes the ',
+    ' # 10-R1-06, #22 Tightened K (D-020): a framed cut (Content-Lengt',
+    'ch_and_scripts(): # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, ',
+    'ACCEPTED without « pending » (D-015 condition 3).""" return [s fo',
+    'the_candidate(page): # #88 H (D-017 item 9, AG-06: `verify` adds ',
+]
+
+
+def test_no_decision_cited_in_the_handbook_tests_is_bare_except_the_frozen_older_ones():
+    # 93-R1-10: a quoted string an assertion looks for ("D-025") is not a citation. Whitespace is collapsed, as a citation may wrap over two lines.
+    text = re.sub(r"\s+", " ", (ROOT / "tests" / "test_handbook.py").read_text(encoding="utf-8"))
+    bare = [
+        text[max(0, m.start() - 30):m.end() + 30] for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)
+        if not re.fullmatch(r'"D-0\d\d"', text[max(0, m.start() - 1):m.end() + 1])
+    ]
+    assert bare == OLD_BARE_IDS_IN_HANDBOOK_TESTS
