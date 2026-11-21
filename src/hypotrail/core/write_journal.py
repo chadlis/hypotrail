@@ -50,7 +50,7 @@ def write_sequence(study) -> int:
 
 def entries(study) -> list:
     """The journal's entries, in the order they were appended."""
-    return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in layout.record_names(study, JOURNAL_DIR)]
+    return layout.read_records(study, JOURNAL_DIR)
 
 
 def read_sequence_fault(read_sequence) -> str | None:

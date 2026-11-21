@@ -136,12 +136,22 @@ def record_names(study, folder: str) -> list:
     return sorted(p.name for p in path.iterdir() if p.name.endswith(".json") and not p.name.startswith(".")) if path.is_dir() else []
 
 
+def next_position(study, folder: str) -> int:
+    """The position, from 1, of the next record of `<study>/<folder>`: the count of its records + 1."""
+    return len(record_names(study, folder)) + 1
+
+
 def read_record(study, relative: str) -> dict:
     """A record kept in the Study, read back and validated."""
     path = artifacts.resolve(study, relative)
     record = canonical.loads(path.read_bytes())
     contracts.validate(record)
     return record
+
+
+def read_records(study, folder: str) -> list:
+    """Every record of `<study>/<folder>`, in position order, each validated after it is read."""
+    return [read_record(study, f"{folder}/{name}") for name in record_names(study, folder)]
 
 
 def read_manifest(study, attempt_id: str) -> dict:

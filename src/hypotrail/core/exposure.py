@@ -76,7 +76,7 @@ def freeze_records(study) -> list:
 
 def entries(study) -> list:
     """The journal entries, in the order they were appended."""
-    return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in layout.record_names(study, JOURNAL_DIR)]
+    return layout.read_records(study, JOURNAL_DIR)
 
 
 def first_freeze(study):
@@ -208,7 +208,7 @@ def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), 
     if freeze is None:
         freeze = _write_freeze(study, spec, live)
         write_journal.wrote("freeze", freeze["freeze_id"])
-    sequence = len(layout.record_names(study, JOURNAL_DIR)) + 1
+    sequence = layout.next_position(study, JOURNAL_DIR)
     entry = {
         "kind": "exposure",
         "schema_version": "exposure/1",
