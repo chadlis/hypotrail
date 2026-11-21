@@ -414,6 +414,22 @@ def test_a_checkout_examples_directory_that_holds_no_workload_lock_is_not_called
     assert "not a source checkout" in messages["absent"] and "does not exist" in messages["absent"]
 
 
+def test_a_checkout_examples_that_is_a_file_is_said_to_be_not_a_directory_not_to_be_missing(tmp_path, monkeypatch):
+    # 10-R2-02: `examples` exists but is a file; the message says so. Code, exit and details are those of the other refusals.
+    from hypotrail.core import data
+
+    default = tmp_path / "checkout" / "examples"
+    default.parent.mkdir()
+    default.write_text("not a directory")
+    monkeypatch.setattr(data, "default_examples_dir", lambda: default)
+    code, out, _ = run_cli("data", "verify", "--json")
+    assert code == 2
+    error = json.loads(out)["error"]
+    assert (error["code"], error["stage"], error["details"]) == ("EXAMPLES_DIR_NOT_FOUND", "config", {"examples_dir": str(default)})
+    assert "is not a directory" in error["message"] and "--examples-dir" in error["message"]
+    assert "does not exist" not in error["message"] and "not a source checkout" not in error["message"]
+
+
 @pytest.mark.parametrize(
     "argv",
     [

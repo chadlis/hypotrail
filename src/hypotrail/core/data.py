@@ -47,6 +47,8 @@ def resolve_examples_dir(examples_dir: Path | str | None = None) -> Path:
         return default
     if default.is_dir():
         reason = f"{default} exists but holds no Workload lock ({LOCK_NAME}); give the directory that holds the Workloads with --examples-dir DIR"
+    elif default.exists():
+        reason = f"{default} exists but is not a directory; give the directory that holds the Workloads with --examples-dir DIR"
     else:
         reason = f"{default} does not exist; this is not a source checkout, so give the directory that holds the Workloads with --examples-dir DIR"
     raise InvalidInputError(
