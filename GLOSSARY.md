@@ -12,7 +12,7 @@ Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds succe
 _Avoid_: project, run folder, experiment
 
 **Write sequence**:
-The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes. Nothing else changes it, and `status --json` shows it as `write_sequence`.
+The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes, or one when the writer was killed between its first write and its last. Nothing else changes it, and `status --json` shows it as `write_sequence`.
 _Avoid_: revision
 
 **Decision**:
@@ -34,7 +34,7 @@ _Avoid_: pipeline, method, setup
 
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
-Clarification, 2026-11-21: a live view of artifacts already recorded is not a « report »: such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
+Clarification, 2026-11-21: a live view of artifacts already recorded is not a "report": such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
 _Avoid_: use, peek, leak
 
 **Partition**:

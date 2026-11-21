@@ -38,7 +38,7 @@ def test_the_glossary_says_as_a_dated_clarification_of_exposure_that_a_live_view
     clarification = next((l for l in entry.splitlines() if l.startswith("Clarification, 2026-11-21")), None)
     assert clarification, "the Exposure entry has no clarification dated 2026-11-21"
     assert "D-031" in clarification and "item 9" in clarification
-    assert re.search(r"live view of artifacts already recorded is not a « report »", clarification)
+    assert re.search(r"live view of artifacts already recorded is not a \"report\"", clarification)
     assert "does not record an Exposure" in clarification and "does not write" in clarification
 
 
@@ -78,7 +78,7 @@ def test_the_adr_states_whether_a_decision_still_applies_is_computed_when_the_st
 
 
 def test_the_adr_considered_options_include_the_two_that_d_031_rejected_each_with_its_reason():
-    bullets = [squash(b) for b in section(adr(), "Considered options").split("\n- ") if "rejected, D-031" in b]
+    bullets = [squash(b) for b in section(adr(), "Considered options").split("\n- ") if "rejected, D-031 on chadlis/hypotrail#75" in b]
     assert len(bullets) == 2, bullets
     digest = next((b for b in bullets if "A digest of `status --json`" in b), None)
     assert digest and "`writer_alive`" in digest and "without a write" in digest
@@ -122,6 +122,39 @@ def test_l2_1_writes_no_agent_instruction():
     assert not (ROOT / ".github" / "copilot-instructions.md").exists()
     settings = ROOT / ".claude" / "settings.json"
     assert not settings.exists() or "UserPromptSubmit" not in settings.read_text(encoding="utf-8")
+
+
+# --- round 1 of the review of #104: R1-S-03, R1-S-04 and R1-P-05 -------------------------------------------------------
+
+
+def test_the_adr_and_the_glossary_entries_of_this_slice_quote_english_with_plain_double_quotes():
+    # R1-S-03: « » is for quoted French
+    glossary = (ROOT / "GLOSSARY.md").read_text(encoding="utf-8")
+    added = [re.search(rf"^\*\*{name}\*\*:\n(.*?)(?=^\*\*|\Z)", glossary, re.S | re.M)[1] for name in ("Write sequence", "Decision", "Exposure")]
+    found = [text for text in (adr(), *added) if "«" in text or "»" in text]
+    assert found == []
+
+
+def test_the_adr_names_every_decision_with_its_issue():
+    # R1-S-04: a bare D-0xx means nothing
+    bare = [m.group(0) for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", adr())]
+    assert bare == []
+
+
+def test_the_adr_gives_each_slice_label_its_issue_at_its_first_appearance():
+    # R1-S-04: L2.1 is #104; the parent #103 lists the others
+    text = adr()
+    for label, issue in (("L2.1", "chadlis/hypotrail#104"), ("L2.2", "chadlis/hypotrail#103"), ("L2.4", "chadlis/hypotrail#103"), ("L2.6", "chadlis/hypotrail#103")):
+        first = text.index(label)
+        assert issue in text[first : first + 120], (label, text[first : first + 120])
+
+
+def test_the_glossary_write_sequence_entry_is_true_of_a_writer_killed_between_its_first_and_last_write():
+    # R1-P-05, #107 Tightened B: such a writer leaves one entry
+    glossary = (ROOT / "GLOSSARY.md").read_text(encoding="utf-8")
+    entry = squash(re.search(r"^\*\*Write sequence\*\*:\n(.*?)(?=^\*\*|\Z)", glossary, re.S | re.M)[1])
+    assert "two for each command that writes" in entry
+    assert re.search(r"one when the writer was killed between its first write and its last", entry)
 
 
 # --- the README -------------------------------------------------------------------------------------------
