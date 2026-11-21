@@ -196,12 +196,6 @@ def spoiled_bike_data(built):
     return {"--examples-dir": examples}
 
 
-def spoiled_chinook_data(built):
-    examples = chinook_examples(built.tmp_path, name="flipped")
-    flipped(database_of(examples))
-    return {"--examples-dir": examples}
-
-
 def spoiled_chinook_notice(built):
     examples = chinook_examples(built.tmp_path, name="flipped")
     notice = examples / "chinook" / "licenses" / "Chinook-MIT.txt"
@@ -209,20 +203,13 @@ def spoiled_chinook_notice(built):
     return {"--examples-dir": examples}
 
 
-def shifted_bike_partitions(built):
-    def shift(declaration):
-        declaration["partitions"]["dev"][1] = "2012-06-29"
-        declaration["partitions"]["public_check"][0] = "2012-06-30"
+def bike_without(key):
+    """The Workload's declaration lacks a key the schema leaves optional."""
 
-    return {"--examples-dir": bike_examples(built, edit=shift, name="shifted")}
+    def edit(declaration):
+        del declaration[key]
 
-
-def changed_chinook_protocol(built):
-    """The Workload's References are no longer the bytes the Study's Protocol was made of."""
-    examples = chinook_examples(built.tmp_path, name="changed")
-    references = examples / "chinook" / "references" / "chinook-references.jsonl"
-    references.write_bytes(references.read_bytes() + b"\n")
-    return {"--examples-dir": examples}
+    return lambda built: {"--examples-dir": bike_examples(built, edit=edit, name="incomplete")}
 
 
 def spoil_the_study_dataset(built):
@@ -344,6 +331,7 @@ LOCK_HELD = {
     "init": lambda tmp_path: new_bike_study(tmp_path),
     "init agent": lambda tmp_path: new_chinook_study(tmp_path),
     "init --new-revision agent": of("init --new-revision", world="chinook"),
+    "assess agent": of("assess", world="chinook", **{"--scorer": "chinook_contract_v1"}),
     **{writer: of(writer) for writer in WORLD_OF},
 }
 
@@ -371,8 +359,13 @@ CHECKS_BEFORE_THE_LOCK = {
 }
 
 UNDER_THE_LOCK = {
-    "init --new-revision data": of("init --new-revision", options=spoiled_bike_data),
-    "init --new-revision agent data": of("init --new-revision", world="chinook", options=spoiled_chinook_data),
+    "init --new-revision examples": of("init --new-revision", around=the_default_examples_are_missing),
+    "init --new-revision agent examples": of("init --new-revision", world="chinook", around=the_default_examples_are_missing),
+    "run ml declaration keys": of("run ml", options=bike_without("id_prefix")),
+    "run agent Workload lock": of("run agent", options=lambda b: chinook_without(b, remove="data-sources.lock.json")),
+    "import ml declaration keys": of("import ml", options=bike_without("id_prefix")),
+    "import agent answer schema": of("import agent", options=lambda b: chinook_without(b, edit=lambda d: d.pop("answer_schema"))),
+    "report examples": of("report", around=the_default_examples_are_missing),
     "run ml examples": of("run ml", around=the_default_examples_are_missing),
     "run ml declaration file": of("run ml", options=bike_declaration_replaced),
     "run ml declaration JSON": of("run ml", options=lambda b: bike_declaration_replaced(b, "{")),
@@ -386,13 +379,11 @@ UNDER_THE_LOCK = {
     "run ml replay": of("run ml", **{"--request-id": "r1"}),
     "run ml request conflict": of("run ml", **{"--request-id": "r1", "--config": "ridge_v1"}),
     "run ml request_id of a decision": of("run ml", **{"--request-id": "d1"}),
-    "run ml Protocol": of("run ml", options=shifted_bike_partitions),
     "run agent --retry-of": of("run agent", **{"--retry-of": "no_attempt"}),
     "run agent replay": of("run agent", **{"--request-id": "r1"}),
     "run agent replay artifacts": of("run agent", setup=spoil_the_recorded_outputs("r1"), **{"--request-id": "r1"}),
     "run agent request conflict": of("run agent", **{"--request-id": "r1", "--config": "verify"}),
     "run agent request_id of a decision": of("run agent", **{"--request-id": "d1"}),
-    "run agent data": of("run agent", options=spoiled_chinook_data),
     "import ml Track": of("import ml", world="chinook"),
     "import ml data": of("import ml", options=spoiled_bike_data),
     "import ml Study artifact": of("import ml", setup=spoil_the_study_dataset),
@@ -406,7 +397,6 @@ UNDER_THE_LOCK = {
     "import ml replay artifacts": of("import ml", setup=spoil_the_recorded_outputs("i1"), **{"--request-id": "i1"}),
     "import ml request conflict": of("import ml", options=lambda b: {"--request-id": "i1", "--mapping": another_copy_of(b.facts["mapping"], b, "mapping.json")}),
     "import ml request_id of a decision": of("import ml", **{"--request-id": "d1"}),
-    "import ml Protocol": of("import ml", options=shifted_bike_partitions),
     "import agent Track": of("import agent", world="bike"),
     "import agent Workload files": of("import agent", options=spoiled_chinook_notice),
     "import agent Study artifact": of("import agent", setup=spoil_the_study_dataset),
@@ -419,13 +409,11 @@ UNDER_THE_LOCK = {
     "import agent replay artifacts": of("import agent", setup=spoil_the_recorded_outputs("i1"), **{"--request-id": "i1"}),
     "import agent request conflict": of("import agent", options=lambda b: {"--request-id": "i1", "--source": another_copy_of(b.facts["source"], b, "answers.jsonl")}),
     "import agent request_id of a decision": of("import agent", **{"--request-id": "d1"}),
-    "import agent Protocol": of("import agent", options=changed_chinook_protocol),
     "assess Scorer": of("assess", **{"--scorer": "not_a_scorer"}),
-    "assess Observation set (agent Scorer)": of("assess", **{"--scorer": "chinook_contract_v1", "--observations": "no_observations"}),
+    "assess agent Observation set": of("assess", world="chinook", **{"--scorer": "chinook_contract_v1", "--observations": "no_observations"}),
     "compare Assessment": of("compare", **{"--control": "no_assessment"}),
     "recover Attempt": of("recover", **{"--attempt": "no_attempt"}),
     "report Exposure": of("report"),
-    "report Protocol": of("report", options=shifted_bike_partitions),
     "decide replay": of("decide", **{"--request-id": "d1"}),
     "decide request conflict": of("decide", **{"--request-id": "d1", "--question": "Another question?"}),
     "decide request_id of an Attempt": of("decide", **{"--request-id": "r1"}),
