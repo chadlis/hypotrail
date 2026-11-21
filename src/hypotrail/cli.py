@@ -6,6 +6,7 @@ stderr. Every error has `code`, `message`, `stage` and `details`.
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -28,6 +29,25 @@ class _ArgumentParser(argparse.ArgumentParser):
         raise InvalidInputError(
             "INVALID_ARGUMENTS", message, stage="config", details={"command": self.prog}
         )
+
+
+def _write_sequence(text: str) -> int:
+    """The value of `--read-sequence`: a non-negative integer."""
+    if not re.fullmatch(r"-?[0-9]+", text):
+        raise argparse.ArgumentTypeError(f"--read-sequence takes an integer, not {text!r}")
+    if text.startswith("-"):
+        raise argparse.ArgumentTypeError(f"--read-sequence takes a non-negative integer, not {text!r}")
+    return int(text)
+
+
+def _add_read_sequence(parser) -> None:
+    parser.add_argument(
+        "--read-sequence",
+        type=_write_sequence,
+        metavar="N",
+        help="the write sequence the author read (`status --json`, `write_sequence`): when the Study was written to since, "
+        "the command is refused (STUDY_CHANGED) and writes nothing; not given, the command is not checked",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -86,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    _add_read_sequence(init)
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
 
@@ -111,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    _add_read_sequence(run_ml)
     run_ml.add_argument("--json", action="store_true", help="print one JSON object")
     run_ml.set_defaults(handler=_run_ml)
 
@@ -150,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    _add_read_sequence(run_agent)
     run_agent.add_argument("--json", action="store_true", help="print one JSON object")
     run_agent.set_defaults(handler=_run_agent)
 
@@ -175,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    _add_read_sequence(import_ml)
     import_ml.add_argument("--json", action="store_true", help="print one JSON object")
     import_ml.set_defaults(handler=_import_ml)
 
@@ -205,6 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    _add_read_sequence(import_agent)
     import_agent.add_argument("--json", action="store_true", help="print one JSON object")
     import_agent.set_defaults(handler=_import_agent)
 
@@ -221,6 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only for an Assessment of public_check Items, to freeze the Workload's digests",
     )
+    _add_read_sequence(assess)
     assess.add_argument("--json", action="store_true", help="print one JSON object")
     assess.set_defaults(handler=_assess)
 
@@ -240,6 +266,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only for a Comparison of public_check Items, to freeze the Workload's digests",
     )
+    _add_read_sequence(compare)
     compare.add_argument("--json", action="store_true", help="print one JSON object")
     compare.set_defaults(handler=_compare)
 
@@ -254,6 +281,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     recover.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study holding the Attempt")
     recover.add_argument("--attempt", required=True, metavar="ATTEMPT_ID", help="the running Attempt to record as interrupted")
+    _add_read_sequence(recover)
     recover.add_argument("--json", action="store_true", help="print one JSON object")
     recover.set_defaults(handler=_recover)
 
@@ -268,6 +296,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only when the page shows public_check Items, to freeze the Workload's digests",
     )
+    _add_read_sequence(report)
     report.add_argument("--json", action="store_true", help="print one JSON object")
     report.set_defaults(handler=_report_command)
 
@@ -340,6 +369,13 @@ def _init(args) -> int:
 
     if args.new_revision:
         return _new_revision(args)
+    if args.read_sequence is not None:
+        raise InvalidInputError(
+            "INVALID_ARGUMENTS",
+            "--read-sequence is for --new-revision: a Study that is created has no write sequence to read",
+            stage="config",
+            details={"command": "init"},
+        )
     if args.workload is None:
         raise InvalidInputError(
             "INVALID_ARGUMENTS",
@@ -379,7 +415,7 @@ def _new_revision(args) -> int:
     else:
         from hypotrail.ml import study
 
-    spec = study.new_revision(args.study, args.examples_dir)
+    spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence)
     human = (
         f"Study {args.study} is at revision {revisions.revision_number(spec)}: Workload {spec['workload']}, "
         f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
@@ -398,6 +434,7 @@ def _run_ml(args) -> int:
         args.request_id,
         retry_of=args.retry_of,
         examples_dir=args.examples_dir,
+        read_sequence=args.read_sequence,
     )
     counts = manifest.get("item_counts")
     human = (
@@ -424,6 +461,7 @@ def _run_agent(args) -> int:
             cases=args.cases,
             retry_of=args.retry_of,
             examples_dir=args.examples_dir,
+            read_sequence=args.read_sequence,
         )
     except HypotrailError as error:  # a refusal, or an Attempt that failed (then the Study was scanned and `details.warnings` holds what it found)
         _print_warnings(error.details.get("warnings", []))
@@ -444,7 +482,7 @@ def _import_ml(args) -> int:
     from hypotrail.ml import imports
 
     manifest, replayed = imports.import_ml(
-        args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir
+        args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
     )
     counts = manifest["item_counts"]
     human = (
@@ -459,7 +497,9 @@ def _import_ml(args) -> int:
 def _import_agent(args) -> int:
     from hypotrail.agentic import imports
 
-    manifest, replayed = imports.import_agent(args.study, args.source, args.population, args.request_id, examples_dir=args.examples_dir)
+    manifest, replayed = imports.import_agent(
+        args.study, args.source, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+    )
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
@@ -489,7 +529,9 @@ def _assess(args) -> int:
         return _assess_agent(args)
     from hypotrail.ml import assess
 
-    record = assess.assess(args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir)
+    record = assess.assess(
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+    )
     counts, metric = record["counts"], record["metrics"][0]
     value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
     human = (
@@ -503,7 +545,9 @@ def _assess(args) -> int:
 def _assess_agent(args) -> int:
     from hypotrail.agentic import assess
 
-    record = assess.assess(args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir)
+    record = assess.assess(
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+    )
     counts = record["counts"]
     quality, share = record["metrics"]
 
@@ -537,7 +581,9 @@ def _live_basis(examples_dir):
 def _compare(args) -> int:
     from hypotrail.core import comparison
 
-    record = comparison.compare(args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir))
+    record = comparison.compare(
+        args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence
+    )
     delta, coverage = record["delta"], record["coverage"]
     value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
     if delta.get("reason"):
@@ -556,7 +602,7 @@ def _compare(args) -> int:
 def _report_command(args) -> int:
     from hypotrail.report import command
 
-    result = command.report(args.study, args.out, live_basis=_live_basis(args.examples_dir))
+    result = command.report(args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence)
     recorded = result["exposure"]
     human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
     _emit({"ok": True, "report": result}, args.json, human)
@@ -586,7 +632,7 @@ def _status(args) -> int:
 def _recover(args) -> int:
     from hypotrail.core import state
 
-    manifest = state.recover(args.study, args.attempt)
+    manifest = state.recover(args.study, args.attempt, read_sequence=args.read_sequence)
     human = f"Attempt {manifest['attempt_id']} recorded as interrupted (partial artifacts kept; to make it again, record a new Attempt with a new --request-id and --retry-of)"
     _emit({"ok": True, "attempt": manifest}, args.json, human)
     return EXIT_OK

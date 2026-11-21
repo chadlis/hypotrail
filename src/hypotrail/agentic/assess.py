@@ -136,7 +136,7 @@ def _per_item_csv(verdicts: list) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None) -> dict:
+def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None, read_sequence: int | None = None) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
     Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
@@ -145,6 +145,7 @@ def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: 
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study), write_journal.writing(study, "assess"):
+        write_journal.require_current(study, read_sequence)
         return _assess_locked(study, observation_set_id, scorer_id, references_id, examples_dir)
 
 

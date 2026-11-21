@@ -54,7 +54,7 @@ def test_run_agent_is_a_command_with_its_flags_and_refuses_the_other_track(tmp_p
     flags = {option for action in parser._actions for option in action.option_strings}
     assert flags == {
         "-h", "--help", "--study", "--mode", "--config", "--request-id", "--partition", "--repeats", "--model", "--cases", "--retry-of",
-        "--examples-dir", "--json",
+        "--examples-dir", "--read-sequence", "--json",
     }  # and no flag that patches the model
     required = {action.dest for action in parser._actions if action.required}
     assert required == {"study", "mode", "config", "request_id"}

@@ -814,6 +814,11 @@ def test_the_readme_names_the_write_sequence_a_study_keeps():
     assert "write sequence" in readme and "`status`" in readme
 
 
+def test_the_readme_names_the_read_sequence_option_and_the_refusal_of_a_stale_write():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "--read-sequence" in readme and "STUDY_CHANGED" in readme
+
+
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
     from hypotrail.core import contracts
 
@@ -865,6 +870,39 @@ def test_the_exit_code_table_equals_the_constants_of_the_errors_module(page):
     }
 
 
+WRITING_COMMANDS = ["init", "run ml", "run agent", "import ml", "import agent", "assess", "compare", "recover", "report"]
+
+
+def test_every_writing_command_takes_read_sequence_and_every_table_that_lists_its_flags_says_so(page):
+    # #108 Tightened B, E and G: the option is `--read-sequence`; `init` takes it for `--new-revision` only; no other flag is new.
+    from hypotrail.cli import build_parser
+
+    def flags(*path):
+        node = build_parser()
+        for name in path:
+            node = next(a for a in node._actions if getattr(a, "choices", None) and name in a.choices).choices[name]
+        return {flag for a in node._actions for flag in a.option_strings}
+
+    paths = {c: c.split() for c in WRITING_COMMANDS}
+    assert {c for c, path in paths.items() if "--read-sequence" in flags(*path)} == set(WRITING_COMMANDS)
+    assert "--read-sequence" not in flags("status")
+    assert "--request-id" not in flags("assess") | flags("compare") | flags("recover") | flags("init")
+    tables = {"study-commands": [c for c in WRITING_COMMANDS if c not in ("assess", "compare")], "assess-command": ["assess"], "import-command": ["import ml"], "compare-command": ["compare"], "agent-import-command": ["import agent"]}
+    for table, commands in tables.items():
+        rows = attrs_of(page, table, "data-command")
+        for command in commands:
+            assert "--read-sequence" in words(rows[command]["data-optional"]), (table, command)
+    assert "--read-sequence" in attrs_of(page, "run-agent-flags", "data-flag")
+    init_row = table_rows(page, "study-commands", "data-command")["init"]["text"]
+    assert "--read-sequence" in init_row and "--new-revision" in init_row.split("--read-sequence")[1]
+
+
+def test_the_exit_code_six_meaning_covers_a_study_changed_after_it_was_read(page):
+    rows = attrs_of(page, "exit-codes", "data-exit")
+    assert "changed" in table_rows(page, "exit-codes", "data-exit")["6"]["text"].lower()
+    assert rows["6"]["data-name"] == "EXIT_LOCK_OR_CONFLICT"
+
+
 def study_refusals(tmp_path):
     """Provoke each refusal of the table; return {code: (exit code, stage, set of details keys)}."""
     from _study_helpers import examples_copy, init_study, run_json, run_ml
@@ -896,6 +934,8 @@ def study_refusals(tmp_path):
     record_cli(*run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev"))
     _, first, _ = run_ml(study, "seasonal_7", "dev", "first")
     record_cli(*run_ml(study, "ridge_v1", "dev", "first"))  # REQUEST_CONFLICT
+    record_cli(*run_ml(study, "seasonal_7", "dev", "stale", "--read-sequence", 0))  # STUDY_CHANGED
+    record_cli(*run_ml(study, "seasonal_7", "dev", "ahead", "--read-sequence", 10**6))  # WRITE_SEQUENCE_AHEAD
     record_cli(*run_json("recover", "--study", study, "--attempt", first["attempt"]["attempt_id"]))  # ATTEMPT_TERMINAL
     record_cli(*run_json("recover", "--study", study, "--attempt", "none"))  # ATTEMPT_NOT_FOUND
     with lock.writer_lock(study):
@@ -935,6 +975,7 @@ def study_refusals(tmp_path):
 def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     rows = attrs_of(page, "study-codes", "data-code")
     found = study_refusals(tmp_path)
+    assert {"STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD"} <= set(rows) and found["STUDY_CHANGED"][0] == 6 and found["WRITE_SEQUENCE_AHEAD"][1] == "sequence"
     assert set(rows) == set(found)
     for code, row in rows.items():
         exit_code, stage, details = found[code]

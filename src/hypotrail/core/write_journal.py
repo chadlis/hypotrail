@@ -15,6 +15,12 @@ A command refused before its first write appends nothing: a replay, `STUDY_LOCKE
 refusal of its arguments, and a `report` whose page shows `dev` Items only. A writer killed between its two entries leaves the
 `begin` entry only: a killed writer has still written. A Study written before this slice holds no journal and shows 0.
 
+A command that is given the write sequence its author read (`--read-sequence`, chadlis/hypotrail#108, D-033 on chadlis/hypotrail#75,
+amended by D-034 on chadlis/hypotrail#75) compares it with the Study's under the writer lock, by `require_current(...)`: a value below the Study's is
+`STUDY_CHANGED` (exit 6, stage `sequence`, `details` `read_sequence`, `write_sequence` and `writes_since`, the journal entries after
+the value read), a value above it `WRITE_SEQUENCE_AHEAD` (exit 2, stage `sequence`, `details` `read_sequence` and `write_sequence`).
+Either refusal comes before the command's first write, so it appends nothing.
+
 One rule in one place: every writer wraps its locked work in `writing(...)`, calls `begin()` just before its first write, and
 names what it wrote with `wrote(...)` (or `attempt(...)` for an Attempt and its Observation set). `writing` appends the `end`
 entry once the block ends, however it ends. The caller holds the Study's writer lock, so the position of an entry is the count
@@ -27,11 +33,12 @@ from pathlib import Path
 
 from hypotrail.core import artifacts, contracts
 from hypotrail.core import study as layout
-from hypotrail.core.errors import EXIT_INFRASTRUCTURE, coded_error
+from hypotrail.core.errors import EXIT_INFRASTRUCTURE, EXIT_LOCK_OR_CONFLICT, HypotrailError, InvalidInputError, coded_error
 
 JOURNAL_DIR = "write_journal"
 BEGIN, END = "begin", "end"
 COMPLETED, REFUSED, FAILED = "completed", "refused", "failed"
+SEQUENCE_STAGE = "sequence"
 
 _active = contextvars.ContextVar("write_journal_session", default=None)
 
@@ -49,6 +56,28 @@ def write_sequence(study) -> int:
 def entries(study) -> list:
     """The journal's entries, in the order they were appended."""
     return [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in _names(study)]
+
+
+def require_current(study, read_sequence) -> None:
+    """Refuse a write made on a write sequence that is not the Study's: the caller holds the writer lock. `None` (not given) is never refused."""
+    if read_sequence is None:
+        return
+    current = write_sequence(study)
+    if read_sequence > current:
+        raise InvalidInputError(
+            "WRITE_SEQUENCE_AHEAD",
+            f"the write sequence read ({read_sequence}) is above the Study's ({current}); nothing was written",
+            stage=SEQUENCE_STAGE,
+            details={"read_sequence": read_sequence, "write_sequence": current},
+        )
+    if read_sequence < current:
+        raise HypotrailError(
+            "STUDY_CHANGED",
+            f"the Study was written to after the write sequence read ({read_sequence}): it is at {current}; nothing was written (read it again)",
+            stage=SEQUENCE_STAGE,
+            details={"read_sequence": read_sequence, "write_sequence": current, "writes_since": entries(study)[read_sequence:]},
+            exit_code=EXIT_LOCK_OR_CONFLICT,
+        )
 
 
 def _append(study, entry: dict) -> None:

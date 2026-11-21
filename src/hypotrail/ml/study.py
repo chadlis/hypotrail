@@ -215,7 +215,7 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
         return _write_spec(study, workload, source, declaration, None)
 
 
-def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
+def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence: int | None = None) -> dict:
     """Add a revision to the Study `study`: the Protocol its Workload declares now; return the new StudySpec.
 
     The Workload is the one the Study names, read again from `examples_dir`. A Protocol equal to the
@@ -224,6 +224,7 @@ def new_revision(study: Path, examples_dir: Path | None = None) -> dict:
     study = Path(study)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with lock.writer_lock(study), write_journal.writing(study, "init --new-revision"):
+        write_journal.require_current(study, read_sequence)
         previous = layout.read_spec(study)
         layout.require_domain(previous, DOMAIN, "init --new-revision")
         examples = data.resolve_examples_dir(examples_dir)

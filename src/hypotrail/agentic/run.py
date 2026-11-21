@@ -207,6 +207,7 @@ def run_agent(
     retry_of: str | None = None,
     examples_dir: Path | None = None,
     environ=None,
+    read_sequence: int | None = None,
 ) -> tuple[dict, bool, list]:
     """Run (or replay) one request under the Study's writer lock: (the Attempt manifest, whether it was recorded already, warnings)."""
     study = Path(study)
@@ -218,7 +219,7 @@ def run_agent(
     workload = load_workload(examples / spec["workload"])
     plan = _checked_flags(workload, mode, config, partition, repeats, model, cases)
     with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
-        return _run_locked(study, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ)
+        return _run_locked(study, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ, read_sequence)
 
 
 def _digest_of(path: Path):
@@ -228,7 +229,7 @@ def _digest_of(path: Path):
         return None  # a file that is not there is `DATA_INTEGRITY` at the data verification, not an input of the identity
 
 
-def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, environ):
+def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, environ, read_sequence=None):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
     if retry_of is not None and retry_of not in layout.attempt_ids(study):
@@ -265,6 +266,7 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
         return recorded, True, []  # no key, no Inspect, no provider, no scan
+    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-037 on chadlis/hypotrail#75)
 
     data.verify_workloads(examples, [workload_name])
     for ref in study_refs:

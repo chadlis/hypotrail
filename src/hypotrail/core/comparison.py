@@ -209,7 +209,7 @@ def import_scope_warning(imports: list) -> dict:
     return {"code": WARNING_DESCRIPTIVE, "message": message}
 
 
-def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None) -> dict:
+def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None, read_sequence: int | None = None) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
@@ -227,6 +227,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
             details={"factor": factor, "study_domain": spec["domain"]},
         )
     with lock.writer_lock(study), write_journal.writing(study, "compare"):
+        write_journal.require_current(study, read_sequence)
         return _compare_locked(study, control_id, candidate_id, factor, live_basis)
 
 

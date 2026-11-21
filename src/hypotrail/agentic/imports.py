@@ -434,7 +434,9 @@ def _report(source_ref, population_ref, partition, count, keys, entries, *, log:
     }
 
 
-def import_agent(study: Path, source: Path, population: Path, request_id: str, *, examples_dir: Path | None = None) -> tuple[dict, bool]:
+def import_agent(
+    study: Path, source: Path, population: Path, request_id: str, *, examples_dir: Path | None = None, read_sequence: int | None = None
+) -> tuple[dict, bool]:
     """Import (or replay) one request under the Study's writer lock; return the Attempt manifest and whether it was recorded already."""
     study = Path(study)
     if not request_id:
@@ -443,10 +445,10 @@ def import_agent(study: Path, source: Path, population: Path, request_id: str, *
     if is_log(source):
         require_inspect()  # before the lock, and before anything is read or written
     with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
-        return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir)
+        return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir, read_sequence=read_sequence)
 
 
-def _import_locked(study, source, population_path, request_id, *, examples_dir):
+def _import_locked(study, source, population_path, request_id, *, examples_dir, read_sequence=None):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)
@@ -493,6 +495,7 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir):
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
         return recorded, True
+    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-033 on chadlis/hypotrail#75)
 
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)
     if canonical.digest(protocol) != spec["protocol_digest"]:

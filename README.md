@@ -35,6 +35,8 @@ uv run python -m hypotrail init --study runs/chinook --new-revision    # after a
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal, the check_informed marks and the write sequence too
 ```
 
+Every command that writes takes `--read-sequence N`, the write sequence its author read (`write_sequence` of `status --json`): when the Study was written to since, the command is refused with `STUDY_CHANGED` and writes nothing; not given, nothing is checked.
+
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 
 `spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR [--examples-dir DIR]`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).

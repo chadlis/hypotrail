@@ -6,7 +6,8 @@ The order (nothing is written before the checks that precede it):
    (`REPORT_OUTPUT_INVALID`, exit 2);
 2. the records are read, each artifact against its digest (`ARTIFACT_INTEGRITY`, exit 3);
 3. a page that shows `public_check` Items is an Exposure (GLOSSARY): under the Study's writer lock (`STUDY_LOCKED`,
-   exit 6) the freeze record is written first if the revision has none, then one journal entry names the Attempts,
+   exit 6), `--read-sequence` is compared with the Study's write sequence (`STUDY_CHANGED`, exit 6, or `WRITE_SEQUENCE_AHEAD`, exit 2;
+   a page of `dev` Items only is written as without the option), then the freeze record is written first if the revision has none, then one journal entry names the Attempts,
    Assessments and Comparisons the page shows of those Items. A Study with `dev` Items only records nothing and takes no lock;
 4. the page is written to a temporary file beside `--out` and renamed onto it; an existing file is replaced.
 """
@@ -58,10 +59,11 @@ def _publish(out: Path, data: bytes) -> None:
         raise
 
 
-def report(study, out, *, live_basis=None) -> dict:
+def report(study, out, *, live_basis=None, read_sequence: int | None = None) -> dict:
     """Render the page of `study` at `out`; return what was done (`out`, `sections`, `exposure`).
 
     `live_basis` is what `exposure.record` calls to digest the Workload; the command passes it, the package imports no Track.
+    `read_sequence` is compared with the Study's write sequence only when the page records an Exposure (#108 Tightened F).
     """
     study, out = Path(study), Path(out)
     spec = layout.read_spec(study)
@@ -72,6 +74,7 @@ def report(study, out, *, live_basis=None) -> dict:
     links = render.Links(study, out)
     if any(shown.values()):
         with lock.writer_lock(study), write_journal.writing(study, "report"):
+            write_journal.require_current(study, read_sequence)
             model = gather.load(study)  # again, under the lock: what the page shows is what the entry names
             shown = gather.touched(model)
             entry = exposure.record(

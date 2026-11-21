@@ -128,11 +128,12 @@ def status(study) -> dict:
     }
 
 
-def recover(study, attempt_id: str) -> dict:
+def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict:
     """Record the Attempt `attempt_id`, running with no live writer, as interrupted; return its manifest."""
     study = Path(study)
     layout.read_spec(study)
     with lock.writer_lock(study), write_journal.writing(study, "recover"):
+        write_journal.require_current(study, read_sequence)
         if attempt_id not in layout.attempt_ids(study):
             raise InvalidInputError(
                 "ATTEMPT_NOT_FOUND",

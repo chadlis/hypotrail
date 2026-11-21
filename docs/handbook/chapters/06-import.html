@@ -17,7 +17,7 @@ python examples/external/bike_trailing_mean.py --data examples/bike_day/data/day
 uv run python -m hypotrail import ml --study runs/bike --source predictions.csv --mapping mapping.json --population population.json --request-id import-a
 uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_SET_ID --scorer regression_mae_v1 --references references-0123456789abcdef</pre>
 <div class="tblwrap"><table class="tbl" id="import-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
-<tr data-command="import ml" data-required="--study --source --mapping --population --request-id" data-optional="--examples-dir --json"><td><code>import ml</code></td><td><code>--study DIR</code>, <code>--source CSV</code>, <code>--mapping MAPPING</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--json</code></td></tr>
+<tr data-command="import ml" data-required="--study --source --mapping --population --request-id" data-optional="--examples-dir --read-sequence --json"><td><code>import ml</code></td><td><code>--study DIR</code>, <code>--source CSV</code>, <code>--mapping MAPPING</code>, <code>--population FILE</code>, <code>--request-id ID</code></td><td><code>--examples-dir DIR</code>, <code>--read-sequence N</code>, <code>--json</code></td></tr>
 </tbody></table></div>
 
 <p class="sub2">The mapping and the population</p>
