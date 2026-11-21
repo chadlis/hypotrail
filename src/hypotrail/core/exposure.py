@@ -37,7 +37,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, environment, study_write, write_journal
+from hypotrail.core import artifacts, canonical, contracts, environment, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -196,18 +196,19 @@ def _write_freeze(study, spec: dict, live: dict) -> dict:
     return record
 
 
-def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
+def record(study, write, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
     """Append one journal entry for an Exposure, after the freeze record of the current revision (written first if absent).
 
-    The caller holds the Study's writer lock and has finished every refusal that needs no value of `public_check`
-    Items; this is called before it computes anything on them.
+    The caller holds the Study's writer lock, passes the `write` it holds (the freeze record and the entry are the first
+    writes of a command that records an Exposure, so this begins the command's journal) and has finished every refusal
+    that needs no value of `public_check` Items; this is called before it computes anything on them.
     """
     live = checked_basis(spec, live_basis)
-    write_journal.begin()  # the freeze record and the entry are the first writes of a command that records an Exposure
+    write.begin()  # the freeze record and the entry are the first writes of a command that records an Exposure
     freeze = read_freeze(study, spec.get("revision_number", 1))
     if freeze is None:
         freeze = _write_freeze(study, spec, live)
-        write_journal.wrote(study_write.FREEZE, freeze["freeze_id"])
+        write.wrote(study_write.FREEZE, freeze["freeze_id"])
     sequence = layout.next_position(study, JOURNAL_DIR)
     entry = {
         "kind": "exposure",
@@ -221,5 +222,5 @@ def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), 
     }
     contracts.validate(entry)
     artifacts.publish_record(study, f"{JOURNAL_DIR}/{sequence:06d}-{entry['entry_id']}.json", entry, role="exposure")
-    write_journal.wrote(study_write.EXPOSURE, entry["entry_id"])
+    write.wrote(study_write.EXPOSURE, entry["entry_id"])
     return entry

@@ -267,7 +267,7 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
 
     comparison_id = str(uuid.uuid4())
     if exposed:  # before any Episode is paired
-        record_exposure(study, control, candidate, comparison_id, live_basis)
+        record_exposure(study, write, control, candidate, comparison_id, live_basis)
     ca, da = control["assessment"], candidate["assessment"]
     primary = ca["primary_criterion"]
     side_episodes = {"control": _episodes(control), "candidate": _episodes(candidate)}

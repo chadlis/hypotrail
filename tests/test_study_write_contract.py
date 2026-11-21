@@ -94,6 +94,81 @@ def test_the_namespace_check_finds_a_refusal_built_in_the_decisions_module_and_o
     ]
 
 
+# --- the command names and the journal kinds -------------------------------------------------------------------------------------
+
+
+def study_write_signatures(trees: dict) -> dict:
+    """{entry: its parameters, without `self`} for the public functions of the Study-write module and the public methods of its classes (`Write.wrote`)."""
+    found = {}
+    for node in trees[STUDY_WRITE].body:
+        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
+            found[node.name] = [a.arg for a in node.args.args]
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+            for method in node.body:
+                if isinstance(method, ast.FunctionDef) and not method.name.startswith("_"):
+                    found[f"{node.name}.{method.name}"] = [a.arg for a in method.args.args if a.arg != "self"]
+    return found
+
+
+def study_write_constants(trees: dict) -> set:
+    return {
+        f"{STUDY_WRITE}.{node.targets[0].id}"
+        for node in trees[STUDY_WRITE].body
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and node.targets[0].id.isupper()
+        and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+    }
+
+
+def entry_called(site, signatures: dict) -> str | None:
+    """The entry of the Study-write module that `site` calls, or None."""
+    if site.callee is not None and site.callee.startswith(STUDY_WRITE + "."):
+        return site.callee[len(STUDY_WRITE) + 1:]
+    if site.raw is not None and site.raw.startswith(WRITE_RECEIVER + "."):
+        entry = f"Write.{site.raw.split('.', 1)[1]}"
+        return entry if entry in signatures else None
+    return None
+
+
+def literal_violations(root) -> list:
+    """The calls into the Study-write module outside it that give a `command` or a `kind` as anything but one of its constants."""
+    trees = parse_all(root)
+    signatures, constants = study_write_signatures(trees), study_write_constants(trees)
+    names = {module: names_of(module, tree) for module, tree in trees.items()}
+    found = []
+    for site in calls(trees):
+        entry = entry_called(site, signatures)
+        if entry is None or site.module == STUDY_WRITE:
+            continue
+        bound = {**dict(zip(signatures[entry], site.node.args)), **{kw.arg: kw.value for kw in site.node.keywords}}
+        for parameter in ("command", "kind"):
+            argument = bound.get(parameter)
+            if argument is not None and resolve(names[site.module], dotted(argument)) not in constants:
+                found.append(f"{site.owner} gives `{parameter}` of {entry} as {ast.unparse(argument)}")
+    return found
+
+
+def test_no_call_into_the_study_write_module_gives_a_command_or_a_kind_as_anything_but_one_of_its_constants():
+    assert literal_violations(SOURCE) == []
+    trees = parse_all(SOURCE)
+    signatures = study_write_signatures(trees)
+    checked = {entry_called(site, signatures) for site in calls(trees) if site.module != STUDY_WRITE}
+    assert {"locked", "check_arguments", "check_read_sequence", "Write.wrote"} <= checked  # the check reaches the calls it is about
+
+
+def test_the_literal_check_finds_a_string_in_place_of_a_command_or_a_kind_and_accepts_a_constant_by_name_alias_or_import(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/study_write.py": "RUN = 'run'\nFREEZE = 'freeze'\n\ndef locked(study, command, request_id=None):\n    pass\n\n"
+        "class Write:\n    def wrote(self, kind, identifier):\n        pass\n",
+        "hypotrail/ml/ok.py": "from hypotrail.core import study_write\nfrom hypotrail.core.study_write import FREEZE as F\n\nCOMMAND = study_write.RUN\n\n"
+        "def w(study, write):\n    with study_write.locked(study, COMMAND, 'r'):\n        write.wrote(F, 'x')\n",
+        "hypotrail/ml/bad.py": "from hypotrail.core import study_write\n\ndef w(study, write):\n    with study_write.locked(study, command='assess'):\n        write.wrote('assessment', 'x')\n",
+    })
+    assert literal_violations(root) == [
+        "hypotrail.ml.bad:w gives `command` of locked as 'assess'",
+        "hypotrail.ml.bad:w gives `kind` of Write.wrote as 'assessment'",
+    ]
+
+
 # --- the builder of an INVALID_ARGUMENTS refusal ---------------------------------------------------------------------------------
 
 
@@ -239,3 +314,100 @@ def test_the_replay_lookup_check_resolves_the_function_through_an_import_an_alia
     ]  # `hypotrail.ml.e` defines a function of its own with that name, which is not a replay lookup
 
 
+# --- no pass-through -------------------------------------------------------------------------------------------------------------
+
+# The public entries of the Study-write module that fewer than two Study writers call, each with its reason.
+ONE_WRITER = {
+    "Write.replay_decision": "only `decide` records a decision: no other writer replays one",
+    "invalid_arguments": "`decide` builds its own INVALID_ARGUMENTS refusals (the author, `--read-sequence` required, `--artifact` required); no other writer has one",
+}
+
+
+def callers_by_entry(root, writers: dict) -> dict:
+    """{public entry of the Study-write module: the writers (commands) from which it is called}, by what each writer runs, outside the module.
+
+    `writers` is {`module:function` of a locked function: the command it writes}. A function that a writer's function calls, in any module of `src`, runs from that writer.
+    """
+    trees = parse_all(root)
+    sites, defined = calls(trees), defined_functions(trees)
+    signatures = study_write_signatures(trees)
+    reach = {command: reached_from(sites, defined, [key for key, c in writers.items() if c == command], stop_in=STUDY_WRITE) for command in set(writers.values())}
+    found: dict = {entry: set() for entry in signatures}
+    for site in sites:
+        entry = entry_called(site, signatures)
+        if entry is None or site.module == STUDY_WRITE:
+            continue
+        found[entry] |= {command for command, runs in reach.items() if site.owner.replace(":", ".") in runs}
+    return found
+
+
+def pass_throughs(root, writers: dict, exceptions: dict) -> list:
+    """The entries called from fewer than two writers and not named in `exceptions`, and the exceptions that two writers call after all."""
+    callers = callers_by_entry(root, writers)
+    return sorted(
+        [f"{entry} is called from {sorted(commands)}" for entry, commands in callers.items() if len(commands) < 2 and entry not in exceptions]
+        + [f"{entry} is named as an exception but is called from {sorted(callers[entry])}" for entry in exceptions if len(callers.get(entry, ())) >= 2]
+    )
+
+
+def test_every_public_entry_of_the_study_write_module_is_called_from_at_least_two_study_writers_apart_from_the_named_exceptions():
+    writers = {key: path["writer"] for key, path in LOCKED_PATHS.items()}
+    assert pass_throughs(SOURCE, writers, ONE_WRITER) == []
+    callers = callers_by_entry(SOURCE, writers)
+    assert {entry for entry, commands in callers.items() if len(commands) < 2} == set(ONE_WRITER)
+    assert all(ONE_WRITER.values())
+    assert len(ONE_WRITER) <= 2
+
+
+def test_the_pass_through_check_finds_an_entry_that_one_writer_calls_through_a_helper_and_an_exception_that_two_writers_call(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/study_write.py": "def shared(c):\n    pass\n\ndef hook(c):\n    pass\n\ndef named(c):\n    pass\n\n"
+        "class Write:\n    def begin(self):\n        pass\n\n    def only_here(self):\n        pass\n",
+        "hypotrail/ml/a.py": "from hypotrail.core import study_write\n\ndef first(s, write):\n    study_write.shared(1)\n    study_write.named(1)\n    help_(write)\n\n"
+        "def help_(write):\n    write.begin()\n    study_write.hook(1)\n    write.only_here()\n",
+        "hypotrail/ml/b.py": "from hypotrail.core import study_write\n\ndef second(s, write):\n    study_write.shared(1)\n    study_write.named(1)\n    write.begin()\n",
+    })
+    writers = {"hypotrail.ml.a:first": "a", "hypotrail.ml.b:second": "b"}
+    assert pass_throughs(root, writers, {"named": "a reason"}) == [
+        "Write.only_here is called from ['a']",
+        "hook is called from ['a']",
+        "named is named as an exception but is called from ['a', 'b']",
+    ]
+
+
+# --- the steps the module owns -----------------------------------------------------------------------------------------------------
+
+OWNED_STEPS = tuple(
+    f"hypotrail.core.{module}.{function}"
+    for module, function in (
+        ("lock", "writer_lock"),
+        ("write_journal", "writing"),
+        ("write_journal", "require_current"),
+        ("write_journal", "begin"),
+        ("write_journal", "wrote"),
+        ("write_journal", "attempt"),
+    )
+)
+
+
+def owned_step_violations(root) -> list:
+    """The calls, outside the Study-write module, of the steps it owns: the lock, the journal's session, the stale check and the entries."""
+    return [f"{site.owner} calls {site.callee}" for site in calls(parse_all(root)) if site.callee in OWNED_STEPS and site.module != STUDY_WRITE]
+
+
+def test_no_function_outside_the_study_write_module_takes_the_lock_opens_the_journal_runs_the_stale_check_or_appends_an_entry():
+    assert owned_step_violations(SOURCE) == []
+    inside = {site.callee for site in calls(parse_all(SOURCE)) if site.module == STUDY_WRITE}
+    assert set(OWNED_STEPS) - {f"hypotrail.core.write_journal.{name}" for name in ("begin", "wrote", "attempt")} <= inside
+
+
+def test_the_owned_steps_check_finds_a_call_of_the_old_begin_and_one_of_the_lock_through_an_import(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/exposure.py": "from hypotrail.core import write_journal\n\ndef record():\n    write_journal.begin()\n",
+        "hypotrail/ml/a.py": "from hypotrail.core.lock import writer_lock as take\n\ndef w(s):\n    with take(s):\n        pass\n",
+        "hypotrail/core/study_write.py": "from hypotrail.core import lock\n\ndef locked(s):\n    with lock.writer_lock(s):\n        pass\n",
+    })
+    assert owned_step_violations(root) == [
+        "hypotrail.core.exposure:record calls hypotrail.core.write_journal.begin",
+        "hypotrail.ml.a:w calls hypotrail.core.lock.writer_lock",
+    ]

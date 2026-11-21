@@ -80,6 +80,7 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None) -> 
             shown = gather.touched(model)
             entry = exposure.record(
                 study,
+                write,
                 model["spec"],
                 live_basis,
                 attempt_ids=shown["attempts"],

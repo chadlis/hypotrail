@@ -244,10 +244,11 @@ def check_partition(partition) -> bool:
     )
 
 
-def record_exposure(study: Path, control: dict, candidate: dict, comparison_id: str, live_basis) -> None:
+def record_exposure(study: Path, write, control: dict, candidate: dict, comparison_id: str, live_basis) -> None:
     """Append the journal entry of a Comparison of `public_check` Items, before the Comparison computes on them."""
     exposure.record(
         study,
+        write,
         layout.read_spec(study),
         live_basis,
         attempt_ids=[side["manifest"]["attempt_id"] for side in (control, candidate)],
@@ -319,7 +320,7 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
 
     comparison_id = str(uuid.uuid4())
     if exposed:  # before any paired difference is computed
-        record_exposure(study, control, candidate, comparison_id, live_basis)
+        record_exposure(study, write, control, candidate, comparison_id, live_basis)
     row_ids = sorted(control["items"])
     paired = []
     scored = {"control": 0, "candidate": 0}
