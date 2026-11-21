@@ -2694,18 +2694,21 @@ def _root_tokens(css, selector):
     return dict(re.findall(r"(--[a-z0-9-]+):([^;]+);?", body))
 
 
-def test_the_t24_walk_record_carries_the_cosmic_couture_charter_in_light_mode_and_has_no_system_dark_switch():
-    # 10-R1-01, #1 amendment « All HTML uses the cosmic-couture charter, light mode by default »: the record is a page beside the
-    # handbook, not a chapter, and takes the handbook's own tokens (template.html), light by default, never from the OS setting.
+def test_the_t24_walk_record_is_light_only_on_the_charter_tokens_it_uses_with_no_dark_block_script_or_mode_switch():
+    # 10-R1-01, #1 amendment « All HTML uses the cosmic-couture charter, light mode by default », and #85 I as the report page does it:
+    # the template's light tokens, no script, no mode switch. Every token the page declares is used, and its value is the template's.
     page = WALK.read_text(encoding="utf-8")
     template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
     assert re.search(r'<html[^>]*\bdata-mode="light"', page)
-    assert "prefers-color-scheme" not in page
-    for selector in (":root", ':root[data-mode="light"]'):
-        used, charter = _root_tokens(page, selector), _root_tokens(template, selector)
-        assert {"--bg", "--ink", "--ink2", "--line", "--gold", "--paper"} <= set(used)
-        assert {name: value for name, value in used.items() if name in charter} == {name: charter[name] for name in used if name in charter}
-        assert all(name in charter for name in used), "a token the charter does not define"
+    assert "prefers-color-scheme" not in page and "<script" not in page and 'class="mode"' not in page
+    style = page.split("<style>", 1)[1].split("</style>", 1)[0]
+    assert style.count(":root{") == 1 and ":root[data-mode" not in style  # one light block, no dark one
+    charter = {**_root_tokens(template, ":root"), **_root_tokens(template, ':root[data-mode="light"]')}  # the light mode over the base
+    declared = _root_tokens(style, ":root")
+    assert declared and all(name in charter and value == charter[name] for name, value in declared.items()), "a token that is not the charter's"
+    used = set(re.findall(r"var\((--[a-z0-9-]+)\)", style))
+    assert set(declared) == used, ("declared and unused", set(declared) - used, "used and undeclared", used - set(declared))
+    assert {"--bg", "--ink", "--ink2", "--line", "--gold"} <= set(declared)
 
 
 def test_the_readme_chinook_compare_line_says_what_its_own_path_gives_and_the_walk_record_names_the_correction():
