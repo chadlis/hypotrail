@@ -1,7 +1,6 @@
 {
   "commit": "f696f58",
   "working_directory": "repository root",
-  "assembled_by": "The drive assembled this file after the invocations, from each command's captured stdout and stderr; the commands printed human output, not --json.",
   "commands": [
     {
       "step": "init",

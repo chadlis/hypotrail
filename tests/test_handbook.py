@@ -3037,6 +3037,22 @@ def kept_campaign(kept_dir):
     return output, attempts
 
 
+def kept_commands(kept_dir):
+    """What each Campaign command left in `commands/`: its exit status line, stdout, stderr and, for the two invocations, start and end."""
+    kept = {}
+    for exit_file in sorted((kept_dir / "commands").glob("*.exit")):
+        name = exit_file.stem
+        match = re.fullmatch(rf"{re.escape(name)} exit (\d+)", exit_file.read_text(encoding="utf-8").strip())
+        entry = {"exit": int(match[1]) if match else None}
+        for key, suffix in (("out", "out"), ("err", "err"), ("start", "start"), ("end", "end")):
+            path = kept_dir / "commands" / f"{name}.{suffix}"
+            entry[key] = path.read_text(encoding="utf-8") if path.is_file() else None
+            if key in ("start", "end") and entry[key] is not None:
+                entry[key] = entry[key].strip()
+        kept[name] = entry
+    return kept
+
+
 def flat_limits(limits):
     flat = {}
     for key, value in limits.items():
@@ -3083,9 +3099,16 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
         output, attempts = kept_campaign(kept_dir)
     except (OSError, ValueError, KeyError) as error:
         return problems + [f"the kept outputs cannot be read: {error}"]
-    steps = {command["step"]: command for command in output["commands"]}
-    if not steps or any(command["exit_code"] != 0 for command in steps.values()):
-        problems.append(f"a recorded exit is not 0: {sorted(s for s, c in steps.items() if c['exit_code'] != 0)}")
+    steps = {command["step"]: command for command in output["commands"]}  # the index: the argv of each command
+    try:
+        files = kept_commands(kept_dir)  # the commands' own captured output: exit, stdout and times are read from here (93-R1-08)
+    except OSError as error:
+        return problems + [f"the kept commands cannot be read: {error}"]
+    missing = sorted({"init", "plain", "verify", "assess-plain", "assess-verify", "compare", "report"} - set(files))
+    if missing:
+        problems.append(f"no kept output for {missing}")
+    if not files or any(entry["exit"] != 0 for entry in files.values()):
+        problems.append(f"a recorded exit is not 0: {sorted(name for name, entry in files.items() if entry['exit'] != 0)}")
     if sorted(attempts) != ["plain", "verify"]:
         return problems + [f"the kept Attempts are {sorted(attempts)}, not plain and verify"]
     for config, attempt in attempts.items():
@@ -3097,16 +3120,16 @@ def campaign_proof_problems(row, text, kept_dir=CAMPAIGN_DIR, base=HANDBOOK):
     if len(episodes) != 72:
         problems.append(f"{len(episodes)} Episodes, not 72")
     flat_row = " ".join(text.split())
-    for step in ("run-plain", "run-verify"):
-        command = steps.get(step)
-        if command is None:
+    for step, name in (("run-plain", "plain"), ("run-verify", "verify")):
+        command, kept = steps.get(step), files.get(name)
+        if command is None or kept is None:
             problems.append(f"{step}: no recorded command")
             continue
         if " ".join(command["argv"].split()) not in " ".join((row["command"] or "").split()):
             problems.append(f"{step}: its recorded command line is not in the row")
-        if " ".join(command["stdout"].split()) not in " ".join((row["output"] or "").split()):
+        if " ".join((kept["out"] or "").split()) not in " ".join((row["output"] or "").split()) or not (kept["out"] or "").strip():
             problems.append(f"{step}: its recorded output is not in the row")
-        for stamp in (command["started_at"], command["finished_at"]):
+        for stamp in (kept["start"], kept["end"]):
             if not stamp or stamp not in flat_row:
                 problems.append(f"{step}: the time {stamp} is not in the row")
     if f"{len(episodes)} Episodes" not in flat_row:
@@ -3264,12 +3287,10 @@ def test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_coun
     no_output = campaign_proof_problems({**row, "output": ""}, text)
     assert no_output[0] == "the row is not a command proof with exit 0 and its recorded output" and "run-plain: its recorded output is not in the row" in no_output
 
-    def exit_1(copy):
-        output = json.loads((copy / "command-output.json").read_text())
-        output["commands"][1]["exit_code"] = 1
-        (copy / "command-output.json").write_text(json.dumps(output))
+    def exit_1(copy):  # the exit the command left in commands/, not the index's copy of it
+        (copy / "commands" / "plain.exit").write_text("plain exit 1\n")
 
-    assert broken(exit_1) == ["a recorded exit is not 0: ['run-plain']"]
+    assert broken(exit_1) == ["a recorded exit is not 0: ['plain']"]
 
     def drop_an_episode(copy):
         path = next((copy / "study" / "attempts").glob("*/observations.jsonl"))
@@ -3334,9 +3355,7 @@ def test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_
     assert no_deviation != page and live_value(no_deviation) == "pending"
     copy = tmp_path / "campaign"
     shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html"))
-    output = json.loads((copy / "command-output.json").read_text())
-    output["commands"][1]["exit_code"] = 1
-    (copy / "command-output.json").write_text(json.dumps(output))
+    (copy / "commands" / "plain.exit").write_text("plain exit 1\n")
     assert live_value(page, kept_dir=copy) == "pending"
 
 
@@ -3551,16 +3570,54 @@ def test_chapter_16_says_what_the_rehearsal_covered_and_that_the_paid_invocation
     assert kept_exit("plain") == kept_exit("verify") == 0  # what the paragraph says of the two files is what they hold
 
 
-def test_the_kept_command_output_says_how_it_was_made_and_chapter_16_says_the_same():
-    # 93-R1-08, #98 C6: the drive assembled the file after the invocations from each command's captured output; the commands printed human output.
-    kept = json.loads((CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8"))
-    how = kept.get("assembled_by", "")
-    for part in ("drive", "after the invocations", "captured stdout and stderr", "human output, not --json"):
-        assert part in how, part
-    assert all("--json" not in command["argv"] for command in kept["commands"])  # what the field says of the commands is true of them
+INDEX_FILE = {"run-plain": "plain", "run-verify": "verify"}  # an index step whose commands/ file has another name
+
+
+def index_problems(kept_dir=CAMPAIGN_DIR):
+    """Where an entry of the index `command-output.json` differs from the file the command itself left in `commands/`."""
+    index = json.loads((kept_dir / "command-output.json").read_text(encoding="utf-8"))
+    files = kept_commands(kept_dir)
+    problems = []
+    if {INDEX_FILE.get(c["step"], c["step"]) for c in index["commands"]} != set(files):
+        problems.append("the index and commands/ do not hold the same commands")
+    for command in index["commands"]:
+        name = INDEX_FILE.get(command["step"], command["step"])
+        kept = files.get(name)
+        if kept is None:
+            continue
+        for key, value in (("stdout", kept["out"]), ("stderr", kept["err"]), ("exit_code", kept["exit"]), ("started_at", kept["start"]), ("finished_at", kept["end"])):
+            if command[key] != value:
+                problems.append(f"{command['step']}: {key} {command[key]!r} is not {value!r}, what commands/ holds")
+    return problems
+
+
+def test_every_stdout_stderr_exit_and_time_of_the_index_equals_the_file_the_command_left_in_commands(tmp_path):
+    # 93-R1-08 (structural): `command-output.json` is an index assembled after the invocations; `commands/` is the output itself.
+    assert index_problems() == []
+    copy = tmp_path / "campaign"
+    shutil.copytree(CAMPAIGN_DIR, copy, ignore=shutil.ignore_patterns("report.html", "study"))
+    index = json.loads((copy / "command-output.json").read_text())
+    index["commands"][3]["exit_code"] = 1  # one altered exit in a copied index
+    (copy / "command-output.json").write_text(json.dumps(index))
+    assert index_problems(copy) == ["assess-plain: exit_code 1 is not 0, what commands/ holds"]
+    index["commands"][3]["exit_code"] = 0
+    index["commands"][1]["stdout"] += "x"
+    (copy / "command-output.json").write_text(json.dumps(index))
+    assert [problem.split(":")[0] for problem in index_problems(copy)] == ["run-plain"]
+    (copy / "commands" / "report.exit").unlink()
+    assert "the index and commands/ do not hold the same commands" in index_problems(copy)
+
+
+def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_slice_from_the_files_of_commands(page):
+    # 93-R1-08, 93-R2-02: the index is not the commands' own output; « the drive » is named for a reader of the handbook (ADR 0003).
     text = plain_text(chapter_16())
-    for part in ("assembled by the drive after the invocations", "captured stdout and stderr", "human output, not --json"):
+    for part in (
+        "command-output.json is an index", "assembled after the invocations from the files in commands/", "the agent that drove the slice (.claude/skills/drive/)",
+        "stdout, stderr, exit status and times",
+    ):
         assert part in text, part
+    assert "assembled by the drive" not in text and "assembled_by" not in (CAMPAIGN_DIR / "command-output.json").read_text(encoding="utf-8")
+    assert all(f'href="traces/campaign-public-check/commands/{name}.exit"' in chapter_16() for name in ("plain", "verify"))
 
 
 def test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict(page):
