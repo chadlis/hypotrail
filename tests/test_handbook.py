@@ -4463,6 +4463,10 @@ def test_chapter_13_order_section_holds_the_read_sequence_steps_between_the_requ
     assert stale != -1, "the list has no stale-sequence step"
     assert identity + 1 == stale and stale + 1 == data
     assert "--read-sequence" in steps[0] and "INVALID_ARGUMENTS" in steps[0]  # the argument check of the value is among the flag checks, before the lock
+    first = steps[0]
+    assert "argument alone" in first, "step 1 does not say the read-sequence check looks at the argument alone"
+    assert first.index("--read-sequence") < first.index("declaration"), "step 1 names the read-sequence check after the declaration checks"  # run.py runs it first, before the Study and declaration reads
+    assert first.index("INVALID_ARGUMENTS") < first.index("declaration")
 
 
 def test_chapter_04_order_paragraph_says_only_the_data_and_artifact_checks_of_run_agent_come_after_the_comparison():
