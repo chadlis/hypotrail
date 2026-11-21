@@ -65,6 +65,11 @@ def read_sequence_fault(read_sequence) -> str | None:
     return None
 
 
+def invalid_arguments(message: str, command: str) -> InvalidInputError:
+    """An `INVALID_ARGUMENTS` refusal as the command line gives it: `details` `{"command"}` is the parser's `prog`, `hypotrail <command>`. The one place the core builds it."""
+    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {command}"})
+
+
 def require_valid_read_sequence(read_sequence, command: str) -> None:
     """Refuse a `read_sequence` that `read_sequence_fault` names, as the command line does (`INVALID_ARGUMENTS`, exit 2): the first argument check of a writer, before any lock.
 
@@ -72,7 +77,7 @@ def require_valid_read_sequence(read_sequence, command: str) -> None:
     """
     fault = read_sequence_fault(read_sequence)
     if fault is not None:
-        raise InvalidInputError("INVALID_ARGUMENTS", fault, stage="config", details={"command": f"hypotrail {command}"})
+        raise invalid_arguments(fault, command)
 
 
 def require_current(study, read_sequence) -> None:

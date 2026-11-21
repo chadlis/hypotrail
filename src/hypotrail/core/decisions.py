@@ -12,7 +12,7 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first.
 
-The order of the checks, under the writer lock, is that of every writer: the arguments (the read sequence value is the library's first argument check, then
+The order of the checks is that of every writer, the arguments and the Study before the lock: the arguments (the read sequence value is the library's first argument check, then
 `REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, and `DECISION_FIELD_EMPTY`); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
 the same decision (question, option, author, source and cited ids; the read sequence is not part of it) returns the recorded decision and writes
@@ -139,7 +139,7 @@ def history(study) -> list:
 
 
 def _invalid(message: str) -> InvalidInputError:
-    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {COMMAND}"})  # as the command line gives it
+    return write_journal.invalid_arguments(message, COMMAND)
 
 
 def decide(
