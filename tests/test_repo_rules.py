@@ -160,3 +160,42 @@ def test_every_decision_cited_in_the_files_this_slice_adds_names_its_issue():
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
         bare += [f"{path.name}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
     assert bare == []
+
+
+# The functions this slice (#93, #99) added to tests/test_handbook.py. The older ones cite bare decision IDs from before the rule, so the scan is by
+# name: it needs no git history, which a shallow CI checkout lacks.
+SLICE_HANDBOOK_FUNCTIONS = (
+    "plain_text", "row_html", "kept_campaign", "kept_commands", "flat_limits", "limit_text", "join_episode", "has_sequence", "campaign_proof_problems",
+    "live_value", "conditional_words_missing", "kept_exit", "index_problems", "integer_year_answers", "e07_note_problems",
+    "test_T20_is_proven_by_the_kept_campaign_and_its_row_cites_the_spike_report_and_the_live_traces",
+    "test_a_row_is_not_T20_s_proof_when_a_file_is_missing_an_exit_is_not_0_a_count_is_off_or_an_Attempt_failed_whole",
+    "test_the_live_accepted_value_is_conditional_and_computed_from_T20_the_spike_report_and_the_owners_pending_review",
+    "test_every_statement_of_live_accepteds_value_holds_the_conditional_words_beside_it",
+    "test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_dates_commit_exits_and_the_limit_on_the_order",
+    "test_chapter_16_says_what_the_rehearsal_covered_and_that_the_paid_invocations_proved_the_uv_launcher",
+    "test_every_stdout_stderr_exit_and_time_of_the_index_equals_the_file_the_command_left_in_commands",
+    "test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_slice_from_the_files_of_commands",
+    "test_chapter_16_says_where_the_served_model_of_each_episode_is_recorded",
+    "test_the_E07_paragraph_says_how_E07_was_resolved_and_links_the_re_review_verdict",
+    "test_the_E07_note_is_written_exactly_when_an_integer_year_answer_occurs_in_the_kept_observation_sets",
+    "test_no_chapter_or_the_readme_calls_the_campaign_later_work_or_waiting_for_the_owners_review_and_chapter_13_says_where_it_is_kept",
+)
+
+
+def test_every_decision_cited_in_the_functions_this_slice_added_to_the_handbook_tests_names_its_issue():
+    # 93-R1-10: the rule above covers whole files; test_handbook.py also holds older bare IDs, so its scan is these functions, comments and docstrings
+    # included. A decision ID that is itself a quoted string an assertion looks for ("D-025") is not a citation.
+    import ast
+
+    source = (ROOT / "tests" / "test_handbook.py").read_text(encoding="utf-8")
+    lines = source.splitlines()
+    found = {node.name: "\n".join(lines[node.lineno - 1:node.end_lineno]) for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)}
+    assert set(SLICE_HANDBOOK_FUNCTIONS) <= set(found), sorted(set(SLICE_HANDBOOK_FUNCTIONS) - set(found))
+    bare = []
+    for name in SLICE_HANDBOOK_FUNCTIONS:
+        text = re.sub(r"\s+", " ", found[name])
+        bare += [
+            f"{name}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)
+            if not re.fullmatch(r'"D-0\d\d"', text[max(0, m.start() - 1):m.end() + 1])
+        ]
+    assert bare == []
