@@ -2412,8 +2412,7 @@ def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_
     """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "an opt-in paid live Attempt" in readme  # the rule « run is not the noun » is guarded over the corpus by test_run_noun.py
+    # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule « run is not the noun » is guarded over the corpus by test_run_noun.py
 
 
 def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
@@ -4307,6 +4306,13 @@ def test_chapter_17_prose_does_not_restate_the_decide_command_the_history_keys_o
     assert "<code>applies</code>" not in prose and "<code>reasons</code>" not in prose  # `decision-history-keys`
     assert "two keys that are not in the record" not in prose
     assert [name for name in attrs_of(page, "decision-reasons", "data-reason") if name in prose] == []  # `decision-reasons`
+
+
+def test_the_readme_status_keeps_the_claims_the_slice_dropped():
+    # R1-P-02, D-039 on chadlis/hypotrail#75: no ticket asked to weaken these claims
+    status = " ".join(readme_status().split())
+    for claim in ("end to end", "SQLite", "self-contained", "writes a Comparison of two Assessments of either Track"):
+        assert claim in status, claim
 
 
 def test_the_readme_names_the_decision_history_in_the_status_command():
