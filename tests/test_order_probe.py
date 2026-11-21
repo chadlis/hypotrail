@@ -1,7 +1,7 @@
 """The order in which every Study writer refuses, and the classification of every leaf command.
 
 The probe calls each writer with an older `--read-sequence`: with the writer lock held by another process, and with the lock free. The
-table of the codes it gives is `tests/_order_table.py`; the calls are `tests/_order_probe.py`. The parser walk classifies every leaf command
+table of the codes it gives is `tests/_order_table.py`; the inventory of locked paths is `tests/_order_inventory.py`; the calls are `tests/_order_probe.py`. The parser walk classifies every leaf command
 as a Study writer or a non-writer, and holds the writers equal to the writers the probe calls. No model is called.
 """
 
@@ -17,19 +17,8 @@ from _order_probe import CHECKS_BEFORE_THE_LOCK as CHECK_CALLS
 from _order_probe import LOCK_HELD as LOCK_HELD_CALLS
 from _order_probe import UNDER_THE_LOCK as UNDER_THE_LOCK_CALLS
 from _order_probe import of
-from _order_table import (
-    AFTER,
-    BEFORE,
-    CHECKS_BEFORE_THE_LOCK,
-    ENTERS,
-    ENTERS_NONE,
-    LOCK_HELD,
-    LOCKED_PATHS,
-    REPLAYED,
-    SKIPPED_CALLS,
-    THE_CHECK,
-    UNDER_THE_LOCK,
-)
+from _order_inventory import ENTERS, ENTERS_NONE, LOCK_HELD_ENTERS_NONE, LOCKED_PATHS, SKIPPED_CALLS
+from _order_table import AFTER, BEFORE, CHECKS_BEFORE_THE_LOCK, LOCK_HELD, REPLAYED, THE_CHECK, UNDER_THE_LOCK
 from test_study_lock import held_by_another_process
 from test_write_sequence import seq, tree
 
@@ -74,7 +63,9 @@ def test_the_search_for_locked_functions_finds_a_lock_taken_in_a_with_or_by_anot
 
 
 def test_every_locked_path_has_its_lock_held_row_and_every_path_that_takes_the_read_sequence_has_its_after_row():
-    assert sorted(path["lock_held"] for path in LOCKED_PATHS.values()) == sorted(LOCK_HELD)
+    assert not set(LOCK_HELD_ENTERS_NONE) & {path["lock_held"] for path in LOCKED_PATHS.values()}
+    assert all(LOCK_HELD_ENTERS_NONE.values()), "each row of `LOCK_HELD` that has no locked path gives its reason"
+    assert sorted([*(path["lock_held"] for path in LOCKED_PATHS.values()), *LOCK_HELD_ENTERS_NONE]) == sorted(LOCK_HELD)
     assert sorted(path["after"] for path in LOCKED_PATHS.values() if path["after"]) == sorted(case for case, row in UNDER_THE_LOCK.items() if row[1] == AFTER)
     for key, path in LOCKED_PATHS.items():
         assert LOCK_HELD[path["lock_held"]][0] == path["writer"], key
@@ -137,7 +128,7 @@ def path_of(row_field, case):
     return key
 
 
-@pytest.mark.parametrize("case", sorted(LOCK_HELD))
+@pytest.mark.parametrize("case", sorted(set(LOCK_HELD) - set(LOCK_HELD_ENTERS_NONE)))
 def test_with_the_lock_held_each_row_enters_the_locked_function_of_its_path_and_no_other_locked_function(case, tmp_path):
     study, call = LOCK_HELD_CALLS[case](tmp_path)
     with held_by_another_process(study), entered(*LOCKED_PATHS) as called:
@@ -159,11 +150,21 @@ def test_each_row_of_the_other_tables_enters_the_locked_function_it_names_and_no
     assert entered_by(call, study, held) == {ENTERS[case]}
 
 
+@pytest.mark.parametrize("case", sorted(LOCK_HELD_ENTERS_NONE))
+def test_each_row_of_the_lock_held_table_that_has_no_locked_path_enters_no_locked_function(case, tmp_path):
+    study, call = LOCK_HELD_CALLS[case](tmp_path)
+    assert entered_by(call, study, True) == set()
+
+
 @pytest.mark.parametrize("case", sorted(ENTERS_NONE))
 def test_each_row_that_is_refused_before_any_locked_function_enters_none(case, tmp_path):
     held = case in CHECKS_BEFORE_THE_LOCK
     study, call = (CHECK_CALLS if held else UNDER_THE_LOCK_CALLS)[case](tmp_path)
     assert entered_by(call, study, held) == set()
+
+
+def test_the_checks_before_the_lock_and_the_checks_under_it_share_no_case():
+    assert not set(CHECKS_BEFORE_THE_LOCK) & set(UNDER_THE_LOCK)
 
 
 def test_every_row_of_the_two_tables_names_a_locked_function_of_its_writer_or_gives_the_reason_none_is_entered():
@@ -178,7 +179,7 @@ def test_every_row_of_the_two_tables_names_a_locked_function_of_its_writer_or_gi
             assert ENTERS[path["after"]] == key
 
 
-# `tests/_order_table.py` (`SKIPPED_CALLS`) rests on the two routing tests below for the calls it skips because the command line picks the module.
+# `tests/_order_inventory.py` (`SKIPPED_CALLS`) rests on the two routing tests below for the calls it skips because the command line picks the module.
 NEW_REVISION = ("hypotrail.ml.study:new_revision", "hypotrail.agentic.study:new_revision")
 ASSESS = ("hypotrail.ml.assess:assess", "hypotrail.agentic.assess:assess")
 

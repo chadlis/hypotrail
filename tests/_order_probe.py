@@ -277,29 +277,31 @@ def inspect_is_not_installed():
     return unittest.mock.patch.dict(sys.modules, {"inspect_ai": None})
 
 
-def new_study(tmp_path, *, workload="bike_day", examples=None, around=None):
+def new_study(tmp_path, *, workload="bike_day", examples=None, around=None, read_sequence=False):
     """An `init` that creates a Study of `workload` in a folder whose lock another process holds: `(study, call)`.
 
     The folder holds the (empty) lock file already, so the files of the Study are the same before and after the call. `init` that creates a
-    Study takes no `--read-sequence`: `call` ignores the value it is given.
+    Study takes no `--read-sequence`: `call` ignores the value it is given, unless `read_sequence` passes the option (which `init` refuses).
     """
     study = Path(tmp_path) / "fresh"
     study.mkdir()
     (study / "writer.lock").touch()
 
-    def call(_):
+    def call(read):
         argv = ["init", "--workload", workload, "--study", study, *(["--examples-dir", examples] if examples else [])]
+        if read_sequence:
+            argv += ["--read-sequence", read]
         with around() if around else contextlib.nullcontext():
             return run_json(*argv)
 
     return study, call
 
 
-def new_bike_study(tmp_path, *, edit=None, spoil=False, around=None):
+def new_bike_study(tmp_path, *, edit=None, spoil=False, around=None, read_sequence=False):
     examples = examples_copy(Path(tmp_path), edit=edit, name="examples") if edit or spoil else None
     if spoil:
         flipped(examples / "bike_day" / "data" / "day.csv")
-    return new_study(tmp_path, examples=examples, around=around)
+    return new_study(tmp_path, examples=examples, around=around, read_sequence=read_sequence)
 
 
 def new_chinook_study(tmp_path, *, edit=None, spoil=False):
@@ -328,6 +330,7 @@ def with_a_key_the_track_does_not_know(declaration):
 # --- the table's rows, as calls --------------------------------------------------------------------------------------------------------------
 
 LOCK_HELD = {
+    "init --read-sequence": lambda tmp_path: new_bike_study(tmp_path, read_sequence=True),
     "init": lambda tmp_path: new_bike_study(tmp_path),
     "init agent": lambda tmp_path: new_chinook_study(tmp_path),
     "init --new-revision agent": of("init --new-revision", world="chinook"),
