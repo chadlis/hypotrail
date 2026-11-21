@@ -2580,7 +2580,8 @@ def test_the_data_fetch_chapter_states_how_each_cut_transfer_ends_and_the_limit_
     text = " ".join(re.sub(r"<[^>]+>", " ", cut[1]).split())
     for word in ("Content-Length", "chunked", "unframed", "size_bytes", "interrupted", "DOWNLOAD_FAILED", "DOWNLOAD_INTEGRITY", "data verify", "exit 4", "exit 3"):
         assert word in text, word
-    assert "no usable Content-Length (absent or not a number) and not chunked" in text  # D-020 « unframed », with a non-numeric length read to the close
+    assert "the framing http.client computed" in text and "+12" in text and "negative" in text and "ignores" in text  # #22 L
+    assert "no usable Content-Length" not in text  # the command parses no header: the framing is http.client's
     assert "fewer bytes" in text and "equal size" in text and "no size" in text and "archive" in text and "notice" in text
     assert "is not used to call a short body a cut one" not in text
 

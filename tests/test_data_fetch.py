@@ -16,7 +16,7 @@ from _fetch_helpers import (
     cut_after,
     chunked_whole,
     cut_chunked,
-    cut_with_bad_length,
+    cut_with_length_header,
     cut_without_length,
     fetch,
     fetch_refusals,
@@ -132,6 +132,7 @@ class Endless:
 
     def __init__(self, total):
         self.total, self.read_bytes, self.headers = total, 0, {}
+        self.chunked, self.length = False, None  # what http.client computes for a response with no framing: its body ends at the close
 
     def read(self, amount=-1):
         amount = min(amount, self.total - self.read_bytes)
@@ -352,7 +353,11 @@ ARCHIVE = make_zip({"day.csv": BODY})
 HINT = "cut short"  # the hint that a server may have cut an unframed body short, which HTTP cannot tell from a differing one
 INTEGRITY_KEYS = {"file", "what", "expected_sha256", "actual_sha256", "size_bytes", "actual_size_bytes"}
 FAILED_KEYS = {"file", "host", "reason", "status"}
-FRAMINGS = ("Content-Length", "chunked", "unframed", "non-numeric Content-Length")  # the last is delimited as an unframed body (http.client reads to the close)
+# The framing is the one `http.client` computes (#22 L): chunked, framed by a length, or unframed (delimited by the close). A Content-Length it
+# ignores (not a number, negative, or on a chunked body) leaves the body unframed or chunked; a signed `+N` it reads as N.
+FRAMINGS = (
+    "Content-Length", "chunked", "unframed", "non-numeric Content-Length", "chunked with a larger Content-Length", "Content-Length +N", "Content-Length -5",
+)
 LOCKS = ("data file", "archive", "notice")  # the data file's lock gives a size_bytes; the archive's and the notice's give none
 RESULTS = ("whole and equal", "whole and different hash", "size-only difference", "short")
 
@@ -362,14 +367,23 @@ def _served(framing, body, sent):
         return body if sent == len(body) else cut_after(body, sent)
     if framing == "chunked":
         return chunked_whole(body) if sent == len(body) else cut_chunked(body, sent)
+    if framing == "chunked with a larger Content-Length":
+        larger = str(len(body) + 50)
+        return chunked_whole(body, larger) if sent == len(body) else cut_chunked(body, sent, larger)
     if framing == "non-numeric Content-Length":
-        return cut_with_bad_length(body, sent)
+        return cut_with_length_header(body, sent, "many")
+    if framing == "Content-Length +N":
+        return cut_with_length_header(body, sent, f"+{sent}")  # a whole body of `sent` bytes, framed by that length
+    if framing == "Content-Length -5":
+        return cut_with_length_header(body, sent, "-5")
     return cut_without_length(body, sent)
 
 
 def _expected(framing, lock, result):
     """(exit, code, reason, hint) of a cell; None for a transfer that succeeds."""
-    framed = framing not in ("unframed", "non-numeric Content-Length")  # no usable Content-Length and not chunked
+    if framing == "Content-Length +N" and result == "short":
+        return (3, "DOWNLOAD_INTEGRITY", None, False)  # the `+N` frames the short body: it arrived whole, and differs
+    framed = framing in ("Content-Length", "chunked", "chunked with a larger Content-Length", "Content-Length +N")
     if result == "whole and equal":
         return None
     if lock == "data file":

@@ -91,12 +91,14 @@ def cut_after(body: bytes, sent: int):
     return route
 
 
-def cut_chunked(body: bytes, sent: int):
+def cut_chunked(body: bytes, sent: int, content_length: str | None = None):
     """A route that answers in chunked encoding, sends `sent` bytes of `body` as one whole chunk and closes before the last chunk."""
 
     def route(handler):
         handler.send_response(200)
         handler.send_header("Transfer-Encoding", "chunked")
+        if content_length is not None:  # `http.client` ignores it on a chunked body
+            handler.send_header("Content-Length", content_length)
         handler.end_headers()
         handler.wfile.write(f"{sent:x}\r\n".encode() + body[:sent] + b"\r\n")
         handler.wfile.flush()
@@ -118,12 +120,13 @@ def cut_without_length(body: bytes, sent: int):
     return route
 
 
-def cut_with_bad_length(body: bytes, sent: int):
-    """A route whose `Content-Length` is not a number: `http.client` ignores it and reads to the close, as for an unframed body."""
+def cut_with_length_header(body: bytes, sent: int, value: str):
+    """A route that sends `sent` bytes of `body` under `Content-Length: <value>` and closes. `http.client` decides what that value means:
+    a number frames the body, one it cannot parse as an integer or a negative one leaves the body delimited by the close."""
 
     def route(handler):
         handler.send_response(200)
-        handler.send_header("Content-Length", "many")
+        handler.send_header("Content-Length", value)
         handler.end_headers()
         handler.wfile.write(body[:sent])
         handler.wfile.flush()
@@ -132,12 +135,14 @@ def cut_with_bad_length(body: bytes, sent: int):
     return route
 
 
-def chunked_whole(body: bytes):
+def chunked_whole(body: bytes, content_length: str | None = None):
     """A route that answers in chunked encoding and sends the whole `body` with its last chunk."""
 
     def route(handler):
         handler.send_response(200)
         handler.send_header("Transfer-Encoding", "chunked")
+        if content_length is not None:  # `http.client` ignores it on a chunked body
+            handler.send_header("Content-Length", content_length)
         handler.end_headers()
         handler.wfile.write(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n\r\n")
         handler.wfile.flush()

@@ -308,8 +308,8 @@ class _Outcome:
     file: str
     what: str  # "file", "archive", "notice" or "member"
     host: str | None  # the final host of a transfer
-    framing: str | None  # "length" (a Content-Length), "chunked", "unframed" (neither); None for a member, which was not transferred
-    announced: int | None  # the Content-Length, when there is one
+    framing: str | None  # as `http.client` computed it: "chunked", "length" (it set a length), "unframed" (neither); None for a member
+    announced: int | None  # the length `http.client` set, when it set one
     received: int  # bytes that arrived
     lock_size: int | None  # the lock's size_bytes for this body, or None where the lock gives none (the archive, a notice)
     sha256: str  # of the bytes that arrived
@@ -319,8 +319,9 @@ def _check(outcome: _Outcome, expected_sha256: str) -> None:
     """The one table from an outcome to its refusal; return when the body is whole and equal to the lock.
 
     Exits are those of #22 C4, C6, H, J and K. In order:
-    - a body that announced a `Content-Length` and delivered fewer bytes is a cut transfer (`DOWNLOAD_FAILED`, `interrupted`, exit 4);
-    - an unframed body (no `Content-Length`, not chunked) shorter than the lock's `size_bytes` is a cut transfer too (D-020 on
+    - a body framed by a length (the one `http.client` set) that delivered fewer bytes is a cut transfer (`DOWNLOAD_FAILED`,
+      `interrupted`, exit 4);
+    - an unframed body (`http.client` set no length and the body is not chunked, so the close delimits it) shorter than the lock's `size_bytes` is a cut transfer too (D-020 on
       chadlis/hypotrail#75, #22 Tightened K); only `received < size_bytes` triggers it;
     - a different SHA-256 is `DOWNLOAD_INTEGRITY`, exit 3, and so is the same SHA-256 with a different size;
     - the hint that a server may have cut the body short is given only where HTTP cannot tell that from a differing body: an
@@ -371,9 +372,10 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary,
     digest, total = hashlib.sha256(), 0
     host = host_of(response.geturl()) if hasattr(response, "geturl") else host_of(url)  # the final host, after any redirect
     with response:
-        length = response.headers.get("Content-Length")
-        announced = int(length) if length is not None and length.isdigit() else None
-        chunked = "chunked" in (response.headers.get("Transfer-Encoding") or "").lower()
+        # The framing is the one `http.client` computed (#22 L), read before the first read because `length` counts down as the body
+        # arrives. It reads a chunked body as chunked and ignores a Content-Length on it, one it cannot parse as an integer, or a
+        # negative one. No header is parsed here.
+        chunked, announced = response.chunked, response.length
         if announced is not None and announced > bound:
             raise _too_large(file, what, bound)
         while True:
@@ -388,7 +390,7 @@ def _transfer(url: str, file: str, what: str, bound: int, temporary: _Temporary,
                 raise _too_large(file, what, bound)
             digest.update(block)
             temporary.handle.write(block)
-    framing = "length" if announced is not None else "chunked" if chunked else "unframed"
+    framing = "chunked" if chunked else "length" if announced is not None else "unframed"
     return _Outcome(file, what, host, framing, announced, total, lock_size, digest.hexdigest())
 
 
