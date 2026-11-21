@@ -19,8 +19,10 @@ RUN_AGENT = "run agent"
 IMPORT_ML = "import ml"
 IMPORT_AGENT = "import agent"
 DECIDE = "decide"
+INIT = "init"
 
 DECISION = "decision"
+REVISION = "revision"
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:
@@ -88,10 +90,10 @@ class Write:
 
 
 @contextlib.contextmanager
-def locked(study, command: str, request_id: str, *, read_sequence, has_attempt: bool = False):
+def locked(study, command: str, request_id: str | None = None, *, read_sequence=None, has_attempt: bool = False):
     """Take the Study's writer lock and journal the command's writes; yield the `Write` of the command.
 
-    `has_attempt` is true for a command that records an Attempt (`run`, `import`).
+    `request_id` is None for a command that has none. `has_attempt` is true for a command that records an Attempt (`run`, `import`).
     """
     with lock.writer_lock(study), write_journal.writing(study, command, request_id, has_attempt=has_attempt) as journal:
         yield Write(study, request_id, read_sequence, journal)
