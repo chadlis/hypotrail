@@ -1,12 +1,14 @@
-"""The one resolver of the architecture tests, with the standard library `ast`: what each name of a module stands for, the modules a module imports and the call that each call site resolves to.
+"""The one resolver of the architecture tests, with the standard library `ast`, and the receiver rule of the Study-write contract that is built on it.
 
-Every module under a root is found with `rglob`, subpackages included, and named by its dotted path (`pkg/sub/__init__.py` is `pkg.sub`). A relative import is resolved against
+The resolver: every module under a root is found with `rglob`, subpackages included, and named by its dotted path (`pkg/sub/__init__.py` is `pkg.sub`). A relative import is resolved against
 the module that holds it to the absolute module it names, so `from ..core import y` in `hypotrail.agentic.run` is `hypotrail.core.y`.
 
 A call is resolved by what its name stands for in the module that holds it: an import (`import a.b as c`, `from a import b as c`, also inside a function), a function defined in
 the module (a bare name), or a name that is assigned another name (`g = layout.find_by_request`). The resolved name is `package.module.function`; it is built from the names,
 not read from the target's file, so a call of a function that was removed still resolves. A call that no name of the module explains (a method of a parameter, a builtin)
 has no resolved name, only its dotted spelling.
+
+The receiver rule (`receiver_violations`): how the `Write` that `study_write.locked(...)` yields is held, named and passed on, and who may build one.
 """
 
 import ast
@@ -156,21 +158,24 @@ def calls(trees: dict) -> list:
 
 
 class Function(NamedTuple):
-    """A function or method of a module: its module, the qualified name of its class (None for a function), its node, its positional parameters (`self` left out) and its keyword-only ones."""
+    """A function or method of a module: its module, the qualified name of its class (None for a function), its node, its positional parameters (all of them, `self` and `cls` included), its keyword-only ones and its kind (`function`, `method`, `classmethod` or `staticmethod`)."""
 
     module: str
     cls: str | None
     node: ast.FunctionDef | ast.AsyncFunctionDef
     parameters: list
     keyword_only: list
+    kind: str
 
 
 FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
-def signature(node, module: str, cls: str | None) -> Function:
-    positional = [a.arg for a in [*node.args.posonlyargs, *node.args.args] if a.arg != "self"]
-    return Function(module, cls, node, positional, [a.arg for a in node.args.kwonlyargs])
+def signature(node, module: str, cls: str | None, method: bool = False) -> Function:
+    decorators = {dotted(decorator) for decorator in node.decorator_list}
+    kind = "function" if not method else "staticmethod" if "staticmethod" in decorators else "classmethod" if "classmethod" in decorators else "method"
+    positional = [a.arg for a in [*node.args.posonlyargs, *node.args.args]]
+    return Function(module, cls, node, positional, [a.arg for a in node.args.kwonlyargs], kind)
 
 
 def functions_of(trees: dict) -> dict:
@@ -183,7 +188,7 @@ def functions_of(trees: dict) -> dict:
             elif isinstance(node, ast.ClassDef):
                 for child in node.body:
                     if isinstance(child, FUNCTION_NODES):
-                        found[f"{module}.{node.name}.{child.name}"] = signature(child, module, f"{module}.{node.name}")
+                        found[f"{module}.{node.name}.{child.name}"] = signature(child, module, f"{module}.{node.name}", method=True)
     return found
 
 
@@ -218,12 +223,47 @@ def write_bindings(trees: dict, factory: str) -> list:
     return found
 
 
-def receiver_violations(root, factory: str, receiver: str) -> list:
-    """What breaks the rule that every `with <factory>(...) as <name>` and every parameter that receives it is named `receiver`, and that the object is used in the closed ways only.
+def binds_name(function, name: str) -> bool:
+    """Whether the function or lambda has its own `name`: a parameter, or a name it assigns."""
+    arguments = function.args
+    own = [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs, *filter(None, [arguments.vararg, arguments.kwarg])]
+    if any(argument.arg == name for argument in own):
+        return True
+    pending = list(ast.iter_child_nodes(function))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (*FUNCTION_NODES, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
+            return True
+        pending.extend(ast.iter_child_nodes(node))
+    return False
+
+
+def used_outside(scope, name: str):
+    """Every read of `name` in the scope, the functions nested in it included, except in a nested function or lambda that has its own `name`."""
+    pending = list(ast.iter_child_nodes(scope))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, (*FUNCTION_NODES, ast.Lambda)) and binds_name(node, name):
+            continue
+        if isinstance(node, ast.Name) and node.id == name and not isinstance(node.ctx, ast.Store):
+            yield node
+        pending.extend(ast.iter_child_nodes(node))
+
+
+def receiver_violations(root, factory: str, receiver: str, written: str = "Write") -> list:
+    """What breaks the receiver rule: every `with <factory>(...) as <name>` and every parameter that receives the object is named `receiver`, the object is used in the closed ways only,
+    the factory is called only as the item of a `with`, the bound name is read nowhere outside its block, and the `written` class is built only in the module of the factory.
 
     The object is followed from the `with` that binds it, in the `with`'s body and in the functions nested there, through every call that passes it as a bare positional or keyword
-    argument, into the function the call resolves to (a function or method of `src`, a nested function, `self.method` when the class is known), and on through that function's calls.
-    Its uses are a method call on it and such an argument. Any other use is a violation: a rebinding, a `*args`, an attribute read, an argument of a call that does not resolve.
+    argument, into the function the call resolves to (a function or method of `src`, a nested function, `self.method` when the class is known, `Class.method` with `self` given
+    explicitly), and on through that function's calls. Its uses are a method call on it and such an argument. Any other use is a violation: a rebinding, a `*args`, an attribute read,
+    an argument of a call that does not resolve.
+
+    The factory, by any name that resolves to it, appears only as the call that is the item of a `with`; a call elsewhere (`cm = factory(...)`, an argument) and a reference that is
+    not called are violations. The bound name is read outside the block in the scope that holds the `with`, in a function nested there that is defined before or after it, and in a lambda,
+    except in a function or lambda that has its own parameter or assignment of that name.
     """
     trees = parse_all(root)
     sites = {id(site.node): site for site in calls(trees)}
@@ -242,12 +282,12 @@ def receiver_violations(root, factory: str, receiver: str) -> list:
         if isinstance(func, ast.Name) and func.id in local:
             nested = local[func.id]
             enclosing = innermost[module][id(parents[module][id(nested)])].replace(":", ".")
-            return f"{enclosing}.{nested.name}", signature(nested, module, cls)
+            return f"{enclosing}.{nested.name}", signature(nested, module, cls), False
         callee = sites[id(call)].callee if id(call) in sites else None
         if callee in functions:
-            return callee, functions[callee]
+            return callee, functions[callee], False
         if cls and isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "self" and f"{cls}.{func.attr}" in functions:
-            return f"{cls}.{func.attr}", functions[f"{cls}.{func.attr}"]
+            return f"{cls}.{func.attr}", functions[f"{cls}.{func.attr}"], True
         return None
 
     def follow(module, cls, scope, body, held):
@@ -274,11 +314,14 @@ def receiver_violations(root, factory: str, receiver: str) -> list:
         if resolved is None:
             found.add(f"{where} passes the Write to a call that does not resolve: `{ast.unparse(call)}`")
             return
-        name, function = resolved
+        name, function, through_self = resolved
+        # `self.m(...)` supplies `self` or `cls`; `C.m(...)` supplies `cls` of a classmethod and leaves `self` of a method to the call
+        supplied = 1 if function.kind == "classmethod" or (through_self and function.kind == "method") else 0
+        explicit = function.parameters[supplied:]
         if isinstance(argument, int):
-            parameter = function.parameters[argument] if argument < len(function.parameters) else None
+            parameter = explicit[argument] if argument < len(explicit) else None
         else:
-            parameter = argument if argument in [*function.parameters, *function.keyword_only] else None
+            parameter = argument if argument in [*explicit, *function.keyword_only] else None
         if parameter is None:
             found.add(f"{where} passes the Write where {name} has no parameter for it")
             return
@@ -288,6 +331,7 @@ def receiver_violations(root, factory: str, receiver: str) -> list:
             seen.add((id(function.node), parameter))
             follow(function.module, function.cls, function.node, function.node.body, parameter)
 
+    blocks: dict = {}  # (module, the scope that holds the `with`, the bound name) -> (scope, the ids of the nodes of the blocks that bind it)
     for binding in write_bindings(trees, factory):
         if isinstance(binding.target, ast.Name):
             if binding.target.id != receiver:
@@ -295,8 +339,33 @@ def receiver_violations(root, factory: str, receiver: str) -> list:
             enclosing_class = ancestor(binding.module, binding.node, ast.ClassDef)
             scope = ancestor(binding.module, binding.node, FUNCTION_NODES) or ancestor(binding.module, binding.node, ast.Module)
             follow(binding.module, f"{binding.module}.{enclosing_class.name}" if enclosing_class else None, scope, binding.node.body, binding.target.id)
+            inside = blocks.setdefault((binding.module, id(scope), binding.target.id), (scope, set()))[1]
+            inside.update(id(node) for statement in binding.node.body for node in ast.walk(statement))
+            inside.add(id(binding.target))
         elif binding.target is not None:
             found.add(f"{binding.innermost} binds the Write by unpacking")
+    for (module, _, name), (scope, inside) in blocks.items():
+        for node in used_outside(scope, name):
+            if id(node) not in inside:
+                found.add(f"{innermost[module][id(node)]} uses the Write `{name}` outside its block")
+    factory_module = factory.rpartition(".")[0]
+    for module, tree in trees.items():
+        if module == factory_module:
+            continue
+        names = names_of(module, tree)
+        for node in ast.walk(tree):
+            parent = parents[module].get(id(node))
+            where = innermost[module][id(node)]
+            if isinstance(node, ast.Call) and resolve(names, dotted(node.func)) == f"{factory_module}.{written}":
+                found.add(f"{where} constructs the Write: `{ast.unparse(node)}`")
+            if not isinstance(node, (ast.Name, ast.Attribute)) or not isinstance(node.ctx, ast.Load) or isinstance(parent, ast.Attribute):
+                continue
+            if resolve(names, dotted(node)) != factory:
+                continue
+            if isinstance(parent, ast.Call) and parent.func is node:
+                node, parent = parent, parents[module][id(parent)]
+            if not (isinstance(parent, ast.withitem) and parent.context_expr is node):
+                found.add(f"{where} uses `{ast.unparse(node)}` other than as the item of a `with`")
     return sorted(found)
 
 

@@ -6,8 +6,9 @@ Each check takes the root of a source tree, so the same check runs on `src` and 
 import ast
 from pathlib import Path
 
+import _architecture
 import pytest
-from _architecture import SOURCE, calls, defined_functions, dotted, names_of, owners_in, parse_all, receiver_violations, reached_from, resolve, write_bindings
+from _architecture import SOURCE, calls, defined_functions, dotted, innermost_owners_in, names_of, owners_in, parse_all, receiver_violations, reached_from, resolve, write_bindings
 from _order_inventory import LOCKED_PATHS
 
 STUDY_WRITE = "hypotrail.core.study_write"
@@ -31,6 +32,35 @@ def plant(root: Path, files: dict) -> Path:
 READ_SEQUENCE_FAULT = f"{WRITE_JOURNAL}.read_sequence_fault"
 # `check_read_sequence` judges `--read-sequence` for the library callers of a writer; `_read_sequence_value` is the `type=` of `--read-sequence` on every command, so the command line judges it at parse time.
 READ_SEQUENCE_FAULT_CALLERS = {f"{STUDY_WRITE}:check_read_sequence", "hypotrail.cli:_read_sequence_value"}
+
+
+READ_SEQUENCE_VALUE = "hypotrail.cli._read_sequence_value"
+
+
+def read_sequence_value_uses(root) -> list:
+    """The functions that use `_read_sequence_value` as the value of a `type=` keyword argument."""
+    return sorted(site for site, ok in read_sequence_value_references(root) if ok)
+
+
+def read_sequence_value_violations(root) -> list:
+    """The uses of `_read_sequence_value` (by any spelling that resolves to it) that are not the value of a `type=` keyword argument."""
+    return sorted(
+        f"{owner} uses `{spelling}` other than as the value of `type=`" for owner, ok, spelling in read_sequence_value_references(root, spelled=True) if not ok
+    )
+
+
+def read_sequence_value_references(root, spelled: bool = False) -> list:
+    found = []
+    for module, tree in parse_all(root).items():
+        names, owners = names_of(module, tree), innermost_owners_in(module, tree)
+        parents = {id(child): node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+        for node in ast.walk(tree):
+            parent = parents.get(id(node))
+            if not isinstance(node, (ast.Name, ast.Attribute)) or not isinstance(node.ctx, ast.Load) or isinstance(parent, ast.Attribute) or resolve(names, dotted(node)) != READ_SEQUENCE_VALUE:
+                continue
+            ok = isinstance(parent, ast.keyword) and parent.arg == "type"
+            found.append((owners[id(node)], ok, ast.unparse(node)) if spelled else (owners[id(node)], ok))
+    return found
 
 
 def guard_violations(root) -> list:
@@ -186,6 +216,13 @@ LOCKED = f"{STUDY_WRITE}.locked"
 
 
 def test_every_with_study_write_locked_binds_write_and_every_function_it_is_passed_to_names_that_parameter_write_and_uses_it_in_the_closed_ways_only():
+    """The receiver of a Write is held in the closed ways of `receiver_violations`. Patterns that the check still cannot see, which no code under `src` uses:
+
+    - a function or lambda defined inside the block that calls a method of the Write and is then used after the block (returned, stored, called later);
+    - the value that a method of the Write returns is not followed, so a method that returned the Write itself would hide it;
+    - a factory or a class reached by `getattr(module, "locked")`, `getattr(module, "Write")` or any other lookup by a string, a subclass of `Write` that is then built, and `Write.__new__`;
+    - a factory or a class that the module gets through a star import, which the resolver does not follow.
+    """
     assert receiver_violations(SOURCE, LOCKED, WRITE_RECEIVER) == []
     bound = [binding.target.id for binding in write_bindings(parse_all(SOURCE), LOCKED) if isinstance(binding.target, ast.Name)]
     assert bound and set(bound) == {WRITE_RECEIVER}  # a check that finds no `with` would pass as well
@@ -224,6 +261,76 @@ def test_the_receiver_check_finds_a_Write_bound_as_another_name_a_helper_that_ta
         "hypotrail.ml.stored:f uses the Write in `write.count`",
         "hypotrail.ml.unresolved:f passes the Write to a call that does not resolve: `other.take(write)`",
     ]
+
+
+HEAD = "from hypotrail.core import study_write\n\n"
+
+
+def test_the_receiver_check_finds_a_Write_used_after_its_block_a_function_that_captures_it_a_locked_that_is_not_the_item_of_a_with_and_a_Write_built_outside_its_module(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/core/study_write.py": "def locked(study, command):\n    pass\n\nclass Write:\n    pass\n\ndef built():\n    return Write()\n",
+        "hypotrail/ml/ok.py": HEAD
+        + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        write.wrote('k', 'i')\n    with study_write.locked(study, 'y') as write:\n        write.wrote('k', 'i')\n"
+        "    with study_write.locked(study, 'z'):\n        pass\n\ndef g(write):\n    return write.wrote('k', 'i')\n\ndef h(study):\n    def own(write):\n        return write.wrote('k', 'i')\n\n"
+        "    with study_write.locked(study, 'x') as write:\n        return own(write)\n",
+        "hypotrail/ml/after.py": HEAD + "def f(study):\n    with study_write.locked(study, 'x') as write:\n        write.wrote('k', 'i')\n    w = write\n    return w\n",
+        "hypotrail/ml/captured.py": HEAD
+        + "def f(study):\n    def peek():\n        return write.count\n\n    with study_write.locked(study, 'x') as write:\n        peek()\n",
+        "hypotrail/ml/stored.py": HEAD + "def f(study):\n    cm = study_write.locked(study, 'x')\n    with cm as w:\n        w.wrote('k', 'i')\n",
+        "hypotrail/ml/passed.py": HEAD + "def f(study, stack):\n    return stack.enter_context(study_write.locked(study, 'x'))\n",
+        "hypotrail/ml/referred.py": HEAD + "import functools\n\ndef f(study):\n    return functools.partial(study_write.locked, study)\n",
+        "hypotrail/ml/built.py": HEAD + "from hypotrail.core.study_write import Write as W\n\ndef f(study):\n    return study_write.Write(), W()\n",
+    })
+    assert receiver_violations(root, LOCKED, WRITE_RECEIVER) == [
+        "hypotrail.ml.after:f uses the Write `write` outside its block",
+        "hypotrail.ml.built:f constructs the Write: `W()`",
+        "hypotrail.ml.built:f constructs the Write: `study_write.Write()`",
+        "hypotrail.ml.captured:peek uses the Write `write` outside its block",
+        "hypotrail.ml.passed:f uses `study_write.locked(study, 'x')` other than as the item of a `with`",
+        "hypotrail.ml.referred:f uses `study_write.locked` other than as the item of a `with`",
+        "hypotrail.ml.stored:f uses `study_write.locked(study, 'x')` other than as the item of a `with`",
+    ]
+
+
+def test_the_receiver_check_accepts_a_method_called_through_its_class_with_the_instance_a_classmethod_and_a_staticmethod(tmp_path):
+    methods = (
+        "class C:\n    @classmethod\n    def k(cls, write):\n        return write.wrote('k', 'i')\n\n"
+        "    @staticmethod\n    def s(write):\n        return write.wrote('k', 'i')\n\n"
+        "    def n(self, write):\n        return write.wrote('k', 'i')\n\n"
+    )
+    root = plant(tmp_path, {
+        "hypotrail/core/study_write.py": "def locked(study, command):\n    pass\n",
+        "hypotrail/ml/through_class.py": HEAD + methods
+        + "    def m(self, study):\n        with study_write.locked(study, 'x') as write:\n            C.n(self, write)\n            C.n(self, write=write)\n",
+        "hypotrail/ml/class_and_static.py": HEAD + methods
+        + "    def m(self, study):\n        with study_write.locked(study, 'x') as write:\n            self.k(write)\n            C.k(write)\n            self.s(write)\n            C.s(write)\n",
+    })
+    assert receiver_violations(root, LOCKED, WRITE_RECEIVER) == []
+
+
+def test_the_read_sequence_value_of_the_command_line_is_used_as_a_type_argument_only_and_never_called():
+    assert read_sequence_value_violations(SOURCE) == []
+    assert read_sequence_value_uses(SOURCE) == ["hypotrail.cli:_add_read_sequence"]  # a check that finds no use would pass as well
+
+
+def test_the_read_sequence_value_check_finds_a_direct_call_a_copy_and_a_use_from_another_module_and_accepts_the_type_argument(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/cli.py": "def _read_sequence_value(t):\n    return t\n\ndef add(p):\n    p.add_argument('--read-sequence', type=_read_sequence_value)\n\n"
+        "def direct(t):\n    return _read_sequence_value(t)\n\ndef copy():\n    f = _read_sequence_value\n    return f\n",
+        "hypotrail/ml/a.py": "from hypotrail import cli\n\ndef w(p, t):\n    p.add_argument('x', type=cli._read_sequence_value)\n    return cli._read_sequence_value(t)\n",
+        "hypotrail/ml/b.py": "from hypotrail.cli import _read_sequence_value as v\n\ndef w(t):\n    return v(t)\n",
+    })
+    assert read_sequence_value_violations(root) == [
+        "hypotrail.cli:copy uses `_read_sequence_value` other than as the value of `type=`",
+        "hypotrail.cli:copy uses `f` other than as the value of `type=`",
+        "hypotrail.cli:direct uses `_read_sequence_value` other than as the value of `type=`",
+        "hypotrail.ml.a:w uses `cli._read_sequence_value` other than as the value of `type=`",
+        "hypotrail.ml.b:w uses `v` other than as the value of `type=`",
+    ]
+
+
+def test_the_module_of_the_architecture_checks_says_that_it_also_holds_the_receiver_rule_of_the_Study_write_contract():
+    assert "receiver rule of the Study-write contract" in _architecture.__doc__
 
 
 # --- the builder of an INVALID_ARGUMENTS refusal ---------------------------------------------------------------------------------
