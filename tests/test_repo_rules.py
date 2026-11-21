@@ -12,36 +12,37 @@ from hypotrail.cli import build_parser
 ROOT = Path(__file__).resolve().parent.parent
 
 
-# The committed files each wording rule scans, as `git ls-files` pathspecs. Both rules draw their file lists from this one table.
+# The tracked files each wording rule scans, as `git ls-files` pathspecs. Both rules draw their file lists from this one table, and each key names the set it holds.
 SCOPE = {
-    "source": "src/",
-    "source_python": ":(glob)src/**/*.py",
-    "tests": "tests/",
-    "handbook_chapters": ":(glob)docs/handbook/chapters/*.html",
-    "readme": "README.md",
-    "adr_0004": "docs/adr/0004-panel-cli-contract.md",
+    "src_all_files": "src/",
+    "src_python_files": ":(glob)src/**/*.py",
+    "tests_all_files": "tests/",
+    "handbook_chapter_files": ":(glob)docs/handbook/chapters/*.html",
+    "readme_file": "README.md",
+    "adr_0004_file": "docs/adr/0004-panel-cli-contract.md",
 }
 
 
 def _git_ls_files_in_scope(*parts):
-    """The committed files of the named parts of `SCOPE`, listed by `git ls-files`: an untracked or ignored file is not in the list."""
+    """The tracked files of the named parts of `SCOPE`, listed by `git ls-files`: an untracked or ignored file is not in the list."""
     try:
         done = subprocess.run(
             ["git", "ls-files", "-z", "--", *(SCOPE[part] for part in parts)], cwd=ROOT, capture_output=True, text=True, check=True
         )
     except (OSError, subprocess.CalledProcessError) as error:
-        pytest.fail(f"`git ls-files` is unavailable, so the committed files cannot be listed: {error}")
+        pytest.fail(f"`git ls-files` is unavailable, so the tracked files cannot be listed: {error}")
     return sorted(ROOT / name for name in done.stdout.split("\0") if name and (ROOT / name).is_file())
 
 
 # AGENTS.md: everything committed is in English, and French is the only language quoted with the French quotation marks. No opening or closing French quotation
-# mark may appear in the files held to it: the source, the handbook chapters, every committed file under `tests/` and ADR 0004. French quoted in a test is written
-# with Python escapes, and this module spells the two characters with escapes too, so that it passes its own scan. The other ADRs are left out: ADR 0002 holds a
+# mark may appear in the files held to it: the Python source, the handbook chapters, every tracked file under `tests/` and ADR 0004. The JSON schemas under `src/`
+# and `README.md` are not scanned: the rule's scope is the scan as it was before plus `tests/`, decided in #115 and in D-043 on chadlis/hypotrail#75.
+# French quoted in a test is written with Python escapes, and this module spells the two characters with escapes too, so that it passes its own scan. The other ADRs are left out: ADR 0002 holds a
 # recorded quotation in those marks, and its own 2026-11-08 note records the harm of rewriting an ADR in place.
 def test_no_guillemet_in_the_source_the_chapters_the_tests_or_adr_0004():
     found = [
         str(p.relative_to(ROOT))
-        for p in _git_ls_files_in_scope("source_python", "handbook_chapters", "tests", "adr_0004")
+        for p in _git_ls_files_in_scope("src_python_files", "handbook_chapter_files", "tests_all_files", "adr_0004_file")
         if set("\u00ab\u00bb") & set(p.read_text(encoding="utf-8"))
     ]
     assert found == []
@@ -176,7 +177,7 @@ def test_no_decision_is_cited_without_its_issue_in_the_source_the_tests_the_chap
     # GLOSSARY cites a Decision as "D-011 on chadlis/hypotrail#75": a bare ID means nothing to a reader. Whitespace is collapsed, as a citation may wrap over two
     # lines. An ID that is the whole of a double-quoted string ("D-025") is a string an assertion looks for, not a citation, wherever it stands.
     bare = []
-    for path in _git_ls_files_in_scope("source", "tests", "handbook_chapters", "readme"):
+    for path in _git_ls_files_in_scope("src_all_files", "tests_all_files", "handbook_chapter_files", "readme_file"):
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
         bare += [
             f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}"
