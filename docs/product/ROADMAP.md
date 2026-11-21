@@ -15,6 +15,12 @@ Product purpose: [PRODUCT.md](PRODUCT.md). Current requirements: [L1 issue #1](h
 
 These identifiers describe direction, not release numbers or calendar dates.
 
+**Owner selection, 2026-11-20.** The owner selected L2 and L3 in the end state on #1 ([comment 7043566976](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043566976), « H3 »; [comment 7043774378](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378), items 2 and 3).
+- L2 is a VS Code webview panel for guided review, client of the CLI.
+- L3 is five further Tracks or Workloads.
+
+This was decided without pilot evidence. The pilot in « Demonstration before calling L2 usable » stays the gate for calling L2 usable ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422), decision by proxy). The sections below keep the candidate text as it was written. Where the selection and that text disagree, the selection prevails.
+
 ## L1 complete the current evaluation milestone
 
 The agreed endpoint is two public Workloads, temporal regression on Bike and a tool-using agent on Chinook, with native execution, Imports, retained outputs, Assessments, Comparisons, rescoring and an offline report.
@@ -62,6 +68,8 @@ Recover the original companion's useful information hierarchy: what needs attent
 Start with chat or CLI actions and a read-only generated Study view. Folding sections, following evidence links and copying the next question are useful interactions. A static HTML export cannot persist a decision. If a later panel records one, it must call a documented application command and handle stale state through the same contract as the CLI.
 
 This is already a visual product increment. Choosing a VS Code webview or a local web application is a later implementation decision informed by the pilot, not a prerequisite for this first view. No private UI database, duplicated Scorer or separate decision authority is introduced.
+
+*Amended 2026-11-21:* the owner's selection above settles the choice, without a pilot. L2 is a VS Code webview panel that records decisions through a documented CLI command, as this section requires. The read-only generated view is not a separate first step.
 
 ### Demonstration before calling L2 usable
 
@@ -166,7 +174,7 @@ These options do not authorize implementation or make other projects depend on H
 - Slice issues own their bounded scope and acceptance evidence. The Matt Pocock workflow used by drive creates implementation tickets with to-tickets, then orchestrates implementation, independent review, documentation and PRs.
 - ADRs record adopted architecture decisions. The handbook documents delivered behaviour. The French learning repository follows selected learning objectives, independently of product scope.
 
-For now, keep L2 and L3 in this file. Do not create execution parent issues or child tickets merely to represent these candidates. In the current drive selector, an open parent titled L<n> can become executable once earlier work is closed. A future label or a native GitHub Milestone object is not an activation guard.
+~~For now, keep L2 and L3 in this file. Do not create execution parent issues or child tickets merely to represent these candidates.~~ *Amended 2026-11-21:* L2 and L3 are selected (see « Owner selection » above). Each gets its parent issue when it is next, L2 first. The drive starts their slices with an explicit `/drive #n` while #1 stays open for the owner and pilot reviews ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422)). In the current drive selector, an open parent titled L<n> can become executable once earlier work is closed. A future label or a native GitHub Milestone object is not an activation guard.
 
 When the owner selects the next milestone, reconcile the proposal with pilot evidence, then create its parent issue with the outcome, scope, exclusions and observable acceptance. Define only the next slices that have enough evidence. Use the existing Blocked by: convention for execution dependencies. Let drive do the technical ticket decomposition.
 
