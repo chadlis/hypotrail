@@ -8,9 +8,10 @@ REPLAYED = "replayed"
 
 # --- the writer lock is held by another process ------------------------------------------------------------------------
 
-# Arguments that pass every check before the lock: the lock is the refusal. `init` that creates a Study is called without `--read-sequence`,
-# which it refuses: the row `init --read-sequence` passes it, with the lock held, and gets that refusal. The two Tracks of `init`, of
-# `init --new-revision` and of `assess` are separate code, so each has its row.
+# One row per writer call made with the lock held, with the expected exit code and code. A row gives STUDY_LOCKED when its arguments pass every
+# check before the lock: the lock is the refusal. The exception is `init --read-sequence`: `init` that creates a Study is called without
+# `--read-sequence`, which it refuses with INVALID_ARGUMENTS, and the row `init --read-sequence` is called with the lock held and gets that
+# refusal. The two Tracks of `init`, of `init --new-revision` and of `assess` are separate code, so each has its row.
 LOCK_HELD = {
     "init --read-sequence": ("init", 2, "INVALID_ARGUMENTS"),
     "init": ("init", 6, "STUDY_LOCKED"),

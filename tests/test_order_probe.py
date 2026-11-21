@@ -202,7 +202,7 @@ def test_assess_enters_the_agentic_module_for_a_registered_agentic_scorer_and_th
 
 
 @pytest.mark.parametrize("case", sorted(LOCK_HELD))
-def test_with_the_lock_held_and_an_older_value_each_writer_whose_arguments_pass_gives_study_locked_and_writes_nothing(case, tmp_path):
+def test_with_the_lock_held_and_an_older_value_each_row_gives_the_exit_code_and_code_that_LOCK_HELD_names_and_writes_nothing(case, tmp_path):
     _, exit_code, code = LOCK_HELD[case]
     study, call = LOCK_HELD_CALLS[case](tmp_path)
     files = tree(study)
