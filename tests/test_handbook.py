@@ -2717,6 +2717,12 @@ def _root_tokens(css, selector):
     return dict(re.findall(r"(--[a-z0-9-]+):([^;]+);?", body))
 
 
+def _rule_declarations(css, selector):
+    """Every declaration (custom properties and others) of the first `selector{...}` rule, by name."""
+    body = css.split(selector + "{", 1)[1].split("}", 1)[0]
+    return {name.strip(): value.strip() for name, _, value in (part.partition(":") for part in body.split(";")) if name.strip()}
+
+
 def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_with_the_templates_tokens_switch_and_scripts():
     # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, #1 amendment « light mode by default »: `data-mode="light"`, the template's base and
     # light token blocks for the tokens the page uses, its `.mode` switch (markup and CSS) and its two small scripts, all as in template.html.
@@ -2728,11 +2734,12 @@ def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_wi
     charter_base, charter_light = _root_tokens(template, ":root"), _root_tokens(template, ':root[data-mode="light"]')
     assert base and light
     assert all(charter_base.get(name) == value for name, value in base.items()), "a base token that is not the template's"
-    assert all(charter_light.get(name) == value for name, value in light.items()), "a light token that is not the template's"
+    page_rule, template_rule = _rule_declarations(style, ':root[data-mode="light"]'), _rule_declarations(template, ':root[data-mode="light"]')
+    assert page_rule and all(template_rule.get(name) == value for name, value in page_rule.items()), "a light declaration that is not the template's"
+    assert page_rule.get("color-scheme") == "light"  # the whole light rule, not only its tokens: removing color-scheme fails
     used = set(re.findall(r"var\((--[a-z0-9-]+)\)", style))
     assert set(base) == used, ("declared and unused", set(base) - used, "used and undeclared", used - set(base))  # every declared token is used
     assert set(light) == used & set(charter_light) and 'data-mode="light"' in style
-    assert "color-scheme" not in style  # no declaration beyond the template's tokens: the page's tokens equal the template's exactly
     switch = re.search(r'<div class="mode".*?</div>', template, re.S)[0]
     assert switch in page and page.index(switch) < page.index("<main>")  # the template's switch markup
     css = [line for line in template.split("<style>", 1)[1].split("</style>", 1)[0].splitlines() if line.startswith(".mode")]
