@@ -1,4 +1,4 @@
-"""How a command finds the Workloads (#23, D-016): one resolver, the flag first, the checkout's `examples/` second, else a refusal.
+"""How a command finds the Workloads (#23, D-016 on chadlis/hypotrail#75): one resolver, the flag first, the checkout's `examples/` second, else a refusal.
 
 The package is imported from a copy placed where an install puts it (no `examples/` beside it) or where a checkout has it,
 and the command runs in a subprocess from that copy. No case reads the key, imports a provider or calls a model.
@@ -231,7 +231,7 @@ def test_an_editable_checkout_finds_its_examples_without_a_flag_and_the_flag_tak
 
 
 def test_a_report_of_dev_items_reads_no_workload_so_it_needs_no_flag_where_none_is_found(installs, tmp_path):
-    """D-016 and #85 Tightened H: `report` reads the Workload only to record an Exposure, so a page of `dev` Items works from any install."""
+    """D-016 on chadlis/hypotrail#75 and #85 Tightened H: `report` reads the Workload only to record an Exposure, so a page of `dev` Items works from any install."""
     root = tmp_path / "work"
     (root / "cwd").mkdir(parents=True)
     study, _ = fresh_study(root, "seasonal_7")

@@ -2,29 +2,47 @@
 
 import argparse
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from hypotrail.cli import build_parser
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
-# AGENTS.md: everything committed is in English; « » only ever quoted French. The files held to it: the source, the handbook chapters, ADR 0004 and the
-# test modules of the write sequence, the decisions and the panel-CLI contract. Older tests and the other ADRs are a corpus decision (#115), not made here.
-FILES_FREE_OF_FRENCH_QUOTATION = [
-    *sorted((ROOT / "src").rglob("*.py")),
-    *sorted((ROOT / "docs" / "handbook" / "chapters").glob("*.html")),
-    ROOT / "docs" / "adr" / "0004-panel-cli-contract.md",
-    ROOT / "tests" / "test_write_sequence.py",
-    ROOT / "tests" / "test_stale_sequence.py",
-    ROOT / "tests" / "test_decide.py",
-    ROOT / "tests" / "test_decision_history.py",
-    ROOT / "tests" / "test_panel_cli_contract.py",
-]
+# The pathspecs that both scans below use, written once.
+HANDBOOK_CHAPTERS_PATHSPEC = ":(glob)docs/handbook/chapters/*.html"
+TESTS_PATHSPEC = "tests/"
+
+# Every pathspec: chadlis/hypotrail#122, criterion 1.
+BARE_ID_SCAN = ["src/", TESTS_PATHSPEC, HANDBOOK_CHAPTERS_PATHSPEC, "README.md"]
+
+# - the Python source and the handbook chapters: chadlis/hypotrail#122, criterion 6.
+# - tests/: chadlis/hypotrail#115 and D-043 on chadlis/hypotrail#75.
+# - ADR 0004: chadlis/hypotrail#122, Tightened E, from D-044 on chadlis/hypotrail#75, item 5.
+GUILLEMET_SCAN = [":(glob)src/**/*.py", HANDBOOK_CHAPTERS_PATHSPEC, TESTS_PATHSPEC, "docs/adr/0004-panel-cli-contract.md"]
 
 
-def test_no_french_quotation_outside_quoted_french():
-    found = [str(p.relative_to(ROOT)) for p in FILES_FREE_OF_FRENCH_QUOTATION if set("«»") & set(p.read_text(encoding="utf-8"))]
+def _git_ls_files(pathspecs):
+    """The tracked files under the pathspecs, listed by `git ls-files`: an untracked or ignored file is not in the list."""
+    try:
+        listing = subprocess.run(["git", "ls-files", "-z", "--", *pathspecs], cwd=ROOT, capture_output=True, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        pytest.fail(f"`git ls-files` is unavailable, so the tracked files cannot be listed: {error}")
+    return sorted(ROOT / name for name in listing.stdout.split("\0") if name and (ROOT / name).is_file())
+
+
+# This test enforces a stricter form of AGENTS.md's rule on French quotation marks: no opening French quotation
+# mark (U+00AB) and no closing one (U+00BB) appears in any file it scans. The code below spells the two characters
+# as escapes, because this test scans its own module.
+# docs/adr/ beyond ADR 0004 is not scanned: ADR 0002's French quotation marks hold a recorded quotation, and its
+# 2026-11-08 note records the harm of rewriting an ADR in place.
+# The French string in tests/test_report.py is written as escapes, so the scan keeps no named exception
+# (D-044 on chadlis/hypotrail#75, item 6).
+def test_no_guillemet_in_the_python_files_under_src_the_handbook_chapters_tests_or_adr_0004():
+    found = [str(p.relative_to(ROOT)) for p in _git_ls_files(GUILLEMET_SCAN) if set("\u00ab\u00bb") & set(p.read_text(encoding="utf-8"))]
     assert found == []
 
 
@@ -120,7 +138,7 @@ def _glossary_attempt_lines():
 
 
 def test_the_attempt_definition_is_unchanged_and_a_dated_line_says_what_is_not_an_attempt():
-    # #77, D-011 (Tightened A): the definition is not rewritten; the clarification is a separate dated line beside it.
+    # #77, D-011 on chadlis/hypotrail#75 (Tightened A): the definition is not rewritten; the clarification is a separate dated line beside it.
     lines, at = _glossary_attempt_lines()
     assert lines[at + 1] == "One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs."
     clarification = lines[at + 2]
@@ -138,7 +156,7 @@ def test_the_attempt_definition_is_unchanged_and_a_dated_line_says_what_is_not_a
 
 
 def test_the_live_execution_record_comment_does_not_call_a_spike_live_request_an_attempts():
-    # #77, D-012 item 17: `record_execution` is called by `spike live` and by the library fixture, neither of which records an Attempt.
+    # #77, D-012 on chadlis/hypotrail#75 item 17: `record_execution` is called by `spike live` and by the library fixture, neither of which records an Attempt.
     from hypotrail.agentic import live
 
     doc = live.record_execution.__doc__
@@ -153,50 +171,15 @@ def test_the_readme_names_an_attempt_only_for_what_a_study_records():
     assert "`init` creates a Study" in status and "`run ml` records a Bike Attempt" in status
 
 
-def test_every_decision_cited_in_src_names_its_issue_as_the_glossary_does():
-    # 10-R3-02: a bare D-0xx means nothing to a reader of the source; GLOSSARY cites "D-011 on chadlis/hypotrail#75".
+def test_no_decision_is_cited_without_its_issue_in_the_source_the_tests_the_chapters_or_the_readme():
+    # GLOSSARY cites a Decision as "D-011 on chadlis/hypotrail#75": a bare ID means nothing to a reader. Whitespace is collapsed, as a citation may wrap over two
+    # lines. An ID that is the whole of a double-quoted string ("D-025") is a string an assertion looks for, not a citation, wherever it stands.
     bare = []
-    for path in sorted((ROOT / "src" / "hypotrail").rglob("*.py")):
-        text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))  # a citation may wrap over two lines
-        bare += [f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
-    assert bare == []
-
-
-def test_every_decision_cited_in_the_files_this_slice_adds_names_its_issue():
-    # 93-R1-10: a bare D-0xx means nothing to a reader; GLOSSARY cites "D-011 on chadlis/hypotrail#75". The scan covers chapter 16, the README and the tests of the Campaign.
-    bare = []
-    for path in (
-        ROOT / "docs" / "handbook" / "chapters" / "16-acceptance-grid.html", ROOT / "README.md",
-        ROOT / "tests" / "test_campaign_rehearsal.py", ROOT / "tests" / "test_e07_year_format.py",
-    ):
+    for path in _git_ls_files(BARE_ID_SCAN):
         text = re.sub(r"\s+", " ", path.read_text(encoding="utf-8"))
-        bare += [f"{path.name}: {text[max(0, m.start() - 30):m.end() + 30]}" for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)]
+        bare += [
+            f"{path.relative_to(ROOT)}: {text[max(0, m.start() - 30):m.end() + 30]}"
+            for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)
+            if not re.fullmatch(r'"D-0\d\d"', text[max(0, m.start() - 1):m.end() + 1])
+        ]
     assert bare == []
-
-
-# tests/test_handbook.py holds bare decision IDs from before this slice (the contexts below, 30 characters either side, as at c4b3284 and still there; the
-# slice removed two of the 14 that stood there with a test it rewrote). Nothing else may be bare: a new or edited citation names its issue.
-OLD_BARE_IDS_IN_HANDBOOK_TESTS = [
-    'nothing_is_read(): """#61 A3 (D-012 item 20): the module docstrin',
-    '"""#61 AC7 (Tightened E), B3 (D-012 item 18): the chapter says wh',
-    's_not_apply(page): """#62 and D-012 items 4, 7 and 9: the prose a',
-    'is_no_difference(): """R2-03, D-012 item 11: nothing is hidden be',
-    'ing="utf-8")).split()) # #77, D-011 and Tightened B2: each phrase',
-    'rote_the_record(page): """#77 D-011 C: the value keeps its name; ',
-    'the Workloads are found (#23, D-016) ----------------------------',
-    '_the_resolver_reads(page): """D-016, #23: the resolver takes the ',
-    ' # 10-R1-06, #22 Tightened K (D-020): a framed cut (Content-Lengt',
-    'ch_and_scripts(): # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, ',
-    'ACCEPTED without « pending » (D-015 condition 3).""" return [s fo',
-    'the_candidate(page): # #88 H (D-017 item 9, AG-06: `verify` adds ',
-]
-
-
-def test_no_decision_cited_in_the_handbook_tests_is_bare_except_the_frozen_older_ones():
-    # 93-R1-10: a quoted string an assertion looks for ("D-025") is not a citation. Whitespace is collapsed, as a citation may wrap over two lines.
-    text = re.sub(r"\s+", " ", (ROOT / "tests" / "test_handbook.py").read_text(encoding="utf-8"))
-    bare = [
-        text[max(0, m.start() - 30):m.end() + 30] for m in re.finditer(r"D-0\d\d(?! on chadlis/hypotrail#75)", text)
-        if not re.fullmatch(r'"D-0\d\d"', text[max(0, m.start() - 1):m.end() + 1])
-    ]
-    assert bare == OLD_BARE_IDS_IN_HANDBOOK_TESTS

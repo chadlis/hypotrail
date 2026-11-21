@@ -1,35 +1,35 @@
 <!-- chapter: id=decisions; kicker=Decisions; title=Decisions; accent=violet -->
-<p class="lead"><code>decide</code> records one <b>decision</b> in a Study: the question it answers, the option chosen, who decided (a human or a proxy, with a declared source if any), the ids of the Study's records it concerns, and the write sequence its author read. The Study is the only decision authority: a decision is a record of the Study, kept in a file of its own and never rewritten, and nowhere else. <code>decide</code> calls no model; it records what its caller says, after it has checked the ids and the sequence.</p>
+<p class="lead"><code>decide</code> records one <b>Decision</b> in a Study: the question it answers, the option chosen, who decided (a human or a proxy, with a declared source if any), the ids of the Study's records it concerns, and the Write sequence its author read. The Study is the only decision authority: a Decision is a record of the Study, kept in a file of its own and never rewritten, and nowhere else. <code>decide</code> calls no model; it records what its caller says, after it has checked the ids and the sequence.</p>
 
 <p class="sub2">The command</p>
 <div class="prose">
-<p><code>decide</code> holds the Study's writer lock for the whole command, as every command that writes does. A decision is made on the write sequence its author read (<a href="#study-and-attempts">chapter 04</a>), and a repeated request is a replay (below). It creates or changes no file outside the Study's folder.</p>
-<p>The question and the option are free text, and neither may be empty. The author is <code>human</code> or <code>proxy</code>, recorded by its kind only: a human has no name field. The declared source, for either author, is a text, recorded as given, or as null. A cited id given twice is recorded once and the ids are sorted, so the same ids in another order are the same decision.</p>
+<p><code>decide</code> holds the Study's writer lock for the whole command, as every command that writes does. A Decision is made on the Write sequence its author read (<a href="#study-and-attempts">chapter 04</a>), and a repeated request is a replay (below). It creates or changes no file outside the Study's folder.</p>
+<p>The question and the option are free text, and neither may be empty. The author is <code>human</code> or <code>proxy</code>, recorded by its kind only: a human has no name field. The declared source, for either author, is a text, recorded as given, or as null. A cited id given twice is recorded once and the ids are sorted, so the same ids in another order are the same Decision.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="decide-command"><thead><tr><th>Command</th><th>Required flags</th><th>Optional flags</th></tr></thead><tbody>
 <tr data-command="decide" data-required="--study --question --option --author --artifact --request-id --read-sequence" data-optional="--source --json"><td><code>decide</code></td><td><code>--study DIR</code>, <code>--question TEXT</code>, <code>--option TEXT</code>, <code>--author human|proxy</code>, <code>--artifact ID</code> (repeatable), <code>--request-id ID</code>, <code>--read-sequence N</code></td><td><code>--source TEXT</code>, <code>--json</code></td></tr>
 </tbody></table></div>
-<pre class="code"><span class="cm"># read the write sequence, then decide on it: the ids come from the records the Study holds</span>
+<pre class="code"><span class="cm"># read the Write sequence, then decide on it: the ids come from the records the Study holds</span>
 uv run python -m hypotrail status --study runs/bike --json
 uv run python -m hypotrail decide --study runs/bike --question "Which Configuration do we keep?" --option ridge_v1 --author human --artifact ASSESSMENT_ID --artifact COMPARISON_ID --request-id decide-a --read-sequence N</pre>
-<p class="prose">With <code>--json</code>, stdout holds one object, <code>{"ok", "replayed", "decision"}</code>, the same shape as <code>run</code>'s with the decision in place of the Attempt.</p>
+<p class="prose">With <code>--json</code>, stdout holds one object, <code>{"ok", "replayed", "decision"}</code>, the same shape as <code>run</code>'s with the Decision in place of the Attempt.</p>
 
-<p class="sub2">The ids a decision may cite</p>
+<p class="sub2">The ids a Decision may cite</p>
 <div class="prose">
-<p>An id is citable when the Study holds a record with that id, of one of these kinds: an Attempt, an Observation set, an Assessment, a Comparison, a Study artifact (<code>references-&lt;digest&gt;</code>, for example), a revision, a freeze record, an Exposure entry or a decision, whose id is its <code>decision_id</code>. <code>decide</code> looks the id up in the Study's records. A revision is cited by its revision id, the one the Study's records give it (<a href="#revisions-rescoring">chapter 10</a>); its <code>revision_number</code> is not citable, so that one revision never appears under two ids and "the same decision" stays one thing. A request id, the Study's id, a path and a file's content digest are not citable either: they name no record. An id the Study does not hold is refused, and nothing is written.</p>
+<p>An id is citable when the Study holds a record with that id, of one of these kinds: an Attempt, an Observation set, an Assessment, a Comparison, a Study artifact (<code>references-&lt;digest&gt;</code>, for example), a revision, a freeze record, an Exposure entry or a Decision, whose id is its <code>decision_id</code>. <code>decide</code> looks the id up in the Study's records. A revision is cited by its revision id, the one the Study's records give it (<a href="#revisions-rescoring">chapter 10</a>); its <code>revision_number</code> is not citable, so that one revision never appears under two ids and "the same Decision" stays one thing. A request id, the Study's id, a path and a file's content digest are not citable either: they name no record. An id the Study does not hold is refused, and nothing is written.</p>
 <p><code>status --json</code> lists no Observation set, Assessment or Comparison: a caller finds those ids in the Study's records, and the listing of them in <code>status --json</code> waits for a later change.</p>
 </div>
 
 <p class="sub2">The request identity</p>
 <div class="prose">
-<p>A Study has one <code>request_id</code> namespace, for its Attempts and its decisions (<a href="#study-and-attempts">chapter 04</a>). "The same decision" is the same question, option, author, source and cited ids, the ids de-duplicated and sorted; the read sequence is not part of it. The same <code>request_id</code> with the same decision is a <b>replay</b>: it is found before the stale-sequence check, so a client whose answer was lost can repeat its <code>decide</code> after its own write moved the sequence on. It returns the recorded decision with <code>replayed</code> true and writes nothing.</p>
-<p>The same <code>request_id</code> with another decision is a conflict (the table of refusals below). It lists the fields that differ in the order of the sentence above, under the decision record's own field names.</p>
+<p>A Study has one <code>request_id</code> namespace, for its Attempts and its Decisions (<a href="#study-and-attempts">chapter 04</a>). "The same Decision" is the same question, option, author, source and cited ids, the ids de-duplicated and sorted; the read sequence is not part of it. The same <code>request_id</code> with the same Decision is a <b>replay</b>: it is found before the stale-sequence check, so a client whose answer was lost can repeat its <code>decide</code> after its own write moved the sequence on. It returns the recorded Decision with <code>replayed</code> true and writes nothing.</p>
+<p>The same <code>request_id</code> with another Decision is a conflict (the table of refusals below). It lists the fields that differ in the order of the sentence above, under the Decision record's own field names.</p>
 <p>The checks come in the order of every writer: the arguments (the read sequence value first), the Study, the lock, the request identity, the comparison of the read sequence, then the cited ids. A refusal appends nothing to the write journal.</p>
 </div>
 
-<p class="sub2">The decision record</p>
+<p class="sub2">The Decision record</p>
 <div class="prose">
-<p>The record is canonical JSON, of the record kind <code>decision</code> of the contract schema (<code>DecisionRecord</code>): validated before it is written and after it is read, with a fault refused (the table of refusals below). Its <code>revision</code> is read under the lock, after the stale-sequence check, so a decision made after a new revision holds the new one. For a recorded decision, <code>read_sequence</code> is always <code>write_sequence</code> minus 1.</p>
+<p>The record is canonical JSON, of the record kind <code>decision</code> of the contract schema (<code>DecisionRecord</code>): validated before it is written and after it is read, with a fault refused (the table of refusals below). Its <code>revision</code> is read under the lock, after the stale-sequence check, so a Decision made after a new revision holds the new one. For a recorded Decision, <code>read_sequence</code> is always <code>write_sequence</code> minus 1.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="decision-fields"><thead><tr><th>Record</th><th>Required fields</th><th>Optional fields</th></tr></thead><tbody>
 <tr data-record="DecisionRecord" data-kind="decision" data-required="kind schema_version decision_id request_id question option author source cited_ids revision read_sequence write_sequence" data-optional=""><td><code>decisions/SEQ-DECISION_ID.json</code> (DecisionRecord)</td><td><code>kind</code>, <code>schema_version</code>, <code>decision_id</code>, <code>request_id</code>, <code>question</code>, <code>option</code>, <code>author</code>, <code>source</code> (a text or null), <code>cited_ids</code>, <code>revision</code>, <code>read_sequence</code>, <code>write_sequence</code></td><td>none</td></tr>
@@ -37,24 +37,24 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <div class="tblwrap"><table class="tbl" id="decision-field-meaning"><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
 <tr data-field="kind"><td><code>kind</code></td><td><code>decision</code></td></tr>
 <tr data-field="schema_version"><td><code>schema_version</code></td><td><code>decision/1</code></td></tr>
-<tr data-field="decision_id"><td><code>decision_id</code></td><td>A UUID, never derived from the content. A decision may cite it.</td></tr>
+<tr data-field="decision_id"><td><code>decision_id</code></td><td>A UUID, never derived from the content. A Decision may cite it.</td></tr>
 <tr data-field="request_id"><td><code>request_id</code></td><td>The <code>--request-id</code> given, at the top level as an Attempt manifest keeps it: it is what a replay and a <code>REQUEST_CONFLICT</code> are read from.</td></tr>
-<tr data-field="question"><td><code>question</code></td><td>The question the decision answers, as given.</td></tr>
+<tr data-field="question"><td><code>question</code></td><td>The question the Decision answers, as given.</td></tr>
 <tr data-field="option"><td><code>option</code></td><td>The option chosen, as given.</td></tr>
 <tr data-field="author"><td><code>author</code></td><td><code>human</code> or <code>proxy</code>. The kind only: no other author field exists.</td></tr>
 <tr data-field="source"><td><code>source</code></td><td>The declared source, as given, or null.</td></tr>
-<tr data-field="cited_ids"><td><code>cited_ids</code></td><td>The ids of the Study's records the decision concerns, de-duplicated and sorted; at least one.</td></tr>
-<tr data-field="revision"><td><code>revision</code></td><td>The <code>revision</code> of the Study's StudySpec when the decision was recorded.</td></tr>
-<tr data-field="read_sequence"><td><code>read_sequence</code></td><td>The write sequence the author read, given to <code>--read-sequence</code>.</td></tr>
-<tr data-field="write_sequence"><td><code>write_sequence</code></td><td>The position of the <code>begin</code> entry of the command that recorded the decision in the write journal.</td></tr>
+<tr data-field="cited_ids"><td><code>cited_ids</code></td><td>The ids of the Study's records the Decision concerns, de-duplicated and sorted; at least one.</td></tr>
+<tr data-field="revision"><td><code>revision</code></td><td>The <code>revision</code> of the Study's StudySpec when the Decision was recorded.</td></tr>
+<tr data-field="read_sequence"><td><code>read_sequence</code></td><td>The Write sequence the author read, given to <code>--read-sequence</code>.</td></tr>
+<tr data-field="write_sequence"><td><code>write_sequence</code></td><td>The position of the <code>begin</code> entry of the command that recorded the Decision in the write journal.</td></tr>
 </tbody></table></div>
 
-<p class="sub2">The decision history</p>
+<p class="sub2">The Decision history</p>
 <div class="prose">
-<p><code>status --json</code> lists the Study's decisions, in the order they were recorded; a Study with no decision lists none (<code>[]</code>). Each entry holds every field of the decision record, as <code>decide</code> recorded it, and the two keys of the table below, which the record does not hold.</p>
-<p>The human output of <code>status</code> gains one line when the Study holds decisions, for example <code>Decisions: 4 recorded, 1 no longer applies</code>; a Study with no decision prints no such line.</p>
+<p><code>status --json</code> lists the Study's Decisions, in the order they were recorded; a Study with no Decision lists none (<code>[]</code>). Each entry holds every field of the Decision record, as <code>decide</code> recorded it, and the two keys of the table below, which the record does not hold.</p>
+<p>The human output of <code>status</code> gains one line when the Study holds Decisions, for example <code>Decisions: 4 recorded, 1 no longer applies</code>; a Study with no Decision prints no such line.</p>
 </div>
-<div class="tblwrap"><table class="tbl" id="decision-history-keys"><thead><tr><th>Key of a decision in <code>status --json</code></th><th>Meaning</th></tr></thead><tbody>
+<div class="tblwrap"><table class="tbl" id="decision-history-keys"><thead><tr><th>Key of a Decision in <code>status --json</code></th><th>Meaning</th></tr></thead><tbody>
 <tr data-field="kind"><td><code>kind</code></td><td>The record's own field, <code>decision</code>.</td></tr>
 <tr data-field="schema_version"><td><code>schema_version</code></td><td>The record's own field.</td></tr>
 <tr data-field="decision_id"><td><code>decision_id</code></td><td>The record's own field.</td></tr>
@@ -64,31 +64,31 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <tr data-field="author"><td><code>author</code></td><td>The record's own field.</td></tr>
 <tr data-field="source"><td><code>source</code></td><td>The record's own field.</td></tr>
 <tr data-field="cited_ids"><td><code>cited_ids</code></td><td>The record's own field.</td></tr>
-<tr data-field="revision"><td><code>revision</code></td><td>The record's own field: the revision when the decision was recorded, which stays in the record whatever the Study's revision becomes.</td></tr>
+<tr data-field="revision"><td><code>revision</code></td><td>The record's own field: the revision when the Decision was recorded, which stays in the record whatever the Study's revision becomes.</td></tr>
 <tr data-field="read_sequence"><td><code>read_sequence</code></td><td>The record's own field.</td></tr>
 <tr data-field="write_sequence"><td><code>write_sequence</code></td><td>The record's own field.</td></tr>
 <tr data-field="applies"><td><code>applies</code></td><td>True when none of the conditions below holds. Computed when <code>status</code> reads the Study.</td></tr>
-<tr data-field="reasons"><td><code>reasons</code></td><td>A list of <code>{"reason", "id"}</code>, one for each condition that holds (a decision with two causes lists both); <code>[]</code> when the decision applies.</td></tr>
+<tr data-field="reasons"><td><code>reasons</code></td><td>A list of <code>{"reason", "id"}</code>, one for each condition that holds (a Decision with two causes lists both); <code>[]</code> when the Decision applies.</td></tr>
 </tbody></table></div>
 
-<p class="sub2">When a decision still applies</p>
+<p class="sub2">When a Decision still applies</p>
 <div class="prose">
-<p><b>A decision no longer applies when</b> any condition of the table below holds. The rule is computed when <code>status</code> reads the Study, from the ids the decision cites and the records of the Study. It is never stored: nothing is written when a decision stops applying, the decision's own file is byte for byte the same, and <code>status</code> takes no lock, advances no write sequence and writes nothing. No record marks a decision outdated, and the rule is no general invalidation engine: it reads these three things and nothing else.</p>
-<p>A cited record made under an earlier revision does not by itself make a decision outdated: an Assessment may apply its revision's Protocol also to outputs recorded under an earlier revision, and the id a revision reason gives is the revision id a decision cites. A rescore under a new Scorer version supersedes the earlier Assessment, since the Scorer counts at any version; an Assessment of the same Observation set by another Scorer does not. When several later Assessments exist, the reason names the latest.</p>
-<p>"Later" is the position in the write journal (<a href="#study-and-attempts">chapter 04</a>): an Assessment's position is that of the first <code>end</code> entry that names it among the records it wrote. A record that no <code>end</code> entry names counts as position 0, before every journaled record: so does an Assessment written before the write journal existed. Ties are broken by <code>(recorded_at, id)</code>, the order <code>rescoring.describe</code> uses. A later decision on the same question changes nothing: it does not make an earlier one outdated.</p>
+<p><b>A Decision no longer applies when</b> any condition of the table below holds. The rule is computed when <code>status</code> reads the Study, from the ids the Decision cites and the records of the Study. It is never stored: nothing is written when a Decision stops applying, the Decision's own file is byte for byte the same, and <code>status</code> takes no lock, advances no Write sequence and writes nothing. No record marks a Decision outdated, and the rule is no general invalidation engine: it reads these three things and nothing else.</p>
+<p>A cited record made under an earlier revision does not by itself make a Decision outdated: an Assessment may apply its revision's Protocol also to outputs recorded under an earlier revision, and the id a revision reason gives is the revision id a Decision cites. A rescore under a new Scorer version supersedes the earlier Assessment, since the Scorer counts at any version; an Assessment of the same Observation set by another Scorer does not. When several later Assessments exist, the reason names the latest.</p>
+<p>"Later" is the position in the write journal (<a href="#study-and-attempts">chapter 04</a>): an Assessment's position is that of the first <code>end</code> entry that names it among the records it wrote. A record that no <code>end</code> entry names counts as position 0, before every journaled record: so does an Assessment written before the write journal existed. Ties are broken by <code>(recorded_at, id)</code>, the order <code>rescoring.describe</code> uses. A later Decision on the same question changes nothing: it does not make an earlier one outdated.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="decision-reasons"><thead><tr><th>Reason</th><th>When</th><th><code>id</code></th></tr></thead><tbody>
 <tr data-reason="cited_id_not_held"><td><code>cited_id_not_held</code></td><td>A cited id is no longer held by the Study.</td><td>The cited id.</td></tr>
-<tr data-reason="revision_changed"><td><code>revision_changed</code></td><td>The current revision differs from the decision's <code>revision</code>.</td><td>The current revision's <code>revision</code> value.</td></tr>
+<tr data-reason="revision_changed"><td><code>revision_changed</code></td><td>The current revision differs from the Decision's <code>revision</code>.</td><td>The current revision's <code>revision</code> value.</td></tr>
 <tr data-reason="assessment_superseded"><td><code>assessment_superseded</code></td><td>A cited Assessment has a later Assessment of the same Observation set and Scorer id.</td><td>The later Assessment's id.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">The Study on disk</p>
 <div class="prose">
-<p><code>decide</code> writes one file of its own, besides the two entries of the write journal (<a href="#study-and-attempts">chapter 04</a>). <code>SEQ</code> is the decision's position among the Study's decisions, count plus one, six digits, as in <code>exposures/</code>; it is not the write sequence, which the record holds in <code>write_sequence</code>.</p>
+<p><code>decide</code> writes one file of its own, besides the two entries of the write journal (<a href="#study-and-attempts">chapter 04</a>). <code>SEQ</code> is the Decision's position among the Study's Decisions, count plus one, six digits, as in <code>exposures/</code>; it is not the Write sequence, which the record holds in <code>write_sequence</code>.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="decision-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
-<tr data-path="decisions/SEQ-DECISION_ID.json" data-written-by="decide"><td><code>decisions/SEQ-DECISION_ID.json</code></td><td><code>decide</code></td><td>One decision, published atomically and never rewritten.</td></tr>
+<tr data-path="decisions/SEQ-DECISION_ID.json" data-written-by="decide"><td><code>decisions/SEQ-DECISION_ID.json</code></td><td><code>decide</code></td><td>One Decision, published atomically and never rewritten.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Refusals</p>
@@ -101,24 +101,24 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <tr data-code="DECISION_FIELD_EMPTY" data-exit="2" data-stage="decision" data-details="field"><td><code>DECISION_FIELD_EMPTY</code></td><td>An empty <code>--question</code> or <code>--option</code></td><td>2</td><td><code>decision</code></td><td><code>field</code> (<code>question</code> or <code>option</code>)</td></tr>
 <tr data-code="STUDY_NOT_FOUND" data-exit="2" data-stage="study" data-details="study"><td><code>STUDY_NOT_FOUND</code></td><td>A folder with no <code>study.json</code></td><td>2</td><td><code>study</code></td><td><code>study</code></td></tr>
 <tr data-code="STUDY_LOCKED" data-exit="6" data-stage="lock" data-details="study"><td><code>STUDY_LOCKED</code></td><td>Another writer holds the Study's lock</td><td>6</td><td><code>lock</code></td><td><code>study</code></td></tr>
-<tr data-code="REQUEST_CONFLICT" data-exit="6" data-stage="request" data-details="attempt_id decision_id differs request_id"><td><code>REQUEST_CONFLICT</code></td><td>The same <code>request_id</code> with another decision, or naming an Attempt</td><td>6</td><td><code>request</code></td><td><code>request_id</code>, <code>attempt_id</code>, <code>decision_id</code> (one of the two is null), <code>differs</code></td></tr>
-<tr data-code="STUDY_CHANGED" data-exit="6" data-stage="sequence" data-details="read_sequence write_sequence writes_since"><td><code>STUDY_CHANGED</code></td><td><code>--read-sequence</code> lower than the Study's write sequence</td><td>6</td><td><code>sequence</code></td><td><code>read_sequence</code>, <code>write_sequence</code>, <code>writes_since</code></td></tr>
-<tr data-code="WRITE_SEQUENCE_AHEAD" data-exit="2" data-stage="sequence" data-details="read_sequence write_sequence"><td><code>WRITE_SEQUENCE_AHEAD</code></td><td><code>--read-sequence</code> higher than the Study's write sequence</td><td>2</td><td><code>sequence</code></td><td><code>read_sequence</code>, <code>write_sequence</code></td></tr>
+<tr data-code="REQUEST_CONFLICT" data-exit="6" data-stage="request" data-details="attempt_id decision_id differs request_id"><td><code>REQUEST_CONFLICT</code></td><td>The same <code>request_id</code> with another Decision, or naming an Attempt</td><td>6</td><td><code>request</code></td><td><code>request_id</code>, <code>attempt_id</code>, <code>decision_id</code> (one of the two is null), <code>differs</code></td></tr>
+<tr data-code="STUDY_CHANGED" data-exit="6" data-stage="sequence" data-details="read_sequence write_sequence writes_since"><td><code>STUDY_CHANGED</code></td><td><code>--read-sequence</code> lower than the Study's Write sequence</td><td>6</td><td><code>sequence</code></td><td><code>read_sequence</code>, <code>write_sequence</code>, <code>writes_since</code></td></tr>
+<tr data-code="WRITE_SEQUENCE_AHEAD" data-exit="2" data-stage="sequence" data-details="read_sequence write_sequence"><td><code>WRITE_SEQUENCE_AHEAD</code></td><td><code>--read-sequence</code> higher than the Study's Write sequence</td><td>2</td><td><code>sequence</code></td><td><code>read_sequence</code>, <code>write_sequence</code></td></tr>
 <tr data-code="CITED_ID_NOT_FOUND" data-exit="2" data-stage="decision" data-details="ids"><td><code>CITED_ID_NOT_FOUND</code></td><td>An <code>--artifact</code> id the Study holds no record of</td><td>2</td><td><code>decision</code></td><td><code>ids</code> (every unknown id, sorted)</td></tr>
-<tr data-code="CONTRACT_VIOLATION" data-exit="3" data-stage="contract" data-details="kind message path"><td><code>CONTRACT_VIOLATION</code></td><td>A decision file that does not match the contract schema when it is read (for a replay or a request_id lookup)</td><td>3</td><td><code>contract</code></td><td><code>kind</code>, <code>path</code>, <code>message</code></td></tr>
+<tr data-code="CONTRACT_VIOLATION" data-exit="3" data-stage="contract" data-details="kind message path"><td><code>CONTRACT_VIOLATION</code></td><td>A Decision file that does not match the contract schema when it is read (for a replay or a request_id lookup)</td><td>3</td><td><code>contract</code></td><td><code>kind</code>, <code>path</code>, <code>message</code></td></tr>
 </tbody></table></div>
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>Read at view time, never stored</h3><p>Whether a decision still applies is computed each time <code>status</code> reads the Study. No record is written when it changes, and the Workloads and the panel do not show an outdated decision yet.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>Read at view time, never stored</h3><p>Whether a Decision still applies is computed each time <code>status</code> reads the Study. No record is written when it changes, and the Workloads and the panel do not show an outdated Decision yet.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Free text, no declared question</h3><p>The question and the option are the caller's words. The Study declares no question with options yet, so nothing checks that an option is one of a list.</p></div>
-<div class="card" style="--c:var(--sky)"><h3>A decision is not an Exposure</h3><p>Recording a decision reads no <code>public_check</code> Item and writes no freeze record or journal entry of the Exposure journal. It cites ids; it does not show what they hold.</p></div>
+<div class="card" style="--c:var(--sky)"><h3>A Decision is not an Exposure</h3><p>Recording a Decision reads no <code>public_check</code> Item and writes no freeze record or journal entry of the Exposure journal. It cites ids; it does not show what they hold.</p></div>
 </div>
 
 <p class="sub2">Which ADR explains what</p>
 <div class="tblwrap"><table class="tbl" id="adr-map-decisions"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
-<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the decision record and its command are in the core, which imports neither Inspect nor a Track.</td></tr>
+<tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Decision record and its command are in the core, which imports neither Inspect nor a Track.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
-<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> requires <code>--read-sequence</code> and <code>--request-id</code>, and why whether a decision still applies is computed when the Study is read.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> requires <code>--read-sequence</code> and <code>--request-id</code>, and why whether a Decision still applies is computed when the Study is read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_decide.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>

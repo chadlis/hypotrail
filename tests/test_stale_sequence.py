@@ -1,6 +1,6 @@
 """Ticket #108 (slice #104, L2.1): `--read-sequence` and the refusal of a write made on an older write sequence.
 
-D-033, D-034, D-036 and D-037 on chadlis/hypotrail#75 settle what is tested here: every writing command takes the write sequence its
+D-033 on chadlis/hypotrail#75, D-034 on chadlis/hypotrail#75, D-036 on chadlis/hypotrail#75 and D-037 on chadlis/hypotrail#75 settle what is tested here: every writing command takes the write sequence its
 author read; older than the Study's is `STUDY_CHANGED` (exit 6, stage `sequence`), above it `WRITE_SEQUENCE_AHEAD` (exit 2, stage
 `sequence`), negative or not an integer `INVALID_ARGUMENTS`; the check is made under the writer lock, after the request identity.
 No model is called.
@@ -392,7 +392,7 @@ def test_a_call_with_a_bad_read_sequence_and_another_argument_fault_gives_the_co
     assert tree(scenario.study) == files
 
 
-# D-041 item 1 on chadlis/hypotrail#75: a call with one argument fault gives the code and `details` of the command line, `decide`'s included.
+# D-041 on chadlis/hypotrail#75 item 1: a call with one argument fault gives the code and `details` of the command line, `decide`'s included.
 # A call with several faults need not report the same one first: the parser orders them by position on the command line.
 def _replace_value(argv, flag, value):
     at = argv.index(flag) + 1

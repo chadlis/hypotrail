@@ -1,4 +1,4 @@
-"""R1-09, R3-01 (#69, #68 AC7, D-005 option A): neither `import agent` nor `assess` uses the live Chinook database at all.
+"""#69, #68 AC7, D-005 on chadlis/hypotrail#75 option A: neither `import agent` nor `assess` uses the live Chinook database at all.
 
 The guard makes every way of reading the file raise (`open`, `Path.read_bytes`, `os.open`, `sqlite3.connect`) while the
 file is present. A replaced live database therefore goes unnoticed by these two commands: `data verify`, `init` and

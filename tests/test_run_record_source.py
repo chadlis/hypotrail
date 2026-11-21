@@ -70,12 +70,12 @@ def test_the_provider_call_note_is_built_from_the_effective_turn_limit_of_the_lo
     for record in (again, live):
         assert record["effective_limits"]["model_turns"] == 3
         assert record["limit_notes"]["provider_calls"] == "3 model turns allow 4 provider calls"
-        assert record["limit_notes"]["tool_calls"] == limits_module.NOT_ENFORCEABLE["tool_calls"]  # D-012 item 8: top-level
+        assert record["limit_notes"]["tool_calls"] == limits_module.NOT_ENFORCEABLE["tool_calls"]  # D-012 on chadlis/hypotrail#75 item 8: top-level
         assert "tool_calls" not in (record["summarised_by"] or {})
 
 
 def test_what_no_log_holds_describes_the_execution_itself_and_in_a_re_summary_sits_under_summarised_by(tmp_path, monkeypatch):
-    """AC4 + D-012 items 4 and 7: python, hardware, machine; the database hashes the caller gives."""
+    """AC4 + D-012 on chadlis/hypotrail#75 items 4 and 7: python, hardware, machine; the database hashes the caller gives."""
     monkeypatch.setattr(platform, "python_version", lambda: "3.99.1")
     monkeypatch.setattr(platform, "platform", lambda *a, **k: "SummariserOS-1")
     monkeypatch.setattr(platform, "machine", lambda: "summ64")
@@ -95,7 +95,7 @@ def test_what_no_log_holds_describes_the_execution_itself_and_in_a_re_summary_si
 
 
 def test_reasoning_setting_is_the_logs_and_the_note_moves_under_summarised_by_in_a_re_summary(tmp_path, monkeypatch):
-    """AC5 + D-012 item 5: requested and sent are read from the log; setting is the log's value verbatim, null when it has none."""
+    """AC5 + D-012 on chadlis/hypotrail#75 item 5: requested and sent are read from the log; setting is the log's value verbatim, null when it has none."""
 
     def effort_and_thinking(log):
         log.plan.config.reasoning_effort = "low"
@@ -150,7 +150,7 @@ def test_a_re_summary_calls_no_model_and_no_tool_and_still_scans_its_output_for_
 
 @pytest.mark.parametrize("absent", ["sample_ids", "epochs", "both"])
 def test_a_plan_the_log_does_not_hold_gives_null_cases_never_the_callers(tmp_path, absent):
-    """D-012 item 6: sample_ids or epochs absent from the log, the field is null."""
+    """D-012 on chadlis/hypotrail#75 item 6: sample_ids or epochs absent from the log, the field is null."""
 
     def drop(log):
         if absent in ("sample_ids", "both"):

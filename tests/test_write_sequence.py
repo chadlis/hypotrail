@@ -1,6 +1,6 @@
 """Ticket #107 (slice #104, L2.1): the write sequence of a Study, kept as an append-only write journal.
 
-D-033, D-034, D-035, D-036 and D-037 on chadlis/hypotrail#75 settle what is tested here: two entries per writing command (one
+D-033 on chadlis/hypotrail#75, D-034 on chadlis/hypotrail#75, D-035 on chadlis/hypotrail#75, D-036 on chadlis/hypotrail#75 and D-037 on chadlis/hypotrail#75 settle what is tested here: two entries per writing command (one
 just before its first write, one after its last), the sequence is the number of entries, `status --json` shows it, and a
 command that writes nothing leaves it alone. No model is called.
 """

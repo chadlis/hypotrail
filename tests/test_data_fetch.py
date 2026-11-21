@@ -305,7 +305,7 @@ def named_bundle(error, err=""):
 
 
 def test_k_an_unframed_response_shorter_than_the_lock_size_is_a_cut_transfer_exit_4(stand, tmp_path):
-    # 10-R1-06, #22 Tightened K (D-020): no Content-Length, not chunked, fewer bytes than size_bytes.
+    # #22 Tightened K (D-020 on chadlis/hypotrail#75): no Content-Length, not chunked, fewer bytes than size_bytes.
     stand.routes["/short"] = cut_without_length(BODY, 5)
     entry = source(stand, "/short", BODY, "data/a.csv")
     dest = tmp_path / "dest"
@@ -325,7 +325,7 @@ def test_k_an_unframed_response_of_the_lock_size_with_a_wrong_hash_stays_exit_3(
 
 
 def test_k_a_chunked_body_that_arrives_whole_but_is_shorter_and_differs_stays_exit_3(stand, tmp_path):
-    # guards against taking « no Content-Length » alone for « unframed »: a chunked body is framed.
+    # guards against taking "no Content-Length" alone for "unframed": a chunked body is framed.
     stand.routes["/chunked"] = chunked_whole(b"alpha")
     status, payload, err = fetch(write_lock(tmp_path / "l", source(stand, "/chunked", BODY, "data/a.csv")), tmp_path / "dest")
     assert (status, payload["error"]["code"]) == (3, "DOWNLOAD_INTEGRITY") and named_bundle(payload["error"], err)
@@ -391,7 +391,7 @@ def _expected(framing, lock, result):
             return (3, "DOWNLOAD_INTEGRITY", None, False)
         if result == "size-only difference" and framed:
             return (3, "DOWNLOAD_INTEGRITY", None, False)
-        return (4, "DOWNLOAD_FAILED", "interrupted", False)  # a cut, or (D-020) an unframed body shorter than the lock's size
+        return (4, "DOWNLOAD_FAILED", "interrupted", False)  # a cut, or (D-020 on chadlis/hypotrail#75) an unframed body shorter than the lock's size
     if result == "whole and different hash":
         return (3, "DOWNLOAD_INTEGRITY", None, not framed)
     return (4, "DOWNLOAD_FAILED", "interrupted", False) if framed else (3, "DOWNLOAD_INTEGRITY", None, True)  # unframed and unsized: no telling
@@ -438,7 +438,7 @@ def test_the_outcome_matrix_gives_each_framing_lock_and_result_its_exit_code_rea
         details = error["details"]
         assert details["actual_size_bytes"] == sent
         assert details["size_bytes"] == (None if lock != "data file" else (len(BODY) + 3 if result == "size-only difference" else len(BODY)))
-        if result == "size-only difference":  # the hash matches: the sizes are stated, not « expected sha256 X, got X »
+        if result == "size-only difference":  # the hash matches: the sizes are stated, not "expected sha256 X, got X"
             assert details["expected_sha256"] == details["actual_sha256"]
             assert f"{len(BODY)} bytes" in error["message"] and f"{len(BODY) + 3} bytes" in error["message"] and "got " not in error["message"]
 
@@ -457,7 +457,7 @@ def urlpath(url):
     return "/" + url.split("/", 3)[3]
 
 
-# --- J (D-019): redirects are followed, at most 5 hops, https only --------------------------------------------------
+# --- J (D-019 on chadlis/hypotrail#75): redirects are followed, at most 5 hops, https only --------------------------------------------------
 # The stand-in speaks http, so the https-only rule is witnessed twice without TLS: end to end, where the default rule refuses a
 # redirect to the stand-in (an http address), and on the redirect handler itself, which is given https and http targets directly.
 # The tests that need a followed hop on the loopback widen the allowed schemes for their own duration.

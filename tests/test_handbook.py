@@ -594,7 +594,7 @@ def test_the_wrapped_answers_table_equals_what_the_scorer_does(page):
 
 
 def test_the_scorer_docstring_states_that_a_missing_reference_leaves_exact_table_unscored_when_nothing_is_read():
-    """#61 A3 (D-012 item 20): the module docstring no longer says every Criterion is false for an answer nothing is read from."""
+    """#61 A3 (D-012 on chadlis/hypotrail#75 item 20): the module docstring no longer says every Criterion is false for an answer nothing is read from."""
     doc = " ".join(_scorer_inputs()[0].__doc__.split())
     assert "has every Criterion scored false with this Reason, trace or not." not in doc
     assert "except `exact_table`, which is `unscored` with `reference_missing` or `reference_invalid` when the Reference is absent or unusable" in doc
@@ -616,7 +616,7 @@ def test_chapter_03_scores_a_non_json_wrapper_on_its_object_and_a_json_wrapper_a
 
 
 def test_chapter_03_refuses_a_number_that_decodes_to_a_non_finite_float_like_nan_and_states_the_integer_limit():
-    """#61 AC7 (Tightened E), B3 (D-012 item 18): the chapter says what the Scorer does for both."""
+    """#61 AC7 (Tightened E), B3 (D-012 on chadlis/hypotrail#75 item 18): the chapter says what the Scorer does for both."""
     chapter = " ".join(re.sub(r"<[^>]+>", "", CHAPTER_03.read_text(encoding="utf-8")).split())
     assert "A number that decodes to a non-finite float, such as 1e999 or -1e999, is refused like NaN" in chapter
     assert "An integer of more than 4,300 digits, which Python refuses to read, leaves the answer unreadable" in chapter
@@ -629,7 +629,7 @@ def test_chapter_08_states_the_scorer_version_the_registry_holds():
 
 
 def test_chapter_05_states_the_scorer_version_the_registry_holds_in_its_prose_too():
-    """#61 Tightened E: « every chapter sentence that states the current version gives the new one »; chapter 05's prose said 2."""
+    """#61 Tightened E: "every chapter sentence that states the current version gives the new one"; chapter 05's prose said 2."""
     chinook_contract = _scorer_inputs()[0]
     chapter = " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / "05-assessments.html").read_text(encoding="utf-8")).split())
     assert f"chinook_contract_v1 is the Scorer of the agent Track (version {chinook_contract.SCORER_VERSION})" in chapter
@@ -2114,7 +2114,7 @@ def test_chapter_03_run_record_table_matches_the_fields_the_code_writes_and_wher
 
 
 def test_chapter_03_says_a_re_summary_keeps_the_logs_facts_and_that_the_licence_line_does_not_apply(page):
-    """#62 and D-012 items 4, 7 and 9: the prose around the table of run.json fields."""
+    """#62 and D-012 on chadlis/hypotrail#75 items 4, 7 and 9: the prose around the table of run.json fields."""
     paragraph = next(p for p in re.findall(r"<p>.*?</p>", page, re.S) if "Where each field of <code>run.json</code> comes from" in p)
     for text in ("<code>summarised_by</code>", "takes no model, Cases or Repeats from its caller", "calls no model and no tool", "the pinned Inspect's <code>EvalSpec</code> has no interpreter or platform field"):
         assert text in paragraph
@@ -2147,7 +2147,7 @@ def test_chapter_13_says_the_served_model_comes_from_the_outputs_not_from_the_ev
 
 
 def test_chapter_13_says_both_models_are_always_recorded_and_a_provider_prefix_alone_is_no_difference():
-    """R2-03, D-012 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
+    """D-012 on chadlis/hypotrail#75 item 11: nothing is hidden because both names are always kept; the prefix is not a difference."""
     text = " ".join(re.sub(r"<[^>]+>", "", run_agent_chapter()).split())
     assert "are always recorded side by side" in text and "a provider prefix alone is not a difference" in text
     assert "when they differ, both are shown" not in text
@@ -2270,7 +2270,7 @@ def test_the_run_agent_refusal_table_shows_in_its_details_cell_the_keys_of_its_d
     """R4-03, ADR 0003: the table and its attributes agree, so a `warnings` key of the attributes is a word of the visible cell."""
     for row in parse(page).tables["run-agent-codes"]:
         if "data-case" in row["attrs"]:
-            visible = words(re.sub(r"[,\s]+", " ", row["cells"][-1]["text"]).strip()) - {"none"}  # « none » is how an empty cell reads
+            visible = words(re.sub(r"[,\s]+", " ", row["cells"][-1]["text"]).strip()) - {"none"}  # "none" is how an empty cell reads
             assert visible == words(row["attrs"]["data-details"]), row["attrs"]["data-case"]
 
 
@@ -2386,7 +2386,7 @@ def plain_chapter(name):
     return " ".join(re.sub(r"<[^>]+>", "", (HANDBOOK / "chapters" / name).read_text(encoding="utf-8")).split())
 
 
-# #77, D-011 and Tightened B2: each phrase named a `spike live` or library-fixture execution an Attempt; each becomes its reword.
+# #77, D-011 on chadlis/hypotrail#75 and Tightened B2: each phrase named a `spike live` or library-fixture execution an Attempt; each becomes its reword.
 ATTEMPT_REWORDS = {
     "01-feasibility-spike.html": {
         "what the spike's own Attempt recorded": "what the spike's own execution recorded",
@@ -2413,7 +2413,7 @@ def test_no_chapter_calls_a_spike_live_or_library_fixture_execution_an_attempt(n
 
 
 def test_the_new_chapter_03_sentence_and_the_readme_do_not_call_an_execution_or_an_attempt_the_word_run():
-    """R1-05, #77 Tightened B2 and GLOSSARY Attempt's avoid-list: « run » is not the noun for an execution or an Attempt."""
+    """#77 Tightened B2 and GLOSSARY Attempt's avoid-list: "run" is not the noun for an execution or an Attempt."""
     chapter = plain_chapter("03-agentic-track.html")
     assert "run agent --mode scripted_fixture records the same scenarios as a scenario Attempt of a Study" in chapter
     # the README sentence that said "an opt-in paid live Attempt" was cut by D-039 on chadlis/hypotrail#75; the rule "run is not the noun" is guarded over the corpus by test_run_noun.py
@@ -2432,7 +2432,7 @@ def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
 
 
 def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_that_wrote_the_record(page):
-    """#77 D-011 C: the value keeps its name; its row says what it means, for a `spike live` execution and for a `run agent` Attempt."""
+    """#77 D-011 on chadlis/hypotrail#75 C: the value keeps its name; its row says what it means, for a `spike live` execution and for a `run agent` Attempt."""
     rows = table_rows(page, "run-request-source", "data-request-source")
     text = rows["this_attempt"]["text"]
     assert "execution" in text and "the request the Attempt itself made" not in text
@@ -2440,7 +2440,7 @@ def test_chapter_03_this_attempt_row_says_it_names_the_request_of_the_execution_
 
 
 
-# --- chapter 04: where the Workloads are found (#23, D-016) ------------------------------------------------------------------------
+# --- chapter 04: where the Workloads are found (#23, D-016 on chadlis/hypotrail#75) ------------------------------------------------------------------------
 
 
 def _commands_taking_the_examples_flag():
@@ -2463,7 +2463,7 @@ def _commands_taking_the_examples_flag():
 
 
 def test_the_workload_inputs_table_lists_exactly_what_the_resolver_reads(page):
-    """D-016, #23: the resolver takes the flag and the checkout default, and reads no environment variable."""
+    """D-016 on chadlis/hypotrail#75, #23: the resolver takes the flag and the checkout default, and reads no environment variable."""
     import inspect
 
     from hypotrail.core import data
@@ -2686,7 +2686,7 @@ def test_the_data_fetch_chapter_states_the_generic_cap_and_that_a_file_is_re_acq
 
 
 def test_the_data_fetch_chapter_states_how_each_cut_transfer_ends_and_the_limit_where_the_lock_gives_no_size():
-    # 10-R1-06, #22 Tightened K (D-020): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
+    # #22 Tightened K (D-020 on chadlis/hypotrail#75): a framed cut (Content-Length, chunked) and an unframed body shorter than the lock's size_bytes
     # are exit 4 (interrupted); an equal size with a wrong hash, a framed whole body that differs, and an unframed short body where
     # the lock gives no size (archive, notice) are exit 3 and name the verified bundle; the handbook states this limit.
     chapter = (HANDBOOK / "chapters" / "15-data-fetch.html").read_text(encoding="utf-8")
@@ -2840,7 +2840,7 @@ def _rule_declarations(css, selector):
 
 
 def test_the_t24_walk_record_follows_the_handbooks_mode_rule_light_by_default_with_the_templates_tokens_switch_and_scripts():
-    # 10-R1-01, D-021 (B) on chadlis/hypotrail#75, #1 amendment « light mode by default »: `data-mode="light"`, the template's base and
+    # D-021 on chadlis/hypotrail#75 (B), #1 amendment "light mode by default": `data-mode="light"`, the template's base and
     # light token blocks for the tokens the page uses, its `.mode` switch (markup and CSS) and its two small scripts, all as in template.html.
     page = WALK.read_text(encoding="utf-8")
     template = (HANDBOOK / "template.html").read_text(encoding="utf-8")
@@ -3307,7 +3307,7 @@ def live_value(page, kept_dir=CAMPAIGN_DIR):
 
 
 def test_the_grid_has_exactly_one_row_per_test_T01_to_T24_each_with_what_it_does_its_expected_result_and_a_proof_or_a_reason(page):
-    # #88 C1: the rows are exactly T01-T24, in order, once each; a row has its text and either a proof or a « not run » reason.
+    # #88 C1: the rows are exactly T01-T24, in order, once each; a row has its text and either a proof or a "not run" reason.
     rows = grid_of(page).rows
     assert [row["test"] for row in rows] == ACCEPTANCE_IDS
     for row in rows:
@@ -3502,12 +3502,12 @@ def split_sentences(text):
 
 
 def bare_live_accepted(text):
-    """Sentences or cells that hold LIVE_ACCEPTED without « pending » (D-015 condition 3)."""
+    """Sentences or cells that hold LIVE_ACCEPTED without "pending" (D-015 on chadlis/hypotrail#75 condition 3)."""
     return [s for s in split_sentences(text) if "LIVE_ACCEPTED" in s and not re.search(r"(?<![A-Za-z_])pending(?![A-Za-z_])", s, re.I)]
 
 
 def test_no_sentence_or_cell_outside_the_status_table_holds_live_accepted_without_pending():
-    # #88 C: the README and every handbook chapter's source; a sentence like « LIVE_ACCEPTED is reached once the Campaign runs » fails.
+    # #88 C: the README and every handbook chapter's source; a sentence like "LIVE_ACCEPTED is reached once the Campaign runs" fails.
     assert bare_live_accepted("<p>LIVE_ACCEPTED is reached once the Campaign runs.</p>") == ["LIVE_ACCEPTED is reached once the Campaign runs."]
     assert bare_live_accepted("<p>LIVE_ACCEPTED is pending. LIVE_ACCEPTED is reached.</p>") == ["LIVE_ACCEPTED is reached."]
     assert bare_live_accepted("<table><tr><td>LIVE_ACCEPTED</td><td>pending</td></tr></table>") == ["LIVE_ACCEPTED"]
@@ -3577,7 +3577,7 @@ def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_
     assert 'data-open-point="order"' not in chapter  # #99 C7 (D-028 on chadlis/hypotrail#75): the open point is settled; it is a limit now
     point = re.search(r'<span data-limit="order">(.*?)</span>', chapter, re.S)[1]
     assert "order of <code>plain</code> and <code>verify</code>" in point
-    assert "baseline" not in point.replace("« baseline »", "")  # a verbatim SPEC quote in « » may keep the word
+    assert "baseline" not in point
 
 
 CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
@@ -3629,7 +3629,7 @@ def _command_parser(argv):
 
 
 def test_in_the_campaigns_comparison_plain_is_the_control_and_verify_the_candidate(page):
-    # #88 H (D-017 item 9, AG-06: `verify` adds the instruction).
+    # #88 H (D-017 on chadlis/hypotrail#75 item 9, AG-06: `verify` adds the instruction).
     from hypotrail.cli import build_parser
 
     lines = grid_of(page).campaign
@@ -3665,7 +3665,7 @@ def test_the_grid_states_what_the_campaign_was_the_conditions_it_ran_under_its_d
 
 
 def kept_exit(name):
-    """The exit status a kept `commands/NAME.exit` file records: « NAME exit N »."""
+    """The exit status a kept `commands/NAME.exit` file records: "NAME exit N"."""
     return int(re.fullmatch(rf"{name} exit (\d+)", (CAMPAIGN_DIR / "commands" / f"{name}.exit").read_text(encoding="utf-8").strip())[1])
 
 
@@ -3744,7 +3744,7 @@ def test_every_stdout_stderr_exit_and_time_of_the_index_equals_the_file_the_comm
 
 
 def test_chapter_16_says_the_index_was_assembled_by_the_agent_that_drove_the_slice_from_the_files_of_commands(page):
-    # 93-R1-08, 93-R2-02: the index is not the commands' own output; « the drive » is named for a reader of the handbook (ADR 0003).
+    # the index is not the commands' own output; "the drive" is named for a reader of the handbook (ADR 0003).
     text = plain_text(chapter_16())
     for part in (
         "command-output.json is an index", "assembled after the invocations from the files in commands/", "the agent that drove the slice (.claude/skills/drive/)",
@@ -3834,9 +3834,9 @@ def e07_note_problems(chapter, kept_dir=CAMPAIGN_DIR):
     if not note:
         return [f"{len(occurs)} integer-year answers occurred and the chapter has no note"]
     text = plain_text(note[1])
-    problems = [f"the note lacks « {part} »" for part in ("table-answer.schema.json", "format_valid", "exact_table", "type") if part not in text]
+    problems = [f"the note lacks \"{part}\"" for part in ("table-answer.schema.json", "format_valid", "exact_table", "type") if part not in text]
     if "format failure" in text:
-        problems.append("the note uses the phrase « format failure »")
+        problems.append("the note uses the phrase \"format failure\"")
     return problems
 
 
@@ -3854,8 +3854,8 @@ def test_the_E07_note_is_written_exactly_when_an_integer_year_answer_occurs_in_t
     assert integer_year_answers(copy) != [] and e07_note_problems(chapter_16(), copy) == [f"{len(integer_year_answers(copy))} integer-year answers occurred and the chapter has no note"]
     good = '<p data-note="e07-integer-year">An integer year passes <code>format_valid</code> (table-answer.schema.json allows numbers in cells) and fails <code>exact_table</code>: its type differs from the text cell.</p>'
     assert e07_note_problems(good, copy) == []
-    assert e07_note_problems(good.replace("format_valid", "validity"), copy) == ["the note lacks « format_valid »"]
-    assert e07_note_problems(good.replace("fails", "is a format failure and fails"), copy) == ["the note uses the phrase « format failure »"]
+    assert e07_note_problems(good.replace("format_valid", "validity"), copy) == ["the note lacks \"format_valid\""]
+    assert e07_note_problems(good.replace("fails", "is a format failure and fails"), copy) == ["the note uses the phrase \"format failure\""]
     assert e07_note_problems(good) == ["a note on an integer-year answer, though none occurred"]
 
 
@@ -4222,7 +4222,7 @@ def sections_whose_prose_leaves_the_tables_to_state_the_rules():
 
     A section belongs here when a table of it states a rule that its prose could repeat; the prose of such a section only says what no table says."""
     chapter_04, chapter_17 = chapter_text("04-study-and-attempts.html"), chapter_text("17-decisions.html")
-    write_sequence = chapter_04.split('<p class="sub2">The write sequence</p>')[1].split('<p class="sub2">Exit codes and refusals</p>')[0]
+    write_sequence = chapter_04.split('<p class="sub2">The Write sequence</p>')[1].split('<p class="sub2">Exit codes and refusals</p>')[0]
     return {"chapter 04, the write sequence": write_sequence, "chapter 17": chapter_17}
 
 
@@ -4363,11 +4363,11 @@ def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_ke
 def test_chapter_17_gives_the_rule_of_still_applies_in_its_table_and_what_the_table_does_not_say_in_words(page):
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
     table = " ".join(re.sub(r"<[^>]+>", " ", re.search(r'<table[^>]*id="decision-reasons".*?</table>', chapter_text("17-decisions.html"), re.S)[0]).split())
-    assert "A decision no longer applies when" in chapter
-    for part in ("A cited id is no longer held by the Study", "differs from the decision's revision", "later Assessment of the same Observation set and Scorer id"):
+    assert "A Decision no longer applies when" in chapter
+    for part in ("A cited id is no longer held by the Study", "differs from the Decision's revision", "later Assessment of the same Observation set and Scorer id"):
         assert part in table, part
     assert "never stored" in chapter and "any version" in chapter and "write journal" in chapter
-    assert "later decision on the same question" in chapter
+    assert "later Decision on the same question" in chapter
     assert "does not list decisions yet" not in chapter and "does not list the decisions" not in chapter
     assert "Decisions: 4 recorded, 1 no longer applies" in chapter
 
@@ -4418,7 +4418,7 @@ def test_every_chapter_that_the_write_sequence_and_decisions_changed_links_the_p
     # #111: the chapters #107 to #110 changed (`git diff 607740c 0e81949 --stat -- docs/handbook/chapters`)
     text = (HANDBOOK / "chapters" / chapter).read_text(encoding="utf-8")
     heading = '<p class="sub2">Which ADR explains what</p>'
-    assert heading in text, f"{chapter} has no « Which ADR explains what » table"
+    assert heading in text, f"{chapter} has no \"Which ADR explains what\" table"
     table = text.split(heading, 1)[1].split("</table>", 1)[0]
     adr = sorted((ROOT / "docs" / "adr").glob("0004-*.md"))
     assert len(adr) == 1, "there is no ADR 0004"

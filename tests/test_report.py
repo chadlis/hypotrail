@@ -256,7 +256,7 @@ def test_G_report_renders_a_study_in_a_fresh_interpreter_where_inspect_anthropic
 
 
 def test_D_the_pages_own_text_is_english_external_strings_are_shown_as_given_and_light_mode_is_fixed(track, tmp_path):
-    french = "Au début du jour t, estimer le nombre de locations <b>du jour</b> : « cnt[t] »."
+    french = "Au début du jour t, estimer le nombre de locations <b>du jour</b> : \u00ab cnt[t] \u00bb."
     study = track.question_study(tmp_path, french)
     out = tmp_path / "page.html"
     code, payload, err = report(study, out)

@@ -24,7 +24,7 @@ def report(study, out, *more):
 
 
 def assert_no_milestone_status(raw: str) -> None:
-    """A per-Study page states no milestone status: `LIVE_ACCEPTED` and the live acceptance status are for the grid and the README (D-017 item 7)."""
+    """A per-Study page states no milestone status: `LIVE_ACCEPTED` and the live acceptance status are for the grid and the README (D-017 on chadlis/hypotrail#75 item 7)."""
     assert "LIVE_ACCEPTED" not in raw and "live acceptance" not in raw.lower(), "a per-Study page states a milestone status"
 
 
