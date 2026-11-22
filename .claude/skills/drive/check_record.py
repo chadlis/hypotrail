@@ -13,8 +13,8 @@ for the slice issue of the pull request:
    "round <r>: <axis> verification" comment (the documentation path of the skill);
 4. a "closing register" comment exists and names every finding ID that a routing table assigned;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
-   fixed has its ID in the PR body. The status of an ID is the one of the latest comment that lists it: the closing register
-   when there is one, the routing row otherwise.
+   fixed has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
+   when there is one, the routing row otherwise. A fix prompt or a report settles no row.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request whose title starts with "drive:" and that changes no file under `src/` or `examples/` is an
@@ -70,9 +70,12 @@ SETTLED = r"(refuted|out of scope|duplicate|fixed|withdrawn)"
 
 
 def latest_statuses(comments: list) -> dict:
-    """The status text of each finding ID in the latest comment that lists it: the routing cell, or the words after the ID up to the next ID or line end."""
+    """The status text of each finding ID in the latest routing or closing register comment that lists it: the routing cell, or the words after the ID up to the next ID or line end."""
     statuses = {}
     for comment in comments:
+        head = first_line(comment)
+        if not (re.search(r"\bround \d+\b[:,]? routing", head) or re.search(r"closing register", head, re.IGNORECASE)):
+            continue
         body = comment["body"] or ""
         for cells in rows_of(comment):
             for finding in FINDING_ID.findall(cells[0]):

@@ -428,3 +428,11 @@ def test_a_merge_names_the_repository_whatever_the_case_of_its_name(gh_dir, comm
     put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
     result = hook(gh_dir, bash(command))
     assert result.returncode == 2 and "no closing register comment" in result.stderr
+
+
+def test_a_later_comment_that_is_neither_a_routing_nor_the_closing_register_settles_no_row():
+    record = complete_record() + [
+        comment("## R9, round 2: fix prompt", "B1-P-02 fixed. B1-S-01 fixed.\n"),
+        comment("## R9, round 2: Spec axis report", "| B1-P-02 | 1 | Spec | x | 1 | fixed | y |\n"),
+    ]
+    assert problems(record, body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
