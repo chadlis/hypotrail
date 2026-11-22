@@ -75,21 +75,8 @@ def held_ids(study) -> set:
     return found
 
 
-def _journal_positions(study) -> dict:
-    """{Assessment id: position, from 1, of the first `end` entry of the write journal that names it}; an id that none names is absent (position 0)."""
-    positions: dict = {}
-    for position, entry in enumerate(write_journal.entries(study), 1):
-        for item in entry.get("written", []):
-            if item["kind"] == "assessment":
-                positions.setdefault(item["id"], position)
-    return positions
-
-
-def _reasons(record: dict, *, held: set, revision: str, assessments: dict, positions: dict) -> list:
+def _reasons(record: dict, *, held: set, revision: str, assessments: dict, order) -> list:
     """Why `record` no longer applies: `[{"reason", "id"}]`, empty when it applies."""
-
-    def order(assessment: dict) -> tuple:
-        return positions.get(assessment["assessment_id"], 0), assessment.get("recorded_at", ""), assessment["assessment_id"]
 
     reasons = [{"reason": "cited_id_not_held", "id": cited} for cited in record["cited_ids"] if cited not in held]
     if record["revision"] != revision:
@@ -120,7 +107,7 @@ def history(study) -> list:
         "held": held_ids(study),
         "revision": layout.read_spec(study)["revision"],
         "assessments": {record["assessment_id"]: record for record in layout.assessment_records(study)},
-        "positions": _journal_positions(study),
+        "order": write_journal.assessment_order(study),
     }
     rows = []
     for record in recorded:

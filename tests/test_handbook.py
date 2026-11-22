@@ -1710,6 +1710,36 @@ def test_chapter_14_says_that_the_folder_of_out_is_fsynced_in_the_sentence_that_
     ) in html.unescape(plain_chapter("04-study-and-attempts.html"))
 
 
+ORDER_ID = "assessment-order"
+
+
+def table_of(raw, table_id):
+    return re.search(rf'<table[^>]*id="{table_id}".*?</table>', raw, re.S)[0]
+
+
+def test_chapter_10_states_the_order_of_the_later_assessment_once_and_the_other_places_link_to_it_without_restating_it():
+    """A restatement is found by its spelling: `(recorded_at, id)` and `position 0`, each of which states one part of the order. A restatement spelled otherwise is outside this test."""
+    chapters = {path.name: path.read_text(encoding="utf-8") for path in sorted((HANDBOOK / "chapters").glob("*.html"))}
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    texts = {name: html.unescape(plain_text(raw)) for name, raw in chapters.items()} | {"README.md": readme}
+    ten = chapters["10-revisions-and-rescoring.html"]
+    for spelling in ("(recorded_at, id)", "position 0"):
+        assert [(name, text.count(spelling)) for name, text in texts.items() if spelling in text] == [("10-revisions-and-rescoring.html", 1)], spelling
+    [statement] = re.findall(rf'<p id="{ORDER_ID}">(.*?)</p>', ten, re.S)
+    assert all(spelling in html.unescape(plain_text(statement)) for spelling in ("(recorded_at, id)", "position 0"))
+    link = f'href="#{ORDER_ID}"'
+    assert link in chapters["14-report.html"] and link in chapters["17-decisions.html"]
+    [later] = re.findall(r"<p>&quot;Later&quot; .*?</p>|<p>\"Later\" .*?</p>", chapters["17-decisions.html"], re.S)
+    assert link in later
+    for table_id, field in (("revision-record-fields", "recorded_at"), ("rescoring-fields", "earlier_assessment_id")):
+        [row] = re.findall(rf'<tr data-field="{field}".*?</tr>', table_of(ten, table_id), re.S)
+        assert link in row, field
+    [recorded_at_row] = re.findall(r'<tr data-field="recorded_at".*?</tr>', table_of(ten, "revision-record-fields"), re.S)
+    assert "orders Assessments" not in plain_text(recorded_at_row)
+    [paragraph] = [p for p in re.findall(r"<p>.*?</p>", ten, re.S) if "Otherwise it names the latest one that does" in plain_text(p)]
+    assert link in paragraph
+
+
 def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     from _chinook_helpers import init_chinook
     from _revision_helpers import new_revision
