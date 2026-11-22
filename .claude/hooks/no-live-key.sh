@@ -19,9 +19,10 @@ esac
 if [[ $simple == yes && $first =~ ^([^[:space:]]*/)?\.claude/skills/drive/capture\.sh$ ]]; then
   exit 0
 fi
-# A command that runs pytest gets ten minutes and stays in the foreground: the full suite takes over four minutes, and
+# A command that runs pytest (optionally after `cd <dir> &&`, `uv run [flags]` or `python -m`) gets ten minutes and stays in the foreground: the full suite takes over four minutes, and
 # a foreground command that reaches its timeout is moved to the background (D-055 on chadlis/hypotrail#75, item 5a).
-if [[ $cmd =~ (^|[^[:alnum:]_.-])pytest($|[^[:alnum:]_.-]) ]]; then
+pytest_run='^[[:space:]]*(cd[[:space:]]+[^[:space:]&;|]+[[:space:]]*&&[[:space:]]*)?(uv[[:space:]]+run[[:space:]]+(-[^[:space:]]+[[:space:]]+|(--project|--directory|--with|--python|--group|--extra|-p)[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+)*)?(python3?[[:space:]]+-m[[:space:]]+)?([^[:space:]]*/)?pytest($|[[:space:]])'
+if [[ $cmd =~ $pytest_run ]]; then
   jq -c --arg cmd "unset HYPOTRAIL_ANTHROPIC_API_KEY"$'\n'"$cmd" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: (.command = $cmd | .timeout = 600000 | .run_in_background = false)}}' <<<"$tool_input"
   exit 0

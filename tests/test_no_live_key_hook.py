@@ -138,6 +138,9 @@ def test_the_rewritten_command_runs_with_the_key_unset():
         "pytest -q tests/test_x.py",
         "cd /x && uv run python -m pytest",
         "uv run pytest tests/ 2>&1 | tail -3",
+        "uv run --project /x --no-sync pytest",
+        "cd /x && python3 -m pytest -q",
+        ".venv/bin/pytest tests",
     ],
 )
 def test_a_command_that_runs_pytest_gets_ten_minutes_in_the_foreground(command):
@@ -152,7 +155,7 @@ def test_a_pytest_command_with_no_timeout_or_background_field_gets_both():
     assert (updated["timeout"], updated["run_in_background"]) == (600000, False)
 
 
-@pytest.mark.parametrize("command", ["ls .pytest_cache", "cat tests/test_pytest_hook.py", "echo pytest-cov", "uv run python -m hypotrail --help"])
+@pytest.mark.parametrize("command", ["ls .pytest_cache", "cat tests/test_pytest_hook.py", "echo pytest-cov", "uv run python -m hypotrail --help", "grep pytest pyproject.toml", 'git commit -m "run pytest in the hook"', "echo pytest", "uv run grep -rn pytest tests"])
 def test_a_command_that_does_not_run_pytest_keeps_its_timeout_and_background_fields(command):
     updated = rewritten(run_command(command, timeout=5000, run_in_background=True))["updatedInput"]
     assert (updated["timeout"], updated["run_in_background"]) == (5000, True)
