@@ -483,7 +483,7 @@ def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path)
     assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]
 
 
-# --- every `INVALID_ARGUMENTS` refusal gives `details.command` as `hypotrail <command>`, with two carve-outs ---------------------
+# --- the functions under `src/` that raise `INVALID_ARGUMENTS` are the listed ones, and the `details.command` of each refusal has its form ---------------------
 
 INVALID_INPUT_ERROR = "hypotrail.core.errors.InvalidInputError"
 

@@ -320,8 +320,8 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     memberships = artifacts.read_verified(study, by_role["memberships"])
     partition_of = layout.partition_of(memberships, "row_id")
 
-    mapping_or_none = _strict_json_or_none(mapping_bytes)
-    model = mapping_or_none.get("model") if isinstance(mapping_or_none, dict) else None
+    mapping_json_or_none = _strict_json_or_none(mapping_bytes)
+    model = mapping_json_or_none.get("model") if isinstance(mapping_json_or_none, dict) else None
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
