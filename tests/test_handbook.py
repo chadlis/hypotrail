@@ -3771,6 +3771,13 @@ def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_
     assert "baseline" not in point
 
 
+def test_chapter_16s_order_limit_says_the_kept_comparison_predates_the_order_warning_that_one_written_now_would_hold():
+    point = plain_text(re.search(r'<span data-limit="order">(.*?)</span>', chapter_16(), re.S)[1])
+    kept = sorted(p.name for p in (HANDBOOK / "traces" / "campaign-public-check" / "study" / "comparisons").iterdir())
+    assert [name[:8] for name in kept] == ["4dd96c89"]
+    assert "4dd96c89" in point and "predates" in point and "COMPARISON_ORDER_NOT_ALTERNATED" in point, point
+
+
 CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
 
 
