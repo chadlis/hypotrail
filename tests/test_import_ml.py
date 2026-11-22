@@ -229,9 +229,9 @@ def lenient_reading(text: str):
     return json.loads(text, object_pairs_hook=list, parse_constant=lambda name: ("constant", name))
 
 
-def readings_minus_one_item(reading) -> list:
-    """`reading`, a lenient reading of a mapping or a population, with one item removed, for each item: one top-level pair, or
-    one element of the list held by a top-level `item_ids` pair."""
+def readings_minus_one_member_or_element(reading) -> list:
+    """`reading`, a lenient reading of a mapping or a population, with one member or element removed, once for each: one
+    top-level member, that is one (key, value) pair, or one element of the list held by the top-level `item_ids` member."""
     found = [reading[:i] + reading[i + 1 :] for i in range(len(reading))]
     for i, (key, value) in enumerate(reading):
         if key == "item_ids" and isinstance(value, list):
@@ -240,11 +240,11 @@ def readings_minus_one_item(reading) -> list:
 
 
 @pytest.mark.parametrize("which", ["mapping", "population"])
-def test_each_fault_cell_of_an_input_minus_its_fragment_is_its_clean_text_and_minus_one_pair_or_element_is_its_clean_reading_and_the_clean_mapping_and_population_are_accepted_and_recorded(tmp_path, study, which):
+def test_each_fault_cell_of_an_input_minus_its_fragment_is_its_clean_text_and_minus_one_member_or_element_is_its_clean_reading_and_the_clean_mapping_and_population_are_accepted_and_recorded(tmp_path, study, which):
     """For every fault of `which`, the text of the faulty file with its fragment cut out once is the text of the clean file,
     character for character; the faulty file read leniently, with one top-level pair or one element of `item_ids` removed, is
     the clean file read leniently; and the clean mapping and population are accepted and recorded. The grain of the second check
-    is one member or one element: nothing checks what the fault's own value holds inside that item."""
+    is one member or one element: nothing checks what the fault's own value holds inside that member or element."""
     source, digest = export(tmp_path)
     mapping_path, population_path = write_mapping_and_population(tmp_path, source, digest)
     clean = {"mapping": mapping_path, "population": population_path}[which].read_text(encoding="utf-8")
@@ -255,7 +255,7 @@ def test_each_fault_cell_of_an_input_minus_its_fragment_is_its_clean_text_and_mi
         faulty = {"mapping": faulty_mapping, "population": faulty_population}[which].read_text(encoding="utf-8")
         fragment, _ = fragment_and_place(which, clean, fault)
         assert faulty.replace(fragment, "", 1) == clean, fault
-        assert lenient_reading(clean) in readings_minus_one_item(lenient_reading(faulty)), fault
+        assert lenient_reading(clean) in readings_minus_one_member_or_element(lenient_reading(faulty)), fault
     code, payload, err = import_ml(study, source, mapping_path, population_path, f"r-ok-{which}")
     assert code == 0, (payload, err)
     assert (study / "attempts" / payload["attempt"]["attempt_id"]).is_dir()
