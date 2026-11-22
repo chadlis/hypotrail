@@ -454,3 +454,9 @@ def test_a_drive_titled_pull_request_whose_squash_subject_ends_with_a_slice_numb
     put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", [])
     result = hook(gh_dir, merge_tool(commit_title="drive: docs (#50)"))
     assert result.returncode == 2 and "slice #50" in result.stderr
+
+
+def test_the_skill_places_the_routing_table_in_the_comment_the_check_reads():
+    skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
+    bullet = next(line for line in skill.splitlines() if line.startswith("- **Where it lives.**"))
+    assert "`## <slice>, round <r>: routing`" in bullet and "Review of record" not in bullet
