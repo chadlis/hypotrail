@@ -228,6 +228,47 @@ def test_the_hook_reads_the_round_lines_of_the_slice_issue_it_finds(gh_dir):
     assert hook(gh_dir, merge_tool()).returncode == 0
 
 
+ENTRY = 9000
+UNLISTED = "names the drive in its first line, and the slice's #75 entry labelled 'drive decision (delegated)', linked from the state comment, does not list it"
+
+
+def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, label="## R9: drive decision (delegated)"):
+    """A complete record of the slice, a drive comment on the slice issue (9101) and on its ticket #61 (9201), a ticket-gate comment on #61 (9202), and the slice's entry on #75 (9000), which lists `listed`."""
+    record = complete_record()
+    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Decisions:** " + (f"the delegated choices, {ENTRY}." if linked else "none."))
+    record.insert(1, comment("## R9 A: the drive's delegated answers to the builder", "1. The key is `x`.", n=9101))
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"Part of #{slice_number}.\nB1-P-02 is carried."})
+    put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/comments", record)
+    put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/sub_issues", [{"number": 61}])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/61/comments", [comment("## R9 A: the drive's answer on TA5", n=9201), comment("## R9: ticket gate, A, reading 1", n=9202)])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/75/comments", [comment("## R9: another decision", "9101 9201", n=8999), comment(label, " ".join(map(str, listed)), n=ENTRY)])
+
+
+@pytest.mark.parametrize(
+    "change, unlisted",
+    [
+        ({"listed": (9201,)}, "comment 9101 on #50"),
+        ({"listed": (9101,)}, "comment 9201 on #61"),
+        ({"linked": False}, "comment 9101 on #50"),
+        ({"label": "## R9: delegated choices"}, "comment 9201 on #61"),
+    ],
+)
+def test_a_comment_of_the_slice_issue_or_of_a_ticket_whose_first_line_names_the_drive_and_that_the_linked_delegated_entry_does_not_list_blocks_the_merge(gh_dir, change, unlisted):
+    delegated_record(gh_dir, **change)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and f"{unlisted} {UNLISTED}" in result.stderr
+
+
+def test_drive_comments_that_the_linked_delegated_entry_lists_pass_and_the_slices_merged_before_the_rule_are_skipped(gh_dir):
+    delegated_record(gh_dir)
+    assert hook(gh_dir, merge_tool()).returncode == 0
+    delegated_record(gh_dir, slice_number=150, listed=())
+    (gh_dir / "repos__chadlis__hypotrail__issues__150__sub_issues").unlink()
+    (gh_dir / "repos__chadlis__hypotrail__issues__75__comments").unlink()
+    assert hook(gh_dir, merge_tool()).returncode == 0
+    assert load("check_record").MERGED_BEFORE_DELEGATED_ENTRY == {6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150}
+
+
 def test_the_skill_names_the_four_round_lines_and_the_one_name_of_the_routing_comment():
     skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
     assert all(f"`{label}`" in skill for label in ("Models:", "Telemetry:", "Refusals:", "Interruptions:"))
@@ -325,6 +366,8 @@ def gh_dir(tmp_path):
     put(directory, "repos/chadlis/hypotrail/pulls/7", {"body": BODY})
     put(directory, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": "src/hypotrail/cli.py"}])
     put(directory, "repos/chadlis/hypotrail/issues/50/comments", complete_record())
+    put(directory, "repos/chadlis/hypotrail/issues/50/sub_issues", [])
+    put(directory, "repos/chadlis/hypotrail/issues/75/comments", [])
     return directory
 
 
@@ -522,6 +565,7 @@ def test_every_merge_of_a_command_is_checked(gh_dir):
     put(gh_dir, "repos/chadlis/hypotrail/pulls/8", {"body": "Part of #51."})
     put(gh_dir, "repos/chadlis/hypotrail/pulls/8/files", [{"filename": "src/hypotrail/cli.py"}])
     put(gh_dir, "repos/chadlis/hypotrail/issues/51/comments", [])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/51/sub_issues", [])
     result = hook(gh_dir, bash("gh pr merge 7 --squash && gh pr merge 8 --squash"))
     assert result.returncode == 2 and "slice #51" in result.stderr
 
@@ -537,20 +581,32 @@ def test_a_timeout_or_a_failure_of_the_record_check_blocks_the_merge():
     assert [entry.get("onFailure") for entry in entries] == ["block", "block"]
 
 
-def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge(monkeypatch):
+def calls_of_a_merge(tickets: int) -> int:
+    """The `gh` calls of the record check of one merge: the pull request, its files, the slice issue's comments, its sub-issues, each ticket's comments and the decision log's."""
+    return 5 + tickets
+
+
+def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_four_tickets(monkeypatch):
     module = load("check_record")
     seen = []
 
     def fake_run(command, **options):
         seen.append(options.get("timeout"))
-        return type("Done", (), {"returncode": 0, "stdout": "[[]]" if "--slurp" in command else "{}", "stderr": ""})()
+        path = command[2]
+        data = {"body": "Part of #50."} if path.endswith("/pulls/7") else [[{"number": 60 + n} for n in range(tickets)]] if path.endswith("/sub_issues") else [[]]
+        return type("Done", (), {"returncode": 0, "stdout": json.dumps(data), "stderr": ""})()
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
-    module.gh(["repos/chadlis/hypotrail/pulls/7"])
-    module.gh_pages("repos/chadlis/hypotrail/pulls/7/files")
-    assert seen == [20, 20]
-    calls_of_a_merge = 3
-    assert all(entry["timeout"] >= calls_of_a_merge * 20 for entry in check_record_entries()) and {e["timeout"] for e in check_record_entries()} == {180}
+    for tickets in range(7):
+        seen.clear()
+        with pytest.raises(module.Refusal):
+            module.check(module.REPOSITORY, 7, None)
+        assert seen == [20] * calls_of_a_merge(tickets)
+    timeouts = {e["timeout"] for e in check_record_entries()}
+    covered = max(t for t in range(20) if calls_of_a_merge(t) * module.GH_TIMEOUT <= min(timeouts))
+    assert timeouts == {180} and covered == 4
+    doc = " ".join(module.__doc__.split())
+    assert "covers a slice of at most 4 tickets" in doc and "fails closed" in doc
 
 
 @pytest.mark.parametrize(

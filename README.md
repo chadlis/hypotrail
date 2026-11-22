@@ -54,7 +54,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.
-- [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, candidate milestones and legacy reuse.
+- [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, the selected milestones L2 and L3, later options and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.
 - [`AGENTS.md`](AGENTS.md): rules for contributors and coding agents.
 - [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/) and the checks on its fix prompts and merges (`premises.py`, `fix_prompt_check.py`, `check_record.py`; the hooks are registered in [`.claude/settings.json`](.claude/settings.json)).

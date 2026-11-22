@@ -58,6 +58,8 @@ gh api repos/chadlis/hypotrail/issues/<n> --jq .body > "$S/b<n>.md"    # a comme
 gh api -X PATCH repos/chadlis/hypotrail/issues/<n> -F body=@"$S/b<n>.md" --jq .number
 ```
 
+A tightening edits two texts: the body, where the replaced sentence leaves a pointer, and a new history comment that holds it struck. Post the comment first, so the pointer can name its ID.
+
 If the PATCH is refused, use the MCP tool.
 
 The MCP tools:
@@ -65,7 +67,7 @@ The MCP tools:
 | Operation | Tool |
 |---|---|
 | Create / update / close an issue, apply labels | `issue_write` (`method: create` or `update`; `state: closed` with `state_reason`) |
-| Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body |
+| Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body; a ticket's history comment holds the lines a tightening replaced and overrides nothing |
 | List issues | `list_issues` |
 | Comment | `add_issue_comment` |
 | Sub-issue | `issue_write` with `parent_issue_number`, or `sub_issue_write` |
