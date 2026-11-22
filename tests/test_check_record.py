@@ -460,3 +460,9 @@ def test_the_skill_places_the_routing_table_in_the_comment_the_check_reads():
     skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
     bullet = next(line for line in skill.splitlines() if line.startswith("- **Where it lives.**"))
     assert "`## <slice>, round <r>: routing`" in bullet and "Review of record" not in bullet
+
+
+def test_the_module_docstring_states_what_the_merge_detection_does_not_see():
+    doc = load("check_record").__doc__
+    assert "Stated limits" in doc and "xargs" in doc and "variable" in doc
+    assert "planting" in doc and "defect" in doc

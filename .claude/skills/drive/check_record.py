@@ -20,6 +20,10 @@ The slice issue is the one the squash subject ends with ("(#<n>)"), or the one t
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
 `src/` or `examples/`, and no slice issue can be found for it; the hook lets it through with a note. When a slice issue is found, the
 record check applies, whatever the title.
+
+Stated limits: the merge detection reads the text of the command, so it does not see a merge whose pull request number is passed
+through `xargs`, or whose command words are built in a variable or in a script it does not open. A gap found only by planting a
+command built to evade it is a stated limit. A gap that the drive actually uses is a defect.
 """
 
 import json
