@@ -11,6 +11,10 @@ The folder-scoped record of one investigation of one Workload under one frozen P
 Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds successive revisions, and a Protocol change is a new revision inside the same Study (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: project, run folder, experiment
 
+**Study writer**:
+A command that may write to a Study, creating it included, such as `run`, `assess` or `decide`; every other command, such as `status`, is a non-writer. A command is one by what it may do, not by what one call did: a call refused or replayed before its first write is still a call of a Study writer, and it leaves the Write sequence unchanged.
+_Avoid_: mutating command, write command
+
 **Write sequence**:
 The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes, or one when the writer was killed between its first write and its last. Nothing else changes it, and `status --json` shows it as `write_sequence`.
 _Avoid_: revision
@@ -18,6 +22,10 @@ _Avoid_: revision
 **Decision**:
 One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
 _Avoid_: note, verdict, conclusion
+
+**Declared deviation**:
+One known limit on what results of a Study show, declared in the Study because its records cannot establish it (for example an owner review of References still pending): what is declared, its author and the ids of the Study's records it cites. It is a record of the Study, never rewritten; a later record can withdraw it, and a derived deviation is a deviation but not a Declared deviation.
+_Avoid_: caveat, waiver, limitation, warning
 
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
@@ -125,6 +133,7 @@ _Avoid_: score (for the aggregate), KPI
 
 **Assessment**:
 One application of one Scorer version to one Observation set and one Reference set; rescoring always creates a new Assessment.
+Clarification, 2026-11-22: "earlier" and "later", said of two Assessments of one Study, name one order, the order in which the Study recorded them; handbook chapter 10 states it (chadlis/hypotrail#121, B2).
 _Avoid_: evaluation, result, score
 
 **Comparison**:
@@ -147,6 +156,8 @@ _Avoid_: variant (as a role), challenger, treatment
 - An **Assessment** applies one **Scorer** to one **Observation set** and one **Reference** set; one Observation set can have many Assessments.
 - A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
 - A **Decision** is a record of one **Study**: it cites at least one record the Study holds, is made on the **Write sequence** its author read, and advances that sequence when it is recorded.
+- A **Study** admits the writes of one **Study writer** at a time, and each write advances the **Write sequence**.
+- A **Declared deviation** is a record of one **Study**: it cites records the Study holds.
 
 ## Correspondence with Inspect
 
