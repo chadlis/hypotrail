@@ -60,6 +60,9 @@ record check applies, whatever the title.
 Stated limits: the merge detection reads the text of the command, so it does not see a merge whose pull request number is passed
 through `xargs`, or whose command words are built in a variable or in a script it does not open. A gap found only by planting a
 command built to evade it is a stated limit. A gap that the drive actually uses is a defect.
+The record check of one merge makes five `gh` calls plus one per ticket of the slice (three for a slice that rule 9 skips),
+each capped at `GH_TIMEOUT` seconds, so the hook's 180 s timeout in `.claude/settings.json` covers a slice of at most 4 tickets
+when every call takes its full cap. Past that, the hook can time out, and a timed-out hook blocks the merge: it fails closed.
 """
 
 import json

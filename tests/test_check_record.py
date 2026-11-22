@@ -580,20 +580,32 @@ def test_a_timeout_or_a_failure_of_the_record_check_blocks_the_merge():
     assert [entry.get("onFailure") for entry in entries] == ["block", "block"]
 
 
-def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge(monkeypatch):
+def calls_of_a_merge(tickets: int) -> int:
+    """The `gh` calls of the record check of one merge: the pull request, its files, the slice issue's comments, its sub-issues, each ticket's comments and the decision log's."""
+    return 5 + tickets
+
+
+def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_four_tickets(monkeypatch):
     module = load("check_record")
     seen = []
 
     def fake_run(command, **options):
         seen.append(options.get("timeout"))
-        return type("Done", (), {"returncode": 0, "stdout": "[[]]" if "--slurp" in command else "{}", "stderr": ""})()
+        path = command[2]
+        data = {"body": "Part of #50."} if path.endswith("/pulls/7") else [[{"number": 60 + n} for n in range(tickets)]] if path.endswith("/sub_issues") else [[]]
+        return type("Done", (), {"returncode": 0, "stdout": json.dumps(data), "stderr": ""})()
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
-    module.gh(["repos/chadlis/hypotrail/pulls/7"])
-    module.gh_pages("repos/chadlis/hypotrail/pulls/7/files")
-    assert seen == [20, 20]
-    calls_of_a_merge = 3
-    assert all(entry["timeout"] >= calls_of_a_merge * 20 for entry in check_record_entries()) and {e["timeout"] for e in check_record_entries()} == {180}
+    for tickets in range(7):
+        seen.clear()
+        with pytest.raises(module.Refusal):
+            module.check(module.REPOSITORY, 7, None)
+        assert seen == [20] * calls_of_a_merge(tickets)
+    timeouts = {e["timeout"] for e in check_record_entries()}
+    covered = max(t for t in range(20) if calls_of_a_merge(t) * module.GH_TIMEOUT <= min(timeouts))
+    assert timeouts == {180} and covered == 4
+    doc = " ".join(module.__doc__.split())
+    assert "covers a slice of at most 4 tickets" in doc and "fails closed" in doc
 
 
 @pytest.mark.parametrize(
