@@ -18,6 +18,13 @@ from hypotrail.core.comparison import REFUSALS
 from hypotrail.core.errors import EXIT_INTEGRITY_REFUSED
 
 
+ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
+
+
+def codes_of(record):
+    return [warning["code"] for warning in record["warnings"]]
+
+
 def assess(study, attempt, *more):
     code, payload, err = run_json("assess", "--study", study, "--observations", observation_set_id_of(study, attempt), "--scorer", SCORER, "--references", references_id(study), *more)
     assert code == 0, (payload, err)
@@ -51,9 +58,13 @@ def test_two_recorded_llm_live_attempts_are_assessed_and_compared_strictly_with_
     guard(EXAMPLES)
     again = {name: assess(study, attempt) for name, attempt in attempts.items()}  # an Assessment again, offline
     code, payload, err = compare(study, again["plain"], again["verify"])
-    assert code == 0 and err == "", (payload, err)
+    assert code == 0, (payload, err)
     record = payload["comparison"]
-    assert record["comparability"]["status"] == "compatible" and record["declared_factor"] == "configuration" and record["warnings"] == []
+    # strict: every check passed and both sides are native. `plain` then `verify` ran in two time blocks, so the record holds
+    # the order warning, and stderr holds it and nothing else; the warning leaves the status as the checks compute it.
+    assert codes_of(record) == [ORDER]
+    assert err.splitlines() == [f"{ORDER}: {record['warnings'][0]['message']}"]
+    assert record["comparability"]["status"] == "compatible" and record["declared_factor"] == "configuration"
     assert [(c["check"], c["passed"], c["reason"]) for c in record["comparability"]["checks"]] == [
         (name, True, None) for name in ("population", "cases", "references", "scorer", "unit", "repeats", "tools", "model", "budgets", "mode")
     ]
@@ -74,6 +85,23 @@ def test_two_recorded_llm_live_attempts_are_assessed_and_compared_strictly_with_
     # the patch has no flag, and no such log is a kept trace
     kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces"
     assert not any(attempts[name]["attempt_id"] in str(p) for name in attempts for p in kept.rglob("*"))
+
+
+def test_two_attempts_run_one_after_the_other_hold_one_order_warning_naming_the_side_that_ran_first_in_both_role_orders_and_stay_compatible(sides):
+    study, attempts, assessments = sides
+    assert attempts["plain"]["finished_at"] < attempts["verify"]["started_at"]  # `plain` ran, then `verify`
+    for control, candidate, first, second in (("plain", "verify", "control", "candidate"), ("verify", "plain", "candidate", "control")):
+        code, payload, err = compare(study, assessments[control], assessments[candidate])
+        assert code == 0, (payload, err)
+        record = payload["comparison"]
+        assert codes_of(record) == [ORDER], control
+        (message,) = [warning["message"] for warning in record["warnings"]]
+        assert f"The {first} ran before the {second}" in message, message
+        assert "time block" in message and "time effect" in message, message
+        assert message in record["limitations"]
+        # the status is computed as without the warning: every check passed, so it is compatible
+        assert record["comparability"]["status"] == "compatible"
+        assert all(c["passed"] and c["reason"] is None for c in record["comparability"]["checks"])
 
 
 def test_two_attempts_whose_case_digests_are_equal_for_every_case_record_the_cases_check_passed(sides):
@@ -234,13 +262,14 @@ def test_without_per_case_digests_the_same_cases_file_passes_and_anything_else_i
     record = payload["comparison"]
     entry = {c["check"]: c for c in record["comparability"]["checks"]}.get("cases")
     codes = [warning["code"] for warning in record["warnings"]]
+    # every side here is a native Attempt recorded after the other one finished, so each record also holds the order warning
     if passed:
         assert entry == {"check": "cases", "passed": True, "reason": None}
-        assert record["comparability"]["status"] == "compatible" and codes == []
+        assert record["comparability"]["status"] == "compatible" and codes == [ORDER]
     else:
         assert entry == {"check": "cases", "passed": False, "reason": "not_established"}
         assert record["comparability"]["status"] == "descriptive_only"
-        assert codes == ["COMPARISON_CASES_NOT_ESTABLISHED"]  # its own code: `cases` is no factor
+        assert codes == ["COMPARISON_CASES_NOT_ESTABLISHED", ORDER]  # its own code: `cases` is no factor
         assert record["warnings"][0]["message"] in record["limitations"]
         assert "COMPARISON_FACTOR_NOT_ESTABLISHED" not in codes
 

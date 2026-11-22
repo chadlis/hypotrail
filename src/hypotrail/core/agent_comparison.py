@@ -27,6 +27,12 @@ record keeps `declared_factor`. A factor a side does not establish is recorded a
 and the Comparison is descriptive, never strict, as it is when a side is an Import. A native side that establishes no
 Case content makes it descriptive too, with its own warning (`COMPARISON_CASES_NOT_ESTABLISHED`): `cases` is no factor.
 
+Two native sides whose Attempts ran one after the other (one finished before the other started, by the `started_at` and
+`finished_at` of their manifests and nothing else) carry `COMPARISON_ORDER_NOT_ALTERNATED`, whatever the declared factor:
+the two sides ran in separate time blocks, so the delta may include a time effect. The warning leaves the status as the
+checks and Imports compute it. Two native Attempts whose intervals overlap get none, and neither does a side that is an
+Import: its order is not established, and the Comparison is already descriptive.
+
 Episodes are aligned by (case_id, repeat). An Episode on one side only, or not scored for the primary Criterion on
 a side, is shown in the coverage and never dropped. The matrix of each side keeps every Criterion state of every
 Episode. With full coverage (every Episode scored on both sides), each Criterion is aggregated per Case first
@@ -40,6 +46,7 @@ import csv
 import io
 import re
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, exposure, study_write
@@ -64,6 +71,7 @@ REASON_NOT_ESTABLISHED = "not_established"
 REASON_COVERAGE = "coverage_incomplete"
 WARNING_NOT_ESTABLISHED = "COMPARISON_FACTOR_NOT_ESTABLISHED"
 WARNING_CASES_NOT_ESTABLISHED = "COMPARISON_CASES_NOT_ESTABLISHED"
+WARNING_ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
 CASES_NOT_ESTABLISHED = (
     "A side records no digest for a Case of the population, or records none and the two sides do not record the same Cases "
     "file: the Comparison could not check that both were evaluated on the same content of each Case, so it is descriptive, "
@@ -160,6 +168,26 @@ def check_cases(control: dict, candidate: dict, cases: list, evaluated: list = (
     if files[0] is not None and files[0] == files[1]:
         return {"check": "cases", "passed": True, "reason": None}
     return {"check": "cases", "passed": False, "reason": REASON_NOT_ESTABLISHED}
+
+
+def order_warning(control: dict, candidate: dict):
+    """The warning of two native sides whose Attempts ran one after the other, or None when their intervals overlap.
+
+    It reads the `started_at` and `finished_at` of the two manifests and nothing else; a side with no `finished_at`
+    establishes no interval, and gets none.
+    """
+    times = {side["role"]: (side["manifest"].get("started_at"), side["manifest"].get("finished_at")) for side in (control, candidate)}
+    if None in (*times["control"], *times["candidate"]):
+        return None
+    for first, second in (("control", "candidate"), ("candidate", "control")):
+        if datetime.fromisoformat(times[first][1]) < datetime.fromisoformat(times[second][0]):
+            message = (
+                f"The {first} ran before the {second}: its Attempt finished at {times[first][1]} and the {second}'s started at "
+                f"{times[second][0]}. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect "
+                "(a drift between the two blocks loads on the difference between the sides)."
+            )
+            return {"code": WARNING_ORDER, "message": message}
+    return None
 
 
 def _check_repeats(control, candidate, populations, checks, declared):
@@ -355,6 +383,9 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
                     "message": f"A side does not record its {', '.join(missing)}, so the Comparison could not check that both sides share them: it is descriptive, not strict.",
                 }
             )
+        order = order_warning(control, candidate)
+        if order is not None:
+            warnings.append(order)
     limitations.extend(w["message"] for w in warnings)
     descriptive = bool(imports) or any(not c["passed"] for c in checks)
 
