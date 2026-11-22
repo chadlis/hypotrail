@@ -3,7 +3,8 @@
 
 It acts on the tool `mcp__github__merge_pull_request`, and on a Bash command that runs `gh pr merge` or
 `gh api -X PUT .../pulls/<n>/merge` (a GET of that path is no merge). The whole command string is searched: quoted text and heredoc
-bodies are not commands, and a merge behind `env`, `timeout`, `bash -c` or `eval` is found. A merge whose number cannot be read is refused. The merge is refused (exit 2, the reasons on stderr) while any of these is missing
+bodies are not commands, and a merge behind `env`, `timeout`, `bash -c` or `eval` is found. A merge whose number cannot be read is refused ("name the pull request number"). Every `gh` call it makes ends after `GH_TIMEOUT` seconds.
+A merge is refused (exit 2, the reasons on stderr) while any of these is missing
 for the slice issue of the pull request:
 
 1. the state comment's round count (`Review rounds used: N of 5`) equals the number of rounds that have a review of record;
@@ -28,6 +29,7 @@ REPOSITORY = "chadlis/hypotrail"
 APPARATUS = (".claude/", "AGENTS.md", "CLAUDE.md", "docs/agents/", "scripts/")
 FINDING_ID = re.compile(r"\b[A-Z]\d+[a-z]?-[A-Z]-\d{2}\b")
 ROUND_LIMIT = 5
+GH_TIMEOUT = 20
 
 
 class Refusal(Exception):
@@ -110,7 +112,7 @@ def problems(pr_body: str, comments: list) -> list:
 
 
 def gh(arguments: list):
-    done = subprocess.run(["gh", "api", *arguments], capture_output=True, text=True, timeout=120)
+    done = subprocess.run(["gh", "api", *arguments], capture_output=True, text=True, timeout=GH_TIMEOUT)
     if done.returncode:
         raise Refusal(f"`gh api {' '.join(arguments)}` failed: {done.stderr.strip()}")
     return json.loads(done.stdout)

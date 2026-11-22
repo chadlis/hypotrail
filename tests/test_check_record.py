@@ -364,3 +364,30 @@ def test_every_merge_of_a_command_is_checked(gh_dir):
     put(gh_dir, "repos/chadlis/hypotrail/issues/51/comments", [])
     result = hook(gh_dir, bash("gh pr merge 7 --squash && gh pr merge 8 --squash"))
     assert result.returncode == 2 and "slice #51" in result.stderr
+
+
+def check_record_entries():
+    entries = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    return [hook for entry in entries for hook in entry["hooks"] if "check_record.py" in hook["command"]]
+
+
+def test_a_timeout_or_a_failure_of_the_record_check_blocks_the_merge():
+    entries = check_record_entries()
+    assert len(entries) == 2
+    assert [entry.get("onFailure") for entry in entries] == ["block", "block"]
+
+
+def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge(monkeypatch):
+    module = load("check_record")
+    seen = []
+
+    def fake_run(command, **options):
+        seen.append(options.get("timeout"))
+        return type("Done", (), {"returncode": 0, "stdout": "[[]]" if "--slurp" in command else "{}", "stderr": ""})()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    module.gh(["repos/chadlis/hypotrail/pulls/7"])
+    module.gh_pages("repos/chadlis/hypotrail/pulls/7/files")
+    assert seen == [20, 20]
+    calls_of_a_merge = 3
+    assert all(entry["timeout"] >= calls_of_a_merge * 20 for entry in check_record_entries()) and {e["timeout"] for e in check_record_entries()} == {180}
