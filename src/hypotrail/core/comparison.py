@@ -59,9 +59,11 @@ REFUSALS = {
     "mode": ("COMPARISON_MODE_DIFFERS", "mode_differs"),
     "coverage": ("COMPARISON_COVERAGE_INSUFFICIENT", "coverage_insufficient"),
 }
-# The extra checks of an agent Comparison (`hypotrail.core.agent_comparison`): the same planned Repeats, tools, model and budgets.
+# The extra checks of an agent Comparison (`hypotrail.core.agent_comparison`): the same content of each Case, and the same planned
+# Repeats, tools, model and budgets.
 REFUSALS.update(
     {
+        "cases": ("COMPARISON_CASES_DIFFER", "cases_differ"),
         "repeats": ("COMPARISON_REPEATS_DIFFER", "repeats_differ"),
         "tools": ("COMPARISON_TOOLS_DIFFER", "tools_differ"),
         "model": ("COMPARISON_MODEL_DIFFERS", "model_differs"),

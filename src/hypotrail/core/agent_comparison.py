@@ -10,17 +10,21 @@ passed (SPEC CMP-01, CMP-02, T12). `AGENT_CHECKS` lists them:
 1. `population`: the same Partition and the same Cases (not the same Episodes: a difference in Repeats has its own check);
 2. the Partition is `dev` or `public_check` (`COMPARISON_PARTITION_NOT_DEV` otherwise); a `public_check` Comparison is an
    Exposure, recorded in the journal once every check has passed (`hypotrail.core.exposure`);
-3. `references`, `scorer`, `unit`: as for the bike (`comparison.check_assessments`);
-4. `repeats`: the same planned Repeats for each Case;
-5. `tools`, `model`, `budgets`: the same tools, model and budgets, each where both sides establish it. A native
+3. `cases`: the same content for each Case, by the digest each native Attempt's manifest records in `case_digests`; a
+   different content is refused and cannot be declared. A native side that records no such digest is compared by the
+   digest of its Cases file (the same file passes), and anything else, an Import included, is `not_established`;
+4. `references`, `scorer`, `unit`: as for the bike (`comparison.check_assessments`);
+5. `repeats`: the same planned Repeats for each Case;
+6. `tools`, `model`, `budgets`: the same tools, model and budgets, each where both sides establish it. A native
    Attempt's manifest records them; an Import's header or lines declare them or leave them `unknown`;
-6. `mode`: a `scripted_fixture` side against an `llm_live` side is refused, an Import counting as the Mode it
+7. `mode`: a `scripted_fixture` side against an `llm_live` side is refused, an Import counting as the Mode it
    declares. A side whose Mode is not declared is not refused.
 
 A difference in `repeats`, `tools`, `model` or `budgets` is refused with its own code (exit 3) unless the request
 declares it as the intentional factor (`--factor`); the Configuration is the intentional factor by default, and the
 record keeps `declared_factor`. A factor a side does not establish is recorded as not checked (`not_established`)
-and the Comparison is descriptive, never strict, as it is when a side is an Import.
+and the Comparison is descriptive, never strict, as it is when a side is an Import. A native side that establishes no
+Case content makes it descriptive too, with its own warning (`COMPARISON_CASES_NOT_ESTABLISHED`): `cases` is no factor.
 
 Episodes are aligned by (case_id, repeat). An Episode on one side only, or not scored for the primary Criterion on
 a side, is shown in the coverage and never dropped. The matrix of each side keeps every Criterion state of every
@@ -53,11 +57,16 @@ from hypotrail.core.comparison import (
 )
 from hypotrail.core.factors import DEFAULT_FACTOR, FACTORS  # noqa: F401
 
-AGENT_CHECKS = ("population", "references", "scorer", "unit", "repeats", "tools", "model", "budgets", "mode")
+AGENT_CHECKS = ("population", "cases", "references", "scorer", "unit", "repeats", "tools", "model", "budgets", "mode")
 REASON_DECLARED = "declared_factor"
 REASON_NOT_ESTABLISHED = "not_established"
 REASON_COVERAGE = "coverage_incomplete"
 WARNING_NOT_ESTABLISHED = "COMPARISON_FACTOR_NOT_ESTABLISHED"
+WARNING_CASES_NOT_ESTABLISHED = "COMPARISON_CASES_NOT_ESTABLISHED"
+CASES_NOT_ESTABLISHED = (
+    "A side records no digest of each Case it evaluated, and the two sides do not record the same Cases file: the Comparison "
+    "could not check that both were evaluated on the same content of each Case, so it is descriptive, not strict."
+)
 PRODUCTION_MODES = ("scripted_fixture", "llm_live")
 UNIT = "share of Repeats per Case, every Case weighted equally"
 DELTA_DEFINITION = (
@@ -119,6 +128,39 @@ def _declared_mode(side: dict):
         return mode
     value = _declared(((side["manifest"]["effective_config"].get("producer") or {}).get("file_mode")))
     return value if value in PRODUCTION_MODES else None
+
+
+def _case_digests(manifest: dict, cases: list):
+    """{case_id: digest} of the population's Cases as a native Attempt recorded them, or None when it records no digest for one of them."""
+    recorded = manifest.get("case_digests")
+    if not isinstance(recorded, dict) or not set(cases) <= set(recorded):
+        return None
+    return {case_id: recorded[case_id] for case_id in cases}
+
+
+def check_cases(control: dict, candidate: dict, cases: list, evaluated: list = ()) -> dict:
+    """The `cases` entry of two native Attempt manifests over the population's Cases, or the refusal when one Case's content differs.
+
+    Each side is compared by the digest of each Case it evaluated. When a side records none, the digests of the two
+    Cases files stand in: the same file passes, and anything else is `not_established`.
+    """
+    c, d = _case_digests(control, cases), _case_digests(candidate, cases)
+    if c is not None and d is not None:
+        differ = [case_id for case_id in cases if c[case_id] != d[case_id]]
+        if differ:
+            raise _refuse(
+                "cases",
+                [*evaluated, {"check": "cases", "passed": False, "reason": REFUSALS["cases"][1]}],
+                {"cases": {case_id: c[case_id] for case_id in differ}},
+                {"cases": {case_id: d[case_id] for case_id in differ}},
+                f"the two Attempts were evaluated on different content for the Cases {', '.join(differ)}: "
+                "the check cases cannot be declared as the intentional factor",
+            )
+        return {"check": "cases", "passed": True, "reason": None}
+    files = [(manifest["effective_config"].get("input_digests") or {}).get("cases") for manifest in (control, candidate)]
+    if files[0] is not None and files[0] == files[1]:
+        return {"check": "cases", "passed": True, "reason": None}
+    return {"check": "cases", "passed": False, "reason": REASON_NOT_ESTABLISHED}
 
 
 def _check_repeats(control, candidate, populations, checks, declared):
@@ -257,6 +299,10 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
         )
     checks.append({"check": "population", "passed": True, "reason": None})
     exposed = check_partition(control["partition"])
+    if _is_import(control) or _is_import(candidate):
+        checks.append({"check": "cases", "passed": False, "reason": REASON_NOT_ESTABLISHED})  # an Import records no Case content
+    else:
+        checks.append(check_cases(control["manifest"], candidate["manifest"], populations["control"]["cases"], checks))
 
     check_assessments(control, candidate, checks)
     _check_repeats(control, candidate, populations, checks, declared)
@@ -300,7 +346,9 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
     if imports:
         warnings.append(import_scope_warning(imports))
     else:
-        missing = [f"{c['check']}" for c in checks if c["reason"] == REASON_NOT_ESTABLISHED]
+        if any(c["check"] == "cases" and c["reason"] == REASON_NOT_ESTABLISHED for c in checks):
+            warnings.append({"code": WARNING_CASES_NOT_ESTABLISHED, "message": CASES_NOT_ESTABLISHED})
+        missing = [c["check"] for c in checks if c["reason"] == REASON_NOT_ESTABLISHED and c["check"] != "cases"]
         if missing:
             warnings.append(
                 {

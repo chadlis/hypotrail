@@ -247,6 +247,8 @@ def test_the_configuration_is_the_intentional_factor_of_a_chinook_comparison_and
     _, verify = native(study, seed, configuration="verify")
     record = compare(study, plain, verify)[1]["comparison"]
     assert record["declared_factor"] == "configuration"
+    # strict because both sides record the same digest for each Case, as a manifest `run agent` writes does
+    assert {c["check"]: c for c in record["comparability"]["checks"]}["cases"] == {"check": "cases", "passed": True, "reason": None}
     assert record["comparability"]["status"] == "compatible"
 
 
@@ -340,6 +342,28 @@ def test_a_comparison_with_an_import_on_either_side_is_descriptive_with_a_warnin
         assert role in record["warnings"][0]["message"] and record["warnings"][0]["message"] in record["limitations"]
         assert "COMPARISON_DESCRIPTIVE_IMPORT" in err
         assert record["delta"]["metric"] == PRIMARY  # descriptive, and still a delta on the primary Criterion
+
+
+def test_an_import_side_establishes_no_case_content_so_cases_is_not_established_and_its_one_warning_is_the_import_one(tmp_path, study):
+    from _agent_compare_helpers import assess, observation_set_of
+    from _chinook_helpers import episodes_file, import_agent
+    from _log_helpers import scripted_log
+
+    _, first = imported(tmp_path, study, "first", answer_lines())
+    _, second = imported(tmp_path, study, "second", answer_lines())
+    log = scripted_log(tmp_path, ("D01", "D03"), repeats=2, name="logs-import", configuration="plain", metadata={"mode": "llm_live"})
+    code, payload, err = import_agent(study, log, episodes_file(tmp_path, keys_of(2, ["D01", "D03"]), name="log-p.json"), "from-log")
+    assert code == 0, (payload, err)
+    from_log = assess(study, observation_set_of(study, payload["attempt"]))
+    declared = payload["attempt"]["effective_config"]
+    _, own = native(study, payload["attempt"], repeats=2, model=declared["producer"]["model"]["value"], limits=declared["log"]["limits"]["value"])
+    for control, candidate in ((first, second), (from_log, own)):
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        record = payload["comparison"]
+        assert {c["check"]: c for c in record["comparability"]["checks"]}["cases"] == {"check": "cases", "passed": False, "reason": "not_established"}
+        assert record["comparability"]["status"] == "descriptive_only"
+        assert [w["code"] for w in record["warnings"]] == ["COMPARISON_DESCRIPTIVE_IMPORT"]
 
 
 def test_a_factor_that_a_side_does_not_establish_is_not_checked_and_is_said(tmp_path, study):
@@ -468,3 +492,11 @@ def test_two_imports_do_not_claim_a_shared_code_environment(tmp_path, study):
     assert record["code_environment"]["same"] is None and "import_sides" not in record["code_environment"]
     text = " ".join(record["limitations"])
     assert "record the same code environment" not in text and "importer" in text and "not established" in text
+
+
+def test_the_module_docstring_lists_the_cases_check_between_population_and_references():
+    from hypotrail.core import agent_comparison
+
+    text = agent_comparison.__doc__
+    assert "`cases`" in text
+    assert text.index("`population`") < text.index("`cases`") < text.index("`references`")

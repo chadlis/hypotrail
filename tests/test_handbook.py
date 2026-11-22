@@ -1911,9 +1911,23 @@ def test_the_agent_comparison_chapter_names_the_delta_reason_and_the_status_code
     from hypotrail.core import agent_comparison
 
     chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
-    for name in (agent_comparison.REASON_COVERAGE, agent_comparison.WARNING_NOT_ESTABLISHED, agent_comparison.DEFAULT_FACTOR, "COMPARISON_DESCRIPTIVE_IMPORT"):
+    for name in (
+        agent_comparison.REASON_COVERAGE,
+        agent_comparison.WARNING_NOT_ESTABLISHED,
+        agent_comparison.WARNING_CASES_NOT_ESTABLISHED,
+        agent_comparison.DEFAULT_FACTOR,
+        "COMPARISON_DESCRIPTIVE_IMPORT",
+    ):
         assert f"<code>{name}</code>" in chapter, name
     assert set(agent_comparison.FACTORS) == {"configuration", "repeats", "tools", "model", "budgets"}
+
+
+def test_the_paragraph_that_says_when_an_agent_comparison_is_descriptive_names_the_warning_of_a_side_with_no_case_content():
+    from hypotrail.core import agent_comparison
+
+    chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
+    (paragraph,) = [p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "<code>descriptive_only</code>" in p and "<code>COMPARISON_FACTOR_NOT_ESTABLISHED</code>" in p]
+    assert f"<code>{agent_comparison.WARNING_CASES_NOT_ESTABLISHED}</code>" in paragraph
 
 
 def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists():
