@@ -121,8 +121,8 @@ def two_round_record(first: str, second_rows: str, round_1_text: str = "", round
     ("first", "second", "key"),
     [
         ('#142 B: "a duplicate key is accepted"', '#142 Tightened B: "plus one accepted call"', "#142 B"),
-        ('`slice-builder.md`: "a test name says what the test checks"', '`slice-builder.md:11`: "a test name says what the test checks"', "`slice-builder.md`"),
-        ("`ml/imports.py:97-105`: a strict reader named loose", "`ml/imports.py:322`", "`ml/imports.py`"),
+        ('`slice-builder.md:11`: "a test name says what the test checks"', '`slice-builder.md:11`: "A comment says what the code alone does not show"', "`slice-builder.md:11`"),
+        ('https://github.com/chadlis/hypotrail/issues/1#issuecomment-5: "first"', 'https://github.com/chadlis/hypotrail/issues/1#issuecomment-5: "second"', "https://github.com/chadlis/hypotrail/issues/1#issuecomment-5"),
     ],
 )
 def test_a_requirement_with_row_1_findings_in_two_rounds_and_no_structural_option_or_gate_line_is_refused(first, second, key):
@@ -153,9 +153,24 @@ def test_a_carried_row_counts_for_a_round_only_while_that_round_lists_it_in_row_
     assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried.format(status="open").replace("| 1 | open", "| 4 | open"))) == []
 
 
-def test_requirements_with_different_keys_are_counted_apart():
-    rows = '| B2-P-01 | 2 | Spec | #143 B: "The order is defined once" | 1 | open | x |'
-    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', rows)) == []
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ('#142 B: "a duplicate key is accepted"', '#143 B: "The order is defined once"'),
+        ('`slice-builder.md`: "a test name says what the test checks"', '`slice-builder.md:11`: "a test name says what the test checks"'),
+        ("`ml/imports.py:97`: a strict reader named loose", "`ml/imports.py:322`: a strict reader named loose"),
+        ('https://github.com/chadlis/hypotrail/issues/1#issuecomment-5: "first"', 'https://github.com/chadlis/hypotrail/issues/2#issuecomment-6: "second"'),
+    ],
+)
+def test_requirements_with_different_text_before_their_first_colon_and_space_are_counted_apart_line_numbers_and_urls_included(first, second):
+    rows = f"| B2-P-01 | 2 | Spec | {second} | 1 | open | x |"
+    assert problems(two_round_record(first, rows)) == []
+
+
+@pytest.mark.parametrize("line", ["Structural option for #142 B:", "Structural option for #142 B: ", "Gate for #142 B: none yet", "Gate for #142 B:"])
+def test_a_clearing_line_with_no_text_after_its_colon_or_a_gate_line_with_no_decision_does_not_clear_the_requirement(line):
+    rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1 | open | x |'
+    assert len(problems(two_round_record('#142 B: "a duplicate key is accepted"', rows, round_2_text=f"\n{line}\n"))) == 1
 
 
 def test_a_missing_closing_register_is_refused():

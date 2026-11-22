@@ -19,11 +19,13 @@ for the slice issue of the pull request:
    round, has a line "Structural option for <requirement>: ..." or "Gate for <requirement>: D-nnn" (D-061 on
    chadlis/hypotrail#75, as amended by D-063 on chadlis/hypotrail#75, item 2: "`check_record.py` counts, for each
    requirement, the rounds that had row-1 findings. At two such rounds, it refuses the merge unless a structural option
-   or a gate decision is recorded."). The requirement of a row is its requirement cell up to its first colon, with the
-   word "Tightened" and a file name's ":<line>" or ":<line>-<line>" dropped, so "#142 Tightened B" and "#142 B" are one
-   requirement, and so are "`slice-builder.md:11`" and "`slice-builder.md`". A row counts for the round of the routing
-   comment that lists it when its row cell starts with "1" and its status there is not settled. This rule applies to
-   pull requests opened after it was added; a record merged before it is not judged by it.
+   or a gate decision is recorded."). The requirement of a row is its requirement cell up to its first ": " (a colon
+   followed by a space), with the word "Tightened" dropped and whitespace collapsed, so "#142 Tightened B" and "#142 B"
+   are one requirement; line numbers and URLs are kept whole. A row counts for the round of the routing comment that
+   lists it when its row cell starts with "1" and its status there is not settled. A row carried open into a later
+   round's table counts for that round too: a blocker a fix left open is a blocker in the next round. A clearing line
+   has text after its ": ", and a gate line names a decision. The rule judges every slice record, one merged before it
+   was added included: F1's record (chadlis/hypotrail#121) fails it on "#142 B" and on "`slice-builder.md:11`".
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -104,13 +106,12 @@ def latest_statuses(comments: list) -> dict:
 
 
 def requirement_key(text: str) -> str:
-    """A requirement cell, or the text after "Structural option for" or "Gate for", reduced to the requirement it names: up to its first colon, without "Tightened" or a file name's line numbers."""
-    text = re.sub(r"\bTightened\b", "", text)
-    text = re.sub(r"(\.\w+):\d+(?:-\d+)?", r"\1", text)
-    return re.sub(r"\s+", " ", text.split(":", 1)[0]).strip()
+    """A requirement cell, or the requirement a clearing line names, reduced to the requirement: up to its first ": ", without "Tightened"."""
+    text = re.sub(r"\bTightened\b", "", text.split(": ", 1)[0])
+    return re.sub(r"\s+", " ", text).strip()
 
 
-CLEARING = re.compile(r"^[\s#>*-]*(?:Structural option for (?P<option>[^:\n]+):|Gate for (?P<gate>[^:\n]+): D-\d+)")
+CLEARING = re.compile(r"^[\s#>*-]*(?:Structural option for (?P<option>.+?): \S|Gate for (?P<gate>.+?): D-\d+)")
 
 
 def unconverged(routed: dict) -> list:
@@ -123,7 +124,7 @@ def unconverged(routed: dict) -> list:
     cleared = {}
     for number, comment in routed.items():
         for line in (comment["body"] or "").replace("**", "").splitlines():
-            match = CLEARING.match(re.sub(r"(\.\w+):\d+(?:-\d+)?", r"\1", line))
+            match = CLEARING.match(line)
             if match:
                 key = requirement_key(match.group("option") or match.group("gate"))
                 cleared.setdefault(key, set()).add(number)
