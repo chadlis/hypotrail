@@ -308,8 +308,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     deviation = commands.add_parser(
         "deviation",
-        help="record one Declared deviation in a Study: a known deviation its records cannot establish, with its author and the ids it cites, "
-        "or the withdrawal of an earlier one",
+        help="record one Declared deviation in a Study: one known limit on what results of the Study show, declared in the Study because its records "
+        "cannot establish it (for example an owner review of References still pending), with what is declared, its author and the ids of the "
+        "Study's records it cites; or the withdrawal of an earlier one",
     )
     deviation.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Declared deviation in")
     deviation.add_argument("--text", required=True, metavar="TEXT", help="what is declared (free text, not empty)")

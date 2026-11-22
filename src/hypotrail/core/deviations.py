@@ -1,7 +1,8 @@
 """`deviation`: one Declared deviation, kept in the Study (chadlis/hypotrail#155).
 
-A Declared deviation is a known deviation of the protocol that no record of the Study can establish, such as an owner review of References
-still pending. It follows the decision record's shape (`hypotrail.core.decisions`). It is one file,
+A Declared deviation is one known limit on what results of a Study show, declared in the Study because its records cannot establish it (for
+example an owner review of References still pending): what is declared, its author and the ids of the Study's records it cites. It follows
+the decision record's shape (`hypotrail.core.decisions`). It is one file,
 
 ```
 declared_deviations/<seq>-<declared_deviation_id>.json   one Declared deviation each, published atomically and never rewritten

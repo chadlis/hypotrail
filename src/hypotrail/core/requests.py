@@ -16,7 +16,7 @@ The same request_id with the same request returns the recorded Attempt; with any
 different it is `REQUEST_CONFLICT`, exit 6, naming the elements that differ.
 
 A Study has one request_id namespace, for its Attempts, its decisions (`hypotrail.core.decisions`, D-033 on chadlis/hypotrail#75) and
-its Declared deviations (`hypotrail.core.deviations`, D-073 on chadlis/hypotrail#75). `REQUEST_CONFLICT`'s `details` carry `attempt_id`,
+its Declared deviations (`hypotrail.core.deviations`). `REQUEST_CONFLICT`'s `details` carry `attempt_id`,
 `decision_id` and `declared_deviation_id`, each set to null when it does not apply (D-034 on chadlis/hypotrail#75). A request_id that names
 a record of another kind is a conflict whose `differs` is `["command"]`, the first element of `IDENTITY_KEYS` (D-037 on chadlis/hypotrail#75);
 between two decisions, or two Declared deviations, `differs` names fields of the record.
