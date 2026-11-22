@@ -218,3 +218,4 @@ def test_the_module_docstring_states_what_a_plant_shows_and_which_claims_the_det
     assert "A claim worded another way is not seen" in doc
     assert "A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, because the CLI turns the planted error into that outcome" in doc
     assert "A claim sentence with no backticked function is not checked against a line" in doc
+    assert "A test ID whose brackets hold a comma is split in two" in doc

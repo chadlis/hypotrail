@@ -22,7 +22,8 @@ entry. A test that fails only with the plant passes the line. The plant shows th
 that it asserts the claimed property. The sentences seen as such claims are those that say "checked" or "covered",
 then "by", then "test", within one sentence. A claim worded another way is not seen. Such a sentence needs a
 `checked_by(...)` line for each function it names in backticks. A claim sentence with no backticked function is not
-checked against a line. A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`)
+checked against a line. A test ID whose brackets hold a comma is split in two, since a comma separates the tests of a
+line. A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`)
 cannot be checked by a plant, because the CLI turns the planted error into that outcome. A named test that is skipped
 in the copy shows nothing either way.
 
