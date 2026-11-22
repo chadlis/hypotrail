@@ -134,6 +134,13 @@ def listing(study) -> list:
     ]
 
 
+def in_force(study) -> list:
+    """The Study's declarations that no withdrawal withdrew, in the order they were recorded: a withdrawal itself is none of them."""
+    recorded = records(study)
+    withdrawn = withdrawals(recorded)
+    return [each for each in recorded if each["declared_deviation_id"] not in withdrawn and each["declared_deviation_id"] not in withdrawn.values()]
+
+
 def references_sets(study) -> dict:
     """{artifact_id: sha256} of the References set of every revision of the Study."""
     return {

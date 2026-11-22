@@ -56,9 +56,11 @@ from hypotrail.core.comparison import (
     REASON_PROVENANCE,
     REFUSALS,
     STAGE,
+    WARNING_DEVIATION_DECLARED,
     _refuse,
     check_assessments,
     check_partition,
+    declared_deviation_warnings,
     describe_environments,
     import_scope_warning,
     record_exposure,
@@ -74,7 +76,7 @@ WARNING_CASES_NOT_ESTABLISHED = "COMPARISON_CASES_NOT_ESTABLISHED"
 WARNING_ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
 # The warnings that state a deviation of the protocol rather than a descriptive scope: `compare` and the report name their
 # codes beside the status, since a `compatible` Comparison can hold them.
-DEVIATIONS = (WARNING_ORDER,)
+DEVIATIONS = (WARNING_ORDER, WARNING_DEVIATION_DECLARED)
 CASES_NOT_ESTABLISHED = (
     "A side records no digest for a Case of the population, or records none and the two sides do not record the same Cases "
     "file: the Comparison could not check that both were evaluated on the same content of each Case, so it is descriptive, "
@@ -389,6 +391,7 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
         order = order_warning(control, candidate)
         if order is not None:
             warnings.append(order)
+    warnings.extend(declared_deviation_warnings(study, control, candidate))
     limitations.extend(w["message"] for w in warnings)
     descriptive = bool(imports) or any(not c["passed"] for c in checks)
 

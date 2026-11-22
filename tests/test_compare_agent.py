@@ -533,7 +533,10 @@ def test_the_warning_codes_of_the_two_comparison_modules_are_pairwise_different(
 
     codes = warning_codes()
     assert len(set(codes.values())) == len(codes), codes
-    assert set(codes.values()) >= {"COMPARISON_DESCRIPTIVE_IMPORT", "COMPARISON_FACTOR_NOT_ESTABLISHED", "COMPARISON_CASES_NOT_ESTABLISHED", ORDER}
+    assert set(codes.values()) >= {
+        "COMPARISON_DESCRIPTIVE_IMPORT", "COMPARISON_FACTOR_NOT_ESTABLISHED", "COMPARISON_CASES_NOT_ESTABLISHED", ORDER, "COMPARISON_SINGLE_FEATURE_BEATS",
+        "COMPARISON_DEVIATION_DECLARED",
+    }
 
 
 def two_blocks(tmp_path, study, prefix="seed", **candidate):
@@ -561,3 +564,79 @@ def test_the_status_is_still_computed_from_the_checks_and_imports_alone_with_or_
         failed = [c["check"] for c in record["comparability"]["checks"] if not c["passed"]]
         assert ORDER in [w["code"] for w in record["warnings"]] and failed == ([] if status == "compatible" else ["tools"])
         assert record["comparability"]["status"] == status, failed
+
+
+# --- #155: a Declared deviation that covers a side ------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def four(tmp_path_factory):
+    from _deviation_helpers import chinook_world
+
+    return chinook_world(tmp_path_factory.mktemp("four"))
+
+
+@pytest.fixture
+def world(four, tmp_path):
+    import shutil
+
+    study, attempts, assessments = four
+    shutil.copytree(study, tmp_path / "study")
+    return tmp_path / "study", attempts, assessments
+
+
+@pytest.mark.parametrize("roles", [("control",), ("candidate",), ("control", "candidate")], ids=["the Control's Attempt", "the Candidate's", "both"])
+def test_a_declaration_that_cites_a_sides_attempt_puts_one_warning_naming_the_side_its_id_and_its_text_in_the_comparison(world, roles):
+    from _deviation_helpers import a_declaration_covers_the_sides_whose_attempt_it_cites
+
+    a_declaration_covers_the_sides_whose_attempt_it_cites(world, roles)
+
+
+def test_a_declaration_that_cites_the_references_set_covers_both_sides_and_its_warning_names_both(world):
+    from _deviation_helpers import a_references_citation_covers_both_sides
+
+    a_references_citation_covers_both_sides(world)
+
+
+def test_a_comparison_of_two_other_attempts_of_the_study_holds_no_warning_for_a_declaration_that_cites_an_attempt(world):
+    from _deviation_helpers import a_declaration_covers_no_other_side
+
+    a_declaration_covers_no_other_side(world)
+
+
+def test_two_declarations_that_cover_one_comparison_give_one_warning_each_in_the_order_of_their_write_sequence(world):
+    from _deviation_helpers import two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence
+
+    two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence(world)
+
+
+def test_a_withdrawal_covers_no_side_and_no_warning_names_it_or_the_declaration_it_withdrew(world):
+    from _deviation_helpers import a_withdrawal_gives_no_coverage
+
+    a_withdrawal_gives_no_coverage(world)
+
+
+def test_a_comparison_written_before_a_declaration_or_a_withdrawal_is_not_updated_and_a_new_compare_writes_another(world):
+    from _deviation_helpers import a_comparison_is_not_updated_and_a_new_compare_is_the_remedy
+
+    a_comparison_is_not_updated_and_a_new_compare_is_the_remedy(world)
+
+
+def test_a_declaration_that_cites_the_earlier_references_set_does_not_cover_a_side_scored_against_the_corrected_one(tmp_path):
+    from _deviation_helpers import a_corrected_references_set_is_not_covered, chinook_world, reassessed, references_of
+    from _revision_helpers import corrected_chinook_references, new_revision
+
+    study, attempts, earlier = chinook_world(tmp_path, count=2)
+    earlier_set = references_of(study)
+    corrected = corrected_chinook_references(tmp_path, lambda records: records["D03"].update(rows=[[1300]], reference_version="chinook-references/2"))
+    code, payload, err = new_revision(study, "--examples-dir", corrected)
+    assert code == 0, (payload, err)
+    assert references_of(study) != earlier_set
+    a_corrected_references_set_is_not_covered(earlier_set, earlier, reassessed(study, attempts, "chinook_contract_v1"), study)
+
+
+def test_the_declared_deviation_code_is_one_of_the_deviations_both_comparison_modules_name_beside_the_status():
+    from hypotrail.core import agent_comparison, comparison
+
+    assert "COMPARISON_DEVIATION_DECLARED" in agent_comparison.DEVIATIONS
+    assert "COMPARISON_DEVIATION_DECLARED" in comparison.DEVIATIONS

@@ -714,3 +714,33 @@ def test_an_assessments_card_shows_one_of_the_three_states_of_the_check_and_the_
     assert losing["single_feature_check"]["computed"] and losing["single_feature_check"]["beating"] == []  # its features were checked and all lose
     comparison = {row[0]: row[1] for row in doc_of(out).body("comparison-0")}
     assert comparison["Comparability"] == "compatible, with warning COMPARISON_SINGLE_FEATURE_BEATS", comparison
+
+
+# --- #155: a Declared deviation, beside the status of a regression Comparison ------------------------------------------------------
+
+
+def test_the_comparability_cell_of_a_regression_comparison_a_declaration_covers_names_its_code_and_one_with_only_the_import_warning_names_none(tmp_path):
+    from _deviation_helpers import CODE, comparability_cells, compare_ids, declare, references_of
+    from _report_helpers import dev_world
+
+    study, facts = dev_world(tmp_path)
+    assert [w["code"] for w in facts["descriptive"]["warnings"]] == ["COMPARISON_DESCRIPTIVE_IMPORT"]
+    declare(study, [references_of(study)])
+    covered = compare_ids(study, facts["assessments"]["seasonal_7"], facts["assessments"]["ridge_v1"])
+    assert CODE in [w["code"] for w in covered["warnings"]]
+    out = tmp_path / "out" / "report.html"
+    out.parent.mkdir()
+    from _deviation_helpers import rendered
+
+    rendered(study, out)
+    cells = comparability_cells(out)
+    assert cells[covered["comparison_id"]].startswith("compatible") and CODE in cells[covered["comparison_id"]], cells
+    assert cells[facts["descriptive"]["comparison_id"]] == "descriptive_only (descriptive)", cells
+
+
+def test_the_page_shows_the_warning_a_comparison_recorded_and_nothing_computed_from_a_declaration_or_its_withdrawal(tmp_path):
+    from _deviation_helpers import bike_world, the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations
+
+    world = bike_world(tmp_path, count=2)
+    (tmp_path / "out").mkdir()
+    the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations(world, tmp_path / "out")

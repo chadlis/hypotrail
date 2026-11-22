@@ -299,6 +299,28 @@ def test_the_comparability_cell_of_a_comparison_that_holds_the_order_warning_nam
     assert cell.startswith("compatible") and "COMPARISON_ORDER_NOT_ALTERNATED" in cell, cell
 
 
+def test_the_comparability_cell_of_a_comparison_that_holds_the_declared_deviation_warning_names_its_code_beside_the_status(world, tmp_path):
+    from _deviation_helpers import CODE, comparability_cells, compare_ids, declare, rendered
+
+    source, facts, _, _ = world
+    study = tmp_path / "copy"
+    shutil.copytree(source, study)  # the module's Study stays without a Declared deviation
+    declare(study, [facts["attempts"]["plain"]["attempt_id"]])
+    record = compare_ids(study, facts["assessments"]["plain"], facts["assessments"]["verify"])
+    assert record["comparability"]["status"] == "compatible" and CODE in [w["code"] for w in record["warnings"]]
+    rendered(study, tmp_path / "page.html")
+    cell = comparability_cells(tmp_path / "page.html")[record["comparison_id"]]
+    assert cell.startswith("compatible") and CODE in cell, cell
+
+
+def test_the_page_shows_the_warning_a_comparison_recorded_and_nothing_computed_from_a_declaration_or_its_withdrawal(tmp_path):
+    from _deviation_helpers import chinook_world, the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations
+
+    world = chinook_world(tmp_path, count=2)
+    (tmp_path / "out").mkdir()
+    the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations(world, tmp_path / "out")
+
+
 def test_C_when_the_record_withholds_the_main_delta_the_page_shows_only_withheld_with_the_coverage_rates_and_no_bounds(tmp_path):
     study, _ = init_chinook(tmp_path)
     with pytest.MonkeyPatch.context() as mp:

@@ -128,6 +128,25 @@ def test_without_json_the_status_line_on_stdout_names_the_order_code_beside_comp
     assert f"{ORDER}: {record['warnings'][0]['message']}" in err.splitlines()
 
 
+def test_without_json_the_status_line_on_stdout_names_the_declared_deviation_code_beside_the_status_and_stderr_holds_its_warning(sides, tmp_path):
+    import shutil
+
+    from _deviation_helpers import CODE, declare
+
+    source, attempts, assessments = sides
+    study = tmp_path / "copy"
+    shutil.copytree(source, study)  # the module's Study stays without a Declared deviation
+    declare(study, [attempts["plain"]["attempt_id"]])
+    code, out, err = run_cli("compare", "--study", study, "--control", assessments["plain"]["assessment_id"], "--candidate", assessments["verify"]["assessment_id"])
+    assert code == 0, (out, err)
+    (line,) = [line for line in out.splitlines() if line.startswith("Comparison ")]
+    record = json.loads((study / "comparisons" / line.split()[1] / "comparison.json").read_text(encoding="utf-8"))
+    assert record["comparability"]["status"] == "compatible" and CODE in codes_of(record)
+    assert line.startswith(f"Comparison {record['comparison_id']} (compatible") and CODE in line.split("):")[0], line
+    (warning,) = [w for w in record["warnings"] if w["code"] == CODE]
+    assert f"{CODE}: {warning['message']}" in err.splitlines()
+
+
 def test_the_order_warning_goes_when_nothing_but_the_four_times_of_the_two_manifests_change_from_disjoint_to_overlapping(sides, tmp_path):
     import shutil
 

@@ -30,6 +30,12 @@ A side whose Assessment lists, in `single_feature_check`, lag features of its ow
 from the record, never computed here, and it leaves the status as the checks and Imports compute it. A side whose field is
 empty or absent gets none.
 
+A side that a declaration in force covers, a Declared deviation of the Study (`hypotrail.core.deviations`) that cites its Attempt or the
+References set its Assessment was scored against, gets one warning for that declaration (`COMPARISON_DEVIATION_DECLARED`), naming the side or
+sides, the Declared deviation's id and its text, also in `limitations`. Two declarations give two warnings, in the order of their
+`write_sequence`. It is read when the Comparison is written, and it leaves the status as the checks and Imports compute it. Both Tracks
+add it (`declared_deviation_warnings`).
+
 A refused check raises its own code (exit 3) whose details carry the `check`, its Reason code, the
 values of both sides and the checks evaluated so far, and writes no Comparison. `delta` is the Metric of
 the Candidate minus the Metric of the Control: a positive value means the Candidate is worse (lower is
@@ -41,7 +47,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, study_write
+from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -78,9 +84,10 @@ REFUSALS.update(
 REASON_PROVENANCE = "provenance_unverified"
 WARNING_DESCRIPTIVE = "COMPARISON_DESCRIPTIVE_IMPORT"
 WARNING_SINGLE_FEATURE = "COMPARISON_SINGLE_FEATURE_BEATS"
+WARNING_DEVIATION_DECLARED = "COMPARISON_DEVIATION_DECLARED"
 # The warnings of a regression Comparison that state a deviation rather than a descriptive scope: `compare` and the report name
 # their codes beside the status, as for `agent_comparison.DEVIATIONS`, since a `compatible` Comparison can hold them.
-DEVIATIONS = (WARNING_SINGLE_FEATURE,)
+DEVIATIONS = (WARNING_SINGLE_FEATURE, WARNING_DEVIATION_DECLARED)
 LIMITATION_DEPENDENCE = "Daily observations are dependent: the delta carries no confidence interval and no significance claim."
 
 
@@ -233,6 +240,31 @@ def single_feature_warning(side: dict):
         f"on the same Items: {features}."
     )
     return {"code": WARNING_SINGLE_FEATURE, "message": message}
+
+
+def declared_deviation_warnings(study: Path, control: dict, candidate: dict) -> list:
+    """One warning for each declaration in force that covers a side, in the order of their `write_sequence`, read from the Study's records.
+
+    A declaration covers a side when it cites that side's Attempt, or the References set that side's Assessment was scored against (the
+    Study artifact whose digest is the Assessment's `references_ref` digest). A withdrawn declaration and a withdrawal cover nothing.
+    """
+    references = deviations.references_sets(study)
+    warnings = []
+    for declared in sorted(deviations.in_force(study), key=lambda record: record["write_sequence"]):
+        cited = set(declared["cited_ids"])
+        roles = [
+            side["role"]
+            for side in (control, candidate)
+            if side["manifest"]["attempt_id"] in cited
+            or any(references.get(each) == side["assessment"]["references_ref"]["sha256"] for each in cited)
+        ]
+        if roles:
+            message = (
+                f"The {' and the '.join(roles)} of this Comparison {'is' if len(roles) == 1 else 'are'} covered by the Declared deviation "
+                f"{declared['declared_deviation_id']}, recorded by {declared['author']}: {declared['text']}"
+            )
+            warnings.append({"code": WARNING_DEVIATION_DECLARED, "message": message})
+    return warnings
 
 
 def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None, read_sequence: int | None = None) -> dict:
@@ -388,6 +420,9 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         if warning is not None:
             warnings.append(warning)
             limitations.append(warning["message"])
+    for warning in declared_deviation_warnings(study, control, candidate):
+        warnings.append(warning)
+        limitations.append(warning["message"])
 
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
     population = {

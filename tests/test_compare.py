@@ -138,3 +138,126 @@ def test_the_status_line_of_compare_names_the_single_feature_warning_beside_the_
     code, out, err = run_cli("compare", "--study", study, "--control", a["seasonal_7"]["assessment_id"], "--candidate", a["ridge_v1"]["assessment_id"])
     assert code == 0, err
     assert f"(compatible, with warning {SINGLE_FEATURE}): delta mae" in out, out
+
+
+# --- #155: a Declared deviation that covers a side ------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def four(tmp_path_factory):
+    from _deviation_helpers import bike_world
+
+    return bike_world(tmp_path_factory.mktemp("four"))
+
+
+@pytest.fixture
+def world(four, tmp_path):
+    import shutil
+
+    study, attempts, assessments = four
+    shutil.copytree(study, tmp_path / "study")
+    return tmp_path / "study", attempts, assessments
+
+
+@pytest.mark.parametrize("roles", [("control",), ("candidate",), ("control", "candidate")], ids=["the Control's Attempt", "the Candidate's", "both"])
+def test_a_declaration_that_cites_a_sides_attempt_puts_one_warning_naming_the_side_its_id_and_its_text_in_the_comparison(world, roles):
+    from _deviation_helpers import a_declaration_covers_the_sides_whose_attempt_it_cites
+
+    a_declaration_covers_the_sides_whose_attempt_it_cites(world, roles)
+
+
+def test_a_declaration_that_cites_the_references_set_covers_both_sides_and_its_warning_names_both(world):
+    from _deviation_helpers import a_references_citation_covers_both_sides
+
+    a_references_citation_covers_both_sides(world)
+
+
+def test_a_comparison_of_two_other_attempts_of_the_study_holds_no_warning_for_a_declaration_that_cites_an_attempt(world):
+    from _deviation_helpers import a_declaration_covers_no_other_side
+
+    a_declaration_covers_no_other_side(world)
+
+
+def test_two_declarations_that_cover_one_comparison_give_one_warning_each_in_the_order_of_their_write_sequence(world):
+    from _deviation_helpers import two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence
+
+    two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence(world)
+
+
+def test_a_withdrawal_covers_no_side_and_no_warning_names_it_or_the_declaration_it_withdrew(world):
+    from _deviation_helpers import a_withdrawal_gives_no_coverage
+
+    a_withdrawal_gives_no_coverage(world)
+
+
+def test_a_comparison_written_before_a_declaration_or_a_withdrawal_is_not_updated_and_a_new_compare_writes_another(world):
+    from _deviation_helpers import a_comparison_is_not_updated_and_a_new_compare_is_the_remedy
+
+    a_comparison_is_not_updated_and_a_new_compare_is_the_remedy(world)
+
+
+def test_a_declaration_that_cites_the_earlier_references_set_does_not_cover_a_side_scored_against_the_corrected_one(tmp_path):
+    from _deviation_helpers import a_corrected_references_set_is_not_covered, bike_world, reassessed, references_of
+    from _revision_helpers import new_revision
+    from _study_helpers import examples_copy
+
+    def corrected_day(table):
+        row = next(r for r in table if r["dteday"] == "2012-03-15")
+        row["cnt"], row["registered"] = str(int(row["cnt"]) + 1000), str(int(row["registered"]) + 1000)
+
+    study, attempts, earlier = bike_world(tmp_path, count=2)
+    earlier_set = references_of(study)
+    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"))
+    assert code == 0, (payload, err)
+    assert references_of(study) != earlier_set
+    a_corrected_references_set_is_not_covered(earlier_set, earlier, reassessed(study, attempts, "regression_mae_v1"), study)
+
+
+def test_a_withdrawn_declaration_covers_nothing_and_a_new_declaration_of_the_same_attempt_has_a_new_id_and_covers_it(world):
+    from _deviation_helpers import compare_ids, declare, ids_named
+
+    study, attempts, assessments = world
+    first = declare(study, [attempts[0]])
+    declare(study, [first["declared_deviation_id"]], text="the review is done")
+    again = declare(study, [attempts[0]])
+    assert again["declared_deviation_id"] != first["declared_deviation_id"]
+    assert ids_named(compare_ids(study, assessments[0], assessments[1])) == [again["declared_deviation_id"]]
+
+
+def test_a_comparison_written_after_a_withdrawal_holds_no_warning_for_it_and_the_earlier_files_and_the_withdrawal_are_as_recorded(world):
+    import json
+
+    from _deviation_helpers import CODE, compare_ids, declare, files
+    from _study_helpers import sha256
+
+    study, attempts, assessments = world
+    declared = declare(study, [attempts[0]])
+    [declaration_file] = files(study)
+    kept = sha256(declaration_file)
+    before = compare_ids(study, assessments[0], assessments[1])
+    before_file = study / "comparisons" / before["comparison_id"] / "comparison.json"
+    kept_comparison = sha256(before_file)
+    withdrawal = declare(study, [declared["declared_deviation_id"]], text="the review is done", author="proxy")
+    after = compare_ids(study, assessments[0], assessments[1])
+    assert [w["code"] for w in before["warnings"]] == [CODE] and [w["code"] for w in after["warnings"]] == []
+    assert sha256(declaration_file) == kept and sha256(before_file) == kept_comparison
+    recorded = json.loads(files(study)[1].read_text(encoding="utf-8"))
+    assert recorded == withdrawal
+    assert (recorded["cited_ids"], recorded["author"], recorded["text"]) == ([declared["declared_deviation_id"]], "proxy", "the review is done")
+
+
+def test_without_json_the_status_line_of_compare_names_the_declared_deviation_code_beside_the_status_and_stderr_holds_its_warning(world):
+    import json
+
+    from _deviation_helpers import CODE, declare
+    from _study_helpers import run_cli
+
+    study, attempts, assessments = world
+    declare(study, [attempts[0]])
+    code, out, err = run_cli("compare", "--study", study, "--control", assessments[0], "--candidate", assessments[1])
+    assert code == 0, (out, err)
+    (line,) = [line for line in out.splitlines() if line.startswith("Comparison ")]
+    record = json.loads((study / "comparisons" / line.split()[1] / "comparison.json").read_text(encoding="utf-8"))
+    assert line.startswith(f"Comparison {record['comparison_id']} ({record['comparability']['status']}") and CODE in line.split("):")[0], line
+    (warning,) = [w for w in record["warnings"] if w["code"] == CODE]
+    assert f"{CODE}: {warning['message']}" in err.splitlines()
