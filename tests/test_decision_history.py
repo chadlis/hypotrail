@@ -444,14 +444,14 @@ def test_the_human_status_of_a_study_with_a_comparison_a_decision_on_it_a_later_
 
 
 CONSEQUENCES_READ = [
-    'A Decision that cites this Comparison is recorded with the option "Keep the Control". The Comparison stops being pending. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
-    'A Decision that cites this Comparison is recorded with the option "Keep the Candidate". The Comparison stops being pending. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
-    'A Decision that cites this Comparison is recorded with the option "Choose neither yet". The Comparison stops being pending. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule.',
+    'A Decision that cites this Comparison is recorded with the option "Keep the Control". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
+    'A Decision that cites this Comparison is recorded with the option "Keep the Candidate". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
+    'A Decision that cites this Comparison is recorded with the option "Choose neither yet". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule.',
 ]
 
 
 def test_the_consequence_texts_status_gives_for_a_pending_decision_are_the_three_texts_read_on_the_ticket(tmp_path):
-    """The three texts exactly as chadlis/hypotrail#163, comment 7083039132, gives them for the reading."""
+    """The three texts exactly as chadlis/hypotrail#163, comment 7083264884, gives them for the reading."""
     from _review_helpers import TRACKS, status
 
     study, _, _, _ = TRACKS["bike"].compared(tmp_path / "base")

@@ -69,7 +69,7 @@ EVIDENCE_STATES = (RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED)
 
 # The question and the options of a pending decision: the same for every Comparison of every Study, and held by no Workload file.
 PENDING_QUESTION = {"id": "keep_after_comparison", "text": "Which Configuration do we keep after this Comparison?"}
-_NOTHING_ELSE = "The Comparison stops being pending. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work"
+_NOTHING_ELSE = "The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work"
 PENDING_OPTIONS = (
     {
         "id": "keep_control",
