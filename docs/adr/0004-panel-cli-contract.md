@@ -28,3 +28,7 @@ A client of a Study, such as a panel that shows it and records decisions, and th
 - A client that passes a stale write sequence gets `STUDY_CHANGED` and `writes_since`, reads again, and decides again: it cannot record a decision over a write it never saw.
 - The write sequence, the write journal and the decision record are part of the record format of a Study.
 - A client that skips `--read-sequence` on a writing command other than `decide` is not protected from a stale write: the rule that it passes it rests on the instructions of L2.2 and L2.6 (chadlis/hypotrail#103).
+
+## Dated lines
+
+- 2026-11-22: `deviation` (chadlis/hypotrail#155) requires `--read-sequence N` and `--request-id` too: "The command requires `--read-sequence` and `--request-id`, as `decide` does" (#155, TB2.2). Where the lines above say that only `decide` requires them, they read `decide` and `deviation`.
