@@ -43,6 +43,14 @@ for the slice issue of the pull request:
    the lines. Its limits: it reads the lines as text, so any value passes `Models:` and `Telemetry:`, any value but
    `unknown` counts as a list, and four `unknown` lines pass while giving the re-evaluation of the round cap no data;
    and only the first line that carries a label is read.
+9. each comment of the slice issue or of one of its sub-issues whose first line names the drive ("the drive", "the drive's")
+   has its ID in the slice's chadlis/hypotrail#75 entry: a comment of #75 whose first line holds "drive decision
+   (delegated)" and whose ID the state comment holds (D-076 on chadlis/hypotrail#75, item 2: "**add** `check_record.py`
+   rule 9: the merge is refused while a comment of the slice issue or of a sub-issue whose first line names the drive is
+   absent from that entry; slices merged before it are skipped."). The rule skips the slices merged before it was added,
+   which `MERGED_BEFORE_DELEGATED_ENTRY` lists, T1's (chadlis/hypotrail#150) the last of them, and reads neither their
+   sub-issues nor #75. Its limit: it reads first lines, so a drive decision under a heading that does not name the drive
+   is not seen.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -160,6 +168,10 @@ def unconverged(routed: dict) -> list:
 MERGED_BEFORE_ROUND_LINES = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138})
 ROUND_LABELS = ("Models:", "Telemetry:", "Refusals:", "Interruptions:")
 KNOWN_TO_THE_DRIVE = ("Refusals:", "Interruptions:")
+DECISION_LOG = 75
+DRIVE_HEADING = re.compile(r"\bthe drive(?:'s)?\b", re.IGNORECASE)
+DELEGATED_ENTRY = re.compile(r"\bdrive decision \(delegated\)", re.IGNORECASE)
+MERGED_BEFORE_DELEGATED_ENTRY = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150})
 
 
 def round_line_problems(number: int, comment: dict) -> list:
@@ -183,15 +195,35 @@ def round_line_problems(number: int, comment: dict) -> list:
     return found
 
 
-def problems(pr_body: str, comments: list, slice_number: int | None = None) -> list:
-    """The reasons the record of a slice is incomplete: one string each; empty when it is complete."""
+def state_comments(comments: list) -> list:
+    return [c for c in comments if re.match(r"##.*\bstate\b", first_line(c), re.IGNORECASE) and not re.search(r"\bround \d", first_line(c))]
+
+
+def unlisted_decisions(comments: list, tickets: dict, log: list, slice_number: int | None) -> list:
+    """The comments of the slice issue and of its sub-issues whose first line names the drive and whose ID the slice's delegated entry does not hold.
+
+    The entry is each comment of the log whose first line holds "drive decision (delegated)" and whose ID a state comment holds."""
+    linked = "\n".join(c["body"] or "" for c in state_comments(comments))
+    entries = "\n".join(c["body"] or "" for c in log if DELEGATED_ENTRY.search(first_line(c)) and re.search(rf"\b{c['id']}\b", linked))
+    return [
+        f"comment {c['id']} on #{number} names the drive in its first line, and the slice's #{DECISION_LOG} entry labelled 'drive decision (delegated)', linked from the state comment, does not list it"
+        for number, issue_comments in [(slice_number, comments), *sorted(tickets.items())]
+        for c in issue_comments
+        if DRIVE_HEADING.search(first_line(c)) and not re.search(rf"\b{c['id']}\b", entries)
+    ]
+
+
+def problems(pr_body: str, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None) -> list:
+    """The reasons the record of a slice is incomplete: one string each; empty when it is complete.
+
+    `tickets` maps each sub-issue of the slice issue to its comments, and `log` holds the comments of the decision log."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
     routed = {int(m.group(1)): c for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? routing", first_line(c))] if m}
     found = []
     if not reviewed:
         return ["no review of record is posted: no comment of the form 'round <r>: <axis> axis (review of record ...'"]
 
-    states = [c for c in comments if re.match(r"##.*\bstate\b", first_line(c), re.IGNORECASE) and not re.search(r"\bround \d", first_line(c))]
+    states = state_comments(comments)
     counts = [int(m.group(1)) for c in states for m in [re.search(r"Review rounds(?: used)?:\**\s*(\d+) of %d" % ROUND_LIMIT, c["body"])] if m]
     if not counts:
         found.append("the state comment has no line 'Review rounds used: N of 5'")
@@ -222,6 +254,8 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None) -> l
     if slice_number not in MERGED_BEFORE_ROUND_LINES:
         for number, comment in sorted(routed.items()):
             found += round_line_problems(number, comment)
+    if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
+        found += unlisted_decisions(comments, tickets or {}, log or [], slice_number)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
@@ -504,7 +538,11 @@ def check(repo: str, number: int, subject: str | None) -> str | None:
             "End the squash subject with '(#<slice>)' or write 'Part of #<slice>' in the PR body."
         )
     slice_number = candidates.pop()
-    reasons = problems(pull.get("body") or "", gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), slice_number)
+    comments, tickets, log = gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), {}, []
+    if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
+        tickets = {item["number"]: gh_pages(f"repos/{repo}/issues/{item['number']}/comments") for item in gh_pages(f"repos/{repo}/issues/{slice_number}/sub_issues")}
+        log = gh_pages(f"repos/{repo}/issues/{DECISION_LOG}/comments")
+    reasons = problems(pull.get("body") or "", comments, slice_number, tickets, log)
     if reasons:
         raise Refusal(f"the record of slice #{slice_number} is incomplete, so pull request #{number} is not merged:\n" + "\n".join(f"- {r}" for r in reasons))
     return None
