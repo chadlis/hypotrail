@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 
 import pytest
 
@@ -18,7 +19,16 @@ SOURCE = "The check refuses a call. It also logs every refusal to the journal.\n
 
 
 @pytest.fixture
-def sources(tmp_path):
+def project(tmp_path):
+    """An empty repository as the worktree, so that the files of this repository (this test among them) are not sources."""
+    directory = tmp_path / "project"
+    directory.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=directory, check=True)
+    return directory
+
+
+@pytest.fixture
+def sources(tmp_path, project):
     directory = tmp_path / "sources"
     directory.mkdir()
     (directory / "issue-1-body.md").write_text(SOURCE)
@@ -26,9 +36,10 @@ def sources(tmp_path):
 
 
 def hook(prompt: str, sources, extra_env: dict | None = None, stdin: str | None = None):
-    env = {**os.environ, "HYPOTRAIL_PROMPT_SOURCES": str(sources), "CLAUDE_PROJECT_DIR": str(ROOT), **(extra_env or {})}
+    project = sources.parent / "project"
+    env = {**os.environ, "HYPOTRAIL_PROMPT_SOURCES": str(sources), "CLAUDE_PROJECT_DIR": str(project), **(extra_env or {})}
     payload = stdin if stdin is not None else json.dumps({"tool_name": "Agent", "tool_input": {"prompt": prompt}})
-    return run("fix_prompt_check", stdin=payload, env=env, cwd=ROOT)
+    return run("fix_prompt_check", stdin=payload, env=env, cwd=project)
 
 
 def context_of(result) -> str:
@@ -137,16 +148,16 @@ def test_an_error_of_the_hook_itself_is_a_warning_and_the_call_goes_through(sour
         assert "Fix-prompt check failed and did not check the prompt" in context_of(result)
 
 
-def test_a_source_that_cannot_be_read_makes_a_missing_quotation_unchecked_not_missing(tmp_path):
+def test_a_source_that_cannot_be_read_makes_a_missing_quotation_unchecked_not_missing(tmp_path, project):
     fake = tmp_path / "bin"
     fake.mkdir()
     gh = fake / "gh"
     gh.write_text("#!/bin/sh\necho offline >&2\nexit 1\n")
     gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
-    env = {**os.environ, "PATH": f"{fake}:{os.environ['PATH']}", "CLAUDE_PROJECT_DIR": str(ROOT)}
+    env = {**os.environ, "PATH": f"{fake}:{os.environ['PATH']}", "CLAUDE_PROJECT_DIR": str(project)}
     env.pop("HYPOTRAIL_PROMPT_SOURCES", None)
     payload = json.dumps({"tool_input": {"prompt": f'{TRIGGER}. B1-P-01, #1 Tightened C says: "The check was never written."'}})
-    context = context_of(run("fix_prompt_check", stdin=payload, env=env, cwd=ROOT))
+    context = context_of(run("fix_prompt_check", stdin=payload, env=env, cwd=project))
     assert "source not read: GitHub issues" in context
     assert "unchecked: a source could not be read" in context and "not found word for word" not in context
 
