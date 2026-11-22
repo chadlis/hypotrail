@@ -9,8 +9,8 @@ Product purpose: [PRODUCT.md](PRODUCT.md). Current requirements: [L1 issue #1](h
 | Horizon | Result for the user | Commitment |
 |---|---|---|
 | L1 | Evaluate Bike and Chinook from outputs to an inspectable Comparison and report. | Existing committed milestone. |
-| L2 candidate | Conduct and resume a guided review, with a minimal visual Study view backed by the same evaluation core. | Recommended next direction. Specify after the first complete L1 walkthrough. |
-| L3 candidate | Use the product on a new project and add a further Track only when its evaluation contract is explicit. | Explore after the guided review pilot. |
+| L2 | Make one review decision, end to end, in a VS Code webview panel that is a client of the CLI, and find it again in a fresh session. | Selected by the owner, then narrowed (D-062 on chadlis/hypotrail#75, change 3). "Built, not demonstrated" until the owner's demonstration; "usable" waits for an engineer who did not implement it (D-063, D-068 and D-077 on chadlis/hypotrail#75). |
+| L3 | Use the product on five further Tracks or Workloads, each with its evaluation contract written first. | Selected by the owner. No construction before the owner's demonstration of L2 (D-068 on chadlis/hypotrail#75). Its breadth waits on the decision pilot, a pending gate without a date (D-062 on chadlis/hypotrail#75, changes 4 and 5). |
 | Later options | Richer notebook and IDE interaction, clustering, pipeline integrations and public distribution. | Unordered options, not promised releases. |
 
 These identifiers describe direction, not release numbers or calendar dates.
@@ -20,6 +20,14 @@ These identifiers describe direction, not release numbers or calendar dates.
 - L3 is five further Tracks or Workloads.
 
 This was decided without pilot evidence. The pilot in « Demonstration before calling L2 usable » stays the gate for calling L2 usable ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422), decision by proxy). The sections below keep the candidate text as it was written. Where the selection and that text disagree, the selection prevails.
+
+**Decisions of 2026-11-22.** Three owner decisions and one decision by proxy on chadlis/hypotrail#75 change L2 and L3 as selected above:
+- [D-062](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7074979450), change 3: "L2 is narrowed to one review decision, end to end." The L2 section below is rewritten for it.
+- D-062, change 4, as amended by [D-063](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7075198791): a decision pilot gates how far L3 widens, and L2 is recorded as "built, not demonstrated". See "Pending gate: the decision pilot" below.
+- [D-068](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7076156755): the chain stops at the end of L2 for the owner's demonstration, before any L3 construction.
+- [D-077](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7080379605) (decision by proxy): the eleven points the rewrite left open, among them which decision L2 delivers and what the owner's demonstration lifts.
+
+Where these decisions and the text below disagree, the decisions prevail.
 
 ## L1 complete the current evaluation milestone
 
@@ -43,21 +51,28 @@ The owner amendment limits the pre-campaign semantic Reference review to D07, D0
 
 Use the L1 report to collect interaction feedback. Building the L2 workflow is not a new condition for closing L1.
 
-## L2 candidate guided review and a minimal visual Study view
+## L2 one review decision, end to end
 
 **Outcome:** a reviewer can understand a Study, resolve a consequential choice and return later without reconstructing its history from a chat.
 
 The new engine supplies evaluation evidence. A small workflow layer supplies the current review question, the decision record and the next permitted action. This layer remains optional for direct evaluation.
 
-### Candidate scope
+*Rewritten 2026-11-22.* The owner narrowed L2 (D-062 on chadlis/hypotrail#75, change 3):
 
-- Begin either before a native Attempt or after an Import. State which production and methodological facts can actually be checked.
-- On the Bike Workload, guide the user through context and Protocol review, the first Comparison, and a decision with its evidence and limits.
-- Exercise the same review and resumption mechanism on retained Chinook outputs. Retained outputs or clearly marked fixtures are enough for interface checks. They do not constitute a fresh live agent evaluation.
-- Persist the decision, its author or declared source, the artifacts it concerns and its current applicability.
-- Show a minimal visual view with: scope, current position, items requiring attention, pending decision, evidence and history.
-- After a Configuration changes, produce a new Attempt as required. After a permitted rescore, produce a new Assessment. Surface the consequences for conclusions that referenced older evidence.
+> L2 is narrowed to one review decision, end to end. That decision distinguishes "evidence rescored" from "result changed", and shows the Assessments a Comparison depends on.
+
+The earlier candidate scope named several decision points, on Bike and on retained Chinook outputs. L2 now delivers one decision type, the decision on a Comparison (D-077 on chadlis/hypotrail#75, Q2). The owner's demonstration uses Bike's first Comparison, `seasonal_7` against `ridge_v1` on `dev`, and the tests run the same decision on Chinook fixture Studies. The parent issue chadlis/hypotrail#103 owns the acceptance.
+
+### Scope
+
+- One review decision, taken from the pending question to the recorded Decision, and found again in a fresh session.
+- The evidence of that decision: the Comparison it is about, the Assessments that Comparison depends on, and the limits recorded with them.
+- When the evidence of a recorded Decision changes, the review says what happened: "evidence rescored", "result changed" or, for a repeated Assessment, "repeated, nothing changed" (D-077, Q3).
+- A VS Code webview panel that shows the pending decision, its evidence and its history. It reads the Study and records the Decision through the CLI, and keeps no state of its own ([ADR 0004](../adr/0004-panel-cli-contract.md)).
+- The two chat channels, limited to that one decision: a Claude Code hook and a Copilot tool, so that the next chat turn knows a Decision recorded in the panel (D-077, Q1).
 - Reconstruct the pending work in a fresh session without rerunning an operation whose outcome is unknown.
+
+Delivered: the Decision record, the Write sequence and the contract between a client and the CLI (L2.1, chadlis/hypotrail#104).
 
 For a change to population, Partitions or availability rules, define the transition explicitly before implementation. Do not edit a frozen Protocol in place. A new Study must retain links to the earlier work and relevant exposure disclosures. Corrections to References and rescoring retain L1's versioned Assessment semantics.
 
@@ -77,15 +92,33 @@ One engineer who did not implement the slice can identify the pending decision, 
 
 Observe the pilot and record remaining confusion. Do not infer validated usability from screenshots or automated tests alone.
 
-The next specification should choose a few consequential decision points. It should not reproduce every old confirmation or require a lesson at every step. No generic workflow editor, universal invalidation engine or full notebook editor is required.
+*Amended 2026-11-22:* three things are kept apart (D-077 on chadlis/hypotrail#75, Q9).
+- **"Built, not demonstrated".** L2 is recorded so until someone who did not build it has demonstrated it (D-063 on chadlis/hypotrail#75, "D-062, amended", item 3). The owner demonstrates it himself, before any L3 construction: « Je fais moi-même la démo et les tests de L2 avant toute construction de L3. » (D-068 on chadlis/hypotrail#75). His demonstration lifts this status, and he is the one who lifts it. The demonstration protocol is written before the demonstration, in L2's milestone acceptance. Each blocker the owner reports becomes an issue, and a blocker that prevents a task of the protocol is fixed in a slice of its own, before L3.
+- **"Usable".** The owner's demonstration does not make L2 usable. That still waits for the engineer of the first paragraph of this section, who did not implement it.
+- **The decision pilot.** It is a distinct gate, on L3's breadth: see "Pending gate: the decision pilot" below.
 
-## L3 candidate reuse on another project
+~~The next specification should choose a few consequential decision points.~~ *Amended 2026-11-22:* L2 has one decision point (D-062, change 3). It should not reproduce every old confirmation or require a lesson at every step. No generic workflow editor, universal invalidation engine or full notebook editor is required.
+
+## Pending gate: the decision pilot
+
+A decision pilot with ML engineers, against a control condition (the team's usual tools and a review sheet), will gate how far L3 widens (D-062 on chadlis/hypotrail#75, change 4). It has no date: no engineers are available now. L2 and L3 go ahead without pilot evidence, and the pilot runs when engineers are available.
+
+This gate is neither the owner's demonstration of L2 nor the engineer's walk that lets L2 be called usable (D-077 on chadlis/hypotrail#75, Q9).
+
+## L3 reuse on another project
 
 **Outcome:** another Study can use the same contracts without copying the engine.
 
 First onboard a second Workload in an existing Track, initially with public data. This tests whether framing, Import mapping, reports and the guided review are tied to Bike or Chinook.
 
-Then select one additional Track only if it serves a concrete need. Multiclass classification is a useful candidate. Before committing it, state the population, classes, Reference meaning, Metrics, baselines, missing-output treatment, appropriate Partitions and the interpretation of the Comparison. A reuse table alone is not that specification.
+~~Then select one additional Track only if it serves a concrete need. Multiclass classification is a useful candidate.~~ *Amended 2026-11-22* (D-063 on chadlis/hypotrail#75, "D-062, amended", item 4): the owner selected five Tracks or Workloads ([end state, item 3](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378)), and D-062, change 5, keeps them: "L3 keeps its five Tracks, with Track D widened. Its breadth may be revised after the pilot."
+- A: multiclass tabular classification.
+- B: binary classification with a declared decision threshold and error costs.
+- Regression: read by the drive as a non-temporal tabular regression Track; the owner may correct this reading.
+- C: a second agent Workload without SQL, with answers checkable without an LLM judge.
+- D: multi-horizon forecasting over several series ([owner instruction of 2026-11-21](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7060192445)).
+
+Before committing each one, state the population, classes, Reference meaning, Metrics, baselines, missing-output treatment, appropriate Partitions and the interpretation of the Comparison. A reuse table alone is not that specification.
 
 A regression result, a classification probability and a cluster assignment do not share the same scientific meaning. Clustering therefore remains an option requiring its own evaluation question, stability or external criteria where justified, and honest limits when no Reference labels exist.
 
