@@ -47,6 +47,12 @@ def test_the_settings_register_the_script_as_a_pretooluse_command_hook_on_bash()
     assert command.endswith("/.claude/hooks/no-live-key.sh\"") or command.endswith("/.claude/hooks/no-live-key.sh")
 
 
+def test_a_failure_or_a_timeout_of_the_hook_blocks_the_command():
+    entries = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    registered = [hook for entry in entries for hook in entry["hooks"] if "no-live-key.sh" in hook["command"]]
+    assert [hook.get("onFailure") for hook in registered] == ["block"]
+
+
 def test_an_ordinary_command_is_prefixed_with_the_unset_and_other_fields_are_kept():
     result = run_command("ls -l", description="list", timeout=5000, run_in_background=False)
     assert result.returncode == 0
