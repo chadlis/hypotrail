@@ -1311,6 +1311,46 @@ def test_the_comparison_record_tables_equal_the_contract_schema_and_the_layout_e
     assert set(layout) == written
 
 
+def comparisons_by_warning_code(tmp_path) -> dict:
+    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study."""
+    from _agent_compare_helpers import answer_lines, compare, imported, native
+    from _chinook_helpers import init_chinook
+
+    study, _ = init_chinook(tmp_path, name="warnings")
+    seeds = [imported(tmp_path, study, name, answer_lines())[0] for name in ("seed-a", "seed-b")]
+    _, first = native(study, seeds[0])
+    _, later = native(study, seeds[1])  # built from the later import: its Attempt started after the first one finished
+    _, without_tools = native(study, seeds[0], tools=None)
+    no_digests, without_cases = native(study, seeds[0])
+    path = Path(study) / "attempts" / no_digests["attempt_id"] / "attempt.json"
+    path.write_text(json.dumps({key: value for key, value in json.loads(path.read_text()).items() if key != "case_digests"}))
+    _, imports = imported(tmp_path, study, "import", answer_lines())
+    pairs = {
+        "COMPARISON_DESCRIPTIVE_IMPORT": (first, imports),
+        "COMPARISON_FACTOR_NOT_ESTABLISHED": (first, without_tools),
+        "COMPARISON_CASES_NOT_ESTABLISHED": (first, without_cases),
+        "COMPARISON_ORDER_NOT_ALTERNATED": (first, later),
+    }
+    statuses = {}
+    for code, (control, candidate) in pairs.items():
+        exit_code, payload, err = compare(study, control, candidate)
+        assert exit_code == 0, (payload, err)
+        assert code in [w["code"] for w in payload["comparison"]["warnings"]], code
+        statuses[code] = payload["comparison"]["comparability"]["status"]
+    return statuses
+
+
+def test_the_warning_code_table_of_chapter_07_equals_the_warning_codes_and_what_compare_writes_for_a_pair_that_holds_each(page, tmp_path):
+    from _agent_compare_helpers import warning_codes
+
+    rows = attrs_of(page, "comparison-warnings", "data-code")
+    assert set(rows) == set(warning_codes().values())  # both ways: a row for each code, a code for each row
+    statuses = comparisons_by_warning_code(tmp_path)
+    for code, row in rows.items():
+        assert row["data-descriptive-only"] == ("yes" if statuses[code] == "descriptive_only" else "no"), code
+        assert row["data-compatible"] == ("yes" if statuses[code] == "compatible" else "no"), code
+
+
 def test_the_compare_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     from _assess_helpers import construct
     from _compare_helpers import assessed, compare, forged
@@ -1928,6 +1968,22 @@ def test_the_paragraph_that_says_when_an_agent_comparison_is_descriptive_names_t
     chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
     (paragraph,) = [p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "<code>descriptive_only</code>" in p and "<code>COMPARISON_FACTOR_NOT_ESTABLISHED</code>" in p]
     assert f"<code>{agent_comparison.WARNING_CASES_NOT_ESTABLISHED}</code>" in paragraph
+
+
+def limit_cards(chapter) -> dict:
+    """{data-limit: the card's text} of the cards after a chapter's "Limits" heading that carry a `data-limit`."""
+    section = chapter.split('<p class="sub2">Limits</p>', 1)[1].split('<p class="sub2">', 1)[0]
+    return {m[1]: plain_text(m[2]) for m in re.finditer(r'<div class="card"[^>]*\bdata-limit="([^"]+)"[^>]*>(.*?)</div>', section, re.S)}
+
+
+def test_chapter_11_limits_state_that_a_compatible_comparison_can_hold_the_order_warning_and_the_two_limits_of_its_derivation():
+    order = "COMPARISON_ORDER_NOT_ALTERNATED"
+    cards = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8"))
+    invariant = cards.get("compatible-with-warning", "")
+    assert "compatible" in invariant and order in invariant, invariant
+    overlap, imported = cards.get("order-overlap", ""), cards.get("order-import", "")
+    assert order in overlap and "overlap" in overlap, overlap
+    assert order in imported and "Import" in imported, imported
 
 
 def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists():
