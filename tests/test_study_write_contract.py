@@ -208,13 +208,13 @@ def test_the_literal_check_finds_a_string_in_place_of_a_command_or_a_kind_and_ac
     ]
 
 
-# --- the receiver of every Write is spelled `write` ------------------------------------------------------------------------------
+# --- `locked(...)` is only the item of a `with`; the Write it binds is `write`, used only in closed ways inside its block and passed only to a parameter named `write`; `Write` is built only in its module ---
 
 
 LOCKED = f"{STUDY_WRITE}.locked"
 
 
-def test_under_src_locked_is_only_the_item_of_a_with_that_binds_write_and_write_is_used_only_in_closed_ways_inside_its_block_and_Write_is_built_only_in_its_module():
+def test_under_src_locked_is_only_the_item_of_a_with_that_may_have_no_as_and_a_name_it_binds_is_write_and_write_is_used_only_in_closed_ways_inside_its_block_and_passed_only_to_parameters_named_write_and_Write_is_built_only_in_its_module():
     """The receiver of a Write is held in the closed ways of `receiver_violations`. Patterns that the check still cannot see, which no code under `src` uses:
 
     - a function or lambda defined inside the block that calls a method of the Write and is then used after the block (returned, stored, called later);
@@ -223,9 +223,8 @@ def test_under_src_locked_is_only_the_item_of_a_with_that_binds_write_and_write_
     - a factory or a class that the module gets through a star import, which the resolver does not follow;
     - references that are the base of an attribute, such as `study_write.locked.__wrapped__(study, "x")`;
     - references passed on without a call, such as `functools.partial(study_write.Write)`;
-    - Python's scope declarations and comprehension bindings, such as a function that declares `nonlocal write` or `global write` and reads it, or a comprehension that binds `write`;
-    - closures returned from a helper, such as `g(write)` that returns a closure over `write`, called after the block;
-    - `type=` checked by keyword name only, such as `_read_sequence_value` passed as `type=` to a call other than argparse's `add_argument`.
+    - Python's scope declarations and comprehension bindings, such as a function that declares `nonlocal write` and assigns to `write` (the check counts it as the function's own name), `global write` read from a different module-level function, or a comprehension that binds `write`;
+    - closures returned from a helper, such as `g(write)` that returns a closure over `write`, called after the block.
 
     These are stated limits. A later escape that code under `src` actually uses is a blocker.
     """
@@ -315,6 +314,7 @@ def test_the_receiver_check_accepts_a_method_called_through_its_class_with_the_i
 
 
 def test_the_read_sequence_value_of_the_command_line_is_used_as_a_type_argument_only_and_never_called():
+    """The check accepts `type=` by keyword name on any call. `_read_sequence_value` passed as `type=` to a call other than argparse's `add_argument` is a stated limit."""
     assert read_sequence_value_violations(SOURCE) == []
     assert read_sequence_value_uses(SOURCE) == ["hypotrail.cli:_add_read_sequence"]  # a check that finds no use would pass as well
 
