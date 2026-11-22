@@ -769,7 +769,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -4381,6 +4381,10 @@ def test_the_decide_refusal_table_equals_the_code_exit_stage_and_details_of_each
         assert words(row["data-details"]) == details, code
     assert found["DECISION_FIELD_EMPTY"] == (2, "decision", {"field"})
     assert found["CITED_ID_NOT_FOUND"] == (2, "decision", {"ids"})
+    assert set(rows) == {
+        "INVALID_ARGUMENTS", "REQUEST_ID_EMPTY", "DECISION_FIELD_EMPTY", "STUDY_NOT_FOUND", "STUDY_LOCKED",
+        "REQUEST_CONFLICT", "STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD", "CITED_ID_NOT_FOUND", "CONTRACT_VIOLATION",
+    }  # `decide` gains no refusal: the ten codes of the table at `7db697f`
 
 
 def prose_of(chapter: str) -> str:
@@ -4998,3 +5002,42 @@ def test_chapter_17_defines_in_bold_each_word_of_the_evidence_change_it_uses(wor
         return
     sentences = [s for s in re.split(r"(?<=[.])\s+", chapter) if re.search(rf"<b>{word}</b>", s, re.I)]
     assert len(sentences) == 1, (word, sentences)
+
+
+# --- #163: the pending decisions in `status --json` (chapter 17) -------------------------------------------------------------------------------
+
+
+def test_the_pending_keys_table_lists_the_keys_of_an_entry_of_its_question_and_of_an_option(page, tmp_path):
+    from _review_helpers import TRACKS, status
+
+    study, _, _, _ = TRACKS["bike"].compared(tmp_path / "base")
+    [entry] = status(study)["pending_decisions"]
+    table = re.search(r'<table[^>]*id="pending-keys".*?</table>', page, re.S)[0]
+    found: dict = {}
+    for attributes in re.findall(r"<tr ([^>]*data-field[^>]*)>", table):
+        values = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', attributes))
+        found.setdefault(values["of"], set()).add(values["field"])
+    assert found == {"entry": set(entry), "question": set(entry["question"]), "option": set(entry["options"][0])}
+    assert (len(entry), len(entry["question"]), len(entry["options"][0])) == (5, 2, 3)
+
+
+def test_the_pending_question_table_gives_the_identifier_and_the_text_of_the_question_and_of_each_option_the_core_holds(page):
+    from hypotrail.core import decisions
+
+    rows = attrs_of(page, "pending-question", "data-code")
+    expected = {decisions.PENDING_QUESTION["id"]: decisions.PENDING_QUESTION["text"], **{option["id"]: option["text"] for option in decisions.PENDING_OPTIONS}}
+    assert {code: html.unescape(row["data-text"]) for code, row in rows.items()} == expected
+    assert len(rows) == 4
+
+
+def test_chapter_17_gives_the_three_conditions_of_a_pending_decision_in_its_prose():
+    prose = plain_text(prose_of(chapter_text("17-decisions.html")))
+    [sentence] = [s for s in re.split(r"(?<=[.])\s+", prose) if "is pending when" in s]
+    for part in ("current revision", "no later Assessment", "no Decision that applies cites it"):
+        assert part in sentence, (part, sentence)
+
+
+def test_chapter_17_says_decide_records_the_question_and_option_as_given_and_checks_neither_and_drops_the_declared_question_sentence():
+    card = plain_text(re.search(r'<div class="card"[^>]*><h3>Free text, no declared question</h3>.*?</div>', chapter_text("17-decisions.html"), re.S)[0])
+    assert "as given" in card and "checks neither" in card, card
+    assert "declares no question with options yet" not in plain_text(chapter_text("17-decisions.html"))

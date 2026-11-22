@@ -223,3 +223,29 @@ def test_the_kind_of_the_declared_deviation_record_is_the_glossary_term_and_its_
     from hypotrail.core import deviations
 
     assert "deviation" in deviations.DEVIATIONS_DIR
+
+
+def _glossary_entry(text: str, term: str) -> list:
+    """The lines of the GLOSSARY entry `term`, from its heading to the blank line that ends it; [] when no line starts the entry."""
+    lines = text.splitlines()
+    starts = [at for at, line in enumerate(lines) if line.startswith(f"**{term}**")]
+    if not starts:
+        return []
+    entry = []
+    for line in lines[starts[0]:]:
+        if not line.strip():
+            break
+        entry.append(line)
+    return entry
+
+
+def test_the_glossary_entry_pending_decision_says_it_is_derived_never_stored_and_not_a_decision_and_avoids_open_decision_and_pending_choice():
+    # "#163 gains a criterion for an entry **Pending decision**: a Comparison of the current revision that no applying Decision cites and whose two
+    # Assessments have no later Assessment; derived at read, never stored, not a **Decision**." (D-078 on chadlis/hypotrail#75, item 8)
+    entry = _glossary_entry((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"), "Pending decision")
+    assert entry, "no line of GLOSSARY.md starts the entry **Pending decision**"
+    text = " ".join(entry)
+    for part in ("no applying Decision cites", "no later Assessment", "never stored", "not a **Decision**"):
+        assert part in text, (part, text)
+    [avoid] = [line for line in entry if line.startswith("_Avoid_")]
+    assert "open decision" in avoid and "pending choice" in avoid, avoid

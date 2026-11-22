@@ -27,6 +27,10 @@ _Avoid_: note, verdict, conclusion
 One known limit on what results of a Study show, declared in the Study because its records cannot establish it (for example an owner review of References still pending): what is declared, its author and the ids of the Study's records it cites. It is a record of the Study, never rewritten; a later record can withdraw it, and a derived deviation is a deviation but not a Declared deviation.
 _Avoid_: caveat, waiver, limitation, warning
 
+**Pending decision**:
+A Comparison of the current revision that no applying Decision cites and whose two Assessments have no later Assessment; it comes with a fixed question and options, which the core supplies. It is derived when the Study is read and never stored, and it is not a **Decision**: answering it records one.
+_Avoid_: open decision, pending choice
+
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
 _Avoid_: case (for this meaning), task type, family, pipeline

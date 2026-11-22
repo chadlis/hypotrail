@@ -40,6 +40,10 @@ otherwise `{state, lines}`, one line per such Assessment (its anchor), in the or
 otherwise; a later Assessment counts only when its `rescoring.earlier_assessment_id` is the anchor or an Assessment later than it (`_counts`). The
 `state` of `evidence_change` is the strongest of its lines. A line shows the Metric values of the anchor and of the latest later Assessment as their
 records hold them, and no difference of the two.
+
+`status` also lists the pending decisions (`pending`): a Comparison is pending when both its Assessments are of the current revision, neither has
+a later Assessment, and no decision that applies cites it. Each comes with the one question and the three options of `PENDING_QUESTION` and
+`PENDING_OPTIONS`, each option with its consequence text. `decide` records a question and an option as given and checks neither against them.
 """
 
 import contextlib
@@ -62,6 +66,30 @@ REASON_CODES = (CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED, COMP
 RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED = "result_changed", "evidence_rescored", "repeated"
 # the states of `evidence_change`, the strongest first
 EVIDENCE_STATES = (RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED)
+
+# The question and the options of a pending decision: the same for every Comparison of every Study, and held by no Workload file.
+PENDING_QUESTION = {"id": "keep_after_comparison", "text": "Which Configuration do we keep after this Comparison?"}
+_NOTHING_ELSE = "The Comparison stops being pending. Nothing else is written, and the Study enforces nothing on later work"
+PENDING_OPTIONS = (
+    {
+        "id": "keep_control",
+        "text": "Keep the Control",
+        "consequence": f'A Decision that cites this Comparison is recorded with the option "Keep the Control". {_NOTHING_ELSE}.',
+    },
+    {
+        "id": "keep_candidate",
+        "text": "Keep the Candidate",
+        "consequence": f'A Decision that cites this Comparison is recorded with the option "Keep the Candidate". {_NOTHING_ELSE}.',
+    },
+    {
+        "id": "keep_neither",
+        "text": "Choose neither yet",
+        "consequence": (
+            f'A Decision that cites this Comparison is recorded with the option "Choose neither yet". {_NOTHING_ELSE}: '
+            "a later compare writes a new Comparison that is pending under the same rule."
+        ),
+    },
+)
 
 
 def records(study) -> list:
@@ -214,6 +242,39 @@ def history(study) -> list:
         reasons = _reasons(record, **shared)
         rows.append({**record, "applies": not reasons, "reasons": reasons, "evidence_change": _evidence_change(record, **shared)})
     return rows
+
+
+def pending(study, rows: list) -> list:
+    """The pending decisions: each Comparison of the current revision whose two Assessments have no later Assessment and that no Decision of
+    `rows` (the `history`) that applies cites, in the order of `write_journal.comparison_order`, with the question and the options (read only).
+
+    An Assessment is of the current revision when its record holds a `study_revision` whose `revision` is the Study's; one that holds none, or
+    that the Study does not hold, is not.
+    """
+    study = Path(study)
+    revision = layout.read_spec(study)["revision"]
+    assessments = {record["assessment_id"]: record for record in layout.assessment_records(study)}
+    order = write_journal.assessment_order(study)
+    cited = {cited_id for row in rows if row["applies"] for cited_id in row["cited_ids"]}
+    found = []
+    for comparison in sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)):
+        (_, control), (_, candidate) = sides(comparison)
+        if comparison["comparison_id"] in cited:
+            continue
+        if not all(side in assessments and (assessments[side].get("study_revision") or {}).get("revision") == revision for side in (control, candidate)):
+            continue
+        if any(_later(assessments[side], assessments, order) for side in (control, candidate)):
+            continue
+        found.append(
+            {
+                "comparison_id": comparison["comparison_id"],
+                "control_assessment_id": control,
+                "candidate_assessment_id": candidate,
+                "question": dict(PENDING_QUESTION),
+                "options": [dict(option) for option in PENDING_OPTIONS],
+            }
+        )
+    return found
 
 
 def _invalid(message: str) -> InvalidInputError:
