@@ -5,6 +5,14 @@
 
 `tests/test_fix_prompt_check.py` runs the quotation check on them.
 
-## Known gap
+## Stated limit: the hook as it ran and its fixtures
 
-The warnings "finding IDs: the prompt names none" posted for F1's rounds 1 and 2 (comments 7073497019 and 7073750373 on chadlis/hypotrail#121) do not reproduce on the posted prompt text: the checker finds the IDs of `f1-round-1` and `f1-round-2`. No fixture covers them. Deduction, not checked: the Agent call carried a short prompt that contained "This is a review fix" and pointed to the prompt file, so the hook checked that short prompt, which names no ID, and not the file.
+D-061 on chadlis/hypotrail#75, as amended by D-063 on chadlis/hypotrail#75, item 5: "Before the fixtures are trusted, the divergence between the hook as it ran and its fixtures is explained or stated as a limit."
+
+Known facts:
+- On F1's rounds 1 and 2, the hook as it ran printed one warning each, "finding IDs: the prompt names none" (comments 7073497019 and 7073750373 on chadlis/hypotrail#121), and no quotation warning.
+- On the posted prompt text (`f1-round-1`, `f1-round-2`), the checker of c77b9a6 (`git log` gives it no other version before this branch) finds the prompts' finding IDs and gives 5 quotation warnings that the tests hold true: 4 on round 1 and 1 on round 2. So the hook as it ran missed those 5 true warnings and raised 2 false ones.
+- On rounds 3 and 4 and on the D-060 prompt, the checker of c77b9a6 gives on the fixtures exactly what the hook printed (comments 7074001592 and 7074322178 on #121, and the D-060 warning).
+- No fixture covers the 2 "names none" warnings.
+
+Deduction, not checked: in rounds 1 and 2, the Agent call carried a short prompt that contained "This is a review fix" and pointed to the prompt file. The hook then checked that short prompt, which names no ID and quotes nothing, and not the file.
