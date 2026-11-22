@@ -9,7 +9,8 @@ shown to the user and is not given to the model. The drive posts the findings be
 
 1. Quotations. A quotation that the prompt attributes (a `#n`, `D-nnn`, `Tightened`, `c<n>`, `Q<n>`, `ADR n` or `.md`
    file, or "says"/"asks", within 70 characters before it) must be found word for word in a source, and must be a
-   whole sentence, line or list item of it. A quotation that elides words with "…" is partial by declaration.
+   whole sentence, heading or list item of it; a line break of the source bounds a quotation only beside a heading or
+   a list item, never inside wrapped prose. A quotation that elides words with "…" is partial by declaration.
    D-061 on chadlis/hypotrail#75, item 5: "`fix_prompt_check.py` parses a list item spread over several lines as one
    item, takes an ellipsis that appears in the source as part of the quotation, and ignores short quoted labels." So:
    - a list item of a source whose lines after the first are indented under its marker is one item. A run of its lines
@@ -50,7 +51,8 @@ DECISION_CUE = re.compile(r"#\d+|D-\d+|Tightened|\bc\d\b|\bQ\d|\bADR \d+")
 TEXT_CUE = re.compile(r"\.md\b|\bsays?\b|\basks?\b")
 ELISION = re.compile(r"\u2026|(?<=\s)\.\.\.(?=\s|$)|(?<=\w)\.\.\.$")
 FINDING_ID = re.compile(r"\b[A-Z]\d+[a-z]?-[A-Z]-\d{2}\b")
-SENTENCE_START = re.compile(r'(^|[.:;!?]\s|[-*>|]\s|\d\.\s|\(|"|«\s?|\n)$')
+SENTENCE_START = re.compile(r'(^|[.:;!?]\s|[-*>|]\s|\d\.\s|\(|"|«\s?)$')
+ITEM_LINE = re.compile(r"(?:#+|[-*+]|\d+\.)\s")
 LIST_MARKER = re.compile(r"(\s*)(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?(.*)")
 CLOSING_NEXT = ".,;:!?)]"
 LABEL_WORDS = 5
@@ -200,15 +202,24 @@ def multiline_items(text: str) -> list:
     return items
 
 
+def item_line_at(text: str, at: int) -> bool:
+    """Whether the line of `text` that holds offset `at` is a heading or a list item."""
+    return bool(ITEM_LINE.match(text, text.rfind("\n", 0, at) + 1))
+
+
 def is_whole(sources: list, piece: str, first: bool, last: bool) -> bool:
+    """Whether the piece is a whole sentence or item of a source. A line break bounds it only beside a heading or a list item, never inside wrapped prose."""
     for found_in in sources:
         text = found_in.lined
         at = found_in.flat.find(piece)
         while at != -1:
+            end = at + len(piece)
             before = text[max(0, at - 3):at]
-            after = text[at + len(piece):at + len(piece) + 2]
-            starts = not first or at == 0 or bool(SENTENCE_START.search(before))
-            ends = not last or piece.endswith((".", ";", ":", "?", "!")) or after[:1] in ("", ".", "|", "\n") or after.startswith((" -", " |"))
+            after = text[end:end + 2]
+            at_line_start = before.endswith("\n") and (item_line_at(text, at) or item_line_at(text, at - 1))
+            at_line_end = after.startswith("\n") and (item_line_at(text, end - 1) or item_line_at(text, end + 1))
+            starts = not first or at == 0 or bool(SENTENCE_START.search(before)) or at_line_start
+            ends = not last or piece.endswith((".", ";", ":", "?", "!")) or after[:1] in ("", ".", "|") or after.startswith((" -", " |")) or at_line_end
             if starts and ends:
                 return True
             at = found_in.flat.find(piece, at + 1)

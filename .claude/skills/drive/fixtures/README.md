@@ -16,3 +16,8 @@ Known facts:
 - No fixture covers the 2 "names none" warnings.
 
 Deduction, not checked: in rounds 1 and 2, the Agent call carried a short prompt that contained "This is a review fix" and pointed to the prompt file. The hook then checked that short prompt, which names no ID and quotes nothing, and not the file.
+
+## Stated limits of the quotation check
+
+- The label exemption accepts a quotation of at most five words that any source the check reads sets in double quotes or as a bold label, not only the source the prompt cites.
+- A run of lines of a list item that spreads over several lines is whole when every other line of the item is found inside some quotation of the prompt. So line 1 of a two-line item passes when line 2 appears only as a substring of another quotation, not quoted on its own.

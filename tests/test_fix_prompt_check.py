@@ -84,6 +84,25 @@ def test_a_quotation_that_stops_inside_a_sentence_of_its_source_is_warned_as_par
     assert "1 warning(s)" in context and "not a whole sentence or item of its source" in context
 
 
+@pytest.mark.parametrize(
+    ("source", "quotation"),
+    [
+        ("The drive re-runs the full suite only before a pull\nrequest, as the skill requires, and not after each fix.\n", "The drive re-runs the full suite only before a pull"),
+        ("The first line of a paragraph that\nwraps in the middle of the paragraph and\ncontinues to its end.\n", "wraps in the middle of the paragraph and"),
+    ],
+)
+def test_a_quotation_bounded_by_a_line_break_inside_wrapped_prose_is_warned_as_partial(sources, source, quotation):
+    (sources / "issue-1-body.md").write_text(source)
+    context = context_of(hook(f'{TRIGGER}. B1-P-01, D-061 on chadlis/hypotrail#75 says "{quotation}".', sources))
+    assert "1 warning(s)" in context and "not a whole sentence or item of its source" in context
+
+
+def test_a_heading_line_and_the_paragraph_that_follows_it_are_each_whole_when_quoted_as_block_items(sources):
+    (sources / "issue-1-body.md").write_text("Before it.\n\n## Decision: the second reading of it\n\nthe faulty file differs by one item.\n")
+    prompt = f"{TRIGGER}. B1-P-01, #1 Tightened C reads:\n> ## Decision: the second reading of it\n>\n> the faulty file differs by one item.\n"
+    assert "0 warning(s)" in context_of(hook(prompt, sources))
+
+
 def test_a_quotation_that_elides_words_is_warned_as_partial_by_declaration(sources):
     context = context_of(hook(f'{TRIGGER}. B1-P-01, #1 Tightened C says: "The check refuses … every refusal to the journal."', sources))
     assert 'elided with "…"' in context
