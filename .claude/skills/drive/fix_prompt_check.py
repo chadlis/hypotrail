@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse hook on the Agent tool (D-055 on chadlis/hypotrail#75, item 1). It warns and never blocks.
 
-It acts only on a prompt that contains "This is a review fix", or that names an absolute path to a file that
-contains it. It then runs two checks and the premise sheet (`premises.py`), and lets the call through. Its
+It acts only on a prompt that contains "This is a review fix", or that reads "Read <absolute path> and do exactly what it
+says" for a file that contains it. It then runs two checks and the premise sheet (`premises.py`), and lets the call through. Its
 findings go to the model as `hookSpecificOutput.additionalContext`: the hooks reference says that a PreToolUse
 `additionalContext` is added to Claude's context beside the tool result, while `systemMessage` is a warning
 shown to the user and is not given to the model. The drive posts the findings beside the prompt.
@@ -175,7 +175,7 @@ def check_finding_ids(prompt: str) -> tuple:
 
 
 def pointed_file_text(prompt: str) -> str | None:
-    for token in re.findall(r"(?<![\w./-])(/[\w./~@+-]+)", prompt):
+    for token in re.findall(r"\bRead\s+(/[\w./~@+-]+?)[.,;:)]?\s+and do exactly what it says", prompt):
         path = Path(token.rstrip(".,;:)"))
         try:
             if path.is_file() and path.stat().st_size <= 1_000_000:
@@ -188,7 +188,7 @@ def pointed_file_text(prompt: str) -> str | None:
 
 
 def review_fix_text(prompt: str) -> str | None:
-    """The text to check: the prompt when it contains the trigger, else the text of the first file it names that does, else None."""
+    """The text to check: the prompt when it contains the trigger, else the text of the file that a prompt of the form "Read <path> and do exactly what it says" points to when that file contains it, else None."""
     if TRIGGER in prompt:
         return prompt
     return pointed_file_text(prompt)

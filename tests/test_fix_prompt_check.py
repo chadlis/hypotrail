@@ -126,6 +126,13 @@ def test_a_prompt_that_points_to_a_file_with_the_trigger_is_checked_on_that_file
     assert hook(f"Read {pointed} and do exactly what it says.", sources).stdout == ""
 
 
+@pytest.mark.parametrize("sentence", ["Summarise {path}.", "Update {path} and do exactly what it says elsewhere.", "Read {path} and then summarise it.", "Read {path}, do exactly what it says."])
+def test_a_prompt_that_only_names_a_file_holding_the_trigger_phrase_gives_no_output(sources, tmp_path, sentence):
+    skill = tmp_path / "SKILL.md"
+    skill.write_text(f'The hook runs on prompts that contain "{TRIGGER}". B1-P-01, #1 Tightened C says: "The check was never written."\n')
+    assert hook(sentence.format(path=skill), sources).stdout == ""
+
+
 def test_a_sentence_of_the_form_called_from_only_is_reported_by_the_premise_sheet_through_the_hook(sources):
     context = context_of(hook(f"{TRIGGER}. B1-P-01. `fault` is called from `cli.py` only.", sources))
     assert "Premise sheet:" in context and "NO callers(...) LINE for the claim" in context
