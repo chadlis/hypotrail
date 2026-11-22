@@ -232,7 +232,7 @@ ENTRY = 9000
 UNLISTED = "names the drive in its first line, and the slice's #75 entry labelled 'drive decision (delegated)', linked from the state comment, does not list it"
 
 
-def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, label="## D-099: R9, drive decision (delegated)"):
+def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, label="## R9: drive decision (delegated)"):
     """A complete record of the slice, a drive comment on the slice issue (9101) and on its ticket #61 (9201), a ticket-gate comment on #61 (9202), and the slice's entry on #75 (9000), which lists `listed`."""
     record = complete_record()
     record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Decisions:** " + (f"the delegated choices, {ENTRY}." if linked else "none."))
@@ -241,7 +241,7 @@ def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, 
     put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/comments", record)
     put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/sub_issues", [{"number": 61}])
     put(gh_dir, "repos/chadlis/hypotrail/issues/61/comments", [comment("## R9 A: the drive's answer on TA5", n=9201), comment("## R9: ticket gate, A, reading 1", n=9202)])
-    put(gh_dir, "repos/chadlis/hypotrail/issues/75/comments", [comment("## D-098: another decision", "9101 9201", n=8999), comment(label, " ".join(map(str, listed)), n=ENTRY)])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/75/comments", [comment("## R9: another decision", "9101 9201", n=8999), comment(label, " ".join(map(str, listed)), n=ENTRY)])
 
 
 @pytest.mark.parametrize(
@@ -250,7 +250,7 @@ def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, 
         ({"listed": (9201,)}, "comment 9101 on #50"),
         ({"listed": (9101,)}, "comment 9201 on #61"),
         ({"linked": False}, "comment 9101 on #50"),
-        ({"label": "## D-099: R9, delegated choices"}, "comment 9201 on #61"),
+        ({"label": "## R9: delegated choices"}, "comment 9201 on #61"),
     ],
 )
 def test_a_comment_of_the_slice_issue_or_of_a_ticket_whose_first_line_names_the_drive_and_that_the_linked_delegated_entry_does_not_list_blocks_the_merge(gh_dir, change, unlisted):
