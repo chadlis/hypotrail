@@ -444,3 +444,39 @@ def test_a_py_file_in_a_workload_folder_and_an_absolute_or_relative_import_of_hy
         "external/d.py": "from . import sibling\nimport json\n",
     })
     assert examples_problems(root) == ["external.a imports hypotrail", "external.b imports hypotrail.core.x", "external.sub.c imports hypotrail"]
+
+
+# --- the import modules read every JSON input with the strict reader ----------------------------------------------------------
+
+IMPORT_MODULES = ("hypotrail.ml.imports", "hypotrail.agentic.imports")
+LOOSE_READS = {"json.load", "json.loads"}
+
+
+def loose_json_reads(trees: dict) -> list:
+    """The calls of `json.load` and `json.loads` in the import modules, as `module:function`, found through the resolver.
+
+    The resolver follows a name the module imports or assigns (`import json as j`, `from json import loads`, `g = json.loads`). A read through an object that is
+    passed in, or built with `getattr`, is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    return sorted(
+        f"{site.module}:{site.owner.split(':')[1]}"
+        for site in calls(trees)
+        if site.module in IMPORT_MODULES and site.callee in LOOSE_READS
+    )
+
+
+def test_no_import_module_calls_json_load_or_json_loads():
+    trees = parse_all(SOURCE)
+    assert set(IMPORT_MODULES) <= set(trees)
+    assert loose_json_reads(trees) == []
+
+
+def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/imports.py": "import json as j\n\ndef f(raw):\n    return j.loads(raw)\n",
+        "hypotrail/agentic/__init__.py": "",
+        "hypotrail/agentic/imports.py": "from json import load as ld\n\ndef g(handle):\n    return ld(handle)\n",
+    })
+    assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]

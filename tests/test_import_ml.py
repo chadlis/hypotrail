@@ -150,6 +150,59 @@ def test_a_mapping_without_row_id_or_y_pred_or_with_an_unknown_key_is_refused_wi
     assert snapshot(study) == before
 
 
+# The member each fault adds to the document; the first of each input repeats a key it already holds.
+STRICT_FAULTS = {
+    "top_level_duplicate": None,
+    "nested_duplicate": '"extra": {"a": 1, "a": 2}',
+    "nan": '"extra": NaN',
+    "infinity": '"extra": Infinity',
+    "minus_infinity": '"extra": -Infinity',
+    "integer_out_of_range": '"extra": 9007199254740993',
+}
+
+
+def with_member(document: dict, member: str) -> str:
+    """The JSON text of `document` with one more member written in front of its closing brace, as given."""
+    return json.dumps(document)[:-1] + ", " + member + "}"
+
+
+@pytest.mark.parametrize("fault", sorted(STRICT_FAULTS))
+@pytest.mark.parametrize("which", ["mapping", "population"])
+def test_a_mapping_or_a_population_that_is_json_but_not_strict_json_is_refused_as_not_json_and_nothing_is_written(tmp_path, study, which, fault):
+    source, digest = export(tmp_path)
+    mapping = {**MAPPING, "dataset_sha256": digest}
+    population = {"item_ids": [r["day_key"] for r in rows_of(source)]}
+    member = STRICT_FAULTS[fault] or ('"row_id": "day_key"' if which == "mapping" else '"item_ids": []')
+    if which == "mapping":
+        mapping_path = tmp_path / "bad_mapping.json"
+        mapping_path.write_text(with_member(mapping, member), encoding="utf-8")
+        population_path = write_json(tmp_path / "population.json", population)
+    else:
+        population_path = tmp_path / "bad_population.json"
+        population_path.write_text(with_member(population, member), encoding="utf-8")
+        mapping_path = write_json(tmp_path / "mapping.json", mapping)
+    before = snapshot(study)
+    code, payload, _ = import_ml(study, source, mapping_path, population_path, f"r-{which}-{fault}")
+    error = payload.get("error", {})
+    details = error.get("details", {})
+    assert (code, error.get("code"), error.get("stage"), details.get("problem"), set(details)) == (
+        EXIT_INVALID_INPUT, f"{which.upper()}_INVALID", "import", "not_json", {which, "problem"}
+    )
+    assert snapshot(study) == before and not (study / "attempts").exists()
+
+
+@pytest.mark.parametrize("which", ["mapping", "population"])
+def test_the_same_mapping_or_population_without_the_fault_is_accepted_and_recorded(tmp_path, study, which):
+    source, digest = export(tmp_path)
+    mapping = {**MAPPING, "dataset_sha256": digest}
+    population = {"item_ids": [r["day_key"] for r in rows_of(source)]}
+    mapping_path = write_json(tmp_path / "mapping.json", mapping)
+    population_path = write_json(tmp_path / "population.json", population)
+    code, payload, err = import_ml(study, source, mapping_path, population_path, f"r-ok-{which}")
+    assert code == 0, (payload, err)
+    assert (study / "attempts" / payload["attempt"]["attempt_id"]).is_dir()
+
+
 def test_a_mapping_without_the_dataset_digest_is_refused_with_a_code_exit_2(tmp_path, study):
     source, _ = export(tmp_path)
     code, payload, _ = import_ml(study, source, write_json(tmp_path / "m.json", MAPPING), population_of(tmp_path, source), "r")

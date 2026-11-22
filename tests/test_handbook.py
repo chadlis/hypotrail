@@ -1217,6 +1217,10 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
     def with_mapping(content, name):
         return write_json(tmp_path / name, content)
 
+    def with_mapping_text(text, name):
+        (tmp_path / name).write_text(text, encoding="utf-8")
+        return tmp_path / name
+
     base = {"row_id": "day_key", "y_pred": "forecast_rentals", "dataset_sha256": digest}
     record(import_ml(study, source, with_mapping([1], "m1.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "extra": "x"}, "m2.json"), population, "r"))
@@ -1225,6 +1229,8 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
     record(import_ml(study, source, with_mapping({**base, "y_pred": "os.system"}, "m5.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "y_pred": "nope"}, "m6.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "dataset_sha256": "0" * 64}, "m7.json"), population, "r"))
+    record(import_ml(study, source, with_mapping_text('{"row_id": "day_key", "row_id": "day_key"}', "m8.json"), population, "r"))
+    record(import_ml(study, source, mapping, with_mapping_text('{"item_ids": [], "item_ids": []}', "p4.json"), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p1.json", ["x"]), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p2.json", {"item_ids": [*ids, "nope"]}), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p3.json", {"item_ids": [*ids, "bike-day:2012-07-01"]}), "r"))
@@ -1244,6 +1250,16 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code
         assert words(row["data-details"]) == details, code
+
+
+STRICT_JSON_WORDS = "NaN, a repeated key or an out-of-range number included"
+
+
+def test_the_two_rows_of_a_document_that_is_not_json_say_that_nan_a_repeated_key_or_an_out_of_range_number_is_included_and_chapter_06_says_it_twice(page):
+    rows = table_rows(page, "import-codes", "data-code")
+    for code in ("MAPPING_INVALID", "POPULATION_INVALID"):
+        assert STRICT_JSON_WORDS in plain_text(rows[code]["text"]), code
+    assert plain_chapter("06-import.html").count(STRICT_JSON_WORDS) == 2
 
 
 # --- chapter 07: compare, the comparability checks, strict against descriptive, the Comparison record (#71) ------------

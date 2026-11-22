@@ -31,7 +31,6 @@ independently.
 import csv
 import datetime
 import io
-import json
 import math
 import re
 import uuid
@@ -98,8 +97,8 @@ def _read(path, code, what) -> bytes:
 def _loose_json(raw: bytes):
     """The JSON value of `raw`, or None: used only to identify a request, never to accept an input."""
     try:
-        return json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        return canonical.loads(raw)
+    except InvalidInputError:
         return None
 
 
@@ -113,8 +112,8 @@ def _loose_partition(population, partition_of: dict):
 
 def _checked_mapping(raw: bytes, mapping_path) -> dict:
     try:
-        mapping = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        mapping = canonical.loads(raw)
+    except InvalidInputError:
         raise _refuse("MAPPING_INVALID", "the mapping is not a JSON document in UTF-8", mapping=str(mapping_path), problem="not_json") from None
     if not isinstance(mapping, dict):
         raise _refuse("MAPPING_INVALID", "the mapping must be a JSON object", mapping=str(mapping_path), problem="not_an_object")
@@ -173,8 +172,8 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
     """(partition, Item IDs) of the population file, every ID taken from one Partition of the Protocol."""
     name = str(population_path)
     try:
-        document = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        document = canonical.loads(raw)
+    except InvalidInputError:
         raise _refuse("POPULATION_INVALID", "the population is not a JSON document in UTF-8", population=name, problem="not_json") from None
     if not isinstance(document, dict) or set(document) != {POPULATION_KEY}:
         raise _refuse(
