@@ -169,3 +169,32 @@ def test_no_decision_is_cited_without_its_issue_in_the_source_the_tests_the_chap
             if not re.fullmatch(r'"D-0\d\d"', text[max(0, m.start() - 1):m.end() + 1])
         ]
     assert bare == []
+
+
+# --- the Declared deviation: its GLOSSARY entry, and the names of its record, folder and command -------------------------------
+
+
+def _declared_deviation_entry(text: str) -> list:
+    """The lines of the GLOSSARY entry **Declared deviation**, from its heading to the blank line that ends it; [] when no line starts the entry."""
+    lines = text.splitlines()
+    starts = [at for at, line in enumerate(lines) if line.startswith("**Declared deviation**")]
+    if not starts:
+        return []
+    entry = []
+    for line in lines[starts[0]:]:
+        if not line.strip():
+            break
+        entry.append(line)
+    return entry
+
+
+def test_the_glossary_entry_declared_deviation_says_a_derived_deviation_is_not_one_and_avoids_caveat_waiver_limitation_and_warning():
+    # D-067 on chadlis/hypotrail#75, point 1: "The entry says in one clause that a derived deviation is a deviation but not a Declared deviation." |
+    # "Its _Avoid_ line keeps "caveat, waiver, limitation, warning"." | "B2's ticket carries the test of the entry."
+    entry = _declared_deviation_entry((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
+    assert entry, "no line of GLOSSARY.md starts the entry **Declared deviation**"
+    text = " ".join(entry)
+    assert "derived deviation" in text and "not a Declared deviation" in text, text
+    [avoid] = [line for line in entry if line.startswith("_Avoid_")]
+    for word in ("caveat", "waiver", "limitation", "warning"):
+        assert word in avoid, (word, avoid)
