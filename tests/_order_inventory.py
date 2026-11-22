@@ -19,6 +19,7 @@ COMPARE = "hypotrail.core.comparison:compare"
 RECOVER = "hypotrail.core.state:recover"
 REPORT = "hypotrail.report.command:report"
 DECIDE = "hypotrail.core.decisions:decide"
+DEVIATION = "hypotrail.core.deviations:record"
 
 ENTERS = {
     "init data": ML_INIT,
@@ -99,6 +100,16 @@ ENTERS = {
     "decide request conflict": DECIDE,
     "decide request_id of an Attempt": DECIDE,
     "decide cited id": DECIDE,
+    "run ml request_id of a declared deviation": RUN_ML,
+    "run agent request_id of a declared deviation": RUN_AGENT,
+    "import ml request_id of a declared deviation": IMPORT_ML,
+    "import agent request_id of a declared deviation": IMPORT_AGENT,
+    "decide request_id of a declared deviation": DECIDE,
+    "deviation replay": DEVIATION,
+    "deviation request conflict": DEVIATION,
+    "deviation request_id of an Attempt": DEVIATION,
+    "deviation request_id of a decision": DEVIATION,
+    "deviation cited id": DEVIATION,
 }
 
 # A row of `CHECKS_BEFORE_THE_LOCK` or of `UNDER_THE_LOCK` whose refusal comes before the call reaches any locked function, with the reason.
@@ -109,6 +120,7 @@ ENTERS_NONE = {
 # A row of `LOCK_HELD` that has no locked path, with the reason.
 LOCK_HELD_ENTERS_NONE = {
     "init --read-sequence": "`_init` in `cli.py` refuses `--read-sequence` for a Study that is created, before it calls any `init_study`",
+    "deviation empty text": "`_deviation` in `cli.py` runs `deviations.check_arguments`, which refuses an empty text, before it calls `deviations.record`",
 }
 
 # --- the paths that take the writer lock ---------------------------------------------------------------------------------------
@@ -116,7 +128,7 @@ LOCK_HELD_ENTERS_NONE = {
 # Every function under `src` that takes the writer lock, as `module:function`: by `study_write.locked`, which takes it for every writer;
 # `tests/test_order_probe.py` holds this set equal to the set found in the source. `reads_sequence`: the function takes `--read-sequence`. `lock_held`
 # and `after`: its row of `LOCK_HELD` and of `UNDER_THE_LOCK` (the `AFTER` one). `stale_check_in`: the function that calls `require_current`, or the
-# `replay_attempt` or `replay_decision` of the Study-write module that runs it, when it is not the locked function itself.
+# `replay_attempt`, `replay_decision` or `replay_deviation` of the Study-write module that runs it, when it is not the locked function itself.
 # `then`: the function the locked function calls after `require_current`, whose calls are the ones that follow it.
 LOCKED_PATHS = {
     ML_INIT: {"writer": "init", "reads_sequence": False, "lock_held": "init", "after": None},
@@ -155,6 +167,9 @@ LOCKED_PATHS = {
     REPORT: {"writer": "report", "reads_sequence": True, "lock_held": "report", "after": "report examples"},
     DECIDE: {
         "writer": "decide", "reads_sequence": True, "lock_held": "decide", "after": "decide cited id", "stale_check_in": "_decide_locked",
+    },
+    DEVIATION: {
+        "writer": "deviation", "reads_sequence": True, "lock_held": "deviation", "after": "deviation cited id", "stale_check_in": "_record_locked",
     },
 }
 
@@ -197,4 +212,5 @@ SKIPPED_CALLS = {
         "gather.touched": "it lists what the model just loaded shows",
     }),
     "decide cited id": ("held_ids", {"layout.read_spec": SPEC_READ}),
+    "deviation cited id": ("_check_cited", {}),
 }

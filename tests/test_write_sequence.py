@@ -164,6 +164,17 @@ def decide_scenario(tmp_path):
     )
 
 
+def deviation_scenario(tmp_path):
+    study, _ = init_study(tmp_path)
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "w-held")
+    assert code == 0, (payload, err)
+    attempt = payload["attempt"]["attempt_id"]
+    return study, lambda: run_json(
+        "deviation", "--study", study, "--text", "owner review of References pending", "--author", "human",
+        "--artifact", attempt, "--request-id", "w-deviation", "--read-sequence", seq(study),
+    )
+
+
 WRITERS = {
     "init": init_new,
     "init --new-revision": init_new_revision,
@@ -176,6 +187,7 @@ WRITERS = {
     "recover": recover_scenario,
     "report": report_scenario,
     "decide": decide_scenario,
+    "deviation": deviation_scenario,
 }
 
 
@@ -348,6 +360,7 @@ KEYS = {
     "recover": {"ok", "attempt"},
     "report": {"ok", "report"},
     "decide": {"ok", "replayed", "decision"},
+    "deviation": {"ok", "replayed", "declared_deviation"},
 }
 
 
@@ -363,7 +376,7 @@ def test_status_json_gains_the_one_top_level_key_write_sequence_and_keeps_the_ot
     study, _ = init_study(tmp_path)
     payload = run_json("status", "--study", study)[1]
     assert "write_sequence" in payload, "status --json shows no write_sequence"
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
 
 
 # --- Tightened F, G, I, J: what an entry holds --------------------------------------------------------------------------

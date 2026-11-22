@@ -306,6 +306,35 @@ def build_parser() -> argparse.ArgumentParser:
     decide.add_argument("--json", action="store_true", help="print one JSON object")
     decide.set_defaults(handler=_decide)
 
+    deviation = commands.add_parser(
+        "deviation",
+        help="record one Declared deviation in a Study: one known limit on what results of the Study show, declared in the Study because its records "
+        "cannot establish it (for example an owner review of References still pending), with what is declared, its author and the ids of the "
+        "Study's records it cites; or the withdrawal of an earlier one",
+    )
+    deviation.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Declared deviation in")
+    deviation.add_argument("--text", required=True, metavar="TEXT", help="what is declared (free text, not empty)")
+    deviation.add_argument("--author", required=True, choices=["human", "proxy"], help="who declares: a human, or a proxy answering by rule")
+    deviation.add_argument("--source", metavar="TEXT", help="a declared source of the Declared deviation, for either author")
+    deviation.add_argument(
+        "--artifact",
+        required=True,
+        action="append",
+        metavar="ID",
+        help="the id of a record of the Study the Declared deviation cites (repeatable, at least one): Attempts and References sets "
+        "for a declaration, or the one Declared deviation it withdraws",
+    )
+    deviation.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same Declared deviation returns the recorded one, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    _add_read_sequence(deviation, required=True)
+    deviation.add_argument("--json", action="store_true", help="print one JSON object")
+    deviation.set_defaults(handler=_deviation)
+
     recover = commands.add_parser(
         "recover",
         help="record an Attempt left running by a writer that is gone as interrupted (nothing is resubmitted)",
@@ -560,9 +589,12 @@ def _assess(args) -> int:
         return _assess_agent(args)
     from hypotrail.ml import assess
 
+    notes = []
     record = assess.assess(
-        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, notes=notes
     )
+    for note in notes:
+        print(note, file=sys.stderr)
     counts, metric = record["counts"], record["metrics"][0]
     value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
     human = (
@@ -610,7 +642,7 @@ def _live_basis(examples_dir):
 
 
 def _compare(args) -> int:
-    from hypotrail.core import comparison
+    from hypotrail.core import agent_comparison, comparison
 
     record = comparison.compare(
         args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence
@@ -621,8 +653,12 @@ def _compare(args) -> int:
         value += f" ({delta['reason']})"
     direction = "better" if record.get("primary_criterion") else "worse"
     unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
+    status = record["comparability"]["status"]
+    deviations = [w["code"] for w in record["warnings"] if w["code"] in comparison.DEVIATIONS + agent_comparison.DEVIATIONS]
+    if deviations:
+        status += f", with warning {', '.join(deviations)}"
     human = (
-        f"Comparison {record['comparison_id']} ({record['comparability']['status']}): delta {delta['metric']} {value} "
+        f"Comparison {record['comparison_id']} ({status}): delta {delta['metric']} {value} "
         f"(Candidate minus Control; positive means the Candidate is {direction}) over {coverage['paired']} of {coverage['expected']} {unit}"
     )
     _print_warnings(record["warnings"])
@@ -682,6 +718,28 @@ def _decide(args) -> int:
         + (" (recorded earlier: nothing was written)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "decision": record}, args.json, human)
+    return EXIT_OK
+
+
+def _deviation(args) -> int:
+    from hypotrail.core import deviations
+
+    deviations.check_arguments(text=args.text, author=args.author, cited_ids=args.artifact, request_id=args.request_id, read_sequence=args.read_sequence)
+    record, replayed = deviations.record(
+        args.study,
+        text=args.text,
+        author=args.author,
+        source=args.source,
+        cited_ids=args.artifact,
+        request_id=args.request_id,
+        read_sequence=args.read_sequence,
+    )
+    human = (
+        f"Declared deviation {record['declared_deviation_id']} by {record['author']} "
+        f"(cites {len(record['cited_ids'])} ids, write sequence {record['write_sequence']})"
+        + (" (recorded earlier: nothing was written)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "declared_deviation": record}, args.json, human)
     return EXIT_OK
 
 

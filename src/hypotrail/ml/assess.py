@@ -1,8 +1,10 @@
 """`assess` for the temporal regression Track: one registered Scorer, one kept Observation set, one References set.
 
-Assessing fits nothing, predicts nothing and calls no model or tool: it reads the Observation set and
-the References set the Study keeps and writes a new Assessment. This module imports neither
-scikit-learn nor NumPy, and not `hypotrail.ml.run` either.
+Assessing fits nothing, computes no Configuration's prediction and calls no model or tool: it reads the
+Observation set and the References set the Study keeps and writes a new Assessment. For the single-feature
+check (`hypotrail.ml.single_features`) it computes the forecast of each declared lag feature used alone,
+from the Study's copy of the dataset that the Attempt names. This module imports neither scikit-learn nor
+NumPy, and not `hypotrail.ml.run` either.
 
 The order is fixed, and nothing is written before the checks that precede it:
 
@@ -10,13 +12,17 @@ The order is fixed, and nothing is written before the checks that precede it:
 2. the Observation set and the References set are found in the Study (exit 2) and the Scorer must
    belong to the Observation set's domain (`UNSUPPORTED_CAPABILITY`, exit 2);
 3. every artifact read (Observation set record, normalized outputs, raw predictions, population,
-   References) is read back against its digest (`ARTIFACT_INTEGRITY`, exit 3);
+   References, and, when the Attempt's Configuration declares a lag feature, the copy of `workload.json` the
+   Attempt keeps and the Study's copy of the dataset) is read back against its digest (`ARTIFACT_MISSING` or
+   `ARTIFACT_INTEGRITY`, exit 3);
 4. the Partition of the Items is `dev` or `public_check` (`ASSESSMENT_PARTITION_NOT_DEV` otherwise). An Assessment of
    `public_check` Items is an Exposure: once the structure of the Observation set has passed, and before any Item is
    scored, the Study's freeze record is written if the revision has none and one journal entry is appended
    (`hypotrail.core.exposure`; `PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's);
 5. every expected Item gets its Criterion (the absolute error of the day) in a state; the Metric is
-   aggregated from the scored ones;
+   aggregated from the scored ones; the dataset copy is parsed only now, after the Exposure, and each declared
+   lag feature is scored over the same Items (`single_feature_check`; a native Attempt whose Configuration
+   declares none gets it empty, an Import none at all);
 6. `per_item.csv` is published, then `assessment.json` last. Another Assessment of the same
    Observation set never changes an earlier one: a new `assessment_id` each time.
 7. the record names the revision whose Protocol it applied (`study_revision`) and, when an earlier Assessment of the
@@ -34,6 +40,7 @@ from pathlib import Path
 from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml import single_features
 from hypotrail.ml.partitions import requires_exposure
 from hypotrail.ml.study import live_basis as _live_basis
 
@@ -111,21 +118,32 @@ def _per_item_csv(entries) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None, read_sequence: int | None = None) -> dict:
+def assess(
+    study: Path,
+    observation_set_id: str,
+    scorer_id: str,
+    references_id: str,
+    *,
+    examples_dir: Path | None = None,
+    read_sequence: int | None = None,
+    notes: list | None = None,
+) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
     Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
     read only for an Assessment of `public_check` Items, to freeze the Workload's digests (default: the repository's).
+    `notes`, when given, receives each line the command has to say beside the record, such as why the single-feature
+    check is not recorded.
     """
     study = Path(study)
     study_write.check_read_sequence(study_write.ASSESS, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
         write.require_current()
-        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir)
+        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, notes if notes is not None else [])
 
 
-def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
+def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -158,6 +176,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         artifacts.read_verified(study, ref)  # the predictions the Observation set was normalized from
     normalized = artifacts.read_verified(study, observation_set["normalized_ref"])
     references_bytes = artifacts.read_verified(study, references)
+    prepared = single_features.prepare(study, manifest, observation_set["population_ref"])
 
     partition = observation_set["provenance"].get("partition")
     if partition is None:
@@ -201,6 +220,12 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         "errored": by_state.count("errored"),
     }
     metric = _metric(scorer, [e[3] for e in entries if e[2] == "scored"], spec["primary_metric"]["unit"])
+    check = None
+    if prepared is not None:
+        scored = [(e[0], float(reference_cells[e[0]])) for e in entries if e[2] == "scored"]
+        check, note = single_features.compute(prepared, scored, lambda errors: _metric(scorer, errors, spec["primary_metric"]["unit"]), metric)
+        if note is not None:
+            notes.append(note)
 
     folder = f"{layout.ASSESSMENTS_DIR}/{assessment_id}"
     per_item = _per_item_csv(entries)
@@ -221,6 +246,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         "counts": counts,
         "per_item_ref": per_item_ref,
         "metrics": [metric],
+        **({single_features.FIELD: check} if check is not None else {}),
         "limitations": list(LIMITATIONS),
         "study_revision": revisions.identity(spec),
         **exposure.marks(study, [manifest]),

@@ -228,6 +228,11 @@ def _digest_of(path: Path):
         return None  # a file that is not there is `DATA_INTEGRITY` at the data verification, not an input of the identity
 
 
+def _case_digests(workload, plan) -> dict:
+    """{case_id: digest of the canonical Case object, every key as the Cases file holds it} for each Case the Attempt evaluates."""
+    return {case["case_id"]: canonical.digest(case) for case in workload.cases(plan["partition"], plan["cases"])}
+
+
 def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_of, environ):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
@@ -301,6 +306,8 @@ def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_
         "effective_config": effective_config,
         "effective_config_digest": canonical.digest(effective_config),
         "input_refs": study_refs,
+        # outside `effective_config`, so a replay of a request recorded before this key existed is not a conflict
+        **({"case_digests": _case_digests(workload, plan)} if mode == LIVE else {}),
         "code_environment": code_environment,
         "outcome_unknown": False,
         "retry_of": retry_of,

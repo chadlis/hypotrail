@@ -88,6 +88,94 @@ def test_the_manifest_is_an_attempt_record_with_the_keys_compare_reads_the_proto
     assert config["served_model"] == log.eval.model
 
 
+def case_digests_from_file(path) -> dict:
+    """{case_id: sha256 of the canonical bytes of the whole Case object} for every line of a Cases file, computed here."""
+    import hashlib
+
+    return {case["case_id"]: hashlib.sha256(canonical.dumps(case)).hexdigest() for case in read_jsonl(path)}
+
+
+def examples_with_case_edited(tmp_path, name, case_id, key, change):
+    """A copy of `examples/` whose dev Cases file has `change` applied to the `key` of one Case, every other line kept as it is."""
+    examples = chinook_examples(tmp_path, name=name)
+    path = examples / "chinook" / "cases" / "chinook-dev.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for number, line in enumerate(lines):
+        case = json.loads(line)
+        if case["case_id"] == case_id:
+            case[key] = change(case[key])
+            lines[number] = json.dumps(case, ensure_ascii=False)
+    path.write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+    return examples
+
+
+def test_an_llm_live_attempt_keeps_in_its_manifest_one_digest_of_the_whole_case_object_per_evaluated_case(tmp_path, monkeypatch):
+    patch_model(monkeypatch)
+    study = study_of(tmp_path)
+    attempt = ok(live(study, "plain", "digests", cases=TWO))
+    expected = case_digests_from_file(CHINOOK / "cases" / "chinook-dev.jsonl")
+    assert set(attempt.get("case_digests", {})) == set(TWO)  # the evaluated Cases, both ways: not the Partition's other Cases
+    assert attempt["case_digests"] == {case_id: expected[case_id] for case_id in TWO}
+    assert "case_digests" not in attempt["effective_config"]
+    # a key the agent is given (`question`) and one it is not (`ordering`): each moves the digest of its Case alone
+    for key, change in (("question", lambda text: text + " (variante)"), ("ordering", lambda value: value + "_changed")):
+        examples = examples_with_case_edited(tmp_path, f"examples-{key}", "D03", key, change)
+        edited_study = study_of(tmp_path, examples=examples, name=f"study-{key}")
+        edited = ok(live(edited_study, "plain", f"digests-{key}", "--examples-dir", str(examples), cases=TWO))
+        assert edited["case_digests"]["D03"] != attempt["case_digests"]["D03"], key
+        assert edited["case_digests"]["D05"] == attempt["case_digests"]["D05"], key
+        assert edited["case_digests"] == {case_id: case_digests_from_file(examples / "chinook" / "cases" / "chinook-dev.jsonl")[case_id] for case_id in TWO}
+
+
+def test_the_effective_config_of_an_llm_live_attempt_holds_the_same_keys_as_before_case_digests_existed(recorded):
+    _, attempt, _ = recorded
+    config = attempt["effective_config"]
+    assert set(config) == {
+        "command", "workload", "mode", "partition", "cases", "repeats", "model", "configuration", "protocol", "input_digests",
+        "served_model", "tools", "limits", "limit_notes", "effective_parameters",
+    }
+    assert set(config["input_digests"]) == {"dataset", "population", "references", "cases"}
+    assert attempt["effective_config_digest"] == canonical.digest(config)
+
+
+def test_a_request_recorded_before_case_digests_existed_replays_the_recorded_attempt_and_writes_nothing(tmp_path, monkeypatch):
+    patch_model(monkeypatch)
+    study = study_of(tmp_path)
+    attempt = ok(live(study, "plain", "old", cases=["D03"]))
+    path = folder_of(study, attempt) / "attempt.json"
+    # as an Attempt recorded before would be: no per-Case digest anywhere in its manifest
+    config = {key: value for key, value in attempt["effective_config"].items() if key != "case_digests"}
+    config["input_digests"] = {key: value for key, value in config["input_digests"].items() if key != "case_digests"}
+    old ={key: value for key, value in attempt.items() if key != "case_digests"}
+    old.update(effective_config=config, effective_config_digest=canonical.digest(config))
+    path.write_bytes(canonical.dumps(old))
+    before = tree_without_lock(study)
+    code, payload, err = live(study, "plain", "old", cases=["D03"])
+    assert code == 0, (payload, err)
+    assert payload["replayed"] is True and payload["attempt"] == old
+    assert tree_without_lock(study) == before
+
+
+def test_the_contract_schema_declares_case_digests_as_an_optional_map_of_case_id_to_a_sha256_hex_digest(recorded):
+    _, attempt, _ = recorded
+    definition = contracts.schema()["$defs"]["AttemptManifest"]
+    assert "case_digests" in definition["properties"] and "case_digests" not in definition.get("required", [])
+    contracts.validate(attempt)
+    for malformed in ({"D03": "abc"}, {"D03": "A" * 64}, ["D03"], {"D03": 1}, "a" * 64):
+        with pytest.raises(HypotrailError):
+            contracts.validate({**attempt, "case_digests": malformed})
+
+
+def test_the_kept_attempt_manifests_recorded_before_case_digests_existed_still_validate():
+    kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "campaign-public-check" / "study" / "attempts"
+    manifests = sorted(kept.glob("*/attempt.json"))
+    assert len(manifests) == 2
+    for path in manifests:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert "case_digests" not in manifest
+        contracts.validate(manifest)
+
+
 def test_the_served_model_is_the_one_the_episodes_outputs_report_not_the_name_the_eval_was_given(tmp_path, monkeypatch):
     """D-012 on chadlis/hypotrail#75 item 11: `served_model` is what the provider reports (`output.model`, as `run.json`'s `served_models`), so a difference shows."""
     study = study_of(tmp_path)

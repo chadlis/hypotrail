@@ -1,4 +1,4 @@
-"""The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report` and `decide`.
+"""The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report`, `decide` and `deviation`.
 
 A writer calls `check_arguments` (a writer with a `request_id`) or `check_read_sequence` before anything else, does its own checks that come before
 the lock, then works inside `locked(...)`, which takes the writer lock and opens the write journal. Inside it, the session it yields runs the steps
@@ -11,7 +11,7 @@ it calls `begin()` just before its first write (`exposure.record`, which `assess
 import contextlib
 from pathlib import Path
 
-from hypotrail.core import decisions, lock, requests, write_journal  # `decisions` imports this module too: each uses the other only when called
+from hypotrail.core import decisions, deviations, lock, requests, write_journal  # `decisions` and `deviations` import this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -20,6 +20,7 @@ RUN_AGENT = "run agent"
 IMPORT_ML = "import ml"
 IMPORT_AGENT = "import agent"
 DECIDE = "decide"
+DEVIATION = "deviation"
 INIT = "init"
 INIT_NEW_REVISION = "init --new-revision"
 ASSESS = "assess"
@@ -28,6 +29,7 @@ RECOVER = "recover"
 REPORT = "report"
 
 DECISION = "decision"
+DECLARED_DEVIATION = "declared_deviation"
 REVISION = "revision"
 ASSESSMENT = "assessment"
 COMPARISON = "comparison"
@@ -83,7 +85,7 @@ class Write:
     def replay_attempt(self, check_recorded):
         """The Attempt recorded under the `request_id`, after `check_recorded(recorded)`, or None for a new request.
 
-        For a new request, a `request_id` that names a decision is refused, then the write sequence is checked.
+        For a new request, a `request_id` that names a decision or a Declared deviation is refused, then the write sequence is checked.
         `check_recorded` is the writer's own check of a recorded Attempt: it raises, or returns.
         """
         recorded = layout.find_by_request(self.study, self.request_id)
@@ -93,13 +95,19 @@ class Write:
         decision = decisions.find_by_request(self.study, self.request_id)
         if decision is not None:
             raise requests.conflict_with_a_decision(self.request_id, decision["decision_id"])
+        self._refuse_a_declared_deviation()
         write_journal.require_current(self.study, self.read_sequence)
         return None
+
+    def _refuse_a_declared_deviation(self) -> None:
+        declared = deviations.find_by_request(self.study, self.request_id)
+        if declared is not None:
+            raise requests.conflict_with_a_declared_deviation(self.request_id, declared["declared_deviation_id"])
 
     def replay_decision(self, check_recorded):
         """The decision recorded under the `request_id`, after `check_recorded(recorded)`, or None for a new request.
 
-        For a new request, a `request_id` that names an Attempt is refused, then the write sequence is checked.
+        For a new request, a `request_id` that names an Attempt or a Declared deviation is refused, then the write sequence is checked.
         """
         recorded = decisions.find_by_request(self.study, self.request_id)
         if recorded is not None:
@@ -108,6 +116,26 @@ class Write:
         attempt = layout.find_by_request(self.study, self.request_id)
         if attempt is not None:
             raise requests.conflict_with_an_attempt(self.request_id, attempt["attempt_id"])
+        self._refuse_a_declared_deviation()
+        write_journal.require_current(self.study, self.read_sequence)
+        return None
+
+
+    def replay_deviation(self, check_recorded):
+        """The Declared deviation recorded under the `request_id`, after `check_recorded(recorded)`, or None for a new request.
+
+        For a new request, a `request_id` that names an Attempt or a decision is refused, then the write sequence is checked.
+        """
+        recorded = deviations.find_by_request(self.study, self.request_id)
+        if recorded is not None:
+            check_recorded(recorded)
+            return recorded
+        attempt = layout.find_by_request(self.study, self.request_id)
+        if attempt is not None:
+            raise requests.conflict_with_an_attempt(self.request_id, attempt["attempt_id"], DEVIATION)
+        decision = decisions.find_by_request(self.study, self.request_id)
+        if decision is not None:
+            raise requests.conflict_with_a_decision(self.request_id, decision["decision_id"])
         write_journal.require_current(self.study, self.read_sequence)
         return None
 

@@ -247,6 +247,8 @@ def test_the_configuration_is_the_intentional_factor_of_a_chinook_comparison_and
     _, verify = native(study, seed, configuration="verify")
     record = compare(study, plain, verify)[1]["comparison"]
     assert record["declared_factor"] == "configuration"
+    # strict because both sides record the same digest for each Case, as a manifest `run agent` writes does
+    assert {c["check"]: c for c in record["comparability"]["checks"]}["cases"] == {"check": "cases", "passed": True, "reason": None}
     assert record["comparability"]["status"] == "compatible"
 
 
@@ -340,6 +342,28 @@ def test_a_comparison_with_an_import_on_either_side_is_descriptive_with_a_warnin
         assert role in record["warnings"][0]["message"] and record["warnings"][0]["message"] in record["limitations"]
         assert "COMPARISON_DESCRIPTIVE_IMPORT" in err
         assert record["delta"]["metric"] == PRIMARY  # descriptive, and still a delta on the primary Criterion
+
+
+def test_an_import_side_establishes_no_case_content_so_cases_is_not_established_and_its_one_warning_is_the_import_one(tmp_path, study):
+    from _agent_compare_helpers import assess, observation_set_of
+    from _chinook_helpers import episodes_file, import_agent
+    from _log_helpers import scripted_log
+
+    _, first = imported(tmp_path, study, "first", answer_lines())
+    _, second = imported(tmp_path, study, "second", answer_lines())
+    log = scripted_log(tmp_path, ("D01", "D03"), repeats=2, name="logs-import", configuration="plain", metadata={"mode": "llm_live"})
+    code, payload, err = import_agent(study, log, episodes_file(tmp_path, keys_of(2, ["D01", "D03"]), name="log-p.json"), "from-log")
+    assert code == 0, (payload, err)
+    from_log = assess(study, observation_set_of(study, payload["attempt"]))
+    declared = payload["attempt"]["effective_config"]
+    _, own = native(study, payload["attempt"], repeats=2, model=declared["producer"]["model"]["value"], limits=declared["log"]["limits"]["value"])
+    for control, candidate in ((first, second), (from_log, own)):
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        record = payload["comparison"]
+        assert {c["check"]: c for c in record["comparability"]["checks"]}["cases"] == {"check": "cases", "passed": False, "reason": "not_established"}
+        assert record["comparability"]["status"] == "descriptive_only"
+        assert [w["code"] for w in record["warnings"]] == ["COMPARISON_DESCRIPTIVE_IMPORT"]
 
 
 def test_a_factor_that_a_side_does_not_establish_is_not_checked_and_is_said(tmp_path, study):
@@ -468,3 +492,151 @@ def test_two_imports_do_not_claim_a_shared_code_environment(tmp_path, study):
     assert record["code_environment"]["same"] is None and "import_sides" not in record["code_environment"]
     text = " ".join(record["limitations"])
     assert "record the same code environment" not in text and "importer" in text and "not established" in text
+
+
+def test_the_module_docstring_lists_the_cases_check_between_population_and_references():
+    from hypotrail.core import agent_comparison
+
+    text = agent_comparison.__doc__
+    assert "`cases`" in text
+    assert text.index("`population`") < text.index("`cases`") < text.index("`references`")
+
+
+# --- the order of the two sides: derived from the manifests of two native Attempts only -----------------------------------------------
+
+ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
+
+
+def interval(study, assessment):
+    """(started_at, finished_at) of the Attempt manifest behind an Assessment."""
+    from hypotrail.core import study as layout
+
+    _, manifest = layout.find_observation_set(Path(study), assessment["observation_set_id"])
+    return manifest["started_at"], manifest["finished_at"]
+
+
+def test_an_import_against_a_native_side_and_two_imports_get_no_order_warning_only_the_import_one(tmp_path, study):
+    seed, _ = imported(tmp_path, study, "seed", answer_lines())
+    _, own = native(study, seed)  # its manifest keeps the times of the seed's import, which finished before the next import started
+    _, first = imported(tmp_path, study, "first", answer_lines())
+    _, second = imported(tmp_path, study, "second", answer_lines())
+    for control, candidate in ((own, first), (first, own), (first, second)):
+        assert interval(study, control)[1] < interval(study, candidate)[0] or interval(study, candidate)[1] < interval(study, control)[0]
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        codes = [w["code"] for w in payload["comparison"]["warnings"]]
+        assert "COMPARISON_DESCRIPTIVE_IMPORT" in codes and ORDER not in codes, codes
+
+
+def test_the_warning_codes_of_the_two_comparison_modules_are_pairwise_different():
+    from _agent_compare_helpers import warning_codes
+
+    codes = warning_codes()
+    assert len(set(codes.values())) == len(codes), codes
+    assert set(codes.values()) >= {
+        "COMPARISON_DESCRIPTIVE_IMPORT", "COMPARISON_FACTOR_NOT_ESTABLISHED", "COMPARISON_CASES_NOT_ESTABLISHED", ORDER, "COMPARISON_SINGLE_FEATURE_BEATS",
+        "COMPARISON_DEVIATION_DECLARED",
+    }
+
+
+def two_blocks(tmp_path, study, prefix="seed", **candidate):
+    """(Control, Candidate) Assessments of two native Attempts built from two imports, so the Control finished before the Candidate started."""
+    seeds = [imported(tmp_path, study, f"{prefix}-{name}", answer_lines())[0] for name in ("a", "b")]
+    (_, control), (_, other) = native(study, seeds[0]), native(study, seeds[1], **candidate)
+    assert interval(study, control)[1] < interval(study, other)[0]
+    return control, other
+
+
+def test_a_native_pair_with_a_factor_not_established_holds_the_order_warning_with_the_factor_one(tmp_path, study):
+    control, candidate = two_blocks(tmp_path, study, tools=None)
+    code, payload, err = compare(study, control, candidate)
+    assert code == 0, (payload, err)
+    codes = [w["code"] for w in payload["comparison"]["warnings"]]
+    assert "COMPARISON_FACTOR_NOT_ESTABLISHED" in codes and ORDER in codes, codes
+
+
+def test_the_status_is_still_computed_from_the_checks_and_imports_alone_with_or_without_the_order_warning(tmp_path, study):
+    for options, status in (({}, "compatible"), ({"tools": None}, "descriptive_only")):
+        control, candidate = two_blocks(tmp_path, study, status, **options)
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        record = payload["comparison"]
+        failed = [c["check"] for c in record["comparability"]["checks"] if not c["passed"]]
+        assert ORDER in [w["code"] for w in record["warnings"]] and failed == ([] if status == "compatible" else ["tools"])
+        assert record["comparability"]["status"] == status, failed
+
+
+# --- #155: a Declared deviation that covers a side ------------------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def four(tmp_path_factory):
+    from _deviation_helpers import chinook_world
+
+    return chinook_world(tmp_path_factory.mktemp("four"))
+
+
+@pytest.fixture
+def world(four, tmp_path):
+    import shutil
+
+    study, attempts, assessments = four
+    shutil.copytree(study, tmp_path / "study")
+    return tmp_path / "study", attempts, assessments
+
+
+@pytest.mark.parametrize("roles", [("control",), ("candidate",), ("control", "candidate")], ids=["the Control's Attempt", "the Candidate's", "both"])
+def test_a_declaration_that_cites_a_sides_attempt_puts_one_warning_naming_the_side_its_id_and_its_text_in_the_comparison(world, roles):
+    from _deviation_helpers import a_declaration_covers_the_sides_whose_attempt_it_cites
+
+    a_declaration_covers_the_sides_whose_attempt_it_cites(world, roles)
+
+
+def test_a_declaration_that_cites_the_references_set_covers_both_sides_and_its_warning_names_both(world):
+    from _deviation_helpers import a_references_citation_covers_both_sides
+
+    a_references_citation_covers_both_sides(world)
+
+
+def test_a_comparison_of_two_other_attempts_of_the_study_holds_no_warning_for_a_declaration_that_cites_an_attempt(world):
+    from _deviation_helpers import a_declaration_covers_no_other_side
+
+    a_declaration_covers_no_other_side(world)
+
+
+def test_two_declarations_that_cover_one_comparison_give_one_warning_each_in_the_order_of_their_write_sequence(world):
+    from _deviation_helpers import two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence
+
+    two_declarations_give_one_warning_each_in_the_order_of_their_write_sequence(world)
+
+
+def test_a_withdrawal_covers_no_side_and_no_warning_names_it_or_the_declaration_it_withdrew(world):
+    from _deviation_helpers import a_withdrawal_gives_no_coverage
+
+    a_withdrawal_gives_no_coverage(world)
+
+
+def test_a_comparison_written_before_a_declaration_or_a_withdrawal_is_not_updated_and_a_new_compare_writes_another(world):
+    from _deviation_helpers import a_comparison_is_not_updated_and_a_new_compare_is_the_remedy
+
+    a_comparison_is_not_updated_and_a_new_compare_is_the_remedy(world)
+
+
+def test_a_declaration_that_cites_the_earlier_references_set_does_not_cover_a_side_scored_against_the_corrected_one(tmp_path):
+    from _deviation_helpers import a_corrected_references_set_is_not_covered, chinook_world, reassessed, references_of
+    from _revision_helpers import corrected_chinook_references, new_revision
+
+    study, attempts, earlier = chinook_world(tmp_path, count=2)
+    earlier_set = references_of(study)
+    corrected = corrected_chinook_references(tmp_path, lambda records: records["D03"].update(rows=[[1300]], reference_version="chinook-references/2"))
+    code, payload, err = new_revision(study, "--examples-dir", corrected)
+    assert code == 0, (payload, err)
+    assert references_of(study) != earlier_set
+    a_corrected_references_set_is_not_covered(earlier_set, earlier, reassessed(study, attempts, "chinook_contract_v1"), study)
+
+
+def test_the_declared_deviation_code_is_one_of_the_deviations_both_comparison_modules_name_beside_the_status():
+    from hypotrail.core import agent_comparison, comparison
+
+    assert "COMPARISON_DEVIATION_DECLARED" in agent_comparison.DEVIATIONS
+    assert "COMPARISON_DEVIATION_DECLARED" in comparison.DEVIATIONS

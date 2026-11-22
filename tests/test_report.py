@@ -494,7 +494,7 @@ def test_each_comparison_shows_its_sides_comparability_warnings_coverage_deltas_
     native = next(t for t in tables if t["Candidate Assessment"] == facts["assessments"]["ridge_v1"])
     descriptive = next(t for t in tables if t["Candidate Assessment"] == facts["import_assessment"])
     record = facts["comparison"]
-    assert native["Control Assessment"] == facts["assessments"]["seasonal_7"] and native["Comparability"] == "compatible"
+    assert native["Control Assessment"] == facts["assessments"]["seasonal_7"] and native["Comparability"] == "compatible, with warning COMPARISON_SINGLE_FEATURE_BEATS"
     assert native["Coverage"] == f"expected {record['coverage']['expected']}, Control scored {record['coverage']['control_scored']}, Candidate scored {record['coverage']['candidate_scored']}, paired {record['coverage']['paired']}"
     assert native["Delta"] == f"mae {float(f'{record['delta']['value']:.6g}'):g} rentals per day" or native["Delta"].startswith("mae ")
     assert float(native["Delta"].split()[1]) == float(f"{record['delta']['value']:.6g}")
@@ -646,3 +646,101 @@ def test_an_assessment_under_a_corrected_references_set_is_shown_with_its_revisi
     note = f"This Assessment follows Assessment {earlier['assessment_id']}"
     assert note in doc.text and "Recorded cause: references_version" in doc.text and doc.text.count("This Assessment follows") == 1
     assert earlier["assessment_id"] in {row[0] for row in doc.body("assessments")}
+
+
+# --- #154: the single-feature check on an Assessment's card, and the warning beside the Comparison's status ------------------------
+
+CHECKED = "checked: no declared lag feature beats this Assessment"
+NOT_CHECKED = "not checked"
+
+
+def generated_bike_rows(rows):
+    """A Bike data file whose rentals are a weekday and month pattern, the same every year: ridge_v1 fits it better than any lag feature alone."""
+    for row in rows:
+        count = 2000 + 300 * int(row["weekday"]) + 200 * int(row["mnth"])
+        row.update(cnt=str(count), registered=str(count), casual="0")
+
+
+def card_of(page: str, assessment_id: str) -> str:
+    """The text of the card of one Assessment in the metrics section, tags removed."""
+    cards = re.findall(r'<div class="card"><p><b>Assessment </b>(.*?)</p>(.*?)(?=<div class="card">|<p class="sub2">Comparisons</p>)', page, re.S)
+    found = [body for shown, body in cards if shown == assessment_id]
+    assert len(found) == 1, (assessment_id, [shown for shown, _ in cards])
+    return " ".join(re.sub(r"<[^>]+>", " ", found[0]).split())
+
+
+def test_an_assessments_card_shows_one_of_the_three_states_of_the_check_and_the_comparability_cell_names_the_warning(tmp_path):
+    from _revision_helpers import new_revision
+
+    examples = examples_copy(tmp_path)
+    study, _ = init_study(tmp_path, examples=examples)
+    ids = {}
+    for config in ("seasonal_7", "ridge_v1"):
+        code, payload, err = run_ml(study, config, "dev", f"rev-1-{config}", "--examples-dir", examples)
+        assert code == 0, (payload, err)
+        code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
+        assert code == 0, (payload, err)
+        ids[config] = payload["assessment"]
+    absent = forged(study, ids["ridge_v1"], lambda record: record.pop("single_feature_check", None))
+    code, compared, err = compare(study, ids["seasonal_7"]["assessment_id"], ids["ridge_v1"]["assessment_id"])
+    assert code == 0, (compared, err)
+    # a second revision of the Study, on a generated series, where ridge_v1's lag features all lose
+    generated = examples_copy(tmp_path, rows=generated_bike_rows, name="generated")
+    code, payload, err = new_revision(study, "--examples-dir", generated)
+    assert code == 0, (payload, err)
+    code, payload, err = run_ml(study, "ridge_v1", "dev", "rev-2-ridge_v1", "--examples-dir", generated)
+    assert code == 0, (payload, err)
+    code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
+    assert code == 0, (payload, err)
+    losing = payload["assessment"]
+    out = tmp_path / "out" / "report.html"
+    out.parent.mkdir()
+    assert report(study, out)[0] == 0
+    page = out.read_text(encoding="utf-8")
+
+    beaten = ids["ridge_v1"].get("single_feature_check", {}).get("beating", [])
+    listed = "; ".join(f"{entry['feature']} {entry['value']:.6g} rentals per day" for entry in beaten)
+    cards = {
+        "beaten": (card_of(page, ids["ridge_v1"]["assessment_id"]), f"beaten by {listed}"),
+        "no lag feature": (card_of(page, ids["seasonal_7"]["assessment_id"]), CHECKED),
+        "all lose": (card_of(page, losing["assessment_id"]), CHECKED),
+        "absent": (card_of(page, absent["assessment_id"]), NOT_CHECKED),
+    }
+    for name, (text, state) in cards.items():
+        assert f"Single-feature check {state}" in text, (name, text)
+        others = {f"Single-feature check {s}" for s in (f"beaten by {listed}", CHECKED, NOT_CHECKED)} - {f"Single-feature check {state}"}
+        assert not any(other in text for other in others), (name, text)
+    assert [entry["feature"] for entry in beaten] == ["mean_previous_7", "lag_1", "lag_7"]
+    assert losing["single_feature_check"]["computed"] and losing["single_feature_check"]["beating"] == []  # its features were checked and all lose
+    comparison = {row[0]: row[1] for row in doc_of(out).body("comparison-0")}
+    assert comparison["Comparability"] == "compatible, with warning COMPARISON_SINGLE_FEATURE_BEATS", comparison
+
+
+# --- #155: a Declared deviation, beside the status of a regression Comparison ------------------------------------------------------
+
+
+def test_the_comparability_cell_of_a_regression_comparison_a_declaration_covers_names_its_code_and_one_with_only_the_import_warning_names_none(tmp_path):
+    from _deviation_helpers import CODE, comparability_cells, compare_ids, declare, references_of
+    from _report_helpers import dev_world
+
+    study, facts = dev_world(tmp_path)
+    assert [w["code"] for w in facts["descriptive"]["warnings"]] == ["COMPARISON_DESCRIPTIVE_IMPORT"]
+    declare(study, [references_of(study)])
+    covered = compare_ids(study, facts["assessments"]["seasonal_7"], facts["assessments"]["ridge_v1"])
+    assert CODE in [w["code"] for w in covered["warnings"]]
+    out = tmp_path / "out" / "report.html"
+    out.parent.mkdir()
+    from _deviation_helpers import rendered
+
+    rendered(study, out)
+    cells = comparability_cells(out)
+    assert cells[covered["comparison_id"]].startswith("compatible") and CODE in cells[covered["comparison_id"]], cells
+    assert cells[facts["descriptive"]["comparison_id"]] == "descriptive_only (descriptive)", cells
+
+
+def test_the_page_shows_the_warning_a_comparison_recorded_and_nothing_computed_from_a_declaration_or_its_withdrawal(tmp_path):
+    from _deviation_helpers import bike_world, the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations
+
+    world = bike_world(tmp_path, count=2)
+    (tmp_path / "out").mkdir()
+    the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations(world, tmp_path / "out")

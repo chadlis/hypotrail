@@ -769,7 +769,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -991,7 +991,7 @@ def study_refusals(tmp_path):
 def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     rows = attrs_of(page, "study-codes", "data-code")
     found = study_refusals(tmp_path)
-    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "differs"}  # #109 Tightened K
+    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "declared_deviation_id", "differs"}
     assert {"STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD"} <= set(rows) and found["STUDY_CHANGED"][0] == 6 and found["WRITE_SEQUENCE_AHEAD"][1] == "sequence"
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -1309,6 +1309,56 @@ def test_the_comparison_record_tables_equal_the_contract_schema_and_the_layout_e
         if p.is_file()
     }
     assert set(layout) == written
+
+
+def comparisons_by_warning_code(tmp_path) -> dict:
+    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study and, for the single-feature warning and the Declared deviation's, a Bike Study."""
+    from _agent_compare_helpers import answer_lines, compare, imported, native
+    from _chinook_helpers import init_chinook
+    from _compare_helpers import assessed
+
+    study, _ = init_chinook(tmp_path, name="warnings")
+    seeds = [imported(tmp_path, study, name, answer_lines())[0] for name in ("seed-a", "seed-b")]
+    _, first = native(study, seeds[0])
+    _, later = native(study, seeds[1])  # built from the later import: its Attempt started after the first one finished
+    _, without_tools = native(study, seeds[0], tools=None)
+    no_digests, without_cases = native(study, seeds[0])
+    path = Path(study) / "attempts" / no_digests["attempt_id"] / "attempt.json"
+    path.write_text(json.dumps({key: value for key, value in json.loads(path.read_text()).items() if key != "case_digests"}))
+    _, imports = imported(tmp_path, study, "import", answer_lines())
+    pairs = {
+        "COMPARISON_DESCRIPTIVE_IMPORT": (first, imports),
+        "COMPARISON_FACTOR_NOT_ESTABLISHED": (first, without_tools),
+        "COMPARISON_CASES_NOT_ESTABLISHED": (first, without_cases),
+        "COMPARISON_ORDER_NOT_ALTERNATED": (first, later),
+    }
+    bike, _, assessments = assessed(tmp_path / "bike", "seasonal_7", "ridge_v1")
+    studies = dict.fromkeys(pairs, study)
+    pairs["COMPARISON_SINGLE_FEATURE_BEATS"] = (assessments["seasonal_7"], assessments["ridge_v1"])
+    studies["COMPARISON_SINGLE_FEATURE_BEATS"] = bike
+    from _deviation_helpers import declare, references_of
+
+    declare(bike, [references_of(bike)])  # it covers both sides of the Bike pair, which hold the single-feature warning too
+    pairs["COMPARISON_DEVIATION_DECLARED"] = pairs["COMPARISON_SINGLE_FEATURE_BEATS"]
+    studies["COMPARISON_DEVIATION_DECLARED"] = bike
+    statuses = {}
+    for code, (control, candidate) in pairs.items():
+        exit_code, payload, err = compare(studies[code], control, candidate)
+        assert exit_code == 0, (payload, err)
+        assert code in [w["code"] for w in payload["comparison"]["warnings"]], code
+        statuses[code] = payload["comparison"]["comparability"]["status"]
+    return statuses
+
+
+def test_the_warning_code_table_of_chapter_07_equals_the_warning_codes_and_what_compare_writes_for_a_pair_that_holds_each(page, tmp_path):
+    from _agent_compare_helpers import warning_codes
+
+    rows = attrs_of(page, "comparison-warnings", "data-code")
+    assert set(rows) == set(warning_codes().values())  # both ways: a row for each code, a code for each row
+    statuses = comparisons_by_warning_code(tmp_path)
+    for code, row in rows.items():
+        assert row["data-descriptive-only"] == ("yes" if statuses[code] == "descriptive_only" else "no"), code
+        assert row["data-compatible"] == ("yes" if statuses[code] == "compatible" else "no"), code
 
 
 def test_the_compare_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
@@ -1911,9 +1961,39 @@ def test_the_agent_comparison_chapter_names_the_delta_reason_and_the_status_code
     from hypotrail.core import agent_comparison
 
     chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
-    for name in (agent_comparison.REASON_COVERAGE, agent_comparison.WARNING_NOT_ESTABLISHED, agent_comparison.DEFAULT_FACTOR, "COMPARISON_DESCRIPTIVE_IMPORT"):
+    for name in (
+        agent_comparison.REASON_COVERAGE,
+        agent_comparison.WARNING_NOT_ESTABLISHED,
+        agent_comparison.WARNING_CASES_NOT_ESTABLISHED,
+        agent_comparison.DEFAULT_FACTOR,
+        "COMPARISON_DESCRIPTIVE_IMPORT",
+    ):
         assert f"<code>{name}</code>" in chapter, name
     assert set(agent_comparison.FACTORS) == {"configuration", "repeats", "tools", "model", "budgets"}
+
+
+def test_the_paragraph_that_says_when_an_agent_comparison_is_descriptive_names_the_warning_of_a_side_with_no_case_content():
+    from hypotrail.core import agent_comparison
+
+    chapter = (HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")
+    (paragraph,) = [p for p in re.findall(r"<p>.*?</p>", chapter, re.S) if "<code>descriptive_only</code>" in p and "<code>COMPARISON_FACTOR_NOT_ESTABLISHED</code>" in p]
+    assert f"<code>{agent_comparison.WARNING_CASES_NOT_ESTABLISHED}</code>" in paragraph
+
+
+def limit_cards(chapter) -> dict:
+    """{data-limit: the card's text} of the cards after a chapter's "Limits" heading that carry a `data-limit`."""
+    section = chapter.split('<p class="sub2">Limits</p>', 1)[1].split('<p class="sub2">', 1)[0]
+    return {m[1]: plain_text(m[2]) for m in re.finditer(r'<div class="card"[^>]*\bdata-limit="([^"]+)"[^>]*>(.*?)</div>', section, re.S)}
+
+
+def test_chapter_11_limits_state_that_a_compatible_comparison_can_hold_the_order_warning_and_the_two_limits_of_its_derivation():
+    order = "COMPARISON_ORDER_NOT_ALTERNATED"
+    cards = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8"))
+    invariant = cards.get("compatible-with-warning", "")
+    assert "compatible" in invariant and order in invariant, invariant
+    overlap, imported = cards.get("order-overlap", ""), cards.get("order-import", "")
+    assert order in overlap and "overlap" in overlap, overlap
+    assert order in imported and "Import" in imported, imported
 
 
 def test_the_readme_and_the_comparison_chapters_say_an_agent_comparison_exists():
@@ -2212,6 +2292,43 @@ def test_chapter_03_says_a_re_summary_keeps_the_logs_facts_and_that_the_licence_
 
 def run_agent_chapter() -> str:
     return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
+
+
+class _Linked(HTMLParser):
+    """For each text chunk, whether it lies inside an `<a>` element, and that element's href."""
+
+    def __init__(self):
+        super().__init__()
+        self.links, self.chunks = [], []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.links.append(dict(attrs).get("href"))
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.links:
+            self.links.pop()
+
+    def handle_data(self, data):
+        self.chunks.append((data, list(self.links)))
+
+
+def test_chapter_13_names_the_case_digests_key_only_inside_a_link_to_the_attempt_manifest_table_of_chapter_04():
+    """Every occurrence of the key's name in chapter 13 is inside a link to chapter 04's `record-fields`.
+
+    Its limit: a paraphrase of the key that does not spell its name is outside what this test reads.
+    """
+    parser = _Linked()
+    parser.feed(run_agent_chapter())
+    occurrences = [links for data, links in parser.chunks for _ in range(data.count("case_digests"))]
+    assert occurrences, "chapter 13 does not name case_digests"
+    assert all("#record-fields" in links for links in occurrences), occurrences
+
+
+def test_chapter_13_keeps_the_six_tables_it_had_and_gains_none_for_the_case_digests():
+    ids = re.findall(r'<table[^>]*\bid="([^"]+)"', run_agent_chapter())
+    assert sorted(ids) == sorted(["run-agent-flags", "run-agent-codes", "run-agent-config", "run-agent-digests", "run-agent-files", "adr-map-run-agent"])
+    assert len(ids) == 6
 
 
 def test_chapter_12_names_the_one_function_that_digests_a_configuration():
@@ -3664,6 +3781,13 @@ def test_the_acceptance_grid_names_the_control_configuration_plain_not_baseline_
     assert "baseline" not in point
 
 
+def test_chapter_16s_order_limit_says_the_kept_comparison_predates_the_order_warning_that_one_written_now_would_hold():
+    point = plain_text(re.search(r'<span data-limit="order">(.*?)</span>', chapter_16(), re.S)[1])
+    kept = sorted(p.name for p in (HANDBOOK / "traces" / "campaign-public-check" / "study" / "comparisons").iterdir())
+    assert [name[:8] for name in kept] == ["4dd96c89"]
+    assert "4dd96c89" in point and "predates" in point and "COMPARISON_ORDER_NOT_ALTERNATED" in point, point
+
+
 CAMPAIGN_PLACEHOLDER = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b")
 
 
@@ -3979,8 +4103,9 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 14
+    assert len(parser_commands()) == 15
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
+    assert rows["deviation"]["data-chapter"] == "decisions"
     for command, row in rows.items():
         section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
         assert section, command
@@ -4004,6 +4129,7 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "WriteJournalBegin": ("record", "write-journal-fields"),
     "WriteJournalEnd": ("record", "write-journal-fields"),
     "DecisionRecord": ("record", "decision-fields"),
+    "DeclaredDeviationRecord": ("record", "deviation-fields"),
 }
 
 
@@ -4406,7 +4532,7 @@ def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the
 
 def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
-    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision"):
+    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision", "Declared deviation"):
         assert kind in chapter, kind
     assert "revision_number" in chapter and "not citable" in chapter
     assert "status --json" in chapter
@@ -4596,3 +4722,174 @@ def test_chapter_04_order_paragraph_says_only_the_data_and_artifact_checks_of_ru
     assert "in run agent, whose identity reads its input bytes directly, only the data check and the artifact checks come after the comparison" in text
     assert "the others keep their place, before the lock or before the identity" in text
     assert "DATA_INTEGRITY" not in paragraph and "ARTIFACT_" not in paragraph  # the refusals table gives them
+
+
+# --- #154: the single-feature check (chapters 05 and 07) ---------------------------------------------------------------------------------
+
+
+def test_chapter_05s_list_item_of_what_assess_reads_back_against_its_digest_names_the_dataset_copy_and_when_it_is_read():
+    items = [plain_text(item) for item in re.findall(r"<li>.*?</li>", chapter_text("05-assessments.html"), re.S)]
+    found = [item for item in items if "read back against its digest" in item]
+    assert len(found) == 1, found
+    assert "dataset" in found[0] and "lag feature" in found[0], found[0]
+
+
+def test_predicts_nothing_is_said_of_compare_in_chapter_07_and_in_no_other_chapter():
+    saying = sorted(path.name for path in (HANDBOOK / "chapters").glob("*.html") if "predicts nothing" in plain_chapter(path.name))
+    assert saying == ["07-comparison.html"]
+
+
+def test_the_assess_refusal_table_of_chapter_05_gains_no_row(page):
+    assert set(attrs_of(page, "assess-codes", "data-code")) == {
+        "SCORER_NOT_REGISTERED", "UNSUPPORTED_CAPABILITY", "OBSERVATION_SET_NOT_FOUND", "REFERENCES_NOT_FOUND", "OBSERVATIONS_INVALID", "ASSESSMENT_PARTITION_NOT_DEV",
+    }
+
+
+# --- #155: the Declared deviation (chapters 04, 07, 11 and 17, and the README) -------------------------------------------------------
+
+
+def _deviation_study(tmp_path, name="chapter-17-deviation"):
+    """(Study, the files it holds before and after one Declared deviation, the record it wrote)."""
+    from _deviation_helpers import declare
+    from _study_helpers import init_study, run_ml
+
+    study, _ = init_study(tmp_path, name=name)
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    before = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    record = declare(study, [attempt["attempt"]["attempt_id"]], request_id="dv-1")
+    after = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    return study, before, after, record
+
+
+def test_the_declared_deviation_record_table_of_chapter_17_equals_the_contract_schema_and_the_fields_the_command_writes(page, tmp_path):
+    from hypotrail.core import contracts
+
+    definition = contracts.schema()["$defs"]["DeclaredDeviationRecord"]
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    row = attrs_of(section, "deviation-fields", "data-record")["DeclaredDeviationRecord"]
+    assert words(row["data-required"]) == set(definition["required"])
+    assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
+    assert row["data-kind"] == "declared_deviation" == definition["properties"]["kind"]["const"]
+    _, before, after, record = _deviation_study(tmp_path)
+    assert set(record) == words(row["data-required"]) | words(row["data-optional"])
+    added = {re.sub(r"declared_deviations/[0-9]{6}-", "declared_deviations/SEQ-", path.replace(record["declared_deviation_id"], "DEVIATION_ID")) for path in after - before}
+    assert set(attrs_of(section, "deviation-layout", "data-path")) == {path for path in added if path.startswith("declared_deviations/")}
+
+
+def deviation_refusals(tmp_path):
+    """Provoke each refusal of the `deviation` command; return {code: (exit code, stage, set of details keys)}."""
+    from _deviation_helpers import declare, deviation, references_of
+    from _study_helpers import init_study, run_json, run_ml
+
+    from hypotrail.core import lock
+
+    found = {}
+    study, _ = init_study(tmp_path, name="chapter-17-deviation-refusals")
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    cited = attempt["attempt"]["attempt_id"]
+    code, payload, err = run_json("assess", "--study", study, "--observations", json.loads((study / "attempts" / cited / "observation_set.json").read_text())["observation_set_id"],
+                                  "--scorer", "regression_mae_v1", "--references", references_of(study))
+    assessment = payload["assessment"]["assessment_id"]
+    declared = declare(study, [cited], request_id="dv-held")["declared_deviation_id"]
+    other = declare(study, [references_of(study)])["declared_deviation_id"]
+    withdrawn = declare(study, [cited])["declared_deviation_id"]
+    withdrawal = declare(study, [withdrawn], text="withdrawn")["declared_deviation_id"]
+
+    def call(ids=(cited,), **fields):
+        code, payload, err = deviation(fields.pop("study", study), list(ids), **fields)
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    call(omit=("--artifact",))  # INVALID_ARGUMENTS
+    call(request_id="")  # REQUEST_ID_EMPTY
+    call(text="")  # DEVIATION_TEXT_EMPTY
+    call(study=tmp_path / "none", read_sequence=0)  # STUDY_NOT_FOUND
+    with lock.writer_lock(study):
+        call()  # STUDY_LOCKED
+    call(request_id="held")  # REQUEST_CONFLICT: the request_id of the Attempt
+    call(read_sequence=0)  # STUDY_CHANGED
+    call(read_sequence=10**6)  # WRITE_SEQUENCE_AHEAD
+    call(ids=["unknown"])  # CITED_ID_NOT_FOUND
+    call(ids=[declared, cited])  # DEVIATION_CITES_A_MIX
+    call(ids=[declared, other])  # DEVIATION_CITES_SEVERAL_DEVIATIONS
+    call(ids=[withdrawal])  # DEVIATION_CITES_A_WITHDRAWAL
+    call(ids=[assessment])  # CITED_KIND_NOT_CITABLE
+    call(ids=[withdrawn])  # DEVIATION_ALREADY_WITHDRAWN
+    [file] = [p for p in sorted((study / "declared_deviations").glob("*.json")) if declared in p.name]
+    record = json.loads(file.read_text(encoding="utf-8"))
+    del record["text"]
+    file.write_text(json.dumps(record), encoding="utf-8")
+    call(request_id="dv-held", read_sequence=0)  # CONTRACT_VIOLATION when the record is read for a replay; `status` would refuse it too
+    return found
+
+
+def test_the_deviation_refusal_table_of_chapter_17_equals_the_code_exit_stage_and_details_of_each_refusal_and_the_codes_the_command_raises(page, tmp_path):
+    found = deviation_refusals(tmp_path)
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    rows = attrs_of(section, "deviation-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code
+    (tmp_path / "module").mkdir()
+    shutil.copy(ROOT / "src" / "hypotrail" / "core" / "deviations.py", tmp_path / "module")  # the codes the command's own module raises
+    raised = raised_codes(tmp_path / "module")
+    assert raised and raised <= set(rows), raised - set(rows)
+
+
+def test_the_declared_deviation_keys_table_of_chapter_17_equals_the_keys_status_reports_for_a_declared_deviation(page, tmp_path):
+    from _study_helpers import run_json
+
+    from hypotrail.core import contracts
+
+    study, _, _, _ = _deviation_study(tmp_path)
+    [row] = run_json("status", "--study", study)[1]["declared_deviations"]
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    keys = set(attrs_of(section, "deviation-row-keys", "data-field"))
+    assert keys == set(row) == set(contracts.schema()["$defs"]["DeclaredDeviationRecord"]["properties"]) | {"withdrawn", "withdrawn_by"}
+
+
+def test_the_readme_sentence_that_lists_the_commands_names_every_leaf_command_of_the_parser_but_spike_live():
+    """`spike` is the parser of the "feasibility spike entry points" (`cli.py`), not a product command, so the sentence does not name `spike live`."""
+    line = (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[6]
+    sentence = next(part for part in re.split(r"(?<=\.)\s+", line) if part.startswith("`init` creates a Study"))
+    named = set(re.findall(r"`([^`]+)`", sentence))
+    assert named == set(parser_commands()) - {"spike live"}, (sorted(named - set(parser_commands())), sorted(set(parser_commands()) - named))
+
+
+def test_the_sentences_of_chapters_04_and_17_that_state_the_one_request_id_namespace_name_attempts_decisions_and_declared_deviations():
+    for name in ("04-study-and-attempts.html", "17-decisions.html"):
+        sentences = [s for s in re.split(r"(?<=\.)\s+", plain_text(chapter_text(name))) if "one request_id namespace" in s]
+        assert len(sentences) == 1, (name, sentences)
+        assert all(kind in sentences[0] for kind in ("Attempts", "Decisions", "Declared deviations")), (name, sentences[0])
+
+
+def chapter_17_limit(limit) -> str:
+    return limit_cards(chapter_text("17-decisions.html")).get(limit, "")
+
+
+def test_chapter_17_states_that_a_corrected_references_set_has_a_new_artifact_id_and_is_not_covered():
+    card = chapter_17_limit("corrected-references-not-covered")
+    assert "artifact_id" in card and "corrected" in card, card
+
+
+def test_chapter_17_states_that_a_comparison_is_not_updated_and_that_a_new_compare_is_the_remedy_which_for_public_check_appends_an_exposure_entry():
+    card = chapter_17_limit("comparison-not-updated")
+    assert all(part in card for part in ("not updated", "compare", "public_check", "Exposure")), card
+
+
+def test_chapter_17_states_the_redo_path_and_the_departure_from_inspects_uninvalidate_samples():
+    redo, departure = chapter_17_limit("redo-is-a-new-declaration"), chapter_17_limit("departure-from-inspect")
+    assert "new declaration" in redo and "new ID" in redo, redo
+    assert "uninvalidate_samples" in departure, departure
+
+
+def test_a_chapter_states_that_a_decision_citing_a_withdrawn_declared_deviation_still_applies():
+    chapters = [path.read_text(encoding="utf-8") for path in sorted((HANDBOOK / "chapters").glob("*.html"))]
+    found = [card for chapter in chapters if '<p class="sub2">Limits</p>' in chapter for limit, card in limit_cards(chapter).items() if limit == "withdrawal-keeps-decisions-applying"]
+    assert len(found) == 1 and "withdrawn" in found[0] and "applies" in found[0], found
+
+
+def test_chapter_11_limit_that_a_compatible_comparison_can_hold_a_warning_names_the_declared_deviation_code_beside_the_order_code():
+    invariant = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")).get("compatible-with-warning", "")
+    assert "compatible" in invariant and "COMPARISON_ORDER_NOT_ALTERNATED" in invariant and "COMPARISON_DEVIATION_DECLARED" in invariant, invariant

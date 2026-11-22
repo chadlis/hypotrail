@@ -372,9 +372,22 @@ def test_two_unknown_ids_given_out_of_order_beside_a_known_one_are_refused_with_
 KINDS = ["attempt", "observation_set", "assessment", "comparison", "study_artifact", "revision", "earlier_revision", "freeze_record", "exposure_entry"]
 
 
-@pytest.mark.parametrize("kind", [*KINDS, "decision"])
+def a_declared_deviation(study, kind) -> str:
+    """The id of a declaration that cites an Attempt, or of the withdrawal of one."""
+    from _deviation_helpers import declare
+
+    declared = declare(study, [held(study)["attempt"]])["declared_deviation_id"]
+    return declared if kind == "declared_deviation" else declare(study, [declared], text="withdrawn")["declared_deviation_id"]
+
+
+@pytest.mark.parametrize("kind", [*KINDS, "decision", "declared_deviation", "withdrawal"])
 def test_an_id_of_each_kind_of_record_the_study_holds_is_citable(kind, study):
-    cited = made(study, request_id="first")["decision_id"] if kind == "decision" else held(study)[kind]
+    if kind == "decision":
+        cited = made(study, request_id="first")["decision_id"]
+    elif kind in ("declared_deviation", "withdrawal"):
+        cited = a_declared_deviation(study, kind)
+    else:
+        cited = held(study)[kind]
     code, payload, err = decide(study, request_id="d-kind", cited=[cited])
     assert code == 0, (payload, err)
     assert payload["decision"]["cited_ids"] == [cited]
@@ -414,7 +427,7 @@ def test_status_json_gains_no_list_of_observation_sets_assessments_or_comparison
     made(study)
     code, payload, err = run_json("status", "--study", study)
     assert code == 0, err
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
     assert not {"observation_sets", "assessments", "comparisons"} & set(payload)
 
 
@@ -476,7 +489,7 @@ def test_the_same_request_id_with_another_option_is_a_request_conflict_that_name
     code, payload, err = decide(study, request_id="d-1", option="seasonal_7")
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (6, "REQUEST_CONFLICT", "request")
-    assert error["details"] == {"request_id": "d-1", "attempt_id": None, "decision_id": first["decision_id"], "differs": ["option"]}
+    assert error["details"] == {"request_id": "d-1", "attempt_id": None, "decision_id": first["decision_id"], "declared_deviation_id": None, "differs": ["option"]}
     assert "an Attempt" not in error["message"]
     assert tree(study) == files
 
@@ -502,7 +515,9 @@ def test_a_request_id_that_names_an_attempt_is_a_request_conflict_with_the_attem
     code, payload, err = decide(study, request_id=attempt["request_id"])
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (6, "REQUEST_CONFLICT", "request")
-    assert error["details"] == {"request_id": attempt["request_id"], "attempt_id": attempt["attempt_id"], "decision_id": None, "differs": ["command"]}
+    assert error["details"] == {
+        "request_id": attempt["request_id"], "attempt_id": attempt["attempt_id"], "decision_id": None, "declared_deviation_id": None, "differs": ["command"],
+    }
     assert tree(study) == files
 
 
@@ -545,7 +560,7 @@ def test_a_request_id_of_an_earlier_attempt_of_another_request_is_a_request_conf
     code, payload, err = call("shared", True)
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (6, "REQUEST_CONFLICT", "request"), payload
-    assert set(error["details"]) == {"request_id", "attempt_id", "decision_id", "differs"}
+    assert set(error["details"]) == {"request_id", "attempt_id", "decision_id", "declared_deviation_id", "differs"}
     assert (error["details"]["attempt_id"], error["details"]["decision_id"]) == (read(sorted((study / "attempts").glob("*/attempt.json"))[0])["attempt_id"], None)
     assert tree(study) == files
 
@@ -559,7 +574,9 @@ def test_a_request_id_that_a_decision_holds_is_a_request_conflict_with_the_decis
     code, payload, err = call("shared")
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (6, "REQUEST_CONFLICT", "request"), payload
-    assert error["details"] == {"request_id": "shared", "attempt_id": None, "decision_id": recorded["decision_id"], "differs": ["command"]}
+    assert error["details"] == {
+        "request_id": "shared", "attempt_id": None, "decision_id": recorded["decision_id"], "declared_deviation_id": None, "differs": ["command"],
+    }
     assert "an Attempt" not in error["message"] and "decision" in error["message"]
     assert tree(study) == files
 

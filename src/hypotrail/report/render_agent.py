@@ -9,6 +9,7 @@ of the per-Item file. An Inspect log is linked with its SHA-256 and never opened
 
 import json
 
+from hypotrail.core.agent_comparison import DEVIATIONS
 from hypotrail.core.attempts import SCENARIO_MODE
 from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.report import gather_agent
@@ -186,10 +187,12 @@ def _comparison(index: int, record: dict, paired) -> Safe:
             return Safe("withheld")  # P3B: only "withheld", the coverage rates beside it, no bounds
         return join([entry["metric"], " ", number(entry["value"]), " ", entry["unit"]])
 
+    codes = [w["code"] for w in record.get("warnings", []) if w["code"] in DEVIATIONS]
+    deviations = f", with warning {', '.join(codes)}" if codes else ""
     rows = [
         ["Control Assessment", record["roles"]["control_assessment_id"]],
         ["Candidate Assessment", record["roles"]["candidate_assessment_id"]],
-        ["Comparability", comparability["status"] + (" (descriptive)" if comparability["status"] == "descriptive_only" else "")],
+        ["Comparability", comparability["status"] + (" (descriptive)" if comparability["status"] == "descriptive_only" else "") + deviations],
         ["Checks", "; ".join(f"{c['check']}: {'passed' if c['passed'] else 'not passed'}" + (f" ({c['reason']})" if c["reason"] else "") for c in comparability["checks"])],
         ["Coverage", f"expected {coverage['expected']}, Control scored {coverage['control_scored']}, Candidate scored {coverage['candidate_scored']}, paired {coverage['paired']}"],
         ["Coverage rates", join(["Control ", number(coverage.get("control_rate")), ", Candidate ", number(coverage.get("candidate_rate"))])],

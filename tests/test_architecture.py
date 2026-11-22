@@ -625,3 +625,19 @@ def test_report_command_calls_replace_atomically_and_the_private_write_of_artifa
     modules = sorted({site.module for site in sites if site.callee == REPLACE_ATOMICALLY and site.module.startswith("hypotrail.report")})
     assert modules == ["hypotrail.report.command"]
     assert "hypotrail.core.artifacts:_write_atomically" in {site.owner for site in sites if site.callee == REPLACE_ATOMICALLY}
+
+
+# --- #154: `compare` reads the single-feature check, it computes no feature ------------------------------------------------------------
+
+COMPARISON_MODULES = ("hypotrail.core.comparison", "hypotrail.core.agent_comparison")
+FEATURE_MODULES = ("hypotrail.ml.lags", "hypotrail.ml.series")
+
+
+def feature_imports(trees: dict) -> dict:
+    """{comparison module: what it imports from the modules that compute a lag feature or read a target series}."""
+    found = imports(trees)
+    return {module: sorted(t for t in found[module] if any(t == m or t.startswith(m + ".") for m in FEATURE_MODULES)) for module in COMPARISON_MODULES}
+
+
+def test_the_comparison_modules_import_nothing_from_the_modules_that_compute_lag_features_or_read_the_series():
+    assert feature_imports(parse_all(SOURCE)) == {module: [] for module in COMPARISON_MODULES}

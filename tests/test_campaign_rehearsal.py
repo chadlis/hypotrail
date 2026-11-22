@@ -286,7 +286,9 @@ def test_assess_twice_compare_with_plain_as_control_and_report_exit_0_and_the_co
     assert record["roles"] == {"control_assessment_id": r.assessments["plain"], "candidate_assessment_id": r.assessments["verify"]}
     assert record["comparability"]["status"] == "compatible" and all(c["passed"] for c in record["comparability"]["checks"])
     assert record["declared_factor"] == "configuration"
-    assert record["warnings"] == []  # compatible with no warning is what strict means here
+    # strict: every check passed and both sides are native. `plain` ran, then `verify`: the record holds the order warning
+    # and only it, and the warning leaves the status as the checks compute it.
+    assert [w["code"] for w in record["warnings"]] == ["COMPARISON_ORDER_NOT_ALTERNATED"]
 
 
 # --- D-028 on chadlis/hypotrail#75, condition 2: start and end times and the model the provider reported, for each invocation ------------------------------------

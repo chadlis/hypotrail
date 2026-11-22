@@ -47,10 +47,12 @@ def test_the_import_on_both_sides_is_descriptive_too(native_and_import):
     assert code == 0 and payload["comparison"]["comparability"]["status"] == "descriptive_only"
 
 
-def test_a_strict_comparison_carries_no_warning(tmp_path):
+def test_a_strict_comparison_of_seasonal_7_and_ridge_v1_carries_only_the_single_feature_warning_and_stderr_only_that_warning(tmp_path):
     study, _, a = assessed(tmp_path, "seasonal_7", "ridge_v1")
     _, payload, err = compare(study, a["seasonal_7"]["assessment_id"], a["ridge_v1"]["assessment_id"])
-    assert payload["comparison"]["warnings"] == [] and err == ""
+    warnings = payload["comparison"]["warnings"]
+    assert [w["code"] for w in warnings] == ["COMPARISON_SINGLE_FEATURE_BEATS"]
+    assert err == f"{warnings[0]['code']}: {warnings[0]['message']}\n"
 
 
 def _rewrite_environment(study, attempt, edit):
@@ -141,3 +143,11 @@ def test_a_comparison_with_an_import_does_not_say_the_two_attempts_share_a_code_
     text = " ".join(record["limitations"])
     assert "record the same code environment" not in text and "different code environments" not in text
     assert "importer" in text and "not established" in text
+
+
+def test_a_bike_comparison_records_its_seven_checks_in_order_and_no_cases_check(tmp_path):
+    study, _, a = assessed(tmp_path, "seasonal_7", "ridge_v1")
+    code, payload, err = compare(study, a["seasonal_7"]["assessment_id"], a["ridge_v1"]["assessment_id"])
+    assert code == 0, (payload, err)
+    names = [c["check"] for c in payload["comparison"]["comparability"]["checks"]]
+    assert names == ["population", "references", "scorer", "unit", "items", "mode", "coverage"]

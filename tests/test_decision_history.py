@@ -399,3 +399,18 @@ def test_the_human_status_of_a_study_with_no_decision_has_no_such_line_and_is_wh
         f"Study {spec['study_id']} ({spec['workload']}); a writer is not active",
         "  0 Exposures recorded in this Study; any earlier exposure to public_check is unknown",
     ]
+
+
+# --- #155, TB2.11: a withdrawal changes no decision's `applies` ---------------------------------------------------------------
+
+
+def test_a_decision_that_cites_a_declared_deviation_applies_with_no_reason_before_and_after_that_declared_deviation_is_withdrawn(tmp_path):
+    from _deviation_helpers import declare
+
+    study, attempts = fresh_study(tmp_path, "seasonal_7")
+    declared = declare(study, [attempts["seasonal_7"]["attempt_id"]])
+    decision = decide(study, [declared["declared_deviation_id"]], request_id="d-on-a-deviation")
+    before = row_of(study, decision["decision_id"])
+    declare(study, [declared["declared_deviation_id"]], text="the review is done")
+    after = row_of(study, decision["decision_id"])
+    assert (before["applies"], before["reasons"]) == (after["applies"], after["reasons"]) == (True, [])

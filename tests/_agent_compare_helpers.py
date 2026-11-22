@@ -1,9 +1,11 @@
 """Shared by the agent Comparison tests (#72): answers written elsewhere, imported and assessed, and native Attempts built by hand."""
 
+import ast
 import json
 import uuid
 from pathlib import Path
 
+from _agent_helpers import WORKLOAD
 from _chinook_helpers import FIXTURE_CASES, episodes_file, fixture_lines, import_agent, references_id, write_lines
 from _study_helpers import run_json
 
@@ -88,11 +90,17 @@ def imported(tmp_path, study, name, lines, *, repeats=REPEATS):
     return payload["attempt"], assess(study, observation_set_of(study, payload["attempt"]))
 
 
+def case_digests_of(case_ids) -> dict:
+    """{case_id: digest of the canonical Case object} for Cases of the Workload's dev and public_check files."""
+    by_id = {case["case_id"]: case for partition in ("dev", "public_check") for case in WORKLOAD.cases(partition)}
+    return {case_id: canonical.digest(by_id[case_id]) for case_id in case_ids}
+
+
 def native(study, attempt, *, mode="llm_live", configuration="plain", model="model-a", tools=("describe_schema", "query_readonly"), limits=None, repeats=REPEATS, environment=None, partition="dev", assessed=True):
     """(Attempt, Assessment) of a native Attempt built from `attempt`'s observations: no ticket of #9 runs the agent Track into a Study yet.
 
     The manifest records what a native Attempt of this Track would: its Mode, its Configuration, its model, its tools,
-    its limits and its planned Repeats.
+    its limits, its planned Repeats and, as `run agent` writes them, the digests of the Cases of its population.
     """
     as_mode = mode
     if assessed and mode == "scripted_fixture":
@@ -141,6 +149,7 @@ def native(study, attempt, *, mode="llm_live", configuration="plain", model="mod
         effective_config=config,
         effective_config_digest=canonical.digest(config),
         output_refs=[normalized, set_ref],
+        case_digests=case_digests_of(sorted({episode["case_id"] for episode in json.loads((folder / "population.json").read_text())["episodes"]})),
     )
     if environment is not None:
         manifest["code_environment"] = {**manifest["code_environment"], **environment}
@@ -184,3 +193,14 @@ def compare(study, control, candidate, *more):
 def comparison_files(study):
     folder = Path(study) / "comparisons"
     return sorted(p.relative_to(study).as_posix() for p in folder.rglob("*") if p.is_file()) if folder.is_dir() else []
+
+
+def warning_codes() -> dict:
+    """{"module.NAME": code} of every `WARNING_*` constant that `core/comparison.py` and `core/agent_comparison.py` assign."""
+    core = Path(__file__).resolve().parent.parent / "src" / "hypotrail" / "core"
+    codes = {}
+    for name in ("comparison", "agent_comparison"):
+        for node in ast.parse((core / f"{name}.py").read_text(encoding="utf-8")).body:
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+                codes.update({f"{name}.{t.id}": node.value.value for t in node.targets if isinstance(t, ast.Name) and t.id.startswith("WARNING_")})
+    return codes

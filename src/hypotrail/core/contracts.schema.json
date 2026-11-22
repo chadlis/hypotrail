@@ -234,6 +234,13 @@
             "$ref": "#/$defs/ArtifactRef"
           }
         },
+        "case_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
         "code_environment": {
           "type": "object"
         },
@@ -722,6 +729,56 @@
             "number",
             "revision",
             "protocol_digest"
+          ],
+          "additionalProperties": false
+        },
+        "single_feature_check": {
+          "type": "object",
+          "properties": {
+            "computed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metric": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "required": [
+                  "feature",
+                  "metric"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "beating": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "feature",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "computed",
+            "beating"
           ],
           "additionalProperties": false
         }
@@ -1436,6 +1493,77 @@
         "write_sequence"
       ],
       "additionalProperties": false
+    },
+    "DeclaredDeviationRecord": {
+      "type": "object",
+      "description": "One Declared deviation of a Study, kept in declared_deviations/<seq>-<declared_deviation_id>.json and never rewritten (chadlis/hypotrail#155). A declaration cites Attempts and References sets; a withdrawal cites exactly one earlier Declared deviation, the one it withdraws. `cited_ids`, `revision`, `read_sequence` and `write_sequence` are those of a decision record. Whether a Declared deviation is withdrawn, and by which one, is computed when the Study is read and is not stored.",
+      "properties": {
+        "kind": {
+          "const": "declared_deviation"
+        },
+        "schema_version": {
+          "const": "declared_deviation/1"
+        },
+        "declared_deviation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "enum": [
+            "human",
+            "proxy"
+          ]
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cited_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "write_sequence": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "declared_deviation_id",
+        "request_id",
+        "text",
+        "author",
+        "source",
+        "cited_ids",
+        "revision",
+        "read_sequence",
+        "write_sequence"
+      ],
+      "additionalProperties": false
     }
   },
   "oneOf": [
@@ -1468,6 +1596,9 @@
     },
     {
       "$ref": "#/$defs/DecisionRecord"
+    },
+    {
+      "$ref": "#/$defs/DeclaredDeviationRecord"
     }
   ]
 }
