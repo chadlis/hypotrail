@@ -244,6 +244,11 @@ def history(study) -> list:
     return rows
 
 
+def assessments_in_order(study) -> list:
+    """Every Assessment record of the Study, as stored, in the one order of the later Assessment (`write_journal.assessment_order`): `status` lists them so."""
+    return sorted(layout.assessment_records(study), key=write_journal.assessment_order(study))
+
+
 def pending(study, rows: list) -> list:
     """The pending decisions: each Comparison of the current revision whose two Assessments have no later Assessment and that no Decision of
     `rows` (the `history`) that applies cites, in the order of `write_journal.comparison_order`, with the question and the options (read only).

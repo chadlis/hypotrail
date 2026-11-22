@@ -11,7 +11,7 @@ says that any earlier exposure is unknown. It shows the Study's write sequence, 
 and whether it still applies (`hypotrail.core.decisions`, `history`), computed now and never stored, as the top-level key `decisions`, and its Declared
 deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It lists every Assessment
 record (`assessments`) and every Comparison record (`comparisons`) the Study holds, each as stored, in the order of the write journal
-(`write_journal.assessment_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
+(`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
 `hypotrail.core.decisions`, `pending`). It takes no lock and writes nothing.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
@@ -133,7 +133,7 @@ def status(study) -> dict:
         "write_sequence": write_journal.write_sequence(study),
         "decisions": history,
         "declared_deviations": deviations.listing(study),
-        "assessments": sorted(layout.assessment_records(study), key=write_journal.assessment_order(study)),
+        "assessments": decisions.assessments_in_order(study),
         "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
         "pending_decisions": decisions.pending(study, history),
     }
