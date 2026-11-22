@@ -123,6 +123,25 @@ def test_the_command_publishes_the_page_by_a_rename_prints_one_json_object_and_r
     assert journal_of(exposed) == []
 
 
+def test_the_folder_of_out_is_fsynced_after_the_page_is_renamed_onto_out_on_the_path_without_the_lock_and_on_the_path_that_records_an_exposure(track, tmp_path, monkeypatch):
+    from hypotrail.core import artifacts
+
+    folders = []
+
+    def spy(path):
+        folders.append((Path(path), [p.name for p in Path(path).iterdir()]))
+
+    monkeypatch.setattr(artifacts, "_fsync_dir", spy)
+    studies = {"dev_only": (track.dev_study(tmp_path), False), "exposure": (track.public_outputs(tmp_path)[0], True)}
+    for name, (study, records_an_exposure) in studies.items():
+        out = tmp_path / f"site-{name}" / "report.html"
+        out.parent.mkdir()
+        folders.clear()
+        code, payload, err = report(study, out)
+        assert (code, payload["report"]["exposure"]["recorded"]) == (0, records_an_exposure), (name, payload, err)
+        assert [seen for seen in folders if seen[0] == out.parent] == [(out.parent, ["report.html"])], name
+
+
 def test_J_an_existing_output_is_replaced_and_an_output_inside_the_study_is_refused_before_anything_is_written(track, tmp_path):
     study = track.dev_study(tmp_path)
     out = tmp_path / "page.html"

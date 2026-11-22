@@ -546,3 +546,82 @@ def test_the_command_of_each_invalid_arguments_refusal_is_hypotrail_command_exce
         gave[case] = payload["error"]["details"]["command"]
     assert gave == {case: command for case, (_, command) in runs.items()}
     assert not none.exists()
+
+
+# --- `report` writes no file itself: its page goes through `core/artifacts.replace_atomically` -------------------------------------
+
+REPLACE_ATOMICALLY = "hypotrail.core.artifacts.replace_atomically"
+FILE_FUNCTIONS = {"os.replace", "os.rename", "os.fsync", "os.open"}
+WRITING_METHODS = {"write_bytes", "write_text"}
+
+
+def _writes(mode) -> bool:
+    """A mode writes when it is a literal that holds `w`, `a`, `x` or `+`, or when it is not a literal."""
+    if mode is None:
+        return False
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return any(letter in mode.value for letter in "wax+")
+    return True
+
+
+def _mode_of(node: ast.Call, position: int):
+    keyword = next((k.value for k in node.keywords if k.arg == "mode"), None)
+    return node.args[position] if len(node.args) > position else keyword
+
+
+def file_writes_of_modules(trees: dict, prefix: str) -> list:
+    """The calls, in every module whose name is `prefix` or starts with `prefix.`, that write a file: `module:function spelling`.
+
+    A call is listed when it resolves to `os.replace`, `os.rename`, `os.fsync` or `os.open`; when it is the builtin `open` with a mode that writes (the second argument,
+    or `mode=`); or when it is a method named `write_bytes` or `write_text`, or named `open` with a mode that writes (the first argument, or `mode=`), whatever its receiver.
+    The conventions that bound it: the resolver's, for the `os` functions and `open`; the attribute's name, whatever the receiver, for the methods. A write through a
+    function that is passed in, or an object built with `getattr`, is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    found = []
+    for site in calls(trees):
+        if not (site.module == prefix or site.module.startswith(prefix + ".")):
+            continue
+        func = site.node.func
+        method = func.attr if isinstance(func, ast.Attribute) else None
+        if site.callee in FILE_FUNCTIONS:
+            listed = True
+        elif site.raw == "open" and site.callee is None:
+            listed = _writes(_mode_of(site.node, 1))
+        elif method in WRITING_METHODS:
+            listed = True
+        elif method == "open":
+            listed = _writes(_mode_of(site.node, 0))
+        else:
+            listed = False
+        if listed:
+            found.append(f"{site.owner} {site.callee or site.raw or method}")
+    return sorted(found)
+
+
+def test_no_module_of_report_writes_a_file_itself():
+    assert file_writes_of_modules(parse_all(SOURCE), "hypotrail.report") == []
+
+
+def test_a_planted_write_in_a_module_of_report_is_found_whatever_the_way_it_is_spelled(tmp_path):
+    planted = {
+        "os.replace": "import os\ndef f(a, b):\n    os.replace(a, b)\n",
+        "os_alias": "from os import rename as r\ndef f(a, b):\n    r(a, b)\n",
+        "builtin_open": "def f(p):\n    open(p, 'wb')\n",
+        "builtin_open_keyword": "def f(p, m):\n    open(p, mode=m)\n",
+        "write_bytes": "from pathlib import Path\ndef f(p):\n    Path(p).write_bytes(b'')\n",
+        "write_text": "def f(p):\n    p.write_text('')\n",
+        "path_open": "def f(p):\n    p.open('w')\n",
+    }
+    for name, source in planted.items():
+        root = plant(tmp_path / name, {"hypotrail/__init__.py": "", "hypotrail/report/__init__.py": "", "hypotrail/report/x.py": source})
+        assert len(file_writes_of_modules(parse_all(root), "hypotrail.report")) == 1, name
+    reads = "def f(p):\n    open(p)\n    open(p, 'rb')\n    p.open('r')\n    p.read_bytes()\n"
+    root = plant(tmp_path / "reads", {"hypotrail/__init__.py": "", "hypotrail/report/__init__.py": "", "hypotrail/report/x.py": reads})
+    assert file_writes_of_modules(parse_all(root), "hypotrail.report") == []
+
+
+def test_report_command_calls_replace_atomically_and_the_private_write_of_artifacts_calls_it_too():
+    sites = calls(parse_all(SOURCE))
+    modules = sorted({site.module for site in sites if site.callee == REPLACE_ATOMICALLY and site.module.startswith("hypotrail.report")})
+    assert modules == ["hypotrail.report.command"]
+    assert "hypotrail.core.artifacts:_write_atomically" in {site.owner for site in sites if site.callee == REPLACE_ATOMICALLY}

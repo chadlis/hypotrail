@@ -1700,6 +1700,16 @@ def test_the_invalid_arguments_rows_of_chapters_04_and_10_give_the_command_forms
         assert html.unescape(plain_chapter(chapter)).count("hypotrail <command>") == 1, chapter
 
 
+def test_chapter_14_says_that_the_folder_of_out_is_fsynced_in_the_sentence_that_says_the_page_is_renamed_and_chapter_04_keeps_its_sentence_on_publication():
+    sentences = re.split(r"(?<=[.!?]) ", html.unescape(plain_chapter("14-report.html")))
+    [renamed] = [sentence for sentence in sentences if "renamed onto" in sentence]
+    assert "fsync" in renamed
+    assert (
+        "Publication is atomic (core/artifacts.py): the bytes go to a temporary file in the destination's folder, inside the Study, are flushed and fsynced, "
+        "then renamed onto the final path; nothing appears under the final path before the rename."
+    ) in html.unescape(plain_chapter("04-study-and-attempts.html"))
+
+
 def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     from _chinook_helpers import init_chinook
     from _revision_helpers import new_revision
