@@ -1,6 +1,6 @@
 """The single-feature check of a regression Assessment: each declared lag feature, used alone as the forecast, scored as the Assessment is.
 
-D-062 change 2: "A regression candidate that a single one of its own allowed features, used alone as a forecast, beats on the same
+D-062 on chadlis/hypotrail#75, change 2: "A regression candidate that a single one of its own allowed features, used alone as a forecast, beats on the same
 rows is flagged." The check reads only what the Attempt and the Study keep: the Configuration recorded in the Attempt's manifest
 (`effective_config.configuration.declared`), the copy of `workload.json` the Attempt keeps (its date and target columns and its
 `allowed_target_features`), the Study's copy of the dataset that the Attempt's own `input_refs` name, and the population. Nothing is

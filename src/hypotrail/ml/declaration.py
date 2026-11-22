@@ -378,18 +378,32 @@ def load_declaration(workload_dir: Path) -> Declaration:
     """The one loader: read `workload.json`, check it against the schema, return the typed declaration."""
     path = Path(workload_dir) / DECLARATION_NAME
     try:
-        data = path.read_bytes()
+        text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         raise _refuse("FILE_NOT_FOUND", f"declaration not found: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
-    return declaration_of(data, str(path))
+    except ValueError:  # bytes that are not UTF-8
+        raise _not_valid(str(path)) from None
+    return _checked(text, str(path))
 
 
 def declaration_of(data: bytes, file: str) -> Declaration:
     """The typed declaration of the bytes of a `workload.json`, checked as `load_declaration` checks it; `file` names where they come from."""
     try:
-        declaration = json.loads(data.decode("utf-8"), parse_float=_finite, parse_constant=_not_json)
-    except ValueError:  # json.JSONDecodeError, a constant such as NaN, a float beyond the double range, bytes that are not UTF-8
-        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {file}", key=DECLARATION_NAME, path="", file=file) from None
+        text = data.decode("utf-8")
+    except ValueError:
+        raise _not_valid(file) from None
+    return _checked(text, file)
+
+
+def _not_valid(file: str) -> InvalidInputError:
+    return _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {file}", key=DECLARATION_NAME, path="", file=file)
+
+
+def _checked(text: str, file: str) -> Declaration:
+    try:
+        declaration = json.loads(text, parse_float=_finite, parse_constant=_not_json)
+    except ValueError:  # json.JSONDecodeError, a constant such as NaN, a float beyond the double range
+        raise _not_valid(file) from None
     check_schema(declaration)
     if TRAIN not in declaration["partitions"]:
         raise _refuse(
