@@ -242,7 +242,7 @@ def readings_minus_one_member_or_element(reading) -> list:
 @pytest.mark.parametrize("which", ["mapping", "population"])
 def test_each_fault_cell_of_an_input_minus_its_fragment_is_its_clean_text_and_minus_one_member_or_element_is_its_clean_reading_and_the_clean_mapping_and_population_are_accepted_and_recorded(tmp_path, study, which):
     """For every fault of `which`, the text of the faulty file with its fragment cut out once is the text of the clean file,
-    character for character; the faulty file read leniently, with one top-level pair or one element of `item_ids` removed, is
+    character for character; the faulty file read leniently, with one top-level member or one element of `item_ids` removed, is
     the clean file read leniently; and the clean mapping and population are accepted and recorded. The grain of the second check
     is one member or one element: nothing checks what the fault's own value holds inside that member or element."""
     source, digest = export(tmp_path)
