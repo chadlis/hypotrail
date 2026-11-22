@@ -146,11 +146,30 @@ def test_a_new_revision_names_no_workload_and_a_new_study_names_one(tmp_path):
     code, payload, _ = run_json("init", "--study", study, "--new-revision", "--workload", "chinook")
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (EXIT_INVALID_INPUT, "INVALID_ARGUMENTS", "config")
-    assert error["details"] == {"command": "init", "workload": "chinook"}
+    assert error["details"] == {"command": "hypotrail init", "workload": "chinook"}
     code, payload, _ = run_json("init", "--study", tmp_path / "none")
     error = error_of(payload)
     assert (code, error["code"], error["stage"]) == (EXIT_INVALID_INPUT, "INVALID_ARGUMENTS", "config")
-    assert error["details"] == {"command": "init"} and "--workload" in error["message"]
+    assert error["details"] == {"command": "hypotrail init"} and "--workload" in error["message"]
+    assert snapshot_files(study) == before and not (tmp_path / "none").exists()
+
+
+HAND_BUILT_INIT_REFUSALS = {
+    "read_sequence_given_to_a_new_study": (["--workload", "chinook", "--read-sequence", "0"], {"command": "hypotrail init"}),
+    "neither_workload_nor_new_revision": ([], {"command": "hypotrail init"}),
+    "new_revision_with_a_workload": (["--new-revision", "--workload", "chinook"], {"command": "hypotrail init", "workload": "chinook"}),
+}
+
+
+@pytest.mark.parametrize("case", sorted(HAND_BUILT_INIT_REFUSALS))
+def test_each_init_refusal_built_by_hand_gives_the_whole_details_with_the_command_as_hypotrail_init_and_writes_nothing(tmp_path, case):
+    flags, details = HAND_BUILT_INIT_REFUSALS[case]
+    study, _ = init_chinook(tmp_path)
+    before = snapshot_files(study)
+    target = study if "--new-revision" in flags else tmp_path / "none"
+    code, payload, _ = run_json("init", "--study", target, *flags)
+    error = error_of(payload)
+    assert (code, error["code"], error["stage"], error["details"]) == (EXIT_INVALID_INPUT, "INVALID_ARGUMENTS", "config", details)
     assert snapshot_files(study) == before and not (tmp_path / "none").exists()
 
 

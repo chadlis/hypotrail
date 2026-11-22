@@ -31,7 +31,6 @@ independently.
 import csv
 import datetime
 import io
-import json
 import math
 import re
 import uuid
@@ -95,15 +94,16 @@ def _read(path, code, what) -> bytes:
         raise _refuse(code, f"the {what} file cannot be read: {path}", **{what: str(path)}) from None
 
 
-def _loose_json(raw: bytes):
-    """The JSON value of `raw`, or None: used only to identify a request, never to accept an input."""
+def _strict_json_or_none(raw: bytes):
+    """The value of `raw` read as strict JSON, or None when it is not: used only to identify a request, never to accept an input."""
     try:
-        return json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        return canonical.loads(raw)
+    except InvalidInputError:
         return None
 
 
-def _loose_partition(population, partition_of: dict):
+def _partition_or_none(population, partition_of: dict):
+    """The one Partition that the Items of a population value belong to, or None when it has no Items, an Item of no Partition or Items of several."""
     items = population.get(POPULATION_KEY) if isinstance(population, dict) else None
     if not isinstance(items, list) or not items or not all(isinstance(i, str) for i in items):
         return None
@@ -113,8 +113,8 @@ def _loose_partition(population, partition_of: dict):
 
 def _checked_mapping(raw: bytes, mapping_path) -> dict:
     try:
-        mapping = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        mapping = canonical.loads(raw)
+    except InvalidInputError:
         raise _refuse("MAPPING_INVALID", "the mapping is not a JSON document in UTF-8", mapping=str(mapping_path), problem="not_json") from None
     if not isinstance(mapping, dict):
         raise _refuse("MAPPING_INVALID", "the mapping must be a JSON object", mapping=str(mapping_path), problem="not_an_object")
@@ -173,8 +173,8 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
     """(partition, Item IDs) of the population file, every ID taken from one Partition of the Protocol."""
     name = str(population_path)
     try:
-        document = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
+        document = canonical.loads(raw)
+    except InvalidInputError:
         raise _refuse("POPULATION_INVALID", "the population is not a JSON document in UTF-8", population=name, problem="not_json") from None
     if not isinstance(document, dict) or set(document) != {POPULATION_KEY}:
         raise _refuse(
@@ -320,14 +320,14 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     memberships = artifacts.read_verified(study, by_role["memberships"])
     partition_of = layout.partition_of(memberships, "row_id")
 
-    loose_mapping = _loose_json(mapping_bytes)
-    model = loose_mapping.get("model") if isinstance(loose_mapping, dict) else None
+    mapping_json_or_none = _strict_json_or_none(mapping_bytes)
+    model = mapping_json_or_none.get("model") if isinstance(mapping_json_or_none, dict) else None
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
         "workload": workload,
         "mode": MODE,
-        "partition": _loose_partition(_loose_json(population_bytes), partition_of),
+        "partition": _partition_or_none(_strict_json_or_none(population_bytes), partition_of),
         "configuration": UNKNOWN,
         "model": model.strip() if isinstance(model, str) and model.strip() else UNKNOWN,
         "repeats": UNKNOWN,

@@ -7,7 +7,7 @@ record (`run.json`) and the self-check are Hypotrail's own records.
 
 import json
 
-from hypotrail.core import canonical, revisions
+from hypotrail.core import canonical, revisions, write_journal
 from hypotrail.core import study as layout
 from hypotrail.report import gather
 
@@ -57,6 +57,7 @@ def load(study, spec: dict, reader: gather.Reader) -> dict:
         attempt["run_record"] = _json_record(reader, manifest, "run_record")
     by_observation_set = {a["observation_set"]["observation_set_id"]: a for a in attempts if a["observation_set"] is not None}
 
+    order = write_journal.assessment_order(study)
     assessments = []
     for record in layout.assessment_records(study):
         detailed = reader.bytes_of(record["detailed_metrics_ref"]) if record.get("detailed_metrics_ref") else None
@@ -68,7 +69,7 @@ def load(study, spec: dict, reader: gather.Reader) -> dict:
                 "detailed": json.loads(detailed) if detailed is not None else {"criteria": {}},
             }
         )
-    assessments.sort(key=lambda a: (a["record"].get("recorded_at", ""), a["record"]["assessment_id"]))
+    assessments.sort(key=lambda a: order(a["record"]))
 
     comparisons = gather.comparisons_of(study, reader)
     paired = {}

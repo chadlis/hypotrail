@@ -1217,6 +1217,10 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
     def with_mapping(content, name):
         return write_json(tmp_path / name, content)
 
+    def with_mapping_text(text, name):
+        (tmp_path / name).write_text(text, encoding="utf-8")
+        return tmp_path / name
+
     base = {"row_id": "day_key", "y_pred": "forecast_rentals", "dataset_sha256": digest}
     record(import_ml(study, source, with_mapping([1], "m1.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "extra": "x"}, "m2.json"), population, "r"))
@@ -1225,6 +1229,8 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
     record(import_ml(study, source, with_mapping({**base, "y_pred": "os.system"}, "m5.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "y_pred": "nope"}, "m6.json"), population, "r"))
     record(import_ml(study, source, with_mapping({**base, "dataset_sha256": "0" * 64}, "m7.json"), population, "r"))
+    record(import_ml(study, source, with_mapping_text(json.dumps({**base, "row_id": 3})[:-1] + ', "row_id": "day_key"}', "m8.json"), population, "r"))
+    record(import_ml(study, source, mapping, with_mapping_text(json.dumps({"item_ids": []})[:-1] + ', "item_ids": ' + json.dumps(ids) + "}", "p4.json"), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p1.json", ["x"]), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p2.json", {"item_ids": [*ids, "nope"]}), "r"))
     record(import_ml(study, source, mapping, write_json(tmp_path / "p3.json", {"item_ids": [*ids, "bike-day:2012-07-01"]}), "r"))
@@ -1244,6 +1250,16 @@ def test_the_import_refusal_table_equals_the_code_exit_stage_and_details_of_each
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code
         assert words(row["data-details"]) == details, code
+
+
+STRICT_JSON_WORDS = "NaN, a repeated key or an out-of-range number included"
+
+
+def test_the_two_rows_of_a_document_that_is_not_json_say_that_nan_a_repeated_key_or_an_out_of_range_number_is_included_and_chapter_06_says_it_twice(page):
+    rows = table_rows(page, "import-codes", "data-code")
+    for code in ("MAPPING_INVALID", "POPULATION_INVALID"):
+        assert STRICT_JSON_WORDS in plain_text(rows[code]["text"]), code
+    assert plain_chapter("06-import.html").count(STRICT_JSON_WORDS) == 2
 
 
 # --- chapter 07: compare, the comparability checks, strict against descriptive, the Comparison record (#71) ------------
@@ -1659,6 +1675,73 @@ def test_the_revision_field_tables_equal_what_a_revision_adds_to_the_study_spec_
     (_, second) = status(study)["revisions"]
     assert set(attrs_of(page, "revision-status", "data-field")) == set(second)
     assert second["revision_number"] == 2 and second["previous_revision"] is not None
+
+
+def command_forms(chapter, column):
+    """The text of one cell, named by its column header, of the `INVALID_ARGUMENTS` row of a table, and the `hypotrail ...` forms its `code` elements give (`<command>` written out)."""
+    raw = (HANDBOOK / "chapters" / chapter).read_text(encoding="utf-8")
+    [table] = [t for t in re.findall(r"<table.*?</table>", raw, re.S) if '<tr data-code="INVALID_ARGUMENTS"' in t]
+    headers = [plain_text(h) for h in re.findall(r"<th>(.*?)</th>", table, re.S)]
+    row = re.search(r'<tr data-code="INVALID_ARGUMENTS".*?</tr>', table, re.S)[0]
+    cell = re.findall(r"<td>(.*?)</td>", row, re.S)[headers.index(column)]
+    return plain_text(cell), [html.unescape(form) for form in re.findall(r"<code>(hypotrail[^<]*)</code>", cell)]
+
+
+def test_the_invalid_arguments_rows_of_chapters_04_and_10_give_the_command_forms_the_code_gives_and_no_other_text_holds_one(tmp_path):
+    from _study_helpers import run_json
+
+    text, forms = command_forms("04-study-and-attempts.html", "When")
+    assert forms == ["hypotrail <command>", "hypotrail"] and "unknown flag" in text
+    assert run_json("status")[1]["error"]["details"]["command"] == forms[0].replace("<command>", "status")
+    assert run_json("status", "--study", tmp_path / "x", "--bogus")[1]["error"]["details"]["command"] == forms[1]
+    _, forms10 = command_forms("10-revisions-and-rescoring.html", "details")
+    assert forms10 == ["hypotrail <command>"]
+    study = tmp_path / "none"
+    for arguments in (["--new-revision", "--workload", "chinook"], []):
+        details = run_json("init", "--study", study, *arguments)[1]["error"]["details"]
+        assert details["command"] == forms10[0].replace("<command>", "init")
+    for chapter in ("04-study-and-attempts.html", "10-revisions-and-rescoring.html"):
+        assert html.unescape(plain_chapter(chapter)).count("hypotrail <command>") == 1, chapter
+
+
+def test_chapter_14_says_that_the_folder_of_out_is_fsynced_in_the_sentence_that_says_the_page_is_renamed_and_chapter_04_keeps_its_sentence_on_publication():
+    sentences = re.split(r"(?<=[.!?]) ", html.unescape(plain_chapter("14-report.html")))
+    [renamed] = [sentence for sentence in sentences if "renamed onto" in sentence]
+    assert "fsync" in renamed
+    assert (
+        "Publication is atomic (core/artifacts.py): the bytes go to a temporary file in the destination's folder, inside the Study, are flushed and fsynced, "
+        "then renamed onto the final path; nothing appears under the final path before the rename."
+    ) in html.unescape(plain_chapter("04-study-and-attempts.html"))
+
+
+ORDER_ID = "assessment-order"
+
+
+def table_of(raw, table_id):
+    return re.search(rf'<table[^>]*id="{table_id}".*?</table>', raw, re.S)[0]
+
+
+def test_chapter_10_states_the_order_of_the_later_assessment_once_and_the_other_places_link_to_it_without_restating_it():
+    """A restatement is found by its spelling: `(recorded_at, id)` and `position 0`, each of which states one part of the order. A restatement spelled otherwise is outside this test."""
+    chapters = {path.name: path.read_text(encoding="utf-8") for path in sorted((HANDBOOK / "chapters").glob("*.html"))}
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    texts = {name: html.unescape(plain_text(raw)) for name, raw in chapters.items()} | {"README.md": readme}
+    ten = chapters["10-revisions-and-rescoring.html"]
+    for spelling in ("(recorded_at, id)", "position 0"):
+        assert [(name, text.count(spelling)) for name, text in texts.items() if spelling in text] == [("10-revisions-and-rescoring.html", 1)], spelling
+    [statement] = re.findall(rf'<p id="{ORDER_ID}">(.*?)</p>', ten, re.S)
+    assert all(spelling in html.unescape(plain_text(statement)) for spelling in ("(recorded_at, id)", "position 0"))
+    link = f'href="#{ORDER_ID}"'
+    assert link in chapters["14-report.html"] and link in chapters["17-decisions.html"]
+    [later] = re.findall(r"<p>&quot;Later&quot; .*?</p>|<p>\"Later\" .*?</p>", chapters["17-decisions.html"], re.S)
+    assert link in later
+    for table_id, field in (("revision-record-fields", "recorded_at"), ("rescoring-fields", "earlier_assessment_id")):
+        [row] = re.findall(rf'<tr data-field="{field}".*?</tr>', table_of(ten, table_id), re.S)
+        assert link in row, field
+    [recorded_at_row] = re.findall(r'<tr data-field="recorded_at".*?</tr>', table_of(ten, "revision-record-fields"), re.S)
+    assert "orders Assessments" not in plain_text(recorded_at_row)
+    [paragraph] = [p for p in re.findall(r"<p>.*?</p>", ten, re.S) if "Otherwise it names the latest one that does" in plain_text(p)]
+    assert link in paragraph
 
 
 def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):

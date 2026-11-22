@@ -135,3 +135,25 @@ def test_a_record_is_published_as_canonical_json_and_a_non_finite_value_writes_n
     assert caught.value.code == "NON_CANONICAL_VALUE"
     assert not (tmp_path / "bad.json").exists()
     assert not [p for p in tmp_path.rglob("*.tmp")]
+
+
+def test_replace_atomically_fsyncs_the_file_then_renames_it_then_fsyncs_the_folder_and_creates_no_folder(tmp_path, monkeypatch):
+    events = []
+    real_fsync, real_replace = os.fsync, os.replace
+    monkeypatch.setattr(os, "fsync", lambda fd: (events.append("fsync file"), real_fsync(fd))[1])
+    monkeypatch.setattr(os, "replace", lambda source, target: (events.append(("replace", Path(target).name)), real_replace(source, target))[1])
+    monkeypatch.setattr(artifacts, "_fsync_dir", lambda path: events.append(("fsync folder", Path(path), (Path(path) / "page.html").read_bytes())))
+    target = tmp_path / "out" / "page.html"
+    target.parent.mkdir()
+    target.write_bytes(b"old")
+    artifacts.replace_atomically(target, b"new")
+    assert events == ["fsync file", ("replace", "page.html"), ("fsync folder", target.parent, b"new")]
+    assert [p.name for p in target.parent.iterdir()] == ["page.html"]
+    with pytest.raises(OSError):
+        artifacts.replace_atomically(tmp_path / "missing" / "page.html", b"x")
+    assert not (tmp_path / "missing").exists()
+
+
+def test_the_module_and_replace_atomically_say_that_its_path_is_not_checked_against_the_study():
+    assert "not checked against the Study" in artifacts.__doc__
+    assert "not checked against the Study" in artifacts.replace_atomically.__doc__

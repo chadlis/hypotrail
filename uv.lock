@@ -460,6 +460,7 @@ dependencies = [
 [package.optional-dependencies]
 agent = [
     { name = "anthropic" },
+    { name = "anyio" },
     { name = "inspect-ai" },
 ]
 ml = [
@@ -475,6 +476,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'agent'", specifier = "==2.3.0" },
+    { name = "anyio", marker = "extra == 'agent'", specifier = "==4.16.0" },
     { name = "inspect-ai", marker = "extra == 'agent'", specifier = "==0.3.287" },
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "numpy", marker = "extra == 'ml'", specifier = "==2.5.4" },
