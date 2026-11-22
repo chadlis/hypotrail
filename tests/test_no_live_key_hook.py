@@ -47,6 +47,12 @@ def test_the_settings_register_the_script_as_a_pretooluse_command_hook_on_bash()
     assert command.endswith("/.claude/hooks/no-live-key.sh\"") or command.endswith("/.claude/hooks/no-live-key.sh")
 
 
+def test_a_failure_or_a_timeout_of_the_hook_blocks_the_command():
+    entries = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    registered = [hook for entry in entries for hook in entry["hooks"] if "no-live-key.sh" in hook["command"]]
+    assert [hook.get("onFailure") for hook in registered] == ["block"]
+
+
 def test_an_ordinary_command_is_prefixed_with_the_unset_and_other_fields_are_kept():
     result = run_command("ls -l", description="list", timeout=5000, run_in_background=False)
     assert result.returncode == 0
@@ -129,3 +135,60 @@ def test_the_rewritten_command_runs_with_the_key_unset():
     ran = subprocess.run(["bash", "-c", new_command], capture_output=True, text=True, env=env)
     assert ran.stdout == "key=[unset]\n"
     assert dummy not in ran.stdout + ran.stderr
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --locked --all-extras pytest",
+        "pytest -q tests/test_x.py",
+        "cd /x && uv run python -m pytest",
+        "uv run pytest tests/ 2>&1 | tail -3",
+        "uv run --project /x --no-sync pytest",
+        "cd /x && python3 -m pytest -q",
+        ".venv/bin/pytest tests",
+        "timeout 900 uv run pytest",
+        "PYTHONHASHSEED=0 uv run pytest",
+        "PYTHONHASHSEED=0 timeout 900 python -m pytest -q",
+    ],
+)
+def test_a_command_that_runs_pytest_gets_ten_minutes_in_the_foreground(command):
+    result = run_command(command, description="suite", timeout=120000, run_in_background=True)
+    updated = rewritten(result)["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (600000, False)
+    assert updated["command"] == UNSET + "\n" + command and updated["description"] == "suite"
+
+
+def test_a_pytest_command_with_no_timeout_or_background_field_gets_both():
+    updated = rewritten(run_command("uv run pytest"))["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (600000, False)
+
+
+@pytest.mark.parametrize("command", ["ls .pytest_cache", "cat tests/test_pytest_hook.py", "echo pytest-cov", "uv run python -m hypotrail --help", "grep pytest pyproject.toml", 'git commit -m "run pytest in the hook"', "echo pytest", "uv run grep -rn pytest tests", "timeout 900 uv run python -m hypotrail", "PYTHONHASHSEED=0 echo pytest"])
+def test_a_command_that_does_not_run_pytest_keeps_its_timeout_and_background_fields(command):
+    updated = rewritten(run_command(command, timeout=5000, run_in_background=True))["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (5000, True)
+
+
+def _hook_commands():
+    entries = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    return [(entry["matcher"], hook["command"]) for entry in entries for hook in entry["hooks"]]
+
+
+def test_every_hook_command_of_the_settings_runs_through_a_shell_as_written():
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT)}
+    for matcher, command in _hook_commands():
+        if matcher != "Bash" or "no-live-key.sh" not in command:
+            continue
+        result = subprocess.run(["sh", "-c", command], input=payload, capture_output=True, text=True, env=env)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)["hookSpecificOutput"]["updatedInput"]["command"] == UNSET + "\nls"
+
+
+def test_a_script_that_the_settings_call_directly_is_executable_in_git():
+    called = [command.split('"')[2].lstrip("/") for _, command in _hook_commands() if command.startswith('"$CLAUDE_PROJECT_DIR"')]
+    assert ".claude/hooks/no-live-key.sh" in called
+    listing = subprocess.run(["git", "ls-files", "-s", "--", *called], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    modes = {line.split("\t")[1]: line.split()[0] for line in listing.splitlines()}
+    assert modes == {path: "100755" for path in called}

@@ -10,7 +10,7 @@ Every acceptance criterion you witness has a test you have seen go **red** on th
 
 A comment says what the code alone does not show, and a test name says what the test checks. A comment cites a requirement only by quoting the source sentence the prompt gives, and code that no source asks for carries no citation. A line you rewrite loses any finding ID it holds. Finding IDs, round numbers and "the slice" go only in commit messages and hand-backs.
 
-No command you run calls a real model: a paid run is the drive's, through `.claude/skills/drive/capture.sh`. A PreToolUse hook (`.claude/hooks/no-live-key.sh`) unsets `HYPOTRAIL_ANTHROPIC_API_KEY` for every other Bash command, so `--mode llm_live` is refused before any call. In auto mode a write command the hook rewrites can be refused (D-048 on chadlis/hypotrail#75): send it again unchanged, with no `unset` or `env -u` of your own, and list each refusal in your hand-back.
+No command you run calls a real model: a paid run is the drive's, through `.claude/skills/drive/capture.sh`. A PreToolUse hook (`.claude/hooks/no-live-key.sh`) unsets `HYPOTRAIL_ANTHROPIC_API_KEY` for every other Bash command, so `--mode llm_live` is refused before any call. In auto mode a write command the hook rewrites can be refused (D-048 on chadlis/hypotrail#75): send it again unchanged, with no `unset` or `env -u` of your own, and list each refusal in your hand-back. When unsure whether a refusal targets the hook's rewrite or the change, treat it as refusing the change. You then stop and hand back with the refusal text, and make the change with no other tool.
 
 For a new command, add its parser entry and a handler that does nothing before the first red run.
 
