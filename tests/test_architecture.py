@@ -487,16 +487,17 @@ def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path)
 
 INVALID_INPUT_ERROR = "hypotrail.core.errors.InvalidInputError"
 
-# Each function under `src/` that raises `INVALID_ARGUMENTS`, with the number of such calls and how it gives `details.command`.
+# Each function under `src/` that raises `INVALID_ARGUMENTS`, with the number of such calls.
 INVALID_ARGUMENTS_BUILDERS = {
-    "hypotrail.cli:_ArgumentParser.error": (
-        1,
-        "self.prog: `hypotrail <command>` for the subparser of a command (a missing flag); `hypotrail` for the top-level parser, which gives it when no command was "
-        "given and when an unknown flag was given to a command (argparse refuses it at the top level after the subparser has parsed the known arguments)",
-    ),
-    "hypotrail.core.study_write:invalid_arguments": (1, 'f"hypotrail {command}"'),
-    "hypotrail.cli:_init": (2, '"hypotrail init"'),
-    "hypotrail.cli:_new_revision": (1, '"hypotrail init"'),
+    # `details.command` is self.prog: `hypotrail <command>` for the subparser of a command (a missing flag); `hypotrail` for the top-level parser, which gives it
+    # when no command was given and when an unknown flag was given to a command (argparse refuses it at the top level after the subparser has parsed the known arguments)
+    "hypotrail.cli:_ArgumentParser.error": 1,
+    # `details.command` is f"hypotrail {command}"
+    "hypotrail.core.study_write:invalid_arguments": 1,
+    # `details.command` is "hypotrail init"
+    "hypotrail.cli:_init": 2,
+    # `details.command` is "hypotrail init"
+    "hypotrail.cli:_new_revision": 1,
 }
 
 
@@ -514,9 +515,8 @@ def invalid_arguments_builders(trees: dict) -> dict:
     return found
 
 
-def test_the_functions_that_raise_invalid_arguments_are_the_listed_builders_and_each_gives_hypotrail_command(tmp_path):
-    found = invalid_arguments_builders(parse_all(SOURCE))
-    assert found == {name: count for name, (count, _) in INVALID_ARGUMENTS_BUILDERS.items()}
+def test_the_functions_under_src_that_raise_invalid_arguments_and_their_number_of_calls_are_the_listed_ones():
+    assert invalid_arguments_builders(parse_all(SOURCE)) == INVALID_ARGUMENTS_BUILDERS
 
 
 def test_a_function_that_raises_invalid_arguments_through_an_alias_is_found_in_a_planted_tree(tmp_path):
