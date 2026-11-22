@@ -25,6 +25,11 @@ revision has none and one journal entry names the Comparison and the Assessments
 (`PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's). A Comparison refused
 at `coverage` after that leaves its entry: the Exposure had happened. Its ID names no Comparison.
 
+A side whose Assessment lists, in `single_feature_check`, lag features of its own Configuration that beat it gets one warning
+(`COMPARISON_SINGLE_FEATURE_BEATS`) naming the side and those features with their Metrics, also in `limitations`. It is read
+from the record, never computed here, and it leaves the status as the checks and Imports compute it. A side whose field is
+empty or absent gets none.
+
 A refused check raises its own code (exit 3) whose details carry the `check`, its Reason code, the
 values of both sides and the checks evaluated so far, and writes no Comparison. `delta` is the Metric of
 the Candidate minus the Metric of the Control: a positive value means the Candidate is worse (lower is
@@ -72,6 +77,10 @@ REFUSALS.update(
 )
 REASON_PROVENANCE = "provenance_unverified"
 WARNING_DESCRIPTIVE = "COMPARISON_DESCRIPTIVE_IMPORT"
+WARNING_SINGLE_FEATURE = "COMPARISON_SINGLE_FEATURE_BEATS"
+# The warnings of a regression Comparison that state a deviation rather than a descriptive scope: `compare` and the report name
+# their codes beside the status, as for `agent_comparison.DEVIATIONS`, since a `compatible` Comparison can hold them.
+DEVIATIONS = (WARNING_SINGLE_FEATURE,)
 LIMITATION_DEPENDENCE = "Daily observations are dependent: the delta carries no confidence interval and no significance claim."
 
 
@@ -209,6 +218,21 @@ def import_scope_warning(imports: list) -> dict:
         "it supports no claim that the two sides were produced under the same conditions."
     )
     return {"code": WARNING_DESCRIPTIVE, "message": message}
+
+
+def single_feature_warning(side: dict):
+    """The warning of a side whose Assessment records lag features that beat it, read from its `single_feature_check`; None otherwise."""
+    beating = side["assessment"].get("single_feature_check", {}).get("beating", [])
+    if not beating:
+        return None
+    unit = side["metric"]["unit"]
+    features = ", ".join(f"{entry['feature']} ({entry['value']:.6g} {unit})" for entry in beating)
+    message = (
+        f"The {side['role']} of this Comparison (Assessment {side['assessment']['assessment_id']}, {side['metric']['id']} "
+        f"{side['metric']['value']:.6g} {unit}) is beaten by lag features of its own Configuration, each used alone as the forecast "
+        f"on the same Items: {features}."
+    )
+    return {"code": WARNING_SINGLE_FEATURE, "message": message}
 
 
 def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None, read_sequence: int | None = None) -> dict:
@@ -359,6 +383,11 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         warning = import_scope_warning(external)
         warnings.append(warning)
         limitations.append(warning["message"])
+    for side in (control, candidate):
+        warning = single_feature_warning(side)
+        if warning is not None:
+            warnings.append(warning)
+            limitations.append(warning["message"])
 
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
     population = {

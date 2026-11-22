@@ -613,8 +613,7 @@ def _live_basis(examples_dir):
 
 
 def _compare(args) -> int:
-    from hypotrail.core import comparison
-    from hypotrail.core.agent_comparison import DEVIATIONS
+    from hypotrail.core import agent_comparison, comparison
 
     record = comparison.compare(
         args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence
@@ -626,7 +625,7 @@ def _compare(args) -> int:
     direction = "better" if record.get("primary_criterion") else "worse"
     unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
     status = record["comparability"]["status"]
-    deviations = [w["code"] for w in record["warnings"] if w["code"] in DEVIATIONS]
+    deviations = [w["code"] for w in record["warnings"] if w["code"] in comparison.DEVIATIONS + agent_comparison.DEVIATIONS]
     if deviations:
         status += f", with warning {', '.join(deviations)}"
     human = (

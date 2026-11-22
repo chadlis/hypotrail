@@ -10,6 +10,7 @@ from hypotrail.report import gather
 from hypotrail.report import render_agent
 from hypotrail.report.markup import Links, Row, Safe, UNKNOWN, cell, esc, join, json_block, number, paragraph, rescoring_note, scoped, sub, table, tag
 from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
+from hypotrail.core.comparison import DEVIATIONS
 
 # The sections of SPEC §9 in their order (id, heading), then the Exposure section the ticket adds. The handbook lists them.
 SECTIONS = (
@@ -207,6 +208,16 @@ def _coverage(model) -> list:
     return out + (render_agent.self_checks(model) if model["domain"] == gather.AGENTIC else [])
 
 
+def _single_feature_check(record, unit) -> str:
+    """The state of an Assessment's single-feature check: the features that beat it, checked with none that does, or not checked."""
+    check = record.get("single_feature_check")
+    if check is None:
+        return "not checked"
+    if not check["beating"]:
+        return "checked: no declared lag feature beats this Assessment"
+    return "beaten by " + "; ".join(f"{entry['feature']} {number(entry['value'])} {unit}" for entry in check["beating"])
+
+
 def _metrics(model) -> list:
     out = []
     memberships = model["memberships"]
@@ -217,6 +228,7 @@ def _metrics(model) -> list:
         rows = [
             ["Metric", metric["id"]],
             ["Value", join([number(metric["value"]), f" {metric['unit']}" if metric["value"] is not None else ""])],
+            ["Single-feature check", _single_feature_check(r, metric["unit"])],
             ["Direction", metric["direction"]],
             ["Denominator", number(metric["denominator"])],
             ["Status", metric["status"]],
@@ -243,10 +255,11 @@ def _metrics(model) -> list:
         out.append(paragraph("No Comparison is recorded."))
     for index, c in enumerate(model["comparisons"]):
         delta, coverage, comparability = c["delta"], c["coverage"], c["comparability"]
+        codes = [w["code"] for w in c.get("warnings", []) if w["code"] in DEVIATIONS]
         rows = [
             ["Control Assessment", c["roles"]["control_assessment_id"]],
             ["Candidate Assessment", c["roles"]["candidate_assessment_id"]],
-            ["Comparability", comparability["status"] + (" (descriptive)" if c.get("descriptive") or comparability["status"] == "descriptive_only" else "")],
+            ["Comparability", comparability["status"] + (" (descriptive)" if c.get("descriptive") or comparability["status"] == "descriptive_only" else "") + (f", with warning {', '.join(codes)}" if codes else "")],
             ["Coverage", f"expected {c['coverage']['expected']}, Control scored {coverage['control_scored']}, Candidate scored {coverage['candidate_scored']}, paired {coverage['paired']}"],
             ["Delta", join([delta["metric"], " ", number(delta["value"]), f" {delta['unit']}" if delta["value"] is not None else "", f" ({delta['reason']})" if delta.get("reason") else ""])],
         ]

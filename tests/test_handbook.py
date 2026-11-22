@@ -1312,9 +1312,10 @@ def test_the_comparison_record_tables_equal_the_contract_schema_and_the_layout_e
 
 
 def comparisons_by_warning_code(tmp_path) -> dict:
-    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study."""
+    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study and, for the single-feature warning, a Bike Study."""
     from _agent_compare_helpers import answer_lines, compare, imported, native
     from _chinook_helpers import init_chinook
+    from _compare_helpers import assessed
 
     study, _ = init_chinook(tmp_path, name="warnings")
     seeds = [imported(tmp_path, study, name, answer_lines())[0] for name in ("seed-a", "seed-b")]
@@ -1331,9 +1332,13 @@ def comparisons_by_warning_code(tmp_path) -> dict:
         "COMPARISON_CASES_NOT_ESTABLISHED": (first, without_cases),
         "COMPARISON_ORDER_NOT_ALTERNATED": (first, later),
     }
+    bike, _, assessments = assessed(tmp_path / "bike", "seasonal_7", "ridge_v1")
+    studies = dict.fromkeys(pairs, study)
+    pairs["COMPARISON_SINGLE_FEATURE_BEATS"] = (assessments["seasonal_7"], assessments["ridge_v1"])
+    studies["COMPARISON_SINGLE_FEATURE_BEATS"] = bike
     statuses = {}
     for code, (control, candidate) in pairs.items():
-        exit_code, payload, err = compare(study, control, candidate)
+        exit_code, payload, err = compare(studies[code], control, candidate)
         assert exit_code == 0, (payload, err)
         assert code in [w["code"] for w in payload["comparison"]["warnings"]], code
         statuses[code] = payload["comparison"]["comparability"]["status"]

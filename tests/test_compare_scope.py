@@ -47,10 +47,12 @@ def test_the_import_on_both_sides_is_descriptive_too(native_and_import):
     assert code == 0 and payload["comparison"]["comparability"]["status"] == "descriptive_only"
 
 
-def test_a_strict_comparison_carries_no_warning(tmp_path):
+def test_a_strict_comparison_of_seasonal_7_and_ridge_v1_carries_only_the_single_feature_warning_and_stderr_only_that_warning(tmp_path):
     study, _, a = assessed(tmp_path, "seasonal_7", "ridge_v1")
     _, payload, err = compare(study, a["seasonal_7"]["assessment_id"], a["ridge_v1"]["assessment_id"])
-    assert payload["comparison"]["warnings"] == [] and err == ""
+    warnings = payload["comparison"]["warnings"]
+    assert [w["code"] for w in warnings] == ["COMPARISON_SINGLE_FEATURE_BEATS"]
+    assert err == f"{warnings[0]['code']}: {warnings[0]['message']}\n"
 
 
 def _rewrite_environment(study, attempt, edit):
