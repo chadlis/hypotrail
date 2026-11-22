@@ -20,11 +20,15 @@ runs each named test there with the worktree's interpreter (`.venv/bin/python`) 
 `python -m ...` subprocess of the test that inherits its environment loads the copy too: once as it is, then with the function made to raise on
 entry. A test that fails only with the plant passes the line. The plant shows that the test reaches the function, not
 that it asserts the claimed property. The sentences seen as such claims are those that say "checked" or "covered",
-then "by", then "test", within one sentence. A claim worded another way is not seen.
+then "by", then "test", within one sentence. A claim worded another way is not seen. Such a sentence needs a
+`checked_by(...)` line for each function it names in backticks. A claim sentence with no backticked function is not
+checked against a line. A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`)
+cannot be checked by a plant, because the CLI turns the planted error into that outcome. A named test that is skipped
+in the copy shows nothing either way.
 
 Exit 2 when a `callers(...)` line differs from the resolver, when it names a function that `src/` neither defines nor
 calls, when a "called from ... only" sentence has no `callers(...)` line for any function it names, when a named test
-still passes with the plant, fails or cannot be run without it, or cannot be run with it, when a `checked_by(...)`
+still passes with the plant, is skipped in the copy, fails or cannot be run without it, or cannot be run with it, when a `checked_by(...)`
 function is not defined in `src/` at `HEAD`, when a "checked by ... test" sentence has no `checked_by(...)` line for any
 function it names, when the test runs do not end within `PLANT_TIMEOUT` seconds (with a message of its own), and on any
 error of the script itself.
@@ -41,12 +45,13 @@ import tarfile
 import tempfile
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 
 CALLERS_LINE = re.compile(r"callers\(\s*([\w.]+)\s*\)\s*=\s*\{([^}]*)\}")
 CLAIM_SENTENCE = re.compile(r"\bcalled\s+from\b.*\bonly\b", re.IGNORECASE | re.DOTALL)
 CHECKED_BY_LINE = re.compile(r"checked_by\(\s*([\w.]+)\s*\)\s*=\s*\{([^}]*)\}")
 TEST_CLAIM_SENTENCE = re.compile(r"\b(?:checked|covered)\b[^.]*\bby\b[^.]*\btest", re.IGNORECASE)
-TEST_ID = re.compile(r"[\w./-]+\.py::[\w:]+")
+TEST_ID = re.compile(r"[\w./-]+\.py::[\w:]+(?:\[[^\]]+\])?")
 PLANT = 'raise AssertionError("planted by premises.py")'
 # The hook that runs this script gives it 120 s in all (`fix_prompt_check.py`).
 PLANT_TIMEOUT = 90
@@ -79,15 +84,15 @@ def sentences(prompt: str) -> list:
     return [part for part in re.split(r"(?<=[.;:])\s+|\n\s*\n", prompt) if part.strip()]
 
 
-def unbacked_claims(prompt: str, claims: dict, line=CALLERS_LINE, claim=CLAIM_SENTENCE) -> list:
-    """The sentences that `claim` matches ("called from ... only" by default) and that name no function with a `line` (a `callers(...)` line by default)."""
+def unbacked_claims(prompt: str, claims: dict, line=CALLERS_LINE, claim=CLAIM_SENTENCE, each=False) -> list:
+    """The sentences that `claim` matches ("called from ... only" by default) and that name no function with a `line` (a `callers(...)` line by default); with `each`, those that name any function without one."""
     claimed_names = {name.rsplit(".", 1)[-1] for name in claims}
     unbacked = []
     for sentence in sentences(prompt):
         if line.search(sentence) or not claim.search(sentence):
             continue
         named = {name.rstrip("()").rsplit(".", 1)[-1] for name in re.findall(r"`([\w.]+(?:\(\))?)`", sentence)}
-        if not named & claimed_names:
+        if (named - claimed_names) if each else not named & claimed_names:
             unbacked.append(" ".join(sentence.split()))
     return unbacked
 
@@ -148,23 +153,27 @@ def plant(copy: Path, function: str) -> bool:
     return False
 
 
-def pytest_exit(python: Path, copy: Path, test: str, deadline: float) -> int:
-    """The exit code of pytest on one test of the copy, with `PYTHONPATH=<copy>/src`. Raises PlantTimeout past the deadline."""
+def pytest_exit(python: Path, copy: Path, test: str, deadline: float) -> tuple:
+    """(the exit code of pytest on one test of the copy, with `PYTHONPATH=<copy>/src`, whether a case of it was skipped). Raises PlantTimeout past the deadline."""
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise PlantTimeout
+    report = copy.parent / f"{copy.name}-report.xml"
     run = subprocess.Popen(
-        [str(python), "-m", "pytest", "-q", "-p", "no:cacheprovider", test],
+        [str(python), "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={report}", test],
         cwd=copy, env={**os.environ, "PYTHONPATH": str(copy / "src")},
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
     )
     try:
-        return run.wait(timeout=remaining)
+        code = run.wait(timeout=remaining)
     except subprocess.TimeoutExpired:
         # The test's own subprocesses are in the same new session, so the whole group is stopped.
         os.killpg(run.pid, signal.SIGKILL)
         run.wait()
         raise PlantTimeout from None
+    skipped = report.exists() and any(int(suite.get("skipped", 0)) for suite in ElementTree.parse(report).iter("testsuite"))
+    report.unlink(missing_ok=True)
+    return code, skipped
 
 
 def checked_lines(function: str, tests: set, worktree: Path, python: Path, deadline: float) -> tuple:
@@ -175,9 +184,9 @@ def checked_lines(function: str, tests: set, worktree: Path, python: Path, deadl
         lines.append(f"- checked_by({function}): {test!r} IS NOT A TEST ID of the form tests/file.py::test_name")
         passes = False
     with tempfile.TemporaryDirectory(prefix="premises-") as scratch:
-        copy = Path(scratch)
+        copy = Path(scratch) / "head"
         extract_head(worktree, copy)
-        unplanted = {test: pytest_exit(python, copy, test, deadline) for test in named}
+        unplanted = {test: pytest_exit(python, copy, test, deadline)[0] for test in named}
         if not plant(copy, function):
             return lines + [f"- checked_by({function}): NOT DEFINED in src/ at HEAD"], False
         for test in named:
@@ -188,14 +197,18 @@ def checked_lines(function: str, tests: set, worktree: Path, python: Path, deadl
             elif unplanted[test] != 0:
                 lines.append(f"- checked_by({function}): {test} DOES NOT RUN at HEAD (pytest exit {unplanted[test]})")
             else:
-                planted = pytest_exit(python, copy, test, deadline)
+                planted, skipped = pytest_exit(python, copy, test, deadline)
                 if planted == 1:
                     lines.append(
                         f"- checked_by({function}): {test} fails when {function} raises on entry: "
-                        "the test reaches it, which does not show that it asserts the claimed property"
+                        "the test reaches it, which does not show that it asserts the claimed property; "
+                        "a test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, "
+                        "and a claim sentence with no backticked function is not checked against a line"
                     )
                     continue
-                if planted == 0:
+                if planted == 0 and skipped:
+                    lines.append(f"- checked_by({function}): {test} SKIPPED IN THE COPY")
+                elif planted == 0:
                     lines.append(f"- checked_by({function}): {test} STILL PASSES WITH {function} BROKEN")
                 else:
                     lines.append(f"- checked_by({function}): {test} DOES NOT RUN WITH THE PLANT (pytest exit {planted})")
@@ -211,7 +224,7 @@ def sheet(prompt: str, worktree: Path) -> tuple:
     for sentence in unbacked_claims(prompt, claims):
         lines.append(f"- NO callers(...) LINE for the claim: {sentence[:160]!r}")
         passes = False
-    for sentence in unbacked_claims(prompt, checks, CHECKED_BY_LINE, TEST_CLAIM_SENTENCE):
+    for sentence in unbacked_claims(prompt, checks, CHECKED_BY_LINE, TEST_CLAIM_SENTENCE, each=True):
         lines.append(f"- NO checked_by(...) LINE for the claim: {sentence[:160]!r}")
         passes = False
     if checks:

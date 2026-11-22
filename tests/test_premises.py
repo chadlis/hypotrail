@@ -134,9 +134,11 @@ def git_worktree(tmp_path):
         "src/pkg/core.py": CORE,
         "src/pkg/__main__.py": "from pkg.core import reached\n\nprint(reached(2))\n",
         "tests/test_core.py": (
-            "import subprocess\nimport sys\n\n\ndef test_the_module_run_prints_four():\n"
+            "import subprocess\nimport sys\n\nimport pytest\n\nfrom pkg.core import reached\n\n\ndef test_the_module_run_prints_four():\n"
             "    done = subprocess.run([sys.executable, '-m', 'pkg'], capture_output=True, text=True)\n"
             "    assert done.stdout.strip() == '4'\n\n\n"
+            "@pytest.mark.parametrize('value', [1, 3])\ndef test_twice(value):\n    assert reached(value) == 2 * value\n\n\n"
+            "@pytest.mark.skip(reason='not here')\ndef test_skipped():\n    assert reached(1) == 2\n\n\n"
             "def test_a_long_wait():\n    import time\n    time.sleep(60)\n"
         ),
     }
@@ -159,6 +161,8 @@ def test_a_checked_by_line_whose_test_fails_once_the_function_raises_in_a_scratc
     result = sheet(git_worktree, prompt)
     assert (result.returncode, result.stderr) == (0, "")
     assert f"checked_by({REACHED}): {MODULE_RUN} fails when {REACHED} raises on entry: the test reaches it, which does not show that it asserts the claimed property" in result.stdout
+    assert "a test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant" in result.stdout
+    assert "a claim sentence with no backticked function is not checked against a line" in result.stdout
     assert (git_worktree / "src/pkg/core.py").read_text() == CORE
 
 
@@ -166,6 +170,24 @@ def test_a_checked_by_line_whose_test_still_passes_once_the_function_raises_is_r
     result = sheet(git_worktree, f"checked_by({UNREACHED}) = {{{MODULE_RUN}}}\n")
     assert result.returncode == 2
     assert f"checked_by({UNREACHED}): {MODULE_RUN} STILL PASSES WITH {UNREACHED} BROKEN" in result.stdout
+
+
+def test_a_test_id_with_a_parametrisation_in_brackets_is_a_test_id(git_worktree):
+    result = sheet(git_worktree, f"checked_by({REACHED}) = {{tests/test_core.py::test_twice[3]}}\n")
+    assert (result.returncode, result.stderr) == (0, "")
+    assert f"checked_by({REACHED}): tests/test_core.py::test_twice[3] fails when {REACHED} raises on entry" in result.stdout
+
+
+def test_a_named_test_that_is_skipped_in_the_copy_is_reported_as_skipped_not_as_still_passing(git_worktree):
+    result = sheet(git_worktree, f"checked_by({REACHED}) = {{tests/test_core.py::test_skipped}}\n")
+    assert result.returncode == 2
+    assert f"checked_by({REACHED}): tests/test_core.py::test_skipped SKIPPED IN THE COPY" in result.stdout and "STILL PASSES" not in result.stdout
+
+
+def test_a_claim_sentence_that_names_several_functions_needs_a_checked_by_line_for_each_one(git_worktree):
+    sentence = "`reached` and `unreached` are checked by the test `tests/test_core.py::test_twice`."
+    result = sheet(git_worktree, f"{sentence}\nchecked_by({REACHED}) = {{tests/test_core.py::test_twice}}\n")
+    assert result.returncode == 2 and f"NO checked_by(...) LINE for the claim: {sentence!r}" in result.stdout
 
 
 def test_a_planted_run_that_does_not_end_within_the_time_limit_exits_2_with_its_own_message(git_worktree, monkeypatch, capsys):
@@ -194,3 +216,5 @@ def test_the_module_docstring_states_what_a_plant_shows_and_which_claims_the_det
     doc = " ".join(load("premises").__doc__.split())
     assert "shows that the test reaches the function, not that it asserts the claimed property" in doc
     assert "A claim worded another way is not seen" in doc
+    assert "A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, because the CLI turns the planted error into that outcome" in doc
+    assert "A claim sentence with no backticked function is not checked against a line" in doc

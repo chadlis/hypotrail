@@ -197,16 +197,19 @@ def test_a_round_line_with_no_value_after_its_label_is_refused(label, bold):
     assert problems(record_with_lines(lines)) == [f"round 1: the routing comment has no line '{label} <value>'"]
 
 
+@pytest.mark.parametrize("value", ["unknown", "`unknown`", "Unknown, not recorded", "`unknown`: the hand-backs did not say"])
 @pytest.mark.parametrize("label", ["Refusals:", "Interruptions:"])
-def test_unknown_is_a_value_for_models_and_telemetry_only_and_refusals_or_interruptions_say_none_or_a_list(label):
+def test_unknown_is_a_value_for_models_and_telemetry_only_and_refusals_or_interruptions_say_none_or_a_list(label, value):
     assert problems(complete_record()) == []
-    lines = ROUND_LINES.replace(f"{label} none", f"{label} unknown")
+    lines = ROUND_LINES.replace(f"{label} none", f"{label} {value}")
     assert problems(record_with_lines(lines)) == [f"round 1: the routing comment's '{label}' line says unknown; it says none or lists them"]
 
 
 def test_round_lines_in_bold_with_a_list_inline_or_as_list_items_under_the_label_are_accepted():
     lines = "\n\n**Models:** Opus 5.5 for both readers\n- **Telemetry:** 41 min, tokens unknown\n**Refusals:** `git push` refused once\n**Interruptions:**\n  - the owner asked about the cap; the delegation settled it\n"
     assert problems(record_with_lines(lines)) == []
+    unindented = "\n\nModels: unknown\nTelemetry: unknown\nRefusals:\n- `git push` refused once\nInterruptions:\n- the owner asked about the cap\n"
+    assert problems(record_with_lines(unindented)) == []
 
 
 def test_the_round_lines_rule_skips_the_slices_merged_before_it_and_only_those():
@@ -606,3 +609,5 @@ def test_the_module_docstring_states_the_scope_and_the_limit_of_the_round_lines_
     doc = " ".join(load("check_record").__doc__.split())
     assert "Each routing comment carries `Models:`, `Telemetry:`, `Refusals:` and `Interruptions:`, and each label needs a value." in doc
     assert "`MERGED_BEFORE_ROUND_LINES`" in doc and "four `unknown`" in doc
+    assert "8. each routing comment has four lines" in doc and "only the first line that carries a label is read" in doc
+    assert "7. is held for D-065 on chadlis/hypotrail#75, item 1: \"`check_record.py` rule 7 is not added; revisit it if a later record shows a requirement cell worded by the drive.\"" in doc

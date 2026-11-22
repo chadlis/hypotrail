@@ -32,14 +32,17 @@ for the slice issue of the pull request:
    and "#142 B" get two keys; and any text after a clearing line's ": " clears it. When it refuses two requirements
    that are not one, the routing comment says so in the clearing form, with the reason: "Structural option for <key>:
    not one requirement, because ...".
-7. each routing comment has four lines, each starting with its label and giving a value after it (D-065 on
+7. is held for D-065 on chadlis/hypotrail#75, item 1: "`check_record.py` rule 7 is not added; revisit it if a later
+   record shows a requirement cell worded by the drive."
+8. each routing comment has four lines, each starting with its label and giving a value after it (D-065 on
    chadlis/hypotrail#75, item 4: "Each routing comment carries `Models:`, `Telemetry:`, `Refusals:` and `Interruptions:`,
    and each label needs a value."). `unknown` is a value of `Models:` and `Telemetry:`; `Refusals:` and `Interruptions:`
-   say `none` or list the entries, after the label or as list items under it. The rule skips the slices merged before
-   it was added, which `MERGED_BEFORE_ROUND_LINES` lists, F1's (chadlis/hypotrail#121) the last of them: their routing
-   comments lack the lines. Its limit: it reads the lines as text, so any value passes `Models:` and `Telemetry:`, any
-   value but `unknown` counts as a list, and four `unknown` lines pass while giving the re-evaluation of the round cap
-   no data.
+   say `none` or list the entries, after the label or as list items on the lines right under it, and a value whose
+   first word is `unknown`, backticks aside, is refused for them. The rule skips the slices merged before it was added,
+   which `MERGED_BEFORE_ROUND_LINES` lists, F1's (chadlis/hypotrail#121) the last of them: their routing comments lack
+   the lines. Its limits: it reads the lines as text, so any value passes `Models:` and `Telemetry:`, any value but
+   `unknown` counts as a list, and four `unknown` lines pass while giving the re-evaluation of the round cap no data;
+   and only the first line that carries a label is read.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -169,12 +172,13 @@ def round_line_problems(number: int, comment: dict) -> list:
             match = re.match(rf"[\s>*-]*{label}[ \t]*(.*)$", line)
             if match:
                 value = match.group(1).strip()
-                if not value and at + 1 < len(lines) and re.match(r"\s+[-*]\s+\S", lines[at + 1]):
+                below = lines[at + 1] if at + 1 < len(lines) else ""
+                if not value and re.match(r"\s*[-*]\s+\S", below) and not re.match(rf"[\s>*-]*(?:{'|'.join(ROUND_LABELS)})", below):
                     value = "a list"
                 break
         if not value:
             found.append(f"round {number}: the routing comment has no line '{label} <value>'")
-        elif label in KNOWN_TO_THE_DRIVE and value.rstrip(".").lower() == "unknown":
+        elif label in KNOWN_TO_THE_DRIVE and re.match(r"unknown\b", value.replace("`", ""), re.IGNORECASE):
             found.append(f"round {number}: the routing comment's '{label}' line says unknown; it says none or lists them")
     return found
 
