@@ -14,7 +14,24 @@ for the slice issue of the pull request:
 4. a "closing register" comment exists and names every finding ID that a routing table assigned;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
    fixed has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
-   when there is one, the routing row otherwise. A fix prompt or a report settles no row.
+   when there is one, the routing row otherwise. A fix prompt or a report settles no row;
+6. when a requirement has row-1 findings in two rounds, the routing comment of the second of those rounds, or of a later
+   round, has a line "Structural option for <requirement>: ..." or "Gate for <requirement>: D-nnn" (D-061 on
+   chadlis/hypotrail#75, as amended by D-063 on chadlis/hypotrail#75, item 2: "`check_record.py` counts, for each
+   requirement, the rounds that had row-1 findings. At two such rounds, it refuses the merge unless a structural option
+   or a gate decision is recorded."). The requirement of a row is its requirement cell up to its first ": " (a colon
+   followed by a space), with the word "Tightened" dropped and whitespace collapsed, so "#142 Tightened B" and "#142 B"
+   are one requirement; line numbers and URLs are kept whole. A row counts for the round of the routing comment that
+   lists it when its row cell starts with "1" and its status there is not settled. A row carried open into a later
+   round's table counts for that round too: a blocker a fix left open is a blocker in the next round. A clearing line
+   has text after its ": ", and a gate line names a decision. The rule judges every slice record, one merged before it
+   was added included: F1's record (chadlis/hypotrail#121) fails it on "#142 B" and on "`slice-builder.md:11`".
+   Rule 6 is a backstop to the drive's own count of rounds per requirement, which stays the rule. Its key is textual,
+   with these stated limits: two different rules cited from one file under the same text before ": " ("`AGENTS.md`")
+   get one key; two spans of one comment block ("decisions.py:30-31" and ":28-31") get two keys; "#142 B (Tightened)"
+   and "#142 B" get two keys; and any text after a clearing line's ": " clears it. When it refuses two requirements
+   that are not one, the routing comment says so in the clearing form, with the reason: "Structural option for <key>:
+   not one requirement, because ...".
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -94,6 +111,41 @@ def latest_statuses(comments: list) -> dict:
     return statuses
 
 
+def requirement_key(text: str) -> str:
+    """A requirement cell, or the requirement a clearing line names, reduced to the requirement: up to its first ": ", without "Tightened"."""
+    text = re.sub(r"\bTightened\b", "", text.split(": ", 1)[0])
+    return re.sub(r"\s+", " ", text).strip()
+
+
+CLEARING = re.compile(r"^[\s#>*-]*(?:Structural option for (?P<option>.+?): \S|Gate for (?P<gate>.+?): D-\d+)")
+
+
+def unconverged(routed: dict) -> list:
+    """The requirements with row-1 findings in two rounds whose routing comment of the second round, or of a later one, has no line that names a structural option or a gate decision for them."""
+    rounds = {}
+    for number, comment in routed.items():
+        for cells in rows_of(comment):
+            if cells[4].strip().startswith("1") and not re.match(rf"[\W_]*{SETTLED}", cells[5], re.IGNORECASE):
+                rounds.setdefault(requirement_key(cells[3]), set()).add(number)
+    cleared = {}
+    for number, comment in routed.items():
+        for line in (comment["body"] or "").replace("**", "").splitlines():
+            match = CLEARING.match(line)
+            if match:
+                key = requirement_key(match.group("option") or match.group("gate"))
+                cleared.setdefault(key, set()).add(number)
+    found = []
+    for key, numbers in sorted(rounds.items()):
+        if len(numbers) >= 2:
+            second = sorted(numbers)[1]
+            if not any(number >= second for number in cleared.get(key, ())):
+                found.append(
+                    f"requirement {key!r} has row-1 findings in rounds {', '.join(map(str, sorted(numbers)))}, and no routing comment of round {second} "
+                    f"or later has a line 'Structural option for {key}: ...' or 'Gate for {key}: D-nnn'"
+                )
+    return found
+
+
 def problems(pr_body: str, comments: list) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
@@ -128,6 +180,8 @@ def problems(pr_body: str, comments: list) -> list:
                 for finding in FINDING_ID.findall(cells[0]):
                     if not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE) and finding not in pr_body:
                         found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
+
+    found += unconverged(routed)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:

@@ -84,6 +84,25 @@ def test_a_quotation_that_stops_inside_a_sentence_of_its_source_is_warned_as_par
     assert "1 warning(s)" in context and "not a whole sentence or item of its source" in context
 
 
+@pytest.mark.parametrize(
+    ("source", "quotation"),
+    [
+        ("The drive re-runs the full suite only before a pull\nrequest, as the skill requires, and not after each fix.\n", "The drive re-runs the full suite only before a pull"),
+        ("The first line of a paragraph that\nwraps in the middle of the paragraph and\ncontinues to its end.\n", "wraps in the middle of the paragraph and"),
+    ],
+)
+def test_a_quotation_bounded_by_a_line_break_inside_wrapped_prose_is_warned_as_partial(sources, source, quotation):
+    (sources / "issue-1-body.md").write_text(source)
+    context = context_of(hook(f'{TRIGGER}. B1-P-01, D-061 on chadlis/hypotrail#75 says "{quotation}".', sources))
+    assert "1 warning(s)" in context and "not a whole sentence or item of its source" in context
+
+
+def test_a_heading_line_and_the_paragraph_that_follows_it_are_each_whole_when_quoted_as_block_items(sources):
+    (sources / "issue-1-body.md").write_text("Before it.\n\n## Decision: the second reading of it\n\nthe faulty file differs by one item.\n")
+    prompt = f"{TRIGGER}. B1-P-01, #1 Tightened C reads:\n> ## Decision: the second reading of it\n>\n> the faulty file differs by one item.\n"
+    assert "0 warning(s)" in context_of(hook(prompt, sources))
+
+
 def test_a_quotation_that_elides_words_is_warned_as_partial_by_declaration(sources):
     context = context_of(hook(f'{TRIGGER}. B1-P-01, #1 Tightened C says: "The check refuses … every refusal to the journal."', sources))
     assert 'elided with "…"' in context
@@ -176,8 +195,9 @@ def test_the_drive_skill_says_the_drive_posts_the_hook_output_beside_the_fix_pro
     assert "/fix_prompt_check.py` on the Agent tool" in paragraph and "post them beside the prompt" in paragraph
 
 
-# The 17 quotation warnings that the checker gives on the eight accepted fix prompts of the first two slices, each read against its source by hand
-# when the fixtures were added. A warning that a prompt does not earn is a false warning: it would have been a false refusal had the hook blocked.
+# The quotation warnings that the checker gives on the accepted fix prompts of the first three slices: 17 on the eight of the first two, each read
+# against its source by hand when the fixtures were added, and 6 on the five of F1. Round 3's is the true warning of comment 7074001592 on #121,
+# which says the round-2 prompt had the same gap. A warning that a prompt does not earn is a false warning: it would have been a false refusal had the hook blocked.
 # The kinds: partial (the quotation stops inside a sentence or item of its source), joined (two items run into one quotation, not word for word), elided (it says so with an ellipsis).
 TRUE_WARNINGS = {
     "r1-round-1": [
@@ -207,6 +227,24 @@ TRUE_WARNINGS = {
     "r1b-round-2": [("No call into the Study-write module passes a command name", "partial")],
     "r1b-round-3": [],
     "r1b-round-4": [],
+    "f1-round-1": [
+        ("a duplicate key at the top level is accepted", "partial"),
+        ("do not restate it", "partial"),
+        ("The order is defined once", "partial"),
+        ("the 'When' cell of chapter 04's row", "elided"),
+    ],
+    "f1-round-2": [("**B** (the matrix; replaces the second criterion).", "partial")],
+    "f1-round-3": [("**B** (the matrix; replaces the second criterion).", "partial")],
+    "f1-round-4": [],
+    "f1-d060": [],
+}
+# The finding IDs that each fix prompt of F1 names; the prompts of the first two slices name none.
+F1_FINDING_IDS = {
+    "f1-round-1": ["F1-P-01", "F1-P-02", "F1-P-03", "F1-P-04", "F1-P-05", "F1-S-01", "F1-S-02"],
+    "f1-round-2": ["F2-P-01", "F2-P-02", "F2-S-02", "F2-S-03"],
+    "f1-round-3": ["F2-P-01", "F2-S-03", "F3-P-01", "F3-S-01", "F3-S-02"],
+    "f1-round-4": ["F2-S-03", "F4-P-01", "F4-P-02"],
+    "f1-d060": ["F5-S-01"],
 }
 KINDS = {
     "partial": "not a whole sentence or item of its source",
@@ -221,7 +259,7 @@ def fixture_warnings():
     return {path.stem: module.check_quotations(path.read_text(), corpus) for path in sorted((FIXTURES / "fix-prompts").glob("*.md"))}
 
 
-def test_the_checker_gives_no_false_warning_on_the_accepted_fix_prompts_of_the_first_two_slices(record_property):
+def test_the_checker_gives_every_true_warning_and_no_false_warning_on_the_accepted_fix_prompts_of_the_first_three_slices(record_property):
     found = fixture_warnings()
     assert sorted(found) == sorted(TRUE_WARNINGS)
     false_warnings = []
@@ -241,10 +279,12 @@ def test_the_checker_gives_no_false_warning_on_the_accepted_fix_prompts_of_the_f
     assert false_warnings == [], report
 
 
-def test_no_fixture_prompt_names_a_finding_id_so_each_one_is_warned_by_the_finding_id_check():
+def test_no_fixture_prompt_of_the_first_two_slices_names_a_finding_id_so_each_one_is_warned_and_each_f1_prompt_gives_the_ids_it_names():
     module = load("fix_prompt_check")
     named = {path.stem: module.check_finding_ids(path.read_text())[0] for path in sorted((FIXTURES / "fix-prompts").glob("*.md"))}
-    assert len(named) == 8 and all(ids == [] for ids in named.values())
+    earlier = {name: ids for name, ids in named.items() if name not in F1_FINDING_IDS}
+    assert len(earlier) == 8 and all(ids == [] for ids in earlier.values())
+    assert {name: ids for name, ids in named.items() if name in F1_FINDING_IDS} == F1_FINDING_IDS
 
 
 def test_the_hook_runs_on_all_fixture_prompts_but_the_first_of_the_first_slice_which_says_only_as_a_review_fix():
