@@ -164,6 +164,17 @@ def decide_scenario(tmp_path):
     )
 
 
+def deviation_scenario(tmp_path):
+    study, _ = init_study(tmp_path)
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "w-held")
+    assert code == 0, (payload, err)
+    attempt = payload["attempt"]["attempt_id"]
+    return study, lambda: run_json(
+        "deviation", "--study", study, "--text", "owner review of References pending", "--author", "human",
+        "--artifact", attempt, "--request-id", "w-deviation", "--read-sequence", seq(study),
+    )
+
+
 WRITERS = {
     "init": init_new,
     "init --new-revision": init_new_revision,
@@ -176,6 +187,7 @@ WRITERS = {
     "recover": recover_scenario,
     "report": report_scenario,
     "decide": decide_scenario,
+    "deviation": deviation_scenario,
 }
 
 
@@ -348,6 +360,7 @@ KEYS = {
     "recover": {"ok", "attempt"},
     "report": {"ok", "report"},
     "decide": {"ok", "replayed", "decision"},
+    "deviation": {"ok", "replayed", "declared_deviation"},
 }
 
 

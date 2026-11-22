@@ -991,7 +991,7 @@ def study_refusals(tmp_path):
 def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     rows = attrs_of(page, "study-codes", "data-code")
     found = study_refusals(tmp_path)
-    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "differs"}  # #109 Tightened K
+    assert words(rows["REQUEST_CONFLICT"]["data-details"]) == {"request_id", "attempt_id", "decision_id", "declared_deviation_id", "differs"}
     assert {"STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD"} <= set(rows) and found["STUDY_CHANGED"][0] == 6 and found["WRITE_SEQUENCE_AHEAD"][1] == "sequence"
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -1312,7 +1312,7 @@ def test_the_comparison_record_tables_equal_the_contract_schema_and_the_layout_e
 
 
 def comparisons_by_warning_code(tmp_path) -> dict:
-    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study and, for the single-feature warning, a Bike Study."""
+    """{warning code: the status `compare` writes for a pair that holds it}, one pair for each code, on a Chinook Study and, for the single-feature warning and the Declared deviation's, a Bike Study."""
     from _agent_compare_helpers import answer_lines, compare, imported, native
     from _chinook_helpers import init_chinook
     from _compare_helpers import assessed
@@ -1336,6 +1336,11 @@ def comparisons_by_warning_code(tmp_path) -> dict:
     studies = dict.fromkeys(pairs, study)
     pairs["COMPARISON_SINGLE_FEATURE_BEATS"] = (assessments["seasonal_7"], assessments["ridge_v1"])
     studies["COMPARISON_SINGLE_FEATURE_BEATS"] = bike
+    from _deviation_helpers import declare, references_of
+
+    declare(bike, [references_of(bike)])  # it covers both sides of the Bike pair, which hold the single-feature warning too
+    pairs["COMPARISON_DEVIATION_DECLARED"] = pairs["COMPARISON_SINGLE_FEATURE_BEATS"]
+    studies["COMPARISON_DEVIATION_DECLARED"] = bike
     statuses = {}
     for code, (control, candidate) in pairs.items():
         exit_code, payload, err = compare(studies[code], control, candidate)
@@ -4098,8 +4103,9 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 14
+    assert len(parser_commands()) == 15
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
+    assert rows["deviation"]["data-chapter"] == "decisions"
     for command, row in rows.items():
         section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
         assert section, command
@@ -4123,6 +4129,7 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "WriteJournalBegin": ("record", "write-journal-fields"),
     "WriteJournalEnd": ("record", "write-journal-fields"),
     "DecisionRecord": ("record", "decision-fields"),
+    "DeclaredDeviationRecord": ("record", "deviation-fields"),
 }
 
 
@@ -4525,7 +4532,7 @@ def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the
 
 def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
-    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision"):
+    for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision", "Declared deviation"):
         assert kind in chapter, kind
     assert "revision_number" in chapter and "not citable" in chapter
     assert "status --json" in chapter
@@ -4736,3 +4743,153 @@ def test_the_assess_refusal_table_of_chapter_05_gains_no_row(page):
     assert set(attrs_of(page, "assess-codes", "data-code")) == {
         "SCORER_NOT_REGISTERED", "UNSUPPORTED_CAPABILITY", "OBSERVATION_SET_NOT_FOUND", "REFERENCES_NOT_FOUND", "OBSERVATIONS_INVALID", "ASSESSMENT_PARTITION_NOT_DEV",
     }
+
+
+# --- #155: the Declared deviation (chapters 04, 07, 11 and 17, and the README) -------------------------------------------------------
+
+
+def _deviation_study(tmp_path, name="chapter-17-deviation"):
+    """(Study, the files it holds before and after one Declared deviation, the record it wrote)."""
+    from _deviation_helpers import declare
+    from _study_helpers import init_study, run_ml
+
+    study, _ = init_study(tmp_path, name=name)
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    before = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    record = declare(study, [attempt["attempt"]["attempt_id"]], request_id="dv-1")
+    after = {p.relative_to(study).as_posix() for p in study.rglob("*") if p.is_file()}
+    return study, before, after, record
+
+
+def test_the_declared_deviation_record_table_of_chapter_17_equals_the_contract_schema_and_the_fields_the_command_writes(page, tmp_path):
+    from hypotrail.core import contracts
+
+    definition = contracts.schema()["$defs"]["DeclaredDeviationRecord"]
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    row = attrs_of(section, "deviation-fields", "data-record")["DeclaredDeviationRecord"]
+    assert words(row["data-required"]) == set(definition["required"])
+    assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
+    assert row["data-kind"] == "declared_deviation" == definition["properties"]["kind"]["const"]
+    _, before, after, record = _deviation_study(tmp_path)
+    assert set(record) == words(row["data-required"]) | words(row["data-optional"])
+    added = {re.sub(r"declared_deviations/[0-9]{6}-", "declared_deviations/SEQ-", path.replace(record["declared_deviation_id"], "DEVIATION_ID")) for path in after - before}
+    assert set(attrs_of(section, "deviation-layout", "data-path")) == {path for path in added if path.startswith("declared_deviations/")}
+
+
+def deviation_refusals(tmp_path):
+    """Provoke each refusal of the `deviation` command; return {code: (exit code, stage, set of details keys)}."""
+    from _deviation_helpers import declare, deviation, references_of
+    from _study_helpers import init_study, run_json, run_ml
+
+    from hypotrail.core import lock
+
+    found = {}
+    study, _ = init_study(tmp_path, name="chapter-17-deviation-refusals")
+    _, attempt, _ = run_ml(study, "seasonal_7", "dev", "held")
+    cited = attempt["attempt"]["attempt_id"]
+    code, payload, err = run_json("assess", "--study", study, "--observations", json.loads((study / "attempts" / cited / "observation_set.json").read_text())["observation_set_id"],
+                                  "--scorer", "regression_mae_v1", "--references", references_of(study))
+    assessment = payload["assessment"]["assessment_id"]
+    declared = declare(study, [cited], request_id="dv-held")["declared_deviation_id"]
+    other = declare(study, [references_of(study)])["declared_deviation_id"]
+    withdrawn = declare(study, [cited])["declared_deviation_id"]
+    withdrawal = declare(study, [withdrawn], text="withdrawn")["declared_deviation_id"]
+
+    def call(ids=(cited,), **fields):
+        code, payload, err = deviation(fields.pop("study", study), list(ids), **fields)
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+
+    call(omit=("--artifact",))  # INVALID_ARGUMENTS
+    call(request_id="")  # REQUEST_ID_EMPTY
+    call(text="")  # DEVIATION_TEXT_EMPTY
+    call(study=tmp_path / "none", read_sequence=0)  # STUDY_NOT_FOUND
+    with lock.writer_lock(study):
+        call()  # STUDY_LOCKED
+    call(request_id="held")  # REQUEST_CONFLICT: the request_id of the Attempt
+    call(read_sequence=0)  # STUDY_CHANGED
+    call(read_sequence=10**6)  # WRITE_SEQUENCE_AHEAD
+    call(ids=["unknown"])  # CITED_ID_NOT_FOUND
+    call(ids=[declared, cited])  # DEVIATION_CITES_A_MIX
+    call(ids=[declared, other])  # DEVIATION_CITES_SEVERAL_DEVIATIONS
+    call(ids=[withdrawal])  # DEVIATION_CITES_A_WITHDRAWAL
+    call(ids=[assessment])  # CITED_KIND_NOT_CITABLE
+    call(ids=[withdrawn])  # DEVIATION_ALREADY_WITHDRAWN
+    [file] = [p for p in sorted((study / "declared_deviations").glob("*.json")) if declared in p.name]
+    record = json.loads(file.read_text(encoding="utf-8"))
+    del record["text"]
+    file.write_text(json.dumps(record), encoding="utf-8")
+    call(request_id="dv-held", read_sequence=0)  # CONTRACT_VIOLATION when the record is read for a replay; `status` would refuse it too
+    return found
+
+
+def test_the_deviation_refusal_table_of_chapter_17_equals_the_code_exit_stage_and_details_of_each_refusal_and_the_codes_the_command_raises(page, tmp_path):
+    found = deviation_refusals(tmp_path)
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    rows = attrs_of(section, "deviation-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code
+    (tmp_path / "module").mkdir()
+    shutil.copy(ROOT / "src" / "hypotrail" / "core" / "deviations.py", tmp_path / "module")  # the codes the command's own module raises
+    raised = raised_codes(tmp_path / "module")
+    assert raised and raised <= set(rows), raised - set(rows)
+
+
+def test_the_declared_deviation_keys_table_of_chapter_17_equals_the_keys_status_reports_for_a_declared_deviation(page, tmp_path):
+    from _study_helpers import run_json
+
+    from hypotrail.core import contracts
+
+    study, _, _, _ = _deviation_study(tmp_path)
+    [row] = run_json("status", "--study", study)[1]["declared_deviations"]
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    keys = set(attrs_of(section, "deviation-row-keys", "data-field"))
+    assert keys == set(row) == set(contracts.schema()["$defs"]["DeclaredDeviationRecord"]["properties"]) | {"withdrawn", "withdrawn_by"}
+
+
+def test_the_readme_sentence_that_lists_the_commands_names_every_leaf_command_of_the_parser_but_spike_live():
+    """`spike` is the parser of the "feasibility spike entry points" (`cli.py`), not a product command, so the sentence does not name `spike live`."""
+    line = (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[6]
+    sentence = next(part for part in re.split(r"(?<=\.)\s+", line) if part.startswith("`init` creates a Study"))
+    named = set(re.findall(r"`([^`]+)`", sentence))
+    assert named == set(parser_commands()) - {"spike live"}, (sorted(named - set(parser_commands())), sorted(set(parser_commands()) - named))
+
+
+def test_the_sentences_of_chapters_04_and_17_that_state_the_one_request_id_namespace_name_attempts_decisions_and_declared_deviations():
+    for name in ("04-study-and-attempts.html", "17-decisions.html"):
+        sentences = [s for s in re.split(r"(?<=\.)\s+", plain_text(chapter_text(name))) if "one request_id namespace" in s]
+        assert len(sentences) == 1, (name, sentences)
+        assert all(kind in sentences[0] for kind in ("Attempts", "Decisions", "Declared deviations")), (name, sentences[0])
+
+
+def chapter_17_limit(limit) -> str:
+    return limit_cards(chapter_text("17-decisions.html")).get(limit, "")
+
+
+def test_chapter_17_states_that_a_corrected_references_set_has_a_new_artifact_id_and_is_not_covered():
+    card = chapter_17_limit("corrected-references-not-covered")
+    assert "artifact_id" in card and "corrected" in card, card
+
+
+def test_chapter_17_states_that_a_comparison_is_not_updated_and_that_a_new_compare_is_the_remedy_which_for_public_check_appends_an_exposure_entry():
+    card = chapter_17_limit("comparison-not-updated")
+    assert all(part in card for part in ("not updated", "compare", "public_check", "Exposure")), card
+
+
+def test_chapter_17_states_the_redo_path_and_the_departure_from_inspects_uninvalidate_samples():
+    redo, departure = chapter_17_limit("redo-is-a-new-declaration"), chapter_17_limit("departure-from-inspect")
+    assert "new declaration" in redo and "new ID" in redo, redo
+    assert "uninvalidate_samples" in departure, departure
+
+
+def test_a_chapter_states_that_a_decision_citing_a_withdrawn_declared_deviation_still_applies():
+    chapters = [path.read_text(encoding="utf-8") for path in sorted((HANDBOOK / "chapters").glob("*.html"))]
+    found = [card for chapter in chapters if '<p class="sub2">Limits</p>' in chapter for limit, card in limit_cards(chapter).items() if limit == "withdrawal-keeps-decisions-applying"]
+    assert len(found) == 1 and "withdrawn" in found[0] and "applies" in found[0], found
+
+
+def test_chapter_11_limit_that_a_compatible_comparison_can_hold_a_warning_names_the_declared_deviation_code_beside_the_order_code():
+    invariant = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")).get("compatible-with-warning", "")
+    assert "compatible" in invariant and "COMPARISON_ORDER_NOT_ALTERNATED" in invariant and "COMPARISON_DEVIATION_DECLARED" in invariant, invariant

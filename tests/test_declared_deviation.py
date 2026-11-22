@@ -313,7 +313,9 @@ CITATIONS = {
 @pytest.mark.parametrize("case", CITATIONS)
 def test_each_record_whose_cited_ids_are_refused_has_the_code_of_the_first_check_that_fails_and_writes_nothing(case, cited):
     names, expected = CITATIONS[case]
-    assert len({MIX, SEVERAL, CITES_A_WITHDRAWAL}) == 3 and CITES_A_WITHDRAWAL != ALREADY_WITHDRAWN  # three codes of their own (D-071 on chadlis/hypotrail#75)
+    # D-071 on chadlis/hypotrail#75, Conditions: "there are three refusals, each with its own code, exit and no-write witness:" | "a mix;" |
+    # "several Declared deviations;" | "citing a withdrawal, which is distinct from "already withdrawn";"
+    assert len({MIX, SEVERAL, CITES_A_WITHDRAWAL}) == 3 and CITES_A_WITHDRAWAL != ALREADY_WITHDRAWN
     study = cited["study"]
     before, sequence = tree(study), seq(study)
     code, payload, err = deviation(study, [cited[name] for name in names], text="withdrawn: the review is done")
