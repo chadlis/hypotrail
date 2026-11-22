@@ -44,6 +44,8 @@ When your output names a domain concept (in an issue title, a refactor proposal,
 
 If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
 
+A glossary word is bound to its concept; it is not banned as a string. A capitalised term (Case, Item) always names its concept. The same word in lower case, and a word an entry lists under _Avoid_, keeps its everyday sense where the thing it names is not a domain concept: a `case` of a parametrised test of the command line, an `item` of a list, the verb "run". Where the concept of that name is the subject of the same test or paragraph, choose another word. One avoided word has a rule of its own, held by `tests/test_run_noun.py`: "run" is never the noun for an Attempt or for an execution, in tests as elsewhere.
+
 ## Flag ADR conflicts
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
