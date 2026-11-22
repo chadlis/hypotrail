@@ -49,20 +49,39 @@ def entries(study) -> list:
     return layout.read_records(study, JOURNAL_DIR)
 
 
+def _positions(study, kind: str) -> dict:
+    """{id: the position, from 1, of the first entry whose `written` list names it} for the records of one kind."""
+    positions: dict = {}
+    for position, entry in enumerate(entries(study), 1):
+        for item in entry.get("written", []):
+            if item["kind"] == kind:
+                positions.setdefault(item["id"], position)
+    return positions
+
+
 def assessment_order(study):
     """The key that orders the Assessments of the Study, the later one the greater: the write-journal position first, then `(recorded_at, id)`.
 
     The position is that of the first `end` entry whose `written` list names the Assessment, from 1; an Assessment that no entry names is at position 0, before every
     journaled one. It is read once, here: `status`, `assess` and `report` all order the Assessments with the key this returns.
     """
-    positions: dict = {}
-    for position, entry in enumerate(entries(study), 1):
-        for item in entry.get("written", []):
-            if item["kind"] == "assessment":
-                positions.setdefault(item["id"], position)
+    positions = _positions(study, "assessment")
 
     def order(assessment: dict) -> tuple:
         return positions.get(assessment["assessment_id"], 0), assessment.get("recorded_at", ""), assessment["assessment_id"]
+
+    return order
+
+
+def comparison_order(study):
+    """The key that orders the Comparisons of the Study as `status` lists them: the write-journal position, then the id.
+
+    "A Comparison that no journal entry names is at position 0, before every journaled one, and ties break by `comparison_id`." (chadlis/hypotrail#160)
+    """
+    positions = _positions(study, "comparison")
+
+    def order(comparison: dict) -> tuple:
+        return positions.get(comparison["comparison_id"], 0), comparison["comparison_id"]
 
     return order
 

@@ -769,7 +769,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -4530,12 +4530,26 @@ def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the
     assert 'data-command="decide"' in chapter  # its row in `write-sequence-commands` and in `commands-index`
 
 
-def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
+def test_chapter_17_says_status_lists_the_assessments_and_comparisons_and_no_observation_set_and_names_the_citable_kinds():
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
     for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision", "Declared deviation"):
         assert kind in chapter, kind
     assert "revision_number" in chapter and "not citable" in chapter
     assert "status --json" in chapter
+    assert "lists no Observation set, Assessment or Comparison" not in chapter
+    assert "lists no Observation set" in chapter
+
+
+def section_holding(chapter: str, table_id: str) -> str:
+    """The section of a chapter, from the `sub2` heading before the table `table_id` to the next `sub2` heading."""
+    before, after = chapter.split(f'id="{table_id}"', 1)
+    return before.rsplit('<p class="sub2">', 1)[1] + after.split('<p class="sub2">', 1)[0]
+
+
+def test_the_chapter_04_section_of_the_status_keys_table_tells_a_client_to_ignore_a_key_it_does_not_know():
+    section = plain_text(section_holding(chapter_text("04-study-and-attempts.html"), "status-keys"))
+    sentences = [s for s in re.split(r"(?<=\.)\s+", section) if "ignore" in s and "does not know" in s]
+    assert len(sentences) == 1, sentences
 
 
 def test_the_readme_names_decide_in_its_status_and_gives_its_command_after_the_walked_path_with_the_required_options():

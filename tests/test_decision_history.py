@@ -414,3 +414,27 @@ def test_a_decision_that_cites_a_declared_deviation_applies_with_no_reason_befor
     declare(study, [declared["declared_deviation_id"]], text="the review is done")
     after = row_of(study, decision["decision_id"])
     assert (before["applies"], before["reasons"]) == (after["applies"], after["reasons"]) == (True, [])
+
+
+# --- the whole human output of `status` on a Study whose Decision on a Comparison is reached by a later Assessment ----
+
+
+def test_the_human_status_of_a_study_with_a_comparison_a_decision_on_it_a_later_assessment_and_a_second_comparison_is_these_lines(tmp_path):
+    from _review_helpers import TRACKS, compare
+    from _review_helpers import decide as decide_on
+
+    track = TRACKS["bike"]
+    study, control, candidate, comparison = track.compared(tmp_path / "base")
+    decide_on(study, [comparison["comparison_id"]], request_id="d-on-the-comparison")
+    again = track.assess_again(study, control)
+    compare(study, again["assessment_id"], candidate["assessment_id"])
+    spec = json.loads((study / "study.json").read_text())
+    by_request = {json.loads(p.read_text())["request_id"]: p.parent.name for p in (study / "attempts").glob("*/attempt.json")}
+    seasonal, ridge = by_request["ml-dev-seasonal_7"], by_request["ml-dev-ridge_v1"]
+    attempts = sorted([(seasonal, f"  {seasonal} completed request ml-dev-seasonal_7, 4 artifacts"), (ridge, f"  {ridge} completed request ml-dev-ridge_v1, 5 artifacts")])
+    assert human(study) == [
+        f"Study {spec['study_id']} ({spec['workload']}); a writer is not active",
+        "  0 Exposures recorded in this Study; any earlier exposure to public_check is unknown",
+        "Decisions: 1 recorded, 0 no longer apply",
+        *[line for _, line in attempts],
+    ]

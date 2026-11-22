@@ -133,3 +133,33 @@ def test_validation_does_not_change_the_record():
     before = copy.deepcopy(record)
     contracts.validate(record)
     assert record == before
+
+
+# The property names and `required` lists of five record definitions, written from the schema at `7db697f`:
+# "The Decision, Assessment and Comparison records, the write journal and the contract schema stay as they are" (chadlis/hypotrail#159, "Out of scope").
+RECORD_DEFINITIONS_AT_7DB697F = {
+    "Assessment": (
+        "assessment_id check_informed counts detailed_metrics_ref kind limitations metrics observation_set_id operational_errors per_item_ref primary_criterion "
+        "recorded_at references_ref rescoring schema_version scorer single_feature_check study_revision unknowns",
+        "kind schema_version assessment_id observation_set_id references_ref scorer counts per_item_ref metrics limitations",
+    ),
+    "Comparison": (
+        "check_informed code_environment comparability comparison_id coverage declared_factor delta descriptive kind left_assessment_id limitations matrix_ref "
+        "paired_deltas_ref population_ref primary_criterion rates right_assessment_id roles schema_version secondary_deltas warnings",
+        "kind schema_version comparison_id left_assessment_id right_assessment_id comparability population_ref paired_deltas_ref coverage limitations",
+    ),
+    "DecisionRecord": (
+        "author cited_ids decision_id kind option question read_sequence request_id revision schema_version source write_sequence",
+        "kind schema_version decision_id request_id question option author source cited_ids revision read_sequence write_sequence",
+    ),
+    "WriteJournalBegin": ("command phase request_id", "phase command request_id"),
+    "WriteJournalEnd": ("command outcome phase request_id written", "phase command request_id outcome written"),
+}
+
+
+@pytest.mark.parametrize("name", list(RECORD_DEFINITIONS_AT_7DB697F))
+def test_the_assessment_comparison_decision_and_write_journal_definitions_keep_their_properties_and_required_lists(name):
+    definition = contracts.schema()["$defs"][name]
+    properties, required = RECORD_DEFINITIONS_AT_7DB697F[name]
+    assert sorted(definition["properties"]) == properties.split()
+    assert definition["required"] == required.split()
