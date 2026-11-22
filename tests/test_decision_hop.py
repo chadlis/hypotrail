@@ -1,4 +1,4 @@
-"""A Decision that cites a Comparison no longer applies when one of its two Assessments has a later Assessment (chadlis/hypotrail#161).
+"""A Decision that cites a Comparison no longer applies when one of its two Assessments has a later Assessment.
 
 "The read-time rule follows a cited Comparison one hop, to its two Assessments, under a new reason code. `assessment_superseded` keeps its
 meaning." (D-077 on chadlis/hypotrail#75, Q6). The new codes are `compared_assessment_superseded` and `compared_assessment_not_held`. Nothing is

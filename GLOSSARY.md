@@ -28,7 +28,7 @@ One known limit on what results of a Study show, declared in the Study because i
 _Avoid_: caveat, waiver, limitation, warning
 
 **Pending decision**:
-A Comparison of the current revision that no applying Decision cites and whose two Assessments have no later Assessment; it comes with a fixed question and options, which the core supplies. It is derived when the Study is read and never stored, and it is not a **Decision**: answering it records one.
+A Comparison of the current revision that no applying Decision cites and whose two Assessments have no later Assessment. It is derived when the Study is read and never stored, and it is not a **Decision**.
 _Avoid_: open decision, pending choice
 
 **Track**:

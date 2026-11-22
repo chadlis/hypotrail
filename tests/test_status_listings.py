@@ -1,4 +1,4 @@
-"""`status --json` lists every Assessment and every Comparison record of a Study, each entry equal to the stored record (chadlis/hypotrail#160).
+"""`status --json` lists every Assessment and every Comparison record of a Study, each entry equal to the stored record.
 
 "A client reads through `status --json`, which takes no lock and writes nothing, and writes only through the documented CLI commands."
 (ADR 0004). The listings follow the order of the write journal. No model is called: the Chinook sides are Imports of the kit's answers.

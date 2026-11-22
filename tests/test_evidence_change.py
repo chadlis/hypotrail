@@ -1,4 +1,4 @@
-"""`status --json` says what happened to the evidence of a recorded Decision: `evidence_change` (chadlis/hypotrail#162).
+"""`status --json` says what happened to the evidence of a recorded Decision: `evidence_change`.
 
 "The label is computed over the later Assessments of the same Observation set and Scorer id" and "A later Assessment counts as rescored or changed
 only when its `rescoring.earlier_assessment_id` is the cited Assessment or one later than it." (D-077 on chadlis/hypotrail#75, Q3). The key sits
@@ -125,7 +125,7 @@ def test_the_line_state_of_each_row_of_the_matrix_follows_the_later_assessment_a
 
     if row_name == "result changed":
         repeat = None
-        if (name, cites) == ("bike", "comparison"):  # #159 F6, steps 1 to 4
+        if (name, cites) == ("bike", "comparison"):
             repeat = track.assess_again(study, control)
         track.revise_an_assessed_item(study, tmp_path)
         later = track.assess_again(study, control)

@@ -1,4 +1,4 @@
-"""`status --json` lists each Comparison that waits for a decision, with a fixed question, options and consequence texts (chadlis/hypotrail#163).
+"""`status --json` lists each Comparison that waits for a decision, with a fixed question, options and consequence texts.
 
 "A Comparison of the current revision that no applying Decision cites is pending. It has a fixed question and fixed options, with consequence texts
 from the core." (D-077 on chadlis/hypotrail#75, Q7). It is derived when `status` reads the Study and never stored. No model is called.
@@ -165,7 +165,7 @@ def case_a_decision_that_cites_it_with_another_id(study, ids, tmp_path):
 def case_a_new_revision(study, ids, tmp_path):
     track = TRACKS["bike"]
     track.revise_an_assessed_item(study, tmp_path)
-    of_revision_1 = compare(study, ids["control"]["assessment_id"], ids["candidate"]["assessment_id"])  # #159 F6, step 6
+    of_revision_1 = compare(study, ids["control"]["assessment_id"], ids["candidate"]["assessment_id"])
     assert of_revision_1["comparison_id"] not in read_pending(study)
     control, candidate = track.assess_again(study, ids["control"]), track.assess_again(study, ids["candidate"])
     of_revision_2 = compare(study, control["assessment_id"], candidate["assessment_id"])
