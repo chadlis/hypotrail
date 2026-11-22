@@ -405,14 +405,14 @@ def _init(args) -> int:
             "INVALID_ARGUMENTS",
             "--read-sequence is for --new-revision: a Study that is created has no write sequence to read",
             stage="config",
-            details={"command": "init"},
+            details={"command": "hypotrail init"},
         )
     if args.workload is None:
         raise InvalidInputError(
             "INVALID_ARGUMENTS",
             "init needs --workload NAME to create a Study (or --new-revision to add a revision to an existing one)",
             stage="config",
-            details={"command": "init"},
+            details={"command": "hypotrail init"},
         )
     examples = data.resolve_examples_dir(args.examples_dir)
     if declared_track(Path(examples) / args.workload) == "tool_using_agent":
@@ -438,7 +438,7 @@ def _new_revision(args) -> int:
             "INVALID_ARGUMENTS",
             "--new-revision takes the Workload the Study names: do not give --workload",
             stage="config",
-            details={"command": "init", "workload": args.workload},
+            details={"command": "hypotrail init", "workload": args.workload},
         )
     domain = layout.read_spec(args.study)["domain"]
     if domain == "agentic":

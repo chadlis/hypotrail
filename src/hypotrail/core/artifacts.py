@@ -9,7 +9,8 @@ integrity refusal, `ARTIFACT_INTEGRITY` (exit 3), raised before the bytes are us
 Publication is atomic: the bytes are written to a temporary file in the destination's directory
 (so inside the Study and on the same filesystem), flushed and fsynced, then renamed onto the final
 path with `os.replace`; the directory is fsynced. Nothing appears under the final path before the
-rename. A published artifact is immutable: publishing other bytes under the same path is refused
+rename. `replace_atomically` is that write for any path whose folder exists; its path is
+not checked against the Study, and a caller that publishes into a Study uses `publish_bytes`. A published artifact is immutable: publishing other bytes under the same path is refused
 (`ARTIFACT_IMMUTABLE`); the same bytes are accepted as already published.
 
 An Attempt's folder (`attempts/<attempt_id>/`) is closed once its manifest is no longer `running`
@@ -116,9 +117,13 @@ def _immutable(target: Path, relative, data: bytes) -> bool:
     )
 
 
-def _write_atomically(target: Path, data: bytes) -> None:
-    """Temporary file beside `target` (inside the Study), flushed, fsynced, then renamed onto it."""
-    target.parent.mkdir(parents=True, exist_ok=True)
+def replace_atomically(target: Path, data: bytes) -> None:
+    """Write `data` to a temporary file beside `target`, flush and fsync it, rename it onto `target` (an existing file is replaced), then fsync the folder.
+
+    The path is not checked against the Study: nothing here refuses a path outside it, or a file that exists. No folder is created: when the folder of `target` is
+    missing the call fails and creates none.
+    """
+    target = Path(target)
     temporary = target.with_name(f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}{TEMP_SUFFIX}")
     try:
         with open(temporary, "wb") as handle:
@@ -130,6 +135,12 @@ def _write_atomically(target: Path, data: bytes) -> None:
         temporary.unlink(missing_ok=True)
         raise
     _fsync_dir(target.parent)
+
+
+def _write_atomically(target: Path, data: bytes) -> None:
+    """Temporary file beside `target` (inside the Study), flushed, fsynced, then renamed onto it."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    replace_atomically(target, data)
 
 
 def publish_bytes(study, relative, data: bytes, *, media_type: str, role: str) -> dict:

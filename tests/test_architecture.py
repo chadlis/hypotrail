@@ -8,9 +8,11 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 from _architecture import SOURCE, calls, imports, parse_all
+from _study_helpers import run_json
 
 PACKAGE = "hypotrail"
 
@@ -249,7 +251,7 @@ def test_a_role_removed_from_the_cases_of_a_copy_of_the_agent_schema_and_a_role_
 
 # The third-party top-level modules each package or top-level module of `src/hypotrail/` may import.
 THIRD_PARTY = {
-    # `anyio` is imported by `agentic/sql_tool.py` and `pyproject.toml` does not declare it yet: chadlis/hypotrail#121 declares it.
+    # `anyio` is declared in the `agent` extra of `pyproject.toml`, beside `inspect_ai`.
     "agentic": {"anyio", "inspect_ai", "jsonschema"},
     "core": {"jsonschema"},
     "ml": {"jsonschema", "numpy", "sklearn"},
@@ -304,6 +306,16 @@ def blocked_import_problems(root, trees: dict) -> list:
 
 def test_each_package_of_src_imports_only_the_third_party_modules_of_its_list():
     assert third_party_problems(parse_all(SOURCE)) == []
+
+
+def test_every_agent_module_that_imports_anyio_is_covered_by_a_pin_of_anyio_in_the_agent_extra_of_pyproject():
+    importing = sorted(
+        module for module, targets in imports(parse_all(SOURCE)).items()
+        if module.startswith("hypotrail.agentic") and any(target.split(".")[0] == "anyio" for target in targets)
+    )
+    assert importing, "no module of hypotrail.agentic imports anyio any more"
+    declared = tomllib.loads((SOURCE.parent / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]["agent"]
+    assert "anyio==4.16.0" in declared
 
 
 def test_every_module_outside_agentic_imports_with_inspect_ai_made_unimportable():
@@ -433,3 +445,183 @@ def test_a_py_file_in_a_workload_folder_and_an_absolute_or_relative_import_of_hy
         "external/d.py": "from . import sibling\nimport json\n",
     })
     assert examples_problems(root) == ["external.a imports hypotrail", "external.b imports hypotrail.core.x", "external.sub.c imports hypotrail"]
+
+
+# --- the import modules read every JSON input with the strict reader ----------------------------------------------------------
+
+IMPORT_MODULES = ("hypotrail.ml.imports", "hypotrail.agentic.imports")
+LOOSE_READS = {"json.load", "json.loads"}
+
+
+def loose_json_reads(trees: dict) -> list:
+    """The calls of `json.load` and `json.loads` in the import modules, as `module:function`, found through the resolver.
+
+    The resolver follows a name the module imports or assigns (`import json as j`, `from json import loads`, `g = json.loads`). A read through an object that is
+    passed in, or built with `getattr`, is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    return sorted(
+        f"{site.module}:{site.owner.split(':')[1]}"
+        for site in calls(trees)
+        if site.module in IMPORT_MODULES and site.callee in LOOSE_READS
+    )
+
+
+def test_no_import_module_calls_json_load_or_json_loads():
+    trees = parse_all(SOURCE)
+    assert set(IMPORT_MODULES) <= set(trees)
+    assert loose_json_reads(trees) == []
+
+
+def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/imports.py": "import json as j\n\ndef f(raw):\n    return j.loads(raw)\n",
+        "hypotrail/agentic/__init__.py": "",
+        "hypotrail/agentic/imports.py": "from json import load as ld\n\ndef g(handle):\n    return ld(handle)\n",
+    })
+    assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]
+
+
+# --- the functions under `src/` that raise `INVALID_ARGUMENTS`, with their numbers of calls, are those in `INVALID_ARGUMENTS_BUILDERS`, and six command lines give the `details.command` stated for each ---
+
+INVALID_INPUT_ERROR = "hypotrail.core.errors.InvalidInputError"
+
+# Each function under `src/` that raises `INVALID_ARGUMENTS`, with the number of such calls.
+INVALID_ARGUMENTS_BUILDERS = {
+    # `details.command` is self.prog: `hypotrail <command>` for the subparser of a command (a missing flag); `hypotrail` for the top-level parser, which gives it
+    # when no command was given and when an unknown flag was given to a command (argparse refuses it at the top level after the subparser has parsed the known arguments)
+    "hypotrail.cli:_ArgumentParser.error": 1,
+    # `details.command` is f"hypotrail {command}"
+    "hypotrail.core.study_write:invalid_arguments": 1,
+    # `details.command` is "hypotrail init"
+    "hypotrail.cli:_init": 2,
+    # `details.command` is "hypotrail init"
+    "hypotrail.cli:_new_revision": 1,
+}
+
+
+def invalid_arguments_builders(trees: dict) -> dict:
+    """{`module:function`: the number of its calls of `InvalidInputError` whose first argument is the literal "INVALID_ARGUMENTS"}.
+
+    The conventions that bound it: a call whose first argument is the literal code, resolved through the names the module imports or assigns. A code held in a variable
+    or an error built through another function is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    found: dict = {}
+    for site in calls(trees):
+        first = site.node.args[0] if site.node.args else None
+        if site.callee == INVALID_INPUT_ERROR and isinstance(first, ast.Constant) and first.value == "INVALID_ARGUMENTS":
+            found[site.owner] = found.get(site.owner, 0) + 1
+    return found
+
+
+def test_the_functions_under_src_that_raise_invalid_arguments_and_their_number_of_calls_are_the_listed_ones():
+    assert invalid_arguments_builders(parse_all(SOURCE)) == INVALID_ARGUMENTS_BUILDERS
+
+
+def test_a_function_that_raises_invalid_arguments_through_an_alias_is_found_in_a_planted_tree(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/cli.py": "from hypotrail.core.errors import InvalidInputError as E\n\ndef f():\n    raise E('INVALID_ARGUMENTS', 'm', details={'command': 'init'})\n",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/errors.py": "class InvalidInputError(Exception): pass\n",
+    })
+    assert invalid_arguments_builders(parse_all(root)) == {"hypotrail.cli:f": 1}
+
+
+def test_the_details_command_of_each_of_six_command_lines_is_hypotrail_command_except_when_no_command_or_an_unknown_flag_was_given(tmp_path):
+    none = tmp_path / "none"
+    runs = {
+        "a missing flag": (["assess"], "hypotrail assess"),
+        "no command was given": ([], "hypotrail"),
+        "an unknown flag was given to a command": (["status", "--study", "/x", "--bogus"], "hypotrail"),
+        "init with a read sequence for a new Study": (["init", "--study", none, "--workload", "chinook", "--read-sequence", "0"], "hypotrail init"),
+        "init with neither a Workload nor a new revision": (["init", "--study", none], "hypotrail init"),
+        "init with a new revision and a Workload": (["init", "--study", none, "--new-revision", "--workload", "chinook"], "hypotrail init"),
+    }
+    gave = {}
+    for case, (arguments, _) in runs.items():
+        code, payload, _ = run_json(*arguments)
+        assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS"), case
+        gave[case] = payload["error"]["details"]["command"]
+    assert gave == {case: command for case, (_, command) in runs.items()}
+    assert not none.exists()
+
+
+# --- `report` writes no file itself: its page goes through `core/artifacts.replace_atomically` -------------------------------------
+
+REPLACE_ATOMICALLY = "hypotrail.core.artifacts.replace_atomically"
+FILE_FUNCTIONS = {"os.replace", "os.rename", "os.fsync", "os.open"}
+WRITING_METHODS = {"write_bytes", "write_text"}
+
+
+def _writes(mode) -> bool:
+    """A mode writes when it is a literal that holds `w`, `a`, `x` or `+`, or when it is not a literal."""
+    if mode is None:
+        return False
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return any(letter in mode.value for letter in "wax+")
+    return True
+
+
+def _mode_of(node: ast.Call, position: int):
+    keyword = next((k.value for k in node.keywords if k.arg == "mode"), None)
+    return node.args[position] if len(node.args) > position else keyword
+
+
+def file_writes_of_modules(trees: dict, prefix: str) -> list:
+    """The calls, in every module whose name is `prefix` or starts with `prefix.`, that write a file: `module:function spelling`.
+
+    A call is listed when it resolves to `os.replace`, `os.rename`, `os.fsync` or `os.open`; when it is the builtin `open` with a mode that writes (the second argument,
+    or `mode=`); or when it is a method named `write_bytes` or `write_text`, or named `open` with a mode that writes (the first argument, or `mode=`), whatever its receiver.
+    The conventions that bound it: the resolver's, for the `os` functions and `open`; the attribute's name, whatever the receiver, for the methods. A write through a
+    function that is passed in, or an object built with `getattr`, is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    found = []
+    for site in calls(trees):
+        if not (site.module == prefix or site.module.startswith(prefix + ".")):
+            continue
+        func = site.node.func
+        method = func.attr if isinstance(func, ast.Attribute) else None
+        if site.callee in FILE_FUNCTIONS:
+            listed = True
+        elif site.raw == "open" and site.callee is None:
+            listed = _writes(_mode_of(site.node, 1))
+        elif method in WRITING_METHODS:
+            listed = True
+        elif method == "open":
+            listed = _writes(_mode_of(site.node, 0))
+        else:
+            listed = False
+        if listed:
+            found.append(f"{site.owner} {site.callee or site.raw or method}")
+    return sorted(found)
+
+
+def test_no_module_of_report_writes_a_file_itself():
+    assert file_writes_of_modules(parse_all(SOURCE), "hypotrail.report") == []
+
+
+def test_a_planted_write_in_a_module_of_report_is_found_whatever_the_way_it_is_spelled(tmp_path):
+    planted = {
+        "os.replace": "import os\ndef f(a, b):\n    os.replace(a, b)\n",
+        "os_alias": "from os import rename as r\ndef f(a, b):\n    r(a, b)\n",
+        "builtin_open": "def f(p):\n    open(p, 'wb')\n",
+        "builtin_open_keyword": "def f(p, m):\n    open(p, mode=m)\n",
+        "write_bytes": "from pathlib import Path\ndef f(p):\n    Path(p).write_bytes(b'')\n",
+        "write_text": "def f(p):\n    p.write_text('')\n",
+        "path_open": "def f(p):\n    p.open('w')\n",
+    }
+    for name, source in planted.items():
+        root = plant(tmp_path / name, {"hypotrail/__init__.py": "", "hypotrail/report/__init__.py": "", "hypotrail/report/x.py": source})
+        assert len(file_writes_of_modules(parse_all(root), "hypotrail.report")) == 1, name
+    reads = "def f(p):\n    open(p)\n    open(p, 'rb')\n    p.open('r')\n    p.read_bytes()\n"
+    root = plant(tmp_path / "reads", {"hypotrail/__init__.py": "", "hypotrail/report/__init__.py": "", "hypotrail/report/x.py": reads})
+    assert file_writes_of_modules(parse_all(root), "hypotrail.report") == []
+
+
+def test_report_command_calls_replace_atomically_and_the_private_write_of_artifacts_calls_it_too():
+    sites = calls(parse_all(SOURCE))
+    modules = sorted({site.module for site in sites if site.callee == REPLACE_ATOMICALLY and site.module.startswith("hypotrail.report")})
+    assert modules == ["hypotrail.report.command"]
+    assert "hypotrail.core.artifacts:_write_atomically" in {site.owner for site in sites if site.callee == REPLACE_ATOMICALLY}

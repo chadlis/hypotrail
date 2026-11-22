@@ -8,7 +8,7 @@ import csv
 import io
 import math
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, revisions, state
+from hypotrail.core import artifacts, canonical, contracts, exposure, revisions, state, write_journal
 from hypotrail.core import study as layout
 
 PUBLIC_CHECK = "public_check"
@@ -119,6 +119,7 @@ def _load_regression(study, spec: dict, reader: Reader) -> dict:
     attempts = attempts_of(study, reader)
     by_observation_set = {a["observation_set"]["observation_set_id"]: a for a in attempts if a["observation_set"] is not None}
 
+    order = write_journal.assessment_order(study)
     assessments = []
     for record in layout.assessment_records(study):
         reader.bytes_of(record["per_item_ref"])
@@ -133,7 +134,7 @@ def _load_regression(study, spec: dict, reader: Reader) -> dict:
                 "predictions": _predictions(reader, attempt),
             }
         )
-    assessments.sort(key=lambda a: (a["record"].get("recorded_at", ""), a["record"]["assessment_id"]))
+    assessments.sort(key=lambda a: order(a["record"]))
 
     return {
         "domain": REGRESSION,
