@@ -426,7 +426,7 @@ def test_when_the_exposure_is_refused_with_protocol_changed_the_copy_is_never_pa
     assert "series parsed" not in order
 
 
-# --- a damaged copy of the dataset is refused before any write ---------------------------------------------------------------
+# --- a damaged copy of the dataset or of workload.json is refused before any write ---------------------------------------------
 
 
 def removed(path):
@@ -443,15 +443,27 @@ def truncated(path):
     path.write_bytes(b"")
 
 
+def kept_declaration(study, attempt) -> Path:
+    """The copy of `workload.json` the Attempt keeps, as its manifest names it."""
+    manifest = json.loads((Path(study) / "attempts" / attempt["attempt_id"] / "attempt.json").read_text(encoding="utf-8"))
+    return Path(study) / next(ref["path"] for ref in manifest["input_refs"] if ref["role"] == "workload_declaration")
+
+
+COPIES = {"dataset": lambda study, attempt: Path(study) / "datasets" / "day.csv", "workload.json": kept_declaration}
+
+
 @pytest.mark.parametrize("partition", ["dev", "public_check"])
 @pytest.mark.parametrize("damage, code", [(removed, "ARTIFACT_MISSING"), (one_byte_changed, "ARTIFACT_INTEGRITY"), (truncated, "ARTIFACT_INTEGRITY")])
-def test_a_damaged_copy_of_the_dataset_is_refused_with_its_code_before_any_write_and_an_intact_one_is_assessed(tmp_path, partition, damage, code):
+@pytest.mark.parametrize("kept", list(COPIES))
+def test_a_damaged_copy_of_the_dataset_or_of_workload_json_is_refused_with_its_code_before_any_write_and_an_intact_one_is_assessed(
+    tmp_path, kept, partition, damage, code
+):
     from _exposure_helpers import journal
     from test_write_sequence import seq, tree_without_lock
 
     study, attempts = fresh_study(tmp_path, "ridge_v1", partition=partition)
     attempt = attempts["ridge_v1"]
-    copy = study / "datasets" / "day.csv"
+    copy = COPIES[kept](study, attempt)
     intact = copy.read_bytes()
     damage(copy)
     files, sequence = tree_without_lock(study), seq(study)
@@ -463,6 +475,47 @@ def test_a_damaged_copy_of_the_dataset_is_refused_with_its_code_before_any_write
     record, _ = assessed(study, attempt)
     assert recorded_maes(record) == pytest.approx(expected_maes(study, partition, BIKE_FEATURES), abs=1e-9)
     assert len(journal(study)) == (1 if partition == "public_check" else 0)
+
+
+@pytest.mark.parametrize("damage", [removed, one_byte_changed, truncated])
+def test_with_the_kept_copy_of_workload_json_damaged_seasonal_7_and_an_import_are_assessed_with_exit_0(tmp_path, damage):
+    """`seasonal_7` declares no lag feature and an Import no Configuration: neither reads a copy of `workload.json`."""
+    study, attempts = fresh_study(tmp_path, "seasonal_7")
+    source, mapping, population, _ = ready(tmp_path)
+    code, payload, err = import_ml(study, source, mapping, population, "import-a")
+    assert code == 0, (payload, err)
+    damage(kept_declaration(study, attempts["seasonal_7"]))  # the one copy of workload.json this Study keeps
+    found = {}
+    for name, attempt in (("seasonal_7", attempts["seasonal_7"]), ("import", payload["attempt"])):
+        code, assessment, _ = assess(study, observation_set_id(study, attempt), MAE, references_id(study))
+        found[name] = (code, assessment.get("error", {}).get("code"))
+    assert found == {"seasonal_7": (0, None), "import": (0, None)}, found
+
+
+def test_with_no_declared_kind_in_the_targets_unit_prepare_reads_no_copy_and_refuses_nothing_with_workload_json_damaged(tmp_path, monkeypatch):
+    from hypotrail.core import artifacts
+    from hypotrail.core.errors import HypotrailError
+    from hypotrail.ml import single_features
+
+    study, attempts = fresh_study(tmp_path, "ridge_v1")
+    attempt = attempts["ridge_v1"]
+    one_byte_changed(kept_declaration(study, attempt))
+    folder = study / "attempts" / attempt["attempt_id"]
+    manifest = json.loads((folder / "attempt.json").read_text(encoding="utf-8"))
+    population_ref = json.loads((folder / "observation_set.json").read_text(encoding="utf-8"))["population_ref"]
+    reads, verified = [], artifacts.read_verified
+
+    def spied(study, ref):
+        reads.append(ref["path"])
+        return verified(study, ref)
+
+    monkeypatch.setattr(artifacts, "read_verified", spied)
+    monkeypatch.setattr(single_features, "IN_TARGET_UNIT", frozenset())
+    try:
+        prepared = single_features.prepare(study, manifest, population_ref)
+    except HypotrailError as error:
+        prepared = error
+    assert (reads, prepared) == ([], single_features.Prepared(())), (reads, prepared)
 
 
 # --- what assess still does not do ------------------------------------------------------------------------------------------

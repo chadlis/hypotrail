@@ -56,14 +56,15 @@ def prepare(study, manifest: dict, population_ref: dict) -> Prepared | None:
     configuration = manifest["effective_config"].get("configuration")
     if not isinstance(configuration, dict):  # an Import declares no Configuration
         return None
-    declared = _declared_features(configuration)
+    # the kind is known from the Configuration alone: a Configuration with no feature in the target's unit reads no copy
+    declared = tuple(f for f in _declared_features(configuration) if f.kind in IN_TARGET_UNIT)
     if not declared:
         return Prepared(())
     refs = {ref["role"]: ref for ref in manifest["input_refs"]}
     kept = refs["workload_declaration"]
     declaration = declaration_of(artifacts.read_verified(study, kept), kept["path"])
     allowed = declaration.allowed_target_features or ()
-    features = tuple(f for f in declared if f in allowed and f.kind in IN_TARGET_UNIT)
+    features = tuple(f for f in declared if f in allowed)
     if not features:
         return Prepared(())
     dataset = artifacts.read_verified(study, refs["dataset"])
