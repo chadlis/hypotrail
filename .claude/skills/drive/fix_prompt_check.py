@@ -9,7 +9,16 @@ shown to the user and is not given to the model. The drive posts the findings be
 
 1. Quotations. A quotation that the prompt attributes (a `#n`, `D-nnn`, `Tightened`, `c<n>`, `Q<n>`, `ADR n` or `.md`
    file, or "says"/"asks", within 70 characters before it) must be found word for word in a source, and must be a
-   whole sentence or list item of it. A quotation that elides words with "…" is partial by declaration.
+   whole sentence, line or list item of it. A quotation that elides words with "…" is partial by declaration.
+   D-061 on chadlis/hypotrail#75, item 5: "`fix_prompt_check.py` parses a list item spread over several lines as one
+   item, takes an ellipsis that appears in the source as part of the quotation, and ignores short quoted labels." So:
+   - a list item of a source whose lines after the first are indented under its marker is one item. A run of its lines
+     is whole only when the prompt quotes every line of the item, whether in one quotation or each line as its own;
+   - an ellipsis that a source holds with the words around it is part of the quotation, not an elision;
+   - an inline quotation of at most five words that a source itself sets off, in double quotes or as a bold label
+     with its colon (`**What stays as it is:**`), is a label and is not judged as a sentence.
+   A `>` block is read item by item: a list marker at the start of a line starts an item and a blank line ends one.
+   An inline quotation may hold quotations of its own.
 2. Finding IDs. A review-fix prompt names the IDs of the findings it fixes. The check lists the IDs it finds, or says
    that there is none.
 
@@ -28,6 +37,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 TRIGGER = "This is a review fix"
 REPOSITORY = "chadlis/hypotrail"
@@ -40,12 +50,20 @@ DECISION_CUE = re.compile(r"#\d+|D-\d+|Tightened|\bc\d\b|\bQ\d|\bADR \d+")
 TEXT_CUE = re.compile(r"\.md\b|\bsays?\b|\basks?\b")
 ELISION = re.compile(r"\u2026|(?<=\s)\.\.\.(?=\s|$)|(?<=\w)\.\.\.$")
 FINDING_ID = re.compile(r"\b[A-Z]\d+[a-z]?-[A-Z]-\d{2}\b")
-SENTENCE_START = re.compile(r'(^|[.:;!?]\s|[-*>|]\s|\d\.\s|\(|"|«\s?)$')
+SENTENCE_START = re.compile(r'(^|[.:;!?]\s|[-*>|]\s|\d\.\s|\(|"|«\s?|\n)$')
+LIST_MARKER = re.compile(r"(\s*)(?:[-*+]|\d+\.)\s+(?:\[[ xX]\]\s+)?(.*)")
+CLOSING_NEXT = ".,;:!?)]"
+LABEL_WORDS = 5
+
+
+def lined(text: str) -> str:
+    """The text with its emphasis marks removed, its quote marks straightened, each run of spaces made one space and each run of spaces that holds a line break made one line break."""
+    text = text.replace("**", "").replace("“", '"').replace("”", '"').replace("’", "'")
+    return re.sub(r"[^\S\n]+", " ", re.sub(r"\s*\n\s*", "\n", text))
 
 
 def normalise(text: str) -> str:
-    text = text.replace("**", "").replace("“", '"').replace("”", '"').replace("’", "'")
-    return re.sub(r"\s+", " ", text)
+    return lined(text).replace("\n", " ")
 
 
 def tracked_texts(worktree: Path) -> list:
@@ -96,8 +114,40 @@ def named_issues(prompt: str) -> list:
     return sorted(numbers)
 
 
+def block_items(lines: list) -> list:
+    """The items of a `>` block, each the text of its lines: a line with a list marker starts an item, a blank line ends one, and any other line continues the item it follows."""
+    items, current = [], []
+    for line in lines + [""]:
+        marker = LIST_MARKER.fullmatch(line)
+        if marker or not line:
+            items.append(" ".join(current).strip())
+            current = [marker.group(2)] if marker else []
+        else:
+            current.append(line)
+    return [item for item in items if item]
+
+
+def inline_quotations(line: str) -> list:
+    """(offset, text) of each outermost double-quoted string of a line.
+
+    A quote mark after a non-space character and before a space, a punctuation mark or the line end closes the quotation last opened; any other quote mark before a non-space character opens one. So a quotation may hold quotations of its own."""
+    found, opened = [], []
+    for at, mark in enumerate(line):
+        if mark != '"':
+            continue
+        before = line[at - 1] if at else " "
+        after = line[at + 1] if at + 1 < len(line) else " "
+        if opened and not before.isspace() and (after.isspace() or after in CLOSING_NEXT):
+            start = opened.pop()
+            if not opened:
+                found.append((start, line[start + 1:at]))
+        elif not after.isspace():
+            opened.append(at)
+    return found
+
+
 def quotations(prompt: str) -> list:
-    """The attributed quotations of the prompt, as (kind, text): each `>` list item, and each inline double-quoted string of at least three words with an attribution within 70 characters before it.
+    """The attributed quotations of the prompt, as (kind, text): each item of a `>` block, and each outermost inline double-quoted string of at least three words with an attribution within 70 characters before it.
 
     The kind says what is quoted: `decision` (a decision-log entry, a Tightened line, a ticket or ADR sentence), `text` (the sentence of a file or a rule, introduced by its `.md` file, "says" or "asks") or `block`.
     A quotation of a decision is a whole item; any other quotation only has to be word for word."""
@@ -109,60 +159,114 @@ def quotations(prompt: str) -> list:
             block.append(stripped.lstrip(">").strip())
             continue
         if block:
-            for item in re.split(r"\s(?=\d+\. |- )", " ".join(part for part in block if part)):
-                item = re.sub(r"^(\d+\. |- )", "", item).strip()
-                if item:
-                    found.append(("block", item))
+            found += [("block", item) for item in block_items(block)]
             block = []
-        for match in re.finditer(r'"([^"\n]+)"', line):
-            lead = line[max(0, match.start() - LEAD):match.start()]
-            if len(match.group(1).split()) >= MIN_WORDS and DECISION_CUE.search(lead):
-                found.append(("decision", match.group(1)))
-            elif len(match.group(1).split()) >= MIN_WORDS and TEXT_CUE.search(lead):
-                found.append(("text", match.group(1)))
+        for start, quoted in inline_quotations(line):
+            lead = line[max(0, start - LEAD):start]
+            if len(quoted.split()) >= MIN_WORDS and DECISION_CUE.search(lead):
+                found.append(("decision", quoted))
+            elif len(quoted.split()) >= MIN_WORDS and TEXT_CUE.search(lead):
+                found.append(("text", quoted))
     return found
 
 
-def is_whole(corpus: list, piece: str, first: bool, last: bool) -> bool:
-    for text in corpus:
-        at = text.find(piece)
+class Source(NamedTuple):
+    name: str
+    lined: str  # `lined` of the text
+    flat: str  # `normalise` of the text, offset for offset the same as `lined`
+    marked: str  # the text with its quote marks straightened and its spaces collapsed, emphasis kept
+    items: list  # `multiline_items` of the text
+    firsthand: bool
+
+
+def source(name: str, text: str) -> Source:
+    kept = lined(text)
+    marked = re.sub(r"\s+", " ", text.replace("“", '"').replace("”", '"').replace("’", "'"))
+    return Source(name, kept, kept.replace("\n", " "), marked, multiline_items(text), is_firsthand(name))
+
+
+def multiline_items(text: str) -> list:
+    """The list items of a text that run over several lines, each as its normalised lines: a line with a list marker, then each following line indented deeper than the marker that has none."""
+    items, current, indent = [], [], 0
+    for line in text.splitlines() + [""]:
+        marker = LIST_MARKER.fullmatch(line)
+        if current and not marker and line.strip() and len(line) - len(line.lstrip()) > indent:
+            current.append(normalise(line).strip())
+            continue
+        if len(current) > 1:
+            items.append(current)
+        current = [normalise(marker.group(2)).strip()] if marker else []
+        indent = len(marker.group(1)) if marker else 0
+    return items
+
+
+def is_whole(sources: list, piece: str, first: bool, last: bool) -> bool:
+    for found_in in sources:
+        text = found_in.lined
+        at = found_in.flat.find(piece)
         while at != -1:
             before = text[max(0, at - 3):at]
             after = text[at + len(piece):at + len(piece) + 2]
             starts = not first or at == 0 or bool(SENTENCE_START.search(before))
-            ends = not last or piece.endswith((".", ";", ":", "?", "!")) or after[:1] in ("", ".", "|") or after.startswith((" -", " |"))
+            ends = not last or piece.endswith((".", ";", ":", "?", "!")) or after[:1] in ("", ".", "|", "\n") or after.startswith((" -", " |"))
             if starts and ends:
                 return True
-            at = text.find(piece, at + 1)
+            at = found_in.flat.find(piece, at + 1)
     return False
 
 
-def check_quotation(corpus: list, kind: str, quotation: str, complete: bool) -> str | None:
+def lines_of_item(item: list, piece: str) -> bool:
+    """Whether the piece is one or several consecutive whole lines of the item."""
+    return any(" ".join(item[first:last]) == piece for first in range(len(item)) for last in range(first + 1, len(item) + 1))
+
+
+def is_label(sources: list, piece: str) -> bool:
+    """Whether the piece is a short label: at most `LABEL_WORDS` words that a source itself sets off, in double quotes or as a bold label with its colon."""
+    marks = (f'"{piece}"', f"**{piece}:**")
+    return len(piece.split()) <= LABEL_WORDS and any(mark in found_in.marked for found_in in sources for mark in marks)
+
+
+def check_quotation(corpus: list, kind: str, quotation: str, complete: bool, quoted: list) -> str | None:
     """None when the quotation is word for word in a source, and for a decision or a block a whole sentence or item of it; otherwise why it is not.
 
-    The corpus is [(name, normalised text)]. Wholeness is judged against the sources themselves. A quotation that only a record holds (a comment of another issue) is not judged.
+    The corpus is a list of `Source`, and `quoted` the normalised quotations of the whole prompt. Wholeness is judged against the sources themselves. A quotation that only a record holds (a comment of another issue) is not judged.
+    An ellipsis that a source holds with the words around it is part of the quotation, not an elision. A short label that a source sets off is not judged as a sentence.
+    A part of a list item that runs over several lines is whole when it is a run of its lines and the prompt quotes every line of the item.
     """
-    pieces = [piece.strip() for piece in ELISION.split(normalise(quotation))]
+    whole = normalise(quotation).strip()
+    if any(whole in found_in.flat for found_in in corpus):
+        pieces = [whole]
+    else:
+        pieces = [piece.strip() for piece in ELISION.split(whole)]
     elided = len(pieces) > 1
     pieces = [piece for piece in pieces if piece]
     for piece in pieces:
-        if not any(piece in text for _, text in corpus):
+        if not any(piece in found_in.flat for found_in in corpus):
             return "not found word for word in a source" if complete else "unchecked: a source could not be read"
     if kind == "text":
         return None
     if elided:
         return 'elided with "…": a quotation is a whole sentence or item'
-    firsthand = [text for name, text in corpus if is_firsthand(name)]
-    if any(pieces[0] in text for text in firsthand) and not is_whole(firsthand, pieces[0], True, True):
+    firsthand = [found_in for found_in in corpus if found_in.firsthand]
+    if kind == "decision" and is_label(firsthand, whole):
+        return None
+    items = [item for found_in in firsthand for item in found_in.items if lines_of_item(item, whole)]
+    if any(all(any(line in other for other in quoted) for line in item) for item in items):
+        return None
+    if items:
+        return "word for word, but not a whole sentence or item of its source: its item runs over several lines, and the prompt does not quote every one"
+    if any(whole in found_in.flat for found_in in firsthand) and not is_whole(firsthand, whole, True, True):
         return "word for word, but not a whole sentence or item of its source"
     return None
 
 
 def check_quotations(prompt: str, corpus: list, complete: bool = True) -> list:
-    corpus = [(name, normalise(text)) for name, text in corpus]
+    corpus = [source(name, text) for name, text in corpus]
+    found = quotations(prompt)
+    quoted = [normalise(quotation).strip() for _, quotation in found]
     warnings = []
-    for kind, quotation in quotations(prompt):
-        why = check_quotation(corpus, kind, quotation, complete)
+    for kind, quotation in found:
+        why = check_quotation(corpus, kind, quotation, complete, quoted)
         if why:
             warnings.append(f"quotation ({kind}) {why}: {quotation[:110]!r}")
     return warnings
