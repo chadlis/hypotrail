@@ -33,10 +33,13 @@ def comment(first: str, rest: str = "", n: int = 0) -> dict:
     return {"id": n, "body": f"{first}\n\n{rest}"}
 
 
-def routing(number: int, rows: str) -> dict:
+ROUND_LINES = "\n\n- Models: unknown\n- Telemetry: unknown\n- Refusals: none\n- Interruptions: none\n"
+
+
+def routing(number: int, rows: str, lines: str = ROUND_LINES) -> dict:
     return comment(
         f"## R9, round {number}: routing (review of record)",
-        "| ID | round | axis | requirement | row | status | evidence |\n|---|---|---|---|---|---|---|\n" + rows,
+        "| ID | round | axis | requirement | row | status | evidence |\n|---|---|---|---|---|---|---|\n" + rows + lines,
     )
 
 
@@ -69,8 +72,8 @@ def documentation_record() -> list:
     return record
 
 
-def problems(comments, body=BODY):
-    return load("check_record").problems(body, comments)
+def problems(comments, body=BODY, slice_number=50):
+    return load("check_record").problems(body, comments, slice_number)
 
 
 def test_a_complete_record_has_no_problem():
@@ -171,6 +174,61 @@ def test_requirements_with_different_text_before_their_first_colon_and_space_are
 def test_a_clearing_line_with_no_text_after_its_colon_or_a_gate_line_with_no_decision_does_not_clear_the_requirement(line):
     rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1 | open | x |'
     assert len(problems(two_round_record('#142 B: "a duplicate key is accepted"', rows, round_2_text=f"\n{line}\n"))) == 1
+
+
+def record_with_lines(lines: str) -> list:
+    record = complete_record()
+    record[3] = routing(1, ROW1, lines)
+    return record
+
+
+@pytest.mark.parametrize("label", ["Models:", "Telemetry:", "Refusals:", "Interruptions:"])
+def test_a_routing_comment_without_one_of_the_four_round_lines_is_refused(label):
+    lines = "".join(line + "\n" for line in ROUND_LINES.splitlines() if label not in line)
+    assert problems(record_with_lines(lines)) == [f"round 1: the routing comment has no line '{label} <value>'"]
+
+
+@pytest.mark.parametrize("bold", [False, True])
+@pytest.mark.parametrize("label", ["Models:", "Telemetry:", "Refusals:", "Interruptions:"])
+def test_a_round_line_with_no_value_after_its_label_is_refused(label, bold):
+    lines = ROUND_LINES.replace(f"{label} unknown", label).replace(f"{label} none", label)
+    if bold:
+        lines = lines.replace(label, f"**{label}**")
+    assert problems(record_with_lines(lines)) == [f"round 1: the routing comment has no line '{label} <value>'"]
+
+
+@pytest.mark.parametrize("label", ["Refusals:", "Interruptions:"])
+def test_unknown_is_a_value_for_models_and_telemetry_only_and_refusals_or_interruptions_say_none_or_a_list(label):
+    assert problems(complete_record()) == []
+    lines = ROUND_LINES.replace(f"{label} none", f"{label} unknown")
+    assert problems(record_with_lines(lines)) == [f"round 1: the routing comment's '{label}' line says unknown; it says none or lists them"]
+
+
+def test_round_lines_in_bold_with_a_list_inline_or_as_list_items_under_the_label_are_accepted():
+    lines = "\n\n**Models:** Opus 5.5 for both readers\n- **Telemetry:** 41 min, tokens unknown\n**Refusals:** `git push` refused once (D-048)\n**Interruptions:**\n  - the owner asked about the cap; the delegation settled it\n"
+    assert problems(record_with_lines(lines)) == []
+
+
+def test_the_round_lines_rule_skips_the_slices_merged_before_it_and_only_those():
+    record = record_with_lines("")
+    assert problems(record, slice_number=121) == [] and problems(record, slice_number=138) == []
+    assert problems(record, slice_number=150) == ["round 1: the routing comment has no line 'Models: <value>'", "round 1: the routing comment has no line 'Telemetry: <value>'", "round 1: the routing comment has no line 'Refusals: <value>'", "round 1: the routing comment has no line 'Interruptions: <value>'"]
+    assert load("check_record").MERGED_BEFORE_ROUND_LINES == {6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138}
+
+
+def test_the_hook_reads_the_round_lines_of_the_slice_issue_it_finds(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", record_with_lines(""))
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and "no line 'Models: <value>'" in result.stderr
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "Part of #121.\nB1-P-02 is carried."})
+    put(gh_dir, "repos/chadlis/hypotrail/issues/121/comments", record_with_lines(""))
+    assert hook(gh_dir, merge_tool()).returncode == 0
+
+
+def test_the_skill_names_the_four_round_lines_and_the_one_name_of_the_routing_comment():
+    skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
+    assert all(f"`{label}`" in skill for label in ("Models:", "Telemetry:", "Refusals:", "Interruptions:"))
+    assert "round comment" not in skill and "round's comment" not in skill and '"Review of record" comment' not in skill
 
 
 def test_a_missing_closing_register_is_refused():
@@ -542,3 +600,9 @@ def test_the_module_docstring_states_what_the_merge_detection_does_not_see():
     doc = load("check_record").__doc__
     assert "Stated limits" in doc and "xargs" in doc and "variable" in doc
     assert "planting" in doc and "defect" in doc
+
+
+def test_the_module_docstring_states_the_scope_and_the_limit_of_the_round_lines_rule():
+    doc = " ".join(load("check_record").__doc__.split())
+    assert "Each routing comment carries `Models:`, `Telemetry:`, `Refusals:` and `Interruptions:`, and each label needs a value." in doc
+    assert "`MERGED_BEFORE_ROUND_LINES`" in doc and "four `unknown`" in doc

@@ -32,6 +32,14 @@ for the slice issue of the pull request:
    and "#142 B" get two keys; and any text after a clearing line's ": " clears it. When it refuses two requirements
    that are not one, the routing comment says so in the clearing form, with the reason: "Structural option for <key>:
    not one requirement, because ...".
+7. each routing comment has four lines, each starting with its label and giving a value after it (D-065 on
+   chadlis/hypotrail#75, item 4: "Each routing comment carries `Models:`, `Telemetry:`, `Refusals:` and `Interruptions:`,
+   and each label needs a value."). `unknown` is a value of `Models:` and `Telemetry:`; `Refusals:` and `Interruptions:`
+   say `none` or list the entries, after the label or as list items under it. The rule skips the slices merged before
+   it was added, which `MERGED_BEFORE_ROUND_LINES` lists, F1's (chadlis/hypotrail#121) the last of them: their routing
+   comments lack the lines. Its limit: it reads the lines as text, so any value passes `Models:` and `Telemetry:`, any
+   value but `unknown` counts as a list, and four `unknown` lines pass while giving the re-evaluation of the round cap
+   no data.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -146,7 +154,32 @@ def unconverged(routed: dict) -> list:
     return found
 
 
-def problems(pr_body: str, comments: list) -> list:
+MERGED_BEFORE_ROUND_LINES = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138})
+ROUND_LABELS = ("Models:", "Telemetry:", "Refusals:", "Interruptions:")
+KNOWN_TO_THE_DRIVE = ("Refusals:", "Interruptions:")
+
+
+def round_line_problems(number: int, comment: dict) -> list:
+    """The reasons the routing comment of round `number` lacks one of the four round lines, or says `unknown` where the drive knows the value."""
+    lines = (comment["body"] or "").replace("**", "").splitlines()
+    found = []
+    for label in ROUND_LABELS:
+        value = None
+        for at, line in enumerate(lines):
+            match = re.match(rf"[\s>*-]*{label}[ \t]*(.*)$", line)
+            if match:
+                value = match.group(1).strip()
+                if not value and at + 1 < len(lines) and re.match(r"\s+[-*]\s+\S", lines[at + 1]):
+                    value = "a list"
+                break
+        if not value:
+            found.append(f"round {number}: the routing comment has no line '{label} <value>'")
+        elif label in KNOWN_TO_THE_DRIVE and value.rstrip(".").lower() == "unknown":
+            found.append(f"round {number}: the routing comment's '{label}' line says unknown; it says none or lists them")
+    return found
+
+
+def problems(pr_body: str, comments: list, slice_number: int | None = None) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
     routed = {int(m.group(1)): c for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? routing", first_line(c))] if m}
@@ -182,6 +215,9 @@ def problems(pr_body: str, comments: list) -> list:
                         found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
 
     found += unconverged(routed)
+    if slice_number not in MERGED_BEFORE_ROUND_LINES:
+        for number, comment in sorted(routed.items()):
+            found += round_line_problems(number, comment)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
@@ -464,7 +500,7 @@ def check(repo: str, number: int, subject: str | None) -> str | None:
             "End the squash subject with '(#<slice>)' or write 'Part of #<slice>' in the PR body."
         )
     slice_number = candidates.pop()
-    reasons = problems(pull.get("body") or "", gh_pages(f"repos/{repo}/issues/{slice_number}/comments"))
+    reasons = problems(pull.get("body") or "", gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), slice_number)
     if reasons:
         raise Refusal(f"the record of slice #{slice_number} is incomplete, so pull request #{number} is not merged:\n" + "\n".join(f"- {r}" for r in reasons))
     return None
