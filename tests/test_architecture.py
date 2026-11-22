@@ -483,7 +483,7 @@ def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path)
     assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]
 
 
-# --- the functions under `src/` that raise `INVALID_ARGUMENTS`, with their numbers of calls, are the listed ones and no others; and the `details.command` that each call listed here gives ---
+# --- the functions under `src/` that raise `INVALID_ARGUMENTS`, with their numbers of calls, are the listed ones and no others ---
 
 INVALID_INPUT_ERROR = "hypotrail.core.errors.InvalidInputError"
 
@@ -529,7 +529,7 @@ def test_a_function_that_raises_invalid_arguments_through_an_alias_is_found_in_a
     assert invalid_arguments_builders(parse_all(root)) == {"hypotrail.cli:f": 1}
 
 
-def test_the_command_of_each_invalid_arguments_refusal_is_hypotrail_command_except_when_no_command_or_an_unknown_flag_was_given(tmp_path):
+def test_the_details_command_of_each_listed_case_is_hypotrail_command_except_when_no_command_or_an_unknown_flag_was_given(tmp_path):
     none = tmp_path / "none"
     runs = {
         "a missing flag": (["assess"], "hypotrail assess"),
