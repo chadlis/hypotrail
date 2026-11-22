@@ -21,8 +21,10 @@ runs each named test there with the worktree's interpreter (`.venv/bin/python`) 
 entry. A test that fails only with the plant passes the line. The plant shows that the test reaches the function, not
 that it asserts the claimed property. The sentences seen as such claims are those that say "checked" or "covered",
 then "by", then "test", within one sentence. A claim worded another way is not seen. Such a sentence needs a
-`checked_by(...)` line for each function it names in backticks. A claim sentence with no backticked function is not
-checked against a line. A test ID whose brackets hold a comma is split in two, since a comma separates the tests of a
+`checked_by(...)` line for each backticked name that resolves to a function defined under `src/` (by
+`tests/_architecture.py`); a backticked name that resolves to none, such as a constant or a test name, is not counted
+on its own. A sentence whose backticked names include no such function needs a line for each of them, so it is reported
+until it names the function. A claim sentence with no backticked name is not checked against a line. A test ID whose brackets hold a comma is split in two, since a comma separates the tests of a
 line. A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`)
 cannot be checked by a plant, because the CLI turns the planted error into that outcome. A named test that is skipped
 in the copy shows nothing either way.
@@ -85,15 +87,23 @@ def sentences(prompt: str) -> list:
     return [part for part in re.split(r"(?<=[.;:])\s+|\n\s*\n", prompt) if part.strip()]
 
 
-def unbacked_claims(prompt: str, claims: dict, line=CALLERS_LINE, claim=CLAIM_SENTENCE, each=False) -> list:
-    """The sentences that `claim` matches ("called from ... only" by default) and that name no function with a `line` (a `callers(...)` line by default); with `each`, those that name any function without one."""
+def unbacked_claims(prompt: str, claims: dict, line=CALLERS_LINE, claim=CLAIM_SENTENCE, functions=None) -> list:
+    """The sentences that `claim` matches ("called from ... only" by default) and that name no function with a `line` (a `callers(...)` line by default).
+
+    With `functions` (the backticked names of a sentence that resolve to a function under `src/`), a sentence is reported when one of
+    those functions has no line, or, when it names none, when any of its backticked names has no line."""
     claimed_names = {name.rsplit(".", 1)[-1] for name in claims}
     unbacked = []
     for sentence in sentences(prompt):
         if line.search(sentence) or not claim.search(sentence):
             continue
         named = {name.rstrip("()").rsplit(".", 1)[-1] for name in re.findall(r"`([\w.]+(?:\(\))?)`", sentence)}
-        if (named - claimed_names) if each else not named & claimed_names:
+        if functions is not None:
+            resolved = functions(named)
+            missing = (resolved - claimed_names) if resolved else (named - claimed_names)
+        else:
+            missing = not named & claimed_names
+        if missing:
             unbacked.append(" ".join(sentence.split()))
     return unbacked
 
@@ -204,7 +214,7 @@ def checked_lines(function: str, tests: set, worktree: Path, python: Path, deadl
                         f"- checked_by({function}): {test} fails when {function} raises on entry: "
                         "the test reaches it, which does not show that it asserts the claimed property; "
                         "a test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, "
-                        "and a claim sentence with no backticked function is not checked against a line"
+                        "and a claim sentence with no backticked name is not checked against a line"
                     )
                     continue
                 if planted == 0 and skipped:
@@ -217,6 +227,15 @@ def checked_lines(function: str, tests: set, worktree: Path, python: Path, deadl
     return lines, passes
 
 
+def src_functions(named: set, worktree: Path) -> set:
+    """The names among `named` that the resolver finds as a function or method defined under `src/` of the worktree."""
+    if not named:
+        return set()
+    architecture, trees = load_resolver(worktree)
+    defined = architecture.defined_functions(trees)
+    return {name for name in named if any(full == name or full.endswith("." + name) for full in defined)}
+
+
 def sheet(prompt: str, worktree: Path) -> tuple:
     """(the sheet lines, whether the prompt passes)."""
     claims = claimed_sets(prompt)
@@ -225,7 +244,7 @@ def sheet(prompt: str, worktree: Path) -> tuple:
     for sentence in unbacked_claims(prompt, claims):
         lines.append(f"- NO callers(...) LINE for the claim: {sentence[:160]!r}")
         passes = False
-    for sentence in unbacked_claims(prompt, checks, CHECKED_BY_LINE, TEST_CLAIM_SENTENCE, each=True):
+    for sentence in unbacked_claims(prompt, checks, CHECKED_BY_LINE, TEST_CLAIM_SENTENCE, functions=lambda named: src_functions(named, worktree)):
         lines.append(f"- NO checked_by(...) LINE for the claim: {sentence[:160]!r}")
         passes = False
     if checks:

@@ -141,6 +141,10 @@ def git_worktree(tmp_path):
             "@pytest.mark.skip(reason='not here')\ndef test_skipped():\n    assert reached(1) == 2\n\n\n"
             "def test_a_long_wait():\n    import time\n    time.sleep(60)\n"
         ),
+        "src/hypotrail/__init__.py": "",
+        "src/hypotrail/cli.py": "INVALID_ARGUMENTS = 'INVALID_ARGUMENTS'\n\n\ndef decide():\n    return INVALID_ARGUMENTS\n",
+        "tests/test_cli.py": "from hypotrail.cli import decide\n\n\ndef test_refuses():\n    assert decide() == 'INVALID_ARGUMENTS'\n",
+        "tests/_architecture.py": (ROOT / "tests" / "_architecture.py").read_text(),
     }
     for name, text in files.items():
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
@@ -162,7 +166,7 @@ def test_a_checked_by_line_whose_test_fails_once_the_function_raises_in_a_scratc
     assert (result.returncode, result.stderr) == (0, "")
     assert f"checked_by({REACHED}): {MODULE_RUN} fails when {REACHED} raises on entry: the test reaches it, which does not show that it asserts the claimed property" in result.stdout
     assert "a test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant" in result.stdout
-    assert "a claim sentence with no backticked function is not checked against a line" in result.stdout
+    assert "a claim sentence with no backticked name is not checked against a line" in result.stdout
     assert (git_worktree / "src/pkg/core.py").read_text() == CORE
 
 
@@ -188,6 +192,16 @@ def test_a_claim_sentence_that_names_several_functions_needs_a_checked_by_line_f
     sentence = "`reached` and `unreached` are checked by the test `tests/test_core.py::test_twice`."
     result = sheet(git_worktree, f"{sentence}\nchecked_by({REACHED}) = {{tests/test_core.py::test_twice}}\n")
     assert result.returncode == 2 and f"NO checked_by(...) LINE for the claim: {sentence!r}" in result.stdout
+
+
+def test_a_constant_named_beside_a_function_needs_no_checked_by_line_of_its_own(git_worktree):
+    prompt = (
+        "`decide` refuses with `INVALID_ARGUMENTS`, which is checked by the test `tests/test_cli.py::test_refuses`.\n"
+        "checked_by(hypotrail.cli.decide) = {tests/test_cli.py::test_refuses}\n"
+    )
+    result = sheet(git_worktree, prompt)
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "NO checked_by(...) LINE" not in result.stdout
 
 
 def test_a_planted_run_that_does_not_end_within_the_time_limit_exits_2_with_its_own_message(git_worktree, monkeypatch, capsys):
@@ -217,5 +231,6 @@ def test_the_module_docstring_states_what_a_plant_shows_and_which_claims_the_det
     assert "shows that the test reaches the function, not that it asserts the claimed property" in doc
     assert "A claim worded another way is not seen" in doc
     assert "A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, because the CLI turns the planted error into that outcome" in doc
-    assert "A claim sentence with no backticked function is not checked against a line" in doc
+    assert "a backticked name that resolves to none, such as a constant or a test name, is not counted on its own" in doc
+    assert "A claim sentence with no backticked name is not checked against a line" in doc
     assert "A test ID whose brackets hold a comma is split in two" in doc
