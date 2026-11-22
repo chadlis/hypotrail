@@ -2228,6 +2228,43 @@ def run_agent_chapter() -> str:
     return (HANDBOOK / "chapters" / "13-run-agent.html").read_text(encoding="utf-8")
 
 
+class _Linked(HTMLParser):
+    """For each text chunk, whether it lies inside an `<a>` element, and that element's href."""
+
+    def __init__(self):
+        super().__init__()
+        self.links, self.chunks = [], []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.links.append(dict(attrs).get("href"))
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.links:
+            self.links.pop()
+
+    def handle_data(self, data):
+        self.chunks.append((data, list(self.links)))
+
+
+def test_chapter_13_names_the_case_digests_key_only_inside_a_link_to_the_attempt_manifest_table_of_chapter_04():
+    """Every occurrence of the key's name in chapter 13 is inside a link to chapter 04's `record-fields`.
+
+    Its limit: a paraphrase of the key that does not spell its name is outside what this test reads.
+    """
+    parser = _Linked()
+    parser.feed(run_agent_chapter())
+    occurrences = [links for data, links in parser.chunks for _ in range(data.count("case_digests"))]
+    assert occurrences, "chapter 13 does not name case_digests"
+    assert all("#record-fields" in links for links in occurrences), occurrences
+
+
+def test_chapter_13_keeps_the_six_tables_it_had_and_gains_none_for_the_case_digests():
+    ids = re.findall(r'<table[^>]*\bid="([^"]+)"', run_agent_chapter())
+    assert sorted(ids) == sorted(["run-agent-flags", "run-agent-codes", "run-agent-config", "run-agent-digests", "run-agent-files", "adr-map-run-agent"])
+    assert len(ids) == 6
+
+
 def test_chapter_12_names_the_one_function_that_digests_a_configuration():
     """R1-07: the handbook says where the Configuration digest is computed; the function exists in the core."""
     from hypotrail.core import exposure
