@@ -157,7 +157,7 @@ _Avoid_: variant (as a role), challenger, treatment
 - A **Comparison** pairs two **Assessments** as **Control** and **Candidate**.
 - A **Decision** is a record of one **Study**: it cites at least one record the Study holds, is made on the **Write sequence** its author read, and advances that sequence when it is recorded.
 - A **Study** admits the writes of one **Study writer** at a time, and each write advances the **Write sequence**.
-- A **Declared deviation** is a record of one **Study**: it cites records the Study holds, and a **Comparison** it bears on shows it beside its result.
+- A **Declared deviation** is a record of one **Study**: it cites records the Study holds.
 
 ## Correspondence with Inspect
 
