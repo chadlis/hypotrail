@@ -57,7 +57,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 - [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, candidate milestones and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.
 - [`AGENTS.md`](AGENTS.md): rules for contributors and coding agents.
-- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/) and the checks on its fix prompts (`premises.py`, `fix_prompt_check.py`, a hook registered in [`.claude/settings.json`](.claude/settings.json)).
+- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/) and the checks on its fix prompts and merges (`premises.py`, `fix_prompt_check.py`, `check_record.py`; the hooks are registered in [`.claude/settings.json`](.claude/settings.json)).
 - [chadlis/hypotrail-learning](https://github.com/chadlis/hypotrail-learning): the learning book (French) and the original specification of the first milestone.
 
 ## License
