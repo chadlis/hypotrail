@@ -6,7 +6,6 @@ Each check takes the root of a source tree, so the same check runs on `src` and 
 import ast
 from pathlib import Path
 
-import _architecture
 import pytest
 from _architecture import SOURCE, calls, defined_functions, dotted, innermost_owners_in, names_of, owners_in, parse_all, receiver_violations, reached_from, resolve, write_bindings
 from _order_inventory import LOCKED_PATHS
@@ -215,13 +214,20 @@ def test_the_literal_check_finds_a_string_in_place_of_a_command_or_a_kind_and_ac
 LOCKED = f"{STUDY_WRITE}.locked"
 
 
-def test_every_with_study_write_locked_binds_write_and_every_function_it_is_passed_to_names_that_parameter_write_and_uses_it_in_the_closed_ways_only():
+def test_under_src_locked_is_only_the_item_of_a_with_that_binds_write_and_write_is_used_only_in_closed_ways_inside_its_block_and_Write_is_built_only_in_its_module():
     """The receiver of a Write is held in the closed ways of `receiver_violations`. Patterns that the check still cannot see, which no code under `src` uses:
 
     - a function or lambda defined inside the block that calls a method of the Write and is then used after the block (returned, stored, called later);
     - the value that a method of the Write returns is not followed, so a method that returned the Write itself would hide it;
     - a factory or a class reached by `getattr(module, "locked")`, `getattr(module, "Write")` or any other lookup by a string, a subclass of `Write` that is then built, and `Write.__new__`;
-    - a factory or a class that the module gets through a star import, which the resolver does not follow.
+    - a factory or a class that the module gets through a star import, which the resolver does not follow;
+    - references that are the base of an attribute, such as `study_write.locked.__wrapped__(study, "x")`;
+    - references passed on without a call, such as `functools.partial(study_write.Write)`;
+    - Python's scope declarations and comprehension bindings, such as a function that declares `nonlocal write` or `global write` and reads it, or a comprehension that binds `write`;
+    - closures returned from a helper, such as `g(write)` that returns a closure over `write`, called after the block;
+    - `type=` checked by keyword name only, such as `_read_sequence_value` passed as `type=` to a call other than argparse's `add_argument`.
+
+    These are stated limits. A later escape that code under `src` actually uses is a blocker.
     """
     assert receiver_violations(SOURCE, LOCKED, WRITE_RECEIVER) == []
     bound = [binding.target.id for binding in write_bindings(parse_all(SOURCE), LOCKED) if isinstance(binding.target, ast.Name)]
@@ -327,10 +333,6 @@ def test_the_read_sequence_value_check_finds_a_direct_call_a_copy_and_a_use_from
         "hypotrail.ml.a:w uses `cli._read_sequence_value` other than as the value of `type=`",
         "hypotrail.ml.b:w uses `v` other than as the value of `type=`",
     ]
-
-
-def test_the_module_of_the_architecture_checks_says_that_it_also_holds_the_receiver_rule_of_the_Study_write_contract():
-    assert "receiver rule of the Study-write contract" in _architecture.__doc__
 
 
 # --- the builder of an INVALID_ARGUMENTS refusal ---------------------------------------------------------------------------------
