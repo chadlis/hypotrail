@@ -17,8 +17,9 @@ for the slice issue of the pull request:
    when there is one, the routing row otherwise. A fix prompt or a report settles no row.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
-"Slice ... (#<n>)"). A pull request whose title starts with "drive:" and that changes no file under `src/` or `examples/` is an
-apparatus pull request, whatever other files it touches: it has no slice issue, and the hook lets it through with a note.
+"Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
+`src/` or `examples/`, and no slice issue can be found for it; the hook lets it through with a note. When a slice issue is found, the
+record check applies, whatever the title.
 """
 
 import json
@@ -37,8 +38,8 @@ class Refusal(Exception):
     pass
 
 
-def is_apparatus(title: str, files: list) -> bool:
-    return title.startswith("drive:") and not any(name.startswith(PRODUCT) for name in files)
+def is_apparatus(title: str, files: list, body: str, subject: str | None) -> bool:
+    return title.startswith("drive:") and not any(name.startswith(PRODUCT) for name in files) and not slice_numbers(body, subject)
 
 
 def slice_numbers(body: str, subject: str | None) -> set:
@@ -396,8 +397,8 @@ def run(payload: dict) -> str | None:
 def check(repo: str, number: int, subject: str | None) -> str | None:
     pull = gh([f"repos/{repo}/pulls/{number}"])
     files = [item["filename"] for item in gh_pages(f"repos/{repo}/pulls/{number}/files")]
-    if is_apparatus(pull.get("title") or "", files):
-        return f"Record check: pull request #{number} is an apparatus pull request (titled 'drive:', nothing under src/ or examples/), so it has no slice issue and no record to check."
+    if is_apparatus(pull.get("title") or "", files, pull.get("body") or "", subject):
+        return f"Record check: pull request #{number} is an apparatus pull request (titled 'drive:', nothing under src/ or examples/, no slice issue named), so it has no record to check."
     candidates = slice_numbers(pull.get("body") or "", subject)
     if len(candidates) != 1:
         raise Refusal(

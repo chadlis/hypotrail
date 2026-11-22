@@ -173,8 +173,8 @@ def test_the_slice_issue_comes_from_the_squash_subject_or_the_pr_body(body, subj
         ("", ["AGENTS.md"], False),
     ],
 )
-def test_a_pull_request_titled_drive_that_changes_nothing_under_src_or_examples_is_an_apparatus_pull_request(title, files, apparatus):
-    assert load("check_record").is_apparatus(title, files) is apparatus
+def test_a_pull_request_titled_drive_that_changes_nothing_under_src_or_examples_and_names_no_slice_issue_is_an_apparatus_pull_request(title, files, apparatus):
+    assert load("check_record").is_apparatus(title, files, "no slice here", None) is apparatus
 
 
 @pytest.fixture
@@ -436,3 +436,21 @@ def test_a_later_comment_that_is_neither_a_routing_nor_the_closing_register_sett
         comment("## R9, round 2: Spec axis report", "| B1-P-02 | 1 | Spec | x | 1 | fixed | y |\n"),
     ]
     assert problems(record, body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
+
+
+def test_a_drive_titled_pull_request_with_tests_and_docs_only_and_a_part_of_line_is_checked_against_its_slice_issue(gh_dir):
+    files = [{"filename": "tests/test_x.py"}, {"filename": "docs/agents/x.md"}]
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"title": "drive: tests and docs", "body": "Part of #120.\n"})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7/files", files)
+    put(gh_dir, "repos/chadlis/hypotrail/issues/120/comments", [])
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and "slice #120" in result.stderr
+    assert not load("check_record").is_apparatus("drive: tests and docs", ["tests/test_x.py"], "Part of #120.\n", None)
+
+
+def test_a_drive_titled_pull_request_whose_squash_subject_ends_with_a_slice_number_is_checked(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"title": "drive: docs", "body": "no slice here"})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": "AGENTS.md"}])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", [])
+    result = hook(gh_dir, merge_tool(commit_title="drive: docs (#50)"))
+    assert result.returncode == 2 and "slice #50" in result.stderr
