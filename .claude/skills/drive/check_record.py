@@ -49,8 +49,10 @@ for the slice issue of the pull request:
    rule 9: the merge is refused while a comment of the slice issue or of a sub-issue whose first line names the drive is
    absent from that entry; slices merged before it are skipped."). The rule skips the slices merged before it was added,
    which `MERGED_BEFORE_DELEGATED_ENTRY` lists, T1's (chadlis/hypotrail#150) the last of them, and reads neither their
-   sub-issues nor #75. Its limit: it reads first lines, so a drive decision under a heading that does not name the drive
-   is not seen.
+   sub-issues nor #75. Its limits: it relies on the convention that a delegated choice's comment has a first line that
+   names the drive, so a drive decision under a heading that does not name the drive is not seen; and it checks only
+   that each such comment's ID is in the entry, not that the slice has one entry, that the entry has its own D-number,
+   that it was posted before the closing register or never edited, or that each item names its case.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under

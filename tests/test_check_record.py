@@ -264,6 +264,7 @@ def test_drive_comments_that_the_linked_delegated_entry_lists_pass_and_the_slice
     assert hook(gh_dir, merge_tool()).returncode == 0
     delegated_record(gh_dir, slice_number=150, listed=())
     (gh_dir / "repos__chadlis__hypotrail__issues__150__sub_issues").unlink()
+    (gh_dir / "repos__chadlis__hypotrail__issues__75__comments").unlink()
     assert hook(gh_dir, merge_tool()).returncode == 0
     assert load("check_record").MERGED_BEFORE_DELEGATED_ENTRY == {6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150}
 
