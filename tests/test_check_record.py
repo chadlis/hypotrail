@@ -205,7 +205,7 @@ def test_unknown_is_a_value_for_models_and_telemetry_only_and_refusals_or_interr
 
 
 def test_round_lines_in_bold_with_a_list_inline_or_as_list_items_under_the_label_are_accepted():
-    lines = "\n\n**Models:** Opus 5.5 for both readers\n- **Telemetry:** 41 min, tokens unknown\n**Refusals:** `git push` refused once (D-048)\n**Interruptions:**\n  - the owner asked about the cap; the delegation settled it\n"
+    lines = "\n\n**Models:** Opus 5.5 for both readers\n- **Telemetry:** 41 min, tokens unknown\n**Refusals:** `git push` refused once\n**Interruptions:**\n  - the owner asked about the cap; the delegation settled it\n"
     assert problems(record_with_lines(lines)) == []
 
 
