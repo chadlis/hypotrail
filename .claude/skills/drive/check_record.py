@@ -26,6 +26,12 @@ for the slice issue of the pull request:
    round's table counts for that round too: a blocker a fix left open is a blocker in the next round. A clearing line
    has text after its ": ", and a gate line names a decision. The rule judges every slice record, one merged before it
    was added included: F1's record (chadlis/hypotrail#121) fails it on "#142 B" and on "`slice-builder.md:11`".
+   Rule 6 is a backstop to the drive's own count of rounds per requirement, which stays the rule. Its key is textual,
+   with these stated limits: two different rules cited from one file under the same text before ": " ("`AGENTS.md`")
+   get one key; two spans of one comment block ("decisions.py:30-31" and ":28-31") get two keys; "#142 B (Tightened)"
+   and "#142 B" get two keys; and any text after a clearing line's ": " clears it. When it refuses two requirements
+   that are not one, the routing comment says so in the clearing form, with the reason: "Structural option for <key>:
+   not one requirement, because ...".
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under

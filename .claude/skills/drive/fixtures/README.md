@@ -21,3 +21,4 @@ Deduction, not checked: in rounds 1 and 2, the Agent call carried a short prompt
 
 - The label exemption accepts a quotation of at most five words that any source the check reads sets in double quotes or as a bold label, not only the source the prompt cites.
 - A run of lines of a list item that spreads over several lines is whole when every other line of the item is found inside some quotation of the prompt. So line 1 of a two-line item passes when line 2 appears only as a substring of another quotation, not quoted on its own.
+- A list item whose wrapped line is not indented under its marker is not read as one item. With the source "- The order is defined once, in one\nfunction of `core/write_journal.py`.", each half passes when quoted alone. The checker of c77b9a6 warned on both.
