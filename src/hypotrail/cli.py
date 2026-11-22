@@ -560,9 +560,12 @@ def _assess(args) -> int:
         return _assess_agent(args)
     from hypotrail.ml import assess
 
+    notes = []
     record = assess.assess(
-        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, notes=notes
     )
+    for note in notes:
+        print(note, file=sys.stderr)
     counts, metric = record["counts"], record["metrics"][0]
     value = "no value" if metric["value"] is None else f"{metric['value']:.6g} {metric['unit']}"
     human = (

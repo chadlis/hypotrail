@@ -4710,3 +4710,24 @@ def test_chapter_04_order_paragraph_says_only_the_data_and_artifact_checks_of_ru
     assert "in run agent, whose identity reads its input bytes directly, only the data check and the artifact checks come after the comparison" in text
     assert "the others keep their place, before the lock or before the identity" in text
     assert "DATA_INTEGRITY" not in paragraph and "ARTIFACT_" not in paragraph  # the refusals table gives them
+
+
+# --- #154: the single-feature check (chapters 05 and 07) ---------------------------------------------------------------------------------
+
+
+def test_chapter_05s_list_item_of_what_assess_reads_back_against_its_digest_names_the_dataset_copy_and_when_it_is_read():
+    items = [plain_text(item) for item in re.findall(r"<li>.*?</li>", chapter_text("05-assessments.html"), re.S)]
+    found = [item for item in items if "read back against its digest" in item]
+    assert len(found) == 1, found
+    assert "dataset" in found[0] and "lag feature" in found[0], found[0]
+
+
+def test_predicts_nothing_is_said_of_compare_in_chapter_07_and_in_no_other_chapter():
+    saying = sorted(path.name for path in (HANDBOOK / "chapters").glob("*.html") if "predicts nothing" in plain_chapter(path.name))
+    assert saying == ["07-comparison.html"]
+
+
+def test_the_assess_refusal_table_of_chapter_05_gains_no_row(page):
+    assert set(attrs_of(page, "assess-codes", "data-code")) == {
+        "SCORER_NOT_REGISTERED", "UNSUPPORTED_CAPABILITY", "OBSERVATION_SET_NOT_FOUND", "REFERENCES_NOT_FOUND", "OBSERVATIONS_INVALID", "ASSESSMENT_PARTITION_NOT_DEV",
+    }

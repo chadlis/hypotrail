@@ -731,6 +731,56 @@
             "protocol_digest"
           ],
           "additionalProperties": false
+        },
+        "single_feature_check": {
+          "type": "object",
+          "properties": {
+            "computed": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "metric": {
+                    "$ref": "#/$defs/Metric"
+                  }
+                },
+                "required": [
+                  "feature",
+                  "metric"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "beating": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "feature": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "feature",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "computed",
+            "beating"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

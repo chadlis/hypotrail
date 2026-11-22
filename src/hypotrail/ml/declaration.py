@@ -29,7 +29,7 @@ Two kinds of check stay in Track code, next to their use (ADR 0002, clarificatio
   calendar. Its stage is `periods`, not `declaration`, so it is told from a refusal at load.
 
 `load_declaration` is the one loader: it reads the file, checks it against the schema and returns
-a `Declaration`, a tree of frozen dataclasses (tuples and read-only mappings, no `dict` or `list`
+a `Declaration` (`declaration_of` does the same from bytes, such as the copy of the file an Attempt keeps), a tree of frozen dataclasses (tuples and read-only mappings, no `dict` or `list`
 of the file). Every computation of the Track starts from it and refuses anything else with a
 `TypeError`; no other module indexes the raw dictionary. A root key that the schema leaves
 optional is `None` on the `Declaration` when the file lacks it. The three descriptive root keys are
@@ -378,13 +378,18 @@ def load_declaration(workload_dir: Path) -> Declaration:
     """The one loader: read `workload.json`, check it against the schema, return the typed declaration."""
     path = Path(workload_dir) / DECLARATION_NAME
     try:
-        declaration = json.loads(
-            path.read_text(encoding="utf-8"), parse_float=_finite, parse_constant=_not_json
-        )
+        data = path.read_bytes()
     except FileNotFoundError:
         raise _refuse("FILE_NOT_FOUND", f"declaration not found: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
-    except ValueError:  # json.JSONDecodeError, a constant such as NaN, a float beyond the double range
-        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {path}", key=DECLARATION_NAME, path="", file=str(path)) from None
+    return declaration_of(data, str(path))
+
+
+def declaration_of(data: bytes, file: str) -> Declaration:
+    """The typed declaration of the bytes of a `workload.json`, checked as `load_declaration` checks it; `file` names where they come from."""
+    try:
+        declaration = json.loads(data.decode("utf-8"), parse_float=_finite, parse_constant=_not_json)
+    except ValueError:  # json.JSONDecodeError, a constant such as NaN, a float beyond the double range, bytes that are not UTF-8
+        raise _refuse("FILE_NOT_JSON", f"declaration is not valid JSON: {file}", key=DECLARATION_NAME, path="", file=file) from None
     check_schema(declaration)
     if TRAIN not in declaration["partitions"]:
         raise _refuse(
