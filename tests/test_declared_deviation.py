@@ -1,4 +1,4 @@
-"""Ticket #155 (T1 of slice #150, ticket B2): the `deviation` command and the Declared deviation record.
+"""Ticket #155: the `deviation` command and the Declared deviation record.
 
 A Declared deviation is one record of the Study, one file `declared_deviations/<seq>-<id>.json` that is never rewritten. It either declares,
 citing Attempts and References sets, or withdraws, citing exactly one earlier Declared deviation. No model is called.
@@ -169,7 +169,7 @@ def conflict_details(payload) -> dict:
 
 
 @pytest.mark.parametrize("command", ["run ml", "run agent", "import ml", "import agent"])
-def test_a_run_or_an_import_whose_request_id_names_a_declared_deviation_is_a_request_conflict_with_it_and_writes_nothing(command, tmp_path):
+def test_run_and_import_refuse_a_request_id_that_names_a_declared_deviation_with_a_request_conflict_and_write_nothing(command, tmp_path):
     from test_decide import row
 
     study, call = row(tmp_path, command)
@@ -256,9 +256,7 @@ NOT_HELD, NOT_CITABLE, ALREADY_WITHDRAWN = "CITED_ID_NOT_FOUND", "CITED_KIND_NOT
 
 @pytest.fixture(scope="module")
 def compared_base(tmp_path_factory):
-    """A Bike Study with two Attempts of seasonal_7 on dev, each assessed: {"study", "attempts", "assessments"}."""
-    from _compare_helpers import assessed
-
+    """A Bike Study with two Attempts of seasonal_7 on dev, each assessed: (study, [Attempt ids], [Assessment ids])."""
     study, _ = init_study(tmp_path_factory.mktemp("cited"))
     attempts, assessments = [], []
     for name in ("a", "b"):

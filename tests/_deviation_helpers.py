@@ -129,7 +129,7 @@ def ids_named(record) -> list:
     return [warning["message"].split("covered by the Declared deviation ", 1)[1].split(" ", 1)[0].rstrip(",:") for warning in coded(record)]
 
 
-# --- the scenarios, each run for both Tracks by tests/test_compare.py and tests/test_compare_agent.py -----------------------------
+# --- the scenarios, each called for both Tracks by tests/test_compare.py and tests/test_compare_agent.py --------------------------
 
 
 def a_declaration_covers_the_sides_whose_attempt_it_cites(world, roles):

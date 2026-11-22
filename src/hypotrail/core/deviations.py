@@ -1,4 +1,4 @@
-"""`deviation`: one Declared deviation, kept in the Study (chadlis/hypotrail#155, slice #150).
+"""`deviation`: one Declared deviation, kept in the Study (chadlis/hypotrail#155).
 
 A Declared deviation is a known deviation of the protocol that no record of the Study can establish, such as an owner review of References
 still pending. It follows the decision record's shape (`hypotrail.core.decisions`). It is one file,
@@ -18,6 +18,10 @@ sequence value, `REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given,
 The request identity is the Study's one namespace (`hypotrail.core.requests`): the same `request_id` with the same text, author, source and
 cited ids returns the recorded Declared deviation and writes nothing; with another one, or when it names an Attempt or a decision, it is
 `REQUEST_CONFLICT`.
+
+A Declared deviation either declares, citing Attempts and References sets (of any revision), or withdraws, citing exactly one earlier
+declaration and nothing else. `compare` reads the declarations in force (`in_force`) when it writes a Comparison
+(`hypotrail.core.comparison.declared_deviation_warnings`).
 
 `status` lists the Study's Declared deviations (`listing`), each with whether it is withdrawn and the id of the one that withdrew it, computed
 when the Study is read and never stored.
