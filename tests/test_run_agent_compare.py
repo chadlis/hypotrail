@@ -176,6 +176,18 @@ def without_case_digests(study, attempt, *, file_digest=True):
     return manifest
 
 
+def missing_one_case(study, attempt):
+    """The Attempt's manifest rewritten with `case_digests` that leaves out the first Case it evaluated."""
+    from hypotrail.core import canonical
+
+    path = folder_of(study, attempt) / "attempt.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    first = attempt["effective_config"]["cases"][0]
+    manifest["case_digests"] = {case_id: digest for case_id, digest in manifest["case_digests"].items() if case_id != first}
+    path.write_bytes(canonical.dumps(manifest))
+    return manifest
+
+
 @pytest.fixture(scope="module")
 def content_records(tmp_path_factory):
     """Native sides on the same dev Cases with and without per-Case digests, before and after a change of one Case's text."""
@@ -185,7 +197,10 @@ def content_records(tmp_path_factory):
         examples = chinook_examples(tmp_path)
         given = ("--examples-dir", str(examples))
         study = study_of(tmp_path, examples=examples)
-        attempts = {name: ok(live(study, config, name, *given)) for name, config in (("a-old", "plain"), ("b-old", "verify"), ("b-new", "verify"), ("none", "verify"))}
+        attempts = {
+            name: ok(live(study, config, name, *given))
+            for name, config in (("a-old", "plain"), ("b-old", "verify"), ("b-new", "verify"), ("none", "verify"), ("partial", "verify"))
+        }
         path = examples / "chinook" / WORKLOAD.cases_path("dev").relative_to(CHINOOK)
         lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         lines[0]["question"] += " (variante)"
@@ -197,6 +212,7 @@ def content_records(tmp_path_factory):
         for name in ("a-old", "b-old", "c-old"):
             without_case_digests(study, attempts[name])
         without_case_digests(study, attempts["none"], file_digest=False)
+        missing_one_case(study, attempts["partial"])
         yield study, examples, assessments
 
 
@@ -208,6 +224,7 @@ def content_records(tmp_path_factory):
         ("a-old", "b-new", True),  # one recorded before, the same Cases file
         ("a-old", "c-new", False),  # one recorded before, another Cases file
         ("none", "b-new", False),  # a native side with neither record
+        ("partial", "b-new", False),  # `case_digests` that leaves out a Case: no fallback to the same Cases file
     ],
 )
 def test_without_per_case_digests_the_same_cases_file_passes_and_anything_else_is_not_established_never_compatible(content_records, control, candidate, passed):

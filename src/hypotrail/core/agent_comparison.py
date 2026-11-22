@@ -11,8 +11,9 @@ passed (SPEC CMP-01, CMP-02, T12). `AGENT_CHECKS` lists them:
 2. the Partition is `dev` or `public_check` (`COMPARISON_PARTITION_NOT_DEV` otherwise); a `public_check` Comparison is an
    Exposure, recorded in the journal once every check has passed (`hypotrail.core.exposure`);
 3. `cases`: the same content for each Case, by the digest each native Attempt's manifest records in `case_digests`; a
-   different content is refused and cannot be declared. A native side that records no such digest is compared by the
-   digest of its Cases file (the same file passes), and anything else, an Import included, is `not_established`;
+   different content is refused and cannot be declared. A native side with no `case_digests` at all (recorded before
+   them) is compared by the digest of its Cases file (the same file passes), and anything else, a `case_digests` that
+   leaves out a Case and an Import included, is `not_established`;
 4. `references`, `scorer`, `unit`: as for the bike (`comparison.check_assessments`);
 5. `repeats`: the same planned Repeats for each Case;
 6. `tools`, `model`, `budgets`: the same tools, model and budgets, each where both sides establish it. A native
@@ -64,8 +65,9 @@ REASON_COVERAGE = "coverage_incomplete"
 WARNING_NOT_ESTABLISHED = "COMPARISON_FACTOR_NOT_ESTABLISHED"
 WARNING_CASES_NOT_ESTABLISHED = "COMPARISON_CASES_NOT_ESTABLISHED"
 CASES_NOT_ESTABLISHED = (
-    "A side records no digest of each Case it evaluated, and the two sides do not record the same Cases file: the Comparison "
-    "could not check that both were evaluated on the same content of each Case, so it is descriptive, not strict."
+    "A side records no digest for a Case of the population, or records none and the two sides do not record the same Cases "
+    "file: the Comparison could not check that both were evaluated on the same content of each Case, so it is descriptive, "
+    "not strict."
 )
 PRODUCTION_MODES = ("scripted_fixture", "llm_live")
 UNIT = "share of Repeats per Case, every Case weighted equally"
@@ -130,22 +132,19 @@ def _declared_mode(side: dict):
     return value if value in PRODUCTION_MODES else None
 
 
-def _case_digests(manifest: dict, cases: list):
-    """{case_id: digest} of the population's Cases as a native Attempt recorded them, or None when it records no digest for one of them."""
-    recorded = manifest.get("case_digests")
-    if not isinstance(recorded, dict) or not set(cases) <= set(recorded):
-        return None
-    return {case_id: recorded[case_id] for case_id in cases}
-
-
 def check_cases(control: dict, candidate: dict, cases: list, evaluated: list = ()) -> dict:
     """The `cases` entry of two native Attempt manifests over the population's Cases, or the refusal when one Case's content differs.
 
-    Each side is compared by the digest of each Case it evaluated. When a side records none, the digests of the two
-    Cases files stand in: the same file passes, and anything else is `not_established`.
+    Each side is compared by the digest of each Case it evaluated (`case_digests`). A side whose `case_digests` leaves
+    out a Case of the population is `not_established`. Only when a side has no `case_digests` at all, as an Attempt
+    recorded before them, do the digests of the two Cases files stand in: the same file passes, and anything else is
+    `not_established`.
     """
-    c, d = _case_digests(control, cases), _case_digests(candidate, cases)
-    if c is not None and d is not None:
+    recorded = [manifest.get("case_digests") for manifest in (control, candidate)]
+    if any(digests is not None and not set(cases) <= set(digests) for digests in recorded):
+        return {"check": "cases", "passed": False, "reason": REASON_NOT_ESTABLISHED}
+    if None not in recorded:
+        c, d = recorded
         differ = [case_id for case_id in cases if c[case_id] != d[case_id]]
         if differ:
             raise _refuse(
