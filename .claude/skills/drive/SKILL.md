@@ -28,18 +28,22 @@ At the end of a slice, say honestly whether you wrote code you should have deleg
 
 ## Subagents and models
 
-Each step runs as a subagent **of a named type**, so its model is fixed by the type's frontmatter in `.claude/agents/`, never by a default:
+Each step runs as a subagent **of a named type**, so its model is fixed by the type's frontmatter in `.claude/agents/`, never by a default, except the two model overrides named below (D-063 on chadlis/hypotrail#75):
 
-| step | agent type | model |
-|---|---|---|
-| 2 tickets, 10 retro | `slice-planner` | opus |
-| 3 ticket gate, pre-run gate, 5 review axes, architecture review | `slice-gate` | opus |
-| 4 implementation and product docs, 6 fixes, 7 learning notes | `slice-builder` | sonnet |
-| owner decisions under the autonomous protocol | `owner-proxy`, fresh each time | fable |
+| step | model |
+|---|---|
+| tickets (`slice-planner`) | Fable |
+| ticket gate, both readings (`slice-gate`) | Fable |
+| owner decisions (`owner-proxy`) | Fable, Opus when Fable is unavailable |
+| implementation and fixes (`slice-builder`) | Opus |
+| review of record, verifications and disposition checks (`slice-gate`) | Opus |
+| retro (`slice-planner`, with a model override to Opus), and the drive itself | Opus |
+
+The ticket gate's readings (step 3, and the reading of a tightened ticket) run as `slice-gate`, with a model override to Fable; every other `slice-gate` step runs on its frontmatter's Opus (D-063 on chadlis/hypotrail#75).
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
-**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice, except the proxy's fallback under "Autonomous protocol". When an agent file changes during a session, put the changed paragraph in that agent's prompts until a new session loads the file.
+**A reviewer never runs on a weaker model than the author.** The required named types are checked in "Preflight". If one is missing, propose its creation separately. Do not create it during the slice or fall back to an untyped call. `prepare`, which writes only its note and a preparation comment, does not require these types. Never change a step's model mid-slice, except the proxy's fallback under "Autonomous protocol" and, when Fable is unavailable, this named exception (D-063 on chadlis/hypotrail#75): before a ticket gate passes, the chain pauses rather than running the gate on Opus over tickets that Fable wrote; after the gate passes, only the proxy needs Fable, and it falls back to Opus as written there. When an agent file changes during a session, put the changed paragraph in that agent's prompts until a new session loads the file.
 
 **Reaching Matt Pocock's user-invoked skills.** `to-tickets`, `implement`, `implement-spec` and `retro` cannot be invoked through the Skill tool. Tell the subagent to read the file and follow it:
 
@@ -355,7 +359,7 @@ If a blocker is open, say which and stop implementation. Preparation, which writ
 | 7 | Learning notes and links: update concise slice notes in `chadlis/hypotrail-learning` (`notes/<slice>.md`, direct push, with the learning-storage fallback above). The PR names which acceptance tests (T-xx) it proves | `slice-builder` | learning notes are saved or preserved in the named fallback |
 | 8 | PR, body shaped by `/pr`, closing the slice's tickets, not the slice. After the last round, edit the state comment: it names the accepted head and every deviation | you | the PR exists, and its body names each deviation the state comment records |
 | 9 | Finalise and link the slice note, retaining preparation and owner decisions. Enrich a selected learning issue only if one exists. Create no learning issue. Offer `after` with the selected learning issue, or with the qualified source issue if a later session is wanted | you | note/fallback linked, existing selected objective updated or explicitly none |
-| 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner` | its list comes back |
+| 10 | `retro` on this session: its suggestions go into the brief as deferred apparatus diffs | `slice-planner`, with a model override to Opus (D-063 on chadlis/hypotrail#75) | its list comes back |
 | 11 | Check pending decisions and authority. Default mode: give the brief with the open PR and stop. `merge`/`chain`: a pending decision gets a STOP and waits. Step 11 ends with a separate closing register comment, which lists every ID with its final status and a link. Continue to step 12 only with a completed review on the accepted head, required checks passing, no unresolved blocker, no unmet owner reservation and no other floor | you | no unresolved decision or blocker is passed over |
 | 12 | *(`merge`)* `.claude/skills/drive/check_record.py` runs before the merge tool, `gh pr merge` and `gh api …/pulls/<n>/merge`, and refuses the merge (exit 2) while the state comment's round count, a routing comment for each round (headed `## <slice>, round <r>: routing`), the round-5 verifications of the documentation path, the closing register comment or a PR-body line the register promised is missing (a row's status is the one in the latest routing or closing register comment that lists its ID, so the closing register settles a row the routing comment left open and no other comment settles one); a pull request titled `drive:` that changes no file under `src/` or `examples/` and names no slice issue (the subject's `(#n)`, the body's `Part of #n` or `Slice … (#n)`) is an apparatus pull request and passes with a note; once a slice issue is named, the record check applies whatever the title (D-055 on chadlis/hypotrail#75, item 3). Squash-merge with subject `feat: <what the slice does> (#<slice>)`, close the slice, add the squash SHA to the note and any already linked selected objective. Give the ordinary brief now, or once at the end under `chain` | you | merged state and learning reference are truthful |
 
