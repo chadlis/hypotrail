@@ -28,6 +28,11 @@ or changed when it changes. A decision no longer applies when a cited id is no l
 from the `revision` its record stores (`revision_changed`, its `id` the current `revision`), or when a cited Assessment has a later Assessment of the same
 Observation set and the same Scorer id, whatever its version (`assessment_superseded`, its `id` the latest of the later Assessments). "Later" is the
 order of `write_journal.assessment_order`. A later decision on the same question changes nothing.
+
+The rule follows a cited Comparison one hop, to its two Assessments, the Control then the Candidate (`sides`): one that has a later Assessment gives
+`compared_assessment_superseded`, its `id` the latest of the later ones, and one the Study does not hold gives `compared_assessment_not_held`, its
+`id` the missing Assessment. Each Assessment reached gives one entry at most, at the first cited Comparison that names it, in the order of
+`cited_ids`; these entries come after those of the three reasons above. The hop starts from a cited Comparison only and goes no further.
 """
 
 import contextlib
@@ -43,6 +48,10 @@ STAGE = "decision"
 AUTHORS = ("human", "proxy")
 # the fields that make "the same decision" (D-034 on chadlis/hypotrail#75), in the order `differs` lists them
 IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids")
+CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED = "cited_id_not_held", "revision_changed", "assessment_superseded"
+COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD = "compared_assessment_superseded", "compared_assessment_not_held"
+# "A constant in `core/decisions.py` lists the reason codes." (D-078 on chadlis/hypotrail#75, item 4)
+REASON_CODES = (CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD)
 
 
 def records(study) -> list:
@@ -75,25 +84,54 @@ def held_ids(study) -> set:
     return found
 
 
-def _reasons(record: dict, *, held: set, revision: str, assessments: dict, order) -> list:
+def _later(assessment: dict, assessments: dict, order) -> list:
+    """The later Assessments of `assessment`: of the same Observation set and the same Scorer id, whatever its version."""
+    return [
+        other
+        for other in assessments.values()
+        if other["observation_set_id"] == assessment["observation_set_id"]
+        and other["scorer"]["id"] == assessment["scorer"]["id"]
+        and order(other) > order(assessment)
+    ]
+
+
+def sides(comparison: dict) -> tuple:
+    """(`control`, its Assessment id), (`candidate`, its Assessment id) of a Comparison record: its `roles`, or left and right when it holds none."""
+    roles = comparison.get("roles")
+    if roles is None:
+        return ("control", comparison["left_assessment_id"]), ("candidate", comparison["right_assessment_id"])
+    return ("control", roles["control_assessment_id"]), ("candidate", roles["candidate_assessment_id"])
+
+
+def _reasons(record: dict, *, held: set, revision: str, assessments: dict, comparisons: dict, order) -> list:
     """Why `record` no longer applies: `[{"reason", "id"}]`, empty when it applies."""
 
-    reasons = [{"reason": "cited_id_not_held", "id": cited} for cited in record["cited_ids"] if cited not in held]
+    reasons = [{"reason": CITED_ID_NOT_HELD, "id": cited} for cited in record["cited_ids"] if cited not in held]
     if record["revision"] != revision:
-        reasons.append({"reason": "revision_changed", "id": revision})
+        reasons.append({"reason": REVISION_CHANGED, "id": revision})
     for cited in record["cited_ids"]:
         cited_assessment = assessments.get(cited)
         if cited_assessment is None:
             continue
-        later = [
-            other
-            for other in assessments.values()
-            if other["observation_set_id"] == cited_assessment["observation_set_id"]
-            and other["scorer"]["id"] == cited_assessment["scorer"]["id"]
-            and order(other) > order(cited_assessment)
-        ]
+        later = _later(cited_assessment, assessments, order)
         if later:
-            reasons.append({"reason": "assessment_superseded", "id": max(later, key=order)["assessment_id"]})
+            reasons.append({"reason": ASSESSMENT_SUPERSEDED, "id": max(later, key=order)["assessment_id"]})
+    reached: set = set()
+    for cited in record["cited_ids"]:
+        comparison = comparisons.get(cited)
+        if comparison is None:
+            continue
+        for _, assessment_id in sides(comparison):
+            if assessment_id in reached:
+                continue
+            reached.add(assessment_id)
+            assessment = assessments.get(assessment_id)
+            if assessment is None:
+                reasons.append({"reason": COMPARED_ASSESSMENT_NOT_HELD, "id": assessment_id})
+                continue
+            later = _later(assessment, assessments, order)
+            if later:
+                reasons.append({"reason": COMPARED_ASSESSMENT_SUPERSEDED, "id": max(later, key=order)["assessment_id"]})
     return reasons
 
 
@@ -107,6 +145,7 @@ def history(study) -> list:
         "held": held_ids(study),
         "revision": layout.read_spec(study)["revision"],
         "assessments": {record["assessment_id"]: record for record in layout.assessment_records(study)},
+        "comparisons": {record["comparison_id"]: record for record in layout.comparison_records(study)},
         "order": write_journal.assessment_order(study),
     }
     rows = []

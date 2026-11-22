@@ -4581,6 +4581,10 @@ def _history(tmp_path, name="chapter-17-history"):
     attempt = run["attempt"]
     observations, references = observation_set_id(study, attempt), references_id(study)
     _, first, _ = assess(study, observations, "regression_mae_v1", references)
+    _, ridge_run, _ = run_ml(study, "ridge_v1", "dev", "ridge")
+    _, ridge, _ = assess(study, observation_set_id(study, ridge_run["attempt"]), "regression_mae_v1", references)
+    code, compared, err = run_json("compare", "--study", study, "--control", first["assessment"]["assessment_id"], "--candidate", ridge["assessment"]["assessment_id"])
+    assert code == 0, (compared, err)
 
     def decide(request_id, cited):
         flags = ["--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "human", "--request-id", request_id]
@@ -4592,8 +4596,10 @@ def _history(tmp_path, name="chapter-17-history"):
     on_an_attempt = decide("d-1", [attempt["attempt_id"]])
     decide("d-2", [first["assessment"]["assessment_id"]])
     decide("d-3", [on_an_attempt["decision_id"]])
+    decide("d-4", [compared["comparison"]["comparison_id"]])
     code, again, err = assess(study, observations, "regression_mae_v1", references)
-    assert code == 0, (again, err)  # d-2 is superseded
+    assert code == 0, (again, err)  # d-2 is superseded, and d-4 is reached through the Comparison's Control
+    shutil.rmtree(study / "assessments" / ridge["assessment"]["assessment_id"])  # d-4's Comparison names a Candidate no longer held
     next(p for p in (study / "decisions").glob(f"*-{on_an_attempt['decision_id']}.json")).unlink()  # d-3 cites an id no longer held
     code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"))
     assert code == 0, (payload, err)  # every decision made before it is outdated for the revision
@@ -4612,11 +4618,23 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
     assert all(set(row) == keys for row in rows)
 
 
-def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+def test_the_decision_reasons_table_equals_the_reason_codes_constant_and_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+    from hypotrail.core import decisions
+
     rows, reasons = _history(tmp_path)
     table = attrs_of(page, "decision-reasons", "data-reason")
-    assert set(table) == reasons == {"cited_id_not_held", "revision_changed", "assessment_superseded"}
+    assert set(table) == reasons == set(decisions.REASON_CODES)
+    assert len(decisions.REASON_CODES) == len(set(decisions.REASON_CODES)) == 5
+    assert {"compared_assessment_superseded", "compared_assessment_not_held"} <= reasons
     assert {tuple(sorted(reason)) for row in rows for reason in row["reasons"]} == {("id", "reason")}
+
+
+def test_chapter_17_no_longer_says_the_rule_reads_three_things_and_defines_the_hop_where_it_first_uses_the_word():
+    text = plain_text(chapter_text("17-decisions.html"))
+    assert "these three things and nothing else" not in text
+    sentences = [s for s in re.split(r"(?<=[.:])\s+", text) if re.search(r"\bhop\b", s)]
+    assert sentences, "chapter 17 does not use the word hop"
+    assert "from a cited Comparison to its two Assessments" in sentences[0], sentences[0]
 
 
 def test_chapter_17_gives_the_rule_of_still_applies_in_its_table_and_what_the_table_does_not_say_in_words(page):

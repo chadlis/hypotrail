@@ -435,6 +435,6 @@ def test_the_human_status_of_a_study_with_a_comparison_a_decision_on_it_a_later_
     assert human(study) == [
         f"Study {spec['study_id']} ({spec['workload']}); a writer is not active",
         "  0 Exposures recorded in this Study; any earlier exposure to public_check is unknown",
-        "Decisions: 1 recorded, 0 no longer apply",
+        "Decisions: 1 recorded, 1 no longer applies",
         *[line for _, line in attempts],
     ]
