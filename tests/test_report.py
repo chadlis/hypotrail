@@ -681,7 +681,7 @@ def test_an_assessments_card_shows_one_of_the_three_states_of_the_check_and_the_
         code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
         assert code == 0, (payload, err)
         ids[config] = payload["assessment"]
-    absent = forged(study, ids["ridge_v1"], lambda record: record.pop("single_feature_check"))
+    absent = forged(study, ids["ridge_v1"], lambda record: record.pop("single_feature_check", None))
     code, compared, err = compare(study, ids["seasonal_7"]["assessment_id"], ids["ridge_v1"]["assessment_id"])
     assert code == 0, (compared, err)
     # a second revision of the Study, on a generated series, where ridge_v1's lag features all lose
@@ -693,13 +693,12 @@ def test_an_assessments_card_shows_one_of_the_three_states_of_the_check_and_the_
     code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
     assert code == 0, (payload, err)
     losing = payload["assessment"]
-    assert losing["single_feature_check"]["computed"] and losing["single_feature_check"]["beating"] == []
     out = tmp_path / "out" / "report.html"
     out.parent.mkdir()
     assert report(study, out)[0] == 0
     page = out.read_text(encoding="utf-8")
 
-    beaten = ids["ridge_v1"]["single_feature_check"]["beating"]
+    beaten = ids["ridge_v1"].get("single_feature_check", {}).get("beating", [])
     listed = "; ".join(f"{entry['feature']} {entry['value']:.6g} rentals per day" for entry in beaten)
     cards = {
         "beaten": (card_of(page, ids["ridge_v1"]["assessment_id"]), f"beaten by {listed}"),
@@ -707,10 +706,11 @@ def test_an_assessments_card_shows_one_of_the_three_states_of_the_check_and_the_
         "all lose": (card_of(page, losing["assessment_id"]), CHECKED),
         "absent": (card_of(page, absent["assessment_id"]), NOT_CHECKED),
     }
-    assert [entry["feature"] for entry in beaten] == ["mean_previous_7", "lag_1", "lag_7"]
     for name, (text, state) in cards.items():
         assert f"Single-feature check {state}" in text, (name, text)
         others = {f"Single-feature check {s}" for s in (f"beaten by {listed}", CHECKED, NOT_CHECKED)} - {f"Single-feature check {state}"}
         assert not any(other in text for other in others), (name, text)
+    assert [entry["feature"] for entry in beaten] == ["mean_previous_7", "lag_1", "lag_7"]
+    assert losing["single_feature_check"]["computed"] and losing["single_feature_check"]["beating"] == []  # its features were checked and all lose
     comparison = {row[0]: row[1] for row in doc_of(out).body("comparison-0")}
     assert comparison["Comparability"] == "compatible, with warning COMPARISON_SINGLE_FEATURE_BEATS", comparison

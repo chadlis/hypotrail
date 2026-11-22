@@ -78,7 +78,7 @@ def single_feature_warnings(record) -> list:
 @pytest.mark.parametrize("ridge_is", ["candidate", "control"])
 def test_a_side_beaten_by_its_own_lag_features_holds_one_warning_naming_the_side_and_the_features_also_in_limitations(dev, ridge_is):
     study, _, a = dev
-    beaten = a["ridge_v1"]["single_feature_check"]["beating"]
+    beaten = a["ridge_v1"].get("single_feature_check", {}).get("beating", [])
     control, candidate = (a["seasonal_7"], a["ridge_v1"]) if ridge_is == "candidate" else (a["ridge_v1"], a["seasonal_7"])
     code, payload, err = compare(study, control["assessment_id"], candidate["assessment_id"])
     assert code == 0, (payload, err)
@@ -125,7 +125,7 @@ def test_a_side_whose_field_is_empty_or_absent_adds_no_warning(dev, tmp_path):
     assert code == 0 and payload["assessment"]["single_feature_check"] == {"computed": [], "beating": []}, (payload, err)
     code, both_empty, err = compare(study, a["seasonal_7"]["assessment_id"], payload["assessment"]["assessment_id"])
     assert code == 0 and both_empty["comparison"]["warnings"] == [], (both_empty, err)
-    absent = [forged(study, a[c], lambda r: r.pop("single_feature_check")) for c in ("seasonal_7", "ridge_v1")]
+    absent = [forged(study, a[c], lambda r: r.pop("single_feature_check", None)) for c in ("seasonal_7", "ridge_v1")]
     assert all("single_feature_check" not in record for record in absent)
     code, both_absent, err = compare(study, absent[0]["assessment_id"], absent[1]["assessment_id"])
     assert code == 0 and both_absent["comparison"]["warnings"] == [], (both_absent, err)
