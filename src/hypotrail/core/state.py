@@ -24,7 +24,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 import datetime
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, decisions, exposure, lock, revisions, write_journal
+from hypotrail.core import artifacts, canonical, contracts, decisions, exposure, lock, revisions, study_write, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -133,10 +133,10 @@ def status(study) -> dict:
 def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict:
     """Record the Attempt `attempt_id`, running with no live writer, as interrupted; return its manifest."""
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "recover")
+    study_write.check_read_sequence(study_write.RECOVER, read_sequence)
     layout.read_spec(study)
-    with lock.writer_lock(study), write_journal.writing(study, "recover"):
-        write_journal.require_current(study, read_sequence)
+    with study_write.locked(study, study_write.RECOVER, read_sequence=read_sequence) as write:
+        write.require_current()
         if attempt_id not in layout.attempt_ids(study):
             raise InvalidInputError(
                 "ATTEMPT_NOT_FOUND",
@@ -155,7 +155,7 @@ def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict
             "outcome_unknown": manifest["outcome_unknown"] or manifest["mode"] in PROVIDER_MODES,
         }
         contracts.validate(interrupted)
-        write_journal.begin()
+        write.begin()
         artifacts.replace_bytes(study, layout.attempt_manifest_path(attempt_id), canonical.dumps(interrupted))
-        write_journal.wrote("attempt", attempt_id)
+        write.wrote(study_write.ATTEMPT, attempt_id)
         return interrupted

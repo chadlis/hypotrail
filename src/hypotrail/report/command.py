@@ -16,7 +16,7 @@ import os
 import uuid
 from pathlib import Path
 
-from hypotrail.core import exposure, lock, write_journal
+from hypotrail.core import exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.report import gather, render
@@ -66,7 +66,7 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None) -> 
     `read_sequence` is compared with the Study's write sequence only when the page records an Exposure (#108 Tightened F).
     """
     study, out = Path(study), Path(out)
-    write_journal.require_valid_read_sequence(read_sequence, "report")
+    study_write.check_read_sequence(study_write.REPORT, read_sequence)
     spec = layout.read_spec(study)
     check_output(study, out)
     model = gather.load(study)
@@ -74,12 +74,13 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None) -> 
     entry = None
     links = render.Links(study, out)
     if any(shown.values()):
-        with lock.writer_lock(study), write_journal.writing(study, "report"):
-            write_journal.require_current(study, read_sequence)
+        with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
+            write.require_current()
             model = gather.load(study)  # again, under the lock: what the page shows is what the entry names
             shown = gather.touched(model)
             entry = exposure.record(
                 study,
+                write,
                 model["spec"],
                 live_basis,
                 attempt_ids=shown["attempts"],

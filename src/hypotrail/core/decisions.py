@@ -12,8 +12,8 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first.
 
-The order of the checks is that of every writer, the arguments and the Study before the lock: the arguments (the read sequence value is the library's first argument check, then
-`REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, and `DECISION_FIELD_EMPTY`); `STUDY_NOT_FOUND`; the lock; the request identity; the stale sequence (`require_current`); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
+`decide` takes its steps in the order that `hypotrail.core.study_write` gives a writer that has a `request_id` (the checks of the other writers are listed in handbook chapter 04): the arguments and the Study before the lock, then the lock. The arguments (the read sequence value is the library's first argument check, then
+`REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, and `DECISION_FIELD_EMPTY`); `STUDY_NOT_FOUND`. Under the lock: the request identity; the stale sequence (`Write.replay_decision` runs both); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
 the same decision (question, option, author, source and cited ids; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
@@ -35,11 +35,10 @@ import contextlib
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, exposure, lock, requests, revisions, write_journal
+from hypotrail.core import artifacts, contracts, exposure, requests, revisions, study_write, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
-COMMAND = "decide"
 DECISIONS_DIR = "decisions"
 STAGE = "decision"
 AUTHORS = ("human", "proxy")
@@ -57,22 +56,14 @@ def find_by_request(study, request_id: str):
     return next((record for record in records(study) if record["request_id"] == request_id), None)
 
 
-def refuse_if_a_decision_holds(study, request_id: str) -> None:
-    """Refuse a `run` or an `import` whose `request_id` names a decision: a Study has one request_id namespace."""
-    recorded = find_by_request(study, request_id)
-    if recorded is not None:
-        raise requests.conflict_with_a_decision(request_id, recorded["decision_id"])
-
-
 def held_ids(study) -> set:
     """The ids of the records of the Study that a decision may cite."""
     study = Path(study)
     found = set(layout.attempt_ids(study))
     for attempt_id in layout.attempt_ids(study):
-        for ref in layout.read_manifest(study, attempt_id).get("output_refs", []):
-            if ref["role"] == "observation_set":
-                with contextlib.suppress(OSError):  # a referenced record that is missing holds no id
-                    found.add(layout.read_record(study, ref["path"])["observation_set_id"])
+        for ref in layout.observation_set_refs(layout.read_manifest(study, attempt_id)):
+            with contextlib.suppress(OSError):  # a referenced record that is missing holds no id
+                found.add(layout.read_record(study, ref["path"])["observation_set_id"])
     found |= {record["assessment_id"] for record in layout.assessment_records(study)}
     found |= {record["comparison_id"] for record in layout.comparison_records(study)}
     for spec in revisions.revision_specs(study):
@@ -139,7 +130,7 @@ def history(study) -> list:
 
 
 def _invalid(message: str) -> InvalidInputError:
-    return write_journal.invalid_arguments(message, COMMAND)
+    return study_write.invalid_arguments(message, study_write.DECIDE)
 
 
 def decide(
@@ -155,9 +146,7 @@ def decide(
 ) -> tuple[dict, bool]:
     """Record (or replay) one decision under the Study's writer lock; return the record and whether it was recorded already."""
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "decide")
-    if not request_id:
-        raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    study_write.check_arguments(study_write.DECIDE, read_sequence, request_id)
     if author not in AUTHORS:
         raise _invalid(f"the author of a decision is one of {', '.join(AUTHORS)}, not {author!r}")
     if read_sequence is None:
@@ -169,21 +158,19 @@ def decide(
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     wanted = {"question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids))}
-    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id):
-        return _decide_locked(study, wanted, request_id, read_sequence)
+    with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence) as write:
+        return _decide_locked(study, write, wanted, request_id, read_sequence)
 
 
-def _decide_locked(study: Path, wanted: dict, request_id: str, read_sequence: int) -> tuple[dict, bool]:
-    recorded = find_by_request(study, request_id)
-    if recorded is not None:
+def _decide_locked(study: Path, write, wanted: dict, request_id: str, read_sequence: int) -> tuple[dict, bool]:
+    def check_recorded(recorded: dict) -> None:
         differs = [field for field in IDENTITY_FIELDS if recorded[field] != wanted[field]]
         if differs:
             raise requests.conflict_between_decisions(request_id, recorded["decision_id"], differs)
+
+    recorded = write.replay_decision(check_recorded)
+    if recorded is not None:
         return recorded, True
-    attempt = layout.find_by_request(study, request_id)
-    if attempt is not None:
-        raise requests.conflict_with_an_attempt(request_id, attempt["attempt_id"])
-    write_journal.require_current(study, read_sequence)
     spec = layout.read_spec(study)  # read under the lock, after the stale check
     unknown = sorted(set(wanted["cited_ids"]) - held_ids(study))
     if unknown:
@@ -205,8 +192,8 @@ def _decide_locked(study: Path, wanted: dict, request_id: str, read_sequence: in
         "write_sequence": write_journal.write_sequence(study) + 1,  # the position of the `begin` entry that is appended next
     }
     contracts.validate(record)
-    write_journal.begin()
+    write.begin()
     position = layout.next_position(study, DECISIONS_DIR)
     artifacts.publish_record(study, f"{DECISIONS_DIR}/{position:06d}-{decision_id}.json", record, role="decision")
-    write_journal.wrote("decision", decision_id)
+    write.wrote(study_write.DECISION, decision_id)
     return record, False

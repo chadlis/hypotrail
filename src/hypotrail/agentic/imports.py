@@ -44,12 +44,12 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, environment, requests, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
 
-COMMAND = "import agent"
+COMMAND = study_write.IMPORT_AGENT
 MODE = "external_unknown"
 STAGE = "import"
 UNKNOWN = "unknown"
@@ -439,17 +439,15 @@ def import_agent(
 ) -> tuple[dict, bool]:
     """Import (or replay) one request under the Study's writer lock; return the Attempt manifest and whether it was recorded already."""
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "import agent")
-    if not request_id:
-        raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    study_write.check_arguments(COMMAND, read_sequence, request_id)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     if is_log(source):
         require_inspect()  # before the lock, and before anything is read or written
-    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
-        return _import_locked(study, Path(source), Path(population), request_id, examples_dir=examples_dir, read_sequence=read_sequence)
+    with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
+        return _import_locked(study, write, Path(source), Path(population), request_id, examples_dir=examples_dir)
 
 
-def _import_locked(study, source, population_path, request_id, *, examples_dir, read_sequence=None):
+def _import_locked(study, write, source, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)
@@ -489,15 +487,16 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir, 
     }
     code_environment = environment.code_environment()
     requested = requests.identity(effective_config, code_environment)
-    recorded = layout.find_by_request(study, request_id)
-    if recorded is not None:
+
+    def check_recorded(recorded):
         differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
         if differs:
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
+
+    recorded = write.replay_attempt(check_recorded)
+    if recorded is not None:
         return recorded, True
-    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
-    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-033 on chadlis/hypotrail#75)
 
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)
     if canonical.digest(protocol) != spec["protocol_digest"]:
@@ -546,8 +545,8 @@ def _import_locked(study, source, population_path, request_id, *, examples_dir, 
         "retry_of": None,
     }
     contracts.validate(manifest)
-    write_journal.begin()  # the running manifest is the first write
-    write_journal.attempt(attempt_id)
+    write.begin()  # the running manifest is the first write
+    write.attempt(attempt_id)
     artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
     try:
         original = Path(source).name or "source.jsonl"

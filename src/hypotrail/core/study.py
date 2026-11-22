@@ -48,6 +48,7 @@ SCRATCH_DIR = ".scratch"
 ASSESSMENTS_DIR = "assessments"
 COMPARISONS_DIR = "comparisons"
 MANIFEST_NAME = "attempt.json"
+OBSERVATION_SET_ROLE = "observation_set"  # the role of the ref that an Attempt's manifest keeps to its Observation set record
 
 _MEDIA_TYPES = {".csv": "text/csv", ".json": "application/json", ".md": "text/markdown", ".txt": "text/plain"}
 
@@ -174,6 +175,14 @@ def find_by_request(study, request_id: str):
     return None
 
 
+def observation_set_refs(manifest: dict) -> list:
+    """The refs of the manifest's `output_refs` whose role is that of an Observation set record, in the order the manifest lists them (usually one).
+
+    The one walk from an Attempt's manifest to its Observation set: each caller reads the record it finds in its own way.
+    """
+    return [ref for ref in manifest.get("output_refs", []) if ref["role"] == OBSERVATION_SET_ROLE]
+
+
 def find_observation_set(study, observation_set_id: str):
     """The Observation set record of `observation_set_id` and the manifest of its Attempt, or None.
 
@@ -182,9 +191,7 @@ def find_observation_set(study, observation_set_id: str):
     """
     for attempt_id in attempt_ids(study):
         manifest = read_manifest(study, attempt_id)
-        for ref in manifest.get("output_refs", []):
-            if ref["role"] != "observation_set":
-                continue
+        for ref in observation_set_refs(manifest):
             try:
                 record = canonical.loads(artifacts.resolve(study, ref["path"]).read_bytes())
             except (OSError, ValueError, InvalidInputError):

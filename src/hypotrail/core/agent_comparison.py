@@ -37,7 +37,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, write_journal
+from hypotrail.core import artifacts, canonical, contracts, exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.comparison import (
     EXTERNAL_MODE,
@@ -237,7 +237,7 @@ def _rate(scored: int, expected: int):
     return scored / expected if expected else None
 
 
-def compare_sides(study: Path, control: dict, candidate: dict, factor: str | None, live_basis=None) -> dict:
+def compare_sides(study: Path, write, control: dict, candidate: dict, factor: str | None, live_basis=None) -> dict:
     """Write and return the Comparison of two agent sides (`hypotrail.core.comparison` has read them).
 
     A Comparison of `public_check` Episodes is an Exposure: its journal entry is appended once the checks have passed
@@ -267,7 +267,7 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
 
     comparison_id = str(uuid.uuid4())
     if exposed:  # before any Episode is paired
-        record_exposure(study, control, candidate, comparison_id, live_basis)
+        record_exposure(study, write, control, candidate, comparison_id, live_basis)
     ca, da = control["assessment"], candidate["assessment"]
     primary = ca["primary_criterion"]
     side_episodes = {"control": _episodes(control), "candidate": _episodes(candidate)}
@@ -313,9 +313,9 @@ def compare_sides(study: Path, control: dict, candidate: dict, factor: str | Non
 
     folder = f"{layout.COMPARISONS_DIR}/{comparison_id}"
     population = {"partition": control["partition"], "count": len(keys), "cases": populations["control"]["cases"], "episodes": [list(key) for key in keys]}
-    write_journal.begin()  # a Comparison of dev Episodes writes nothing before this; an Exposure began the command already
+    write.begin()  # a Comparison of dev Episodes writes nothing before this; an Exposure began the command already
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
-    write_journal.wrote("comparison", comparison_id)
+    write.wrote(study_write.COMPARISON, comparison_id)
     matrix = {"criteria": list(dict.fromkeys(row["criterion"] for row in control["per_item"])), "control": _matrix(control, ca), "candidate": _matrix(candidate, da)}
     matrix_ref = artifacts.publish_record(study, f"{folder}/matrix.json", matrix, role="comparison_matrix")
     paired_ref = None

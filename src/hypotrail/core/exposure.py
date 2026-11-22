@@ -28,7 +28,7 @@ Exposure, whatever its revision, is the one that counts (Tightened C).
 A Study with no entry has recorded no Exposure *in this Study*; that says nothing about what the user or an
 Import's producer saw elsewhere (SPEC §2), and no record here claims that `public_check` was never seen.
 
-Commands that write call `record` under the Study's writer lock. It refuses (`PROTOCOL_CHANGED`, exit 3,
+Commands that write call `record` under the Study's writer lock, with the `Write` they hold (`hypotrail.core.study_write`). It refuses (`PROTOCOL_CHANGED`, exit 3,
 nothing written) when the Workload's live Protocol is not the revision's. Which Items an entry point may
 compute on is the entry point's own rule; this module only records.
 """
@@ -37,7 +37,7 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, environment, write_journal
+from hypotrail.core import artifacts, canonical, contracts, environment, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -196,18 +196,19 @@ def _write_freeze(study, spec: dict, live: dict) -> dict:
     return record
 
 
-def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
+def record(study, write, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), comparison_ids=()) -> dict:
     """Append one journal entry for an Exposure, after the freeze record of the current revision (written first if absent).
 
-    The caller holds the Study's writer lock and has finished every refusal that needs no value of `public_check`
-    Items; this is called before it computes anything on them.
+    The caller holds the Study's writer lock, passes the `write` it holds (the freeze record and the entry are the first
+    writes of a command that records an Exposure, so this begins the command's journal) and has finished every refusal
+    that needs no value of `public_check` Items; this is called before it computes anything on them.
     """
     live = checked_basis(spec, live_basis)
-    write_journal.begin()  # the freeze record and the entry are the first writes of a command that records an Exposure
+    write.begin()  # the freeze record and the entry are the first writes of a command that records an Exposure
     freeze = read_freeze(study, spec.get("revision_number", 1))
     if freeze is None:
         freeze = _write_freeze(study, spec, live)
-        write_journal.wrote("freeze", freeze["freeze_id"])
+        write.wrote(study_write.FREEZE, freeze["freeze_id"])
     sequence = layout.next_position(study, JOURNAL_DIR)
     entry = {
         "kind": "exposure",
@@ -221,5 +222,5 @@ def record(study, spec: dict, live_basis, *, attempt_ids=(), assessment_ids=(), 
     }
     contracts.validate(entry)
     artifacts.publish_record(study, f"{JOURNAL_DIR}/{sequence:06d}-{entry['entry_id']}.json", entry, role="exposure")
-    write_journal.wrote("exposure", entry["entry_id"])
+    write.wrote(study_write.EXPOSURE, entry["entry_id"])
     return entry

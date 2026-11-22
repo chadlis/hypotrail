@@ -15,7 +15,7 @@ from pathlib import Path
 
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml.memberships import load_declaration
-from hypotrail.ml.partitions import require_dev
+from hypotrail.ml.partitions import DEV, require_dev
 from hypotrail.ml.metrics import (
     DIRECTION,
     PRIMARY,
@@ -49,7 +49,7 @@ def compare(
     out_dir,
     workload_dir,
     *,
-    partition: str = "dev",
+    partition: str = DEV,
 ) -> dict:
     """Compare two predictions files on a Partition and write `comparison.json` into `out_dir`."""
     require_dev(

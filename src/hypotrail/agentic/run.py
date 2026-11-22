@@ -47,19 +47,19 @@ import uuid
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
+from hypotrail.agentic.partitions import ROLES
 from hypotrail.agentic.study import DOMAIN, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, decisions, environment, exposure, lock, requests, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, requests, study_write
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError, coded_error
 
-COMMAND = "run agent"
+COMMAND = study_write.RUN_AGENT
 
 
 FIXTURE, LIVE = "scripted_fixture", "llm_live"
 MODES = (FIXTURE, LIVE)
-PARTITIONS = ("dev", "public_check")
 REPEATS_BOUNDS = (1, 3)
 FIXTURE_MODEL = "mockllm/model"
 FLAGS_OF_LIVE = {"partition": "--partition", "repeats": "--repeats", "model": "--model", "cases": "--cases"}
@@ -107,8 +107,8 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
             )
         read_json(workload.scenarios_path, stage="fixture", noun="scenarios file", key="scenarios")
         return {"configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None}
-    if partition not in PARTITIONS:
-        raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(PARTITIONS))
+    if partition not in ROLES:
+        raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(ROLES))
     low, high = REPEATS_BOUNDS
     if not isinstance(repeats, int) or isinstance(repeats, bool) or not low <= repeats <= high:
         raise _refuse("REPEATS_OUT_OF_BOUNDS", f"--repeats is an integer from {low} to {high}, not {repeats!r}", repeats=repeats, minimum=low, maximum=high)
@@ -211,16 +211,14 @@ def run_agent(
 ) -> tuple[dict, bool, list]:
     """Run (or replay) one request under the Study's writer lock: (the Attempt manifest, whether it was recorded already, warnings)."""
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "run agent")
-    if not request_id:
-        raise InvalidInputError("REQUEST_ID_EMPTY", "--request-id must not be empty", stage="request", details={})
+    study_write.check_arguments(COMMAND, read_sequence, request_id)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)
     workload = load_workload(examples / spec["workload"])
     plan = _checked_flags(workload, mode, config, partition, repeats, model, cases)
-    with lock.writer_lock(study), write_journal.writing(study, COMMAND, request_id, has_attempt=True):
-        return _run_locked(study, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ, read_sequence)
+    with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
+        return _run_locked(study, write, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ)
 
 
 def _digest_of(path: Path):
@@ -230,7 +228,7 @@ def _digest_of(path: Path):
         return None  # a file that is not there is `DATA_INTEGRITY` at the data verification, not an input of the identity
 
 
-def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, environ, read_sequence=None):
+def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_of, environ):
     spec = layout.read_spec(study)
     layout.require_domain(spec, DOMAIN, COMMAND)
     if retry_of is not None and retry_of not in layout.attempt_ids(study):
@@ -260,15 +258,16 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
     }
     code_environment = environment.code_environment()
     requested = requests.identity(effective_config, code_environment)
-    recorded = layout.find_by_request(study, request_id)
-    if recorded is not None:
+
+    def check_recorded(recorded):
         differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
         if differs:
             raise requests.conflict(request_id, recorded["attempt_id"], differs)
         verify_recorded(study, recorded)
+
+    recorded = write.replay_attempt(check_recorded)
+    if recorded is not None:
         return recorded, True, []  # no key, no Inspect, no provider, no scan
-    decisions.refuse_if_a_decision_holds(study, request_id)  # one request_id namespace for the Attempts and the decisions of a Study
-    write_journal.require_current(study, read_sequence)  # straight after the request identity (D-037 on chadlis/hypotrail#75)
 
     data.verify_workloads(examples, [workload_name])
     for ref in study_refs:
@@ -311,8 +310,8 @@ def _run_locked(study, examples, workload, mode, plan, request_id, retry_of, env
     contracts.validate(manifest)
     running = canonical.dumps(manifest)
     writes.scan(manifest_path, running)  # a hit here writes nothing, not even the journal's `begin` entry, and leaves no Attempt
-    write_journal.begin()  # the running manifest is the first write
-    write_journal.attempt(attempt_id)
+    write.begin()  # the running manifest is the first write
+    write.attempt(attempt_id)
     writes.replace(manifest_path, running)
     try:
         terminal = _record(study, writes, workload, examples, manifest, plan, api_key)

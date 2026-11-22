@@ -45,10 +45,10 @@ class Reader:
 
 
 def observation_set_of(reader: Reader, manifest: dict):
-    ref = next((r for r in manifest.get("output_refs", []) if r["role"] == "observation_set"), None)
-    if ref is None:
+    refs = layout.observation_set_refs(manifest)
+    if not refs:
         return None
-    record = canonical.loads(reader.bytes_of(ref))
+    record = canonical.loads(reader.bytes_of(refs[0]))
     contracts.validate(record)
     return record
 

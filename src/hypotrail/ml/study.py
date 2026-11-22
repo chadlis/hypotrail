@@ -21,7 +21,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, lock, revisions, write_journal
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -125,7 +125,7 @@ def _derived_bytes(source: Path) -> tuple:
         return (Path(scratch) / MEMBERSHIPS_NAME).read_bytes(), (Path(scratch) / REFERENCES_NAME).read_bytes()
 
 
-def _write_spec(study: Path, workload: str, source: Path, declaration: Declaration, previous: dict | None) -> dict:
+def _write_spec(study: Path, workload: str, source: Path, declaration: Declaration, previous: dict | None, write) -> dict:
     """Publish the Protocol artifacts and the StudySpec of the first revision, or of the one after `previous`.
 
     The StudySpec is written last. An artifact the earlier revision already holds with the same bytes is
@@ -142,7 +142,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
     )
     if previous is not None:
         revisions.refuse_unchanged(previous, canonical.digest(protocol))
-    write_journal.begin()  # the first write of `init` and of `init --new-revision`
+    write.begin()  # the first write of `init` and of `init --new-revision`
     before = {e["ref"]["role"]: e for e in previous["artifacts"]} if previous is not None else {}
     dataset, _ = revisions.place(
         study,
@@ -183,7 +183,7 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
         artifacts.publish_record(study, STUDY_FILE, spec, role="study_spec")
     else:
         revisions.publish(study, previous, spec)
-    write_journal.wrote("revision", spec["revision"])
+    write.wrote(study_write.REVISION, spec["revision"])
     return spec
 
 
@@ -192,7 +192,7 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     study = Path(study)
     examples = data.resolve_examples_dir(examples_dir)
     if (study / STUDY_FILE).exists():
-        with lock.writer_lock(study):  # a Study that has a writer answers with the lock first
+        with study_write.locked(study, study_write.INIT):  # a Study that has a writer answers with the lock first
             raise _exists(study)
     # Nothing is created before the bytes match the lock (T01 at this entry point).
     data.verify_workloads(examples, [workload])
@@ -209,10 +209,10 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> 
     require_keys(declaration, "data_file", "question", "objective", "limitations")
 
     study.mkdir(parents=True, exist_ok=True)
-    with lock.writer_lock(study), write_journal.writing(study, "init"):
+    with study_write.locked(study, study_write.INIT) as write:
         if (study / STUDY_FILE).exists():
             raise _exists(study)
-        return _write_spec(study, workload, source, declaration, None)
+        return _write_spec(study, workload, source, declaration, None, write)
 
 
 def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence: int | None = None) -> dict:
@@ -222,16 +222,16 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
     current revision's is refused (`PROTOCOL_UNCHANGED`). Holds the Study's writer lock for the whole command.
     """
     study = Path(study)
-    write_journal.require_valid_read_sequence(read_sequence, "init")
+    study_write.check_read_sequence(study_write.INIT, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with lock.writer_lock(study), write_journal.writing(study, "init --new-revision"):
-        write_journal.require_current(study, read_sequence)
+    with study_write.locked(study, study_write.INIT_NEW_REVISION, read_sequence=read_sequence) as write:
+        write.require_current()
         previous = layout.read_spec(study)
-        layout.require_domain(previous, DOMAIN, "init --new-revision")
+        layout.require_domain(previous, DOMAIN, study_write.INIT_NEW_REVISION)
         examples = data.resolve_examples_dir(examples_dir)
         workload = previous["workload"]
         data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is written
         source = examples / workload
         declaration = load_declaration(source)
         require_keys(declaration, "data_file", "question", "objective", "limitations")
-        return _write_spec(study, workload, source, declaration, previous)
+        return _write_spec(study, workload, source, declaration, previous, write)

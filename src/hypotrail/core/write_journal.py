@@ -21,14 +21,13 @@ amended by D-034 on chadlis/hypotrail#75) compares it with the Study's under the
 the value read), a value above it `WRITE_SEQUENCE_AHEAD` (exit 2, stage `sequence`, `details` `read_sequence` and `write_sequence`).
 Either refusal comes before the command's first write, so it appends nothing.
 
-One rule in one place: every writer wraps its locked work in `writing(...)`, calls `begin()` just before its first write, and
-names what it wrote with `wrote(...)` (or `attempt(...)` for an Attempt and its Observation set). `writing` appends the `end`
-entry once the block ends, however it ends. The caller holds the Study's writer lock, so the position of an entry is the count
-of entries plus one.
+One rule in one place: a writer reaches this module through `hypotrail.core.study_write`, whose `locked(...)` takes the Study's writer lock and
+opens `writing(...)`, and whose `Write` calls `begin()` just before the command's first write and names what it wrote (`wrote(...)`, or `attempt(...)`
+for an Attempt and its Observation set). `writing` appends the `end` entry once the block ends, however it ends. The caller holds the Study's writer
+lock, so the position of an entry is the count of entries plus one.
 """
 
 import contextlib
-import contextvars
 from pathlib import Path
 
 from hypotrail.core import artifacts, contracts
@@ -39,9 +38,6 @@ JOURNAL_DIR = "write_journal"
 BEGIN, END = "begin", "end"
 COMPLETED, REFUSED, FAILED = "completed", "refused", "failed"
 SEQUENCE_STAGE = "sequence"
-
-_active = contextvars.ContextVar("write_journal_session", default=None)
-
 
 def write_sequence(study) -> int:
     """The write sequence of the Study: the number of entries of its journal (0 for a Study written before the journal)."""
@@ -63,21 +59,6 @@ def read_sequence_fault(read_sequence) -> str | None:
     if isinstance(read_sequence, bool) or not isinstance(read_sequence, int) or read_sequence < 0:
         return f"--read-sequence takes a non-negative integer, not {read_sequence!r}"
     return None
-
-
-def invalid_arguments(message: str, command: str) -> InvalidInputError:
-    """An `INVALID_ARGUMENTS` refusal whose `details` are `{"command": "hypotrail <command>"}`, the form the parser gives. The one place the core builds it."""
-    return InvalidInputError("INVALID_ARGUMENTS", message, stage="config", details={"command": f"hypotrail {command}"})
-
-
-def require_valid_read_sequence(read_sequence, command: str) -> None:
-    """Refuse a `read_sequence` that `read_sequence_fault` names, as the command line does (`INVALID_ARGUMENTS`, exit 2): the first argument check of a writer, before any lock.
-
-    `command` is the command's name as the command line shows it (`details` `{"command"}` is then the one the parser gives).
-    """
-    fault = read_sequence_fault(read_sequence)
-    if fault is not None:
-        raise invalid_arguments(fault, command)
 
 
 def require_current(study, read_sequence) -> None:
@@ -137,9 +118,8 @@ class _Session:
             except Exception:
                 return found  # the Attempt's manifest was never written: nothing is named
             found.insert(0, {"kind": "attempt", "id": self.attempt_id})
-            for ref in manifest.get("output_refs", []):
-                if ref["role"] == "observation_set":
-                    found.append({"kind": "observation_set", "id": layout.read_record(self.study, ref["path"])["observation_set_id"]})
+            for ref in layout.observation_set_refs(manifest):
+                found.append({"kind": "observation_set", "id": layout.read_record(self.study, ref["path"])["observation_set_id"]})
         return found
 
     def end(self, outcome: str) -> None:
@@ -147,28 +127,6 @@ class _Session:
             self.study,
             {"phase": END, "command": self.command, "request_id": self.request_id, "outcome": outcome, "written": self._written()},
         )
-
-
-def _session() -> _Session:
-    session = _active.get()
-    if session is None:
-        raise RuntimeError("a write to a Study is made inside write_journal.writing(...)")
-    return session
-
-
-def begin() -> None:
-    """Append the `begin` entry of the command that is writing, once: call it just before its first write."""
-    _session().begin()
-
-
-def wrote(kind: str, identifier: str) -> None:
-    """Name an id the command wrote, for its `end` entry."""
-    _session().wrote(kind, identifier)
-
-
-def attempt(attempt_id: str) -> None:
-    """Name the Attempt the command writes: its `end` entry names the Attempt and, once it exists, its Observation set."""
-    _session().attempt_id = attempt_id
 
 
 def _outcome_of(error: Exception, has_attempt: bool) -> str:
@@ -186,7 +144,6 @@ def writing(study, command: str, request_id=None, *, has_attempt: bool = False):
     Attempt, so its outcome is `failed` whatever the exit code.
     """
     session = _Session(study, command, request_id)
-    token = _active.set(session)
     try:
         yield session
     except Exception as error:
@@ -197,5 +154,3 @@ def writing(study, command: str, request_id=None, *, has_attempt: bool = False):
     else:
         if session.begun:
             session.end(COMPLETED)
-    finally:
-        _active.reset(token)
