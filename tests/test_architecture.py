@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 from _architecture import SOURCE, calls, imports, parse_all
@@ -249,7 +250,7 @@ def test_a_role_removed_from_the_cases_of_a_copy_of_the_agent_schema_and_a_role_
 
 # The third-party top-level modules each package or top-level module of `src/hypotrail/` may import.
 THIRD_PARTY = {
-    # `anyio` is imported by `agentic/sql_tool.py` and `pyproject.toml` does not declare it yet: chadlis/hypotrail#121 declares it.
+    # `anyio` is declared in the `agent` extra of `pyproject.toml`, beside `inspect_ai`.
     "agentic": {"anyio", "inspect_ai", "jsonschema"},
     "core": {"jsonschema"},
     "ml": {"jsonschema", "numpy", "sklearn"},
@@ -304,6 +305,16 @@ def blocked_import_problems(root, trees: dict) -> list:
 
 def test_each_package_of_src_imports_only_the_third_party_modules_of_its_list():
     assert third_party_problems(parse_all(SOURCE)) == []
+
+
+def test_every_agent_module_that_imports_anyio_is_covered_by_a_pin_of_anyio_in_the_agent_extra_of_pyproject():
+    importing = sorted(
+        module for module, targets in imports(parse_all(SOURCE)).items()
+        if module.startswith("hypotrail.agentic") and any(target.split(".")[0] == "anyio" for target in targets)
+    )
+    assert importing, "no module of hypotrail.agentic imports anyio any more"
+    declared = tomllib.loads((SOURCE.parent / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]["agent"]
+    assert "anyio==4.16.0" in declared
 
 
 def test_every_module_outside_agentic_imports_with_inspect_ai_made_unimportable():
