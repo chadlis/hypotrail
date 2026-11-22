@@ -4930,7 +4930,8 @@ def test_chapter_11_limit_that_a_compatible_comparison_can_hold_a_warning_names_
 
 # --- #162: `evidence_change` in `status --json` (chapter 17) ---------------------------------------------------------------------------------
 
-# "The handbook maps the three to D-077's phrases "result changed", "evidence rescored" and "repeated, nothing changed"." (D-078 on chadlis/hypotrail#75, item 6)
+# "one with non-empty `rescoring.changed_items` gives "result changed";", "one with a non-null `rescoring` and none with changed Items gives "evidence
+# rescored";", "all with `rescoring: null` gives "repeated, nothing changed"." (D-077 on chadlis/hypotrail#75, Q3)
 EVIDENCE_PHRASES = {"result_changed": "result changed", "evidence_rescored": "evidence rescored", "repeated": "repeated, nothing changed"}
 
 
