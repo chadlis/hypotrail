@@ -1,6 +1,6 @@
 # Hypotrail milestone direction
 
-This roadmap keeps the target visible while only the active milestone is specified for execution. L1 is committed. L2 and L3 below are planning candidates whose scope and order may change after use.
+This roadmap keeps the target visible while only the active milestone is specified for execution. L1 is committed. L2 and L3 below are selected by the owner; L3's breadth may still be revised after the decision pilot (D-062 on chadlis/hypotrail#75, change 5).
 
 Product purpose: [PRODUCT.md](PRODUCT.md). Current requirements: [L1 issue #1](https://github.com/chadlis/hypotrail/issues/1), its amendments and the specification it references. This document neither replaces that specification nor changes an existing slice's acceptance criteria.
 
@@ -19,7 +19,7 @@ These identifiers describe direction, not release numbers or calendar dates.
 - L2 is a VS Code webview panel for guided review, client of the CLI.
 - L3 is five further Tracks or Workloads.
 
-This was decided without pilot evidence. The pilot in « Demonstration before calling L2 usable » stays the gate for calling L2 usable ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422), decision by proxy). The sections below keep the candidate text as it was written. Where the selection and that text disagree, the selection prevails.
+This was decided without evidence from the engineer's walk. The engineer's walk in "Demonstration before calling L2 usable" stays the gate for calling L2 usable ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422), decision by proxy). The sections below keep the candidate text as it was written, except where a dated amendment marks a change or a decision below rewrites a section. Where the selection and that text disagree, the selection prevails.
 
 **Decisions of 2026-11-22.** Three owner decisions and one decision by proxy on chadlis/hypotrail#75 change L2 and L3 as selected above:
 - [D-062](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7074979450), change 3: "L2 is narrowed to one review decision, end to end." The L2 section below is rewritten for it.
@@ -82,15 +82,15 @@ Recover the original companion's useful information hierarchy: what needs attent
 
 Start with chat or CLI actions and a read-only generated Study view. Folding sections, following evidence links and copying the next question are useful interactions. A static HTML export cannot persist a decision. If a later panel records one, it must call a documented application command and handle stale state through the same contract as the CLI.
 
-This is already a visual product increment. Choosing a VS Code webview or a local web application is a later implementation decision informed by the pilot, not a prerequisite for this first view. No private UI database, duplicated Scorer or separate decision authority is introduced.
+This is already a visual product increment. Choosing a VS Code webview or a local web application is a later implementation decision informed by the engineer's walk, not a prerequisite for this first view. No private UI database, duplicated Scorer or separate decision authority is introduced.
 
-*Amended 2026-11-21:* the owner's selection above settles the choice, without a pilot. L2 is a VS Code webview panel that records decisions through a documented CLI command, as this section requires. The read-only generated view is not a separate first step.
+*Amended 2026-11-21:* the owner's selection above settles the choice, without the engineer's walk. L2 is a VS Code webview panel that records decisions through a documented CLI command, as this section requires. The read-only generated view is not a separate first step.
 
 ### Demonstration before calling L2 usable
 
 One engineer who did not implement the slice can identify the pending decision, inspect its evidence, record an answer and recover it in a fresh session. The view shows a real limitation and an outdated conclusion when its supporting evidence changes. It agrees with the CLI on artifact identities and status. Direct evaluation remains usable without the workflow.
 
-Observe the pilot and record remaining confusion. Do not infer validated usability from screenshots or automated tests alone.
+Observe the engineer's walk and record remaining confusion. Do not infer validated usability from screenshots or automated tests alone.
 
 *Amended 2026-11-22:* three things are kept apart (D-077 on chadlis/hypotrail#75, Q9).
 - **"Built, not demonstrated".** L2 is recorded so until someone who did not build it has demonstrated it (D-063 on chadlis/hypotrail#75, "D-062, amended", item 3). The owner demonstrates it himself, before any L3 construction: « Je fais moi-même la démo et les tests de L2 avant toute construction de L3. » (D-068 on chadlis/hypotrail#75). His demonstration lifts this status, and he is the one who lifts it. The demonstration protocol is written before the demonstration, in L2's milestone acceptance. Each blocker the owner reports becomes an issue, and a blocker that prevents a task of the protocol is fixed in a slice of its own, before L3.
@@ -114,7 +114,7 @@ First onboard a second Workload in an existing Track, initially with public data
 ~~Then select one additional Track only if it serves a concrete need. Multiclass classification is a useful candidate.~~ *Amended 2026-11-22* (D-063 on chadlis/hypotrail#75, "D-062, amended", item 4): the owner selected five Tracks or Workloads ([end state, item 3](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378)), and D-062, change 5, keeps them: "L3 keeps its five Tracks, with Track D widened. Its breadth may be revised after the pilot."
 - A: multiclass tabular classification.
 - B: binary classification with a declared decision threshold and error costs.
-- Regression: read by the drive as a non-temporal tabular regression Track; the owner may correct this reading.
+- Regression, as [#1's end state, item 3](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378) words it: "**regression:** read by the drive as a non-temporal tabular regression Track (the owner may correct this reading);".
 - C: a second agent Workload without SQL, with answers checkable without an LLM judge.
 - D: multi-horizon forecasting over several series ([owner instruction of 2026-11-21](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7060192445)).
 
@@ -122,7 +122,7 @@ Before committing each one, state the population, classes, Reference meaning, Me
 
 A regression result, a classification probability and a cluster assignment do not share the same scientific meaning. Clustering therefore remains an option requiring its own evaluation question, stability or external criteria where justified, and honest limits when no Reference labels exist.
 
-Exit evidence is a completed pilot with the new Workload, its effort to configure, its unsupported conditions and regressions checked on Bike and Chinook. Additional generality is justified by those concrete requirements.
+Exit evidence is a completed engineer's walk with the new Workload, its effort to configure, its unsupported conditions and regressions checked on Bike and Chinook. Additional generality is justified by those concrete requirements.
 
 ## Legacy reuse
 
@@ -207,8 +207,8 @@ These options do not authorize implementation or make other projects depend on H
 - Slice issues own their bounded scope and acceptance evidence. The Matt Pocock workflow used by drive creates implementation tickets with to-tickets, then orchestrates implementation, independent review, documentation and PRs.
 - ADRs record adopted architecture decisions. The handbook documents delivered behaviour. The French learning repository follows selected learning objectives, independently of product scope.
 
-~~For now, keep L2 and L3 in this file. Do not create execution parent issues or child tickets merely to represent these candidates.~~ *Amended 2026-11-21:* L2 and L3 are selected (see « Owner selection » above). Each gets its parent issue when it is next, L2 first. The drive starts their slices with an explicit `/drive #n` while #1 stays open for the owner and pilot reviews ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422)). In the current drive selector, an open parent titled L<n> can become executable once earlier work is closed. A future label or a native GitHub Milestone object is not an activation guard.
+~~For now, keep L2 and L3 in this file. Do not create execution parent issues or child tickets merely to represent these candidates.~~ *Amended 2026-11-21:* L2 and L3 are selected (see « Owner selection » above). Each gets its parent issue when it is next, L2 first. The drive starts their slices with an explicit `/drive #n` while #1 stays open for the owner's review and the engineer's walk ([D-031](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7058866422)). In the current drive selector, an open parent titled L<n> can become executable once earlier work is closed. A future label or a native GitHub Milestone object is not an activation guard.
 
-When the owner selects the next milestone, reconcile the proposal with pilot evidence, then create its parent issue with the outcome, scope, exclusions and observable acceptance. Define only the next slices that have enough evidence. Use the existing Blocked by: convention for execution dependencies. Let drive do the technical ticket decomposition.
+When the owner selects the next milestone, reconcile the proposal with the evidence of the engineer's walk, then create its parent issue with the outcome, scope, exclusions and observable acceptance. Define only the next slices that have enough evidence. Use the existing Blocked by: convention for execution dependencies. Let drive do the technical ticket decomposition.
 
 An optional GitHub Milestone object can group issues for display later. It is not an additional specification or a replacement for the parent issue that drive reads.
