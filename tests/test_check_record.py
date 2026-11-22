@@ -51,7 +51,7 @@ def complete_record() -> list:
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, ROW1),
         comment("## R9, round 2: Standards axis (review of record, `x`)"),
-        routing(2, "| B2-S-01 | 2 | Standards | a name | 1 | open | y |"),
+        routing(2, "| B2-S-01 | 2 | Standards | another name | 1 | open | y |"),
         comment("## R9: closing register", "B1-P-02 carried. B1-S-01 fixed. B2-S-01 fixed.\n"),
     ]
 
@@ -61,7 +61,7 @@ def documentation_record() -> list:
     record = [comment("## R9: state (updated in place)", "- **Review rounds used:** 5 of 5.\n")]
     for number in range(1, 6):
         record.append(comment(f"## R9, round {number}: Standards axis (review of record, `x`)"))
-        rows = ROW5 if number == 5 else f"| B{number}-S-01 | {number} | Standards | a name | 1 | open | y |"
+        rows = ROW5 if number == 5 else f"| B{number}-S-01 | {number} | Standards | the name of round {number} | 1 | open | y |"
         record.append(routing(number, rows))
     record.append(comment("## R9, round 5: Standards verification of the documentation fixes"))
     record.append(comment("## R9, round 5: Spec verification of the documentation fixes"))
@@ -103,6 +103,59 @@ def test_a_documentation_path_with_both_verifications_posted_is_complete():
 
 def test_a_slice_without_a_documentation_path_needs_no_verification():
     assert not any("verification" in p for p in problems(complete_record()))
+
+
+def two_round_record(first: str, second_rows: str, round_1_text: str = "", round_2_text: str = "") -> list:
+    """Two reviewed rounds of one Spec reader: round 1 routes B1-P-01 on `first` to row 1, round 2 routes `second_rows`."""
+    return [
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
+        comment("## R9, round 1: Spec axis (review of record, `x`)"),
+        {"id": 0, "body": routing(1, f"| B1-P-01 | 1 | Spec | {first} | 1 | open | x |")["body"] + round_1_text},
+        comment("## R9, round 2: Spec axis (review of record, `x`)"),
+        {"id": 0, "body": routing(2, second_rows)["body"] + round_2_text},
+        comment("## R9: closing register", "B1-P-01 fixed. B2-P-01 fixed.\n"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "key"),
+    [
+        ('#142 B: "a duplicate key is accepted"', '#142 Tightened B: "plus one accepted call"', "#142 B"),
+        ('`slice-builder.md`: "a test name says what the test checks"', '`slice-builder.md:11`: "a test name says what the test checks"', "`slice-builder.md`"),
+        ("`ml/imports.py:97-105`: a strict reader named loose", "`ml/imports.py:322`", "`ml/imports.py`"),
+    ],
+)
+def test_a_requirement_with_row_1_findings_in_two_rounds_and_no_structural_option_or_gate_line_is_refused(first, second, key):
+    record = two_round_record(first, f"| B2-P-01 | 2 | Spec | {second} | 1 | open | x |")
+    assert problems(record) == [
+        f"requirement {key!r} has row-1 findings in rounds 1, 2, and no routing comment of round 2 or later has a line "
+        f"'Structural option for {key}: ...' or 'Gate for {key}: D-nnn'"
+    ]
+
+
+@pytest.mark.parametrize("line", ["Structural option for #142 Tightened B: read the input once.", "### Structural option for #142 B: read the input once.", "- **Gate for #142 B: D-099**"])
+def test_a_structural_option_or_gate_line_in_the_routing_comment_of_the_second_round_clears_the_requirement(line):
+    rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1, documentation only | open | x |'
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', rows)) != []
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', rows, round_2_text=f"\n{line}\n")) == []
+
+
+def test_a_structural_option_line_in_a_round_before_the_second_does_not_clear_the_requirement():
+    rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1 | open | x |'
+    record = two_round_record('#142 B: "a duplicate key is accepted"', rows, round_1_text="\nStructural option for #142 B: read the input once.\n")
+    assert len(problems(record)) == 1 and "requirement '#142 B'" in problems(record)[0]
+
+
+def test_a_carried_row_counts_for_a_round_only_while_that_round_lists_it_in_row_1_and_unsettled():
+    carried = '| B1-P-01 | 1 | Spec | #142 B: "a duplicate key is accepted" | 1 | {status} | x |'
+    assert len(problems(two_round_record('#142 B: "a duplicate key is accepted"', carried.format(status="open")))) == 1
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried.format(status="fixed in 1a2b3c4"))) == []
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried.format(status="open").replace("| 1 | open", "| 4 | open"))) == []
+
+
+def test_requirements_with_different_keys_are_counted_apart():
+    rows = '| B2-P-01 | 2 | Spec | #143 B: "The order is defined once" | 1 | open | x |'
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', rows)) == []
 
 
 def test_a_missing_closing_register_is_refused():
