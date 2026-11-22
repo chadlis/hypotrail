@@ -2,7 +2,8 @@
 """PreToolUse hook before a merge (D-055 on chadlis/hypotrail#75, item 3). It fails closed: any error exits 2.
 
 It acts on the tool `mcp__github__merge_pull_request`, and on a Bash command that runs `gh pr merge` or
-`gh api .../pulls/<n>/merge`. The merge is refused (exit 2, the reasons on stderr) while any of these is missing
+`gh api -X PUT .../pulls/<n>/merge` (a GET of that path is no merge). The whole command string is searched: quoted text and heredoc
+bodies are not commands, and a merge behind `env`, `timeout`, `bash -c` or `eval` is found. A merge whose number cannot be read is refused. The merge is refused (exit 2, the reasons on stderr) while any of these is missing
 for the slice issue of the pull request:
 
 1. the state comment's round count (`Review rounds used: N of 5`) equals the number of rounds that have a review of record;
@@ -20,7 +21,6 @@ The slice issue is the one the squash subject ends with ("(#<n>)"), or the one t
 
 import json
 import re
-import shlex
 import subprocess
 import sys
 
@@ -120,57 +120,254 @@ def gh_pages(path: str) -> list:
     return [item for page in gh([path, "--paginate", "--slurp"]) for item in page]
 
 
-def merge_target(payload: dict):
-    """(repository, pull request number, squash subject) of the merge the tool call makes, or None when the call is no merge."""
+SEPARATORS = re.compile(r"&&|\|\||[;|\n()`]|(?<![<>])&(?!>)")
+SHELLS = ("bash", "sh", "zsh", "dash", "ksh")
+KEYWORDS = ("if", "then", "else", "elif", "do", "while", "until", "!", "{", "time", "command", "exec", "builtin", "nohup", "setsid", "sudo")
+GH_VALUE_FLAGS = ("-R", "--repo", "--hostname")
+API_VALUE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "-H", "--header", "--input", "-q", "--jq", "-t", "--template", "--cache", "--preview", "-p")
+MERGE_VALUE_FLAGS = ("-t", "--subject", "-b", "--body", "-F", "--body-file", "-A", "--author-email", "--match-head-commit")
+NUMBER_UNREADABLE = "name the pull request number"
+
+
+def masked(command: str) -> tuple:
+    """(the command with the text of quotes and heredoc bodies replaced by `_`, the command with only the heredoc bodies blanked).
+
+    The first is where the shell syntax is read, the second where the words are. The text of a `$(...)` inside double quotes stays live."""
+    out, blank, modes, pending, i = [], [], ["n"], [], 0
+    heredoc = re.compile(r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|\\?([\w.-]+))")
+    while i < len(command):
+        char, mode = command[i], modes[-1]
+        if char == "\\":
+            out.append("_" * len(command[i : i + 2]))
+            i += 2
+        elif mode == "dq" and char == '"':
+            modes.pop()
+            out.append(char)
+            i += 1
+        elif mode != "dq" and char == "'":
+            end = command.find("'", i + 1)
+            if end < 0:
+                out.append("'" + "_" * (len(command) - i - 1))
+                i = len(command)
+            else:
+                out.append("'" + "_" * (end - i - 1) + "'")
+                i = end + 1
+        elif mode != "dq" and char == '"':
+            modes.append("dq")
+            out.append(char)
+            i += 1
+        elif command.startswith("$(", i):
+            modes.append("cs")
+            out.append("$(")
+            i += 2
+        elif mode == "cs" and char == ")":
+            modes.pop()
+            out.append(char)
+            i += 1
+        elif mode == "dq":
+            out.append("_")
+            i += 1
+        elif command.startswith("<<", i) and not command.startswith("<<<", i) and heredoc.match(command, i):
+            found = heredoc.match(command, i)
+            pending.append((found.group(1) == "-", next(g for g in found.groups()[1:] if g is not None)))
+            out.append("<<" + "_" * (found.end() - i - 2))
+            i = found.end()
+        elif char == "\n" and pending:
+            out.append(char)
+            i += 1
+            for strip, delimiter in pending:
+                while i < len(command):
+                    end = command.find("\n", i)
+                    end = len(command) if end < 0 else end
+                    last = (command[i:end].lstrip("\t") if strip else command[i:end]).rstrip("\r") == delimiter
+                    out.append("_" * (end - i))
+                    blank.append((i, end))
+                    if end < len(command):
+                        out.append("\n" if last else "_")
+                    i = end + 1
+                    if last:
+                        break
+            pending = []
+        else:
+            out.append(char)
+            i += 1
+    live = list(command)
+    for start, end in blank:
+        live[start:end] = " " * (end - start)
+    return "".join(out), "".join(live)
+
+
+def words(text: str) -> list:
+    """The words of one simple command, quotes removed and redirections dropped. It never fails: an unterminated quote runs to the end."""
+    found, current, quote, started, i = [], [], None, False, 0
+    while i < len(text):
+        char = text[i]
+        if quote == "'":
+            if char == "'":
+                quote = None
+            else:
+                current.append(char)
+        elif quote == '"':
+            if char == '"':
+                quote = None
+            elif char == "\\" and i + 1 < len(text) and text[i + 1] in '"\\$`':
+                current.append(text[i + 1])
+                i += 1
+            else:
+                current.append(char)
+        elif char in "'\"":
+            quote, started = char, True
+        elif char == "\\" and i + 1 < len(text):
+            current.append(text[i + 1])
+            started = True
+            i += 1
+        elif char.isspace():
+            if started or current:
+                found.append("".join(current))
+            current, started = [], False
+        else:
+            current.append(char)
+        i += 1
+    if started or current:
+        found.append("".join(current))
+    return drop_redirections(found)
+
+
+def drop_redirections(found: list) -> list:
+    kept, skip = [], False
+    for word in found:
+        if skip:
+            skip = False
+        elif re.fullmatch(r"\d*(>>?|<)", word):
+            skip = True
+        elif not re.fullmatch(r"\d*(>>?|<|&>)&?\S*", word):
+            kept.append(word)
+    return kept
+
+
+def command_of(tokens: list) -> tuple:
+    """(the words from the command word on, the environment assignments before it): prefixes such as `env`, `timeout` and `nice` are skipped."""
+    assigned, i = {}, 0
+    while i < len(tokens):
+        token, name = tokens[i], tokens[i].rsplit("/", 1)[-1]
+        assignment = re.fullmatch(r"([A-Za-z_]\w*)=(.*)", token)
+        if assignment:
+            assigned[assignment.group(1)] = assignment.group(2)
+        elif name in KEYWORDS:
+            pass
+        elif name == "env":
+            while i + 1 < len(tokens) and (tokens[i + 1].startswith("-") or "=" in tokens[i + 1]):
+                i += 1
+                if tokens[i] in ("-u", "-C", "-S", "--unset", "--chdir"):
+                    i += 1
+                elif re.fullmatch(r"([A-Za-z_]\w*)=(.*)", tokens[i]):
+                    assigned[tokens[i].split("=", 1)[0]] = tokens[i].split("=", 1)[1]
+        elif name in ("timeout", "nice", "ionice", "stdbuf"):
+            while i + 1 < len(tokens) and tokens[i + 1].startswith("-"):
+                i += 1
+                if tokens[i] in ("-s", "-k", "-n", "-c", "-p", "--signal", "--kill-after", "--adjustment"):
+                    i += 1
+            if name == "timeout":
+                i += 1
+        else:
+            break
+        i += 1
+    return tokens[i:], assigned
+
+
+def merges_in(command: str, depth: int = 0) -> list:
+    """Every pull request merge that the command string makes, as (repository, number or None, subject or None)."""
+    found = []
+    mask, command = masked(command)
+    spans, last = [], 0
+    for separator in SEPARATORS.finditer(mask):
+        spans.append((last, separator.start()))
+        last = separator.end()
+    spans.append((last, len(mask)))
+    for start, end in spans:
+        tokens, assigned = command_of(words(command[start:end]))
+        if not tokens:
+            continue
+        name = tokens[0].rsplit("/", 1)[-1]
+        if depth < 4 and name in SHELLS:
+            flags = [i for i, t in enumerate(tokens[1:], 1) if t.startswith("-") and not t.startswith("--") and "c" in t]
+            if flags and flags[0] + 1 < len(tokens):
+                found += merges_in(tokens[flags[0] + 1], depth + 1)
+        elif depth < 4 and name == "eval":
+            found += merges_in(" ".join(tokens[1:]), depth + 1)
+        elif name == "gh":
+            merge = gh_merge(tokens[1:], assigned.get("GH_REPO"))
+            if merge:
+                found.append(merge)
+    return found
+
+
+def gh_merge(arguments: list, default_repo: str | None):
+    """(repository, number or None, subject or None) when the `gh` arguments merge a pull request, else None."""
+    repo, subject, positional, flags, i = default_repo, None, [], [], 0
+    while i < len(arguments):
+        word = arguments[i]
+        if word.startswith("--") and "=" in word:
+            flags.append(tuple(word.split("=", 1)))
+        elif word in GH_VALUE_FLAGS or (positional[:1] == ["api"] and word in API_VALUE_FLAGS) or (positional[:1] == ["pr"] and word in MERGE_VALUE_FLAGS):
+            flags.append((word, arguments[i + 1] if i + 1 < len(arguments) else ""))
+            i += 1
+        elif re.fullmatch(r"-[RX]\S+", word):
+            flags.append((word[:2], word[2:]))
+        elif word.startswith("-"):
+            flags.append((word, None))
+        else:
+            positional.append(word)
+        i += 1
+    for flag, value in flags:
+        if flag in ("-R", "--repo") and value:
+            repo = value
+    if positional[:2] == ["pr", "merge"]:
+        for flag, value in flags:
+            if flag in ("-t", "--subject"):
+                subject = value
+        target = positional[2] if len(positional) > 2 else ""
+        url = re.fullmatch(r"https?://[^/]+/([\w.-]+/[\w.-]+)/pull/(\d+)\S*", target)
+        if url:
+            return url.group(1), int(url.group(2)), subject
+        return repo or REPOSITORY, int(target) if target.isdigit() else None, subject
+    if positional[:1] == ["api"] and len(positional) > 1:
+        method = next((value for flag, value in flags if flag in ("-X", "--method")), "GET")
+        path = re.sub(r"[?#].*", "", positional[1]).lstrip("/")
+        match = re.fullmatch(r"repos/([^/]+/[^/]+)/pulls/([^/]+)/merge", path)
+        if match and (method or "").upper() == "PUT":
+            owner_repo = REPOSITORY if "{" in match.group(1) else match.group(1)
+            return owner_repo, int(match.group(2)) if match.group(2).isdigit() else None, None
+    return None
+
+
+def merge_targets(payload: dict) -> list:
+    """The merges the tool call makes, as (repository, pull request number or None, squash subject): none when the call is no merge."""
     tool, given = payload.get("tool_name"), payload.get("tool_input")
     if not isinstance(tool, str) or not isinstance(given, dict):
         raise Refusal("the hook input has no tool_name and tool_input")
     if tool == "mcp__github__merge_pull_request":
-        return f"{given['owner']}/{given['repo']}", int(given["pullNumber"]), given.get("commit_title")
+        return [(f"{given['owner']}/{given['repo']}", int(given["pullNumber"]), given.get("commit_title"))]
     if tool != "Bash":
-        return None
+        return []
     if not isinstance(given.get("command"), str):
         raise Refusal("the Bash input has no command")
-    for segment in re.split(r"&&|\|\||[;|&\n]", given["command"]):
-        match = re.search(r"^\s*(?:\w+=\S+\s+)*gh\s+api\b.*?repos/([\w.-]+/[\w.-]+)/pulls/(\d+)/merge\b", segment)
-        if match:
-            return match.group(1), int(match.group(2)), None
-        if re.search(r"^\s*(?:\w+=\S+\s+)*gh\s+pr\s+merge\b", segment):
-            words = shlex.split(segment)
-            words = words[words.index("merge") + 1:]
-            repo, subject, target, skip = REPOSITORY, None, None, False
-            for at, word in enumerate(words):
-                if skip:
-                    skip = False
-                elif word in ("-R", "--repo"):
-                    repo, skip = words[at + 1], True
-                elif word.startswith("--repo="):
-                    repo = word.split("=", 1)[1]
-                elif word in ("-t", "--subject"):
-                    subject, skip = words[at + 1], True
-                elif word.startswith("--subject="):
-                    subject = word.split("=", 1)[1]
-                elif word in ("-b", "--body", "-F", "--body-file", "-A", "--author-email", "--match-head-commit"):
-                    skip = True
-                elif not word.startswith("-") and target is None:
-                    target = word
-            number = re.search(r"(?:^|/pull/)(\d+)$", target or "")
-            if number:
-                return repo, int(number.group(1)), subject
-            argument = [target] if target else []
-            done = subprocess.run(["gh", "pr", "view", *argument, "-R", repo, "--json", "number", "--jq", ".number"], capture_output=True, text=True, timeout=60)
-            if done.returncode:
-                raise Refusal(f"cannot tell which pull request `gh pr merge` merges: {done.stderr.strip()}")
-            return repo, int(done.stdout), subject
-    return None
+    return merges_in(given["command"])
 
 
 def run(payload: dict) -> str | None:
     """None when the call is no merge or the record is complete; a note when the pull request is an apparatus one. Raises Refusal."""
-    target = merge_target(payload)
-    if target is None or target[0] != REPOSITORY:
-        return None
-    repo, number, subject = target
+    notes = []
+    for repo, number, subject in merge_targets(payload):
+        if repo != REPOSITORY:
+            continue
+        if number is None:
+            raise Refusal(f"{NUMBER_UNREADABLE}: the merge of a pull request of {repo} gives none that can be read")
+        notes.append(check(repo, number, subject))
+    return "\n".join(note for note in notes if note) or None
+
+
+def check(repo: str, number: int, subject: str | None) -> str | None:
     pull = gh([f"repos/{repo}/pulls/{number}"])
     files = [item["filename"] for item in gh_pages(f"repos/{repo}/pulls/{number}/files")]
     if is_apparatus(files):

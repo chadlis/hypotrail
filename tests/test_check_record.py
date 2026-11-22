@@ -17,9 +17,6 @@ FAKE_GH = f"""#!{sys.executable}
 import json, os, sys
 args = sys.argv[1:]
 directory = os.environ["FAKE_GH_DIR"]
-if args[:2] == ["pr", "view"]:
-    print(open(os.path.join(directory, "pr-view")).read().strip())
-    sys.exit(0)
 name = args[1].replace("/", "__")
 path = os.path.join(directory, name)
 if not os.path.exists(path):
@@ -168,7 +165,6 @@ def gh_dir(tmp_path):
     put(directory, "repos/chadlis/hypotrail/pulls/7", {"body": BODY})
     put(directory, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": "src/hypotrail/cli.py"}])
     put(directory, "repos/chadlis/hypotrail/issues/50/comments", complete_record())
-    (directory / "pr-view").write_text("7\n")
     return directory
 
 
@@ -267,3 +263,104 @@ def test_a_github_error_blocks_the_merge(gh_dir):
 def test_the_drive_skill_runs_the_record_check_in_the_merge_step():
     row = next(line for line in (ROOT / ".claude/skills/drive/SKILL.md").read_text().splitlines() if line.startswith("| 12 |"))
     assert "check_record.py" in row
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh api -X PUT "repos/{owner}/{repo}/pulls/7/merge"',
+        "gh api -XPUT repos/chadlis/hypotrail/pulls/7/merge",
+        "gh api --method PUT /repos/chadlis/hypotrail/pulls/7/merge -f merge_method=squash",
+        "gh api --method=put repos/chadlis/hypotrail/pulls/7/merge",
+        "gh -R chadlis/hypotrail pr merge 7 --squash",
+        "gh pr -R chadlis/hypotrail merge 7",
+        "gh pr merge --squash -Rchadlis/hypotrail 7",
+        "GH_REPO=chadlis/hypotrail gh pr merge 7",
+        "env GH_TOKEN=x gh pr merge 7 --squash",
+        "timeout 60 gh pr merge 7 --squash",
+        "timeout -s KILL 60 gh pr merge 7",
+        'bash -c "gh pr merge 7 --squash"',
+        "echo start; bash -lc 'cd /x && gh pr merge 7'",
+        'eval "gh pr merge 7"',
+        'echo "$(gh pr merge 7)"',
+        "(gh pr merge 7)",
+        "/usr/bin/gh pr merge 7 2>&1",
+    ],
+)
+def test_a_merge_is_found_wherever_the_flags_and_prefixes_sit(gh_dir, command):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
+    result = hook(gh_dir, bash(command))
+    assert result.returncode == 2 and "no closing register comment" in result.stderr
+
+
+def test_a_quoted_semicolon_or_ampersand_in_the_subject_does_not_hide_the_merge_or_its_subject(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "B1-P-02: the red runs"})
+    command = "gh pr merge 7 --squash --subject 'feat: a; b & c | d (#50)'"
+    assert hook(gh_dir, bash(command)).returncode == 0
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
+    assert hook(gh_dir, bash(command)).returncode == 2
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -F - <<'EOF'\nfeat: x\n\nThen run gh pr merge 7 --squash\nEOF",
+        "cat <<EOF > notes.md\ngh api -X PUT repos/chadlis/hypotrail/pulls/7/merge\nEOF\nls",
+        "cat <<-EOF\n\tgh pr merge 7\n\tEOF",
+        'git commit -m "docs: explain gh pr merge 7"',
+        "git commit -m 'gh pr merge 7; gh pr merge 8'",
+        "echo 'gh api -X PUT repos/chadlis/hypotrail/pulls/7/merge'",
+        "gh issue comment 5 --body 'gh pr merge 7'",
+    ],
+)
+def test_the_text_gh_pr_merge_inside_a_heredoc_body_or_a_quoted_message_is_not_a_merge(gh_dir, command):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", [])
+    result = hook(gh_dir, bash(command))
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+
+
+def test_a_command_after_a_heredoc_is_still_read(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
+    assert hook(gh_dir, bash("cat <<'EOF'\nnotes\nEOF\ngh pr merge 7")).returncode == 2
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh api repos/chadlis/hypotrail/pulls/7/merge",
+        "gh api -X GET repos/chadlis/hypotrail/pulls/7/merge",
+        "gh api --method GET repos/chadlis/hypotrail/pulls/7/merge --jq .merged",
+        "gh api repos/chadlis/hypotrail/pulls/7/files",
+    ],
+)
+def test_a_read_only_call_of_the_merge_path_is_not_a_merge(gh_dir, command):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", [])
+    result = hook(gh_dir, bash(command))
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge",
+        "gh pr merge --squash --delete-branch",
+        "gh pr merge my-branch --squash",
+        "gh api -X PUT repos/chadlis/hypotrail/pulls/$PR/merge",
+        "gh api -X PUT repos/chadlis/hypotrail/pulls/{number}/merge",
+    ],
+)
+def test_a_merge_whose_pull_request_number_cannot_be_read_is_refused(gh_dir, command):
+    result = hook(gh_dir, bash(command))
+    assert result.returncode == 2 and "name the pull request number" in result.stderr
+
+
+def test_a_merge_without_a_number_in_another_repository_is_not_checked(gh_dir):
+    assert hook(gh_dir, bash("gh pr merge -R someone/else --squash")).returncode == 0
+
+
+def test_every_merge_of_a_command_is_checked(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/8", {"body": "Part of #51."})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/8/files", [{"filename": "src/hypotrail/cli.py"}])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/51/comments", [])
+    result = hook(gh_dir, bash("gh pr merge 7 --squash && gh pr merge 8 --squash"))
+    assert result.returncode == 2 and "slice #51" in result.stderr
