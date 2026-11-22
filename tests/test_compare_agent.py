@@ -526,3 +526,38 @@ def test_an_import_against_a_native_side_and_two_imports_get_no_order_warning_on
         assert code == 0, (payload, err)
         codes = [w["code"] for w in payload["comparison"]["warnings"]]
         assert "COMPARISON_DESCRIPTIVE_IMPORT" in codes and ORDER not in codes, codes
+
+
+def test_the_warning_codes_of_the_two_comparison_modules_are_pairwise_different():
+    from _agent_compare_helpers import warning_codes
+
+    codes = warning_codes()
+    assert len(set(codes.values())) == len(codes), codes
+    assert set(codes.values()) >= {"COMPARISON_DESCRIPTIVE_IMPORT", "COMPARISON_FACTOR_NOT_ESTABLISHED", "COMPARISON_CASES_NOT_ESTABLISHED", ORDER}
+
+
+def two_blocks(tmp_path, study, prefix="seed", **candidate):
+    """(Control, Candidate) Assessments of two native Attempts built from two imports, so the Control finished before the Candidate started."""
+    seeds = [imported(tmp_path, study, f"{prefix}-{name}", answer_lines())[0] for name in ("a", "b")]
+    (_, control), (_, other) = native(study, seeds[0]), native(study, seeds[1], **candidate)
+    assert interval(study, control)[1] < interval(study, other)[0]
+    return control, other
+
+
+def test_a_native_pair_with_a_factor_not_established_holds_the_order_warning_with_the_factor_one(tmp_path, study):
+    control, candidate = two_blocks(tmp_path, study, tools=None)
+    code, payload, err = compare(study, control, candidate)
+    assert code == 0, (payload, err)
+    codes = [w["code"] for w in payload["comparison"]["warnings"]]
+    assert "COMPARISON_FACTOR_NOT_ESTABLISHED" in codes and ORDER in codes, codes
+
+
+def test_the_status_is_still_computed_from_the_checks_and_imports_alone_with_or_without_the_order_warning(tmp_path, study):
+    for options, status in (({}, "compatible"), ({"tools": None}, "descriptive_only")):
+        control, candidate = two_blocks(tmp_path, study, status, **options)
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        record = payload["comparison"]
+        failed = [c["check"] for c in record["comparability"]["checks"] if not c["passed"]]
+        assert ORDER in [w["code"] for w in record["warnings"]] and failed == ([] if status == "compatible" else ["tools"])
+        assert record["comparability"]["status"] == status, failed

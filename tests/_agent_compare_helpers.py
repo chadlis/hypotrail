@@ -1,5 +1,6 @@
 """Shared by the agent Comparison tests (#72): answers written elsewhere, imported and assessed, and native Attempts built by hand."""
 
+import ast
 import json
 import uuid
 from pathlib import Path
@@ -192,3 +193,14 @@ def compare(study, control, candidate, *more):
 def comparison_files(study):
     folder = Path(study) / "comparisons"
     return sorted(p.relative_to(study).as_posix() for p in folder.rglob("*") if p.is_file()) if folder.is_dir() else []
+
+
+def warning_codes() -> dict:
+    """{"module.NAME": code} of every `WARNING_*` constant that `core/comparison.py` and `core/agent_comparison.py` assign."""
+    core = Path(__file__).resolve().parent.parent / "src" / "hypotrail" / "core"
+    codes = {}
+    for name in ("comparison", "agent_comparison"):
+        for node in ast.parse((core / f"{name}.py").read_text(encoding="utf-8")).body:
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+                codes.update({f"{name}.{t.id}": node.value.value for t in node.targets if isinstance(t, ast.Name) and t.id.startswith("WARNING_")})
+    return codes
