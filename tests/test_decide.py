@@ -427,7 +427,7 @@ def test_status_json_gains_no_list_of_observation_sets_assessments_or_comparison
     made(study)
     code, payload, err = run_json("status", "--study", study)
     assert code == 0, err
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
     assert not {"observation_sets", "assessments", "comparisons"} & set(payload)
 
 

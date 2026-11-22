@@ -426,3 +426,28 @@ def test_a_held_id_of_each_kind_is_refused_as_a_kind_that_cannot_be_cited_but_an
     else:
         assert (code, outcome(payload)) == (2, NOT_CITABLE), (kind, payload)
         assert tree(study) == before and seq(study) == sequence
+
+
+# --- TB2.5: `status --json` lists each Declared deviation, whether it is withdrawn and by which one --------------------------------
+
+
+def test_status_lists_each_declared_deviation_with_its_fields_whether_it_is_withdrawn_and_the_id_that_withdrew_it_computed_at_read(study):
+    from _study_helpers import run_json
+
+    written, digests = [], []
+    for cited, text in (([attempt_of(study)], PENDING), ([references_id(study)], "a second one"), (None, "the review is done")):
+        written.append(declare(study, cited or [written[0]["declared_deviation_id"]], text=text))
+        digests.append(tree(study)[f"{FOLDER}/{files(study)[-1].name}"])  # the digest of each file when it was written
+    first, second, withdrawal = written
+    before, sequence = tree(study), seq(study)
+    code, payload, err = run_json("status", "--study", study)
+    assert code == 0, (payload, err)
+    rows = payload.get("declared_deviations")
+    assert isinstance(rows, list) and len(rows) == 3, rows
+    properties = set(contracts.schema()["$defs"]["DeclaredDeviationRecord"]["properties"])
+    assert not {"withdrawn", "withdrawn_by"} & properties  # neither is stored
+    assert all(set(row) == properties | {"withdrawn", "withdrawn_by"} for row in rows), rows
+    assert [{key: row[key] for key in properties} for row in rows] == [first, second, withdrawal]
+    assert [(row["withdrawn"], row["withdrawn_by"]) for row in rows] == [(True, withdrawal["declared_deviation_id"]), (False, None), (False, None)]
+    assert tree(study) == before and seq(study) == sequence
+    assert [tree(study)[f"{FOLDER}/{file.name}"] for file in files(study)] == digests

@@ -18,6 +18,9 @@ sequence value, `REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given,
 The request identity is the Study's one namespace (`hypotrail.core.requests`): the same `request_id` with the same text, author, source and
 cited ids returns the recorded Declared deviation and writes nothing; with another one, or when it names an Attempt or a decision, it is
 `REQUEST_CONFLICT`.
+
+`status` lists the Study's Declared deviations (`listing`), each with whether it is withdrawn and the id of the one that withdrew it, computed
+when the Study is read and never stored.
 """
 
 import uuid
@@ -120,6 +123,15 @@ def withdrawals(recorded: list) -> dict:
         if len(each["cited_ids"]) == 1 and each["cited_ids"][0] in ids:
             found.setdefault(each["cited_ids"][0], each["declared_deviation_id"])
     return found
+
+
+def listing(study) -> list:
+    """The Study's Declared deviations in the order they were recorded, each with every field of its record, `withdrawn` and `withdrawn_by` (read only)."""
+    recorded = records(study)
+    withdrawn = withdrawals(recorded)
+    return [
+        {**each, "withdrawn": each["declared_deviation_id"] in withdrawn, "withdrawn_by": withdrawn.get(each["declared_deviation_id"])} for each in recorded
+    ]
 
 
 def references_sets(study) -> dict:
