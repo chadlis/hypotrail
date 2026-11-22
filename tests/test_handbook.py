@@ -4614,7 +4614,8 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
 
     rows, _ = _history(tmp_path)
     keys = set(attrs_of(page, "decision-history-keys", "data-field"))
-    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons"}
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons", "evidence_change"}
+    assert len(keys) == 15
     assert all(set(row) == keys for row in rows)
 
 
@@ -4925,3 +4926,74 @@ def test_a_chapter_states_that_a_decision_citing_a_withdrawn_declared_deviation_
 def test_chapter_11_limit_that_a_compatible_comparison_can_hold_a_warning_names_the_declared_deviation_code_beside_the_order_code():
     invariant = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")).get("compatible-with-warning", "")
     assert "compatible" in invariant and "COMPARISON_ORDER_NOT_ALTERNATED" in invariant and "COMPARISON_DEVIATION_DECLARED" in invariant, invariant
+
+
+# --- #162: `evidence_change` in `status --json` (chapter 17) ---------------------------------------------------------------------------------
+
+# "The handbook maps the three to D-077's phrases "result changed", "evidence rescored" and "repeated, nothing changed"." (D-078 on chadlis/hypotrail#75, item 6)
+EVIDENCE_PHRASES = {"result_changed": "result changed", "evidence_rescored": "evidence rescored", "repeated": "repeated, nothing changed"}
+
+
+def _evidence_history(tmp_path):
+    """The Decision rows of a Bike Study whose three Decisions read the three states: a repeat, a rescore that changed no Item, a changed Item."""
+    from _assess_helpers import observation_set_id
+    from _review_helpers import TRACKS, decide, status
+    from _study_helpers import run_ml
+
+    track = TRACKS["bike"]
+    study, control, candidate, _ = track.compared(tmp_path / "base")
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "a-third-attempt")
+    assert code == 0, (payload, err)
+    third = track.assess_again(study, {"observation_set_id": observation_set_id(study, payload["attempt"])})
+    decisions = [decide(study, [assessment["assessment_id"]], request_id=f"d-{n}")["decision_id"] for n, assessment in enumerate((control, candidate, third))]
+    track.assess_again(study, control)  # a repeat
+    track.revise_no_assessed_item(study, tmp_path)
+    track.assess_again(study, candidate)  # rescored, no Item changed
+    track.revise_an_assessed_item(study, tmp_path)
+    track.assess_again(study, third)  # an Item changed
+    rows = {row["decision_id"]: row for row in status(study)["decisions"]}
+    return [rows[decision_id] for decision_id in decisions]
+
+
+def test_the_evidence_states_table_lists_the_three_states_status_gives_each_with_its_phrase(page, tmp_path):
+    rows = attrs_of(page, "evidence-states", "data-code")
+    given = [row["evidence_change"]["state"] for row in _evidence_history(tmp_path)]
+    assert given == ["repeated", "evidence_rescored", "result_changed"]
+    assert set(rows) == set(given) == set(EVIDENCE_PHRASES)
+    for code, row in rows.items():
+        assert row["data-phrase"] == EVIDENCE_PHRASES[code], code
+
+
+def evidence_key_rows(page) -> dict:
+    """{the object a row is about: its keys} of the table `evidence-keys`, each row carrying `data-field` and `data-of`."""
+    table = re.search(r'<table[^>]*id="evidence-keys".*?</table>', page, re.S)[0]
+    found: dict = {}
+    for attributes in re.findall(r"<tr ([^>]*data-field[^>]*)>", table):
+        values = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', attributes))
+        found.setdefault(values["of"], set()).add(values["field"])
+    return found
+
+
+def test_the_evidence_keys_table_lists_the_keys_of_evidence_change_of_a_line_and_of_a_metrics_entry(page, tmp_path):
+    change = next(row["evidence_change"] for row in _evidence_history(tmp_path) if row["evidence_change"]["state"] == "result_changed")
+    assert evidence_key_rows(page) == {"evidence_change": set(change), "line": set(change["lines"][0]), "metrics": set(change["lines"][0]["metrics"][0])}
+    assert (len(change), len(change["lines"][0]), len(change["lines"][0]["metrics"][0])) == (2, 7, 3)
+
+
+def test_chapter_17_has_a_limit_card_that_a_later_assessment_without_rescoring_counts_as_a_repeat():
+    card = chapter_17_limit("no-rescoring-is-a-repeat")
+    assert "rescoring" in card and "repeat" in card, card
+
+
+def test_chapter_17_has_a_limit_card_that_names_the_two_causes_of_a_null_latest():
+    card = chapter_17_limit("latest-null-two-causes")
+    assert "latest" in card and "holds no Metric" in card and "value is null" in card, card
+
+
+@pytest.mark.parametrize("word", ["label", "evidence", "line", "anchor", "reached"])
+def test_chapter_17_defines_in_bold_each_word_of_the_evidence_change_it_uses(word):
+    chapter = chapter_text("17-decisions.html")
+    if not re.search(rf"\b{word}\b", plain_text(chapter), re.I):
+        return
+    sentences = [s for s in re.split(r"(?<=[.])\s+", chapter) if re.search(rf"<b>{word}</b>", s, re.I)]
+    assert len(sentences) == 1, (word, sentences)

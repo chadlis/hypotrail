@@ -2471,6 +2471,7 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <tr data-field="write_sequence"><td><code>write_sequence</code></td><td>The record's own field.</td></tr>
 <tr data-field="applies"><td><code>applies</code></td><td>True when none of the conditions below holds. Computed when <code>status</code> reads the Study.</td></tr>
 <tr data-field="reasons"><td><code>reasons</code></td><td>A list of <code>{"reason", "id"}</code>, one for each condition that holds (a Decision with two causes lists both); <code>[]</code> when the Decision applies.</td></tr>
+<tr data-field="evidence_change"><td><code>evidence_change</code></td><td>What happened to the Decision's evidence since: null when no Assessment it cites or reaches has a later Assessment, otherwise an object with the keys of the table of evidence keys below. Computed when <code>status</code> reads the Study.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">When a Decision still applies</p>
@@ -2486,6 +2487,32 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <tr data-reason="assessment_superseded"><td><code>assessment_superseded</code></td><td>A cited Assessment has a later Assessment of the same Observation set and Scorer id.</td><td>The later Assessment's id.</td></tr>
 <tr data-reason="compared_assessment_superseded"><td><code>compared_assessment_superseded</code></td><td>An Assessment that a cited Comparison names, its Control or its Candidate, has a later Assessment of the same Observation set and Scorer id.</td><td>The latest later Assessment's id.</td></tr>
 <tr data-reason="compared_assessment_not_held"><td><code>compared_assessment_not_held</code></td><td>An Assessment that a cited Comparison names is not held by the Study.</td><td>The id of the Assessment not held.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">What happened to the evidence</p>
+<div class="prose">
+<p>The <b>evidence</b> of a Decision is the Assessments it cites and the Assessments it has <b>reached</b>, an Assessment being reached when a cited Comparison names it, by the hop above. When some of them have later Assessments, <code>status --json</code> says what happened to the evidence since, in the last key of the history table, and leaves whether the Decision applies as the rule above gives it: a repeat still makes a Decision outdated, and the state is what says that nothing changed.</p>
+<p>One <b>line</b> is given per Assessment of the evidence that has a later Assessment of the same Observation set and Scorer id, and that Assessment is the line's <b>anchor</b>. The lines come in the order in which the cited ids first reach their anchors: a cited Assessment at its own id, a cited Comparison's Control before its Candidate. A line names the first cited Comparison that names its anchor, with the anchor's role in it, or none when the anchor is only cited directly. A side that the Study does not hold gives no line. The state of a line is read from the later Assessments of its anchor, and the state of the whole is the strongest of its lines, in the order of the table of states.</p>
+<p>A later Assessment counts as rescored or changed only when the earlier Assessment its rescoring names is the anchor or one later than it; otherwise it counts as a repeat. A new Assessment names as earlier the latest one that differs from it (<a href="#revisions-rescoring">chapter 10</a>), which can be older than the anchor: assessed again on a corrected References set, an Observation set names its Assessment on the set before the correction, and the Items it lists as changed did not change since the anchor. The count of changed Items counts each Item once, however many of its Criteria changed. A line gives the Metric values of the anchor and of the latest later Assessment as their records hold them; no difference of the two is computed, and the Comparison is not updated.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="evidence-states"><thead><tr><th>State</th><th>Phrase</th><th>When, over the later Assessments of the anchor</th></tr></thead><tbody>
+<tr data-code="result_changed" data-phrase="result changed"><td><code>result_changed</code></td><td>"result changed"</td><td>At least one counts and changed an Item.</td></tr>
+<tr data-code="evidence_rescored" data-phrase="evidence rescored"><td><code>evidence_rescored</code></td><td>"evidence rescored"</td><td>At least one counts, and none that counts changed an Item.</td></tr>
+<tr data-code="repeated" data-phrase="repeated, nothing changed"><td><code>repeated</code></td><td>"repeated, nothing changed"</td><td>None counts.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="evidence-keys"><thead><tr><th>Key</th><th>Of</th><th>Meaning</th></tr></thead><tbody>
+<tr data-field="state" data-of="evidence_change"><td><code>state</code></td><td>the object</td><td>The strongest state of its lines.</td></tr>
+<tr data-field="lines" data-of="evidence_change"><td><code>lines</code></td><td>the object</td><td>The lines, at least one.</td></tr>
+<tr data-field="assessment_id" data-of="line"><td><code>assessment_id</code></td><td>a line</td><td>The anchor.</td></tr>
+<tr data-field="comparison_id" data-of="line"><td><code>comparison_id</code></td><td>a line</td><td>The first cited Comparison, in the order of the cited ids, that names the anchor; null when the anchor is only cited directly.</td></tr>
+<tr data-field="role" data-of="line"><td><code>role</code></td><td>a line</td><td><code>control</code> or <code>candidate</code>, the anchor's role in that Comparison (its left and right Assessments when the record names no roles); null with no Comparison.</td></tr>
+<tr data-field="latest_assessment_id" data-of="line"><td><code>latest_assessment_id</code></td><td>a line</td><td>The latest later Assessment of the anchor.</td></tr>
+<tr data-field="state" data-of="line"><td><code>state</code></td><td>a line</td><td>One of the table of states.</td></tr>
+<tr data-field="changed_item_count" data-of="line"><td><code>changed_item_count</code></td><td>a line</td><td>The number of distinct Items that the later Assessments that count list as changed; 0 when none counts.</td></tr>
+<tr data-field="metrics" data-of="line"><td><code>metrics</code></td><td>a line</td><td>One entry per Metric of the anchor's record, in its order.</td></tr>
+<tr data-field="id" data-of="metrics"><td><code>id</code></td><td>an entry of <code>metrics</code></td><td>The Metric's id.</td></tr>
+<tr data-field="cited" data-of="metrics"><td><code>cited</code></td><td>an entry of <code>metrics</code></td><td>The Metric's value in the anchor's record.</td></tr>
+<tr data-field="latest" data-of="metrics"><td><code>latest</code></td><td>an entry of <code>metrics</code></td><td>The value of the Metric of that id in the latest later Assessment's record, or null.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">The Study on disk</p>
@@ -2573,6 +2600,8 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <div class="card" data-limit="redo-is-a-new-declaration" style="--c:var(--violet)"><h3>Withdrawn stays withdrawn</h3><p>No Declared deviation may cite a withdrawal, so a declaration once withdrawn stays withdrawn. To declare it again, record a new declaration: it gets a new ID, and covers its sides like any other.</p></div>
 <div class="card" data-limit="departure-from-inspect" style="--c:var(--gold)"><h3>Not Inspect's invalidation</h3><p>Inspect records a change to a log as an appended update with its author, reason and time, and keeps the values as written; a Declared deviation follows that shape in a record of the Study. It departs on the withdrawal: Inspect's <code>uninvalidate_samples</code> (pinned <code>inspect-ai==0.3.287</code>) clears a sample's invalidation in the log, where a withdrawal is a later record that nothing undoes, beside the declaration it withdraws.</p></div>
 <div class="card" data-limit="withdrawal-keeps-decisions-applying" style="--c:var(--coral)"><h3>A withdrawal changes no Decision</h3><p>A Decision that cites a Declared deviation still applies once that Declared deviation is withdrawn: a withdrawn one is still held by the Study, and no reason of the table above names it.</p></div>
+<div class="card" data-limit="no-rescoring-is-a-repeat" style="--c:var(--teal)"><h3>A record without rescoring is a repeat</h3><p>A later Assessment whose record holds no <code>rescoring</code> key counts as a repeat, as one whose <code>rescoring</code> is null does: what it changed cannot be read from its record.</p></div>
+<div class="card" data-limit="latest-null-two-causes" style="--c:var(--amber)"><h3>A null latest value has two causes</h3><p>The latest value of a Metric in a line is null either because the latest record holds no Metric of that id or because the Metric's value is null in it. The listing of Assessments holds the whole Metric, with its status and its reason.</p></div>
 <div class="card" style="--c:var(--sky)"><h3>A Decision is not an Exposure</h3><p>Recording a Decision reads no <code>public_check</code> Item and writes no freeze record or journal entry of the Exposure journal. It cites ids; it does not show what they hold.</p></div>
 </div>
 

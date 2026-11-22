@@ -33,6 +33,13 @@ The rule follows a cited Comparison one hop, to its two Assessments, the Control
 `compared_assessment_superseded`, its `id` the latest of the later ones, and one the Study does not hold gives `compared_assessment_not_held`, its
 `id` the missing Assessment. Each Assessment reached gives one entry at most, at the first cited Comparison that names it, in the order of
 `cited_ids`; these entries come after those of the three reasons above. The hop starts from a cited Comparison only and goes no further.
+
+Each decision also gets `evidence_change`, what happened to its evidence since: null when no Assessment it cites or reaches has a later Assessment,
+otherwise `{state, lines}`, one line per such Assessment (its anchor), in the order of first appearance through `cited_ids`. The `state` of a line is
+`result_changed` when a later Assessment that counts changed an Item, `evidence_rescored` when one counts and none changed an Item, and `repeated`
+otherwise; a later Assessment counts only when its `rescoring.earlier_assessment_id` is the anchor or an Assessment later than it (`_counts`). The
+`state` of `evidence_change` is the strongest of its lines. A line shows the Metric values of the anchor and of the latest later Assessment as their
+records hold them, and no difference of the two.
 """
 
 import contextlib
@@ -52,6 +59,9 @@ CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED = "cited_id_not_held"
 COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD = "compared_assessment_superseded", "compared_assessment_not_held"
 # "A constant in `core/decisions.py` lists the reason codes." (D-078 on chadlis/hypotrail#75, item 4)
 REASON_CODES = (CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD)
+RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED = "result_changed", "evidence_rescored", "repeated"
+# the states of `evidence_change`, the strongest first
+EVIDENCE_STATES = (RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED)
 
 
 def records(study) -> list:
@@ -135,8 +145,59 @@ def _reasons(record: dict, *, held: set, revision: str, assessments: dict, compa
     return reasons
 
 
+def _counts(later: dict, anchor: dict, assessments: dict, order) -> bool:
+    """Whether `later` counts as rescored or changed for the line of `anchor`: its `rescoring` names the anchor or an Assessment later than it.
+
+    A `rescoring` that is null, or absent from the record, or that names an earlier Assessment or one the Study does not hold, counts as a repeat.
+    """
+    rescoring = later.get("rescoring")
+    if rescoring is None:
+        return False
+    earlier = assessments.get(rescoring["earlier_assessment_id"])
+    return earlier is not None and (earlier["assessment_id"] == anchor["assessment_id"] or order(earlier) > order(anchor))
+
+
+def _line(anchor: dict, comparison_id, role, later: list, assessments: dict, order) -> dict:
+    counted = [other for other in later if _counts(other, anchor, assessments, order)]
+    changed = [other for other in counted if other["rescoring"]["changed_items"]]
+    latest = max(later, key=order)
+    latest_values = {metric["id"]: metric["value"] for metric in latest["metrics"]}
+    return {
+        "assessment_id": anchor["assessment_id"],
+        "comparison_id": comparison_id,
+        "role": role,
+        "latest_assessment_id": latest["assessment_id"],
+        "state": RESULT_CHANGED if changed else EVIDENCE_RESCORED if counted else REPEATED,
+        "changed_item_count": len({item["item_id"] for other in changed for item in other["rescoring"]["changed_items"]}),
+        "metrics": [{"id": metric["id"], "cited": metric["value"], "latest": latest_values.get(metric["id"])} for metric in anchor["metrics"]],
+    }
+
+
+def _evidence_change(record: dict, *, assessments: dict, comparisons: dict, order, **_) -> dict | None:
+    """What happened to the evidence of `record` since: `{state, lines}`, or None when no Assessment it cites or reaches has a later Assessment."""
+    reached = {}  # the first cited Comparison that names each Assessment, and the role it names it in
+    for cited in record["cited_ids"]:
+        if cited in comparisons:
+            for role, assessment_id in sides(comparisons[cited]):
+                reached.setdefault(assessment_id, (cited, role))
+    anchors = []  # in the order of first appearance through `cited_ids`
+    for cited in record["cited_ids"]:
+        for assessment_id in [assessment_id for _, assessment_id in sides(comparisons[cited])] if cited in comparisons else [cited]:
+            if assessment_id in assessments and assessment_id not in anchors:
+                anchors.append(assessment_id)
+    lines = []
+    for assessment_id in anchors:
+        anchor = assessments[assessment_id]
+        later = _later(anchor, assessments, order)
+        if later:
+            lines.append(_line(anchor, *reached.get(assessment_id, (None, None)), later, assessments, order))
+    if not lines:
+        return None
+    return {"state": min((line["state"] for line in lines), key=EVIDENCE_STATES.index), "lines": lines}
+
+
 def history(study) -> list:
-    """The Study's decisions in the order they were recorded, each with every field `decide` recorded, `applies` and `reasons` (read only)."""
+    """The Study's decisions in the order they were recorded, each with every field `decide` recorded, `applies`, `reasons` and `evidence_change` (read only)."""
     study = Path(study)
     recorded = records(study)
     if not recorded:
@@ -151,7 +212,7 @@ def history(study) -> list:
     rows = []
     for record in recorded:
         reasons = _reasons(record, **shared)
-        rows.append({**record, "applies": not reasons, "reasons": reasons})
+        rows.append({**record, "applies": not reasons, "reasons": reasons, "evidence_change": _evidence_change(record, **shared)})
     return rows
 
 

@@ -159,10 +159,10 @@ def test_a_study_with_no_decision_lists_none(study):
 # --- criterion 2, Tightened A, C, E, F, H, I: whether a decision still applies --------------------------------------------
 
 
-def test_a_decision_that_applies_has_no_reason_and_the_row_holds_the_record_and_two_keys(study, ids):
+def test_a_decision_that_applies_has_no_reason_and_the_row_holds_the_record_and_three_keys(study, ids):
     record = decide(study, [ids["assessment"]], request_id="d-1")
     (row,) = listed(study)
-    assert set(row) == set(record) | {"applies", "reasons"}
+    assert set(row) == set(record) | {"applies", "reasons", "evidence_change"}
     assert (row["applies"], row["reasons"]) == (True, [])
 
 
