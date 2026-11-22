@@ -129,3 +129,30 @@ def test_the_rewritten_command_runs_with_the_key_unset():
     ran = subprocess.run(["bash", "-c", new_command], capture_output=True, text=True, env=env)
     assert ran.stdout == "key=[unset]\n"
     assert dummy not in ran.stdout + ran.stderr
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --locked --all-extras pytest",
+        "pytest -q tests/test_x.py",
+        "cd /x && uv run python -m pytest",
+        "uv run pytest tests/ 2>&1 | tail -3",
+    ],
+)
+def test_a_command_that_runs_pytest_gets_ten_minutes_in_the_foreground(command):
+    result = run_command(command, description="suite", timeout=120000, run_in_background=True)
+    updated = rewritten(result)["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (600000, False)
+    assert updated["command"] == UNSET + "\n" + command and updated["description"] == "suite"
+
+
+def test_a_pytest_command_with_no_timeout_or_background_field_gets_both():
+    updated = rewritten(run_command("uv run pytest"))["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (600000, False)
+
+
+@pytest.mark.parametrize("command", ["ls .pytest_cache", "cat tests/test_pytest_hook.py", "echo pytest-cov", "uv run python -m hypotrail --help"])
+def test_a_command_that_does_not_run_pytest_keeps_its_timeout_and_background_fields(command):
+    updated = rewritten(run_command(command, timeout=5000, run_in_background=True))["updatedInput"]
+    assert (updated["timeout"], updated["run_in_background"]) == (5000, True)
