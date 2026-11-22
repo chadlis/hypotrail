@@ -156,3 +156,27 @@ def test_a_pytest_command_with_no_timeout_or_background_field_gets_both():
 def test_a_command_that_does_not_run_pytest_keeps_its_timeout_and_background_fields(command):
     updated = rewritten(run_command(command, timeout=5000, run_in_background=True))["updatedInput"]
     assert (updated["timeout"], updated["run_in_background"]) == (5000, True)
+
+
+def _hook_commands():
+    entries = json.loads(SETTINGS.read_text())["hooks"]["PreToolUse"]
+    return [(entry["matcher"], hook["command"]) for entry in entries for hook in entry["hooks"]]
+
+
+def test_every_hook_command_of_the_settings_runs_through_a_shell_as_written():
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT)}
+    for matcher, command in _hook_commands():
+        if matcher != "Bash" or "no-live-key.sh" not in command:
+            continue
+        result = subprocess.run(["sh", "-c", command], input=payload, capture_output=True, text=True, env=env)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)["hookSpecificOutput"]["updatedInput"]["command"] == UNSET + "\nls"
+
+
+def test_a_script_that_the_settings_call_directly_is_executable_in_git():
+    called = [command.split('"')[2].lstrip("/") for _, command in _hook_commands() if command.startswith('"$CLAUDE_PROJECT_DIR"')]
+    assert ".claude/hooks/no-live-key.sh" in called
+    listing = subprocess.run(["git", "ls-files", "-s", "--", *called], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    modes = {line.split("\t")[1]: line.split()[0] for line in listing.splitlines()}
+    assert modes == {path: "100755" for path in called}
