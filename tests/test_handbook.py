@@ -1677,6 +1677,29 @@ def test_the_revision_field_tables_equal_what_a_revision_adds_to_the_study_spec_
     assert second["revision_number"] == 2 and second["previous_revision"] is not None
 
 
+def command_forms(chapter):
+    """The text of the `INVALID_ARGUMENTS` row of a table, and the `hypotrail ...` forms its `code` elements give (`<command>` written out)."""
+    row = re.search(r'<tr data-code="INVALID_ARGUMENTS".*?</tr>', (HANDBOOK / "chapters" / chapter).read_text(encoding="utf-8"), re.S)[0]
+    return plain_text(row), [html.unescape(form) for form in re.findall(r"<code>(hypotrail[^<]*)</code>", row)]
+
+
+def test_the_invalid_arguments_rows_of_chapters_04_and_10_give_the_command_forms_the_code_gives_and_no_other_text_holds_one(tmp_path):
+    from _study_helpers import run_json
+
+    text, forms = command_forms("04-study-and-attempts.html")
+    assert forms == ["hypotrail <command>", "hypotrail"] and "unknown flag" in text
+    assert run_json("status")[1]["error"]["details"]["command"] == forms[0].replace("<command>", "status")
+    assert run_json("status", "--study", tmp_path / "x", "--bogus")[1]["error"]["details"]["command"] == forms[1]
+    _, forms10 = command_forms("10-revisions-and-rescoring.html")
+    assert forms10 == ["hypotrail <command>"]
+    study = tmp_path / "none"
+    for arguments in (["--new-revision", "--workload", "chinook"], []):
+        details = run_json("init", "--study", study, *arguments)[1]["error"]["details"]
+        assert details["command"] == forms10[0].replace("<command>", "init")
+    for chapter in ("04-study-and-attempts.html", "10-revisions-and-rescoring.html"):
+        assert html.unescape(plain_chapter(chapter)).count("hypotrail <command>") == 1, chapter
+
+
 def test_the_revision_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
     from _chinook_helpers import init_chinook
     from _revision_helpers import new_revision

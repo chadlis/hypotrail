@@ -12,6 +12,7 @@ import tomllib
 from pathlib import Path
 
 from _architecture import SOURCE, calls, imports, parse_all
+from _study_helpers import run_json
 
 PACKAGE = "hypotrail"
 
@@ -480,3 +481,68 @@ def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path)
         "hypotrail/agentic/imports.py": "from json import load as ld\n\ndef g(handle):\n    return ld(handle)\n",
     })
     assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]
+
+
+# --- every `INVALID_ARGUMENTS` refusal gives `details.command` as `hypotrail <command>`, with two carve-outs ---------------------
+
+INVALID_INPUT_ERROR = "hypotrail.core.errors.InvalidInputError"
+
+# Each function under `src/` that raises `INVALID_ARGUMENTS`, with the number of such calls and how it gives `details.command`.
+INVALID_ARGUMENTS_BUILDERS = {
+    "hypotrail.cli:_ArgumentParser.error": (
+        1,
+        "self.prog: `hypotrail <command>` for the subparser of a command (a missing flag); `hypotrail` for the top-level parser, which gives it when no command was "
+        "given and when an unknown flag was given to a command (argparse refuses it at the top level after the subparser has parsed the known arguments)",
+    ),
+    "hypotrail.core.study_write:invalid_arguments": (1, 'f"hypotrail {command}"'),
+    "hypotrail.cli:_init": (2, '"hypotrail init"'),
+    "hypotrail.cli:_new_revision": (1, '"hypotrail init"'),
+}
+
+
+def invalid_arguments_builders(trees: dict) -> dict:
+    """{`module:function`: the number of its calls of `InvalidInputError` whose first argument is the literal "INVALID_ARGUMENTS"}.
+
+    The conventions that bound it: a call whose first argument is the literal code, resolved through the names the module imports or assigns. A code held in a variable
+    or an error built through another function is outside it; no code under `src/` does that, and a planted one is a stated limit of this test.
+    """
+    found: dict = {}
+    for site in calls(trees):
+        first = site.node.args[0] if site.node.args else None
+        if site.callee == INVALID_INPUT_ERROR and isinstance(first, ast.Constant) and first.value == "INVALID_ARGUMENTS":
+            found[site.owner] = found.get(site.owner, 0) + 1
+    return found
+
+
+def test_the_functions_that_raise_invalid_arguments_are_the_listed_builders_and_each_gives_hypotrail_command(tmp_path):
+    found = invalid_arguments_builders(parse_all(SOURCE))
+    assert found == {name: count for name, (count, _) in INVALID_ARGUMENTS_BUILDERS.items()}
+
+
+def test_a_function_that_raises_invalid_arguments_through_an_alias_is_found_in_a_planted_tree(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/cli.py": "from hypotrail.core.errors import InvalidInputError as E\n\ndef f():\n    raise E('INVALID_ARGUMENTS', 'm', details={'command': 'init'})\n",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/errors.py": "class InvalidInputError(Exception): pass\n",
+    })
+    assert invalid_arguments_builders(parse_all(root)) == {"hypotrail.cli:f": 1}
+
+
+def test_the_command_of_each_invalid_arguments_refusal_is_hypotrail_command_except_when_no_command_or_an_unknown_flag_was_given(tmp_path):
+    none = tmp_path / "none"
+    runs = {
+        "a missing flag": (["assess"], "hypotrail assess"),
+        "no command was given": ([], "hypotrail"),
+        "an unknown flag was given to a command": (["status", "--study", "/x", "--bogus"], "hypotrail"),
+        "init with a read sequence for a new Study": (["init", "--study", none, "--workload", "chinook", "--read-sequence", "0"], "hypotrail init"),
+        "init with neither a Workload nor a new revision": (["init", "--study", none], "hypotrail init"),
+        "init with a new revision and a Workload": (["init", "--study", none, "--new-revision", "--workload", "chinook"], "hypotrail init"),
+    }
+    gave = {}
+    for case, (arguments, _) in runs.items():
+        code, payload, _ = run_json(*arguments)
+        assert (code, payload["error"]["code"]) == (2, "INVALID_ARGUMENTS"), case
+        gave[case] = payload["error"]["details"]["command"]
+    assert gave == {case: command for case, (_, command) in runs.items()}
+    assert not none.exists()
