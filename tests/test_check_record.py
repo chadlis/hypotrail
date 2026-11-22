@@ -133,7 +133,7 @@ def test_a_requirement_with_row_1_findings_in_two_rounds_and_no_structural_optio
     ]
 
 
-@pytest.mark.parametrize("line", ["Structural option for #142 Tightened B: read the input once.", "### Structural option for #142 B: read the input once.", "- **Gate for #142 B: D-099**"])
+@pytest.mark.parametrize("line", ["Structural option for #142 Tightened B: read the input once.", "### Structural option for #142 B: read the input once.", "- **Gate for #142 B: D-099 on chadlis/hypotrail#75**"])
 def test_a_structural_option_or_gate_line_in_the_routing_comment_of_the_second_round_clears_the_requirement(line):
     rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1, documentation only | open | x |'
     assert problems(two_round_record('#142 B: "a duplicate key is accepted"', rows)) != []
