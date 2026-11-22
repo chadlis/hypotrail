@@ -119,8 +119,28 @@ def test_a_closing_register_that_leaves_out_an_assigned_finding_id_is_refused():
 def test_a_promised_line_that_the_pr_body_does_not_name_is_refused_unless_the_finding_is_settled():
     assert problems(complete_record(), body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
     record = complete_record()
-    record[3] = routing(1, ROW1.replace("| open | x |", "| refuted | x |"))
+    record[-1] = comment("## R9: closing register", "B1-P-02 refuted. B1-S-01 fixed. B2-S-01 fixed.\n")
     assert problems(record, body="Slice R9 (#50).\n") == []
+
+
+def test_a_row_the_closing_register_settles_is_no_longer_promised_to_the_pr_body():
+    record = complete_record()
+    assert record[3]["body"].count("| open |") == 2
+    record[-1] = comment("## R9: closing register", "B1-P-02 fixed. B1-S-01 fixed. B2-S-01 fixed.\n")
+    assert problems(record, body="Slice R9 (#50).\n") == []
+
+
+def test_a_row_the_closing_register_leaves_open_is_still_promised_to_the_pr_body_even_if_the_routing_row_said_fixed():
+    record = complete_record()
+    record[3] = routing(1, ROW1.replace("| open | x |", "| fixed | x |"))
+    assert problems(record, body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
+
+
+def test_the_skill_names_the_comment_forms_the_check_reads():
+    skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
+    forms = ["## <slice>, round <r>: routing", "## <slice>, round <r>: <axis> verification"]
+    assert all(form in skill for form in forms)
+    assert "one verification comment per reader" in skill
 
 
 def test_a_slice_with_no_review_of_record_is_refused():
@@ -142,16 +162,19 @@ def test_the_slice_issue_comes_from_the_squash_subject_or_the_pr_body(body, subj
 
 
 @pytest.mark.parametrize(
-    ("files", "apparatus"),
+    ("title", "files", "apparatus"),
     [
-        ([".claude/skills/drive/SKILL.md", "AGENTS.md", "CLAUDE.md", "docs/agents/domain.md", "scripts/x.sh"], True),
-        ([".claude/settings.json", "src/hypotrail/cli.py"], False),
-        (["README.md"], False),
-        ([], False),
+        ("drive: tighten the hooks", [".claude/skills/drive/SKILL.md", "AGENTS.md", "tests/test_x.py", "README.md"], True),
+        ("drive: tighten the hooks", [], True),
+        ("drive: tighten the hooks", [".claude/settings.json", "src/hypotrail/cli.py"], False),
+        ("drive: tighten the hooks", ["examples/chinook/task.json"], False),
+        ("feat: a slice (#50)", [".claude/settings.json", "AGENTS.md"], False),
+        ("Drive: tighten the hooks", ["AGENTS.md"], False),
+        ("", ["AGENTS.md"], False),
     ],
 )
-def test_a_pull_request_that_touches_only_the_apparatus_is_an_apparatus_pull_request(files, apparatus):
-    assert load("check_record").is_apparatus(files) is apparatus
+def test_a_pull_request_titled_drive_that_changes_nothing_under_src_or_examples_is_an_apparatus_pull_request(title, files, apparatus):
+    assert load("check_record").is_apparatus(title, files) is apparatus
 
 
 @pytest.fixture
@@ -231,11 +254,11 @@ def test_a_merge_in_another_repository_is_not_checked(gh_dir):
 
 
 def test_an_apparatus_pull_request_is_let_through_with_a_note(gh_dir):
-    put(gh_dir, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": ".claude/settings.json"}, {"filename": "AGENTS.md"}])
-    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "no slice here"})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": ".claude/settings.json"}, {"filename": "tests/test_x.py"}])
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"title": "drive: the hooks", "body": "no slice here"})
     result = hook(gh_dir, merge_tool())
     context = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
-    assert result.returncode == 0 and "touches only the apparatus" in context
+    assert result.returncode == 0 and "apparatus pull request" in context
 
 
 def test_a_pull_request_that_names_no_slice_issue_is_blocked(gh_dir):

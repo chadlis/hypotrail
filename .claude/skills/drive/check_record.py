@@ -13,11 +13,12 @@ for the slice issue of the pull request:
    "round <r>: <axis> verification" comment (the documentation path of the skill);
 4. a "closing register" comment exists and names every finding ID that a routing table assigned;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
-   fixed has its ID in the PR body.
+   fixed has its ID in the PR body. The status of an ID is the one of the latest comment that lists it: the closing register
+   when there is one, the routing row otherwise.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
-"Slice ... (#<n>)"). A pull request that touches only `.claude/`, `AGENTS.md`, `CLAUDE.md`, `docs/agents/` or
-`scripts/` is an apparatus pull request: it has no slice issue, and the hook lets it through with a note.
+"Slice ... (#<n>)"). A pull request whose title starts with "drive:" and that changes no file under `src/` or `examples/` is an
+apparatus pull request, whatever other files it touches: it has no slice issue, and the hook lets it through with a note.
 """
 
 import json
@@ -26,7 +27,7 @@ import subprocess
 import sys
 
 REPOSITORY = "chadlis/hypotrail"
-APPARATUS = (".claude/", "AGENTS.md", "CLAUDE.md", "docs/agents/", "scripts/")
+PRODUCT = ("src/", "examples/")
 FINDING_ID = re.compile(r"\b[A-Z]\d+[a-z]?-[A-Z]-\d{2}\b")
 ROUND_LIMIT = 5
 GH_TIMEOUT = 20
@@ -36,8 +37,8 @@ class Refusal(Exception):
     pass
 
 
-def is_apparatus(files: list) -> bool:
-    return bool(files) and all(name.startswith(APPARATUS) for name in files)
+def is_apparatus(title: str, files: list) -> bool:
+    return title.startswith("drive:") and not any(name.startswith(PRODUCT) for name in files)
 
 
 def slice_numbers(body: str, subject: str | None) -> set:
@@ -65,6 +66,26 @@ def rows_of(comment: dict) -> list:
     return rows
 
 
+SETTLED = r"(refuted|out of scope|duplicate|fixed|withdrawn)"
+
+
+def latest_statuses(comments: list) -> dict:
+    """The status text of each finding ID in the latest comment that lists it: the routing cell, or the words after the ID up to the next ID or line end."""
+    statuses = {}
+    for comment in comments:
+        body = comment["body"] or ""
+        for cells in rows_of(comment):
+            for finding in FINDING_ID.findall(cells[0]):
+                statuses[finding] = cells[5]
+        if rows_of(comment):
+            continue
+        for line in body.splitlines():
+            marks = list(FINDING_ID.finditer(line))
+            for here, after in zip(marks, marks[1:] + [None]):
+                statuses[here.group()] = line[here.end() : after.start() if after else len(line)]
+    return statuses
+
+
 def problems(pr_body: str, comments: list) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
@@ -83,6 +104,7 @@ def problems(pr_body: str, comments: list) -> list:
     for number in sorted(reviewed - set(routed)):
         found.append(f"round {number} has a review of record and no 'round {number}: routing' comment")
 
+    statuses = latest_statuses(comments)
     ids = []
     for number, comment in sorted(routed.items()):
         for cells in rows_of(comment):
@@ -94,10 +116,9 @@ def problems(pr_body: str, comments: list) -> list:
                     if not any(re.search(pattern, first_line(c), re.IGNORECASE) for c in comments):
                         found.append(f"round {number}, documentation path ({cells[0]}): no 'round {number}: {axis} verification' comment")
             promised = re.search(r"\bPR body\b", " ".join(cells[3:]))
-            settled = re.match(r"(refuted|out of scope|duplicate|fixed|withdrawn)", cells[5], re.IGNORECASE)
-            if promised and not settled:
+            if promised:
                 for finding in FINDING_ID.findall(cells[0]):
-                    if finding not in pr_body:
+                    if not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE) and finding not in pr_body:
                         found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
@@ -372,8 +393,8 @@ def run(payload: dict) -> str | None:
 def check(repo: str, number: int, subject: str | None) -> str | None:
     pull = gh([f"repos/{repo}/pulls/{number}"])
     files = [item["filename"] for item in gh_pages(f"repos/{repo}/pulls/{number}/files")]
-    if is_apparatus(files):
-        return f"Record check: pull request #{number} touches only the apparatus, so it has no slice issue and no record to check."
+    if is_apparatus(pull.get("title") or "", files):
+        return f"Record check: pull request #{number} is an apparatus pull request (titled 'drive:', nothing under src/ or examples/), so it has no slice issue and no record to check."
     candidates = slice_numbers(pull.get("body") or "", subject)
     if len(candidates) != 1:
         raise Refusal(
