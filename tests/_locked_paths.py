@@ -11,7 +11,7 @@ STUDY_WRITE = "hypotrail.core.study_write"
 STUDY_WRITE_LOCK_CALL = "hypotrail.core.study_write.locked"
 WRITER_LOCK_CALL = "hypotrail.core.lock.writer_lock"
 # A call that holds the stale check: `require_current` itself, or a step of the Study-write module that runs it after the replay lookup.
-STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision"}
+STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision", "replay_deviation"}
 
 
 def _parse(path):

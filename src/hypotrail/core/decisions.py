@@ -19,7 +19,7 @@ the same decision (question, option, author, source and cited ids; the read sequ
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
 
 An id is citable when the Study holds a record with that id, of one of these kinds: Attempt, Observation set, Assessment, Comparison, Study artifact,
-revision (by its `revision` value, never its `revision_number`), freeze record, Exposure entry or decision. A `request_id`, the `study_id`, a path
+revision (by its `revision` value, never its `revision_number`), freeze record, Exposure entry, decision or Declared deviation, a withdrawal included. A `request_id`, the `study_id`, a path
 and a file's content digest (`sha256`, `protocol_digest`) are not citable.
 
 `status` lists the decisions with whether each still applies (chadlis/hypotrail#110; D-033 on chadlis/hypotrail#75, amended by D-034 on chadlis/hypotrail#75, D-035 on chadlis/hypotrail#75, D-036 on chadlis/hypotrail#75 and D-037 on chadlis/hypotrail#75): `history(study)`.
@@ -34,7 +34,7 @@ import contextlib
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, exposure, requests, revisions, study_write, write_journal
+from hypotrail.core import artifacts, contracts, deviations, exposure, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -71,6 +71,7 @@ def held_ids(study) -> set:
     found |= {record["freeze_id"] for record in exposure.freeze_records(study)}
     found |= {record["entry_id"] for record in exposure.entries(study)}
     found |= {record["decision_id"] for record in records(study)}
+    found |= {record["declared_deviation_id"] for record in deviations.records(study)}
     return found
 
 

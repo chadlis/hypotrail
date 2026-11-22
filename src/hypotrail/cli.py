@@ -306,6 +306,34 @@ def build_parser() -> argparse.ArgumentParser:
     decide.add_argument("--json", action="store_true", help="print one JSON object")
     decide.set_defaults(handler=_decide)
 
+    deviation = commands.add_parser(
+        "deviation",
+        help="record one Declared deviation in a Study: a known deviation its records cannot establish, with its author and the ids it cites, "
+        "or the withdrawal of an earlier one",
+    )
+    deviation.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Declared deviation in")
+    deviation.add_argument("--text", required=True, metavar="TEXT", help="what is declared (free text, not empty)")
+    deviation.add_argument("--author", required=True, choices=["human", "proxy"], help="who declares: a human, or a proxy answering by rule")
+    deviation.add_argument("--source", metavar="TEXT", help="a declared source of the Declared deviation, for either author")
+    deviation.add_argument(
+        "--artifact",
+        required=True,
+        action="append",
+        metavar="ID",
+        help="the id of a record of the Study the Declared deviation cites (repeatable, at least one): Attempts and References sets "
+        "for a declaration, or the one Declared deviation it withdraws",
+    )
+    deviation.add_argument(
+        "--request-id",
+        required=True,
+        metavar="ID",
+        help="names the request: the same ID with the same Declared deviation returns the recorded one, "
+        "with another request it is refused (REQUEST_CONFLICT)",
+    )
+    _add_read_sequence(deviation, required=True)
+    deviation.add_argument("--json", action="store_true", help="print one JSON object")
+    deviation.set_defaults(handler=_deviation)
+
     recover = commands.add_parser(
         "recover",
         help="record an Attempt left running by a writer that is gone as interrupted (nothing is resubmitted)",
@@ -689,6 +717,28 @@ def _decide(args) -> int:
         + (" (recorded earlier: nothing was written)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "decision": record}, args.json, human)
+    return EXIT_OK
+
+
+def _deviation(args) -> int:
+    from hypotrail.core import deviations
+
+    deviations.check_arguments(text=args.text, author=args.author, cited_ids=args.artifact, request_id=args.request_id, read_sequence=args.read_sequence)
+    record, replayed = deviations.record(
+        args.study,
+        text=args.text,
+        author=args.author,
+        source=args.source,
+        cited_ids=args.artifact,
+        request_id=args.request_id,
+        read_sequence=args.read_sequence,
+    )
+    human = (
+        f"Declared deviation {record['declared_deviation_id']} by {record['author']} "
+        f"(cites {len(record['cited_ids'])} ids, write sequence {record['write_sequence']})"
+        + (" (recorded earlier: nothing was written)" if replayed else "")
+    )
+    _emit({"ok": True, "replayed": replayed, "declared_deviation": record}, args.json, human)
     return EXIT_OK
 
 

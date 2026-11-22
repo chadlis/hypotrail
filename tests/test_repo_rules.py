@@ -198,3 +198,28 @@ def test_the_glossary_entry_declared_deviation_says_a_derived_deviation_is_not_o
     [avoid] = [line for line in entry if line.startswith("_Avoid_")]
     for word in ("caveat", "waiver", "limitation", "warning"):
         assert word in avoid, (word, avoid)
+
+
+def _leaf_parsers(parser, path=()):
+    """(command line, parser) of every command of the parser that takes no further command."""
+    sub = [action for action in parser._actions if isinstance(action, argparse._SubParsersAction)]
+    if not sub:
+        yield " ".join(path), parser
+        return
+    for name, child in sub[0].choices.items():
+        yield from _leaf_parsers(child, (*path, name))
+
+
+def test_the_kind_of_the_declared_deviation_record_is_the_glossary_term_and_its_folder_and_its_command_hold_deviation():
+    from hypotrail import cli
+    from hypotrail.core import contracts
+
+    [heading] = [line for line in _declared_deviation_entry((ROOT / "GLOSSARY.md").read_text(encoding="utf-8")) if line.startswith("**")]
+    term = heading.split("**")[1]
+    commands = [name for name, parser in _leaf_parsers(build_parser()) if parser.get_default("handler") is cli._deviation]
+    assert len(commands) == 1 and "deviation" in commands[0], commands
+    kinds = {d["properties"]["kind"].get("const") for d in contracts.schema()["$defs"].values() if "kind" in d.get("properties", {})}
+    assert term.lower().replace(" ", "_") in kinds, sorted(k for k in kinds if k)
+    from hypotrail.core import deviations
+
+    assert "deviation" in deviations.DEVIATIONS_DIR

@@ -11,7 +11,8 @@ REPLAYED = "replayed"
 # One row per writer call made with the lock held, with the expected exit code and code. A row gives STUDY_LOCKED when its arguments pass every
 # check before the lock: the lock is the refusal. The exception is `init --read-sequence`: `init` that creates a Study is called without
 # `--read-sequence`, which it refuses with INVALID_ARGUMENTS, and the row `init --read-sequence` is called with the lock held and gets that
-# refusal. The two Tracks of `init`, of `init --new-revision` and of `assess` are separate code, so each has its row.
+# refusal. The two Tracks of `init`, of `init --new-revision` and of `assess` are separate code, so each has its row. `deviation empty text`
+# is refused by an argument check of `deviation` before the lock is asked for, so it gets its own code with the lock held.
 LOCK_HELD = {
     "init --read-sequence": ("init", 2, "INVALID_ARGUMENTS"),
     "init": ("init", 6, "STUDY_LOCKED"),
@@ -28,6 +29,8 @@ LOCK_HELD = {
     "recover": ("recover", 6, "STUDY_LOCKED"),
     "report": ("report", 6, "STUDY_LOCKED"),
     "decide": ("decide", 6, "STUDY_LOCKED"),
+    "deviation": ("deviation", 6, "STUDY_LOCKED"),
+    "deviation empty text": ("deviation", 2, "DEVIATION_TEXT_EMPTY"),
 }
 
 # The checks before the lock that read more than the command's own arguments (chapter 04, table `checks-before-the-lock`): each is
@@ -123,4 +126,14 @@ UNDER_THE_LOCK = {
     "decide request conflict": ("decide", BEFORE, (6, "REQUEST_CONFLICT"), None),
     "decide request_id of an Attempt": ("decide", BEFORE, (6, "REQUEST_CONFLICT"), None),
     "decide cited id": ("decide", AFTER, STALE, (2, "CITED_ID_NOT_FOUND")),
+    "run ml request_id of a declared deviation": ("run ml", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "run agent request_id of a declared deviation": ("run agent", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "import ml request_id of a declared deviation": ("import ml", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "import agent request_id of a declared deviation": ("import agent", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "decide request_id of a declared deviation": ("decide", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "deviation replay": ("deviation", BEFORE, (0, REPLAYED), None),
+    "deviation request conflict": ("deviation", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "deviation request_id of an Attempt": ("deviation", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "deviation request_id of a decision": ("deviation", BEFORE, (6, "REQUEST_CONFLICT"), None),
+    "deviation cited id": ("deviation", AFTER, STALE, (2, "CITED_ID_NOT_FOUND")),
 }

@@ -485,7 +485,7 @@ def test_the_replay_lookup_check_resolves_the_function_through_an_import_an_alia
 # The public entries of the Study-write module that fewer than two Study writers call, each with its reason.
 ONE_WRITER = {
     "Write.replay_decision": "only `decide` records a decision: no other writer replays one",
-    "invalid_arguments": "`decide` builds its own INVALID_ARGUMENTS refusals (the author, `--read-sequence` required, `--artifact` required); no other writer has one",
+    "Write.replay_deviation": "only `deviation` records a Declared deviation: no other writer replays one",
 }
 
 

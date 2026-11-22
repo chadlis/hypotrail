@@ -52,7 +52,12 @@ def decide(study, request_id, artifact, read, option="seasonal_7"):
     return run_json(*argv, "--request-id", request_id, "--read-sequence", read)
 
 
-# --- the Studies: each holds an Attempt `r1`, a Decision `d1`, an Import `i1`, and one write made after the value `stale` was read -----
+def deviation(study, request_id, artifact, read):
+    argv = ["deviation", "--study", study, "--text", "owner review of References pending", "--author", "human", "--artifact", artifact]
+    return run_json(*argv, "--request-id", request_id, "--read-sequence", read)
+
+
+# --- the Studies: each holds an Attempt `r1`, a Decision `d1`, a Declared deviation `v1`, an Import `i1`, and one write made after the value `stale` was read
 
 
 def bike_world(folder):
@@ -60,6 +65,7 @@ def bike_world(folder):
     attempt = ok(run_ml(study, "seasonal_7", "dev", "r1"))["attempt"]
     other = ok(run_ml(study, "ridge_v1", "dev", "r2"))["attempt"]
     ok(decide(study, "d1", attempt["attempt_id"], seq(study)))
+    ok(deviation(study, "v1", attempt["attempt_id"], seq(study)))
     (folder / "files").mkdir()
     source, mapping, population, _ = ready(folder / "files")
     ok(run_json("import", "ml", "--study", study, "--source", source, "--mapping", mapping, "--population", population, "--request-id", "i1"))
@@ -81,6 +87,7 @@ def chinook_world(folder):
     study, _ = init_chinook(folder)
     attempt = ok(fixture(study, "plain", "r1"))["attempt"]
     ok(decide(study, "d1", attempt["attempt_id"], seq(study), option="plain"))
+    ok(deviation(study, "v1", attempt["attempt_id"], seq(study)))
     source = write_lines(folder / "answers.jsonl", fixture_lines())
     population = fixture_population(folder)
     ok(run_json("import", "agent", "--study", study, "--source", source, "--population", population, "--request-id", "i1"))
@@ -106,7 +113,7 @@ def killed_world(folder):
 WORLDS = {"bike": bike_world, "chinook": chinook_world, "public": public_world, "killed": killed_world}
 WORLD_OF = {
     "init --new-revision": "bike", "run ml": "bike", "run agent": "chinook", "import ml": "bike", "import agent": "chinook", "assess": "bike",
-    "compare": "bike", "recover": "killed", "report": "public", "decide": "bike",
+    "compare": "bike", "recover": "killed", "report": "public", "decide": "bike", "deviation": "bike",
 }
 
 
@@ -140,6 +147,7 @@ def options_of(writer, built):
         "decide": lambda: {
             "--question": "Which Configuration?", "--option": "seasonal_7", "--author": "human", "--artifact": facts["attempt"], "--request-id": "new",
         },
+        "deviation": lambda: {"--text": "owner review of References pending", "--author": "human", "--artifact": facts["attempt"], "--request-id": "new"},
     }[writer]()
 
 
@@ -336,6 +344,7 @@ LOCK_HELD = {
     "init --new-revision agent": of("init --new-revision", world="chinook"),
     "assess agent": of("assess", world="chinook", **{"--scorer": "chinook_contract_v1"}),
     **{writer: of(writer) for writer in WORLD_OF},
+    "deviation empty text": of("deviation", **{"--text": ""}),
 }
 
 CHECKS_BEFORE_THE_LOCK = {
@@ -421,4 +430,14 @@ UNDER_THE_LOCK = {
     "decide request conflict": of("decide", **{"--request-id": "d1", "--question": "Another question?"}),
     "decide request_id of an Attempt": of("decide", **{"--request-id": "r1"}),
     "decide cited id": of("decide", **{"--artifact": "no_record"}),
+    "run ml request_id of a declared deviation": of("run ml", **{"--request-id": "v1"}),
+    "run agent request_id of a declared deviation": of("run agent", **{"--request-id": "v1"}),
+    "import ml request_id of a declared deviation": of("import ml", **{"--request-id": "v1"}),
+    "import agent request_id of a declared deviation": of("import agent", **{"--request-id": "v1"}),
+    "decide request_id of a declared deviation": of("decide", **{"--request-id": "v1"}),
+    "deviation replay": of("deviation", **{"--request-id": "v1"}),
+    "deviation request conflict": of("deviation", **{"--request-id": "v1", "--text": "another text"}),
+    "deviation request_id of an Attempt": of("deviation", **{"--request-id": "r1"}),
+    "deviation request_id of a decision": of("deviation", **{"--request-id": "d1"}),
+    "deviation cited id": of("deviation", **{"--artifact": "no_record"}),
 }
