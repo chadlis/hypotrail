@@ -414,3 +414,17 @@ def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_h
     assert seen == [20, 20]
     calls_of_a_merge = 3
     assert all(entry["timeout"] >= calls_of_a_merge * 20 for entry in check_record_entries()) and {e["timeout"] for e in check_record_entries()} == {180}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr merge 7 --squash -R Chadlis/Hypotrail",
+        "gh pr merge https://github.com/CHADLIS/Hypotrail/pull/7 --squash",
+        "gh api -X PUT repos/Chadlis/HYPOTRAIL/pulls/7/merge",
+    ],
+)
+def test_a_merge_names_the_repository_whatever_the_case_of_its_name(gh_dir, command):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
+    result = hook(gh_dir, bash(command))
+    assert result.returncode == 2 and "no closing register comment" in result.stderr

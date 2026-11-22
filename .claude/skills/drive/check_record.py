@@ -382,11 +382,11 @@ def run(payload: dict) -> str | None:
     """None when the call is no merge or the record is complete; a note when the pull request is an apparatus one. Raises Refusal."""
     notes = []
     for repo, number, subject in merge_targets(payload):
-        if repo != REPOSITORY:
+        if repo.lower() != REPOSITORY:
             continue
         if number is None:
             raise Refusal(f"{NUMBER_UNREADABLE}: the merge of a pull request of {repo} gives none that can be read")
-        notes.append(check(repo, number, subject))
+        notes.append(check(REPOSITORY, number, subject))
     return "\n".join(note for note in notes if note) or None
 
 
