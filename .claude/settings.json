@@ -9,6 +9,16 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/no-live-key.sh"
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I \"$CLAUDE_PROJECT_DIR\"/.claude/skills/drive/fix_prompt_check.py",
+            "timeout": 120
+          }
+        ]
       }
     ]
   }
