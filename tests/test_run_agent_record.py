@@ -127,6 +127,35 @@ def test_an_llm_live_attempt_keeps_in_its_manifest_one_digest_of_the_whole_case_
         assert edited["case_digests"] == {case_id: case_digests_from_file(examples / "chinook" / "cases" / "chinook-dev.jsonl")[case_id] for case_id in TWO}
 
 
+def test_the_effective_config_of_an_llm_live_attempt_holds_the_same_keys_as_before_case_digests_existed(recorded):
+    _, attempt, _ = recorded
+    config = attempt["effective_config"]
+    assert set(config) == {
+        "command", "workload", "mode", "partition", "cases", "repeats", "model", "configuration", "protocol", "input_digests",
+        "served_model", "tools", "limits", "limit_notes", "effective_parameters",
+    }
+    assert set(config["input_digests"]) == {"dataset", "population", "references", "cases"}
+    assert attempt["effective_config_digest"] == canonical.digest(config)
+
+
+def test_a_request_recorded_before_case_digests_existed_replays_the_recorded_attempt_and_writes_nothing(tmp_path, monkeypatch):
+    patch_model(monkeypatch)
+    study = study_of(tmp_path)
+    attempt = ok(live(study, "plain", "old", cases=["D03"]))
+    path = folder_of(study, attempt) / "attempt.json"
+    # as an Attempt recorded before would be: no per-Case digest anywhere in its manifest
+    config = {key: value for key, value in attempt["effective_config"].items() if key != "case_digests"}
+    config["input_digests"] = {key: value for key, value in config["input_digests"].items() if key != "case_digests"}
+    old ={key: value for key, value in attempt.items() if key != "case_digests"}
+    old.update(effective_config=config, effective_config_digest=canonical.digest(config))
+    path.write_bytes(canonical.dumps(old))
+    before = tree_without_lock(study)
+    code, payload, err = live(study, "plain", "old", cases=["D03"])
+    assert code == 0, (payload, err)
+    assert payload["replayed"] is True and payload["attempt"] == old
+    assert tree_without_lock(study) == before
+
+
 def test_the_contract_schema_declares_case_digests_as_an_optional_map_of_case_id_to_a_sha256_hex_digest(recorded):
     _, attempt, _ = recorded
     definition = contracts.schema()["$defs"]["AttemptManifest"]
