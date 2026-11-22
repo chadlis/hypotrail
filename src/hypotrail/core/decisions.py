@@ -27,8 +27,7 @@ Whether a decision applies is computed when the Study is read, from the ids it c
 or changed when it changes. A decision no longer applies when a cited id is no longer held (`cited_id_not_held`), when the Study's current revision differs
 from the `revision` its record stores (`revision_changed`, its `id` the current `revision`), or when a cited Assessment has a later Assessment of the same
 Observation set and the same Scorer id, whatever its version (`assessment_superseded`, its `id` the latest of the later Assessments). "Later" is the
-position in the write journal (the `end` entry that names the Assessment in its `written` list); a record that no `end` entry names is at position 0,
-before every journaled record, and ties are broken by `(recorded_at, id)`. A later decision on the same question changes nothing.
+order of `write_journal.assessment_order`. A later decision on the same question changes nothing.
 """
 
 import contextlib
