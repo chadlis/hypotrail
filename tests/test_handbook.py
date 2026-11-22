@@ -769,7 +769,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -4381,6 +4381,10 @@ def test_the_decide_refusal_table_equals_the_code_exit_stage_and_details_of_each
         assert words(row["data-details"]) == details, code
     assert found["DECISION_FIELD_EMPTY"] == (2, "decision", {"field"})
     assert found["CITED_ID_NOT_FOUND"] == (2, "decision", {"ids"})
+    assert set(rows) == {
+        "INVALID_ARGUMENTS", "REQUEST_ID_EMPTY", "DECISION_FIELD_EMPTY", "STUDY_NOT_FOUND", "STUDY_LOCKED",
+        "REQUEST_CONFLICT", "STUDY_CHANGED", "WRITE_SEQUENCE_AHEAD", "CITED_ID_NOT_FOUND", "CONTRACT_VIOLATION",
+    }  # `decide` gains no refusal: the ten codes of the table at `7db697f`
 
 
 def prose_of(chapter: str) -> str:
@@ -4530,12 +4534,26 @@ def test_chapter_04_prose_does_not_restate_the_write_sequence_tables_or_list_the
     assert 'data-command="decide"' in chapter  # its row in `write-sequence-commands` and in `commands-index`
 
 
-def test_chapter_17_says_status_lists_no_observation_sets_assessments_or_comparisons_and_the_citable_kinds():
+def test_chapter_17_says_status_lists_the_assessments_and_comparisons_and_no_observation_set_and_names_the_citable_kinds():
     chapter = " ".join(re.sub(r"<[^>]+>", " ", chapter_text("17-decisions.html")).split())
     for kind in ("Attempt", "Observation set", "Assessment", "Comparison", "Study artifact", "revision", "freeze record", "Exposure entry", "decision", "Declared deviation"):
         assert kind in chapter, kind
     assert "revision_number" in chapter and "not citable" in chapter
     assert "status --json" in chapter
+    assert "lists no Observation set, Assessment or Comparison" not in chapter
+    assert "lists no Observation set" in chapter
+
+
+def section_holding(chapter: str, table_id: str) -> str:
+    """The section of a chapter, from the `sub2` heading before the table `table_id` to the next `sub2` heading."""
+    before, after = chapter.split(f'id="{table_id}"', 1)
+    return before.rsplit('<p class="sub2">', 1)[1] + after.split('<p class="sub2">', 1)[0]
+
+
+def test_the_chapter_04_section_of_the_status_keys_table_tells_a_client_to_ignore_a_key_it_does_not_know():
+    section = plain_text(section_holding(chapter_text("04-study-and-attempts.html"), "status-keys"))
+    sentences = [s for s in re.split(r"(?<=\.)\s+", section) if "ignore" in s and "does not know" in s]
+    assert len(sentences) == 1, sentences
 
 
 def test_the_readme_names_decide_in_its_status_and_gives_its_command_after_the_walked_path_with_the_required_options():
@@ -4567,6 +4585,10 @@ def _history(tmp_path, name="chapter-17-history"):
     attempt = run["attempt"]
     observations, references = observation_set_id(study, attempt), references_id(study)
     _, first, _ = assess(study, observations, "regression_mae_v1", references)
+    _, ridge_run, _ = run_ml(study, "ridge_v1", "dev", "ridge")
+    _, ridge, _ = assess(study, observation_set_id(study, ridge_run["attempt"]), "regression_mae_v1", references)
+    code, compared, err = run_json("compare", "--study", study, "--control", first["assessment"]["assessment_id"], "--candidate", ridge["assessment"]["assessment_id"])
+    assert code == 0, (compared, err)
 
     def decide(request_id, cited):
         flags = ["--study", study, "--question", "Which Configuration do we keep?", "--option", "ridge_v1", "--author", "human", "--request-id", request_id]
@@ -4578,8 +4600,10 @@ def _history(tmp_path, name="chapter-17-history"):
     on_an_attempt = decide("d-1", [attempt["attempt_id"]])
     decide("d-2", [first["assessment"]["assessment_id"]])
     decide("d-3", [on_an_attempt["decision_id"]])
+    decide("d-4", [compared["comparison"]["comparison_id"]])
     code, again, err = assess(study, observations, "regression_mae_v1", references)
-    assert code == 0, (again, err)  # d-2 is superseded
+    assert code == 0, (again, err)  # d-2 is superseded, and d-4 is reached through the Comparison's Control
+    shutil.rmtree(study / "assessments" / ridge["assessment"]["assessment_id"])  # d-4's Comparison names a Candidate no longer held
     next(p for p in (study / "decisions").glob(f"*-{on_an_attempt['decision_id']}.json")).unlink()  # d-3 cites an id no longer held
     code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"))
     assert code == 0, (payload, err)  # every decision made before it is outdated for the revision
@@ -4594,15 +4618,28 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
 
     rows, _ = _history(tmp_path)
     keys = set(attrs_of(page, "decision-history-keys", "data-field"))
-    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons"}
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons", "evidence_change"}
+    assert len(keys) == 15
     assert all(set(row) == keys for row in rows)
 
 
-def test_the_decision_reasons_table_equals_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+def test_the_decision_reasons_table_equals_the_reason_codes_constant_and_the_reasons_status_reports_and_the_keys_of_each_reason(page, tmp_path):
+    from hypotrail.core import decisions
+
     rows, reasons = _history(tmp_path)
     table = attrs_of(page, "decision-reasons", "data-reason")
-    assert set(table) == reasons == {"cited_id_not_held", "revision_changed", "assessment_superseded"}
+    assert set(table) == reasons == set(decisions.REASON_CODES)
+    assert len(decisions.REASON_CODES) == len(set(decisions.REASON_CODES)) == 5
+    assert {"compared_assessment_superseded", "compared_assessment_not_held"} <= reasons
     assert {tuple(sorted(reason)) for row in rows for reason in row["reasons"]} == {("id", "reason")}
+
+
+def test_chapter_17_no_longer_says_the_rule_reads_three_things_and_defines_the_hop_where_it_first_uses_the_word():
+    text = plain_text(chapter_text("17-decisions.html"))
+    assert "these three things and nothing else" not in text
+    sentences = [s for s in re.split(r"(?<=[.:])\s+", text) if re.search(r"\bhop\b", s)]
+    assert sentences, "chapter 17 does not use the word hop"
+    assert "from a cited Comparison to its two Assessments" in sentences[0], sentences[0]
 
 
 def test_chapter_17_gives_the_rule_of_still_applies_in_its_table_and_what_the_table_does_not_say_in_words(page):
@@ -4893,3 +4930,114 @@ def test_a_chapter_states_that_a_decision_citing_a_withdrawn_declared_deviation_
 def test_chapter_11_limit_that_a_compatible_comparison_can_hold_a_warning_names_the_declared_deviation_code_beside_the_order_code():
     invariant = limit_cards((HANDBOOK / "chapters" / "11-agent-comparison.html").read_text(encoding="utf-8")).get("compatible-with-warning", "")
     assert "compatible" in invariant and "COMPARISON_ORDER_NOT_ALTERNATED" in invariant and "COMPARISON_DEVIATION_DECLARED" in invariant, invariant
+
+
+# --- #162: `evidence_change` in `status --json` (chapter 17) ---------------------------------------------------------------------------------
+
+# "one with non-empty `rescoring.changed_items` gives "result changed";", "one with a non-null `rescoring` and none with changed Items gives "evidence
+# rescored";", "all with `rescoring: null` gives "repeated, nothing changed"." (D-077 on chadlis/hypotrail#75, Q3)
+EVIDENCE_PHRASES = {"result_changed": "result changed", "evidence_rescored": "evidence rescored", "repeated": "repeated, nothing changed"}
+
+
+def _evidence_history(tmp_path):
+    """The Decision rows of a Bike Study whose three Decisions read the three states: a repeat, a rescore that changed no Item, a changed Item."""
+    from _assess_helpers import observation_set_id
+    from _review_helpers import TRACKS, decide, status
+    from _study_helpers import run_ml
+
+    track = TRACKS["bike"]
+    study, control, candidate, _ = track.compared(tmp_path / "base")
+    code, payload, err = run_ml(study, "seasonal_7", "dev", "a-third-attempt")
+    assert code == 0, (payload, err)
+    third = track.assess_again(study, {"observation_set_id": observation_set_id(study, payload["attempt"])})
+    decisions = [decide(study, [assessment["assessment_id"]], request_id=f"d-{n}")["decision_id"] for n, assessment in enumerate((control, candidate, third))]
+    track.assess_again(study, control)  # a repeat
+    track.revise_no_assessed_item(study, tmp_path)
+    track.assess_again(study, candidate)  # rescored, no Item changed
+    track.revise_an_assessed_item(study, tmp_path)
+    track.assess_again(study, third)  # an Item changed
+    rows = {row["decision_id"]: row for row in status(study)["decisions"]}
+    return [rows[decision_id] for decision_id in decisions]
+
+
+def test_the_evidence_states_table_lists_the_three_states_status_gives_each_with_its_phrase(page, tmp_path):
+    rows = attrs_of(page, "evidence-states", "data-code")
+    given = [row["evidence_change"]["state"] for row in _evidence_history(tmp_path)]
+    assert given == ["repeated", "evidence_rescored", "result_changed"]
+    assert set(rows) == set(given) == set(EVIDENCE_PHRASES)
+    for code, row in rows.items():
+        assert row["data-phrase"] == EVIDENCE_PHRASES[code], code
+
+
+def evidence_key_rows(page) -> dict:
+    """{the object a row is about: its keys} of the table `evidence-keys`, each row carrying `data-field` and `data-of`."""
+    table = re.search(r'<table[^>]*id="evidence-keys".*?</table>', page, re.S)[0]
+    found: dict = {}
+    for attributes in re.findall(r"<tr ([^>]*data-field[^>]*)>", table):
+        values = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', attributes))
+        found.setdefault(values["of"], set()).add(values["field"])
+    return found
+
+
+def test_the_evidence_keys_table_lists_the_keys_of_evidence_change_of_a_line_and_of_a_metrics_entry(page, tmp_path):
+    change = next(row["evidence_change"] for row in _evidence_history(tmp_path) if row["evidence_change"]["state"] == "result_changed")
+    assert evidence_key_rows(page) == {"evidence_change": set(change), "line": set(change["lines"][0]), "metrics": set(change["lines"][0]["metrics"][0])}
+    assert (len(change), len(change["lines"][0]), len(change["lines"][0]["metrics"][0])) == (2, 7, 3)
+
+
+def test_chapter_17_has_a_limit_card_that_a_later_assessment_without_rescoring_counts_as_a_repeat():
+    card = chapter_17_limit("no-rescoring-is-a-repeat")
+    assert "rescoring" in card and "repeat" in card, card
+
+
+def test_chapter_17_has_a_limit_card_that_names_the_two_causes_of_a_null_latest():
+    card = chapter_17_limit("latest-null-two-causes")
+    assert "latest" in card and "holds no Metric" in card and "value is null" in card, card
+
+
+@pytest.mark.parametrize("word", ["label", "evidence", "line", "anchor", "reached"])
+def test_chapter_17_defines_in_bold_each_word_of_the_evidence_change_it_uses(word):
+    chapter = chapter_text("17-decisions.html")
+    if not re.search(rf"\b{word}\b", plain_text(chapter), re.I):
+        return
+    sentences = [s for s in re.split(r"(?<=[.])\s+", chapter) if re.search(rf"<b>{word}</b>", s, re.I)]
+    assert len(sentences) == 1, (word, sentences)
+
+
+# --- #163: the pending decisions in `status --json` (chapter 17) -------------------------------------------------------------------------------
+
+
+def test_the_pending_keys_table_lists_the_keys_of_an_entry_of_its_question_and_of_an_option(page, tmp_path):
+    from _review_helpers import TRACKS, status
+
+    study, _, _, _ = TRACKS["bike"].compared(tmp_path / "base")
+    [entry] = status(study)["pending_decisions"]
+    table = re.search(r'<table[^>]*id="pending-keys".*?</table>', page, re.S)[0]
+    found: dict = {}
+    for attributes in re.findall(r"<tr ([^>]*data-field[^>]*)>", table):
+        values = dict(re.findall(r'data-([a-z-]+)="([^"]*)"', attributes))
+        found.setdefault(values["of"], set()).add(values["field"])
+    assert found == {"entry": set(entry), "question": set(entry["question"]), "option": set(entry["options"][0])}
+    assert (len(entry), len(entry["question"]), len(entry["options"][0])) == (5, 2, 3)
+
+
+def test_the_pending_question_table_gives_the_identifier_and_the_text_of_the_question_and_of_each_option_the_core_holds(page):
+    from hypotrail.core import decisions
+
+    rows = attrs_of(page, "pending-question", "data-code")
+    expected = {decisions.PENDING_QUESTION["id"]: decisions.PENDING_QUESTION["text"], **{option["id"]: option["text"] for option in decisions.PENDING_OPTIONS}}
+    assert {code: html.unescape(row["data-text"]) for code, row in rows.items()} == expected
+    assert len(rows) == 4
+
+
+def test_chapter_17_gives_the_three_conditions_of_a_pending_decision_in_its_prose():
+    prose = plain_text(prose_of(chapter_text("17-decisions.html")))
+    [sentence] = [s for s in re.split(r"(?<=[.])\s+", prose) if "is pending when" in s]
+    for part in ("current revision", "no later Assessment", "no Decision that applies cites it"):
+        assert part in sentence, (part, sentence)
+
+
+def test_chapter_17_says_decide_records_the_question_and_option_as_given_and_checks_neither_and_drops_the_declared_question_sentence():
+    card = plain_text(re.search(r'<div class="card"[^>]*><h3>Free text, no declared question</h3>.*?</div>', chapter_text("17-decisions.html"), re.S)[0])
+    assert "as given" in card and "checks neither" in card, card
+    assert "declares no question with options yet" not in plain_text(chapter_text("17-decisions.html"))

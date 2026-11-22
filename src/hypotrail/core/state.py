@@ -9,7 +9,10 @@ its Protocol artifacts; the freeze records, the Exposure journal and every `chec
 says that any earlier exposure is unknown. It shows the Study's write sequence, the number of entries of its write journal
 (`hypotrail.core.write_journal`), as the top-level key `write_sequence`. It lists the Study's decisions, in the order they were recorded, each with the fields `decide` recorded
 and whether it still applies (`hypotrail.core.decisions`, `history`), computed now and never stored, as the top-level key `decisions`, and its Declared
-deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It takes no lock and writes nothing.
+deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It lists every Assessment
+record (`assessments`) and every Comparison record (`comparisons`) the Study holds, each as stored, in the order of the write journal
+(`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
+`hypotrail.core.decisions`, `pending`). It takes no lock and writes nothing.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
 lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`
@@ -103,6 +106,7 @@ def status(study) -> dict:
                 "temporary_files": leftovers,
             }
         )
+    history = decisions.history(study)
     return {
         "study": {
             **{key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest", "revision")},
@@ -127,8 +131,11 @@ def status(study) -> dict:
         "exposures": exposure.summary(study),
         "check_informed": check_informed(study),
         "write_sequence": write_journal.write_sequence(study),
-        "decisions": decisions.history(study),
+        "decisions": history,
         "declared_deviations": deviations.listing(study),
+        "assessments": decisions.assessments_in_order(study),
+        "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
+        "pending_decisions": decisions.pending(study, history),
     }
 
 

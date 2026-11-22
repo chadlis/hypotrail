@@ -171,3 +171,20 @@ def test_the_readme_does_not_say_every_writing_command_takes_the_option_without_
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     line = next(l for l in readme.splitlines() if l.startswith("Every command that writes"))
     assert "`init`" in line and "`report`" in line
+
+
+# --- the dated line of the review decision in `status --json` ------------------------------------------------------------
+
+
+PENDING_SENTENCE = "`status --json` lists each pending decision with a question and options whose texts the core supplies."
+
+
+def test_the_dated_lines_hold_one_line_for_the_four_additions_to_status_json_quoting_its_ticket_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#163" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PENDING_SENTENCE in line and "the earlier line it overrides: none" in line
+    for name in ("`assessments`", "`comparisons`", "`compared_assessment_superseded`", "`compared_assessment_not_held`", "`evidence_change`", "`pending_decisions`"):
+        assert name in line, name

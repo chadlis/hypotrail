@@ -28,6 +28,22 @@ or changed when it changes. A decision no longer applies when a cited id is no l
 from the `revision` its record stores (`revision_changed`, its `id` the current `revision`), or when a cited Assessment has a later Assessment of the same
 Observation set and the same Scorer id, whatever its version (`assessment_superseded`, its `id` the latest of the later Assessments). "Later" is the
 order of `write_journal.assessment_order`. A later decision on the same question changes nothing.
+
+The rule follows a cited Comparison one hop, to its two Assessments, the Control then the Candidate (`sides`): one that has a later Assessment gives
+`compared_assessment_superseded`, its `id` the latest of the later ones, and one the Study does not hold gives `compared_assessment_not_held`, its
+`id` the missing Assessment. Each Assessment reached gives one entry at most, at the first cited Comparison that names it, in the order of
+`cited_ids`; these entries come after those of the three reasons above. The hop starts from a cited Comparison only and goes no further.
+
+Each decision also gets `evidence_change`, what happened to its evidence since: null when no Assessment it cites or reaches has a later Assessment,
+otherwise `{state, lines}`, one line per such Assessment (its anchor), in the order of first appearance through `cited_ids`. The `state` of a line is
+`result_changed` when a later Assessment that counts changed an Item, `evidence_rescored` when one counts and none changed an Item, and `repeated`
+otherwise; a later Assessment counts only when its `rescoring.earlier_assessment_id` is the anchor or an Assessment later than it (`_counts`). The
+`state` of `evidence_change` is the strongest of its lines. A line shows the Metric values of the anchor and of the latest later Assessment as their
+records hold them, and no difference of the two.
+
+`status` also lists the pending decisions (`pending`): a Comparison is pending when both its Assessments are of the current revision, neither has
+a later Assessment, and no decision that applies cites it. Each comes with the one question and the three options of `PENDING_QUESTION` and
+`PENDING_OPTIONS`, each option with its consequence text. `decide` records a question and an option as given and checks neither against them.
 """
 
 import contextlib
@@ -43,6 +59,37 @@ STAGE = "decision"
 AUTHORS = ("human", "proxy")
 # the fields that make "the same decision" (D-034 on chadlis/hypotrail#75), in the order `differs` lists them
 IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids")
+CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED = "cited_id_not_held", "revision_changed", "assessment_superseded"
+COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD = "compared_assessment_superseded", "compared_assessment_not_held"
+# "A constant in `core/decisions.py` lists the reason codes." (D-078 on chadlis/hypotrail#75, item 4)
+REASON_CODES = (CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD)
+RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED = "result_changed", "evidence_rescored", "repeated"
+# the states of `evidence_change`, the strongest first
+EVIDENCE_STATES = (RESULT_CHANGED, EVIDENCE_RESCORED, REPEATED)
+
+# The question and the options of a pending decision: the same for every Comparison of every Study, and held by no Workload file.
+PENDING_QUESTION = {"id": "keep_after_comparison", "text": "Which Configuration do we keep after this Comparison?"}
+_NOTHING_ELSE = "The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work"
+PENDING_OPTIONS = (
+    {
+        "id": "keep_control",
+        "text": "Keep the Control",
+        "consequence": f'A Decision that cites this Comparison is recorded with the option "Keep the Control". {_NOTHING_ELSE}.',
+    },
+    {
+        "id": "keep_candidate",
+        "text": "Keep the Candidate",
+        "consequence": f'A Decision that cites this Comparison is recorded with the option "Keep the Candidate". {_NOTHING_ELSE}.',
+    },
+    {
+        "id": "keep_neither",
+        "text": "Choose neither yet",
+        "consequence": (
+            f'A Decision that cites this Comparison is recorded with the option "Choose neither yet". {_NOTHING_ELSE}: '
+            "a later compare writes a new Comparison that is pending under the same rule."
+        ),
+    },
+)
 
 
 def records(study) -> list:
@@ -75,30 +122,110 @@ def held_ids(study) -> set:
     return found
 
 
-def _reasons(record: dict, *, held: set, revision: str, assessments: dict, order) -> list:
+def _later(assessment: dict, assessments: dict, order) -> list:
+    """The later Assessments of `assessment`: of the same Observation set and the same Scorer id, whatever its version."""
+    return [
+        other
+        for other in assessments.values()
+        if other["observation_set_id"] == assessment["observation_set_id"]
+        and other["scorer"]["id"] == assessment["scorer"]["id"]
+        and order(other) > order(assessment)
+    ]
+
+
+def sides(comparison: dict) -> tuple:
+    """(`control`, its Assessment id), (`candidate`, its Assessment id) of a Comparison record: its `roles`, or left and right when it holds none."""
+    roles = comparison.get("roles")
+    if roles is None:
+        return ("control", comparison["left_assessment_id"]), ("candidate", comparison["right_assessment_id"])
+    return ("control", roles["control_assessment_id"]), ("candidate", roles["candidate_assessment_id"])
+
+
+def _reasons(record: dict, *, held: set, revision: str, assessments: dict, comparisons: dict, order) -> list:
     """Why `record` no longer applies: `[{"reason", "id"}]`, empty when it applies."""
 
-    reasons = [{"reason": "cited_id_not_held", "id": cited} for cited in record["cited_ids"] if cited not in held]
+    reasons = [{"reason": CITED_ID_NOT_HELD, "id": cited} for cited in record["cited_ids"] if cited not in held]
     if record["revision"] != revision:
-        reasons.append({"reason": "revision_changed", "id": revision})
+        reasons.append({"reason": REVISION_CHANGED, "id": revision})
     for cited in record["cited_ids"]:
         cited_assessment = assessments.get(cited)
         if cited_assessment is None:
             continue
-        later = [
-            other
-            for other in assessments.values()
-            if other["observation_set_id"] == cited_assessment["observation_set_id"]
-            and other["scorer"]["id"] == cited_assessment["scorer"]["id"]
-            and order(other) > order(cited_assessment)
-        ]
+        later = _later(cited_assessment, assessments, order)
         if later:
-            reasons.append({"reason": "assessment_superseded", "id": max(later, key=order)["assessment_id"]})
+            reasons.append({"reason": ASSESSMENT_SUPERSEDED, "id": max(later, key=order)["assessment_id"]})
+    reached: set = set()
+    for cited in record["cited_ids"]:
+        comparison = comparisons.get(cited)
+        if comparison is None:
+            continue
+        for _, assessment_id in sides(comparison):
+            if assessment_id in reached:
+                continue
+            reached.add(assessment_id)
+            assessment = assessments.get(assessment_id)
+            if assessment is None:
+                reasons.append({"reason": COMPARED_ASSESSMENT_NOT_HELD, "id": assessment_id})
+                continue
+            later = _later(assessment, assessments, order)
+            if later:
+                reasons.append({"reason": COMPARED_ASSESSMENT_SUPERSEDED, "id": max(later, key=order)["assessment_id"]})
     return reasons
 
 
+def _counts(later: dict, anchor: dict, assessments: dict, order) -> bool:
+    """Whether `later` counts as rescored or changed for the line of `anchor`: its `rescoring` names the anchor or an Assessment later than it.
+
+    A `rescoring` that is null, or absent from the record, or that names an earlier Assessment or one the Study does not hold, counts as a repeat.
+    """
+    rescoring = later.get("rescoring")
+    if rescoring is None:
+        return False
+    earlier = assessments.get(rescoring["earlier_assessment_id"])
+    return earlier is not None and (earlier["assessment_id"] == anchor["assessment_id"] or order(earlier) > order(anchor))
+
+
+def _line(anchor: dict, comparison_id, role, later: list, assessments: dict, order) -> dict:
+    counted = [other for other in later if _counts(other, anchor, assessments, order)]
+    changed = [other for other in counted if other["rescoring"]["changed_items"]]
+    latest = max(later, key=order)
+    latest_values = {metric["id"]: metric["value"] for metric in latest["metrics"]}
+    return {
+        "assessment_id": anchor["assessment_id"],
+        "comparison_id": comparison_id,
+        "role": role,
+        "latest_assessment_id": latest["assessment_id"],
+        "state": RESULT_CHANGED if changed else EVIDENCE_RESCORED if counted else REPEATED,
+        "changed_item_count": len({item["item_id"] for other in changed for item in other["rescoring"]["changed_items"]}),
+        "metrics": [{"id": metric["id"], "cited": metric["value"], "latest": latest_values.get(metric["id"])} for metric in anchor["metrics"]],
+    }
+
+
+def _evidence_change(record: dict, *, assessments: dict, comparisons: dict, order, **_) -> dict | None:
+    """What happened to the evidence of `record` since: `{state, lines}`, or None when no Assessment it cites or reaches has a later Assessment."""
+    reached = {}  # the first cited Comparison that names each Assessment, and the role it names it in
+    for cited in record["cited_ids"]:
+        if cited in comparisons:
+            for role, assessment_id in sides(comparisons[cited]):
+                reached.setdefault(assessment_id, (cited, role))
+    anchors = []  # in the order of first appearance through `cited_ids`
+    for cited in record["cited_ids"]:
+        for assessment_id in [assessment_id for _, assessment_id in sides(comparisons[cited])] if cited in comparisons else [cited]:
+            if assessment_id in assessments and assessment_id not in anchors:
+                anchors.append(assessment_id)
+    lines = []
+    for assessment_id in anchors:
+        anchor = assessments[assessment_id]
+        later = _later(anchor, assessments, order)
+        if later:
+            lines.append(_line(anchor, *reached.get(assessment_id, (None, None)), later, assessments, order))
+    if not lines:
+        return None
+    return {"state": min((line["state"] for line in lines), key=EVIDENCE_STATES.index), "lines": lines}
+
+
 def history(study) -> list:
-    """The Study's decisions in the order they were recorded, each with every field `decide` recorded, `applies` and `reasons` (read only)."""
+    """The Study's decisions in the order they were recorded, each with every field `decide` recorded, `applies`, `reasons` and `evidence_change` (read only)."""
     study = Path(study)
     recorded = records(study)
     if not recorded:
@@ -107,13 +234,52 @@ def history(study) -> list:
         "held": held_ids(study),
         "revision": layout.read_spec(study)["revision"],
         "assessments": {record["assessment_id"]: record for record in layout.assessment_records(study)},
+        "comparisons": {record["comparison_id"]: record for record in layout.comparison_records(study)},
         "order": write_journal.assessment_order(study),
     }
     rows = []
     for record in recorded:
         reasons = _reasons(record, **shared)
-        rows.append({**record, "applies": not reasons, "reasons": reasons})
+        rows.append({**record, "applies": not reasons, "reasons": reasons, "evidence_change": _evidence_change(record, **shared)})
     return rows
+
+
+def assessments_in_order(study) -> list:
+    """Every Assessment record of the Study, as stored, in the one order of the later Assessment (`write_journal.assessment_order`): `status` lists them so."""
+    return sorted(layout.assessment_records(study), key=write_journal.assessment_order(study))
+
+
+def pending(study, rows: list) -> list:
+    """The pending decisions: each Comparison of the current revision whose two Assessments have no later Assessment and that no Decision of
+    `rows` (the `history`) that applies cites, in the order of `write_journal.comparison_order`, with the question and the options (read only).
+
+    An Assessment is of the current revision when its record holds a `study_revision` whose `revision` is the Study's; one that holds none, or
+    that the Study does not hold, is not.
+    """
+    study = Path(study)
+    revision = layout.read_spec(study)["revision"]
+    assessments = {record["assessment_id"]: record for record in layout.assessment_records(study)}
+    order = write_journal.assessment_order(study)
+    cited = {cited_id for row in rows if row["applies"] for cited_id in row["cited_ids"]}
+    found = []
+    for comparison in sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)):
+        (_, control), (_, candidate) = sides(comparison)
+        if comparison["comparison_id"] in cited:
+            continue
+        if not all(side in assessments and (assessments[side].get("study_revision") or {}).get("revision") == revision for side in (control, candidate)):
+            continue
+        if any(_later(assessments[side], assessments, order) for side in (control, candidate)):
+            continue
+        found.append(
+            {
+                "comparison_id": comparison["comparison_id"],
+                "control_assessment_id": control,
+                "candidate_assessment_id": candidate,
+                "question": dict(PENDING_QUESTION),
+                "options": [dict(option) for option in PENDING_OPTIONS],
+            }
+        )
+    return found
 
 
 def _invalid(message: str) -> InvalidInputError:

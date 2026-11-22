@@ -159,10 +159,10 @@ def test_a_study_with_no_decision_lists_none(study):
 # --- criterion 2, Tightened A, C, E, F, H, I: whether a decision still applies --------------------------------------------
 
 
-def test_a_decision_that_applies_has_no_reason_and_the_row_holds_the_record_and_two_keys(study, ids):
+def test_a_decision_that_applies_has_no_reason_and_the_row_holds_the_record_and_three_keys(study, ids):
     record = decide(study, [ids["assessment"]], request_id="d-1")
     (row,) = listed(study)
-    assert set(row) == set(record) | {"applies", "reasons"}
+    assert set(row) == set(record) | {"applies", "reasons", "evidence_change"}
     assert (row["applies"], row["reasons"]) == (True, [])
 
 
@@ -414,3 +414,46 @@ def test_a_decision_that_cites_a_declared_deviation_applies_with_no_reason_befor
     declare(study, [declared["declared_deviation_id"]], text="the review is done")
     after = row_of(study, decision["decision_id"])
     assert (before["applies"], before["reasons"]) == (after["applies"], after["reasons"]) == (True, [])
+
+
+# --- the whole human output of `status` on a Study whose Decision on a Comparison is reached by a later Assessment ----
+
+
+def test_the_human_status_of_a_study_with_a_comparison_a_decision_on_it_a_later_assessment_and_a_second_comparison_is_these_lines(tmp_path):
+    from _review_helpers import TRACKS, compare
+    from _review_helpers import decide as decide_on
+
+    track = TRACKS["bike"]
+    study, control, candidate, comparison = track.compared(tmp_path / "base")
+    decide_on(study, [comparison["comparison_id"]], request_id="d-on-the-comparison")
+    again = track.assess_again(study, control)
+    compare(study, again["assessment_id"], candidate["assessment_id"])
+    spec = json.loads((study / "study.json").read_text())
+    by_request = {json.loads(p.read_text())["request_id"]: p.parent.name for p in (study / "attempts").glob("*/attempt.json")}
+    seasonal, ridge = by_request["ml-dev-seasonal_7"], by_request["ml-dev-ridge_v1"]
+    attempts = sorted([(seasonal, f"  {seasonal} completed request ml-dev-seasonal_7, 4 artifacts"), (ridge, f"  {ridge} completed request ml-dev-ridge_v1, 5 artifacts")])
+    assert human(study) == [
+        f"Study {spec['study_id']} ({spec['workload']}); a writer is not active",
+        "  0 Exposures recorded in this Study; any earlier exposure to public_check is unknown",
+        "Decisions: 1 recorded, 1 no longer applies",
+        *[line for _, line in attempts],
+    ]
+
+
+# --- the consequence texts of a pending decision, as read on #163 --------------------------------------------------------------------
+
+
+CONSEQUENCES_READ = [
+    'A Decision that cites this Comparison is recorded with the option "Keep the Control". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
+    'A Decision that cites this Comparison is recorded with the option "Keep the Candidate". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work.',
+    'A Decision that cites this Comparison is recorded with the option "Choose neither yet". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule.',
+]
+
+
+def test_the_consequence_texts_status_gives_for_a_pending_decision_are_the_three_texts_read_on_the_ticket(tmp_path):
+    """The three texts exactly as chadlis/hypotrail#163, comment 7083264884, gives them for the reading."""
+    from _review_helpers import TRACKS, status
+
+    study, _, _, _ = TRACKS["bike"].compared(tmp_path / "base")
+    [entry] = status(study)["pending_decisions"]
+    assert [option["consequence"] for option in entry["options"]] == CONSEQUENCES_READ
