@@ -67,7 +67,7 @@ The MCP tools:
 | Operation | Tool |
 |---|---|
 | Create / update / close an issue, apply labels | `issue_write` (`method: create` or `update`; `state: closed` with `state_reason`) |
-| Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body |
+| Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body; a ticket's history comment holds the lines a tightening replaced and overrides nothing |
 | List issues | `list_issues` |
 | Comment | `add_issue_comment` |
 | Sub-issue | `issue_write` with `parent_issue_number`, or `sub_issue_write` |
