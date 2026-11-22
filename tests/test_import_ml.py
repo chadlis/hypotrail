@@ -150,43 +150,54 @@ def test_a_mapping_without_row_id_or_y_pred_or_with_an_unknown_key_is_refused_wi
     assert snapshot(study) == before
 
 
-# Each fault as the JSON text that stands for a value. A top-level duplicate is placed so that the last copy wins: the first
-# copy holds an invalid value and the last holds the valid one, which a reader that keeps the last value accepts.
-STRICT_FAULTS = {
-    "top_level_duplicate": None,
+# The JSON text of a value that strict JSON refuses, for each fault other than the top-level duplicate.
+NOT_STRICT_VALUES = {
     "nested_duplicate": '{"a": 1, "a": 2}',
     "nan": "NaN",
     "infinity": "Infinity",
     "minus_infinity": "-Infinity",
     "integer_out_of_range": "9007199254740993",
 }
-INVALID_FIRST_COPY = {"mapping": ("row_id", 3), "population": ("item_ids", [])}
-# Where a fault other than the top-level duplicate is placed: the value of `model`, an allowed key of the mapping, and an
-# element of `item_ids`, the one key of the population. No key of the mapping holds an object (each value must be a
-# non-empty string), so the nested duplicate has no allowed place there and stays in a member the mapping does not allow.
-FAULT_MARKER = "@fault@"
+STRICT_FAULTS = ["top_level_duplicate", *NOT_STRICT_VALUES]
+# A top-level duplicate is a first copy of a key of the input, holding an invalid value, placed before the valid copy: the last
+# copy is the valid one.
+INVALID_FIRST_COPY = {"mapping": '"row_id": 3, ', "population": '"item_ids": [], '}
 
 
-def text_with_fault(which: str, document: dict, fault: str) -> str:
-    """The JSON text of the mapping or the population `document` carrying `fault`."""
+def clean_documents(source, digest) -> dict:
+    """The clean mapping and the clean population."""
+    return {"mapping": {**MAPPING, "dataset_sha256": digest}, "population": {"item_ids": [r["day_key"] for r in rows_of(source)]}}
+
+
+def fragment_and_place(which: str, clean: str, fault: str) -> tuple[str, int]:
+    """The fragment of JSON text that carries `fault`, and the index in `clean`, the clean JSON text of the input `which`, where it
+    is inserted."""
     if fault == "top_level_duplicate":
-        key, invalid = INVALID_FIRST_COPY[which]
-        return json.dumps({**document, key: invalid})[:-1] + f", {json.dumps(key)}: {json.dumps(document[key])}}}"
-    if which == "mapping" and fault == "nested_duplicate":
-        return json.dumps(document)[:-1] + f', "extra": {STRICT_FAULTS[fault]}}}'
-    placed = {**document, "model": FAULT_MARKER} if which == "mapping" else {**document, "item_ids": [*document["item_ids"][:1], FAULT_MARKER]}
-    return json.dumps(placed).replace(json.dumps(FAULT_MARKER), STRICT_FAULTS[fault])
+        return INVALID_FIRST_COPY[which], clean.index("{") + 1
+    value = NOT_STRICT_VALUES[fault]
+    if which == "population":
+        # One more element of `item_ids`, after its last Item.
+        return f", {value}", clean.rindex("]")
+    # A last member of the mapping. No key of the mapping may hold an object, so the nested duplicate is the value of `extra`, a
+    # key the mapping does not allow; each other value is the value of `model`, an allowed key the clean mapping does not hold.
+    member = "extra" if fault == "nested_duplicate" else "model"
+    return f", {json.dumps(member)}: {value}", clean.rindex("}")
 
 
-def write_mapping_and_population(tmp_path, source, digest, faulty: str | None = None, fault: str | None = None):
-    """The mapping and the population files; the input named by `faulty`, if any, carries `fault`."""
-    mapping = {**MAPPING, "dataset_sha256": digest}
-    population = {"item_ids": [r["day_key"] for r in rows_of(source)]}
-    documents = {"mapping": mapping, "population": population}
-    paths = {name: tmp_path / f"{name}.json" for name in documents}
-    for name, document in documents.items():
-        text = text_with_fault(name, document, fault) if name == faulty else json.dumps(document)
-        paths[name].write_text(text, encoding="utf-8")
+def text_with_fault(which: str, clean: str, fault: str) -> str:
+    """The clean JSON text `clean` of the input `which` with the fragment that carries `fault` inserted at its place."""
+    fragment, place = fragment_and_place(which, clean, fault)
+    return clean[:place] + fragment + clean[place:]
+
+
+def write_mapping_and_population(folder, source, digest, faulty: str | None = None, fault: str | None = None):
+    """The mapping and the population files, each the clean JSON text of its input, except that the input named by `faulty`, if
+    any, carries `fault`."""
+    paths = {}
+    for name, document in clean_documents(source, digest).items():
+        clean = json.dumps(document)
+        paths[name] = Path(folder) / f"{name}.json"
+        paths[name].write_text(text_with_fault(name, clean, fault) if name == faulty else clean, encoding="utf-8")
     return paths["mapping"], paths["population"]
 
 
@@ -213,11 +224,19 @@ the key check."""
 
 
 @pytest.mark.parametrize("which", ["mapping", "population"])
-def test_the_mapping_and_the_population_of_the_strict_json_cells_are_accepted_and_recorded_once_each_fault_is_removed(tmp_path, study, which):
-    """Removing every fault from the faulty input gives the same two documents whichever input carried it, so the two
-    calls are the same call; each is kept as the accepted twin of its input."""
+def test_each_fault_cell_of_an_input_minus_its_fragment_is_its_clean_text_and_the_clean_mapping_and_population_are_accepted_and_recorded(tmp_path, study, which):
+    """For every fault of `which`, the text of the faulty file with its fragment cut out once is the text of the clean file,
+    character for character; and the clean mapping and population are accepted and recorded."""
     source, digest = export(tmp_path)
     mapping_path, population_path = write_mapping_and_population(tmp_path, source, digest)
+    clean = {"mapping": mapping_path, "population": population_path}[which].read_text(encoding="utf-8")
+    for fault in STRICT_FAULTS:
+        folder = tmp_path / fault
+        folder.mkdir()
+        faulty_mapping, faulty_population = write_mapping_and_population(folder, source, digest, faulty=which, fault=fault)
+        faulty = {"mapping": faulty_mapping, "population": faulty_population}[which].read_text(encoding="utf-8")
+        fragment, _ = fragment_and_place(which, clean, fault)
+        assert faulty.replace(fragment, "", 1) == clean, fault
     code, payload, err = import_ml(study, source, mapping_path, population_path, f"r-ok-{which}")
     assert code == 0, (payload, err)
     assert (study / "attempts" / payload["attempt"]["attempt_id"]).is_dir()
