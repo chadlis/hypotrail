@@ -104,6 +104,45 @@ def test_two_attempts_run_one_after_the_other_hold_one_order_warning_naming_the_
         assert all(c["passed"] and c["reason"] is None for c in record["comparability"]["checks"])
 
 
+def test_two_attempts_of_one_configuration_that_differ_by_their_model_compared_with_factor_model_hold_the_order_warning_too(sides, monkeypatch):
+    study, attempts, assessments = sides
+    patch_model(monkeypatch)
+    other = ok(live(study, "plain", "plain-other-model", repeats=2, model="anthropic/claude-other"))
+    assert other["effective_config"]["configuration"]["id"] == attempts["plain"]["effective_config"]["configuration"]["id"] == "plain"
+    assert attempts["plain"]["finished_at"] < other["started_at"]
+    code, payload, err = compare(study, assessments["plain"], assess(study, other), "--factor", "model")
+    assert code == 0, (payload, err)
+    assert payload["comparison"]["declared_factor"] == "model"
+    assert codes_of(payload["comparison"]) == [ORDER]
+
+
+def test_the_order_warning_goes_when_nothing_but_the_four_times_of_the_two_manifests_change_from_disjoint_to_overlapping(sides, tmp_path):
+    import shutil
+
+    from hypotrail.core import canonical
+
+    source, attempts, assessments = sides
+    study = tmp_path / "copy"
+    shutil.copytree(source, study)
+    records = []
+    for times in (None, "overlapping"):
+        if times:
+            start, end = attempts["plain"]["started_at"], attempts["verify"]["finished_at"]
+            for name in ("plain", "verify"):  # both intervals become [plain's start, verify's end]
+                path = folder_of(study, attempts[name]) / "attempt.json"
+                manifest = json.loads(path.read_text(encoding="utf-8"))
+                path.write_bytes(canonical.dumps({**manifest, "started_at": start, "finished_at": end}))
+        code, payload, err = compare(study, assessments["plain"], assessments["verify"])
+        assert code == 0, (payload, err)
+        records.append(payload["comparison"])
+    disjoint, overlapping = records
+    assert codes_of(disjoint) == [ORDER] and codes_of(overlapping) == []
+    order = disjoint["warnings"][0]["message"]
+    assert [m for m in disjoint["limitations"] if m != order] == overlapping["limitations"]
+    for key in ("comparability", "coverage", "delta", "secondary_deltas", "declared_factor", "code_environment"):
+        assert disjoint[key] == overlapping[key], key
+
+
 def test_two_attempts_whose_case_digests_are_equal_for_every_case_record_the_cases_check_passed(sides):
     study, attempts, assessments = sides
     assert attempts["plain"]["case_digests"] == attempts["verify"]["case_digests"]

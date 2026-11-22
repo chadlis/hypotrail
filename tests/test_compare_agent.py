@@ -500,3 +500,29 @@ def test_the_module_docstring_lists_the_cases_check_between_population_and_refer
     text = agent_comparison.__doc__
     assert "`cases`" in text
     assert text.index("`population`") < text.index("`cases`") < text.index("`references`")
+
+
+# --- the order of the two sides: derived from the manifests of two native Attempts only -----------------------------------------------
+
+ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
+
+
+def interval(study, assessment):
+    """(started_at, finished_at) of the Attempt manifest behind an Assessment."""
+    from hypotrail.core import study as layout
+
+    _, manifest = layout.find_observation_set(Path(study), assessment["observation_set_id"])
+    return manifest["started_at"], manifest["finished_at"]
+
+
+def test_an_import_against_a_native_side_and_two_imports_get_no_order_warning_only_the_import_one(tmp_path, study):
+    seed, _ = imported(tmp_path, study, "seed", answer_lines())
+    _, own = native(study, seed)  # its manifest keeps the times of the seed's import, which finished before the next import started
+    _, first = imported(tmp_path, study, "first", answer_lines())
+    _, second = imported(tmp_path, study, "second", answer_lines())
+    for control, candidate in ((own, first), (first, own), (first, second)):
+        assert interval(study, control)[1] < interval(study, candidate)[0] or interval(study, candidate)[1] < interval(study, control)[0]
+        code, payload, err = compare(study, control, candidate)
+        assert code == 0, (payload, err)
+        codes = [w["code"] for w in payload["comparison"]["warnings"]]
+        assert "COMPARISON_DESCRIPTIVE_IMPORT" in codes and ORDER not in codes, codes
