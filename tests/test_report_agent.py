@@ -253,7 +253,7 @@ def test_an_agent_comparison_shows_its_deltas_coverage_and_comparability_as_reco
     native = next(t for t in tables if t["Candidate Assessment"] == facts["assessments"]["verify"])
     descriptive = next(t for t in tables if t["Candidate Assessment"] == facts["import_assessment"])
     record = facts["comparison"]
-    assert native["Control Assessment"] == facts["assessments"]["plain"] and native["Comparability"] == "compatible"
+    assert native["Control Assessment"] == facts["assessments"]["plain"] and native["Comparability"] == "compatible, with warning COMPARISON_ORDER_NOT_ALTERNATED"
     coverage = record["coverage"]
     assert native["Coverage"] == f"expected {coverage['expected']}, Control scored {coverage['control_scored']}, Candidate scored {coverage['candidate_scored']}, paired {coverage['paired']}"
     assert native["Coverage rates"] == f"Control {coverage['control_rate']:.6g}, Candidate {coverage['candidate_rate']:.6g}"
@@ -288,6 +288,15 @@ def test_an_agent_comparison_shows_its_deltas_coverage_and_comparability_as_reco
         assert "paired 3" in changed["Coverage"] and changed["Delta"].split()[1] == "0.125" and "Control 0.25" in changed["Coverage rates"]
     finally:
         path.write_bytes(original)
+
+
+def test_the_comparability_cell_of_a_comparison_that_holds_the_order_warning_names_its_code_beside_the_status(world):
+    study, facts, out, doc = world
+    record = facts["comparison"]  # `plain` then `verify`, two native Attempts run one after the other
+    assert record["comparability"]["status"] == "compatible" and "COMPARISON_ORDER_NOT_ALTERNATED" in [w["code"] for w in record["warnings"]]
+    native = next(t for t in comparison_tables(doc, 2) if t["Candidate Assessment"] == facts["assessments"]["verify"])
+    cell = native["Comparability"]
+    assert cell.startswith("compatible") and "COMPARISON_ORDER_NOT_ALTERNATED" in cell, cell
 
 
 def test_C_when_the_record_withholds_the_main_delta_the_page_shows_only_withheld_with_the_coverage_rates_and_no_bounds(tmp_path):

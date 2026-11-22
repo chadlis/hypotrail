@@ -72,6 +72,9 @@ REASON_COVERAGE = "coverage_incomplete"
 WARNING_NOT_ESTABLISHED = "COMPARISON_FACTOR_NOT_ESTABLISHED"
 WARNING_CASES_NOT_ESTABLISHED = "COMPARISON_CASES_NOT_ESTABLISHED"
 WARNING_ORDER = "COMPARISON_ORDER_NOT_ALTERNATED"
+# The warnings that state a deviation of the protocol rather than a descriptive scope: `compare` and the report name their
+# codes beside the status, since a `compatible` Comparison can hold them.
+DEVIATIONS = (WARNING_ORDER,)
 CASES_NOT_ESTABLISHED = (
     "A side records no digest for a Case of the population, or records none and the two sides do not record the same Cases "
     "file: the Comparison could not check that both were evaluated on the same content of each Case, so it is descriptive, "

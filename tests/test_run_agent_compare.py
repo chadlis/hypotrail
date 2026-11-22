@@ -116,6 +116,18 @@ def test_two_attempts_of_one_configuration_that_differ_by_their_model_compared_w
     assert codes_of(payload["comparison"]) == [ORDER]
 
 
+def test_without_json_the_status_line_on_stdout_names_the_order_code_beside_compatible_and_stderr_holds_the_order_warning(sides):
+    study, _, assessments = sides
+    code, out, err = run_cli("compare", "--study", study, "--control", assessments["plain"]["assessment_id"], "--candidate", assessments["verify"]["assessment_id"])
+    assert code == 0, (out, err)
+    (line,) = [line for line in out.splitlines() if "compatible" in line]
+    comparison_id = line.split()[1]
+    record = json.loads((study / "comparisons" / comparison_id / "comparison.json").read_text(encoding="utf-8"))
+    assert record["comparability"]["status"] == "compatible" and codes_of(record) == [ORDER]
+    assert line.startswith(f"Comparison {comparison_id} (compatible") and ORDER in line.split("):")[0], line
+    assert f"{ORDER}: {record['warnings'][0]['message']}" in err.splitlines()
+
+
 def test_the_order_warning_goes_when_nothing_but_the_four_times_of_the_two_manifests_change_from_disjoint_to_overlapping(sides, tmp_path):
     import shutil
 
