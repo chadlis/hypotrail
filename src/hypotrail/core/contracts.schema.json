@@ -234,6 +234,13 @@
             "$ref": "#/$defs/ArtifactRef"
           }
         },
+        "case_digests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
         "code_environment": {
           "type": "object"
         },
