@@ -211,6 +211,14 @@ def test_the_skill_names_the_comment_forms_the_check_reads():
     assert "one verification comment per reader" in skill
 
 
+def test_the_skill_states_the_heading_of_an_axis_report_in_the_form_the_check_finds_its_round_in():
+    skill = (ROOT / ".claude" / "skills" / "drive" / "SKILL.md").read_text()
+    form = "`## <slice>, round <r>: <axis> axis (review of record, <invocation>, base <sha>, head <sha>), its report word for word`"
+    assert form in skill
+    heading = form.strip("`").replace("<slice>", "R9").replace("<r>", "1").replace("<axis>", "Spec").replace("<invocation>", "`x`")
+    assert "no review of record is posted" not in " ".join(problems([comment(heading)]))
+
+
 def test_a_slice_with_no_review_of_record_is_refused():
     assert len(problems([comment("## R9: state (updated in place)")])) == 1
 
