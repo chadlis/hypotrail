@@ -2510,7 +2510,7 @@ def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
     contexts = [text[max(0, m.start() - 30) : m.end() + 30] for m in re.finditer("Attempt", text)]
     assert len(contexts) == 5, contexts
     assert "to be checked on an Attempt." in contexts[0]  # the generic line
-    assert "as a scenario Attempt of a Study" in text and "records a native Attempt of the live Mode in a Study" in text
+    assert "as a scenario Attempt of a Study" in text and "records a native Attempt of the llm_live Mode in a Study" in text
     # the this_attempt row names the Attempt of run agent, and says in its own words that a spike live execution is not one
     assert "llm_live Attempt (chapter 13)" in text and "a spike live execution is not an Attempt, since it records nothing in a Study" in text
 

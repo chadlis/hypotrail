@@ -1,14 +1,18 @@
 """D-055 on chadlis/hypotrail#75, item 2: the premise sheet of a fix prompt, `.claude/skills/drive/premises.py`.
 
 The sheet is run on a small worktree built in `tmp_path`, with the repository's own resolver (`tests/_architecture.py`) copied in.
+The `checked_by(...)` claims of D-065 on chadlis/hypotrail#75, item 2, are run on a small git worktree whose `.venv/bin/python`
+starts the interpreter of this suite.
 """
 
 import shutil
+import subprocess
+import sys
 import textwrap
 
 import pytest
 
-from _drive_scripts import FIXTURES, ROOT, run
+from _drive_scripts import FIXTURES, ROOT, load, run
 
 FUNCTION = "pkg.core.guard.fault"
 BY_IMPORT = "pkg.cli:entry"
@@ -113,3 +117,120 @@ def test_the_drive_skill_runs_the_premise_sheet_before_it_posts_a_fix_prompt_and
     paragraph = next(line for line in lines if line.startswith("**Check the premise before you route.**"))
     assert "after `premises.py` accepts it" in row
     assert "`callers(<package.module.function>) = {<package.module:function>, \u2026}`" in paragraph and "premises.py <prompt file> <worktree>" in paragraph
+    assert "`checked_by(<package.module.function>) = {<tests/file.py::test_name>, \u2026}`" in paragraph
+
+
+REACHED = "pkg.core.reached"
+UNREACHED = "pkg.core.unreached"
+MODULE_RUN = "tests/test_core.py::test_the_module_run_prints_four"
+CORE = "def reached(value):\n    \"\"\"Twice the value.\"\"\"\n    return value * 2\n\n\ndef unreached():\n    return 1\n"
+
+
+@pytest.fixture
+def git_worktree(tmp_path):
+    """A committed package whose one test reaches `pkg.core.reached` only through a `python -m pkg` subprocess, so only `PYTHONPATH` lets that subprocess load the copy."""
+    files = {
+        "src/pkg/__init__.py": "",
+        "src/pkg/core.py": CORE,
+        "src/pkg/__main__.py": "from pkg.core import reached\n\nprint(reached(2))\n",
+        "tests/test_core.py": (
+            "import subprocess\nimport sys\n\nimport pytest\n\nfrom pkg.core import reached\n\n\ndef test_the_module_run_prints_four():\n"
+            "    done = subprocess.run([sys.executable, '-m', 'pkg'], capture_output=True, text=True)\n"
+            "    assert done.stdout.strip() == '4'\n\n\n"
+            "@pytest.mark.parametrize('value', [1, 3])\ndef test_twice(value):\n    assert reached(value) == 2 * value\n\n\n"
+            "@pytest.mark.skip(reason='not here')\ndef test_skipped():\n    assert reached(1) == 2\n\n\n"
+            "def test_a_long_wait():\n    import time\n    time.sleep(60)\n"
+        ),
+        "src/hypotrail/__init__.py": "",
+        "src/hypotrail/cli.py": "INVALID_ARGUMENTS = 'INVALID_ARGUMENTS'\n\n\ndef decide():\n    return INVALID_ARGUMENTS\n",
+        "tests/test_cli.py": "from hypotrail.cli import decide\n\n\ndef test_refuses():\n    assert decide() == 'INVALID_ARGUMENTS'\n",
+        "tests/_architecture.py": (ROOT / "tests" / "_architecture.py").read_text(),
+    }
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    git = ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "a package"], check=True)
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text(f"#!/bin/sh\nexec {sys.executable} \"$@\"\n")
+    python.chmod(0o755)
+    return tmp_path
+
+
+def test_a_checked_by_line_whose_test_fails_once_the_function_raises_in_a_scratch_copy_passes_and_says_the_test_only_reaches_it(git_worktree):
+    prompt = f"`reached` is checked by the test `{MODULE_RUN}`.\nchecked_by({REACHED}) = {{{MODULE_RUN}}}\n"
+    result = sheet(git_worktree, prompt)
+    assert (result.returncode, result.stderr) == (0, "")
+    assert f"checked_by({REACHED}): {MODULE_RUN} fails when {REACHED} raises on entry: the test reaches it, which does not show that it asserts the claimed property" in result.stdout
+    assert "a test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant" in result.stdout
+    assert "a claim sentence with no backticked name is not checked against a line" in result.stdout
+    assert (git_worktree / "src/pkg/core.py").read_text() == CORE
+
+
+def test_a_checked_by_line_whose_test_still_passes_once_the_function_raises_is_refused(git_worktree):
+    result = sheet(git_worktree, f"checked_by({UNREACHED}) = {{{MODULE_RUN}}}\n")
+    assert result.returncode == 2
+    assert f"checked_by({UNREACHED}): {MODULE_RUN} STILL PASSES WITH {UNREACHED} BROKEN" in result.stdout
+
+
+def test_a_test_id_with_a_parametrisation_in_brackets_is_a_test_id(git_worktree):
+    result = sheet(git_worktree, f"checked_by({REACHED}) = {{tests/test_core.py::test_twice[3]}}\n")
+    assert (result.returncode, result.stderr) == (0, "")
+    assert f"checked_by({REACHED}): tests/test_core.py::test_twice[3] fails when {REACHED} raises on entry" in result.stdout
+
+
+def test_a_named_test_that_is_skipped_in_the_copy_is_reported_as_skipped_not_as_still_passing(git_worktree):
+    result = sheet(git_worktree, f"checked_by({REACHED}) = {{tests/test_core.py::test_skipped}}\n")
+    assert result.returncode == 2
+    assert f"checked_by({REACHED}): tests/test_core.py::test_skipped SKIPPED IN THE COPY" in result.stdout and "STILL PASSES" not in result.stdout
+
+
+def test_a_claim_sentence_that_names_several_functions_needs_a_checked_by_line_for_each_one(git_worktree):
+    sentence = "`reached` and `unreached` are checked by the test `tests/test_core.py::test_twice`."
+    result = sheet(git_worktree, f"{sentence}\nchecked_by({REACHED}) = {{tests/test_core.py::test_twice}}\n")
+    assert result.returncode == 2 and f"NO checked_by(...) LINE for the claim: {sentence!r}" in result.stdout
+
+
+def test_a_constant_named_beside_a_function_needs_no_checked_by_line_of_its_own(git_worktree):
+    prompt = (
+        "`decide` refuses with `INVALID_ARGUMENTS`, which is checked by the test `tests/test_cli.py::test_refuses`.\n"
+        "checked_by(hypotrail.cli.decide) = {tests/test_cli.py::test_refuses}\n"
+    )
+    result = sheet(git_worktree, prompt)
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "NO checked_by(...) LINE" not in result.stdout
+
+
+def test_a_planted_run_that_does_not_end_within_the_time_limit_exits_2_with_its_own_message(git_worktree, monkeypatch, capsys):
+    premises = load("premises")
+    monkeypatch.setattr(premises, "PLANT_TIMEOUT", 3)
+    monkeypatch.setattr(premises.sys, "stdin", __import__("io").StringIO(f"checked_by({REACHED}) = {{tests/test_core.py::test_a_long_wait}}\n"))
+    assert premises.main(["premises.py", "-", str(git_worktree)]) == 2
+    error = capsys.readouterr().err
+    assert "did not end within 3 s" in error and "premises.py failed" not in error
+
+
+def test_a_checked_by_line_in_a_worktree_without_its_interpreter_exits_2_as_a_script_error(git_worktree):
+    shutil.rmtree(git_worktree / ".venv")
+    result = sheet(git_worktree, f"checked_by({REACHED}) = {{{MODULE_RUN}}}\n")
+    assert result.returncode == 2 and "premises.py failed" in result.stderr and "did not end within" not in result.stderr
+
+
+def test_the_round_2_prompt_of_the_third_slice_that_says_a_test_checks_details_command_is_reported_without_a_checked_by_line():
+    prompt = (FIXTURES / "fix-prompts" / "f1-round-2.md").read_text()
+    result = sheet(ROOT, prompt)
+    assert result.returncode == 2
+    assert "NO checked_by(...) LINE for the claim: 'The forms of `details.command` are checked at runtime by the test about line 530.'" in result.stdout
+
+
+def test_the_module_docstring_states_what_a_plant_shows_and_which_claims_the_detector_sees():
+    doc = " ".join(load("premises").__doc__.split())
+    assert "shows that the test reaches the function, not that it asserts the claimed property" in doc
+    assert "A claim worded another way is not seen" in doc
+    assert "A test that expects an infrastructure error (`pytest.raises(Exception)`, `EXIT_INFRASTRUCTURE`) cannot be checked by a plant, because the CLI turns the planted error into that outcome" in doc
+    assert "a backticked name that resolves to none, such as a constant or a test name, is not counted on its own" in doc
+    assert "A claim sentence with no backticked name is not checked against a line" in doc
+    assert "A test ID whose brackets hold a comma is split in two" in doc
