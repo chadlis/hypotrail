@@ -1,6 +1,7 @@
 // Loaded with `node --require` before every client test: `require("vscode")` then gives the stub of this folder,
-// so the client's sources run under node:test with no VS Code. No client test starts a process: `execFile` answers as
-// a program that is not found, unless a test puts the recorder in its place.
+// so the client's sources run under node:test with no VS Code. No client test starts the CLI: `execFile` answers as
+// a program that is not found, unless a test puts the recorder in its place. The guard of the layout alone starts a
+// process, Chrome, with `spawn`.
 import Module = require("node:module");
 import childProcess = require("node:child_process");
 import * as path from "node:path";
