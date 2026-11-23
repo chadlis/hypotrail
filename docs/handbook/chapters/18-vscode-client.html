@@ -153,7 +153,7 @@
 
 <p class="sub2" id="panel-content">What the panel shows</p>
 <div class="prose">
-<p>The panel reads its Study through the bridge when it is opened, by the command or by a link, and when the reviewer presses Read again; it reads at no other time: no watcher, no timer, and no read when the panel is hidden or shown again. While a read is in flight the document says so, a press of Read again starts nothing, and an opening only reveals the panel. The extension builds each document whole from the object it read, and keeps in memory, besides the target, only that object and whether a call is in flight.</p>
+<p>The panel reads its Study through the bridge when it is opened, by the command or by a link, after each write the CLI answered, and when the reviewer presses Read again; it reads at no other time: no watcher, no timer, and no read when the panel is hidden or shown again. While a read is in flight the document says so, a press of Read again starts nothing, and an opening only reveals the panel. The extension builds each document whole from the object it read, and keeps in memory, besides the target, only that object, whether a call is in flight and, from a write with no usable answer to the answer of its repeat, that call's request id and arguments.</p>
 <p>The document shows the Study's id whole and its Write sequence, then each pending decision in the order the CLI lists them: the core's wording of the decision and of each of its choices with its consequence; the Comparison it names, with its delta, its coverage and, where the delta record carries them, the Control's and the Candidate's values; the warnings and limitations the Comparison recorded; and the two Assessments it depends on, each under its role with every Metric. When nothing is pending, a fixed sentence stands where the first decision would. The recorded Decisions follow, as the next section says, then the Declared deviations, each with whether it is withdrawn. A number that is not an integer is written with six significant digits and an integer as held; a null number is written with a fixed word. The client computes nothing of its own: what is pending, the delta and the roles are those the object read holds, and a key it does not know is ignored.</p>
 <p>A read that the CLI refuses shows the CLI's code and message unchanged; a read with no usable answer shows its cause after a fixed text. Either way nothing of an earlier read stays: the document holds the failure and Read again. Every word the panel prints is an entry of <code>clients/vscode/contract.json</code>.</p>
 </div>
@@ -180,6 +180,23 @@
 </div>
 <div class="tblwrap"><table class="tbl" id="panel-withheld"><thead><tr><th>The word of a withheld delta (<code>withheld</code>)</th></tr></thead><tbody>
 <tr data-entry="withheld"><td>withheld</td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-write">Recording a Decision from the panel</p>
+<div class="prose">
+<p>The reviewer records a Decision in two actions: selecting one of the choices of a pending decision, then pressing the control that records it, which stays inert until a choice is selected. The selected choice lives only in the document: the script sends the place of the pending decision and of the choice, and the extension finds both in the object it read. One write follows, through the bridge, with the wording of the decision and of the choice as that object holds them, the Comparison alone as the cited id, no origin, a new request id and the Write sequence of that object. Opening the panel, scrolling, following a link and Read again are not actions of a Decision.</p>
+<p>While the write is in flight the document says so and the controls are inert. When the CLI answers, the panel reads the Study once and builds one document: a notice above the first pending decision, then what the read gives. A write the CLI accepted shows its Decision among the others, with whether it applies as the object read says; a write it turned down shows the CLI's code and message unchanged in the notice, and for a Study written to since the read this is the backstop of a stale Write sequence. If that read fails, the document shows the write's answer and the read's failure, both: after an accepted write the answer is a fixed sentence with the id of the recorded Decision, and nothing of an earlier read stays.</p>
+<p>A write that gets no usable answer may still have happened, so the panel reads nothing by itself. The extension keeps that call's request id and arguments in memory; every document then says that the write's outcome is not known, in the words of the bridge's table above, and holds Repeat beside Read again, and the controls that record are inert. Repeat sends the same call again: the same id, the same values and the same Write sequence as the first. A read keeps the id; it is dropped on the answer to a repeat and when the panel closes, so the next write has a new one. While a write is in flight or an id is held, opening the panel, by the command or a link, only reveals it. A write the bridge itself turns down starts nothing: the notice names the missing inputs after a fixed text, no id is kept, and no read follows.</p>
+<p>The script posts one of <a href="#panel-messages">the messages of the table below</a>, and the extension calls a handler only through one table keyed by their names.</p>
+<p>The Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited, and a Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-messages"><thead><tr><th>A message the document's script posts (<code>messages</code>)</th><th>What it starts</th></tr></thead><tbody>
+<tr data-entry="read-again"><td><code>read-again</code></td><td>A read, on Read again</td></tr>
+<tr data-entry="record"><td><code>record</code></td><td>The write of the selected choice, sent with the place of its pending decision and of the choice</td></tr>
+<tr data-entry="repeat"><td><code>repeat</code></td><td>The held call again, on Repeat</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-author"><thead><tr><th>The kind of decider the panel passes (<code>decide_author</code>)</th></tr></thead><tbody>
+<tr data-entry="human"><td>human</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Deep links</p>
