@@ -128,7 +128,7 @@
 <p class="sub2">The panel and its content security policy</p>
 <div class="prose">
 <p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document shows what the Study holds, as the section below says.</p>
-<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute and no inline event handler. No element or attribute of the document holds a remote address, and a text of a Study is shown as text, whatever it holds. The colours come from VS Code's own theme variables; setting custom properties from a script is left to L2.5.</p>
+<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute and no inline event handler. No element or attribute of the document holds a remote address, and a text of a Study is shown as text, whatever it holds. The colours come from VS Code's own theme variables, and the script sets no style, as the section on the panel's style says.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-command"><thead><tr><th>Command</th><th>Title</th></tr></thead><tbody>
 <tr data-command="hypotrail.openPanel" data-title="Hypotrail: Open the Study panel"><td><code>hypotrail.openPanel</code></td><td>Hypotrail: Open the Study panel</td></tr>
@@ -154,7 +154,7 @@
 <p class="sub2" id="panel-content">What the panel shows</p>
 <div class="prose">
 <p>The panel reads its Study through the bridge when it is opened, by the command or by a link, after each write the CLI answered, and when the reviewer presses Read again; it reads at no other time: no watcher, no timer, and no read when the panel is hidden or shown again. While a read is in flight the document says so, a press of Read again starts nothing, and an opening only reveals the panel. The extension builds each document whole from the object it read, and keeps in memory, besides the target, only that object, whether a call is in flight and, from a write with no usable answer to the answer of its repeat, that call's request id and arguments.</p>
-<p>The document shows the Study's id whole and its Write sequence, then each pending decision in the order the CLI lists them: the core's wording of the decision and of each of its choices with its consequence; the Comparison it names, with its delta, its coverage and, where the delta record carries them, the Control's and the Candidate's values; the warnings and limitations the Comparison recorded; and the two Assessments it depends on, each under its role with every Metric. When nothing is pending, a fixed sentence stands where the first decision would. The recorded Decisions follow, as the next section says, then the Declared deviations, each with whether it is withdrawn. A number that is not an integer is written with six significant digits and an integer as held; a null number is written with a fixed word. The client computes nothing of its own: what is pending, the delta and the roles are those the object read holds, and a key it does not know is ignored.</p>
+<p>The document shows the Study's id whole and its Write sequence, then each pending decision in the order the CLI lists them: the core's wording of the decision; the Comparison it names, with its delta, its coverage and, where the delta record carries them, the Control's and the Candidate's values, and the warnings and limitations the Comparison recorded; the core's wording of each of its choices with its consequence; and the two Assessments it depends on, each under its role with every Metric. When nothing is pending, a fixed sentence stands where the first decision would. The recorded Decisions follow, as the next section says, then the Declared deviations, each with whether it is withdrawn. A number that is not an integer is written with six significant digits and an integer as held; a null number is written with a fixed word. The client computes nothing of its own: what is pending, the delta and the roles are those the object read holds, and a key it does not know is ignored.</p>
 <p>A read that the CLI refuses shows the CLI's code and message unchanged; a read with no usable answer shows its cause after a fixed text. Either way nothing of an earlier read stays: the document holds the failure and Read again. Every word the panel prints is an entry of <code>clients/vscode/contract.json</code>.</p>
 </div>
 
@@ -270,6 +270,73 @@
 <tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
 <tr data-entry="study.study_id"><td><code>study.study_id</code></td></tr>
 <tr data-entry="write_sequence"><td><code>write_sequence</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-style">The panel's style, the guard of its layout and its own words</p>
+<div class="prose">
+<p>Every colour the panel's style sets is a theme variable of VS Code, written <code>var(--vscode-…)</code>, or one of the keywords <code>transparent</code>, <code>currentColor</code> and <code>inherit</code>, and the style sets the colour and the background of the body from theme variables, so that each keyword takes its colour from the theme. The style is written in TypeScript, in the document's one style element; the script sets no style, and its text holds none of the names that would set one.</p>
+<p>A test of the client searches the values of that style for each of <a href="#panel-colour-forms">the forms of a literal colour of the table below</a>, and the colours of a border, of an outline and of a shadow are searched as any other.</p>
+<p>A second test measures the panel's document in headless Chrome, driven over its debugging port with Node's own WebSocket and no package: it sets the width of <a href="#panel-guard-bounds">the table of the guard's bounds</a> by device-metric emulation, checks the page's width before it measures, and fails when the wording of the first pending decision or the first evidence number stands farther from the top than its bound. The first evidence number is the delta's value of the first pending Comparison, or the delta's element when that delta is withheld; in the document the Comparison follows the decision's wording and comes before the choices. The test runs with the client's other tests, with no step of its own in the workflow, and it is skipped with a named message where Chrome is absent or does not start. It is a regression guard only: the acceptance of the layout at that width, and of contrast and visible focus in the four themes, is the owner's check in VS Code.</p>
+<p>Every label, heading and fixed sentence the panel prints is an entry of <a href="#panel-labels">the label list of the table below</a>, or one of the words of the tables above and of the bridge's tables; each entry is in English, and a test finds in none a word that the glossary lists under <em>Avoid</em>, the headings on the warnings and limitations of a Comparison excepted by name, since they name those keys of the record.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-colour-forms"><thead><tr><th>An entry of <code>colour_forms</code>: a form of a literal colour</th><th>What the test finds</th></tr></thead><tbody>
+<tr data-entry="hexadecimal"><td><code>hexadecimal</code></td><td>A hexadecimal colour, such as <code>#c0ffee</code></td></tr>
+<tr data-entry="rgb()"><td><code>rgb()</code></td><td>The functional notation <code>rgb(…)</code></td></tr>
+<tr data-entry="rgba()"><td><code>rgba()</code></td><td>The functional notation <code>rgba(…)</code></td></tr>
+<tr data-entry="hsl()"><td><code>hsl()</code></td><td>The functional notation <code>hsl(…)</code></td></tr>
+<tr data-entry="hsla()"><td><code>hsla()</code></td><td>The functional notation <code>hsla(…)</code></td></tr>
+<tr data-entry="hwb()"><td><code>hwb()</code></td><td>The functional notation <code>hwb(…)</code></td></tr>
+<tr data-entry="lab()"><td><code>lab()</code></td><td>The functional notation <code>lab(…)</code></td></tr>
+<tr data-entry="lch()"><td><code>lch()</code></td><td>The functional notation <code>lch(…)</code></td></tr>
+<tr data-entry="oklab()"><td><code>oklab()</code></td><td>The functional notation <code>oklab(…)</code></td></tr>
+<tr data-entry="oklch()"><td><code>oklch()</code></td><td>The functional notation <code>oklch(…)</code></td></tr>
+<tr data-entry="color()"><td><code>color()</code></td><td>The functional notation <code>color(…)</code></td></tr>
+<tr data-entry="color-mix()"><td><code>color-mix()</code></td><td>The functional notation <code>color-mix(…)</code></td></tr>
+<tr data-entry="named"><td><code>named</code></td><td>A named or system colour of CSS Color Module Level 4, in any case, as a whole token outside <code>var(…)</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-guard-bounds"><thead><tr><th>An entry of <code>guard_bounds</code>: a bound, then its value</th><th>What it bounds</th></tr></thead><tbody>
+<tr data-entry="width=420"><td><code>width=420</code></td><td>The width of the page, in CSS pixels, that the guard sets and checks before it measures</td></tr>
+<tr data-entry="question=200"><td><code>question=200</code></td><td>The greatest distance, in CSS pixels, from the top of the page to the top of the first pending decision's wording</td></tr>
+<tr data-entry="evidence=350"><td><code>evidence=350</code></td><td>The greatest distance, in CSS pixels, from the top of the page to the top of the first evidence number</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-labels"><thead><tr><th>An entry of <code>labels</code>, in its order</th></tr></thead><tbody>
+<tr data-entry="Reading the Study."><td>Reading the Study.</td></tr>
+<tr data-entry="Read again"><td>Read again</td></tr>
+<tr data-entry="Study"><td>Study</td></tr>
+<tr data-entry="Write sequence"><td>Write sequence</td></tr>
+<tr data-entry="Pending decisions"><td>Pending decisions</td></tr>
+<tr data-entry="No pending decision."><td>No pending decision.</td></tr>
+<tr data-entry="Comparison"><td>Comparison</td></tr>
+<tr data-entry="Delta"><td>Delta</td></tr>
+<tr data-entry="Coverage"><td>Coverage</td></tr>
+<tr data-entry="Control"><td>Control</td></tr>
+<tr data-entry="Candidate"><td>Candidate</td></tr>
+<tr data-entry="Assessment"><td>Assessment</td></tr>
+<tr data-entry="Metric"><td>Metric</td></tr>
+<tr data-entry="status"><td>status</td></tr>
+<tr data-entry="Warnings of the Comparison"><td>Warnings of the Comparison</td></tr>
+<tr data-entry="Limitations of the Comparison"><td>Limitations of the Comparison</td></tr>
+<tr data-entry="Decisions"><td>Decisions</td></tr>
+<tr data-entry="Declared deviations"><td>Declared deviations</td></tr>
+<tr data-entry="withdrawn"><td>withdrawn</td></tr>
+<tr data-entry="No answer from the CLI:"><td>No answer from the CLI:</td></tr>
+<tr data-entry="Option"><td>Option</td></tr>
+<tr data-entry="Author"><td>Author</td></tr>
+<tr data-entry="Cited ids"><td>Cited ids</td></tr>
+<tr data-entry="applies"><td>applies</td></tr>
+<tr data-entry="Reasons"><td>Reasons</td></tr>
+<tr data-entry="Changed Items"><td>Changed Items</td></tr>
+<tr data-entry="Cited value"><td>Cited value</td></tr>
+<tr data-entry="Latest value"><td>Latest value</td></tr>
+<tr data-entry="Opened from a link"><td>Opened from a link</td></tr>
+<tr data-entry="This Study holds no Decision with the id"><td>This Study holds no Decision with the id</td></tr>
+<tr data-entry="Repeat"><td>Repeat</td></tr>
+<tr data-entry="Record this Decision"><td>Record this Decision</td></tr>
+<tr data-entry="Recording the Decision."><td>Recording the Decision.</td></tr>
+<tr data-entry="Nothing was sent. Missing:"><td>Nothing was sent. Missing:</td></tr>
+<tr data-entry="The Decision was recorded."><td>The Decision was recorded.</td></tr>
+<tr data-entry="Output path"><td>Output path</td></tr>
+<tr data-entry="comparability.status"><td>comparability.status</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Deep links</p>
