@@ -70,6 +70,7 @@ The MCP tools:
 | Read an issue, its comments, sub-issues, parent | `issue_read` with `method: get`, then `method: get_comments`: comments carry amendments that override the body; a ticket's history comment holds the lines a tightening replaced and overrides nothing |
 | List issues | `list_issues` |
 | Comment | `add_issue_comment` |
+| Edit a comment | `update_issue_comment` (resends the whole body; the fallback when a comment PATCH is refused) |
 | Sub-issue | `issue_write` with `parent_issue_number`, or `sub_issue_write` |
 
 These tools do not create labels: a label must already exist in the repository (create it in GitHub's UI), otherwise `issue_write` fails with "label not found". Native issue dependencies are not available
