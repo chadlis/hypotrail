@@ -200,6 +200,10 @@ PROCESS_PATTERNS = {"exec(": r"(?<!\.)\bexec\(", "shell": r"\bshell\b"}
 VSCODE_RUNNERS = ["createTerminal", "sendText", "executeTask", "ShellExecution", "ProcessExecution", "CustomExecution", "startDebugging"]
 STATE_NAMES = ["globalState", "workspaceState", "setState", "localStorage"]
 WRITE_NAMES = ["writeFile", "appendFile", "createWriteStream"]
+# A watcher and a read on visibility or on a timer (D-092 on chadlis/hypotrail#75, comment 7099114398, S20), and the names that read or open a
+# file (the same comment, S22, its conditions).
+WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeViewState", "onDidChangeTextDocument", "setInterval"]
+FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
 # Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel and
@@ -213,7 +217,7 @@ def listing(files: dict) -> set:
     """Each pair (file, name) for a name of the lists above that the file holds."""
     found = set()
     for path, text in files.items():
-        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES:
+        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES + WATCH_NAMES + FILE_READ_NAMES:
             if name in text:
                 found.add((path, name))
         for name, pattern in PROCESS_PATTERNS.items():
@@ -268,6 +272,7 @@ PLANTED = [
     ("a second file that names study.json", "clients/vscode/src/other.ts", 'const marker = "study.json";\n'),
     ("a second panel created in another file", "clients/vscode/src/other.ts", 'vscode.window.createWebviewPanel("x", "x", 1, {});\n'),
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
+    *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
 ]
 
 
@@ -471,3 +476,35 @@ def test_the_authority_of_both_link_forms_is_the_manifests_publisher_and_name():
     forms = read_json(CLIENT / "contract.json").get("link_forms", [])
     assert len(forms) == 2
     assert [re.match(r"vscode://([^/]+)/", form)[1] for form in forms] == [f"{manifest['publisher']}.{manifest['name']}"] * 2
+
+
+# --- the texts of a pending decision ------------------------------------------------------------------------------------------------
+
+
+def pending_texts() -> list:
+    """The question's text and each option's text and consequence, as the core holds them (`hypotrail.core.decisions`)."""
+    from hypotrail.core.decisions import PENDING_OPTIONS, PENDING_QUESTION
+
+    return [PENDING_QUESTION["text"]] + [option[key] for option in PENDING_OPTIONS for key in ("text", "consequence")]
+
+
+def pending_text_holders(files: dict) -> list:
+    """Each pair (file, text) for a text of a pending decision that a file holds."""
+    return [(path, text) for path, held in sorted(files.items()) for text in pending_texts() if text in held]
+
+
+def client_source_and_contract() -> dict:
+    return {**sources(), "clients/vscode/contract.json": (CLIENT / "contract.json").read_text(encoding="utf-8")}
+
+
+def test_no_client_source_and_not_contract_json_holds_a_text_of_the_pending_decision():
+    assert len(pending_texts()) == 7
+    assert pending_text_holders(client_source_and_contract()) == []
+
+
+def test_a_planted_file_that_holds_an_option_text_is_found():
+    from hypotrail.core.decisions import PENDING_OPTIONS
+
+    files = client_source_and_contract()
+    files["clients/vscode/src/other.ts"] = f'const option = "{PENDING_OPTIONS[1]["text"]}";\n'
+    assert pending_text_holders(files) == [("clients/vscode/src/other.ts", PENDING_OPTIONS[1]["text"])]
