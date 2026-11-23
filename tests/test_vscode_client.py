@@ -171,24 +171,31 @@ def test_each_kept_status_read_whose_ok_is_true_is_the_clis_own_once_its_values_
 
 
 # Each kept read, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
-# `declared_deviations`, and the `workload` of the Study.
+# `declared_deviations`, the `workload` of the Study, and for each Decision the `state` of its `evidence_change` (None when it is null) and
+# whether `revision_changed` is among its `reasons`.
 KEPT_CASES = {
-    "status-success": (1, 0, [], "bike_day"),
-    "status-chinook-pending": (1, 0, [], "chinook"),
-    "status-several-pending": (2, 0, [], "bike_day"),
-    "status-decided": (0, 1, [], "bike_day"),
-    "status-deviation": (1, 0, [False, True, False], "bike_day"),
+    "status-success": (1, 0, [], "bike_day", []),
+    "status-chinook-pending": (1, 0, [], "chinook", []),
+    "status-several-pending": (2, 0, [], "bike_day", []),
+    "status-decided": (0, 1, [], "bike_day", [(None, False)]),
+    "status-deviation": (1, 0, [False, True, False], "bike_day", []),
+    "status-rescored": (0, 1, [], "bike_day", [("evidence_rescored", True)]),
+    "status-result-changed": (0, 2, [], "bike_day", [("result_changed", True), ("result_changed", True)]),
+    "status-repeated": (0, 1, [], "bike_day", [("repeated", False)]),
+    "status-chinook-decided": (0, 1, [], "chinook", [(None, False)]),
 }
 
 
 def test_each_kept_read_holds_the_case_it_is_kept_for():
     names = kept_status_names()
-    for name, (pending, decided, withdrawn, workload) in KEPT_CASES.items():
+    for name, (pending, decided, withdrawn, workload, evidence) in KEPT_CASES.items():
         assert name in names, name
         payload = read_json(KEPT / f"{name}.out")
         assert (len(payload["pending_decisions"]), len(payload["decisions"])) == (pending, decided), name
         assert [entry["withdrawn"] for entry in payload["declared_deviations"]] == withdrawn, name
         assert payload["study"]["workload"] == workload, name
+        found = [((d["evidence_change"] or {}).get("state"), "revision_changed" in [r["reason"] for r in d["reasons"]]) for d in payload["decisions"]]
+        assert found == evidence, name
 
 
 # --- the listings over the client's sources ---------------------------------------------------------------------------------------

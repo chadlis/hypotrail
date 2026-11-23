@@ -147,12 +147,77 @@ def deviation_study(tmp_path):
     return study
 
 
+def compared_sides(study) -> list:
+    """The Control's and the Candidate's Assessment records of the Study's first Comparison, as `status --json` lists them."""
+    code, payload, err = run_json("status", "--study", study)
+    assert code == 0, (payload, err)
+    roles = payload["comparisons"][0]["roles"]
+    by_id = {assessment["assessment_id"]: assessment for assessment in payload["assessments"]}
+    return [by_id[roles["control_assessment_id"]], by_id[roles["candidate_assessment_id"]]]
+
+
+def decide_at_sequence(study, option, request_id, *cited):
+    """`decide` with the Study's current Write sequence as its read sequence."""
+    code, payload, err = run_json("status", "--study", study)
+    assert code == 0, (payload, err)
+    code, out, err = decide(study, option, request_id, payload["write_sequence"], *cited)
+    assert code == 0, (out, err)
+
+
+def rescored_study(tmp_path):
+    """`decided_study`, then a new revision that corrects one `public_check` day and an `assess` of each side against it: "evidence rescored"."""
+    from _review_helpers import TRACKS
+
+    study = decided_study(tmp_path)
+    sides = compared_sides(study)
+    TRACKS["bike"].revise_no_assessed_item(study, tmp_path)
+    for side in sides:
+        TRACKS["bike"].assess_again(study, side)
+    return study
+
+
+def result_changed_study(tmp_path):
+    """`decided_study` with a second Decision that cites the Candidate's Assessment, then the two steps of `rescored_study` and of a new
+    revision that corrects one `dev` day, each followed by an `assess` of each side: "result changed"."""
+    from _review_helpers import TRACKS
+
+    study = decided_study(tmp_path)
+    sides = compared_sides(study)
+    decide_at_sequence(study, "Keep the Candidate", "panel-2", sides[1]["assessment_id"])
+    for revise in (TRACKS["bike"].revise_no_assessed_item, TRACKS["bike"].revise_an_assessed_item):
+        revise(study, tmp_path)
+        for side in sides:
+            TRACKS["bike"].assess_again(study, side)
+    return study
+
+
+def repeated_study(tmp_path):
+    """`decided_study`, then one more `assess` of the Control's Observation set on the same revision: "repeated", and no new revision."""
+    from _review_helpers import TRACKS
+
+    study = decided_study(tmp_path)
+    TRACKS["bike"].assess_again(study, compared_sides(study)[0])
+    return study
+
+
+def chinook_decided_study(tmp_path):
+    """`chinook_pending_study` after a Decision on its Comparison."""
+    study = chinook_pending_study(tmp_path)
+    [comparison] = [p.name for p in (Path(study) / "comparisons").iterdir()]
+    decide_at_sequence(study, "Keep the Candidate", "panel-1", comparison)
+    return study
+
+
 STUDIES = {
     "status-success": compared_study,
     "status-chinook-pending": chinook_pending_study,
     "status-several-pending": several_pending_study,
     "status-decided": decided_study,
     "status-deviation": deviation_study,
+    "status-rescored": rescored_study,
+    "status-result-changed": result_changed_study,
+    "status-repeated": repeated_study,
+    "status-chinook-decided": chinook_decided_study,
 }
 
 
