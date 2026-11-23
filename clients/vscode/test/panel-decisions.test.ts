@@ -61,6 +61,11 @@ function assertDecisions(document: string, object: Entry): void {
     assert.match(words(between(part)), new RegExp(`Author ${decision.author}( |$)`));
     const cited = words(between(elementOf(part, '<ul data-element="cited">'))).split(" ");
     decision.cited_ids.forEach((id: string, at: number) => assert.equal(cited[at], id, `the cited id ${id}, at its place in the list of cited ids`));
+    assert.equal(
+      cited.length,
+      decision.cited_ids.length,
+      `${cited.length} cited ids shown for ${decision.cited_ids.length} cited ids in the Decision`,
+    );
   });
 }
 
