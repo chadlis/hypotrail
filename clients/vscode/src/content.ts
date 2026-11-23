@@ -156,7 +156,8 @@ function studyOf(object: Entry, linked: string | undefined, locked: boolean): st
   ].join("\n");
 }
 
-// The first action selects an option's radio input; the second is the control that records, disabled until then.
+// The question, then the Comparison it names, then the options: the first action selects an option's radio input; the
+// second is the control that records, disabled until then.
 function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown): string {
   const inert = locked ? " disabled" : "";
   const options = list(pending.options).map(
@@ -166,9 +167,9 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown)
   return [
     '<section data-part="pending">',
     marked(record(pending.question).text, "h3"),
+    comparisonOf(pending.comparison_id, shown),
     `<ul>\n${options.join("\n")}\n</ul>`,
     `<button data-message="${contract.messages[1]}" data-pending="${index}" disabled>${label("record")}</button>`,
-    comparisonOf(pending.comparison_id, shown),
     assessmentOf("control", pending.control_assessment_id, shown),
     assessmentOf("candidate", pending.candidate_assessment_id, shown),
     "</section>",

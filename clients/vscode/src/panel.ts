@@ -158,6 +158,15 @@ const SCRIPT = [
   'document.querySelector("[data-linked]")?.scrollIntoView();',
 ].join("\n");
 
+// The document's style. Every colour it sets is a theme variable of VS Code; its margins are small, so that at 420 px the
+// question and the first evidence number stand near the top of the panel.
+const STYLE = [
+  "body { color: var(--vscode-foreground); background: var(--vscode-editor-background); font-family: var(--vscode-font-family); }",
+  "h2 { font-size: 1.15em; margin: 0.5em 0 0.2em; }",
+  "h3, h4 { font-size: 1em; margin: 0.4em 0 0.2em; }",
+  "p, ul { margin: 0.2em 0; }",
+].join("\n");
+
 // Every document the client gives to a webview is built here.
 function documentFor(nonce: string, view: View): string {
   const policy = contract.csp_directives.map((directive) => directive.replace("{nonce}", nonce)).join("; ");
@@ -168,7 +177,7 @@ function documentFor(nonce: string, view: View): string {
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${policy}">`,
     "<title>Hypotrail</title>",
-    `<style nonce="${nonce}">body { color: var(--vscode-foreground); background: var(--vscode-editor-background); font-family: var(--vscode-font-family); }</style>`,
+    `<style nonce="${nonce}">${STYLE}</style>`,
     "</head>",
     "<body>",
     `<main id="study">${bodyOf(view)}</main>`,
