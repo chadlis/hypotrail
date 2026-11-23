@@ -47,25 +47,38 @@ test("the phrases of contract.json name the three states the core computes, the 
   assert.deepEqual(Object.keys(PHRASES), ["result_changed", "evidence_rescored", "repeated"]);
 });
 
-// Each recorded Decision, read from the Study and from nowhere else.
+// Each recorded Decision, read from the Study and from nowhere else: each part in the order of decisions, with its id,
+// its option whole and marked, its author and each cited id.
+function assertDecisions(document: string, object: Entry): void {
+  const parts = decisionParts(document);
+  assert.equal(parts.length, object.decisions.length);
+  const positions = object.decisions.map((decision: Entry) => document.indexOf(decision.decision_id, document.indexOf(DECISION)));
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions, "the decision_id values follow the order of decisions");
+  object.decisions.forEach((decision: Entry, index: number) => {
+    const part = parts[index];
+    assert.ok(between(part).includes(decision.decision_id), decision.decision_id);
+    assert.ok(markedTexts(part).includes(decision.option), decision.option);
+    assert.match(words(between(part)), new RegExp(`Author ${decision.author}( |$)`));
+    const cited = words(between(elementOf(part, '<ul data-element="cited">'))).split(" ");
+    assert.deepEqual(cited, decision.cited_ids, "each cited id, in the list of cited ids");
+  });
+}
+
 for (const name of DECIDED) {
   test(`each Decision stands in the order of decisions, with its id, its option whole and marked, its author and each cited id: ${name}`, async (t) => {
     const object = keptObject(name);
-    const { document } = await documentFor(t, success(object));
-    const parts = decisionParts(document);
-    assert.equal(parts.length, object.decisions.length);
-    const positions = object.decisions.map((decision: Entry) => document.indexOf(decision.decision_id, document.indexOf(DECISION)));
-    assert.deepEqual([...positions].sort((a, b) => a - b), positions, "the decision_id values follow the order of decisions");
-    object.decisions.forEach((decision: Entry, index: number) => {
-      const part = parts[index];
-      assert.ok(between(part).includes(decision.decision_id), decision.decision_id);
-      assert.ok(markedTexts(part).includes(decision.option), decision.option);
-      assert.match(words(between(part)), new RegExp(`Author ${decision.author}( |$)`));
-      const cited = words(between(elementOf(part, '<ul data-element="cited">'))).split(" ");
-      assert.deepEqual(cited, decision.cited_ids, "each cited id, in the list of cited ids");
-    });
+    assertDecisions((await documentFor(t, success(object))).document, object);
   });
 }
+
+// No kept read holds a Decision with two cited ids, since their order follows the real ids the CLI draws.
+test("each Decision stands with each cited id when one of them cites two: status-result-changed with an Assessment of the read added to the first", async (t) => {
+  const object = keptObject("status-result-changed");
+  const added = object.assessments.find((assessment: Entry) => !object.decisions[0].cited_ids.includes(assessment.assessment_id)).assessment_id;
+  object.decisions[0].cited_ids.push(added);
+  assert.equal(object.decisions[0].cited_ids.length, 2);
+  assertDecisions((await documentFor(t, success(object))).document, object);
+});
 
 const PLANTED_ID = "7f3e9d1c-2b4a-4c8e-9a6f-0d5b3e7c1a29";
 
