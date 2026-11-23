@@ -127,7 +127,8 @@ function comparisonOf(id: unknown, comparison: Entry | undefined): string {
   if (comparison) {
     const delta = record(comparison.delta);
     const coverage = Object.entries(record(comparison.coverage)).map(([key, number]) => `${value(key)} ${numberOf(number)}`);
-    lines.push(`<p data-element="delta">${label("delta")} ${numberOf(delta.value)} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
+    const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : numberOf(delta.value);
+    lines.push(`<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
     lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.join(" ")}</p>`);
     // "when the delta's `value` is null the Comparison's part holds no roles' element" (chadlis/hypotrail#177).
     if (delta.value !== null && ("control" in delta || "candidate" in delta)) {

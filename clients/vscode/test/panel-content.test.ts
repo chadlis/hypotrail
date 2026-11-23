@@ -43,7 +43,8 @@ test("a Metric value of 0.5 is written 0.5 and not 0.500000", async (t) => {
 });
 
 // A number written by another route than the client's, to find a value in a document.
-function written(value: number): string {
+function written(value: number | null): string {
+  if (value === null) return "no value";
   if (Number.isInteger(value)) return String(value);
   const fixed = value.toPrecision(6);
   return fixed.includes("e") ? String(Number(fixed)) : fixed.replace(/\.?0+$/, "");
@@ -165,11 +166,12 @@ for (const name of KEPT_READS) {
     const parts = elementsOf(document, '<section data-part="pending">');
     assert.equal(parts.length, object.pending_decisions.length);
     for (const part of parts) {
+      const comparison = object.comparisons.find((each: Record<string, any>) => part.includes(each.comparison_id));
+      if (comparison.delta.value === null) continue; // a withheld delta has no value of its own to change
       const delta = elementOf(part, '<p data-element="delta">')!;
       const { between } = partsOf(delta);
       assert.ok(/(^|\s)12\.5(\s|$)/.test(between), delta);
       const kept = keptObject(name);
-      const comparison = object.comparisons.find((each: Record<string, string>) => part.includes(each.comparison_id));
       const pending = kept.pending_decisions.find((each: Record<string, string>) => each.comparison_id === comparison.comparison_id);
       const metricOf = (id: string) => kept.assessments.find((each: Record<string, string>) => each.assessment_id === id).metrics.find((metric: Record<string, string>) => metric.id === comparison.delta.metric);
       const [control, candidate] = [metricOf(pending.control_assessment_id), metricOf(pending.candidate_assessment_id)];

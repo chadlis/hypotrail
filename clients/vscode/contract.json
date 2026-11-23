@@ -70,5 +70,6 @@
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "no_value": "no value",
+  "withheld": "withheld",
   "read_again_message": "read-again"
 }
