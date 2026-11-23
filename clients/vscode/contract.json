@@ -35,5 +35,10 @@
   ],
   "link_decision_id": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
   "link_max_path": 4096,
-  "link_refusal": "This Hypotrail link is not valid."
+  "link_refusal": "This Hypotrail link is not valid.",
+  "labels": [
+    "Reading the Study.",
+    "Read again"
+  ],
+  "read_again_message": "read-again"
 }

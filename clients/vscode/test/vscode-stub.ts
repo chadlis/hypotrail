@@ -9,7 +9,9 @@ export type StubPanel = {
   documents: string[];
   reveals: number;
   disposed: boolean;
-  webview: { html: string; cspSource: string };
+  webview: { html: string; cspSource: string; onDidReceiveMessage(listener: (message: unknown) => void): { dispose(): void } };
+  // Sends a message as the document's script would.
+  send(message: unknown): void;
   reveal(): void;
   onDidDispose(listener: () => void): { dispose(): void };
   dispose(): void;
@@ -54,6 +56,7 @@ export const workspace = {
 
 function makePanel(viewType: string, options: unknown): StubPanel {
   const listeners: (() => void)[] = [];
+  const receivers: ((message: unknown) => void)[] = [];
   let html = "";
   const panel: StubPanel = {
     viewType,
@@ -70,6 +73,13 @@ function makePanel(viewType: string, options: unknown): StubPanel {
         panel.documents.push(value);
       },
       cspSource: "vscode-webview://stub",
+      onDidReceiveMessage(listener) {
+        receivers.push(listener);
+        return disposable;
+      },
+    },
+    send(message) {
+      for (const receiver of receivers) receiver(message);
     },
     reveal() {
       record("reveal", []);

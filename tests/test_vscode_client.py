@@ -206,9 +206,9 @@ WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeVie
 FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
-# Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel and
-# the one assignment of a webview's document.
-ONCE_NAMES = {"createWebviewPanel": "clients/vscode/src/panel.ts", ".html =": "clients/vscode/src/panel.ts"}
+# Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel,
+# the one assignment of a webview's document, and the one receiver of the document's messages.
+ONCE_NAMES = {"createWebviewPanel": "clients/vscode/src/panel.ts", ".html =": "clients/vscode/src/panel.ts", "onDidReceiveMessage": "clients/vscode/src/panel.ts"}
 CHILD_PROCESS_IMPORT = 'import { execFile } from "node:child_process";'
 VSCODE_IMPORT = 'import * as vscode from "vscode";'
 
@@ -272,6 +272,7 @@ PLANTED = [
     ("a second file that names study.json", "clients/vscode/src/other.ts", 'const marker = "study.json";\n'),
     ("a second panel created in another file", "clients/vscode/src/other.ts", 'vscode.window.createWebviewPanel("x", "x", 1, {});\n'),
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
+    ("a second message receiver", "clients/vscode/src/other.ts", "other.webview.onDidReceiveMessage(listen);\n"),
     *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
 ]
 
