@@ -2814,6 +2814,14 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <tr data-entry="no value"><td>no value</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="panel-delta-withheld">What the panel shows when a Comparison withholds its delta</p>
+<div class="prose">
+<p>When the main delta of a Comparison has no value, on either Track, the delta's element holds <a href="#panel-withheld">the word of the table below</a> in the place of the value, beside the delta's Metric and unit, with no number, no bound and no reason, and none of the Comparison's secondary deltas is shown; the coverage stays in the element that follows, as for every Comparison, and so do the warnings and limitations the Comparison recorded.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-withheld"><thead><tr><th>The word of a withheld delta (<code>withheld</code>)</th></tr></thead><tbody>
+<tr data-entry="withheld"><td>withheld</td></tr>
+</tbody></table></div>
+
 <p class="sub2">Deep links</p>
 <div class="prose">
 <p>A deep link is a <code>vscode://</code> URI that the extension handles, of one of the two forms below. Its authority is the manifest's publisher and name, joined by a dot, and the manifest's activation events let a link start the extension. The query is the key and the path, which is the whole rest of the query: required, absolute, within the limit below, with no NUL character, and a Study that the walk above finds in the workspace. A valid link opens the panel on its Study, and on the Decision the second form names, as <a href="#panel-decisions">the section on recorded Decisions</a> says. Anything else (another authority, a fragment, another path, a decision id that does not match the pattern) is refused with the one notification below, and opens nothing. A link never writes.</p>

@@ -5209,3 +5209,25 @@ def test_the_prose_of_chapter_18_names_each_panel_decision_table_by_one_link_to_
     for table in PANEL_DECISION_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# The table of chapter 18 that holds the word of a withheld delta, with the entry of contract.json it equals.
+PANEL_WITHHELD_TABLE = ("panel-withheld", "withheld")
+
+
+def test_the_panel_withheld_table_of_chapter_18_equals_contract_json_both_ways(page):
+    table, key = PANEL_WITHHELD_TABLE
+    assert [row["data-entry"] for row in client_rows(page, table)] == [client_contract()[key]]
+
+
+def test_no_row_of_the_panel_withheld_table_carries_an_attribute_of_the_l24_value_attributes(page):
+    rows = client_rows(page, PANEL_WITHHELD_TABLE[0])
+    assert rows
+    for row in rows:
+        assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], row
+
+
+def test_the_prose_of_chapter_18_names_the_panel_withheld_table_by_one_link_to_its_id(page):
+    table = PANEL_WITHHELD_TABLE[0]
+    assert prose_of(chapter_text(CLIENT_CHAPTER)).count(f'href="#{table}"') == 1
+    assert page.count(f'id="{table}"') == 1
