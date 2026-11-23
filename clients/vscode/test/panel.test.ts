@@ -5,6 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { activate } from "../src/extension";
+import { cspProblems } from "./panel-harness";
 import * as stub from "./vscode-stub";
 
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8"));
@@ -87,26 +88,6 @@ test("a second run reveals the open panel and creates none; once it is closed, t
   assert.equal(stub.callsOf("createWebviewPanel").length, 2);
   closeAll();
 });
-
-// What makes a document break the policy, by patterns, with no parser.
-function cspProblems(document: string): string[] {
-  const problems: string[] = [];
-  const policies = [...document.matchAll(/http-equiv="Content-Security-Policy" content="([^"]*)"/g)];
-  if (policies.length !== 1) return [`${policies.length} policies`];
-  const nonce = /script-src 'nonce-([^']*)'/.exec(policies[0][1])?.[1] ?? "";
-  if (!/^[A-Za-z0-9]+$/.test(nonce)) problems.push(`the nonce ${nonce}`);
-  const expected = contract.csp_directives.map((directive) => directive.replace("{nonce}", nonce)).join("; ");
-  if (policies[0][1] !== expected) problems.push(`the policy ${policies[0][1]}`);
-  for (const element of ["script", "style"]) {
-    const opened = document.split(`<${element} `).length - 1;
-    const withNonce = document.split(`<${element} nonce="${nonce}"`).length - 1;
-    if (opened !== 1 || withNonce !== 1 || document.split(`<${element}>`).length > 1) problems.push(`${element}: ${opened} opened, ${withNonce} with the nonce`);
-  }
-  if (/\sstyle=/i.test(document)) problems.push("a style attribute");
-  if (/\son[a-z]+\s*=/i.test(document)) problems.push("an inline event handler");
-  if (/https?:\/\//i.test(document)) problems.push("a remote address");
-  return problems;
-}
 
 test("the document holds one policy of the nine directives with a nonce for each document, and no script or style without it", async (t) => {
   activated();

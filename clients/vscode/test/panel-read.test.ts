@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { kept } from "./kept";
-import { followLink, heldRecorder, lastDocument, panelOf, partsOf, runCommand, settle, workspace } from "./panel-harness";
-import { exit, recorder } from "./recorder";
+import { documentFor, followLink, heldRecorder, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, workspace } from "./panel-harness";
+import { exit, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const STATUS = kept("status-success.out");
@@ -81,4 +81,61 @@ for (const [way, open] of OPENINGS) {
     assert.deepEqual(panelOf().documents, before);
     assert.equal(panelOf().reveals, reveals + 1);
   });
+}
+
+// VA-T7 of #177: a read that fails.
+const NOT_FOUND = kept("status-not-found.out");
+const UUID_SHAPE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+
+test("a read refused shows the code and the message of the CLI's object, unchanged, the message as a marked text", async (t) => {
+  const error = JSON.parse(NOT_FOUND).error;
+  const { document } = await documentFor(t, exit(2, NOT_FOUND));
+  const { between } = partsOf(document);
+  assert.ok(between.includes(error.code), error.code);
+  assert.ok(markedTexts(document).includes(error.message), error.message);
+});
+
+const CAUSES: [string, Answer][] = [
+  ["not_started", { error: { code: "ENOENT" } }],
+  ["timeout", { error: { code: null, killed: true, signal: "SIGTERM" } }],
+  ["too_large", { error: { code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER", killed: true } }],
+  ["no_json", exit(0, "Study: bike\n")],
+  ["inconsistent", exit(0, NOT_FOUND)],
+];
+
+test("the causes of a read with no answer are those of contract.json", () => {
+  assert.deepEqual(CAUSES.map(([cause]) => cause), contract.no_answer_causes);
+});
+
+for (const [cause, answer] of CAUSES) {
+  test(`a read with no answer shows its cause after the fixed text, and not the words of a write: ${cause}`, async (t) => {
+    const { between } = partsOf((await documentFor(t, answer)).document);
+    assert.match(between, new RegExp(`No answer from the CLI:\\s+${cause}(\\s|$)`));
+    assert.ok(!between.includes(contract.write_no_answer_words));
+  });
+}
+
+const FAILURES: [string, Answer][] = [
+  ["refusal", exit(2, NOT_FOUND)],
+  ["no_answer", exit(0, "not JSON")],
+];
+
+for (const [outcome, failure] of FAILURES) {
+  for (const way of ["the panel opened on another Study", "Read again on the same Study"]) {
+    test(`after a read that succeeded, a ${outcome} by ${way} leaves nothing of the earlier read, and Read again`, async (t) => {
+      const [, other] = workspace(t, ["a", "b"]);
+      recorder(t, exit(0, STATUS), failure);
+      await runCommand();
+      await settle();
+      assert.match(partsOf(lastDocument()).between, UUID_SHAPE);
+      if (way.startsWith("the panel")) await followLink(0, other);
+      else panelOf().send(READ_AGAIN);
+      await settle();
+      const document = lastDocument();
+      assert.doesNotMatch(document, UUID_SHAPE);
+      assert.deepEqual([...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]), [contract.read_again_message]);
+      assert.ok(!/<(input|select|form)[\s>]/.test(document));
+      assert.ok(partsOf(document).between.includes("Read again"));
+    });
+  }
 }

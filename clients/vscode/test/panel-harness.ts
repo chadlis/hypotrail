@@ -14,6 +14,7 @@ import childProcess = require("node:child_process");
 export function workspace(t: TestContext, names: string[]): string[] {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-read-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const panel of stub.state.panels) if (!panel.disposed) panel.dispose();
   stub.reset();
   stub.state.folders = [root];
   activate({ subscriptions: [], extensionPath: "/home/owner/hypotrail/clients/vscode" } as never);
@@ -141,4 +142,28 @@ export function heldRecorder(t: TestContext) {
       for (const callback of waiting.splice(0)) callback(error, answer.stdout ?? "", answer.stderr ?? "");
     },
   };
+}
+
+// What makes a document break the policy, by patterns, with no parser. The patterns of an attribute read the tags of
+// the document, not the text between them, and a remote address is looked for in the tags and in the texts of the
+// script and of the style.
+export function cspProblems(document: string): string[] {
+  const problems: string[] = [];
+  const policies = [...document.matchAll(/http-equiv="Content-Security-Policy" content="([^"]*)"/g)];
+  if (policies.length !== 1) return [`${policies.length} policies`];
+  const nonce = /script-src 'nonce-([^']*)'/.exec(policies[0][1])?.[1] ?? "";
+  if (!/^[A-Za-z0-9]+$/.test(nonce)) problems.push(`the nonce ${nonce}`);
+  const expected = contract.csp_directives.map((directive) => directive.replace("{nonce}", nonce)).join("; ");
+  if (policies[0][1] !== expected) problems.push(`the policy ${policies[0][1]}`);
+  for (const element of ["script", "style"]) {
+    const opened = document.split(`<${element} `).length - 1;
+    const withNonce = document.split(`<${element} nonce="${nonce}"`).length - 1;
+    if (opened !== 1 || withNonce !== 1 || document.split(`<${element}>`).length > 1) problems.push(`${element}: ${opened} opened, ${withNonce} with the nonce`);
+  }
+  const { script, style, tags } = partsOf(document);
+  if (tags.some((tag) => /\sstyle=/i.test(tag))) problems.push("a style attribute");
+  if (tags.some((tag) => /\son[a-z]+\s*=/i.test(tag))) problems.push("an inline event handler");
+  if ([...tags, script, style].some((part) => /https?:\/\//i.test(part))) problems.push("a remote address");
+  if (/<\/script/i.test(script)) problems.push("the script's text holds </script");
+  return problems;
 }

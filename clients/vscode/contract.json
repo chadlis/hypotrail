@@ -38,7 +38,26 @@
   "link_refusal": "This Hypotrail link is not valid.",
   "labels": [
     "Reading the Study.",
-    "Read again"
+    "Read again",
+    "Study",
+    "Write sequence",
+    "Pending decisions",
+    "No pending decision.",
+    "Comparison",
+    "Delta",
+    "Coverage",
+    "Control",
+    "Candidate",
+    "Assessment",
+    "Metric",
+    "status",
+    "Warnings of the Comparison",
+    "Limitations of the Comparison",
+    "Decisions",
+    "Declared deviations",
+    "withdrawn",
+    "No answer from the CLI:"
   ],
+  "no_value": "no value",
   "read_again_message": "read-again"
 }
