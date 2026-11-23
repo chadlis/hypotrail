@@ -323,6 +323,33 @@ def test_a_planted_escape_is_found_by_the_listing(case, path, line):
     assert listing_problems(files) != [], case
 
 
+# The module-level `let` bindings of the client's sources, each with what it holds: the handle of the webview panel, and one entry each of
+# "The closed list of what the client's extension holds in memory, from L2.5 on" (chadlis/hypotrail#103, comment 7100122376).
+LET_BINDINGS = {
+    ("clients/vscode/src/panel.ts", "panel"): "the handle of the webview panel",
+    ("clients/vscode/src/panel.ts", "target"): "1. the target the panel was opened on",
+    ("clients/vscode/src/panel.ts", "held"): "2. the last object a read gave back with `success`",
+    ("clients/vscode/src/panel.ts", "unanswered"): "3. from a `no_answer` of a write to that call's answer: its request id, with the call's five identity values and the read sequence it passed",
+    ("clients/vscode/src/panel.ts", "inFlight"): "4. whether a call is in flight",
+}
+
+
+def let_bindings(files: dict) -> set:
+    """Each pair (file, name) for a line of a file that starts with `let `."""
+    return {(path, re.match(r"let\s+([A-Za-z_$][\w$]*)", line)[1]) for path, text in files.items() for line in text.splitlines() if line.startswith("let ")}
+
+
+def test_the_module_level_let_bindings_of_the_client_sources_are_the_listed_ones_each_naming_what_it_holds_both_ways():
+    """What a binding's value holds at run time is not a property of the source text: this listing goes no further than the names."""
+    assert let_bindings(sources()) == set(LET_BINDINGS)
+
+
+def test_a_planted_third_entry_held_in_memory_is_found_by_the_let_listing():
+    files = sources()
+    files["clients/vscode/src/panel.ts"] += "let notice: string | undefined;\n"
+    assert let_bindings(files) - set(LET_BINDINGS) == {("clients/vscode/src/panel.ts", "notice")}
+
+
 @pytest.mark.parametrize("line", ["const found = pattern.exec(text);\n", "function buildShellLess() {}\nconst x = buildShell;\n"])
 def test_a_method_named_exec_and_a_name_that_holds_the_word_are_not_found(line):
     files = sources()

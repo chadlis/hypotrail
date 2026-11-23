@@ -66,10 +66,16 @@
     "Cited value",
     "Latest value",
     "Opened from a link",
-    "This Study holds no Decision with the id"
+    "This Study holds no Decision with the id",
+    "Repeat",
+    "Record this Decision",
+    "Recording the Decision.",
+    "Nothing was sent. Missing:",
+    "The Decision was recorded."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "no_value": "no value",
   "withheld": "withheld",
-  "read_again_message": "read-again"
+  "messages": ["read-again", "record", "repeat"],
+  "decide_author": "human"
 }

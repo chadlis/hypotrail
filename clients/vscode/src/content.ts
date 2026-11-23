@@ -76,7 +76,7 @@ export function bodyOf(view: View): string {
   const parts: string[] = [];
   if (view.reading) parts.push(`<p>${label("reading")}</p>`);
   if (view.failure) parts.push(failureOf(view.failure));
-  parts.push(`<button data-message="${contract.read_again_message}">${label("readAgain")}</button>`);
+  parts.push(`<button data-message="${contract.messages[0]}">${label("readAgain")}</button>`);
   if (view.object) parts.push(studyOf(view.object, view.decision));
   return parts.join("\n");
 }

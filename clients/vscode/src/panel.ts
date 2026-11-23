@@ -40,9 +40,15 @@ export function openPanel(next: Target): void {
   void read();
 }
 
+// The handler of each message the document's script posts, by the message's name.
+export const HANDLERS: Record<string, () => void> = {
+  [contract.messages[0]]: () => void read(),
+};
+
 function receive(message: unknown): void {
   if (inFlight || !panel) return;
-  if ((message as { message?: unknown } | null)?.message === contract.read_again_message) void read();
+  const name = (message as { message?: unknown } | null)?.message;
+  if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name]();
 }
 
 async function read(): Promise<void> {

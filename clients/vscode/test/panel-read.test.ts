@@ -133,7 +133,7 @@ for (const [outcome, failure] of FAILURES) {
       await settle();
       const document = lastDocument();
       assert.doesNotMatch(document, UUID_SHAPE);
-      assert.deepEqual([...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]), [contract.read_again_message]);
+      assert.deepEqual([...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]), [contract.messages[0]]);
       assert.ok(!/<(input|select|form)[\s>]/.test(document));
       assert.ok(partsOf(document).between.includes("Read again"));
     });

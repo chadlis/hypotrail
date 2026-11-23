@@ -5231,3 +5231,31 @@ def test_the_prose_of_chapter_18_names_the_panel_withheld_table_by_one_link_to_i
     table = PANEL_WITHHELD_TABLE[0]
     assert prose_of(chapter_text(CLIENT_CHAPTER)).count(f'href="#{table}"') == 1
     assert page.count(f'id="{table}"') == 1
+
+
+# --- recording a Decision from the panel (chapter 18): the names of the messages and the author's value -----------------------------
+
+# The tables of chapter 18 on how the panel records a Decision, each with the entries of `clients/vscode/contract.json` its rows carry in
+# `data-entry`.
+PANEL_WRITE_TABLES = {"panel-messages": lambda contract: contract["messages"], "panel-author": lambda contract: [contract["decide_author"]]}
+
+
+def test_the_panel_write_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_WRITE_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_write_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_WRITE_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_write_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_WRITE_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
