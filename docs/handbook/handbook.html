@@ -141,7 +141,7 @@ pre.code .cm{color:var(--faint)}
 <h1>Hypotrail <em>handbook</em></h1>
 <p class="sub">What each part does, how to run it, its limits, and which decision record explains it. It describes the current state and is rewritten when that changes.</p>
 </header>
-<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a><a href="#temporal-regression-track" style="--ac:var(--teal)"><span>02</span>Temporal regression Track</a><a href="#agentic-track" style="--ac:var(--violet)"><span>03</span>Agentic Track</a><a href="#study-and-attempts" style="--ac:var(--sky)"><span>04</span>Study and Attempts</a><a href="#assessments" style="--ac:var(--amber)"><span>05</span>Assessments and Scorers</a><a href="#import" style="--ac:var(--teal)"><span>06</span>Importing predictions made elsewhere</a><a href="#comparison" style="--ac:var(--violet)"><span>07</span>Comparison</a><a href="#agent-answers" style="--ac:var(--green)"><span>08</span>Agent answers: Study, import and Assessment</a><a href="#inspect-log-import" style="--ac:var(--sky)"><span>09</span>Importing an Inspect log</a><a href="#revisions-rescoring" style="--ac:var(--coral)"><span>10</span>Revisions and corrected References</a><a href="#agent-comparison" style="--ac:var(--violet)"><span>11</span>Comparing two agent Assessments</a><a href="#freeze-exposure" style="--ac:var(--teal)"><span>12</span>Freeze, Exposure and check_informed</a><a href="#run-agent" style="--ac:var(--sky)"><span>13</span>Running the agent into a Study</a><a href="#report" style="--ac:var(--sky)"><span>14</span>The Study report</a><a href="#data-fetch" style="--ac:var(--teal)"><span>15</span>Acquiring the data: data fetch</a><a href="#acceptance-grid" style="--ac:var(--gold)"><span>16</span>Acceptance grid T01-T24</a><a href="#decisions" style="--ac:var(--violet)"><span>17</span>Decisions</a></nav>
+<nav class="toc"><a href="#feasibility-spike" style="--ac:var(--gold)"><span>01</span>Feasibility spike</a><a href="#temporal-regression-track" style="--ac:var(--teal)"><span>02</span>Temporal regression Track</a><a href="#agentic-track" style="--ac:var(--violet)"><span>03</span>Agentic Track</a><a href="#study-and-attempts" style="--ac:var(--sky)"><span>04</span>Study and Attempts</a><a href="#assessments" style="--ac:var(--amber)"><span>05</span>Assessments and Scorers</a><a href="#import" style="--ac:var(--teal)"><span>06</span>Importing predictions made elsewhere</a><a href="#comparison" style="--ac:var(--violet)"><span>07</span>Comparison</a><a href="#agent-answers" style="--ac:var(--green)"><span>08</span>Agent answers: Study, import and Assessment</a><a href="#inspect-log-import" style="--ac:var(--sky)"><span>09</span>Importing an Inspect log</a><a href="#revisions-rescoring" style="--ac:var(--coral)"><span>10</span>Revisions and corrected References</a><a href="#agent-comparison" style="--ac:var(--violet)"><span>11</span>Comparing two agent Assessments</a><a href="#freeze-exposure" style="--ac:var(--teal)"><span>12</span>Freeze, Exposure and check_informed</a><a href="#run-agent" style="--ac:var(--sky)"><span>13</span>Running the agent into a Study</a><a href="#report" style="--ac:var(--sky)"><span>14</span>The Study report</a><a href="#data-fetch" style="--ac:var(--teal)"><span>15</span>Acquiring the data: data fetch</a><a href="#acceptance-grid" style="--ac:var(--gold)"><span>16</span>Acceptance grid T01-T24</a><a href="#decisions" style="--ac:var(--violet)"><span>17</span>Decisions</a><a href="#vscode-client" style="--ac:var(--sky)"><span>18</span>The VS Code client</a></nav>
 <section id="feasibility-spike" style="--ac:var(--gold)"><div class="sh"><div class="n">01</div><div><p class="k">Spike</p><h2>Feasibility spike</h2></div></div>
 <p class="lead">The spike proved on the target machine that the chosen stack works before anything general is built: a locked Python 3.13 environment, both public datasets verified, an <b>Inspect</b> task where a model calls a read-only SQL tool on Chinook, and a live trace of a real model doing it. This chapter is the reference for what exists, how to run it and where it stops.</p>
 
@@ -2637,6 +2637,187 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> and <code>deviation</code> require <code>--read-sequence</code> and <code>--request-id</code>, and why whether a Decision still applies, or a Declared deviation is withdrawn, is computed when the Study is read.</td></tr>
 </tbody></table></div>
 <p class="prose">The tests are <code>tests/test_decide.py</code> and <code>tests/test_declared_deviation.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>
+</section>
+<section id="vscode-client" style="--ac:var(--sky)"><div class="sh"><div class="n">18</div><div><p class="k">Client</p><h2>The VS Code client</h2></div></div>
+<p class="lead">The VS Code client is a TypeScript extension that talks to the CLI through one module, the <b>bridge</b>. It reads a Study and records a Decision only through the CLI, and holds no Decision, no record and no path of its own: the Study is the only decision authority (<a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>). It ships the bridge and the way to find a Study; the panel's content and the chat channels are later slices of chadlis/hypotrail#103.</p>
+
+<p class="sub2">Install</p>
+<div class="prose">
+<p>The extension is installed from a checkout, in three steps, in this order. No packaged file is built, and no licence is chosen: the manifest carries no licence key. The first step is the README's own install; the second builds the extension in its folder; the third, in VS Code, picks that folder.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-install"><thead><tr><th>Step</th><th>Command</th><th>Where</th></tr></thead><tbody>
+<tr data-step="1" data-command="uv sync --locked --all-extras"><td>1</td><td><code>uv sync --locked --all-extras</code></td><td>the checkout root</td></tr>
+<tr data-step="2" data-command="npm ci &amp;&amp; npm run compile"><td>2</td><td><code>npm ci &amp;&amp; npm run compile</code></td><td>the extension's folder (below)</td></tr>
+<tr data-step="3" data-command="Developer: Install Extension from Location..."><td>3</td><td>Developer: Install Extension from Location...</td><td>VS Code, picking the extension's folder</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-versions"><thead><tr><th>Needs</th><th>Version</th></tr></thead><tbody>
+<tr data-tool="node" data-version="22"><td>Node</td><td><code>22</code> (<code>node --version</code> prints it)</td></tr>
+<tr data-tool="vscode" data-version="^1.95.0"><td>VS Code</td><td><code>^1.95.0</code>, the manifest's <code>engines.vscode</code> (<code>code --version</code> prints it)</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Where it lives, and its tooling</p>
+<div class="prose">
+<p>The choice of the client's location and tooling, which ADR 0004 leaves to L2.4, is recorded here. The extension is written in TypeScript, with the compiler as the only build step: no bundler, and the compiler's output folder is generated and not tracked. Its development dependencies are the compiler and the type definitions of VS Code and of Node; it has no runtime dependency. Its tests are TypeScript under its <code>test/</code> folder and run under Node's own runner (<code>node:test</code>), with the <code>vscode</code> module replaced by a stub of that folder: no test runs inside VS Code. The second job of <code>.github/workflows/tests.yml</code> installs the locked development dependencies and runs them on every pull request; the job <code>pytest</code> runs the checks that read the client's files with no Node.</p>
+<p>The literal lists the client uses (the CLI's program and arguments, the limits, the outcomes, the walk) are kept in the extension's <code>contract.json</code>, which the extension imports and the handbook's tests read: the tables of this chapter are compared with it.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-tooling"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="directory" data-value="clients/vscode/"><td>The extension's folder</td><td><code>clients/vscode/</code></td></tr>
+<tr data-item="test" data-value="npm test"><td>The command that compiles and runs its tests, in that folder</td><td><code>npm test</code></td></tr>
+<tr data-item="compile" data-value="npm run compile"><td>The command that checks the types and compiles, in that folder</td><td><code>npm run compile</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">The line budget</p>
+<div class="prose">
+<p>The client stays under the line budget of the table below, C6 of chadlis/hypotrail#103, which counts TypeScript, HTML and CSS and leaves out the tests and the generated output (D-031 on chadlis/hypotrail#75, item 11). The check is <code>tests/test_client_line_budget.py</code>, a test of the job <code>pytest</code> that needs no Node. It lists the tracked files of the extension's folder at each check and holds no list of files: each file is counted, a test, refused or other, by its kind and its folder. Every line of a counted file counts, blank lines and comments included. One refused file fails the check, wherever it is. The other files (the manifest, the lockfile, <code>contract.json</code>, the kept CLI output) are neither counted nor refused; <code>contract.json</code> holds lists only, one flat object of strings, numbers and lists of them, with no string over 200 characters.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-budget"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="budget" data-value="3000"><td>The count of lines the client stays under</td><td><code>3000</code></td></tr>
+<tr data-item="counted" data-value=".ts"><td>A counted kind, outside the tests' folder</td><td><code>.ts</code></td></tr>
+<tr data-item="counted" data-value=".tsx"><td>A counted kind, outside the tests' folder</td><td><code>.tsx</code></td></tr>
+<tr data-item="counted" data-value=".mts"><td>A counted kind, outside the tests' folder</td><td><code>.mts</code></td></tr>
+<tr data-item="counted" data-value=".cts"><td>A counted kind, outside the tests' folder</td><td><code>.cts</code></td></tr>
+<tr data-item="counted" data-value=".html"><td>A counted kind, outside the tests' folder</td><td><code>.html</code></td></tr>
+<tr data-item="counted" data-value=".css"><td>A counted kind, outside the tests' folder</td><td><code>.css</code></td></tr>
+<tr data-item="tests" data-value="clients/vscode/test/"><td>The tests' folder: a file of a counted kind there is a test, the <code>vscode</code> stub included, and is not counted</td><td><code>clients/vscode/test/</code></td></tr>
+<tr data-item="refused" data-value=".js"><td>A refused kind, anywhere in the extension's folder</td><td><code>.js</code></td></tr>
+<tr data-item="refused" data-value=".mjs"><td>A refused kind, anywhere in the extension's folder</td><td><code>.mjs</code></td></tr>
+<tr data-item="refused" data-value=".cjs"><td>A refused kind, anywhere in the extension's folder</td><td><code>.cjs</code></td></tr>
+<tr data-item="refused" data-value=".jsx"><td>A refused kind, anywhere in the extension's folder</td><td><code>.jsx</code></td></tr>
+<tr data-item="generated" data-value="clients/vscode/out/"><td>The generated folder: ignored by <code>.gitignore</code>, with no tracked file</td><td><code>clients/vscode/out/</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">The bridge</p>
+<div class="prose">
+<p>The bridge (<code>src/bridge.ts</code>) is the only part of the client that starts a process. It starts the CLI with <code>execFile</code> and a list of arguments, never through a command interpreter, from the checkout root: two folders above the extension's own folder. It has no setting. A Study path is given to the CLI joined to its flag by <code>=</code>, as one argument, so a path that holds spaces, quotation marks or a leading dash reaches the CLI unchanged. A second read starts the CLI again: the bridge keeps nothing between two calls.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-read"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="program" data-value="uv"><td>The program the bridge starts</td><td><code>uv</code></td></tr>
+<tr data-item="first-arguments" data-value="run --no-sync python -m hypotrail"><td>Its first arguments, on every call</td><td><code>run --no-sync python -m hypotrail</code></td></tr>
+<tr data-item="read" data-value="status --study={path} --json"><td>The arguments of a read, after the first ones; <code>{path}</code> is the Study's absolute path</td><td><code>status --study={path} --json</code></td></tr>
+<tr data-item="read-limit-ms" data-value="30000"><td>The time limit of a read, in milliseconds</td><td><code>30000</code></td></tr>
+<tr data-item="output-limit-bytes" data-value="16777216"><td>The limit on what the CLI prints, in bytes</td><td><code>16777216</code></td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>Each call gives back one of the outcomes below. Two of them are what the CLI printed; the two others are the client's own account of a call. The bridge reads the CLI's exit code and its one JSON object on stdout, never stderr: a usage text or a warning may be printed there by a call that the exit code and the object settle otherwise. A failure to start, a call stopped by a limit, and an answer the bridge cannot read are told apart by the causes of the second table, read in the order of its rows, the first that holds winning.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-outcomes"><thead><tr><th>Outcome</th><th>When</th><th>What the bridge gives back</th></tr></thead><tbody>
+<tr data-outcome="success"><td><code>success</code></td><td>Exit 0 and an object whose <code>ok</code> is true</td><td>The object, with every key the CLI printed, a key the client does not know included</td></tr>
+<tr data-outcome="refusal"><td><code>refusal</code></td><td>A non-zero exit and an object whose <code>ok</code> is false</td><td>The CLI's <code>error</code> as printed, whatever it holds, with no text of the bridge's own added to it; when that <code>error</code> is an object, its <code>code</code> and <code>message</code> unchanged, character for character, and its <code>stage</code> and <code>details</code> kept; and the exit code</td></tr>
+<tr data-outcome="no_answer"><td><code>no_answer</code></td><td>Any other end of the call</td><td>Its cause (the table below), with the exit code and the object when there are some</td></tr>
+<tr data-outcome="client_refusal"><td><code>client_refusal</code></td><td>The bridge did not start the CLI</td><td>The list of what was missing</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-causes"><thead><tr><th>Cause</th><th>When</th></tr></thead><tbody>
+<tr data-cause="not_started"><td><code>not_started</code></td><td>The program could not be started (the error has a string code that is not the output limit's)</td></tr>
+<tr data-cause="timeout"><td><code>timeout</code></td><td>The bridge's time limit killed the process</td></tr>
+<tr data-cause="too_large"><td><code>too_large</code></td><td>What the CLI printed passed the output limit; read before every other cause</td></tr>
+<tr data-cause="no_json"><td><code>no_json</code></td><td>The process ended with an exit code and stdout is not one JSON object</td></tr>
+<tr data-cause="inconsistent"><td><code>inconsistent</code></td><td>A signal the bridge did not send killed the process, or the exit code and the object's <code>ok</code> disagree (exit 0 with <code>ok</code> false, a non-zero exit with <code>ok</code> true)</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>The causes are read in this order: the output limit first, then the time limit, then a failure to start, then a signal; only a process that ended with an exit code is read for its object, which settles the three last rows.</p>
+</div>
+
+<p class="sub2">Writing a Decision</p>
+<div class="prose">
+<p>The client starts two commands of the CLI, one to read and one to write, and no other: the bridge's list is closed, and a test compares it with the functions that start a process, both ways. The commands that write to a Study and are not in it keep no request id of their own (the dated line of 2026-11-23 in <a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>).</p>
+<p>A caller gives the bridge a Decision to record and the Write sequence it read, which it takes from the object of its last read. Each flag goes to the CLI joined to its value by <code>=</code>, as one argument, so a text that begins with a dash or holds a quotation mark reaches the CLI unchanged. The bridge exports a function that makes a new request id, and never makes, changes or repeats one by itself: one call starts at most one process, whatever the outcome. A repeat is the caller's explicit second call with the same id, on whatever Write sequence it gives; the CLI finds it before the stale-sequence check and gives back the recorded Decision (<a href="#decisions">chapter 17</a>).</p>
+<p>The bridge checks the inputs of a write before it starts anything. When one fails it starts no process and gives back the client's own outcome, which lists every failing input in the order of the table below and holds no code and no message. What the CLI refuses itself, such as an empty list of cited ids or a kind of decider it does not know, reaches the CLI and comes back as the CLI printed it. When a write gets no answer, its outcome holds the words of the table below, since the write may have happened: a killed writer has still advanced the Write sequence, and the next read shows what was written. A read with no answer does not hold them.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-commands"><thead><tr><th>Command</th><th>Kind</th></tr></thead><tbody>
+<tr data-command="status" data-kind="read"><td><code>status</code></td><td>The one read</td></tr>
+<tr data-command="decide" data-kind="write"><td><code>decide</code></td><td>The one write</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-decide-options"><thead><tr><th>Option of the write, in the order passed</th><th>Passed</th></tr></thead><tbody>
+<tr data-option="--study" data-passed="always"><td><code>--study</code></td><td>always</td></tr>
+<tr data-option="--question" data-passed="always"><td><code>--question</code></td><td>always</td></tr>
+<tr data-option="--option" data-passed="always"><td><code>--option</code></td><td>always</td></tr>
+<tr data-option="--author" data-passed="always"><td><code>--author</code></td><td>always</td></tr>
+<tr data-option="--source" data-passed="optional"><td><code>--source</code></td><td>only when a source is given</td></tr>
+<tr data-option="--artifact" data-passed="always"><td><code>--artifact</code></td><td>always, once per cited id</td></tr>
+<tr data-option="--request-id" data-passed="always"><td><code>--request-id</code></td><td>always</td></tr>
+<tr data-option="--read-sequence" data-passed="always"><td><code>--read-sequence</code></td><td>always</td></tr>
+<tr data-option="--json" data-passed="always"><td><code>--json</code></td><td>always</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-write"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="write-limit-ms" data-value="120000"><td>The time limit of a write, in milliseconds</td><td><code>120000</code></td></tr>
+<tr data-item="no-answer-words" data-value="outcome unknown"><td>The words a write's <code>no_answer</code> holds</td><td>outcome unknown</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-missing"><thead><tr><th>Input of a write, in the order <code>client_refusal</code> lists it</th><th>Accepted</th></tr></thead><tbody>
+<tr data-value="question"><td><code>question</code></td><td>A string that is not empty, passed as given, not trimmed</td></tr>
+<tr data-value="option"><td><code>option</code></td><td>A string that is not empty, passed as given, not trimmed</td></tr>
+<tr data-value="author"><td><code>author</code></td><td>A string</td></tr>
+<tr data-value="cited_ids"><td><code>cited_ids</code></td><td>A list, possibly empty, of strings that are not empty</td></tr>
+<tr data-value="source"><td><code>source</code></td><td>Absent, or a string; null is refused</td></tr>
+<tr data-value="request_id"><td><code>request_id</code></td><td>A string that is not empty</td></tr>
+<tr data-value="read_sequence"><td><code>read_sequence</code></td><td>A safe integer, 0 or more</td></tr>
+</tbody></table></div>
+
+<p class="sub2">Finding the Study</p>
+<div class="prose">
+<p>A Study is a folder that holds a <code>study.json</code>. The client finds the Studies of the workspace by a walk, breadth first from each workspace folder, which follows no symbolic link and looks for the file's name without reading the file. It gives the Studies as absolute paths sorted by path. With one Study the client takes it; with several it asks with one pick; with none it shows the message below, opens no dialog and remembers nothing. The owner opens the checkout, or the Study's folder, as the workspace.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-walk"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="depth" data-value="2"><td>The depth the walk goes to below each workspace folder (the folder itself is depth 0)</td><td><code>2</code></td></tr>
+<tr data-item="max-folders" data-value="500"><td>The most folders the walk visits, in all</td><td><code>500</code></td></tr>
+<tr data-item="skip" data-value="node_modules"><td>A folder the walk skips</td><td><code>node_modules</code></td></tr>
+<tr data-item="skip" data-value=".venv"><td>A folder the walk skips</td><td><code>.venv</code></td></tr>
+<tr data-item="skip" data-value=".*"><td>The folders the walk skips: every one whose name begins with a dot</td><td><code>.*</code></td></tr>
+<tr data-item="no-study" data-value="No Hypotrail Study was found in this workspace."><td>The message when the walk finds no Study</td><td>No Hypotrail Study was found in this workspace.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">The panel and its content security policy</p>
+<div class="prose">
+<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document holds nothing of a Study yet: the panel's content is L2.5's.</p>
+<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute, no inline event handler and no remote address. The colours come from VS Code's own theme variables; setting custom properties from a script is left to L2.5.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-command"><thead><tr><th>Command</th><th>Title</th></tr></thead><tbody>
+<tr data-command="hypotrail.openPanel" data-title="Hypotrail: Open the Study panel"><td><code>hypotrail.openPanel</code></td><td>Hypotrail: Open the Study panel</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-panel-options"><thead><tr><th>Option of the panel</th></tr></thead><tbody>
+<tr data-option="enableScripts=true"><td><code>enableScripts=true</code></td></tr>
+<tr data-option="enableCommandUris=false"><td><code>enableCommandUris=false</code></td></tr>
+<tr data-option="enableForms=false"><td><code>enableForms=false</code></td></tr>
+<tr data-option="localResourceRoots=[]"><td><code>localResourceRoots=[]</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="client-csp"><thead><tr><th>Directive, in order (<code>{nonce}</code> is the document's nonce)</th></tr></thead><tbody>
+<tr data-value="default-src 'none'"><td><code>default-src 'none'</code></td></tr>
+<tr data-value="style-src 'nonce-{nonce}'"><td><code>style-src 'nonce-{nonce}'</code></td></tr>
+<tr data-value="script-src 'nonce-{nonce}'"><td><code>script-src 'nonce-{nonce}'</code></td></tr>
+<tr data-value="img-src 'none'"><td><code>img-src 'none'</code></td></tr>
+<tr data-value="font-src 'none'"><td><code>font-src 'none'</code></td></tr>
+<tr data-value="connect-src 'none'"><td><code>connect-src 'none'</code></td></tr>
+<tr data-value="frame-src 'none'"><td><code>frame-src 'none'</code></td></tr>
+<tr data-value="form-action 'none'"><td><code>form-action 'none'</code></td></tr>
+<tr data-value="base-uri 'none'"><td><code>base-uri 'none'</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2">Deep links</p>
+<div class="prose">
+<p>A deep link is a <code>vscode://</code> URI that the extension handles, of one of the two forms below. Its authority is the manifest's publisher and name, joined by a dot, and the manifest's activation events let a link start the extension. The query is the key and the path, which is the whole rest of the query: required, absolute, within the limit below, with no NUL character, and a Study that the walk above finds in the workspace. A valid link opens the panel on its Study, and on the Decision the second form names; the panel's content renders it in L2.5. Anything else (another authority, a fragment, another path, a decision id that does not match the pattern) is refused with the one notification below, and opens nothing. A link never writes.</p>
+<p>The two forms, the publisher and the name are a public contract of the client, which a link printed outside the repository would fix.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="client-links"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
+<tr data-item="form" data-value="vscode://hypotrail-local.hypotrail/study?study={path}"><td>The link to a Study (<code>{path}</code> is its absolute path)</td><td><code>vscode://hypotrail-local.hypotrail/study?study={path}</code></td></tr>
+<tr data-item="form" data-value="vscode://hypotrail-local.hypotrail/decision/{uuid}?study={path}"><td>The link to a Decision of a Study</td><td><code>vscode://hypotrail-local.hypotrail/decision/{uuid}?study={path}</code></td></tr>
+<tr data-item="decision-id" data-value="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"><td>The pattern a decision id matches</td><td><code>^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$</code></td></tr>
+<tr data-item="max-path" data-value="4096"><td>The most characters of the path</td><td><code>4096</code></td></tr>
+<tr data-item="refusal" data-value="This Hypotrail link is not valid."><td>The notification of a refused link</td><td>This Hypotrail link is not valid.</td></tr>
+</tbody></table></div>
+
+<p class="sub2">No state of its own</p>
+<div class="prose">
+<p>The client persists nothing and remembers no path: it has no setting, keeps nothing in VS Code's stores or in the webview's state, and writes no file. It reads what a Study holds only through the bridge. The tests of <code>tests/test_vscode_client.py</code> list, over every tracked file of the client's sources, each name that starts a process, keeps state or writes a file, and compare the listing with their own, both ways. The listing is bounded by two conventions: only the bridge imports Node's process module, by one named import of <code>execFile</code>, and <code>vscode</code> is imported only as a namespace. An escape the sources do not use and that only a planted case shows is a stated limit of that listing.</p>
+</div>
+
+<p class="sub2">Reuse of the earlier companion</p>
+<div class="prose">
+<p id="ported-passages">No passage of the earlier companion (hypotrail/hypotrail at <code>4ef4925</code>) is ported into the client.</p>
+</div>
+
+<p class="sub2">Which ADR explains what</p>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>ADR</th><th>What it explains</th></tr></thead><tbody>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>The contract between a client and the CLI: the Study is the only decision authority, a client reads through <code>status --json</code> and writes only through the documented commands.</td></tr>
+</tbody></table></div>
 </section>
 <footer><span>Hypotrail &middot; handbook</span><div class="pj"><span>ADRs in docs/adr</span><span>Vocabulary in GLOSSARY.md</span></div></footer>
 </div>

@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "error": {
+    "code": "INVALID_ARGUMENTS",
+    "message": "the following arguments are required: --question, --option, --author, --artifact, --request-id, --read-sequence",
+    "stage": "config",
+    "details": {
+      "command": "hypotrail decide"
+    }
+  }
+}

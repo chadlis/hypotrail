@@ -1,0 +1,39 @@
+{
+  "program": "uv",
+  "first_arguments": ["run", "--no-sync", "python", "-m", "hypotrail"],
+  "read_arguments": ["status", "--study={path}", "--json"],
+  "reads": ["status"],
+  "writes": ["decide"],
+  "decide_options": ["--study", "--question", "--option", "--author", "--source", "--artifact", "--request-id", "--read-sequence", "--json"],
+  "decide_optional_options": ["--source"],
+  "read_timeout_ms": 30000,
+  "write_timeout_ms": 120000,
+  "max_buffer_bytes": 16777216,
+  "outcomes": ["success", "refusal", "no_answer", "client_refusal"],
+  "no_answer_causes": ["not_started", "timeout", "too_large", "no_json", "inconsistent"],
+  "write_no_answer_words": "outcome unknown",
+  "client_refusal_fields": ["question", "option", "author", "cited_ids", "source", "request_id", "read_sequence"],
+  "walk_depth": 2,
+  "walk_max_folders": 500,
+  "walk_skipped": ["node_modules", ".venv", ".*"],
+  "no_study_message": "No Hypotrail Study was found in this workspace.",
+  "panel_options": ["enableScripts=true", "enableCommandUris=false", "enableForms=false", "localResourceRoots=[]"],
+  "csp_directives": [
+    "default-src 'none'",
+    "style-src 'nonce-{nonce}'",
+    "script-src 'nonce-{nonce}'",
+    "img-src 'none'",
+    "font-src 'none'",
+    "connect-src 'none'",
+    "frame-src 'none'",
+    "form-action 'none'",
+    "base-uri 'none'"
+  ],
+  "link_forms": [
+    "vscode://hypotrail-local.hypotrail/study?study={path}",
+    "vscode://hypotrail-local.hypotrail/decision/{uuid}?study={path}"
+  ],
+  "link_decision_id": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+  "link_max_path": 4096,
+  "link_refusal": "This Hypotrail link is not valid."
+}

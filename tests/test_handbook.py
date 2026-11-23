@@ -5041,3 +5041,130 @@ def test_chapter_17_says_decide_records_the_question_and_option_as_given_and_che
     card = plain_text(re.search(r'<div class="card"[^>]*><h3>Free text, no declared question</h3>.*?</div>', chapter_text("17-decisions.html"), re.S)[0])
     assert "as given" in card and "checks neither" in card, card
     assert "declares no question with options yet" not in plain_text(chapter_text("17-decisions.html"))
+
+
+# --- the VS Code client (chapter 18): its tables against `clients/vscode/contract.json`, the manifest and the workflow -------------
+
+CLIENT = ROOT / "clients" / "vscode"
+CLIENT_CHAPTER = "18-vscode-client.html"
+# The data attributes that hold a row's value; the others name the row.
+CLIENT_VALUE_ATTRIBUTES = ("data-value", "data-command", "data-version", "data-outcome", "data-cause", "data-option", "data-title")
+
+
+def client_rows(page, table_id):
+    """The data attributes of each row of one table of the page, in order."""
+    return [row["attrs"] for row in parse(page).tables.get(table_id, []) if any(k.startswith("data-") for k in row["attrs"])]
+
+
+def client_items(page, table_id):
+    """{data-item: data-value} of one table whose rows name their item; an item given twice keeps a list of its values."""
+    items = {}
+    for attrs in client_rows(page, table_id):
+        items.setdefault(attrs["data-item"], []).append(attrs["data-value"])
+    return {item: values[0] if len(values) == 1 else values for item, values in items.items()}
+
+
+def client_contract():
+    return json.loads((CLIENT / "contract.json").read_text(encoding="utf-8"))
+
+
+def client_job_lines():
+    workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    return workflow.split("\n  client:\n", 1)[1].splitlines() if "\n  client:\n" in workflow else []
+
+
+def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_workflow_both_ways(page):
+    contract = client_contract()
+    manifest = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))
+    workflow = (ROOT / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert client_items(page, "client-read") == {
+        "program": contract["program"],
+        "first-arguments": " ".join(contract["first_arguments"]),
+        "read": " ".join(contract["read_arguments"]),
+        "read-limit-ms": str(contract["read_timeout_ms"]),
+        "output-limit-bytes": str(contract["max_buffer_bytes"]),
+    }
+    assert [row["data-outcome"] for row in client_rows(page, "client-outcomes")] == contract["outcomes"]
+    assert [row["data-cause"] for row in client_rows(page, "client-causes")] == contract["no_answer_causes"]
+    assert client_items(page, "client-walk") == {
+        "depth": str(contract["walk_depth"]),
+        "max-folders": str(contract["walk_max_folders"]),
+        "skip": contract["walk_skipped"],
+        "no-study": contract["no_study_message"],
+    }
+    versions = {row["data-tool"]: row["data-version"] for row in client_rows(page, "client-versions")}
+    assert versions == {"node": re.search(r'node-version: "([^"]+)"', "\n".join(client_job_lines()))[1], "vscode": manifest["engines"]["vscode"]}
+    tooling = client_items(page, "client-tooling")
+    assert set(tooling) == {"directory", "test", "compile"}
+    assert tooling["directory"] == "clients/vscode/" and (ROOT / tooling["directory"] / "package.json").is_file()
+    assert tooling["test"] == "npm test" and "test" in manifest["scripts"]
+    assert tooling["compile"] == "npm run compile" and "compile" in manifest["scripts"]
+    steps = {row["data-step"]: row["data-command"] for row in client_rows(page, "client-install")}
+    assert steps == {"1": "uv sync --locked --all-extras", "2": f"npm ci && {tooling['compile']}", "3": "Developer: Install Extension from Location..."}
+    assert f"      - run: {steps['1']}\n" in workflow and "      - run: npm ci" in client_job_lines()
+
+
+def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    values = {attrs[name] for table in re.findall(r'<table[^>]*id="(client-[a-z-]+)"', chapter) for attrs in client_rows(page, table) for name in CLIENT_VALUE_ATTRIBUTES if name in attrs}
+    assert {"uv", "30000", "no_json", "^1.95.0", "npm test", "decide", "--source", "read_sequence", "outcome unknown", "hypotrail.openPanel", "enableForms=false", "base-uri 'none'", "This Hypotrail link is not valid."} <= values  # the collection reads the tables
+    prose = html.unescape(plain_text(prose_of(chapter)))
+    assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
+
+
+def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_options_the_parser_defines_both_ways(page):
+    from hypotrail.cli import build_parser
+
+    contract = client_contract()
+    commands = {row["data-command"]: row["data-kind"] for row in client_rows(page, "client-commands")}
+    assert commands == {**{c: "read" for c in contract["reads"]}, **{c: "write" for c in contract["writes"]}}
+    rows = client_rows(page, "client-decide-options")
+    assert [row["data-option"] for row in rows] == contract["decide_options"]
+    assert [row["data-option"] for row in rows if row["data-passed"] == "optional"] == contract["decide_optional_options"]
+    assert {row["data-passed"] for row in rows} == {"always", "optional"}
+    parser = build_parser()
+    decide = next(a for a in parser._actions if getattr(a, "choices", None) and "decide" in a.choices).choices["decide"]
+    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    assert {row["data-option"] for row in rows} == set(options)
+    assert {row["data-option"] for row in rows if row["data-passed"] == "always"} == {flag for flag, required in options.items() if required} | {"--json"}
+    assert client_items(page, "client-write") == {"write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"]}
+    assert [row["data-value"] for row in client_rows(page, "client-missing")] == contract["client_refusal_fields"]
+
+
+def test_the_client_chapter_panel_and_link_tables_equal_the_manifest_and_contract_json_both_ways(page):
+    contract = client_contract()
+    manifest = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))
+    commands = [{"command": row["data-command"], "title": row["data-title"]} for row in client_rows(page, "client-command")]
+    assert commands == manifest["contributes"]["commands"]
+    assert [row["data-option"] for row in client_rows(page, "client-panel-options")] == contract["panel_options"]
+    assert [row["data-value"] for row in client_rows(page, "client-csp")] == contract["csp_directives"]
+    assert client_items(page, "client-links") == {
+        "form": contract["link_forms"],
+        "decision-id": contract["link_decision_id"],
+        "max-path": str(contract["link_max_path"]),
+        "refusal": contract["link_refusal"],
+    }
+
+
+def test_the_client_budget_table_equals_the_constants_of_the_counting_test_both_ways(page):
+    import test_client_line_budget as counting
+
+    items = {}
+    for attrs in client_rows(page, "client-budget"):
+        items.setdefault(attrs["data-item"], []).append(attrs["data-value"])
+    assert items == {
+        "budget": [str(counting.BUDGET)],
+        "counted": list(counting.COUNTED_KINDS),
+        "tests": [counting.TEST_FOLDER],
+        "refused": list(counting.REFUSED_KINDS),
+        "generated": [counting.GENERATED_FOLDER],
+    }
+
+
+def test_the_line_budget_section_prose_states_neither_3000_nor_3_000():
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert '<p class="sub2">The line budget</p>' in chapter
+    section = chapter.split('<p class="sub2">The line budget</p>', 1)[1].split('<p class="sub2">', 1)[0]
+    prose = plain_text(prose_of(section))
+    assert "client-budget" in section and prose
+    assert "3000" not in prose and "3,000" not in prose

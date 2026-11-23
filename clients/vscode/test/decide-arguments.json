@@ -1,0 +1,74 @@
+[
+  {
+    "name": "two cited ids and a source",
+    "study": "/work/runs/bike",
+    "decision": {
+      "question": "Which Configuration do we keep after this Comparison?",
+      "option": "Keep the Control",
+      "author": "proxy",
+      "source": "the owner's word on the review",
+      "cited_ids": ["c53337e9-d255-423d-a851-414278d5c3f0", "817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"],
+      "request_id": "panel-1",
+      "read_sequence": 12
+    },
+    "arguments": [
+      "decide",
+      "--study=/work/runs/bike",
+      "--question=Which Configuration do we keep after this Comparison?",
+      "--option=Keep the Control",
+      "--author=proxy",
+      "--source=the owner's word on the review",
+      "--artifact=c53337e9-d255-423d-a851-414278d5c3f0",
+      "--artifact=817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21",
+      "--request-id=panel-1",
+      "--read-sequence=12",
+      "--json"
+    ]
+  },
+  {
+    "name": "one cited id and no source",
+    "study": "/work/runs/bike",
+    "decision": {
+      "question": "Which Configuration do we keep after this Comparison?",
+      "option": "Keep the Candidate",
+      "author": "human",
+      "cited_ids": ["817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"],
+      "request_id": "panel-2",
+      "read_sequence": 0
+    },
+    "arguments": [
+      "decide",
+      "--study=/work/runs/bike",
+      "--question=Which Configuration do we keep after this Comparison?",
+      "--option=Keep the Candidate",
+      "--author=human",
+      "--artifact=817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21",
+      "--request-id=panel-2",
+      "--read-sequence=0",
+      "--json"
+    ]
+  },
+  {
+    "name": "a question that is -x and an option that is --study",
+    "study": "/work/runs/bike",
+    "decision": {
+      "question": "-x",
+      "option": "--study",
+      "author": "human",
+      "cited_ids": ["817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"],
+      "request_id": "panel-3",
+      "read_sequence": 14
+    },
+    "arguments": [
+      "decide",
+      "--study=/work/runs/bike",
+      "--question=-x",
+      "--option=--study",
+      "--author=human",
+      "--artifact=817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21",
+      "--request-id=panel-3",
+      "--read-sequence=14",
+      "--json"
+    ]
+  }
+]
