@@ -1,5 +1,5 @@
 <!-- chapter: id=vscode-client; kicker=Client; title=The VS Code client; accent=sky -->
-<p class="lead">The VS Code client is a TypeScript extension that talks to the CLI through one module, the <b>bridge</b>. It reads a Study and records a Decision only through the CLI, and holds no Decision, no record and no path of its own: the Study is the only decision authority (<a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>). It ships the bridge and the way to find a Study; the panel's content and the chat channels are later slices of chadlis/hypotrail#103.</p>
+<p class="lead">The VS Code client is a TypeScript extension that talks to the CLI through one module, the <b>bridge</b>. It reads a Study and records a Decision only through the CLI, and holds no Decision, no record and no path of its own: the Study is the only decision authority (<a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>). It ships the bridge, the way to find a Study, and a panel that shows a Study's pending decisions with their evidence; the chat channels are later slices of chadlis/hypotrail#103.</p>
 
 <p class="sub2">Install</p>
 <div class="prose">
@@ -127,8 +127,8 @@
 
 <p class="sub2">The panel and its content security policy</p>
 <div class="prose">
-<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document holds nothing of a Study yet: the panel's content is L2.5's.</p>
-<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute, no inline event handler and no remote address. The colours come from VS Code's own theme variables; setting custom properties from a script is left to L2.5.</p>
+<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document shows what the Study holds, as the section below says.</p>
+<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute and no inline event handler. No element or attribute of the document holds a remote address, and a text of a Study is shown as text, whatever it holds. The colours come from VS Code's own theme variables; setting custom properties from a script is left to L2.5.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-command"><thead><tr><th>Command</th><th>Title</th></tr></thead><tbody>
 <tr data-command="hypotrail.openPanel" data-title="Hypotrail: Open the Study panel"><td><code>hypotrail.openPanel</code></td><td>Hypotrail: Open the Study panel</td></tr>
@@ -150,6 +150,13 @@
 <tr data-value="form-action 'none'"><td><code>form-action 'none'</code></td></tr>
 <tr data-value="base-uri 'none'"><td><code>base-uri 'none'</code></td></tr>
 </tbody></table></div>
+
+<p class="sub2" id="panel-content">What the panel shows</p>
+<div class="prose">
+<p>The panel reads its Study through the bridge when it is opened, by the command or by a link, and when the reviewer presses Read again; it reads at no other time: no watcher, no timer, and no read when the panel is hidden or shown again. While a read is in flight the document says so, a press of Read again starts nothing, and an opening only reveals the panel. The extension builds each document whole from the object it read, and keeps in memory, besides the target, only that object and whether a call is in flight.</p>
+<p>The document shows the Study's id whole and its Write sequence, then each pending decision in the order the CLI lists them: the core's wording of the decision and of each of its choices with its consequence; the Comparison it names, with its delta, its coverage and, where the delta record carries them, the Control's and the Candidate's values; the warnings and limitations the Comparison recorded; and the two Assessments it depends on, each under its role with every Metric. When nothing is pending, a fixed sentence stands where the first decision would. The Declared deviations follow, each with whether it is withdrawn. A number that is not an integer is written with six significant digits and an integer as held; a null number is written with a fixed word. The client computes nothing of its own: what is pending, the delta and the roles are those the object read holds, and a key it does not know is ignored.</p>
+<p>A read that the CLI refuses shows the CLI's code and message unchanged; a read with no usable answer shows its cause after a fixed text. Either way nothing of an earlier read stays: the document holds the failure and Read again. Every word the panel prints is an entry of <code>clients/vscode/contract.json</code>.</p>
+</div>
 
 <p class="sub2">Deep links</p>
 <div class="prose">

@@ -373,7 +373,7 @@ def test_no_tracked_client_file_is_javascript():
 
 # --- the README ----------------------------------------------------------------------------------------------------------------------
 
-README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension and its CLI bridge)."
+README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge and the Study panel)."
 
 
 def test_where_to_look_names_the_client_directory_which_holds_the_manifest():

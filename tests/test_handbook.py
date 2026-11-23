@@ -5168,3 +5168,10 @@ def test_the_line_budget_section_prose_states_neither_3000_nor_3_000():
     prose = plain_text(prose_of(section))
     assert "client-budget" in section and prose
     assert "3000" not in prose and "3,000" not in prose
+
+
+def test_the_client_chapter_has_one_section_on_the_panels_content_found_by_its_id(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert chapter.count('id="panel-content"') == 1
+    assert re.search(r'<p class="sub2" id="panel-content">[^<]+</p>', chapter)
+    assert page.count('id="panel-content"') == 1
