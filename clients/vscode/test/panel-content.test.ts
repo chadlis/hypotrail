@@ -223,7 +223,9 @@ for (const name of KEPT_READS) {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
     const parts = elementsOf(document, '<div data-part="comparison">');
-    assert.equal(parts.length, object.pending_decisions.length);
+    const ids = object.comparisons.map((comparison: Record<string, string>) => comparison.comparison_id);
+    const cited = object.decisions.flatMap((decision: Record<string, string[]>) => decision.cited_ids.filter((id) => ids.includes(id)));
+    assert.equal(parts.length, object.pending_decisions.length + cited.length);
     for (const part of parts) {
       const comparison = object.comparisons.find((each: Record<string, string>) => part.includes(each.comparison_id));
       const { between } = partsOf(part);

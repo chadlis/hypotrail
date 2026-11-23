@@ -5175,3 +5175,37 @@ def test_the_client_chapter_has_one_section_on_the_panels_content_found_by_its_i
     assert chapter.count('id="panel-content"') == 1
     assert re.search(r'<p class="sub2" id="panel-content">[^<]+</p>', chapter)
     assert page.count('id="panel-content"') == 1
+
+
+# --- the panel's recorded Decisions (chapter 18): the phrases of the states and the word of a null value ---------------------------
+
+# The tables of chapter 18 on what the panel shows of a recorded Decision, each with the entries of `clients/vscode/contract.json` its rows
+# carry in `data-entry`.
+PANEL_DECISION_TABLES = {"panel-evidence-phrases": lambda contract: contract["evidence_phrases"], "panel-no-value": lambda contract: [contract["no_value"]]}
+
+
+def test_the_evidence_phrases_of_contract_json_equal_the_table_of_states_of_chapter_17_both_ways(page):
+    rows = client_rows(page, "evidence-states")
+    assert len(rows) == 3
+    assert [f"{row['data-code']}={row['data-phrase']}" for row in rows] == client_contract()["evidence_phrases"]
+
+
+def test_the_panel_decision_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_DECISION_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_decision_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_DECISION_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_decision_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_DECISION_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table

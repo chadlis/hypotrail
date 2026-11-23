@@ -49,12 +49,12 @@ async function read(): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held });
+  show({ reading: true, object: held, decision: target!.decision });
   const outcome = await readStudy(ROOT, study);
   if (panel !== opened) return;
   inFlight = false;
   held = outcome.outcome === "success" ? outcome.object : undefined;
-  show({ reading: false, object: held, failure: outcome.outcome === "success" ? undefined : outcome });
+  show({ reading: false, object: held, failure: outcome.outcome === "success" ? undefined : outcome, decision: target!.decision });
 }
 
 function show(view: View): void {
@@ -76,13 +76,15 @@ function newNonce(): string {
   return randomBytes(16).toString("hex");
 }
 
-// The document's script: each control sends the fixed message its attribute names, and nothing else.
+// The document's script: each control sends the fixed message its attribute names, and nothing else; the view
+// scrolls to the Decision a link names.
 const SCRIPT = [
   '"use strict";',
   "const api = acquireVsCodeApi();",
   'for (const control of document.querySelectorAll("button[data-message]")) {',
   '  control.addEventListener("click", () => api.postMessage({ message: control.getAttribute("data-message") }));',
   "}",
+  'document.querySelector("[data-linked]")?.scrollIntoView();',
 ].join("\n");
 
 // Every document the client gives to a webview is built here.

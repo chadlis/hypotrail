@@ -56,8 +56,19 @@
     "Decisions",
     "Declared deviations",
     "withdrawn",
-    "No answer from the CLI:"
+    "No answer from the CLI:",
+    "Option",
+    "Author",
+    "Cited ids",
+    "applies",
+    "Reasons",
+    "Changed Items",
+    "Cited value",
+    "Latest value",
+    "Opened from a link",
+    "This Study holds no Decision with the id"
   ],
+  "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "no_value": "no value",
   "read_again_message": "read-again"
 }

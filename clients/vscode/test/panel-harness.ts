@@ -32,8 +32,8 @@ export async function runCommand(): Promise<void> {
   await stub.state.commands.get("hypotrail.openPanel")!();
 }
 
-export async function followLink(form: number, study: string): Promise<void> {
-  const link = contract.link_forms[form].replace("{path}", study).replace("{uuid}", "c53337e9-d255-423d-a851-414278d5c3f0");
+export async function followLink(form: number, study: string, decision = "c53337e9-d255-423d-a851-414278d5c3f0"): Promise<void> {
+  const link = contract.link_forms[form].replace("{path}", study).replace("{uuid}", decision);
   const match = /^vscode:\/\/([^/?#]*)([^?#]*)\?(.*)$/s.exec(link)!;
   await stub.state.uriHandlers[0].handleUri({ scheme: "vscode", authority: match[1], path: match[2], query: match[3], fragment: "" });
 }
@@ -54,7 +54,17 @@ export function lastDocument(): string {
   return documents[documents.length - 1];
 }
 
-export const KEPT_READS = ["status-success", "status-chinook-pending", "status-several-pending", "status-decided", "status-deviation"];
+export const KEPT_READS = [
+  "status-success",
+  "status-chinook-pending",
+  "status-several-pending",
+  "status-decided",
+  "status-deviation",
+  "status-rescored",
+  "status-result-changed",
+  "status-repeated",
+  "status-chinook-decided",
+];
 
 export function keptObject(name: string): Record<string, any> {
   return JSON.parse(kept(`${name}.out`));
