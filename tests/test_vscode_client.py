@@ -183,6 +183,8 @@ KEPT_CASES = {
     "status-result-changed": (0, 2, [], "bike_day", [("result_changed", True), ("result_changed", True)]),
     "status-repeated": (0, 1, [], "bike_day", [("repeated", False)]),
     "status-chinook-decided": (0, 1, [], "chinook", [(None, False)]),
+    "status-chinook-withheld": (1, 0, [], "chinook", []),
+    "status-bike-withheld": (1, 0, [], "bike_day", []),
 }
 
 
@@ -196,6 +198,37 @@ def test_each_kept_read_holds_the_case_it_is_kept_for():
         assert payload["study"]["workload"] == workload, name
         found = [((d["evidence_change"] or {}).get("state"), "revision_changed" in [r["reason"] for r in d["reasons"]]) for d in payload["decisions"]]
         assert found == evidence, name
+
+
+AGENT_DELTA_KEYS = ["candidate", "control", "definition", "metric", "reason", "unit", "value"]
+REGRESSION_DELTA_KEYS = ["definition", "metric", "unit", "value"]
+
+# Each kept read that holds a Comparison whose main `delta.value` is null, with, for each such Comparison, the keys of its delta record,
+# its `reason` (None when the record has no such key) and whether its `paired_deltas_ref` is null; then the count of `pending_decisions`.
+WITHHELD_CASES = {
+    "status-chinook-withheld": ([(AGENT_DELTA_KEYS, "coverage_incomplete", True)], 1),
+    "status-bike-withheld": ([(REGRESSION_DELTA_KEYS, None, False)], 1),
+}
+
+
+def strict_json(text: str):
+    """The JSON value of `text`, refusing the `Infinity`, `-Infinity` and `NaN` tokens that Python's parser accepts by default."""
+
+    def refused(token):
+        raise AssertionError(f"{token} is not JSON")
+
+    return json.loads(text, parse_constant=refused)
+
+
+def test_each_kept_read_whose_comparison_withholds_its_delta_holds_the_record_shape_of_its_track_and_is_strict_json():
+    holders = {}
+    for name in kept_status_names():
+        payload = strict_json((KEPT / f"{name}.out").read_text(encoding="utf-8"))
+        withheld = [c for c in payload.get("comparisons", []) if c["delta"]["value"] is None]
+        if withheld:
+            shapes = [(sorted(c["delta"]), c["delta"].get("reason"), c["paired_deltas_ref"] is None) for c in withheld]
+            holders[name] = (shapes, len(payload["pending_decisions"]))
+    assert holders == WITHHELD_CASES
 
 
 # --- the listings over the client's sources ---------------------------------------------------------------------------------------

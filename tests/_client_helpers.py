@@ -208,6 +208,40 @@ def chinook_decided_study(tmp_path):
     return study
 
 
+def chinook_withheld_study(tmp_path):
+    """A Chinook Study with two imports, the full answers as the Control and answers whose D01 and D03 are `failed` as the Candidate, each
+    assessed, and one Comparison of the two: an Episode is not scored on both sides, so the record withholds its main delta."""
+    from _agent_compare_helpers import answer_lines, imported
+    from _chinook_helpers import init_chinook
+    from _deviation_helpers import compare_ids
+
+    study, _ = init_chinook(tmp_path)
+    claims = {"repeats": 1, "model": None, "tool_use": None, "mode": None}
+    _, control = imported(tmp_path, study, "full", answer_lines(**claims), repeats=1)
+    _, candidate = imported(tmp_path, study, "broken", answer_lines(**claims, failed={("D01", 0), ("D03", 0)}), repeats=1)
+    compare_ids(study, control["assessment_id"], candidate["assessment_id"])
+    return study
+
+
+def bike_withheld_study(tmp_path):
+    """A Bike Study with seasonal_7 run on dev and assessed, an import of forecasts of 1e308 for every dev day, assessed with the same
+    Scorer, and one Comparison of the two. Every Item is scored on both sides, but the mean of the import's errors overflows, so its
+    Metric is `errored` with a null value and the Comparison's delta value is null."""
+    from _assess_helpers import assess, observation_set_id, references_id
+    from _import_helpers import FIELDS, import_ml, ready, rows_of, write_rows
+
+    study, _, assessments = assessed(tmp_path, "seasonal_7")
+    source, mapping, population, _ = ready(tmp_path)
+    write_rows(source, [{**row, "forecast_rentals": "1e308", "forecast_unrounded": "1e308"} for row in rows_of(source)], FIELDS)
+    code, payload, err = import_ml(study, source, mapping, population, "import-huge")
+    assert code == 0, (payload, err)
+    code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
+    assert code == 0, (payload, err)
+    code, payload, err = compare(study, assessments["seasonal_7"]["assessment_id"], payload["assessment"]["assessment_id"])
+    assert code == 0, (payload, err)
+    return study
+
+
 STUDIES = {
     "status-success": compared_study,
     "status-chinook-pending": chinook_pending_study,
@@ -218,6 +252,8 @@ STUDIES = {
     "status-result-changed": result_changed_study,
     "status-repeated": repeated_study,
     "status-chinook-decided": chinook_decided_study,
+    "status-chinook-withheld": chinook_withheld_study,
+    "status-bike-withheld": bike_withheld_study,
 }
 
 
