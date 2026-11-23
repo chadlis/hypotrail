@@ -1,5 +1,6 @@
-// The layout of a document with a pending decision: the regression guard of C2 in headless Chrome, and the order of the
-// question and the first evidence number in the document's text, which runs without Chrome and stands beside the guard.
+// The layout of a document with a pending decision: a guard, in headless Chrome, of how far from the top the first question and
+// the first evidence number stand at the width of `guard_bounds`, and their order in the document's text, which runs without
+// Chrome and stands beside the guard.
 // "C2 at 420 px: a headless measurement is a regression guard only. The owner's check in VS Code is the acceptance."
 // (D-031 on chadlis/hypotrail#75, item 14.)
 import { test, type TestContext } from "node:test";

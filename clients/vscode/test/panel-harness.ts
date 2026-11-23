@@ -1,5 +1,5 @@
 // What the tests of the panel's read and content share: a workspace of Studies, the extension activated on the stub,
-// an opening by the command or a link, and the parts of a document as the tickets of L2.5 read them.
+// an opening by the command or a link, and the parts of a document that the tests read.
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";

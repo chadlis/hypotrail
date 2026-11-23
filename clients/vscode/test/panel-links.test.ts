@@ -81,7 +81,7 @@ function textsOf(value: unknown): string[] {
   return [];
 }
 
-// What every document of the panel holds of C5: each number is in a link of a kind of the pair list, each link names one element of the
+// What every document of the panel holds: each number is in a link of a kind of the pair list, each link names one element of the
 // document, a part of the kind its pair names, and each id outside a marked text is a value of the object read.
 function assertLinksAndIds(document: string, object: Entry | undefined, name: string): void {
   for (const text of outsideLinks(document)) assert.deepEqual(numbersIn(text), [], `${name}: a number outside a link in ${JSON.stringify(text)}`);
@@ -103,7 +103,7 @@ function assertLinksAndIds(document: string, object: Entry | undefined, name: st
   }
 }
 
-// The fixture reads of the slice whose `ok` is true, and the documents built after each kept output of `decide`.
+// The fixture reads whose `ok` is true, and the documents built after each kept output of `decide`.
 for (const name of KEPT_READS) {
   test(`every number is in a link to the part of its record, each link names one element, and each id is the read's: ${name}`, async (t) => {
     const object = keptObject(name);
