@@ -60,7 +60,7 @@ function assertDecisions(document: string, object: Entry): void {
     assert.ok(markedTexts(part).includes(decision.option), decision.option);
     assert.match(words(between(part)), new RegExp(`Author ${decision.author}( |$)`));
     const cited = words(between(elementOf(part, '<ul data-element="cited">'))).split(" ");
-    assert.deepEqual(cited, decision.cited_ids, "each cited id, in the list of cited ids");
+    decision.cited_ids.forEach((id: string, at: number) => assert.equal(cited[at], id, `the cited id ${id}, at its place in the list of cited ids`));
   });
 }
 

@@ -94,7 +94,7 @@ async function pageOf(t: TestContext, address: string): Promise<Session> {
 async function measured(t: TestContext, document: string, evidence: string): Promise<{ innerWidth: number; question: number | null; evidence: number | null } | undefined> {
   const address = await startChrome(t);
   if (address === undefined) {
-    t.skip(`the C2 guard is skipped: Chrome at ${CHROME} did not start, or its debugging port did not open within ${START_MS} ms`);
+    t.skip(`the guard of how far from the top the first question and the first evidence number stand is skipped: Chrome at ${CHROME} did not start, or its debugging port did not open within ${START_MS} ms`);
     return undefined;
   }
   const page = await pageOf(t, address);
@@ -115,11 +115,11 @@ async function measured(t: TestContext, document: string, evidence: string): Pro
 
 const guarded = (t: TestContext): boolean => {
   if (fs.existsSync(CHROME)) return true;
-  t.skip(`the C2 guard is skipped: no Chrome at ${CHROME}`);
+  t.skip(`the guard of how far from the top the first question and the first evidence number stand is skipped: no Chrome at ${CHROME}`);
   return false;
 };
 
-test("the C2 guard: at the width of guard_bounds, the first question and the first evidence number of status-success are within their bounds of the top", { timeout: 60000 }, async (t) => {
+test("at the width of guard_bounds, the first question and the first evidence number of status-success are within their bounds of the top", { timeout: 60000 }, async (t) => {
   if (!guarded(t)) return;
   const object = keptObject("status-success");
   const { document } = await documentFor(t, success(object));
@@ -131,7 +131,7 @@ test("the C2 guard: at the width of guard_bounds, the first question and the fir
   assert.ok(at.evidence! <= BOUND.evidence, `innerWidth=${at.innerWidth}: the first evidence number is ${at.evidence} px from the top, past ${BOUND.evidence}`);
 });
 
-test("the C2 guard finds the element it measures on status-chinook-withheld: the delta's element", { timeout: 60000 }, async (t) => {
+test("the guard of how far from the top the first question and the first evidence number stand finds the element it measures on status-chinook-withheld: the delta's element", { timeout: 60000 }, async (t) => {
   if (!guarded(t)) return;
   const object = keptObject("status-chinook-withheld");
   assert.equal(evidenceOf(object), DELTA);
