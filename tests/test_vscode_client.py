@@ -586,3 +586,29 @@ def test_a_planted_file_that_holds_an_option_text_is_found():
     files = client_source_and_contract()
     files["clients/vscode/src/other.ts"] = f'const option = "{PENDING_OPTIONS[1]["text"]}";\n'
     assert pending_text_holders(files) == [("clients/vscode/src/other.ts", PENDING_OPTIONS[1]["text"])]
+
+
+# --- the panel's own words ------------------------------------------------------------------------------------------------------
+
+# The two headings that name the keys `warnings` and `limitations` of a Comparison; the _Avoid_ entry that lists "limitation" and
+# "warning" is about naming a Declared deviation, not these keys.
+AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison")
+
+
+def avoided_words(glossary: str) -> list:
+    """Each word or phrase of the _Avoid_ lines of the glossary, the text before any parenthesis."""
+    lines = [line.split("_Avoid_:", 1)[1] for line in glossary.splitlines() if line.startswith("_Avoid_:")]
+    return sorted({part.split("(", 1)[0].strip() for line in lines for part in line.split(",") if part.split("(", 1)[0].strip()})
+
+
+def avoided_in(entries: list, words: list) -> list:
+    """(entry, word) for each word found as a whole word in an entry, ignoring case, the exempted headings left out."""
+    return [(entry, word) for entry in entries if entry not in AVOID_EXEMPT for word in words if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", entry, re.I)]
+
+
+def test_no_entry_of_the_label_list_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
+    words = avoided_words((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
+    assert {"run", "label", "limitation", "warning", "case"} <= set(words)
+    labels = read_json(CLIENT / "contract.json")["labels"]
+    assert set(AVOID_EXEMPT) <= set(labels)
+    assert avoided_in(labels, words) == []

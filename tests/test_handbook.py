@@ -5291,3 +5291,35 @@ def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_
     for table in PANEL_LINK_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# --- the panel's style, the guard of its layout and its own words (chapter 18) -----------------------------------------------------
+
+# The tables of chapter 18 on the panel's colours, the bounds of the guard of its layout and its own words, each with the entries of
+# `clients/vscode/contract.json` its rows carry in `data-entry`.
+PANEL_STYLE_TABLES = {
+    "panel-guard-bounds": lambda contract: contract["guard_bounds"],
+    "panel-colour-forms": lambda contract: contract["colour_forms"],
+    "panel-labels": lambda contract: contract["labels"],
+}
+
+
+def test_the_panel_style_bounds_and_label_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_STYLE_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_style_bounds_and_label_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_STYLE_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_style_bounds_and_label_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_STYLE_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
