@@ -199,6 +199,79 @@
 <tr data-entry="human"><td>human</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="panel-links">Links inside the panel</p>
+<div class="prose">
+<p>A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing. Each record the document shows, the Study, a Comparison, an Assessment, a recorded Decision and a Declared deviation, stands in a part of its own with its id; the part of an Assessment or a Comparison also gives the path of each output that record names, as the CLI prints it, and never the path of the References. An Assessment has one part in a document, at the first place that refers to it; every other place gives its id as a link to that part, and an Assessment that nothing shown refers to is not shown. Every number the panel prints is a link to the part of the record it comes from; when the Assessment of a line of a Decision's evidence is not among those the CLI lists, its numbers lead to that Decision's part. The texts the core supplies, such as wordings, messages, units and paths, are shown whole and hold no link.</p>
+<p>Each kind of number leads to the part of <a href="#panel-number-links">the table of the parts numbers lead to</a>.</p>
+<p>The panel shows each of <a href="#panel-statuses">the keys of the table of what is shown beside a value</a> with the value the CLI gives, and computes none of them.</p>
+<p>The document is built from the keys of <a href="#panel-key-paths">the table of what the panel reads</a> and from no other, so nothing of an Attempt is shown, and no output of a run on the checked partition that no Assessment or Comparison recorded.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-number-links"><thead><tr><th>An entry of <code>number_links</code>: a kind of number, then its part</th><th>The number</th><th>The part its link leads to</th></tr></thead><tbody>
+<tr data-entry="write_sequence=study"><td><code>write_sequence=study</code></td><td>The Write sequence</td><td>The Study</td></tr>
+<tr data-entry="value=assessment"><td><code>value=assessment</code></td><td>A Metric's value</td><td>The Assessment that holds the Metric</td></tr>
+<tr data-entry="delta=comparison"><td><code>delta=comparison</code></td><td>The delta's value</td><td>The Comparison</td></tr>
+<tr data-entry="control=comparison"><td><code>control=comparison</code></td><td>The Control's value in the delta record</td><td>The Comparison</td></tr>
+<tr data-entry="candidate=comparison"><td><code>candidate=comparison</code></td><td>The Candidate's value in the delta record</td><td>The Comparison</td></tr>
+<tr data-entry="coverage=comparison"><td><code>coverage=comparison</code></td><td>Each entry of a Comparison's coverage</td><td>The Comparison</td></tr>
+<tr data-entry="cited=assessment"><td><code>cited=assessment</code></td><td>The cited value of a line of a Decision's evidence</td><td>The Assessment the line names first</td></tr>
+<tr data-entry="latest=assessment"><td><code>latest=assessment</code></td><td>The latest value of a line</td><td>The Assessment the line names as the latest</td></tr>
+<tr data-entry="changed_item_count=assessment"><td><code>changed_item_count=assessment</code></td><td>The count of changed Items of a line</td><td>The Assessment the line names as the latest</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-statuses"><thead><tr><th>An entry of <code>statuses</code>: a key shown beside its value</th><th>Of which record</th></tr></thead><tbody>
+<tr data-entry="status"><td><code>status</code></td><td>Of a Metric</td></tr>
+<tr data-entry="comparability.status"><td><code>comparability.status</code></td><td>Of a Comparison</td></tr>
+<tr data-entry="applies"><td><code>applies</code></td><td>Of a Decision</td></tr>
+<tr data-entry="withdrawn"><td><code>withdrawn</code></td><td>Of a Declared deviation</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-key-paths"><thead><tr><th>An entry of <code>key_paths</code>: what the panel reads, <code>[]</code> for each entry of a list and <code>.*</code> for a map it shows whole</th></tr></thead><tbody>
+<tr data-entry="assessments[].assessment_id"><td><code>assessments[].assessment_id</code></td></tr>
+<tr data-entry="assessments[].metrics[].id"><td><code>assessments[].metrics[].id</code></td></tr>
+<tr data-entry="assessments[].metrics[].status"><td><code>assessments[].metrics[].status</code></td></tr>
+<tr data-entry="assessments[].metrics[].unit"><td><code>assessments[].metrics[].unit</code></td></tr>
+<tr data-entry="assessments[].metrics[].value"><td><code>assessments[].metrics[].value</code></td></tr>
+<tr data-entry="assessments[].per_item_ref.path"><td><code>assessments[].per_item_ref.path</code></td></tr>
+<tr data-entry="comparisons[].comparability.status"><td><code>comparisons[].comparability.status</code></td></tr>
+<tr data-entry="comparisons[].comparison_id"><td><code>comparisons[].comparison_id</code></td></tr>
+<tr data-entry="comparisons[].coverage.*"><td><code>comparisons[].coverage.*</code></td></tr>
+<tr data-entry="comparisons[].delta.candidate"><td><code>comparisons[].delta.candidate</code></td></tr>
+<tr data-entry="comparisons[].delta.control"><td><code>comparisons[].delta.control</code></td></tr>
+<tr data-entry="comparisons[].delta.metric"><td><code>comparisons[].delta.metric</code></td></tr>
+<tr data-entry="comparisons[].delta.unit"><td><code>comparisons[].delta.unit</code></td></tr>
+<tr data-entry="comparisons[].delta.value"><td><code>comparisons[].delta.value</code></td></tr>
+<tr data-entry="comparisons[].limitations"><td><code>comparisons[].limitations</code></td></tr>
+<tr data-entry="comparisons[].paired_deltas_ref.path"><td><code>comparisons[].paired_deltas_ref.path</code></td></tr>
+<tr data-entry="comparisons[].population_ref.path"><td><code>comparisons[].population_ref.path</code></td></tr>
+<tr data-entry="comparisons[].roles.candidate_assessment_id"><td><code>comparisons[].roles.candidate_assessment_id</code></td></tr>
+<tr data-entry="comparisons[].roles.control_assessment_id"><td><code>comparisons[].roles.control_assessment_id</code></td></tr>
+<tr data-entry="comparisons[].warnings[].code"><td><code>comparisons[].warnings[].code</code></td></tr>
+<tr data-entry="comparisons[].warnings[].message"><td><code>comparisons[].warnings[].message</code></td></tr>
+<tr data-entry="decisions[].applies"><td><code>decisions[].applies</code></td></tr>
+<tr data-entry="decisions[].author"><td><code>decisions[].author</code></td></tr>
+<tr data-entry="decisions[].cited_ids"><td><code>decisions[].cited_ids</code></td></tr>
+<tr data-entry="decisions[].decision_id"><td><code>decisions[].decision_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].assessment_id"><td><code>decisions[].evidence_change.lines[].assessment_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].changed_item_count"><td><code>decisions[].evidence_change.lines[].changed_item_count</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].latest_assessment_id"><td><code>decisions[].evidence_change.lines[].latest_assessment_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].cited"><td><code>decisions[].evidence_change.lines[].metrics[].cited</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].id"><td><code>decisions[].evidence_change.lines[].metrics[].id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].latest"><td><code>decisions[].evidence_change.lines[].metrics[].latest</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].state"><td><code>decisions[].evidence_change.lines[].state</code></td></tr>
+<tr data-entry="decisions[].evidence_change.state"><td><code>decisions[].evidence_change.state</code></td></tr>
+<tr data-entry="decisions[].option"><td><code>decisions[].option</code></td></tr>
+<tr data-entry="decisions[].reasons[].id"><td><code>decisions[].reasons[].id</code></td></tr>
+<tr data-entry="decisions[].reasons[].reason"><td><code>decisions[].reasons[].reason</code></td></tr>
+<tr data-entry="declared_deviations[].declared_deviation_id"><td><code>declared_deviations[].declared_deviation_id</code></td></tr>
+<tr data-entry="declared_deviations[].withdrawn"><td><code>declared_deviations[].withdrawn</code></td></tr>
+<tr data-entry="pending_decisions[].candidate_assessment_id"><td><code>pending_decisions[].candidate_assessment_id</code></td></tr>
+<tr data-entry="pending_decisions[].comparison_id"><td><code>pending_decisions[].comparison_id</code></td></tr>
+<tr data-entry="pending_decisions[].control_assessment_id"><td><code>pending_decisions[].control_assessment_id</code></td></tr>
+<tr data-entry="pending_decisions[].options[].consequence"><td><code>pending_decisions[].options[].consequence</code></td></tr>
+<tr data-entry="pending_decisions[].options[].text"><td><code>pending_decisions[].options[].text</code></td></tr>
+<tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
+<tr data-entry="study.study_id"><td><code>study.study_id</code></td></tr>
+<tr data-entry="write_sequence"><td><code>write_sequence</code></td></tr>
+</tbody></table></div>
+
 <p class="sub2">Deep links</p>
 <div class="prose">
 <p>A deep link is a <code>vscode://</code> URI that the extension handles, of one of the two forms below. Its authority is the manifest's publisher and name, joined by a dot, and the manifest's activation events let a link start the extension. The query is the key and the path, which is the whole rest of the query: required, absolute, within the limit below, with no NUL character, and a Study that the walk above finds in the workspace. A valid link opens the panel on its Study, and on the Decision the second form names, as <a href="#panel-decisions">the section on recorded Decisions</a> says. Anything else (another authority, a fragment, another path, a decision id that does not match the pattern) is refused with the one notification below, and opens nothing. A link never writes.</p>
