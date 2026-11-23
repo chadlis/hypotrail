@@ -12,7 +12,7 @@ const LITERALS = [
 
 const sameNonce = (document: string): string => document.replace(/nonce-[A-Za-z0-9]+/g, "nonce-N").replace(/nonce="[A-Za-z0-9]+"/g, 'nonce="N"');
 
-// VA-V9 of #177: a key the client does not know.
+// A key the client does not know.
 const PLACES: [string, (object: Record<string, any>) => Record<string, any> | undefined][] = [
   ["the top level", (object) => object],
   ["an entry of pending_decisions", (object) => object.pending_decisions[0]],
@@ -42,11 +42,10 @@ test("a key added inside coverage is shown in the coverage element, with its val
   assert.match(coverage, /zq_added\s+4242(\s|$)/);
 });
 
-// VF-T8 (c) and (d) of #182, which #177 builds (VE-V5 of #181): no text of the object read stands in an attribute,
-// and none becomes markup.
+// No text of the object read stands in an attribute, and none becomes markup.
 const PLANT = (token: string) => `<script>alert(1)</script><b onclick="go()" style="color: red">https://example.com/${token}</b>`;
 
-// The text paths the document of #177 shows, but the ids it uses to find a record.
+// The text paths the document shows, but the ids it uses to find a record.
 function planted(): { object: Record<string, any>; texts: string[] } {
   const object = keptObject("status-deviation");
   const texts: string[] = [];

@@ -79,7 +79,7 @@ export function unescaped(text: string): string {
   return text.replace(/&(amp|lt|gt|quot|#39);/g, (entity) => ENTITIES[entity]);
 }
 
-// A document read as VA-V0 of #177 reads it: the texts of the one `script` and the one `style` element set apart, then
+// A document read in three parts: the texts of the one `script` and the one `style` element set apart, then
 // each tag a substring from `<` to the next `>`, and the text between tags the rest, with HTML escaping undone.
 export function partsOf(document: string): { script: string; style: string; tags: string[]; between: string } {
   let script = "";

@@ -60,7 +60,7 @@ test("while a read is in flight the document holds the line for a read in flight
   assert.ok(!partsOf(lastDocument()).between.includes(READING));
 });
 
-// The part of VD-V13 of #180 that #177's own code meets: an opening while a read is in flight.
+// An opening while a read is in flight.
 const OPENINGS: [string, (other: string) => Promise<void>][] = [
   ["the command", () => runCommand()],
   ["a link of the first form on another Study", (other) => followLink(0, other)],
@@ -83,7 +83,7 @@ for (const [way, open] of OPENINGS) {
   });
 }
 
-// VA-T7 of #177: a read that fails.
+// A read that fails.
 const NOT_FOUND = kept("status-not-found.out");
 const UUID_SHAPE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 

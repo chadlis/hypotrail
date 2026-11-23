@@ -4,7 +4,7 @@ import { KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts
 
 const KEPT_ID = "00000000-0000-4000-8000-000000000001";
 
-// VA-T2 and VA-V4 (d) of #177: the Study's id and Write sequence.
+// The Study's id and Write sequence, and how a number is written.
 for (const name of KEPT_READS) {
   test(`the document shows the Study's id whole and its Write sequence as the object holds it: ${name}`, async (t) => {
     const object = keptObject(name);
@@ -42,7 +42,7 @@ test("a Metric value of 0.5 is written 0.5 and not 0.500000", async (t) => {
   assert.ok(!between.includes("0.500000"));
 });
 
-// An independent writing of a number as VA-V4 (d) of #177 states it, used to find a value in a document.
+// A number written by another route than the client's, to find a value in a document.
 function written(value: number): string {
   if (Number.isInteger(value)) return String(value);
   const fixed = value.toPrecision(6);
@@ -52,7 +52,7 @@ function written(value: number): string {
 const QUESTION = "Which Configuration do we keep after this Comparison?";
 const NO_PENDING = "No pending decision.";
 
-// VA-T3 of #177: each pending decision, its question, and each option with its consequence.
+// Each pending decision, its question, and each option with its consequence.
 for (const name of KEPT_READS) {
   test(`each option shows its text and its consequence, each whole in a marked element: ${name}`, async (t) => {
     const object = keptObject(name);
@@ -126,7 +126,7 @@ test("a Comparison that is not pending and that no Decision cites is not shown",
   for (const comparison of object.comparisons) assert.ok(!document.includes(comparison.comparison_id), comparison.comparison_id);
 });
 
-// VA-U4 and VA-V4 of #177: the Comparison, its delta, and the two Assessments under their roles.
+// The Comparison, its delta, and the two Assessments under their roles.
 for (const name of KEPT_READS) {
   test(`each pending decision shows both Assessments, under their roles, with every entry of their metrics: ${name}`, async (t) => {
     const object = keptObject(name);
@@ -214,7 +214,7 @@ test("status-chinook-pending with control set to null beside a delta that has a 
   assert.match(partsOf(roles).between, /Control\s+no value(\s|$)/);
 });
 
-// VA-T5 of #177: the limits.
+// The limits the Comparison records, and the Declared deviations.
 const WARNINGS = "Warnings of the Comparison";
 const LIMITATIONS = "Limitations of the Comparison";
 

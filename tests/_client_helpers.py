@@ -57,7 +57,7 @@ def numbered(text: str, kind: str, pattern) -> str:
 
 def replaced(text: str) -> str:
     """A `status --json` text as kept: the top-level `attempts` sorted by `request_id`, the keyed rules applied, then each distinct UUID,
-    timestamp and 64-hex digest replaced, in order of first appearance, by its numbered placeholder (D-093 and D-096 on chadlis/hypotrail#75)."""
+    timestamp and 64-hex digest replaced, in order of first appearance, by its numbered placeholder."""
     payload = json.loads(text)
     if isinstance(payload.get("attempts"), list):
         keys = [attempt.get("request_id") for attempt in payload["attempts"]]

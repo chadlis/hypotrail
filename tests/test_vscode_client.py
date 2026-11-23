@@ -170,7 +170,7 @@ def test_each_kept_status_read_whose_ok_is_true_is_the_clis_own_once_its_values_
         assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
 
 
-# Each kept read of #177, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
+# Each kept read, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
 # `declared_deviations`, and the `workload` of the Study.
 KEPT_CASES = {
     "status-success": (1, 0, [], "bike_day"),
@@ -200,8 +200,7 @@ PROCESS_PATTERNS = {"exec(": r"(?<!\.)\bexec\(", "shell": r"\bshell\b"}
 VSCODE_RUNNERS = ["createTerminal", "sendText", "executeTask", "ShellExecution", "ProcessExecution", "CustomExecution", "startDebugging"]
 STATE_NAMES = ["globalState", "workspaceState", "setState", "localStorage"]
 WRITE_NAMES = ["writeFile", "appendFile", "createWriteStream"]
-# A watcher and a read on visibility or on a timer (D-092 on chadlis/hypotrail#75, comment 7099114398, S20), and the names that read or open a
-# file (the same comment, S22, its conditions).
+# The names of a watcher and of a read on visibility or on a timer, and the names that read or open a file.
 WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeViewState", "onDidChangeTextDocument", "setInterval"]
 FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}

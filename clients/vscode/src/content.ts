@@ -6,7 +6,8 @@ import type { Outcome } from "./bridge";
 
 export type View = { reading: boolean; object?: Record<string, unknown>; failure?: Outcome };
 
-type Record_ = Record<string, unknown>;
+// An object of the read, whatever its keys.
+type Entry = Record<string, unknown>;
 
 // The panel's own words, by their place in `labels` of contract.json.
 const LABEL = {
@@ -41,11 +42,12 @@ export function escaped(text: string): string {
 const text = (value: unknown): string => escaped(value === undefined || value === null ? "" : String(value));
 const value = (content: unknown): string => `<span>${text(content)}</span>`;
 const marked = (content: unknown, tag = "span"): string => `<${tag} data-text>${text(content)}</${tag}>`;
-const list = (content: unknown): Record_[] => (Array.isArray(content) ? content.filter((each) => typeof each === "object" && each !== null) : []);
-const record = (content: unknown): Record_ => (typeof content === "object" && content !== null && !Array.isArray(content) ? (content as Record_) : {});
+const list = (content: unknown): Entry[] => (Array.isArray(content) ? content.filter((each) => typeof each === "object" && each !== null) : []);
+const record = (content: unknown): Entry => (typeof content === "object" && content !== null && !Array.isArray(content) ? (content as Entry) : {});
 
 // "An integer is written as the object holds it, and no sign is added. A number that is not an integer is written as
-// `String(Number(value.toPrecision(6)))`" (#177, VA-V4 (d)); a null number is the word of `no_value`.
+// `String(Number(value.toPrecision(6)))`: six significant digits and no trailing zero" (chadlis/hypotrail#177); a null
+// number is the word of `no_value`.
 export function written(number: unknown): string {
   if (number === null) return escaped(contract.no_value);
   if (typeof number !== "number") return text(number);
@@ -72,7 +74,7 @@ function failureOf(failure: Outcome): string {
   return "";
 }
 
-function studyOf(object: Record_): string {
+function studyOf(object: Entry): string {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const comparisons = list(object.comparisons);
@@ -89,7 +91,7 @@ function studyOf(object: Record_): string {
   ].join("\n");
 }
 
-function pendingOf(pending: Record_, comparisons: Record_[], assessments: Record_[]): string {
+function pendingOf(pending: Entry, comparisons: Entry[], assessments: Entry[]): string {
   const comparison = comparisons.find((each) => each.comparison_id === pending.comparison_id);
   const options = list(pending.options).map((option) => `<li>${marked(option.text)} ${marked(option.consequence)}</li>`);
   return [
@@ -103,14 +105,14 @@ function pendingOf(pending: Record_, comparisons: Record_[], assessments: Record
   ].join("\n");
 }
 
-function comparisonOf(id: unknown, comparison: Record_ | undefined): string {
+function comparisonOf(id: unknown, comparison: Entry | undefined): string {
   const lines = ['<div data-part="comparison">', `<p>${label("comparison")} ${value(id)}</p>`];
   if (comparison) {
     const delta = record(comparison.delta);
     const coverage = Object.entries(record(comparison.coverage)).map(([key, number]) => `${value(key)} ${numberOf(number)}`);
     lines.push(`<p data-element="delta">${label("delta")} ${numberOf(delta.value)} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
     lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.join(" ")}</p>`);
-    // When the delta is withheld (its value null) the Comparison's part holds no roles' element (#177, VA-V4 (b)).
+    // "when the delta's `value` is null the Comparison's part holds no roles' element" (chadlis/hypotrail#177).
     if (delta.value !== null && ("control" in delta || "candidate" in delta)) {
       lines.push(`<p data-element="roles">${label("control")} ${numberOf(delta.control)} ${label("candidate")} ${numberOf(delta.candidate)}</p>`);
     }
@@ -123,7 +125,7 @@ function comparisonOf(id: unknown, comparison: Record_ | undefined): string {
   return lines.join("\n");
 }
 
-function assessmentOf(role: "control" | "candidate", id: unknown, assessments: Record_[]): string {
+function assessmentOf(role: "control" | "candidate", id: unknown, assessments: Entry[]): string {
   const assessment = assessments.find((each) => each.assessment_id === id);
   const metrics = list(assessment?.metrics).map(
     (metric) => `<li>${label("metric")} ${value(metric.id)} ${numberOf(metric.value)} ${marked(metric.unit)} ${label("status")} ${value(metric.status)}</li>`,
@@ -131,7 +133,7 @@ function assessmentOf(role: "control" | "candidate", id: unknown, assessments: R
   return [`<div data-role="${role}">`, `<h4>${label(role)}</h4>`, `<p>${label("assessment")} ${value(id)}</p>`, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].join("\n");
 }
 
-function deviationsOf(deviations: Record_[]): string {
+function deviationsOf(deviations: Entry[]): string {
   const lines = deviations.map((deviation) => `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${label("withdrawn")} ${value(deviation.withdrawn)}</li>`);
   return `<ul>\n${lines.join("\n")}\n</ul>`;
 }
