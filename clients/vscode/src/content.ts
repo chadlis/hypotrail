@@ -4,8 +4,17 @@
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
 
-// `decision` is the id a link of the second form names.
-export type View = { reading: boolean; object?: Record<string, unknown>; failure?: Outcome; decision?: string };
+// `failure` is the outcome of a read that failed, `written` the answer of the write the document follows, and
+// `unanswered` whether a write that got no answer is held; `decision` is the id a link of the second form names.
+export type View = {
+  reading: boolean;
+  writing?: boolean;
+  object?: Record<string, unknown>;
+  failure?: Outcome;
+  written?: Outcome;
+  unanswered?: boolean;
+  decision?: string;
+};
 
 // An object of the read, whatever its keys.
 type Entry = Record<string, unknown>;
@@ -42,6 +51,11 @@ const LABEL = {
   latestValue: 27,
   linked: 28,
   noDecision: 29,
+  repeat: 30,
+  record: 31,
+  writing: 32,
+  missing: 33,
+  recorded: 34,
 } as const;
 
 // The phrase of each state of `evidence_change`, by its code.
@@ -74,11 +88,27 @@ const numberOf = (number: unknown): string => `<span>${written(number)}</span>`;
 
 export function bodyOf(view: View): string {
   const parts: string[] = [];
-  if (view.reading) parts.push(`<p>${label("reading")}</p>`);
+  const notice = noticeOf(view);
+  if (notice.length > 0) parts.push(['<div data-element="notice">', ...notice, "</div>"].join("\n"));
   if (view.failure) parts.push(failureOf(view.failure));
   parts.push(`<button data-message="${contract.messages[0]}">${label("readAgain")}</button>`);
-  if (view.object) parts.push(studyOf(view.object, view.decision));
+  if (view.unanswered) parts.push(`<button data-message="${contract.messages[2]}">${label("repeat")}</button>`);
+  // The controls that record are inert while a call is in flight or a write that got no answer is held.
+  if (view.object) parts.push(studyOf(view.object, view.decision, view.reading || view.writing === true || view.unanswered === true));
   return parts.join("\n");
+}
+
+// What the panel says of a call in flight and of its last write.
+function noticeOf(view: View): string[] {
+  const lines: string[] = [];
+  if (view.reading) lines.push(`<p>${label("reading")}</p>`);
+  if (view.writing) lines.push(`<p>${label("writing")}</p>`);
+  if (view.unanswered) lines.push(`<p>${escaped(contract.write_no_answer_words)}</p>`);
+  const written = view.written;
+  if (written?.outcome === "refusal") lines.push(failureOf(written));
+  if (written?.outcome === "client_refusal") lines.push(`<p>${label("missing")} ${written.missing.map(value).join(" ")}</p>`);
+  if (written?.outcome === "success" && view.failure) lines.push(`<p>${label("recorded")} ${value(record(written.object.decision).decision_id)}</p>`);
+  return lines;
 }
 
 function failureOf(failure: Outcome): string {
@@ -90,7 +120,7 @@ function failureOf(failure: Outcome): string {
   return "";
 }
 
-function studyOf(object: Entry, linked: string | undefined): string {
+function studyOf(object: Entry, linked: string | undefined, locked: boolean): string {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const comparisons = list(object.comparisons);
@@ -100,7 +130,7 @@ function studyOf(object: Entry, linked: string | undefined): string {
     `<p>${value(study.study_id)}</p>`,
     `<p>${label("writeSequence")} ${numberOf(object.write_sequence)}</p>`,
     `<h2>${label("pending")}</h2>`,
-    pending.length === 0 ? `<p>${label("noPending")}</p>` : pending.map((each) => pendingOf(each, comparisons, assessments)).join("\n"),
+    pending.length === 0 ? `<p>${label("noPending")}</p>` : pending.map((each, index) => pendingOf(each, index, locked, comparisons, assessments)).join("\n"),
     `<h2>${label("decisions")}</h2>`,
     decisionsOf(list(object.decisions), linked, comparisons, assessments),
     `<h2>${label("deviations")}</h2>`,
@@ -108,13 +138,19 @@ function studyOf(object: Entry, linked: string | undefined): string {
   ].join("\n");
 }
 
-function pendingOf(pending: Entry, comparisons: Entry[], assessments: Entry[]): string {
+// The first action selects an option's radio input; the second is the control that records, disabled until then.
+function pendingOf(pending: Entry, index: number, locked: boolean, comparisons: Entry[], assessments: Entry[]): string {
   const comparison = comparisons.find((each) => each.comparison_id === pending.comparison_id);
-  const options = list(pending.options).map((option) => `<li>${marked(option.text)} ${marked(option.consequence)}</li>`);
+  const inert = locked ? " disabled" : "";
+  const options = list(pending.options).map(
+    (option, at) =>
+      `<li><input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}"${inert}> ${marked(option.text)} ${marked(option.consequence)}</li>`,
+  );
   return [
     '<section data-part="pending">',
     marked(record(pending.question).text, "h3"),
     `<ul>\n${options.join("\n")}\n</ul>`,
+    `<button data-message="${contract.messages[1]}" data-pending="${index}" disabled>${label("record")}</button>`,
     comparisonOf(pending.comparison_id, comparison),
     assessmentOf("control", pending.control_assessment_id, assessments),
     assessmentOf("candidate", pending.candidate_assessment_id, assessments),

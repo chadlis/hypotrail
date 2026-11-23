@@ -1,14 +1,20 @@
 // The one webview panel of the extension. It holds in memory only, for as long as it is open, the target it was
-// opened on, the last object a read gave back with `success`, and whether a call is in flight; it reads the Study
-// through the bridge when it is opened and on the control "Read again", and at no other time.
+// opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
+// call is answered, and whether a call is in flight. It reads the Study through the bridge when it is opened, after
+// each write the CLI answered and on the control "Read again", and at no other time; it writes only through
+// `recordDecision`, on the control that records and on "Repeat".
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, readStudy } from "./bridge";
+import { checkoutRoot, newRequestId, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
 import { bodyOf, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
+
+// What the document's script posts: the name of a message and, for the control that records, the indexes of the
+// pending decision and of the option selected.
+type Message = { message?: unknown; pending?: unknown; option?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -16,10 +22,11 @@ const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
 let panel: vscode.WebviewPanel | undefined;
 let target: Target | undefined;
 let held: Record<string, unknown> | undefined;
+let unanswered: DecisionInput | undefined;
 let inFlight = false;
 
 export function openPanel(next: Target): void {
-  if (panel && inFlight) {
+  if (panel && (inFlight || unanswered)) {
     panel.reveal();
     return;
   }
@@ -34,6 +41,7 @@ export function openPanel(next: Target): void {
       panel = undefined;
       target = undefined;
       held = undefined;
+      unanswered = undefined;
       inFlight = false;
     });
   }
@@ -41,26 +49,66 @@ export function openPanel(next: Target): void {
 }
 
 // The handler of each message the document's script posts, by the message's name.
-export const HANDLERS: Record<string, () => void> = {
+export const HANDLERS: Record<string, (message: Message) => void> = {
   [contract.messages[0]]: () => void read(),
+  [contract.messages[1]]: (message) => record(message),
+  [contract.messages[2]]: () => {
+    if (unanswered) void write(unanswered);
+  },
 };
 
 function receive(message: unknown): void {
   if (inFlight || !panel) return;
-  const name = (message as { message?: unknown } | null)?.message;
-  if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name]();
+  const name = (message as Message | null)?.message;
+  if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name](message as Message);
 }
 
-async function read(): Promise<void> {
+const entries = (content: unknown): Record<string, unknown>[] => (Array.isArray(content) ? content : []);
+const at = (list: Record<string, unknown>[], index: unknown) => (Number.isInteger(index) ? list[index as number] : undefined);
+
+// The second action: the extension resolves the indexes it is sent in the object it holds.
+function record(message: Message): void {
+  if (unanswered || !held) return;
+  const pending = at(entries(held.pending_decisions), message.pending);
+  const option = at(entries(pending?.options), message.option);
+  if (!pending || !option) return;
+  void write({
+    question: (pending.question as { text?: unknown } | undefined)?.text as string,
+    option: option.text as string,
+    author: contract.decide_author,
+    cited_ids: [pending.comparison_id as string],
+    request_id: newRequestId(),
+    read_sequence: held.write_sequence as number,
+  });
+}
+
+async function write(input: DecisionInput): Promise<void> {
+  const opened = panel!;
+  inFlight = true;
+  show({ reading: false, writing: true, object: held, unanswered: unanswered !== undefined, decision: target!.decision });
+  const outcome = await recordDecision(ROOT, target!.study, input);
+  if (panel !== opened) return;
+  inFlight = false;
+  unanswered = outcome.outcome === "no_answer" ? input : undefined;
+  if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
+    show({ reading: false, object: held, written: outcome, unanswered: unanswered !== undefined, decision: target!.decision });
+  } else {
+    await read(outcome);
+  }
+}
+
+// `written` is the answer of the write this read follows, if any.
+async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, decision: target!.decision });
+  show({ reading: true, object: held, unanswered: unanswered !== undefined, decision: target!.decision });
   const outcome = await readStudy(ROOT, study);
   if (panel !== opened) return;
   inFlight = false;
   held = outcome.outcome === "success" ? outcome.object : undefined;
-  show({ reading: false, object: held, failure: outcome.outcome === "success" ? undefined : outcome, decision: target!.decision });
+  const failure = outcome.outcome === "success" ? undefined : outcome;
+  show({ reading: false, object: held, failure, written, unanswered: unanswered !== undefined, decision: target!.decision });
 }
 
 function show(view: View): void {
@@ -82,13 +130,30 @@ function newNonce(): string {
   return randomBytes(16).toString("hex");
 }
 
-// The document's script: each control sends the fixed message its attribute names, and nothing else; the view
-// scrolls to the Decision a link names.
+// The document's script: each control sends the message its attribute names, and the control that records sends with
+// it the indexes of its pending decision and of the option selected there; selecting an option makes that control
+// active. The view scrolls to the Decision a link names.
 const SCRIPT = [
   '"use strict";',
   "const api = acquireVsCodeApi();",
   'for (const control of document.querySelectorAll("button[data-message]")) {',
-  '  control.addEventListener("click", () => api.postMessage({ message: control.getAttribute("data-message") }));',
+  '  control.addEventListener("click", () => {',
+  '    const message = { message: control.getAttribute("data-message") };',
+  '    const pending = control.getAttribute("data-pending");',
+  "    if (pending !== null) {",
+  "      const chosen = document.querySelector(`input[data-pending=\"${pending}\"]:checked`);",
+  "      if (chosen === null) return;",
+  "      message.pending = Number(pending);",
+  '      message.option = Number(chosen.getAttribute("data-option"));',
+  "    }",
+  "    api.postMessage(message);",
+  "  });",
+  "}",
+  'for (const choice of document.querySelectorAll("input[data-option]")) {',
+  '  choice.addEventListener("change", () => {',
+  '    const control = document.querySelector(`button[data-pending=\"${choice.getAttribute("data-pending")}\"]`);',
+  "    if (control !== null) control.disabled = false;",
+  "  });",
   "}",
   'document.querySelector("[data-linked]")?.scrollIntoView();',
 ].join("\n");

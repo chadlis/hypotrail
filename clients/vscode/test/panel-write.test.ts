@@ -188,8 +188,8 @@ for (const [before, after] of PAIRS) {
     await settle();
     const document = lastDocument();
     const decision = read.decisions[read.decisions.length - 1];
+    assert.ok(partsOf(document).between.includes(decision.decision_id), "the decision_id of the read that follows");
     const part = elementOf(document, '<section data-part="decision"')!;
-    assert.ok(partsOf(part).between.includes(decision.decision_id));
     assert.match(partsOf(part).between, new RegExp(`applies\\s+${decision.applies}(\\s|$)`));
     assert.ok(!markedTexts(document).includes(keptObject(before).pending_decisions[0].question.text));
   });
@@ -197,8 +197,15 @@ for (const [before, after] of PAIRS) {
 
 test("after a success, a read whose Decision does not apply and whose pending_decisions still names the Comparison shows applies false and the question", async (t) => {
   const read = keptObject("status-decided");
+  const comparison = read.comparisons[0];
+  assert.deepEqual(read.decisions[0].cited_ids, [comparison.comparison_id]);
   read.decisions[0].applies = false;
-  read.pending_decisions = keptObject("status-success").pending_decisions;
+  read.pending_decisions = keptObject("status-success").pending_decisions.map((pending: Entry) => ({
+    ...pending,
+    comparison_id: comparison.comparison_id,
+    control_assessment_id: comparison.roles.control_assessment_id,
+    candidate_assessment_id: comparison.roles.candidate_assessment_id,
+  }));
   await opened(t, keptObject("status-success"), keptAnswer("decide-success"), success(read));
   record(0, 0);
   await settle();
@@ -300,6 +307,8 @@ for (const [cause, answer] of NO_ANSWERS) {
     const document = lastDocument();
     assert.ok(notice(document).includes(contract.write_no_answer_words));
     assert.deepEqual(controls(document).filter((name) => name !== RECORD), [READ_AGAIN, REPEAT]);
+    const radios = partsOf(document).tags.filter((tag) => tag.startsWith("<input "));
+    assert.ok(radios.length > 0 && radios.every((tag) => /\sdisabled(\s|>)/.test(tag)), "no option can be selected while an id is held");
     assert.deepEqual(commandsOf(calls), ["status", "decide"]);
     record(0, 1);
     await settle();
@@ -458,3 +467,21 @@ for (const [way, open] of OPENINGS) {
     assert.deepEqual(decides[1].args, decides[0].args);
   });
 }
+
+test("while a repeat is in flight the request id is still held: the document holds the line of a write in flight, the words and Repeat", async (t) => {
+  workspace(t, ["bike"]);
+  const { calls, answer } = heldRecorder(t);
+  await runCommand();
+  answer(success(keptObject("status-success")));
+  await settle();
+  record(0, 0);
+  answer(NO_ANSWERS[1][1]);
+  await settle();
+  send(REPEAT);
+  await settle();
+  assert.deepEqual(commandsOf(calls), ["status", "decide", "decide"]);
+  const document = lastDocument();
+  assert.ok(notice(document).includes(RECORDING));
+  assert.ok(notice(document).includes(contract.write_no_answer_words));
+  assert.ok(controls(document).includes(REPEAT));
+});
