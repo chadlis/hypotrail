@@ -53,6 +53,15 @@ for the slice issue of the pull request:
    names the drive, so a drive decision under a heading that does not name the drive is not seen; and it checks only
    that each such comment's ID is in the entry, not that the slice has one entry, that the entry has its own D-number,
    that it was posted before the closing register or never edited, or that each item names its case.
+10. each round that a later round follows has a comment of the slice issue whose first line holds "round <r>: fix prompt
+   (to slice-builder)", with or without backticks around `slice-builder`: a correction opens the next round, and its
+   prompt is posted word for word; or the round is cleared under the heading "## <slice>, round <r>: fix prompt: none,
+   because ..." when no `slice-builder` prompt corrected it. A routing or disposition heading that mentions a fix
+   prompt is neither (D-082 on chadlis/hypotrail#75, item 2: "**add** the fixed heading of a fix prompt, and
+   `check_record.py` rule 10, which refuses a merge while a corrected round has no such comment;"). The rule skips the slices merged before it was added,
+   which `MERGED_BEFORE_FIX_PROMPT_RULE` lists, L2.3's (chadlis/hypotrail#159) the last of them. Its limits: it reads
+   headings, so it does not check that the comment is the prompt word for word, that it carries `premises.py`'s sheet,
+   that a "none, because" reason is true, or that a correction after the last round has one.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -177,6 +186,8 @@ DECISION_LOG = 75
 DRIVE_HEADING = re.compile(r"\bthe drive(?:'s)?\b", re.IGNORECASE)
 DELEGATED_ENTRY = re.compile(r"\bdrive decision \(delegated\)", re.IGNORECASE)
 MERGED_BEFORE_DELEGATED_ENTRY = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150})
+FIX_PROMPT = re.compile(r"\bround (\d+): fix prompt(?: \(to `?slice-builder`?\)|: none, because\b)", re.IGNORECASE)
+MERGED_BEFORE_FIX_PROMPT_RULE = MERGED_BEFORE_DELEGATED_ENTRY | {159}
 
 
 def round_line_problems(number: int, comment: dict) -> list:
@@ -215,6 +226,16 @@ def unlisted_decisions(comments: list, tickets: dict, log: list, slice_number: i
         for number, issue_comments in [(slice_number, comments), *sorted(tickets.items())]
         for c in issue_comments
         if DRIVE_HEADING.search(first_line(c)) and not re.search(rf"\b{c['id']}\b", entries)
+    ]
+
+
+def unposted_fix_prompts(comments: list, reviewed: set) -> list:
+    """The rounds followed by another whose correction has no fix-prompt comment on the slice issue."""
+    prompted = {int(m.group(1)) for c in comments for m in [FIX_PROMPT.search(first_line(c))] if m}
+    return [
+        f"round {r} is followed by round {r + 1}, and no comment headed 'round {r}: fix prompt' holds the prompt of its correction"
+        for r in sorted(reviewed)
+        if r + 1 in reviewed and r not in prompted
     ]
 
 
@@ -261,6 +282,8 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None, tick
             found += round_line_problems(number, comment)
     if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
         found += unlisted_decisions(comments, tickets or {}, log or [], slice_number)
+    if slice_number not in MERGED_BEFORE_FIX_PROMPT_RULE:
+        found += unposted_fix_prompts(comments, reviewed)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
