@@ -53,11 +53,12 @@ for the slice issue of the pull request:
    names the drive, so a drive decision under a heading that does not name the drive is not seen; and it checks only
    that each such comment's ID is in the entry, not that the slice has one entry, that the entry has its own D-number,
    that it was posted before the closing register or never edited, or that each item names its case.
-10. each round that a later round follows has a comment of the slice issue whose first line holds "round <r>" and
-   "fix prompt": a correction opens the next round, and its prompt is posted word for word, or the round is cleared under
-   the heading "## <slice>, round <r>: fix prompt: none, because ..." when no `slice-builder` prompt corrected it (D-082
-   on chadlis/hypotrail#75, item 2: "**add** the fixed heading of a fix prompt, and `check_record.py` rule 10, which
-   refuses a merge while a corrected round has no such comment;"). The rule skips the slices merged before it was added,
+10. each round that a later round follows has a comment of the slice issue whose first line holds "round <r>: fix prompt
+   (to slice-builder)", with or without backticks around `slice-builder`: a correction opens the next round, and its
+   prompt is posted word for word; or the round is cleared under the heading "## <slice>, round <r>: fix prompt: none,
+   because ..." when no `slice-builder` prompt corrected it. A routing or disposition heading that mentions a fix
+   prompt is neither (D-082 on chadlis/hypotrail#75, item 2: "**add** the fixed heading of a fix prompt, and
+   `check_record.py` rule 10, which refuses a merge while a corrected round has no such comment;"). The rule skips the slices merged before it was added,
    which `MERGED_BEFORE_FIX_PROMPT_RULE` lists, L2.3's (chadlis/hypotrail#159) the last of them. Its limits: it reads
    headings, so it does not check that the comment is the prompt word for word, that it carries `premises.py`'s sheet,
    that a "none, because" reason is true, or that a correction after the last round has one.
@@ -185,7 +186,7 @@ DECISION_LOG = 75
 DRIVE_HEADING = re.compile(r"\bthe drive(?:'s)?\b", re.IGNORECASE)
 DELEGATED_ENTRY = re.compile(r"\bdrive decision \(delegated\)", re.IGNORECASE)
 MERGED_BEFORE_DELEGATED_ENTRY = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150})
-FIX_PROMPT = re.compile(r"\bround (\d+)\b[:,]? [^\n]*?\bfix prompt\b", re.IGNORECASE)
+FIX_PROMPT = re.compile(r"\bround (\d+): fix prompt(?: \(to `?slice-builder`?\)|: none, because\b)", re.IGNORECASE)
 MERGED_BEFORE_FIX_PROMPT_RULE = MERGED_BEFORE_DELEGATED_ENTRY | {159}
 
 

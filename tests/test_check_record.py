@@ -104,6 +104,13 @@ def test_a_round_no_slice_builder_prompt_corrected_passes_under_the_clearing_hea
     assert problems(record) == []
 
 
+def test_a_routing_or_disposition_heading_that_mentions_a_fix_prompt_is_not_counted_as_one():
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    record[3] = {"id": 0, "body": record[3]["body"].replace("routing (review of record)", "routing (review of record), the fix prompt linked below", 1)}
+    record.insert(4, comment("## R9, round 1: Spec disposition check of the fix prompt's items"))
+    assert problems(record) == [UNPOSTED_1]
+
+
 def test_the_fix_prompt_rule_skips_l2_3_and_every_slice_merged_before_it_and_only_those():
     record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
     module = load("check_record")
