@@ -110,15 +110,85 @@ def test_the_workflow_has_a_second_job_that_sets_up_node_22_and_runs_npm_ci_and_
 # --- the CLI output the client tests keep -----------------------------------------------------------------------------------------
 
 
-def test_the_kept_status_object_has_the_top_level_keys_the_cli_prints_and_the_kept_read_refusal_is_its_stdout_byte_for_byte(tmp_path):
-    study, _ = init_study(tmp_path)
-    code, out, _ = run_cli("status", "--study", study, "--json")
-    assert code == 0
-    kept = read_json(KEPT / "status-success.out")
-    assert set(json.loads(out)) == set(kept)
-    code, out, _ = run_cli("status", "--study=/nonexistent-x", "--json")
-    assert code == 2
-    assert out == (KEPT / "status-not-found.out").read_text(encoding="utf-8")
+def kept_status_names() -> list:
+    return sorted(Path(name).stem for name in tracked("clients/vscode/test/cli") if re.fullmatch(r".*/status-[a-z-]+\.out", name))
+
+
+# The id each record of the object holds for itself, by list.
+OWN_IDS = {"attempts": "attempt_id", "assessments": "assessment_id", "comparisons": "comparison_id", "decisions": "decision_id", "declared_deviations": "declared_deviation_id"}
+
+
+def test_each_kept_status_read_holds_numbered_placeholders_in_order_of_first_appearance_of_the_shape_they_replace_and_no_two_records_share_an_id():
+    from _client_helpers import DIGEST, TIMESTAMP, UUID, placeholder
+
+    names = kept_status_names()
+    assert "status-success" in names and "status-not-found" in names
+    for name in names:
+        text = (KEPT / f"{name}.out").read_text(encoding="utf-8")
+        for kind, pattern in (("uuid", UUID), ("timestamp", TIMESTAMP), ("digest", DIGEST)):
+            found = list(dict.fromkeys(pattern.findall(text)))
+            assert found == [placeholder(kind, number) for number in range(1, len(found) + 1)], (name, kind, found)
+            assert all(pattern.fullmatch(each) for each in found), (name, kind)
+        payload = json.loads(text)
+        if not payload["ok"]:
+            continue
+        ids = [payload["study"]["study_id"]] + [record[key] for list_name, key in OWN_IDS.items() for record in payload[list_name]]
+        assert len(ids) == len(set(ids)), (name, ids)
+
+
+@pytest.mark.parametrize(
+    "case, edit",
+    [
+        ("a code_revision that is not an object", lambda o: o["comparisons"][0]["code_environment"]["control"].update(code_revision="62b8c8d")),
+        ("a python that is not a text", lambda o: o["comparisons"][0]["code_environment"]["control"].update(python=3.13)),
+        ("a request_id that is not a text", lambda o: o["attempts"][0].update(request_id=None)),
+        ("two Attempts that share a request_id", lambda o: o["attempts"][1].update(request_id=o["attempts"][0]["request_id"])),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_a_value_the_four_rules_cannot_take_fails_the_making_with_no_fall_back(case, edit):
+    from _client_helpers import replaced
+
+    payload = json.loads((KEPT / "status-success.out").read_text(encoding="utf-8"))
+    assert replaced(json.dumps(payload, indent=2)) is not None
+    edit(payload)
+    with pytest.raises(AssertionError):
+        replaced(json.dumps(payload, indent=2))
+
+
+def test_each_kept_status_read_whose_ok_is_true_is_the_clis_own_once_its_values_are_replaced_and_the_four_rules_applied(tmp_path):
+    from _client_helpers import first_difference, kept, status_outputs
+
+    made = status_outputs(tmp_path)
+    assert sorted(made) == kept_status_names()
+    for name, (code, out, err) in made.items():
+        kept_code, kept_out, kept_err = kept(name)
+        assert (code, err) == (kept_code, kept_err), name
+        if not json.loads(kept_out)["ok"]:
+            assert out == kept_out, name  # a refusal names no scratch folder and is kept as printed
+            continue
+        assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
+
+
+# Each kept read of #177, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
+# `declared_deviations`, and the `workload` of the Study.
+KEPT_CASES = {
+    "status-success": (1, 0, [], "bike_day"),
+    "status-chinook-pending": (1, 0, [], "chinook"),
+    "status-several-pending": (2, 0, [], "bike_day"),
+    "status-decided": (0, 1, [], "bike_day"),
+    "status-deviation": (1, 0, [False, True, False], "bike_day"),
+}
+
+
+def test_each_kept_read_holds_the_case_it_is_kept_for():
+    names = kept_status_names()
+    for name, (pending, decided, withdrawn, workload) in KEPT_CASES.items():
+        assert name in names, name
+        payload = read_json(KEPT / f"{name}.out")
+        assert (len(payload["pending_decisions"]), len(payload["decisions"])) == (pending, decided), name
+        assert [entry["withdrawn"] for entry in payload["declared_deviations"]] == withdrawn, name
+        assert payload["study"]["workload"] == workload, name
 
 
 # --- the listings over the client's sources ---------------------------------------------------------------------------------------
