@@ -1,15 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import contract from "../contract.json";
-import { KEPT_READS, cspProblems, documentFor, elementOf, keptObject, partsOf, success } from "./panel-harness";
-
-const CLIENT = path.join(__dirname, "..", "..");
-const LITERALS = [
-  ...fs.readdirSync(path.join(CLIENT, "src")).map((name) => fs.readFileSync(path.join(CLIENT, "src", name), "utf8")),
-  fs.readFileSync(path.join(CLIENT, "contract.json"), "utf8"),
-].join("\n");
+import { KEPT_READS, LITERALS, attributeValues, cspProblems, documentFor, elementOf, keptObject, partsOf, success } from "./panel-harness";
 
 const sameNonce = (document: string): string => document.replace(/nonce-[A-Za-z0-9]+/g, "nonce-N").replace(/nonce="[A-Za-z0-9]+"/g, 'nonce="N"');
 
@@ -87,13 +79,6 @@ function planted(name: string): { object: Record<string, any>; texts: string[]; 
   };
   walk(object, "");
   return { object, texts, paths, at: places };
-}
-
-function attributeValues(document: string): string[] {
-  return partsOf(document)
-    .tags.filter((tag) => !tag.includes("Content-Security-Policy"))
-    .flatMap((tag) => [...tag.matchAll(/\s[a-z-]+="([^"]*)"/g)].map((match) => match[1]))
-    .filter((value) => !/^[a-f0-9]{32}$/.test(value));
 }
 
 for (const name of [...KEPT_READS, ...PLANTED_READS.map((read) => `the planted read made from ${read}`)]) {

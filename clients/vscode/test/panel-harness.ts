@@ -180,3 +180,17 @@ export function cspProblems(document: string): string[] {
   if (/<\/script/i.test(script)) problems.push("the script's text holds </script");
   return problems;
 }
+
+// The texts of the client's sources and of contract.json, where an attribute value of a document is looked for.
+export const LITERALS = [
+  ...fs.readdirSync(path.join(__dirname, "..", "..", "src")).map((name) => fs.readFileSync(path.join(__dirname, "..", "..", "src", name), "utf8")),
+  fs.readFileSync(path.join(__dirname, "..", "..", "contract.json"), "utf8"),
+].join("\n");
+
+// The value of each attribute of the tags of a document, outside the policy and the nonce.
+export function attributeValues(document: string): string[] {
+  return partsOf(document)
+    .tags.filter((tag) => !tag.includes("Content-Security-Policy"))
+    .flatMap((tag) => [...tag.matchAll(/\s[a-z-]+="([^"]*)"/g)].map((match) => match[1]))
+    .filter((value) => !/^[a-f0-9]{32}$/.test(value));
+}
