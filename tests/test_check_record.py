@@ -44,6 +44,7 @@ def routing(number: int, rows: str, lines: str = ROUND_LINES) -> dict:
 
 
 ROW1 = f"| B1-P-02 | 1 | Spec | the PR body will give each red run | 1 | open | x |\n| B1-S-01 | 1 | Standards | a name | 1 | open | y |"
+FIX_PROMPT_1 = "## R9, round 1: fix prompt (to slice-builder), word for word"
 ROW5 = "| B5-S-01 | 5 | Standards | a docstring | 1 (documentation) | open | z |\n| B5-P-01 | 5 | Spec | a limit | 1 (documentation) | open | z |"
 
 
@@ -53,6 +54,7 @@ def complete_record() -> list:
         comment("## R9, round 1: Standards axis (review of record, `x`)"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, ROW1),
+        comment(FIX_PROMPT_1),
         comment("## R9, round 2: Standards axis (review of record, `x`)"),
         routing(2, "| B2-S-01 | 2 | Standards | another name | 1 | open | y |"),
         comment("## R9: closing register", "B1-P-02 carried. B1-S-01 fixed. B2-S-01 fixed.\n"),
@@ -66,6 +68,8 @@ def documentation_record() -> list:
         record.append(comment(f"## R9, round {number}: Standards axis (review of record, `x`)"))
         rows = ROW5 if number == 5 else f"| B{number}-S-01 | {number} | Standards | the name of round {number} | 1 | open | y |"
         record.append(routing(number, rows))
+        if number < 5:
+            record.append(comment(f"## R9, round {number}: fix prompt (to slice-builder), word for word"))
     record.append(comment("## R9, round 5: Standards verification of the documentation fixes"))
     record.append(comment("## R9, round 5: Spec verification of the documentation fixes"))
     record.append(comment("## R9: closing register", "B1-S-01 B2-S-01 B3-S-01 B4-S-01 B5-S-01 B5-P-01\n"))
@@ -78,6 +82,34 @@ def problems(comments, body=BODY, slice_number=50):
 
 def test_a_complete_record_has_no_problem():
     assert problems(complete_record()) == []
+
+
+UNPOSTED_1 = "round 1 is followed by round 2, and no comment headed 'round 1: fix prompt' holds the prompt of its correction"
+
+
+def test_a_round_followed_by_another_whose_correction_has_no_fix_prompt_comment_is_refused():
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    assert problems(record) == [UNPOSTED_1]
+
+
+def test_a_round_followed_by_another_whose_fix_prompt_is_posted_under_the_fixed_heading_passes():
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    record.insert(4, comment(FIX_PROMPT_1, "1. B1-S-01: rename the function."))
+    assert problems(record) == []
+
+
+def test_a_round_no_slice_builder_prompt_corrected_passes_under_the_clearing_heading():
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    record.insert(4, comment("## R9, round 1: fix prompt: none, because the correction is an ADR line, written without a `slice-builder`"))
+    assert problems(record) == []
+
+
+def test_the_fix_prompt_rule_skips_l2_3_and_every_slice_merged_before_it_and_only_those():
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    module = load("check_record")
+    assert module.MERGED_BEFORE_FIX_PROMPT_RULE == module.MERGED_BEFORE_DELEGATED_ENTRY | {159}
+    assert all(problems(record, slice_number=n) == [] for n in sorted(module.MERGED_BEFORE_FIX_PROMPT_RULE))
+    assert problems(record, slice_number=166) == [UNPOSTED_1]
 
 
 def test_a_state_comment_whose_round_count_is_not_the_number_of_reviewed_rounds_is_refused():
@@ -114,6 +146,7 @@ def two_round_record(first: str, second_rows: str, round_1_text: str = "", round
         comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(1, f"| B1-P-01 | 1 | Spec | {first} | 1 | open | x |")["body"] + round_1_text},
+        comment(FIX_PROMPT_1),
         comment("## R9, round 2: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(2, second_rows)["body"] + round_2_text},
         comment("## R9: closing register", "B1-P-01 fixed. B2-P-01 fixed.\n"),
