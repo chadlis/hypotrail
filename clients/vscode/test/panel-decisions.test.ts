@@ -221,7 +221,7 @@ for (const [name, change] of OWN_DELTA) {
     let found = 0;
     object.decisions.forEach((decision: Entry, index: number) => {
       for (const comparison of citedComparisons(object, decision)) {
-        const part = elementOf(parts[index], '<div data-part="comparison">')!;
+        const part = elementOf(parts[index], '<div data-part="comparison"')!;
         assert.ok(between(part).includes(comparison.comparison_id));
         const delta = words(between(elementOf(part, '<p data-element="delta">')));
         assert.ok(delta.includes(`Delta ${written(comparison.delta.value)} ${comparison.delta.metric}`), `the own delta in ${delta}`);

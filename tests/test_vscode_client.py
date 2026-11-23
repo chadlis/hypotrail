@@ -185,6 +185,7 @@ KEPT_CASES = {
     "status-chinook-decided": (0, 1, [], "chinook", [(None, False)]),
     "status-chinook-withheld": (1, 0, [], "chinook", []),
     "status-bike-withheld": (1, 0, [], "bike_day", []),
+    "status-public-check": (1, 0, [], "bike_day", []),
 }
 
 
@@ -198,6 +199,16 @@ def test_each_kept_read_holds_the_case_it_is_kept_for():
         assert payload["study"]["workload"] == workload, name
         found = [((d["evidence_change"] or {}).get("state"), "revision_changed" in [r["reason"] for r in d["reasons"]]) for d in payload["decisions"]]
         assert found == evidence, name
+
+
+def test_status_public_check_holds_an_attempt_on_public_check_that_no_assessment_or_comparison_names():
+    names = kept_status_names()
+    assert "status-public-check" in names
+    payload = read_json(KEPT / "status-public-check.out")
+    [public] = [attempt for attempt in payload["attempts"] if attempt["request_id"] == "ml-public_check-seasonal_7"]
+    records = json.dumps([payload["assessments"], payload["comparisons"]])
+    assert public["attempt_id"] not in records and all(artifact["path"] not in records for artifact in public["artifacts"])
+    assert payload["exposures"]["entries"] == [] and payload["check_informed"] == []
 
 
 AGENT_DELTA_KEYS = ["candidate", "control", "definition", "metric", "reason", "unit", "value"]

@@ -66,6 +66,7 @@ export const KEPT_READS = [
   "status-chinook-decided",
   "status-chinook-withheld",
   "status-bike-withheld",
+  "status-public-check",
 ];
 
 export function keptObject(name: string): Record<string, any> {

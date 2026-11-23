@@ -138,8 +138,10 @@ for (const name of KEPT_READS) {
         const part = elementOf(parts[index], `<div data-role="${role}">`)!;
         assert.ok(part, role);
         const assessment = object.assessments.find((each: Record<string, string>) => each.assessment_id === pending[key]);
-        const { between } = partsOf(part);
-        assert.ok(between.includes(assessment.assessment_id), assessment.assessment_id);
+        assert.ok(partsOf(part).between.includes(assessment.assessment_id), assessment.assessment_id);
+        // An Assessment has one part in a document; a later reference shows its id as a link to that part.
+        const shown = elementsOf(document, '<div data-part="assessment"').find((each) => partsOf(each).between.includes(assessment.assessment_id))!;
+        const { between } = partsOf(shown);
         for (const metric of assessment.metrics) {
           for (const text of [metric.id, written(metric.value), metric.unit, metric.status]) assert.ok(between.includes(text), `${role} ${text}`);
         }
@@ -224,7 +226,7 @@ for (const name of KEPT_READS) {
   test(`each Comparison shown holds both headings, each warning's code and message and each limitation, marked: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
-    const parts = elementsOf(document, '<div data-part="comparison">');
+    const parts = elementsOf(document, '<div data-part="comparison"');
     const ids = object.comparisons.map((comparison: Record<string, string>) => comparison.comparison_id);
     const cited = object.decisions.flatMap((decision: Record<string, string[]>) => decision.cited_ids.filter((id) => ids.includes(id)));
     assert.equal(parts.length, object.pending_decisions.length + cited.length);

@@ -75,7 +75,7 @@ test("status-chinook-withheld: the Comparison's part holds no roles' element", a
   const object = keptObject("status-chinook-withheld");
   const { parts } = await pendingParts(t, object);
   assert.ok(withheldParts(parts).every(({ comparison }) => "control" in comparison.delta && "candidate" in comparison.delta));
-  for (const { part } of withheldParts(parts)) assert.equal(elementOf(elementOf(part, '<div data-part="comparison">')!, '<p data-element="roles">'), undefined);
+  for (const { part } of withheldParts(parts)) assert.equal(elementOf(elementOf(part, '<div data-part="comparison"')!, '<p data-element="roles">'), undefined);
 });
 
 test("with the entry withheld of contract.json changed, the delta's element holds the changed word and not withheld: status-chinook-withheld", async (t) => {

@@ -242,6 +242,16 @@ def bike_withheld_study(tmp_path):
     return study
 
 
+def public_check_study(tmp_path):
+    """`compared_study`, then seasonal_7 run on public_check and never assessed: an Attempt on public_check that no Assessment assessed."""
+    from _study_helpers import run_ml
+
+    study = compared_study(tmp_path)
+    code, payload, err = run_ml(study, "seasonal_7", "public_check", "ml-public_check-seasonal_7")
+    assert code == 0, (payload, err)
+    return study
+
+
 STUDIES = {
     "status-success": compared_study,
     "status-chinook-pending": chinook_pending_study,
@@ -254,6 +264,7 @@ STUDIES = {
     "status-chinook-decided": chinook_decided_study,
     "status-chinook-withheld": chinook_withheld_study,
     "status-bike-withheld": bike_withheld_study,
+    "status-public-check": public_check_study,
 }
 
 
