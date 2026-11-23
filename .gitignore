@@ -6,3 +6,5 @@ dist/
 *.egg-info/
 .claude/worktrees/
 .claude/settings.local.json
+clients/vscode/node_modules/
+clients/vscode/out/

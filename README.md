@@ -51,6 +51,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 - [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the account of the live Campaign (T20).
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
+- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension and its CLI bridge).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.

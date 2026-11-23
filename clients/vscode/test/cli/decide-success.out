@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "replayed": false,
+  "decision": {
+    "kind": "decision",
+    "schema_version": "decision/1",
+    "decision_id": "UUID",
+    "request_id": "panel-1",
+    "question": "Which Configuration do we keep after this Comparison?",
+    "option": "Keep the Control",
+    "author": "human",
+    "source": null,
+    "cited_ids": [
+      "UUID"
+    ],
+    "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654",
+    "read_sequence": 12,
+    "write_sequence": 13
+  }
+}

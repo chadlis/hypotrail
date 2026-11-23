@@ -1,0 +1,4 @@
+usage: hypotrail decide [-h] --study DIR --question TEXT --option TEXT
+                        --author {human,proxy} [--source TEXT] --artifact ID
+                        --request-id ID --read-sequence N [--json]
+INVALID_ARGUMENTS [config]: the following arguments are required: --question, --option, --author, --artifact, --request-id, --read-sequence

@@ -1,0 +1,31 @@
+{
+  "ok": false,
+  "error": {
+    "code": "STUDY_CHANGED",
+    "message": "the Study was written to after the write sequence read (12): it is at 14; nothing was written (read it again)",
+    "stage": "sequence",
+    "details": {
+      "read_sequence": 12,
+      "write_sequence": 14,
+      "writes_since": [
+        {
+          "command": "decide",
+          "phase": "begin",
+          "request_id": "panel-1"
+        },
+        {
+          "command": "decide",
+          "outcome": "completed",
+          "phase": "end",
+          "request_id": "panel-1",
+          "written": [
+            {
+              "id": "UUID",
+              "kind": "decision"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "ok": false,
+  "error": {
+    "code": "REQUEST_CONFLICT",
+    "message": "request_id 'panel-1' already names another decision (differs: option); use a new request_id",
+    "stage": "request",
+    "details": {
+      "request_id": "panel-1",
+      "attempt_id": null,
+      "decision_id": "UUID",
+      "declared_deviation_id": null,
+      "differs": [
+        "option"
+      ]
+    }
+  }
+}

@@ -188,3 +188,36 @@ def test_the_dated_lines_hold_one_line_for_the_four_additions_to_status_json_quo
     assert PENDING_SENTENCE in line and "the earlier line it overrides: none" in line
     for name in ("`assessments`", "`comparisons`", "`compared_assessment_superseded`", "`compared_assessment_not_held`", "`evidence_change`", "`pending_decisions`"):
         assert name in line, name
+
+
+# --- the dated line of what "request id on every write" asks of the Study writers without the flag -------------------------------
+
+CLIENT_WRITES_SENTENCE = (
+    "The client writes to a Study only through `decide`, with `--request-id` and `--read-sequence`; `assess`, `compare`, `recover`, `init` and"
+    " `report` take no `--request-id`, and the client never starts `report`."
+)
+
+
+def test_the_dated_lines_hold_one_line_that_quotes_the_client_writes_sentence_of_168_and_overrides_none_and_the_parser_agrees():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#168" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert CLIENT_WRITES_SENTENCE in line and line.endswith("the earlier line it overrides: none.")
+    from hypotrail.cli import build_parser
+
+    leaves = {}
+
+    def walk(parser, path):
+        subs = [a for a in parser._actions if a.__class__.__name__ == "_SubParsersAction"]
+        if not subs:
+            leaves[" ".join(path)] = {flag: a.required for a in parser._actions for flag in a.option_strings}
+        for sub in subs:
+            for name, child in sub.choices.items():
+                walk(child, (*path, name))
+
+    walk(build_parser(), ())
+    for command in ("assess", "compare", "recover", "init", "report"):
+        assert command in leaves and "--request-id" not in leaves[command], command
+    assert leaves["decide"].get("--request-id") is True and leaves["decide"].get("--read-sequence") is True

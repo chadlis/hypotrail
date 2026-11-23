@@ -1,0 +1,32 @@
+{
+  "name": "hypotrail",
+  "displayName": "Hypotrail",
+  "description": "A client of the Hypotrail CLI: it reads a Study through status --json and writes only through the CLI.",
+  "version": "0.0.1",
+  "publisher": "hypotrail-local",
+  "private": true,
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "main": "./out/src/extension.js",
+  "activationEvents": [
+    "onUri"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "hypotrail.openPanel",
+        "title": "Hypotrail: Open the Study panel"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "tsc -p . && node --require ./out/test/vscode-stub-hook.js --test \"out/test/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/vscode": "~1.95.0",
+    "typescript": "~5.9.3"
+  }
+}

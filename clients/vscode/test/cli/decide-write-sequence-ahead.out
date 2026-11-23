@@ -1,0 +1,12 @@
+{
+  "ok": false,
+  "error": {
+    "code": "WRITE_SEQUENCE_AHEAD",
+    "message": "the write sequence read (99) is above the Study's (14); nothing was written",
+    "stage": "sequence",
+    "details": {
+      "read_sequence": 99,
+      "write_sequence": 14
+    }
+  }
+}
