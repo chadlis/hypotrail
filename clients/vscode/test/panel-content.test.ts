@@ -227,13 +227,13 @@ for (const name of KEPT_READS) {
     for (const part of parts) {
       const comparison = object.comparisons.find((each: Record<string, string>) => part.includes(each.comparison_id));
       const { between } = partsOf(part);
-      const marked = markedTexts(part);
       assert.ok(between.includes(WARNINGS) && between.includes(LIMITATIONS));
+      const [, warnings, limitations] = part.split(/<h4>(?:Warnings|Limitations) of the Comparison<\/h4>/);
       for (const warning of comparison.warnings) {
-        assert.ok(between.includes(warning.code), warning.code);
-        assert.ok(marked.includes(warning.message), warning.message);
+        assert.ok(partsOf(warnings).between.includes(warning.code), warning.code);
+        assert.ok(markedTexts(warnings).includes(warning.message), warning.message);
       }
-      for (const limitation of comparison.limitations) assert.ok(marked.includes(limitation), limitation);
+      for (const limitation of comparison.limitations) assert.ok(markedTexts(limitations).includes(limitation), limitation);
     }
   });
 }
