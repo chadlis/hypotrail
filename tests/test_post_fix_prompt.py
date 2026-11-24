@@ -24,7 +24,11 @@ for word in sys.argv[1:]:
     if word.startswith("body=@"):
         with open(word[len("body=@"):]) as body, open(os.path.join(log, f"call-{{len(calls)}}.body"), "w") as out:
             out.write(body.read())
-print(7130000001)
+if "FAKE_GH_POSTED" in os.environ:
+    with open(os.environ["FAKE_GH_POSTED"]) as posted:
+        sys.stdout.write(posted.read())
+else:
+    print(7130000001)
 """
 
 
@@ -46,12 +50,12 @@ def setting(tmp_path):
     return tmp_path, project, log, env
 
 
-def post(setting, prompt: str):
+def post(setting, prompt: str, *extra: str):
     tmp_path, project, log, env = setting
     path = tmp_path / "prompt.md"
     path.write_text(prompt)
     result = subprocess.run(
-        ["bash", str(DRIVE / "post_fix_prompt.sh"), "176", "L2.5", "2", str(path), str(project)],
+        ["bash", str(DRIVE / "post_fix_prompt.sh"), "176", "L2.5", "2", str(path), str(project), *extra],
         capture_output=True, text=True, env=env, cwd=project,
     )
     return result, sorted(log.iterdir())
@@ -81,3 +85,49 @@ def test_an_accepted_prompt_is_posted_once_under_the_fixed_heading_in_a_four_bac
     assert f"\n````\n{prompt}````\n" in body
     assert "premises.py" in body and "Fix-prompt check (strict): 0 warning(s). Finding IDs named: B1-P-01." in body
     assert result.stdout.strip().splitlines()[-1] == "7130000001"
+
+
+def test_with_out_an_accepted_prompt_is_written_to_the_file_as_the_comment_it_would_post_its_path_printed_and_gh_never_called(setting):
+    tmp_path = setting[0]
+    prompt = f'{TRIGGER}. B1-P-01, #1 Tightened C says: "The check refuses a call."\n'
+    built = tmp_path / "comment.md"
+    result, calls = post(setting, prompt, "--out", str(built))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert calls == []
+    assert result.stdout.strip().splitlines()[-1] == str(built)
+    body = built.read_text()
+    assert body.startswith("## L2.5, round 2: fix prompt (to slice-builder), word for word\n")
+    assert f"\n````\n{prompt}````\n" in body and "Fix-prompt check (strict): 0 warning(s). Finding IDs named: B1-P-01." in body
+
+
+def test_with_out_a_refused_prompt_writes_no_file(setting):
+    tmp_path = setting[0]
+    built = tmp_path / "comment.md"
+    result, calls = post(setting, f'{TRIGGER}. B1-P-01, #1 Tightened C says: "refuses a call. It also logs"\n', "--out", str(built))
+    assert result.returncode == 1 and calls == [] and not built.exists()
+
+
+def compare(setting, posted: str, built: str):
+    tmp_path, project, log, env = setting
+    (tmp_path / "posted.md").write_text(posted)
+    (tmp_path / "built.md").write_text(built)
+    return subprocess.run(
+        ["bash", str(DRIVE / "post_fix_prompt.sh"), "--compare", "7130000001", str(tmp_path / "built.md")],
+        capture_output=True, text=True, env={**env, "FAKE_GH_POSTED": str(tmp_path / "posted.md")}, cwd=project,
+    )
+
+
+BUILT = "## L2.5, round 2: fix prompt (to slice-builder), word for word\n\n````\nkeep `re.compile(r\"[^!\\[]\")` and ![x](y)\n````\n"
+
+
+def test_compare_reads_the_posted_comment_and_exits_0_when_it_is_the_built_file(setting):
+    result = compare(setting, BUILT, BUILT)
+    assert result.returncode == 0, result.stdout + result.stderr
+    args = sorted(setting[2].iterdir())[0].read_text().splitlines()
+    assert args == ["api", "repos/chadlis/hypotrail/issues/comments/7130000001", "--jq", ".body"]
+
+
+def test_compare_exits_1_and_prints_the_difference_when_the_posted_comment_lost_a_character(setting):
+    result = compare(setting, BUILT.replace("![x]", "[x]"), BUILT)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "![x](y)" in result.stdout and "differs from" in result.stderr
