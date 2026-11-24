@@ -2,6 +2,7 @@
 // attribute or as markup, and no fixed text that is not an entry of contract.json.
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
+import * as path from "node:path";
 import contract from "../contract.json";
 import { written } from "../src/content";
 import { kept } from "./kept";
@@ -12,9 +13,11 @@ import {
   cspProblems,
   documentFor,
   followLink,
+  geometryValues,
   heldRecorder,
   keptObject,
   lastDocument,
+  markedTexts,
   panelOf,
   partsOf,
   runCommand,
@@ -24,6 +27,7 @@ import {
   workspace,
 } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
+import * as stub from "./vscode-stub";
 
 const [, RECORD] = contract.messages;
 const keptAnswer = (name: string): Answer => exit(Number(kept(`${name}.exit`)), kept(`${name}.out`), kept(`${name}.err`));
@@ -195,6 +199,7 @@ function leftOf(built: Built): string {
     ...contract.no_answer_causes,
     ...contract.client_refusal_fields,
     ...contract.evidence_phrases.map((entry) => entry.slice(entry.indexOf("=") + 1)),
+    ...contract.applies_phrases.map((entry) => entry.slice(entry.indexOf("=") + 1)),
     contract.no_value,
     contract.withheld,
     ...valuesOf(built.answers),
@@ -216,5 +221,21 @@ for (const [name, build] of DOCUMENTS) {
     const { document } = await build(t);
     assert.deepEqual(cspProblems(document), []);
     for (const value of attributeValues(document)) assert.ok(LITERALS.includes(value.replace(/\d+$/, "")), value);
+    for (const value of geometryValues(document)) assert.match(value, /^\d+(\.\d+)?$/);
+  });
+}
+
+// The Study's path as the panel's heading: every builder above opens the panel on the Study "bike" of its workspace.
+for (const [name, build] of DOCUMENTS) {
+  test(`main opens with one h1, a marked text that is the path the panel was opened with, and every other marked text is a text of the answers: ${name}`, async (t) => {
+    const built = await build(t);
+    const study = path.join(stub.state.folders[0], "bike");
+    assert.ok(/\d/.test(study) && study.includes(" ") && study.includes("<b>"), study);
+    assert.equal(built.document.split("<h1").length - 1, 1, "one h1");
+    const heading = /<main[^>]*>(<h1 data-text>[^<]*<\/h1>)/.exec(built.document)?.[1];
+    assert.ok(heading, "main opens with the h1, marked");
+    assert.deepEqual(markedTexts(heading), [study]);
+    const values = valuesOf(built.answers);
+    for (const text of markedTexts(built.document).slice(1)) assert.ok(values.includes(text), text);
   });
 }

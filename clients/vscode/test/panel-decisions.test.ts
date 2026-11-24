@@ -12,6 +12,7 @@ import {
   panelOf,
   partsOf,
   runCommand,
+  samePath,
   settle,
   success,
   workspace,
@@ -330,6 +331,6 @@ for (const [place, at] of PLACES) {
     const object = keptObject("status-result-changed");
     at(object).zq_unknown_key = { text: "zq-unknown value", number: 4242 };
     const added = (await documentFor(t, success(object))).document;
-    assert.equal(sameNonce(added), sameNonce(plain), "the same document");
+    assert.equal(samePath(sameNonce(added)), samePath(sameNonce(plain)), "the same document");
   });
 }

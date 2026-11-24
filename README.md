@@ -45,6 +45,16 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
+## Use the VS Code panel
+
+The VS Code client shows a Study's pending decisions with their evidence and records a Decision through the CLI. From a checkout:
+
+1. `uv sync --locked --all-extras` at the checkout root.
+2. `npm ci && npm run compile` in `clients/vscode/`.
+3. In VS Code, `Developer: Install Extension from Location...` and pick `clients/vscode/`.
+
+Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
+
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.

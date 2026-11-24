@@ -5161,13 +5161,13 @@ def test_the_client_budget_table_equals_the_constants_of_the_counting_test_both_
     }
 
 
-def test_the_line_budget_section_prose_states_neither_3000_nor_3_000():
+def test_the_line_budget_section_prose_states_neither_5000_nor_5_000():
     chapter = chapter_text(CLIENT_CHAPTER)
     assert '<p class="sub2">The line budget</p>' in chapter
     section = chapter.split('<p class="sub2">The line budget</p>', 1)[1].split('<p class="sub2">', 1)[0]
     prose = plain_text(prose_of(section))
     assert "client-budget" in section and prose
-    assert "3000" not in prose and "3,000" not in prose
+    assert "5000" not in prose and "5,000" not in prose
 
 
 def test_the_client_chapter_has_one_section_on_the_panels_content_found_by_its_id(page):
@@ -5181,7 +5181,11 @@ def test_the_client_chapter_has_one_section_on_the_panels_content_found_by_its_i
 
 # The tables of chapter 18 on what the panel shows of a recorded Decision, each with the entries of `clients/vscode/contract.json` its rows
 # carry in `data-entry`.
-PANEL_DECISION_TABLES = {"panel-evidence-phrases": lambda contract: contract["evidence_phrases"], "panel-no-value": lambda contract: [contract["no_value"]]}
+PANEL_DECISION_TABLES = {
+    "panel-evidence-phrases": lambda contract: contract["evidence_phrases"],
+    "panel-no-value": lambda contract: [contract["no_value"]],
+    "panel-applies-phrases": lambda contract: contract["applies_phrases"],
+}
 
 
 def test_the_evidence_phrases_of_contract_json_equal_the_table_of_states_of_chapter_17_both_ways(page):
@@ -5323,3 +5327,22 @@ def test_the_prose_of_chapter_18_names_each_panel_style_bounds_and_label_table_b
     for table in PANEL_STYLE_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# --- the README's way to the panel ------------------------------------------------------------------------------------------------
+
+
+def test_the_readme_section_on_the_vs_code_panel_follows_the_walked_path_and_gives_the_install_steps_in_order_and_the_command_title(page):
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    heading = "## Use the VS Code panel\n"
+    assert readme.count(heading) == 1
+    assert readme.index(heading) > readme.index("```", readme.index("```") + 3), "after the walked path's fenced block"
+    section = readme.split(heading, 1)[1].split("\n## ", 1)[0]
+    places = []
+    for row in client_rows(page, "client-install"):
+        command = html.unescape(row["data-command"])
+        assert command in section, command
+        places.append(section.index(command))
+    assert places == sorted(places) and len(places) == 3
+    title = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))["contributes"]["commands"][0]["title"]
+    assert title in section

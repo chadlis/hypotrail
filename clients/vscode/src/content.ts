@@ -1,12 +1,16 @@
 // What the panel shows of a Study, as HTML. Every text of the object read is escaped and stands between tags; an
-// attribute holds only a literal of the client. The client computes nothing of its own: what is pending, the delta, the
-// roles, whether a Decision applies, its reasons and the state of its evidence are those the object read holds.
+// attribute holds only a literal of the client, an index, or, in a bar's geometry, a length computed from the read's numbers.
+// The client computes nothing else of its own: what is pending, the delta, the roles, whether a Decision applies, its reasons
+// and the state of its evidence are those the object read holds.
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
+import { bars, partBar, type Bar } from "./charts";
 
-// `failure` is the outcome of a read that failed, `written` the answer of the write the document follows, and
-// `unanswered` whether a write that got no answer is held; `decision` is the id a link of the second form names.
+// `study` is the string the panel was opened with, `failure` the outcome of a read that failed, `written` the answer of the
+// write the document follows, and `unanswered` whether a write that got no answer is held; `decision` is the id a link of the
+// second form names.
 export type View = {
+  study?: string;
   reading: boolean;
   writing?: boolean;
   object?: Record<string, unknown>;
@@ -51,13 +55,17 @@ const LABEL = {
   latestValue: 27,
   linked: 28,
   noDecision: 29,
-  repeat: 30,
+  sendAgain: 30,
   record: 31,
   writing: 32,
   missing: 33,
-  recorded: 34,
+  recordedId: 34,
   outputPath: 35,
   comparabilityStatus: 36,
+  recorded: 37,
+  mayHaveBeenRecorded: 38,
+  notWrittenTwice: 39,
+  readAgainChoose: 40,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -65,11 +73,15 @@ const pair = (entry: string): [string, string] => [entry.slice(0, entry.indexOf(
 
 // The phrase of each state of `evidence_change`, by its code.
 const PHRASES = new Map(contract.evidence_phrases.map(pair));
+// The phrase of each value of a Decision's `applies`.
+const APPLIES = new Map(contract.applies_phrases.map(pair));
 // The kind of part each kind of number links to, by the kind of number.
 const PART_OF = new Map(contract.number_links.map(pair));
 // The `href` of a link to each kind of part, before the place of its record in its list of the object read; the part's `id` is the
 // same text without its `#`.
 const HREF: Record<string, string> = { study: "#study-", comparison: "#comparison-", assessment: "#assessment-", decision: "#decision-" };
+// The `id` of the element around a pending decision's question, before the place of that decision in `pending_decisions`.
+const QUESTION_ID = "question-";
 // "It is shown beside the label." (D-077 on chadlis/hypotrail#75, Q5, of `revision_changed`)
 const BESIDE_THE_STATE = "revision_changed";
 
@@ -84,6 +96,7 @@ const value = (content: unknown): string => `<span>${text(content)}</span>`;
 const marked = (content: unknown, tag = "span"): string => `<${tag} data-text>${text(content)}</${tag}>`;
 const list = (content: unknown): Entry[] => (Array.isArray(content) ? content.filter((each) => typeof each === "object" && each !== null) : []);
 const record = (content: unknown): Entry => (typeof content === "object" && content !== null && !Array.isArray(content) ? (content as Entry) : {});
+const number = (content: unknown): number | null => (typeof content === "number" && Number.isFinite(content) ? content : null);
 
 // "An integer is written as the object holds it, and no sign is added. A number that is not an integer is written as
 // `String(Number(value.toPrecision(6)))`: six significant digits and no trailing zero" (chadlis/hypotrail#177); a null
@@ -104,14 +117,18 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry> };
 
 export function bodyOf(view: View): string {
-  const parts: string[] = [];
+  const parts: string[] = [marked(view.study, "h1")];
+  // While a call is in flight every control is inert.
+  const busy = view.reading || view.writing === true;
+  const inert = busy ? " disabled" : "";
   const notice = noticeOf(view);
-  if (notice.length > 0) parts.push(['<div data-element="notice">', ...notice, "</div>"].join("\n"));
-  if (view.failure) parts.push(failureOf(view.failure));
-  parts.push(`<button data-message="${contract.messages[0]}">${label("readAgain")}</button>`);
-  if (view.unanswered) parts.push(`<button data-message="${contract.messages[2]}">${label("repeat")}</button>`);
+  if (notice.length > 0) parts.push(['<div data-element="notice" role="status" tabindex="-1">', ...notice, "</div>"].join("\n"));
+  if (view.failure) parts.push(`<div data-element="failure">${failureOf(view.failure)}</div>`);
+  const controls = [`<button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button>`];
+  if (view.unanswered) controls.push(`<button data-message="${contract.messages[2]}"${inert}>${label("sendAgain")}</button>`);
+  parts.push(`<div data-element="controls">${controls.join(" ")}</div>`);
   // The controls that record are inert while a call is in flight or a write that got no answer is held.
-  if (view.object) parts.push(studyOf(view.object, view.decision, view.reading || view.writing === true || view.unanswered === true));
+  if (view.object) parts.push(studyOf(view.object, view.decision, busy || view.unanswered === true));
   return parts.join("\n");
 }
 
@@ -120,12 +137,27 @@ function noticeOf(view: View): string[] {
   const lines: string[] = [];
   if (view.reading) lines.push(`<p>${label("reading")}</p>`);
   if (view.writing) lines.push(`<p>${label("writing")}</p>`);
-  if (view.unanswered) lines.push(`<p>${escaped(contract.write_no_answer_words)}</p>`);
   const written = view.written;
-  if (written?.outcome === "refusal") lines.push(failureOf(written));
+  if (written?.outcome === "no_answer") lines.push(`<p>${label("noAnswer")} ${value(written.cause)}</p>`);
+  if (view.unanswered) {
+    lines.push(`<p data-element="unknown">${escaped(contract.write_no_answer_words)}</p>`, `<p>${label("mayHaveBeenRecorded")} ${label("notWrittenTwice")}</p>`);
+  }
+  if (written?.outcome === "refusal") {
+    lines.push(failureOf(written));
+    // "if that read fails, the document shows the write's refusal and the read's failure, both" (D-092, S19, 5, its condition).
+    if (!view.failure) lines.push(`<p>${label("readAgainChoose")}</p>`);
+  }
   if (written?.outcome === "client_refusal") lines.push(`<p>${label("missing")} ${written.missing.map(value).join(" ")}</p>`);
-  if (written?.outcome === "success" && view.failure) lines.push(`<p>${label("recorded")} ${value(record(written.object.decision).decision_id)}</p>`);
+  if (written?.outcome === "success") lines.push(recordedOf(record(written.object.decision).decision_id, view));
   return lines;
+}
+
+// A write the CLI accepted: the Decision of the read that follows, by its id, or the answer's id when that read holds none.
+function recordedOf(id: unknown, view: View): string {
+  const decisions = view.failure ? [] : list(view.object?.decisions);
+  const index = decisions.findIndex((decision) => decision.decision_id === id);
+  if (index < 0) return `<p>${label("recordedId")} ${value(id)}</p>`;
+  return `<p>${label("recorded")} <a href="${HREF.decision}${index}" data-recorded>${marked(decisions[index].option, "strong")}</a></p>`;
 }
 
 function failureOf(failure: Outcome): string {
@@ -144,8 +176,7 @@ function studyOf(object: Entry, linked: string | undefined, locked: boolean): st
   return [
     `<h2>${label("study")}</h2>`,
     `<div data-part="study"${anchor("study", 0)}>`,
-    `<p>${value(study.study_id)}</p>`,
-    `<p>${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
+    `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
     "</div>",
     `<h2>${label("pending")}</h2>`,
     pending.length === 0 ? `<p>${label("noPending")}</p>` : pending.map((each, index) => pendingOf(each, index, locked, shown)).join("\n"),
@@ -156,27 +187,36 @@ function studyOf(object: Entry, linked: string | undefined, locked: boolean): st
   ].join("\n");
 }
 
-// The question, then the Comparison it names, then the options: the first action selects an option's radio input; the
-// second is the control that records, disabled until then.
+// The question, then the Comparison it names with the choices under its evidence: the first action selects an option's radio
+// input; the second is the control that records, disabled until then.
 function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown): string {
   const inert = locked ? " disabled" : "";
+  const question = `${QUESTION_ID}${index}`;
   const options = list(pending.options).map(
     (option, at) =>
-      `<li><input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}"${inert}> ${marked(option.text)} ${marked(option.consequence)}</li>`,
+      `<label><input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}"${inert}> ${marked(option.text, "strong")} ${marked(option.consequence, "small")}</label>`,
   );
+  const choices = [
+    `<fieldset aria-labelledby="${question}">`,
+    ...options,
+    `<button data-message="${contract.messages[1]}" data-pending="${index}" aria-describedby="${question}" disabled>${label("record")}</button>`,
+    "</fieldset>",
+  ].join("\n");
   return [
     '<section data-part="pending">',
-    marked(record(pending.question).text, "h3"),
-    comparisonOf(pending.comparison_id, shown),
-    `<ul>\n${options.join("\n")}\n</ul>`,
-    `<button data-message="${contract.messages[1]}" data-pending="${index}" disabled>${label("record")}</button>`,
+    ...(index > 0 ? ["<hr>"] : []),
+    `<div id="${question}">${marked(record(pending.question).text, "h3")}</div>`,
+    comparisonOf(pending.comparison_id, shown, [pending.control_assessment_id, pending.candidate_assessment_id], choices),
     assessmentOf("control", pending.control_assessment_id, shown),
     assessmentOf("candidate", pending.candidate_assessment_id, shown),
     "</section>",
   ].join("\n");
 }
 
-function comparisonOf(id: unknown, shown: Shown): string {
+// A Comparison: its delta, its coverage, its roles and chart 1, then `choices` where it is pending, then the rest. `roles` are the
+// ids of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta
+// record carries no value of its own.
+function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = ""): string {
   const index = shown.comparisons.findIndex((each) => each.comparison_id === id);
   const comparison = shown.comparisons[index];
   const first = comparison !== undefined && !shown.parts.has(comparison);
@@ -184,14 +224,17 @@ function comparisonOf(id: unknown, shown: Shown): string {
   const lines = [`<div data-part="comparison"${first ? anchor("comparison", index) : ""}>`, `<p>${label("comparison")} ${value(id)}</p>`];
   if (comparison) {
     const delta = record(comparison.delta);
-    const coverage = Object.entries(record(comparison.coverage)).map(([key, number]) => `${value(key)} ${link("coverage", index, number)}`);
+    // The coverage is read once, as a list of its keys and values.
+    const coverage = Object.entries(record(comparison.coverage));
     const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
     lines.push(`<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
-    lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.join(" ")}</p>`);
+    lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.map(([key, number]) => `${value(key)} ${link("coverage", index, number)}`).join(" ")}</p>`);
     // "when the delta's `value` is null the Comparison's part holds no roles' element" (chadlis/hypotrail#177).
     if (delta.value !== null && ("control" in delta || "candidate" in delta)) {
       lines.push(`<p data-element="roles">${label("control")} ${link("control", index, delta.control)} ${label("candidate")} ${link("candidate", index, delta.candidate)}</p>`);
     }
+    lines.push(deltaChartOf(delta, index, roles, shown), choices);
+    lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index));
     lines.push(`<p>${label("comparabilityStatus")} ${value(record(comparison.comparability).status)}</p>`);
     for (const output of [comparison.paired_deltas_ref, comparison.population_ref]) {
       const path = record(output).path;
@@ -201,9 +244,49 @@ function comparisonOf(id: unknown, shown: Shown): string {
     const limitations = (Array.isArray(comparison.limitations) ? comparison.limitations : []).map((limitation) => marked(limitation, "li"));
     lines.push(`<h4>${label("warnings")}</h4>`, `<ul>\n${warnings.join("\n")}\n</ul>`);
     lines.push(`<h4>${label("limitations")}</h4>`, `<ul>\n${limitations.join("\n")}\n</ul>`);
+  } else {
+    lines.push(choices);
   }
   lines.push("</div>");
-  return lines.join("\n");
+  return lines.filter((line) => line !== "").join("\n");
+}
+
+// Chart 1: the Control's and the Candidate's values of the Metric the delta names, from the delta record where it carries them,
+// else from each role's Assessment; with neither, or with the delta withheld, no chart.
+function deltaChartOf(delta: Entry, index: number, roles: unknown[], shown: Shown): string {
+  if (delta.value === null) return "";
+  let control: Pick<Bar, "shown" | "value"> | undefined;
+  let candidate: Pick<Bar, "shown" | "value"> | undefined;
+  if ("control" in delta && "candidate" in delta) {
+    control = { shown: link("control", index, delta.control), value: number(delta.control) };
+    candidate = { shown: link("candidate", index, delta.candidate), value: number(delta.candidate) };
+  } else {
+    const metricOf = (id: unknown): Pick<Bar, "shown" | "value"> | undefined => {
+      const at = shown.assessments.findIndex((each) => each.assessment_id === id);
+      const metric = at < 0 ? undefined : list(shown.assessments[at].metrics).find((each) => each.id === delta.metric);
+      return metric === undefined ? undefined : { shown: link("value", at, metric.value), value: number(metric.value) };
+    };
+    [control, candidate] = roles.map(metricOf);
+  }
+  if (control === undefined || candidate === undefined) return "";
+  const values: Bar[] = [
+    { ...control, name: label("control"), kind: "control" },
+    { ...candidate, name: label("candidate"), kind: "candidate" },
+  ];
+  return ['<div data-chart="delta">', bars(values), `<p>${label("delta")} ${link("delta", index, delta.value)}</p>`, "</div>"].join("\n");
+}
+
+// Chart 2: the coverage, one bar per role, its scored part over the expected whole; without those keys, no chart.
+function coverageChartOf(coverage: [string, unknown][], index: number): string {
+  const entry = (key: string): number | null => number(coverage.find(([name]) => name === key)?.[1]);
+  const expected = entry("expected");
+  const roles: [string, string, string][] = [
+    ["control_scored", label("control"), "scored-control"],
+    ["candidate_scored", label("candidate"), "scored-candidate"],
+  ];
+  if (expected === null || roles.some(([key]) => entry(key) === null)) return "";
+  const rows = roles.map(([key, name, kind]) => partBar(name, kind, entry(key)!, expected, `${value(key)} ${link("coverage", index, entry(key))} ${value("expected")} ${link("coverage", index, expected)}`));
+  return ['<div data-chart="coverage">', ...rows, "</div>"].join("\n");
 }
 
 // An Assessment, under its role where it has one: its part at the first place that shows it, its id as a link to that part after.
@@ -230,14 +313,22 @@ function decisionsOf(decisions: Entry[], linked: string | undefined, shown: Show
   return parts.join("\n");
 }
 
+// A recorded Decision: what was chosen and whether it applies, its id, its question, the state of its evidence and its reasons,
+// then who recorded it, what it cites, and each line of its evidence.
 function decisionOf(decision: Entry, index: number, linked: boolean, shown: Shown): string {
   const cited = Array.isArray(decision.cited_ids) ? decision.cited_ids : [];
   const reasons = list(decision.reasons).map((reason) => `<li>${value(reason.reason)} ${value(reason.id)}</li>`);
+  const applies = APPLIES.get(String(decision.applies));
+  const change = decision.evidence_change !== null && typeof decision.evidence_change === "object" ? record(decision.evidence_change) : undefined;
   const lines = [
     `<section data-part="decision"${anchor("decision", index)}${linked ? " data-linked" : ""}>`,
-    `<h3>${value(decision.decision_id)}</h3>`,
+    `<h3>${marked(decision.option, "strong")}${applies === undefined ? "" : ` <span data-applies="${decision.applies === true ? "yes" : "no"}">${escaped(applies)}</span>`}</h3>`,
     ...(linked ? [`<p>${label("linked")}</p>`] : []),
-    `<p>${label("option")} ${marked(decision.option)}</p>`,
+    `<p>${value(decision.decision_id)}</p>`,
+    `<p data-element="question">${marked(decision.question)}</p>`,
+    ...(change ? [stateOf(change, list(decision.reasons))] : []),
+    ...(reasons.length > 0 ? [`<h4>${label("reasons")}</h4>`] : []),
+    `<ul data-element="reasons">\n${reasons.join("\n")}\n</ul>`,
     `<p>${label("author")} ${value(decision.author)}</p>`,
     `<h4>${label("citedIds")}</h4>`,
     `<ul data-element="cited">\n${cited.map((id) => `<li>${value(id)}</li>`).join("\n")}\n</ul>`,
@@ -247,37 +338,46 @@ function decisionOf(decision: Entry, index: number, linked: boolean, shown: Show
     // The Assessments of a cited Comparison are those its `roles` name, and none without them.
     if (comparison !== undefined) {
       const roles = record(comparison.roles);
-      lines.push(comparisonOf(id, shown));
+      const ids = "roles" in comparison ? [roles.control_assessment_id, roles.candidate_assessment_id] : [];
+      lines.push(comparisonOf(id, shown, ids));
       if ("roles" in comparison) lines.push(assessmentOf("control", roles.control_assessment_id, shown), assessmentOf("candidate", roles.candidate_assessment_id, shown));
     } else if (shown.assessments.some((each) => each.assessment_id === id)) {
       lines.push(assessmentOf(undefined, id, shown));
     }
   }
-  lines.push(`<p>${label("applies")} ${value(decision.applies)}</p>`, `<h4>${label("reasons")}</h4>`, `<ul data-element="reasons">\n${reasons.join("\n")}\n</ul>`);
-  if (decision.evidence_change !== null && typeof decision.evidence_change === "object") lines.push(evidenceOf(record(decision.evidence_change), list(decision.reasons), index, shown));
+  lines.push(`<p>${label("applies")} ${value(decision.applies)}</p>`);
+  if (change) lines.push(linesOf(change, index, shown));
   lines.push("</section>");
   return lines.join("\n");
 }
 
 const phrase = (state: unknown): string => text(PHRASES.get(String(state)) ?? state);
 
-// `decision` is the place of the Decision in `decisions`: a number links to that Decision's part when `assessments` holds no entry
-// of its Assessment's id.
-function evidenceOf(change: Entry, reasons: Entry[], decision: number, shown: Shown): string {
+// The state of a Decision's evidence, with `revision_changed` beside it when a reason.
+function stateOf(change: Entry, reasons: Entry[]): string {
   const beside = reasons.find((reason) => reason.reason === BESIDE_THE_STATE);
+  return `<p data-element="evidence"><span>${phrase(change.state)}</span>${beside ? ` ${value(beside.reason)}` : ""}</p>`;
+}
+
+// Each line of a Decision's evidence, with chart 3: each Metric's cited and latest value as two bars on one scale. `decision` is the
+// place of the Decision in `decisions`: a number links to that Decision's part when `assessments` holds no entry of its Assessment's id.
+function linesOf(change: Entry, decision: number, shown: Shown): string {
   const to = (kind: string, id: unknown, number: unknown): string => {
     const index = shown.assessments.findIndex((each) => each.assessment_id === id);
     return index < 0 ? link(kind, decision, number, "decision") : link(kind, index, number);
   };
   const lines = list(change.lines).map((line) => {
-    const metrics = list(line.metrics).map(
-      (metric) =>
-        `<li>${label("metric")} ${value(metric.id)} ${label("citedValue")} ${to("cited", line.assessment_id, metric.cited)} ${label("latestValue")} ${to("latest", line.latest_assessment_id, metric.latest)}</li>`,
-    );
+    const metrics = list(line.metrics).map((metric) => {
+      const chart = bars([
+        { name: label("citedValue"), shown: to("cited", line.assessment_id, metric.cited), value: number(metric.cited), kind: "cited" },
+        { name: label("latestValue"), shown: to("latest", line.latest_assessment_id, metric.latest), value: number(metric.latest), kind: "latest" },
+      ]);
+      return `<li data-chart="evidence">${label("metric")} ${value(metric.id)}\n${chart}</li>`;
+    });
     const assessments = [assessmentOf(undefined, line.assessment_id, shown), assessmentOf(undefined, line.latest_assessment_id, shown)].join("\n");
     return `<li data-part="line"><span>${phrase(line.state)}</span> ${label("changedItems")} ${to("changed_item_count", line.latest_assessment_id, line.changed_item_count)}\n<ul>\n${metrics.join("\n")}\n</ul>\n${assessments}\n</li>`;
   });
-  return [`<p data-element="evidence"><span>${phrase(change.state)}</span>${beside ? ` ${value(beside.reason)}` : ""}</p>`, `<ul>\n${lines.join("\n")}\n</ul>`].join("\n");
+  return `<ul>\n${lines.join("\n")}\n</ul>`;
 }
 
 function deviationsOf(deviations: Entry[]): string {

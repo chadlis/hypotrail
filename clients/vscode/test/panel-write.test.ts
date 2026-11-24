@@ -4,17 +4,19 @@ import contract from "../contract.json";
 import * as bridge from "../src/bridge";
 import { HANDLERS } from "../src/panel";
 import { kept } from "./kept";
-import { elementOf, followLink, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { elementOf, followLink, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, samePath, settle, success, workspace } from "./panel-harness";
 import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
 import * as stub from "./vscode-stub";
 
 type Entry = Record<string, any>;
 
-const [READ_AGAIN, RECORD, REPEAT] = contract.messages;
+const [READ_AGAIN, RECORD, SEND_AGAIN] = contract.messages;
 const RECORDED = "The Decision was recorded.";
 const RECORDING = "Recording the Decision.";
 const MISSING = "Nothing was sent. Missing:";
-const NOTICE = '<div data-element="notice">';
+const NOTICE = '<div data-element="notice" role="status" tabindex="-1">';
+const MAY_HAVE = "The Decision may have been recorded.";
+const SEND_AGAIN_SENTENCE = "Send again: a Decision already recorded is not written twice.";
 const UUID_SHAPE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 
 // The pairs of kept reads of a Decision: the read before it, then the read after it.
@@ -58,6 +60,8 @@ const valueOf = (call: RecordedCall, option: string): string | undefined => call
 const record = (pending: number, option: number): void => panelOf().send({ message: RECORD, pending, option });
 const send = (message: string): void => panelOf().send({ message });
 const notice = (document: string): string => partsOf(elementOf(document, NOTICE) ?? "").between;
+// A document with the parts of its recorded Decisions removed, which show each Decision's own question.
+const withoutDecisions = (document: string): string => document.replace(/<section data-part="decision"[\s\S]*?<\/section>/g, "");
 const controls = (document: string): string[] => [...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]);
 
 // The list of arguments the panel passes to `decide` for one option of one pending decision.
@@ -191,7 +195,7 @@ for (const [before, after] of PAIRS) {
     assert.ok(partsOf(document).between.includes(decision.decision_id), "the decision_id of the read that follows");
     const part = elementOf(document, '<section data-part="decision"')!;
     assert.match(partsOf(part).between, new RegExp(`applies\\s+${decision.applies}(\\s|$)`));
-    assert.ok(!markedTexts(document).includes(keptObject(before).pending_decisions[0].question.text));
+    assert.ok(!markedTexts(withoutDecisions(document)).includes(keptObject(before).pending_decisions[0].question.text), "no pending question");
   });
 }
 
@@ -293,27 +297,29 @@ test("the documents after decide-success and after decide-replay are equal once 
     await opened(t, keptObject("status-success"), successWith(write, id), NOT_FOUND);
     record(0, 0);
     await settle();
-    documents.push(lastDocument().replace(/[0-9a-f]{32}/g, "NONCE").replace(UUID_SHAPE, "ID"));
+    documents.push(samePath(lastDocument()).replace(/[0-9a-f]{32}/g, "NONCE").replace(UUID_SHAPE, "ID"));
   }
   assert.equal(documents[1], documents[0]);
 });
 
 // A write the CLI did not answer.
 for (const [cause, answer] of NO_ANSWERS) {
-  test(`after a write with no answer (${cause}) the notice holds the words of a write, Repeat stands beside Read again, no read follows, and only Repeat sends the same call`, async (t) => {
+  test(`after a write with no answer (${cause}) the notice holds its cause, the words of a write and the two sentences, Send again stands beside Read again, no read follows, and only Send again sends the same call`, async (t) => {
     const { calls } = await opened(t, keptObject("status-success"), answer, keptAnswer("decide-success"), success(keptObject("status-decided")));
     record(0, 0);
     await settle();
     const document = lastDocument();
+    assert.match(notice(document), new RegExp(`No answer from the CLI:\\s+${cause}(\\s|$)`));
     assert.ok(notice(document).includes(contract.write_no_answer_words));
-    assert.deepEqual(controls(document).filter((name) => name !== RECORD), [READ_AGAIN, REPEAT]);
+    for (const sentence of [MAY_HAVE, SEND_AGAIN_SENTENCE]) assert.ok(notice(document).includes(sentence), sentence);
+    assert.deepEqual(controls(document).filter((name) => name !== RECORD), [READ_AGAIN, SEND_AGAIN]);
     const radios = partsOf(document).tags.filter((tag) => tag.startsWith("<input "));
     assert.ok(radios.length > 0 && radios.every((tag) => /\sdisabled(\s|>)/.test(tag)), "no option can be selected while an id is held");
     assert.deepEqual(commandsOf(calls), ["status", "decide"]);
     record(0, 1);
     await settle();
     assert.deepEqual(commandsOf(calls), ["status", "decide"]);
-    send(REPEAT);
+    send(SEND_AGAIN);
     await settle();
     const decides = decideCalls(calls);
     assert.equal(decides.length, 2);
@@ -321,7 +327,7 @@ for (const [cause, answer] of NO_ANSWERS) {
   });
 }
 
-test("while a request id is held, the documents of a read that succeeds and of a read that fails hold the words and Repeat, and Repeat sends the first id", async (t) => {
+test("while a request id is held, the documents of a read that succeeds and of a read that fails hold the words and Send again, and Send again sends the first id", async (t) => {
   const { calls } = await opened(t, keptObject("status-success"), NO_ANSWERS[1][1], success(keptObject("status-success")), NOT_FOUND, keptAnswer("decide-success"));
   record(0, 0);
   await settle();
@@ -330,17 +336,17 @@ test("while a request id is held, the documents of a read that succeeds and of a
     await settle();
     const document = lastDocument();
     assert.ok(notice(document).includes(contract.write_no_answer_words), read);
-    assert.ok(controls(document).includes(REPEAT), read);
-    assert.ok(partsOf(document).between.includes("Repeat"), read);
+    assert.ok(controls(document).includes(SEND_AGAIN), read);
+    assert.ok(partsOf(document).between.includes("Send again"), read);
   }
-  send(REPEAT);
+  send(SEND_AGAIN);
   await settle();
   const decides = decideCalls(calls);
   assert.equal(decides.length, 2);
   assert.equal(valueOf(decides[1], "--request-id"), valueOf(decides[0], "--request-id"));
 });
 
-test("a repeat passes the read sequence of the call it repeats, after a read whose write_sequence is another", async (t) => {
+test("Send again passes the read sequence of the call it sends again, after a read whose write_sequence is another", async (t) => {
   const later = keptObject("status-success");
   later.write_sequence = 4242;
   const { calls } = await opened(t, keptObject("status-success"), NO_ANSWERS[1][1], success(later), keptAnswer("decide-success"));
@@ -348,21 +354,21 @@ test("a repeat passes the read sequence of the call it repeats, after a read who
   await settle();
   send(READ_AGAIN);
   await settle();
-  send(REPEAT);
+  send(SEND_AGAIN);
   await settle();
   const decides = decideCalls(calls);
   assert.equal(valueOf(decides[1], "--read-sequence"), String(keptObject("status-success").write_sequence));
 });
 
 for (const [case_, answer] of [
-  ["the repeat's success", keptAnswer("decide-success")],
-  ["the repeat's refusal", keptAnswer("decide-study-changed")],
+  ["the second sending's success", keptAnswer("decide-success")],
+  ["the second sending's refusal", keptAnswer("decide-study-changed")],
 ] as const) {
   test(`the first write after ${case_} carries another request id`, async (t) => {
     const { calls } = await opened(t, keptObject("status-success"), NO_ANSWERS[1][1], answer, success(keptObject("status-success")), keptAnswer("decide-success"));
     record(0, 0);
     await settle();
-    send(REPEAT);
+    send(SEND_AGAIN);
     await settle();
     record(0, 1);
     await settle();
@@ -396,7 +402,7 @@ test("a write the bridge refuses starts nothing, its notice names the missing in
   assert.deepEqual(commandsOf(calls), ["status"]);
   const document = lastDocument();
   assert.match(notice(document), new RegExp(`${MISSING}\\s+question(\\s|$)`));
-  assert.ok(!controls(document).includes(REPEAT));
+  assert.ok(!controls(document).includes(SEND_AGAIN));
   send(READ_AGAIN);
   await settle();
   record(0, 0);
@@ -445,7 +451,7 @@ for (const [way, open] of OPENINGS) {
     assert.equal(panelOf().reveals, before.reveals + 1);
   });
 
-  test(`an opening by ${way} while a request id is held reveals the panel and changes nothing else, and Repeat sends the held call`, async (t) => {
+  test(`an opening by ${way} while a request id is held reveals the panel and changes nothing else, and Send again sends the held call`, async (t) => {
     const [other] = workspace(t, ["a", "b"]);
     stub.state.pick = (items) => items[1];
     const calls = recorder(t, success(keptObject("status-success")), NO_ANSWERS[1][1], keptAnswer("decide-success"), success(keptObject("status-decided")));
@@ -460,7 +466,7 @@ for (const [way, open] of OPENINGS) {
     assert.equal(calls.length, before.calls);
     assert.equal(lastDocument(), before.document);
     assert.equal(panelOf().reveals, before.reveals + 1);
-    send(REPEAT);
+    send(SEND_AGAIN);
     await settle();
     const decides = decideCalls(calls);
     assert.equal(decides.length, 2);
@@ -468,7 +474,7 @@ for (const [way, open] of OPENINGS) {
   });
 }
 
-test("while a repeat is in flight the request id is still held: the document holds the line of a write in flight, the words and Repeat", async (t) => {
+test("while a second sending is in flight the request id is still held: the document holds the line of a write in flight, the words and Send again", async (t) => {
   workspace(t, ["bike"]);
   const { calls, answer } = heldRecorder(t);
   await runCommand();
@@ -477,11 +483,11 @@ test("while a repeat is in flight the request id is still held: the document hol
   record(0, 0);
   answer(NO_ANSWERS[1][1]);
   await settle();
-  send(REPEAT);
+  send(SEND_AGAIN);
   await settle();
   assert.deepEqual(commandsOf(calls), ["status", "decide", "decide"]);
   const document = lastDocument();
   assert.ok(notice(document).includes(RECORDING));
   assert.ok(notice(document).includes(contract.write_no_answer_words));
-  assert.ok(controls(document).includes(REPEAT));
+  assert.ok(controls(document).includes(SEND_AGAIN));
 });

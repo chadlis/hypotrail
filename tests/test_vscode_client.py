@@ -606,9 +606,11 @@ def avoided_in(entries: list, words: list) -> list:
     return [(entry, word) for entry in entries if entry not in AVOID_EXEMPT for word in words if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", entry, re.I)]
 
 
-def test_no_entry_of_the_label_list_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
+def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
     words = avoided_words((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
     assert {"run", "label", "limitation", "warning", "case"} <= set(words)
-    labels = read_json(CLIENT / "contract.json")["labels"]
+    contract = read_json(CLIENT / "contract.json")
+    labels = contract["labels"]
     assert set(AVOID_EXEMPT) <= set(labels)
-    assert avoided_in(labels, words) == []
+    phrases = [entry.split("=", 1)[1] for entry in contract["applies_phrases"]]
+    assert avoided_in(labels + phrases, words) == []

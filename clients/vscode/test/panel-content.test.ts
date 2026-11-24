@@ -115,7 +115,8 @@ for (const [name, make] of NOTHING_PENDING) {
     const { document } = await documentFor(t, success(object));
     const { between } = partsOf(document);
     assert.ok(between.includes(NO_PENDING));
-    assert.ok(!between.includes(QUESTION));
+    // A recorded Decision's part shows its own question; the pending question is read outside those parts.
+    assert.ok(!partsOf(document.replace(/<section data-part="decision"[\s\S]*?<\/section>/g, "")).between.includes(QUESTION));
     assert.deepEqual(elementsOf(document, '<section data-part="pending">'), []);
   });
 }

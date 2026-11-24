@@ -11,8 +11,9 @@ import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
 import * as stub from "./vscode-stub";
 import childProcess = require("node:child_process");
 
+// The root of every workspace holds a digit, a space and markup, so that each document shows such a path in its heading.
 export function workspace(t: TestContext, names: string[]): string[] {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-read-")));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-read 7 <b>-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const panel of stub.state.panels) if (!panel.disposed) panel.dispose();
   stub.reset();
@@ -187,10 +188,33 @@ export const LITERALS = [
   fs.readFileSync(path.join(__dirname, "..", "..", "contract.json"), "utf8"),
 ].join("\n");
 
-// The value of each attribute of the tags of a document, outside the policy and the nonce.
-export function attributeValues(document: string): string[] {
+// The SVG attributes that hold a bar's length and place, a number the client computes from the read's numbers.
+export const GEOMETRY = ["x", "y", "width", "height"];
+
+// Each attribute of the tags of a document, outside the policy, as its name and its value.
+function attributesOf(document: string): [string, string][] {
   return partsOf(document)
     .tags.filter((tag) => !tag.includes("Content-Security-Policy"))
-    .flatMap((tag) => [...tag.matchAll(/\s[a-z-]+="([^"]*)"/g)].map((match) => match[1]))
+    .flatMap((tag) => [...tag.matchAll(/\s([a-z-]+)="([^"]*)"/g)].map((match): [string, string] => [match[1], match[2]]));
+}
+
+// The value of each attribute of the tags of a document, outside the policy, the nonce and the four geometry attributes.
+export function attributeValues(document: string): string[] {
+  return attributesOf(document)
+    .filter(([name]) => !GEOMETRY.includes(name))
+    .map(([, value]) => value)
     .filter((value) => !/^[a-f0-9]{32}$/.test(value));
+}
+
+// The value of each geometry attribute of the tags of a document.
+export function geometryValues(document: string): string[] {
+  return attributesOf(document)
+    .filter(([name]) => GEOMETRY.includes(name))
+    .map(([, value]) => value);
+}
+
+// A document with the text of its heading, the path the panel was opened with, replaced by a fixed text, so that two documents
+// built in two workspaces can be compared.
+export function samePath(document: string): string {
+  return document.replace(/<h1 data-text>[^<]*<\/h1>/, "<h1 data-text>PATH</h1>");
 }

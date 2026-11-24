@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
-import { KEPT_READS, LITERALS, attributeValues, cspProblems, documentFor, elementOf, keptObject, partsOf, success } from "./panel-harness";
+import { KEPT_READS, LITERALS, attributeValues, cspProblems, documentFor, elementOf, geometryValues, keptObject, partsOf, samePath, success } from "./panel-harness";
 
 const sameNonce = (document: string): string => document.replace(/nonce-[A-Za-z0-9]+/g, "nonce-N").replace(/nonce="[A-Za-z0-9]+"/g, 'nonce="N"');
 
@@ -23,7 +23,7 @@ for (const name of ["status-success", "status-deviation"]) {
       const object = keptObject(name);
       at(object)!.zq_unknown_key = { text: "zq-unknown value", number: 4242 };
       const added = (await documentFor(t, success(object))).document;
-      assert.equal(sameNonce(added), sameNonce(plain));
+      assert.equal(samePath(sameNonce(added)), samePath(sameNonce(plain)));
     });
   }
 }
@@ -82,10 +82,11 @@ function planted(name: string): { object: Record<string, any>; texts: string[]; 
 }
 
 for (const name of [...KEPT_READS, ...PLANTED_READS.map((read) => `the planted read made from ${read}`)]) {
-  test(`every attribute value is a literal of the client, and none holds a text of the object read: ${name}`, async (t) => {
+  test(`every attribute value is a literal of the client or an index, a geometry attribute a decimal number, and none holds a text of the object read: ${name}`, async (t) => {
     const object = KEPT_READS.includes(name) ? keptObject(name) : planted(name.split(" ").pop()!).object;
     const { document } = await documentFor(t, success(object));
     for (const value of attributeValues(document)) assert.ok(LITERALS.includes(value.replace(/\d+$/, "")), value);
+    for (const value of geometryValues(document)) assert.match(value, /^\d+(\.\d+)?$/);
     assert.ok(!attributeValues(document).some((value) => value.includes("zq-token")));
   });
 }
@@ -106,4 +107,12 @@ test("the planted reads hold a planted text at every path of key_paths whose val
   const texts = new Set<string>();
   for (const name of KEPT_READS) for (const at of planted(name).paths) texts.add(at);
   assert.deepEqual([...covered].sort(), [...texts].sort());
+});
+
+test("a planted geometry attribute that holds a text is found, and a planted attribute of another name that holds a number is found", async (t) => {
+  const { document } = await documentFor(t, success(keptObject("status-success")));
+  const text = document.replace("</main>", '<svg aria-hidden="true"><rect x="0" y="0" width="zq-token" height="8"></rect></svg></main>');
+  assert.ok(geometryValues(text).some((value) => !/^\d+(\.\d+)?$/.test(value)));
+  const number = document.replace("</main>", '<span data-zq="12.75"></span></main>');
+  assert.ok(attributeValues(number).some((value) => !LITERALS.includes(value.replace(/\d+$/, ""))));
 });

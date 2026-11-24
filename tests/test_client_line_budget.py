@@ -1,5 +1,7 @@
-"""C6 of chadlis/hypotrail#103, "client under 3,000 lines": the line count of the VS Code client, read from `git ls-files` at each check.
+"""C6 of chadlis/hypotrail#103, "client under 3,000 lines", amended to 5,000 by its owner: the line count of the VS Code client, read from
+`git ls-files` at each check.
 
+"**C6:** the bound is 5,000 lines, not 3,000: the owner raised it (« q2 : relève à 5000 »)." (chadlis/hypotrail#103, comment 7112020066.)
 "The 3,000 lines count TypeScript, HTML and CSS. Tests and generated bundles are excluded." (D-031 on chadlis/hypotrail#75, item 11.)
 Every tracked file under `clients/vscode/` is in exactly one class: counted, test, refused or other. No list of files is written here.
 """
@@ -13,7 +15,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 CLIENT_FOLDER = "clients/vscode/"
-BUDGET = 3000
+BUDGET = 5000
 COUNTED_KINDS = (".ts", ".tsx", ".mts", ".cts", ".html", ".css")
 TEST_FOLDER = "clients/vscode/test/"
 REFUSED_KINDS = (".js", ".mjs", ".cjs", ".jsx")
@@ -80,11 +82,11 @@ def lines_of(count: int) -> str:
     return "\n".join(pattern[i % 3] for i in range(count)) + "\n"
 
 
-def test_the_count_passes_at_2999_lines_and_fails_at_3000_blank_lines_and_comments_included(tmp_path):
-    under = budget(tmp_path / "a", planted(tmp_path / "a", {"clients/vscode/src/a.ts": lines_of(2000), "clients/vscode/media/b.css": lines_of(999)}))
-    at = budget(tmp_path / "b", planted(tmp_path / "b", {"clients/vscode/src/a.ts": lines_of(2000), "clients/vscode/media/b.css": lines_of(1000)}))
-    assert (under["lines"], under["within"]) == (2999, True)
-    assert (at["lines"], at["within"]) == (3000, False)
+def test_the_count_passes_at_4999_lines_and_fails_at_5000_blank_lines_and_comments_included(tmp_path):
+    under = budget(tmp_path / "a", planted(tmp_path / "a", {"clients/vscode/src/a.ts": lines_of(4000), "clients/vscode/media/b.css": lines_of(999)}))
+    at = budget(tmp_path / "b", planted(tmp_path / "b", {"clients/vscode/src/a.ts": lines_of(4000), "clients/vscode/media/b.css": lines_of(1000)}))
+    assert (under["lines"], under["within"]) == (4999, True)
+    assert (at["lines"], at["within"]) == (5000, False)
 
 
 BASE = {"clients/vscode/src/a.ts": lines_of(10)}
