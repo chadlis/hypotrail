@@ -356,8 +356,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
 // drawn, the label of an entry with no figures with its reason, or the figures: the delta's definition, a histogram of the bins with
 // the count of each above its column and the ends of the axis under it, then a box plot of the five numbers on that axis with the mark
 // of the Comparison's delta, a zero mark through both, and a key of the marks in the order of the axis; then the dots of its Items or
-// Cases, first when there are few, otherwise at the end of the part, with a link to them where the part is the Comparison's first,
-// which their count of rows precedes.
+// Cases, first when there are few, otherwise at the end of the part, with a link to them where the part is the Comparison's first.
 function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean): [string, string] {
   if (delta.value === null) return ["", ""];
   const heading = `<h4>${label("pairedDeltas")} (${marked(delta.unit)})</h4>`;
