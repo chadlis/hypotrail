@@ -12,7 +12,8 @@ and whether it still applies (`hypotrail.core.decisions`, `history`), computed n
 deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It lists every Assessment
 record (`assessments`) and every Comparison record (`comparisons`) the Study holds, each as stored, in the order of the write journal
 (`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
-`hypotrail.core.decisions`, `pending`). It writes nothing and holds no lock; it probes whether a
+`hypotrail.core.decisions`, `pending`). Given a write sequence (`--since N`), it also lists the write-journal entries after it, each as stored, as
+the top-level key `writes_since` (`write_journal.since`). It writes nothing and holds no lock; it probes whether a
 writer holds the lock (`lock.is_held`) with a non-blocking shared lock taken and dropped at once, so a writer starting at
 that instant is refused.
 
@@ -84,10 +85,11 @@ def check_informed(study: Path) -> list:
     return marked
 
 
-def status(study) -> dict:
-    """The Study's local state, read only."""
+def status(study, since: int | None = None) -> dict:
+    """The Study's local state, read only; given `since`, also the write-journal entries after it, as `writes_since`."""
     study = Path(study)
     spec = layout.read_spec(study)
+    journal = None if since is None else write_journal.since(study, since)
     writer_alive = lock.is_held(study)  # probed before the state is read
     attempts = []
     for attempt_id in layout.attempt_ids(study):
@@ -132,12 +134,13 @@ def status(study) -> dict:
         "freeze_records": exposure.freeze_records(study),
         "exposures": exposure.summary(study),
         "check_informed": check_informed(study),
-        "write_sequence": write_journal.write_sequence(study),
+        "write_sequence": write_journal.write_sequence(study) if journal is None else journal[0],
         "decisions": history,
         "declared_deviations": deviations.listing(study),
         "assessments": decisions.assessments_in_order(study),
         "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
         "pending_decisions": decisions.pending(study, history),
+        **({} if journal is None else {"writes_since": journal[1]}),
     }
 
 

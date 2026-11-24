@@ -777,7 +777,9 @@ def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_name
 
     study, _ = init_study(tmp_path)
     _, listing, _ = run_json("status", "--study", study)
-    assert set(attrs_of(page, "status-keys", "data-field")) == set(listing) - {"ok"}
+    _, since, _ = run_json("status", "--study", study, "--since", 0)
+    assert set(attrs_of(page, "status-keys", "data-field")) == set(since) - {"ok"}
+    assert set(listing) - {"ok"} == set(since) - {"ok", "writes_since"}  # `writes_since` is there with `--since` only
     assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
     assert "decisions" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#110: the decision history
 
@@ -819,6 +821,11 @@ def test_the_readme_names_the_write_sequence_a_study_keeps():
 def test_the_readme_names_the_read_sequence_option_and_the_refusal_of_a_stale_write():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "--read-sequence" in readme and "STUDY_CHANGED" in readme
+
+
+def test_the_readme_names_status_with_since():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert re.search(r"`status --study \S+ --since N", readme)
 
 
 def test_the_record_table_equals_the_required_and_optional_fields_of_the_contract_schema(page):
@@ -999,6 +1006,11 @@ def test_the_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusa
         assert int(row["data-exit"]) == exit_code, code
         assert row["data-stage"] == stage, code
         assert words(row["data-details"]) == details, code
+
+
+def test_the_write_sequence_ahead_row_names_status_since_beside_read_sequence(page):
+    text = table_rows(page, "study-codes", "data-code")["WRITE_SEQUENCE_AHEAD"]["text"]
+    assert "--read-sequence" in text and "status --since" in text, text
 
 
 def test_the_readme_and_chapter_02_no_longer_say_there_is_no_command_line_or_no_study():
@@ -4402,6 +4414,7 @@ THE_TWO_FLAGS_OF_TIGHTENED_M = (
 # A word the prose of a section must use to explain what its tables do not say; each is named by a table (a code, a flag or a key) and has its reason.
 PROSE_MAY_NAME = {
     "--read-sequence": "the option chapter 04's read-sequence section is about; it is also the flag of chapter 17's decide row",
+    "--since": "\"the paragraph \"Reading `status --json`\" says what `--since N` does, without restating a row\" (chadlis/hypotrail#195, A12)",
     "--json": "the output mode whose shape chapter 17 describes and whose `status --json` chapter 17 says what it lists and does not list",
     "write_sequence": "the number the section explains; a table names it as a key, no table says what advances it or what a record's copy is",
     "read_sequence": "chapter 17 says how a record's read_sequence relates to its write_sequence (always one less), which no table says",

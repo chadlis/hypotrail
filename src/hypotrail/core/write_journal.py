@@ -2,7 +2,8 @@
 
 A Study keeps a write sequence: a value that every write to the Study advances and that nothing else changes. It is the number of
 entries of an append-only journal, `write_journal/<n>.json` (`n` is the entry's position, from 1, `%06d`). An entry is never
-rewritten. `status --json` shows the value as the top-level key `write_sequence` (it takes no lock and writes nothing).
+rewritten. `status --json` shows the value as the top-level key `write_sequence` (it takes no lock and writes nothing), and
+`status --since N --json` also the entries after position N, as `writes_since` (`since(...)`).
 
 Every command that writes appends two entries (D-033 on chadlis/hypotrail#75, amended by D-034 on chadlis/hypotrail#75):
 
@@ -98,18 +99,34 @@ def read_sequence_fault(read_sequence) -> str | None:
     return None
 
 
+def _ahead(read_sequence: int, current: int) -> InvalidInputError:
+    return InvalidInputError(
+        "WRITE_SEQUENCE_AHEAD",
+        f"the write sequence read ({read_sequence}) is above the Study's ({current}); nothing was written",
+        stage=SEQUENCE_STAGE,
+        details={"read_sequence": read_sequence, "write_sequence": current},
+    )
+
+
+def since(study, read_sequence: int) -> tuple[int, list]:
+    """The write sequence of the Study and the journal's entries after `read_sequence`, both from one listing of the journal.
+
+    It takes no lock: a writer may append while it reads, and the one listing keeps the two values of one answer in agreement (the entries are
+    those from `read_sequence` up to the sequence returned). A value above the Study's is `WRITE_SEQUENCE_AHEAD`, as for a write.
+    """
+    names = layout.record_names(study, JOURNAL_DIR)
+    if read_sequence > len(names):
+        raise _ahead(read_sequence, len(names))
+    return len(names), [layout.read_record(study, f"{JOURNAL_DIR}/{name}") for name in names[read_sequence:]]
+
+
 def require_current(study, read_sequence) -> None:
     """Refuse a write made on a write sequence that is not the Study's: the caller holds the writer lock. `None` (not given) is never refused."""
     if read_sequence is None:
         return
     current = write_sequence(study)
     if read_sequence > current:
-        raise InvalidInputError(
-            "WRITE_SEQUENCE_AHEAD",
-            f"the write sequence read ({read_sequence}) is above the Study's ({current}); nothing was written",
-            stage=SEQUENCE_STAGE,
-            details={"read_sequence": read_sequence, "write_sequence": current},
-        )
+        raise _ahead(read_sequence, current)
     if read_sequence < current:
         raise HypotrailError(
             "STUDY_CHANGED",

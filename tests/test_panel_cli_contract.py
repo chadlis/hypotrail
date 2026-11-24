@@ -117,6 +117,11 @@ def test_the_adr_states_the_read_then_pass_rule_and_names_l2_2_and_l2_6_as_the_p
     assert "L2.2" in text and "L2.6" in text
 
 
+def test_the_adr_holds_a_dated_line_that_names_status_since_and_writes_since():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    assert any("`--since" in line and "`writes_since`" in line for line in lines), lines
+
+
 def test_l2_1_writes_no_agent_instruction():
     # #111 Tightened C: as at `main` 607740c, neither exists
     assert not (ROOT / ".github" / "copilot-instructions.md").exists()
