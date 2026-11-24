@@ -271,6 +271,46 @@ for (const reason of OTHER_REASONS) {
   });
 }
 
+// An entry whose reason is null but whose figures cannot be drawn is an answer the client cannot use: the label of a failed figures
+// call stands in its place.
+for (const [label, change] of [
+  ["an empty histogram", (entry: Entry) => Object.assign(entry, { histogram: [] })],
+  ["a quartile that is not a number", (entry: Entry) => Object.assign(entry.quartiles, { median: "1.5" })],
+  ["no paired delta", (entry: Entry) => Object.assign(entry, { paired_deltas: [] })],
+  ["a paired delta that is not a number", (entry: Entry) => Object.assign(entry.paired_deltas[3], { delta_abs_error: null })],
+] as const) {
+  test(`an entry whose unavailable is null with ${label} shows, under the heading of its paired deltas, the label of a failed figures call and not the reason's: status-success`, async (t) => {
+    const object = keptObject("status-success");
+    const figures = keptObject("figures-success");
+    change(figures.comparisons[0]);
+    const [{ part }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    assert.ok(!partsOf(part).tags.some((tag) => tag.includes("data-figure")), part);
+    assert.equal(count(part, UNAVAILABLE), 0, part);
+    const failed = `<p data-element="figures-failed">Failed: <a href="#study">${FAILED}</a></p>`;
+    assert.ok(part.includes(`<h4>Paired deltas (<span data-text>${object.comparisons[0].delta.unit}</span>)</h4>\n${failed}`), part);
+  });
+}
+
+// Each rule of a style, as its selectors and its declarations.
+const rulesOf = (style: string): [string[], string][] => [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => [match[1].split(",").map((each) => each.trim()), match[2]]);
+
+test("the line of an entry with no figures takes the neutral style of a notice, a border in the focus colour and the quote background, and not the colour of a failure", async (t) => {
+  const { style } = partsOf(await drawn(t, keptObject("status-success"), keptObject("figures-success")));
+  const all = rulesOf(style);
+  const rules = all.filter(([selectors]) => selectors.includes('[data-element="figures-unavailable"]'));
+  const notice = all.find(([selectors]) => selectors.includes('[data-element="notice"]'))!;
+  assert.ok(rules.includes(notice), rules.map(([selectors]) => selectors.join(", ")).join(" | "));
+  assert.match(notice[1], /border-left: 3px solid var\(--vscode-focusBorder\)/);
+  assert.match(notice[1], /background: var\(--vscode-textBlockQuote-background\)/);
+  assert.ok(!rules.some(([, body]) => body.includes("inputValidation-errorBorder")), "no colour of a failure");
+});
+
+test("the delta's mark and its swatch in the key take --vscode-charts-green, which no other mark of a figure takes", async (t) => {
+  const { style } = partsOf(await drawn(t, keptObject("status-success"), keptObject("figures-success")));
+  const green = rulesOf(style).filter(([, body]) => body.includes("var(--vscode-charts-green)")).map(([selectors]) => selectors.join(", "));
+  assert.deepEqual(green.sort(), ['[data-key="delta"]::before', "rect.delta"]);
+});
+
 // Where the figures stand: in a pending decision, between the evidence and the choices.
 for (const name of DRAWN) {
   test(`each Comparison's histogram and box plot stand after chart 1 and before the line of its limits, its choices and its warnings: ${name}`, async (t) => {

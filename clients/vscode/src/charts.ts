@@ -110,7 +110,7 @@ export function boxPlot([min, q1, median, q3, max]: Five, delta: number | null):
 }
 
 // One dot of the Control and one of the Candidate per Item or Case: its id, already escaped, its two values, and the class of the bar
-// that joins them, which names the side it favours.
+// that joins them: `favours-control` or `favours-candidate` for the side it favours, or `between` when the two values are equal.
 export type Dot = { id: string; control: number; candidate: number; joint: string };
 
 // The dots of a Comparison, one row per Item or Case, on one scale from the smallest to the largest of all their values. In a row,

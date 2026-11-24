@@ -4,6 +4,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
 import { exit } from "./recorder";
+import contract from "../contract.json";
 
 type Entry = Record<string, any>;
 
@@ -226,9 +227,9 @@ for (const name of DRAWN) {
 }
 
 // Where the dots stand: from ten pairs, at the end of the Comparison's part, after its limitations, with a link to them under the box
-// plot; under ten, first among the figures, before the histogram.
+// plot that counts their rows; under ten, first among the figures, before the histogram.
 for (const name of DRAWN) {
-  test(`each Comparison's dots stand after its limitations, linked from under its box plot, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
+  test(`each Comparison's dots stand after its limitations, linked from under its box plot by the count of their rows, as a link to the Comparison's part, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
@@ -244,7 +245,8 @@ for (const name of DRAWN) {
       const index = object.comparisons.findIndex((each: Entry) => each.comparison_id === entry.comparison_id);
       const link = elementOf(part, '<p data-element="to-dots">')!;
       assert.ok(part.indexOf(link) > box && part.indexOf(link) < at, link);
-      assert.match(link, new RegExp(`^<p data-element="to-dots"><a href="#dots-${index}">[^<]+</a></p>$`));
+      const below = "case_id" in entry.paired_deltas[0] ? "Cases below" : "Items below";
+      assert.equal(link, `<p data-element="to-dots"><a href="#comparison-${index}" data-kind="dot_count">${entry.paired_deltas.length}</a> <a href="#dots-${index}">${below}</a></p>`);
       assert.ok(part.includes(`<div data-figure="dots" id="dots-${index}">`), "the dots hold the id the link names");
     }
   });
@@ -309,7 +311,7 @@ test("a paired delta changed in the test to the largest puts its row first: stat
 });
 
 for (const name of DRAWN) {
-  test(`the bar that joins a row's two marks takes the class of the side it favours, or none when they are equal: ${name}`, async (t) => {
+  test(`the bar that joins a row's two marks takes the class of the side it favours, or the class between when the two values are equal: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
@@ -336,17 +338,42 @@ test("each class of a joining bar draws in its side's colour, and the id column 
   assert.match(style, /\[data-element="dots"\] \{ display: grid; grid-template-columns: fit-content\(9\.5em\) /);
 });
 
-for (const [name, heading] of [
-  ["status-success", "Absolute error per Item"],
-  ["status-chinook-spread", "Values of the Control and the Candidate"],
+// An entry's paired deltas cut in the test to their first nine, or each Case given twice under a new id, so that each Track has
+// dots that stand first and dots that stand at the end of the part.
+const firstNine = (entry: Entry): void => void entry.paired_deltas.splice(9);
+const twice = (entry: Entry): void => void entry.paired_deltas.push(...entry.paired_deltas.flatMap((element: Entry) => [1, 2].map((at) => ({ ...element, case_id: `${element.case_id}-${at}` }))));
+
+for (const [name, change, heading, unit] of [
+  ["status-success", (_: Entry) => {}, "Absolute error per Item", true],
+  ["status-success", firstNine, "Absolute error per Item", false],
+  ["status-chinook-spread", (_: Entry) => {}, "Shares of the Control and the Candidate", false],
+  ["status-chinook-spread", twice, "Shares of the Control and the Candidate", true],
 ] as const) {
-  test(`the heading of the dots names what they plot, then its unit: ${name}`, async (t) => {
+  test(`the heading of the dots names what they plot, then its unit only when they stand at the end of the part: ${name} with ${unit ? "ten pairs or more" : "fewer than ten pairs"}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
+    change(figures.comparisons[0]);
+    assert.equal(figures.comparisons[0].paired_deltas.length >= 10, unit);
     const [{ part }] = comparisonsOf(await drawn(t, object, figures), object, figures);
     const dots = elementOf(part, '<div data-figure="dots"')!;
     const title = elementOf(dots, "<h4>")!;
-    assert.ok(title.startsWith(`<h4>${heading} (<span data-text>`), title);
-    assert.deepEqual(markedTexts(title), [object.comparisons[0].delta.unit]);
+    assert.ok(contract.labels.includes(heading), heading);
+    assert.equal(title, unit ? `<h4>${heading} (<span data-text>${object.comparisons[0].delta.unit}</span>)</h4>` : `<h4>${heading}</h4>`);
+  });
+}
+
+const ORDER = "Ordered from the Candidate's worst; the bar takes the colour of the better side.";
+
+for (const name of DRAWN) {
+  test(`a fixed sentence after the key of the dots says how the rows are ordered and what colour the bar takes: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    assert.ok(contract.labels.includes(ORDER));
+    for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
+      if (entry.unavailable !== null) continue;
+      const dots = elementOf(part, '<div data-figure="dots"')!;
+      const key = elementOf(dots, '<p data-element="dot-key">')!;
+      assert.ok(dots.includes(`${key}\n<p data-element="dot-order">${ORDER.replace("'", "&#39;")}</p>\n<div data-element="dots">`), dots.slice(0, 600));
+    }
   });
 }

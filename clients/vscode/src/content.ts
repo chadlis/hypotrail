@@ -83,12 +83,13 @@ const LABEL = {
   median: 51,
   thirdQuartile: 52,
   maximum: 53,
-  dotValues: 54,
+  shares: 54,
   casesPerBin: 55,
   itemErrors: 56,
   zero: 57,
   itemsBelow: 58,
   casesBelow: 59,
+  dotOrder: 60,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -351,25 +352,26 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
 
 // The figures of a Comparison's paired deltas from its entry of the figures read, as two texts: the first stands under chart 1, the
 // second at the end of the Comparison's part. A withheld delta keeps its word alone: no figure and no label. Otherwise, under a heading
-// with the delta's unit: the label of a failed figures call when there are no entries, the label of an entry with no figures with its
-// reason, or the figures: the delta's definition, a histogram of the bins with the count of each above its column and the ends of the
-// axis under it, then a box plot of the five numbers on that axis with the mark of the Comparison's delta, a zero mark through both,
-// and a key of the marks in the order of the axis; then the dots of its Items or Cases, first when there are few, otherwise at the
-// end of the part, with a link to them where the part is the Comparison's first.
+// with the delta's unit: the label of a failed figures call when there are no entries or the entry gives no reason but cannot be
+// drawn, the label of an entry with no figures with its reason, or the figures: the delta's definition, a histogram of the bins with
+// the count of each above its column and the ends of the axis under it, then a box plot of the five numbers on that axis with the mark
+// of the Comparison's delta, a zero mark through both, and a key of the marks in the order of the axis; then the dots of its Items or
+// Cases, first when there are few, otherwise at the end of the part, with a link to them where the part is the Comparison's first,
+// which their count of rows precedes.
 function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean): [string, string] {
   if (delta.value === null) return ["", ""];
   const heading = `<h4>${label("pairedDeltas")} (${marked(delta.unit)})</h4>`;
-  if (entries === undefined) return [[heading, `<p data-element="figures-failed">${label("failed")} <a href="${TOP}">${label("figuresUnavailable")}</a></p>`].join("\n"), ""];
+  const failed = [heading, `<p data-element="figures-failed">${label("failed")} <a href="${TOP}">${label("figuresUnavailable")}</a></p>`].join("\n");
+  if (entries === undefined) return [failed, ""];
   const entry = record(entries.find((each) => each.comparison_id === id));
   if (entry.unavailable === DELTA_WITHHELD) return ["", ""];
+  if (entry.unavailable !== null) return [[heading, `<p data-element="figures-unavailable">${label("noFigure")} ${value(entry.unavailable)}</p>`].join("\n"), ""];
   const bins = list(entry.histogram);
   const counts = bins.map((bin) => number(bin.count));
   const quartiles = record(entry.quartiles);
   const five = QUARTILES.map(([key]) => number(quartiles[key]));
   const pairs = list(entry.paired_deltas).map(pairOf);
-  if (entry.unavailable !== null || bins.length === 0 || [...counts, ...five].includes(null) || pairs.length === 0 || pairs.includes(undefined)) {
-    return [[heading, `<p data-element="figures-unavailable">${label("noFigure")} ${value(entry.unavailable)}</p>`].join("\n"), ""];
-  }
+  if (bins.length === 0 || [...counts, ...five].includes(null) || pairs.length === 0 || pairs.includes(undefined)) return [failed, ""];
   const agent = "case_id" in list(entry.paired_deltas)[0];
   const ends: [number, number] = [five[0]!, five[4]!];
   const edges = bins[0].low === bins[bins.length - 1].high ? [bins[0].low] : [bins[0].low, bins[bins.length - 1].high];
@@ -379,7 +381,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
   // In the order of the axis; `sort` keeps the order above between equal numbers.
   marks.sort((a, b) => a[0] - b[0]);
   const few = pairs.length < FEW;
-  const shownDots = dotsOf(pairs as Pair[], index, delta, agent, first && !few);
+  const shownDots = dotsOf(pairs as Pair[], index, delta, agent, few, first);
   return [
     [
       "<div data-figures>",
@@ -395,7 +397,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
       boxPlot(five as Five, number(delta.value)),
       `<p data-element="quartiles">${marks.map(([, mark]) => mark).join(" ")}</p>`,
       "</div>",
-      few || !first ? "" : `<p data-element="to-dots"><a href="${HREF.dots}${index}">${label(agent ? "casesBelow" : "itemsBelow")}</a></p>`,
+      few || !first ? "" : `<p data-element="to-dots">${link("dot_count", index, pairs.length)} <a href="${HREF.dots}${index}">${label(agent ? "casesBelow" : "itemsBelow")}</a></p>`,
       "</div>",
     ]
       .filter((line) => line !== "")
@@ -405,18 +407,20 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
 }
 
 // The dots of a Comparison: per Item or Case, its id and the marks of its two sides on one scale, which runs from the smallest to the
-// largest of their values, both printed above the rows; the rows run from the one where the Candidate is worst. `anchored` gives the
-// dots the id a link names.
-function dotsOf(pairs: Pair[], index: number, delta: Entry, agent: boolean, anchored: boolean): string {
+// largest of their values, both printed above the rows; the rows run from the one where the Candidate is worst, as a fixed sentence
+// after the key says. Their heading gives the unit only when they stand at the end of the part (`few` false), apart from the heading of
+// the paired deltas; there, in the Comparison's first part, they hold the id a link names.
+function dotsOf(pairs: Pair[], index: number, delta: Entry, agent: boolean, few: boolean, first: boolean): string {
   const values = pairs.flatMap((pair) => [pair.control, pair.candidate]);
   const ends: [number, number] = [values.reduce((a, b) => Math.min(a, b)), values.reduce((a, b) => Math.max(a, b))];
   // `sort` keeps the order of the read between rows of equal deltas.
   const ordered = [...pairs].sort((a, b) => b.worse - a.worse);
   const printed = `<p data-element="dot-ends">${(ends[0] === ends[1] ? [ends[0]] : ends).map((end) => link("dot_end", index, end)).join(" ")}</p>`;
   return [
-    `<div data-figure="dots"${anchored ? anchor("dots", index) : ""}>`,
-    `<h4>${label(agent ? "dotValues" : "itemErrors")} (${marked(delta.unit)})</h4>`,
+    `<div data-figure="dots"${!few && first ? anchor("dots", index) : ""}>`,
+    `<h4>${label(agent ? "shares" : "itemErrors")}${few ? "" : ` (${marked(delta.unit)})`}</h4>`,
     `<p data-element="dot-key"><span data-key="control">${label("control")}</span> <span data-key="candidate">${label("candidate")}</span></p>`,
+    `<p data-element="dot-order">${label("dotOrder")}</p>`,
     '<div data-element="dots">',
     printed,
     dots(ordered, ends),

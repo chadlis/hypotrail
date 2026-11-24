@@ -92,12 +92,13 @@
     "Median",
     "Third quartile",
     "Maximum",
-    "Values of the Control and the Candidate",
+    "Shares of the Control and the Candidate",
     "Cases per bin of paired delta",
     "Absolute error per Item",
     "Zero",
     "Items below",
-    "Cases below"
+    "Cases below",
+    "Ordered from the Candidate's worst; the bar takes the colour of the better side."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
@@ -107,7 +108,7 @@
   "decide_author": "human",
   "guard_bounds": ["width=420", "question=200", "evidence=350"],
   "colour_forms": ["hexadecimal", "rgb()", "rgba()", "hsl()", "hsla()", "hwb()", "lab()", "lch()", "oklab()", "oklch()", "color()", "color-mix()", "named"],
-  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment", "pending_decisions=study", "warnings=warnings", "limitations=limitations", "bin_count=comparison", "bin_edge=comparison", "quartile=comparison", "dot_end=comparison"],
+  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment", "pending_decisions=study", "warnings=warnings", "limitations=limitations", "bin_count=comparison", "bin_edge=comparison", "quartile=comparison", "dot_end=comparison", "dot_count=comparison"],
   "statuses": ["status", "comparability.status", "applies", "withdrawn"],
   "key_paths": [
     "assessments[].assessment_id",
