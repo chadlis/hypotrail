@@ -5482,7 +5482,7 @@ def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
 
 def test_the_opening_of_chapter_18_names_the_userpromptsubmit_hook_and_copilots_channel_and_no_longer_calls_every_chat_channel_later():
     lead = plain_text(re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1])
-    assert "UserPromptSubmit" in lead and "L2.6" in lead
+    assert "UserPromptSubmit" in lead and "Copilot" in lead and "L2.6" in lead
     assert "the chat channels are later slices" not in lead
 
 
