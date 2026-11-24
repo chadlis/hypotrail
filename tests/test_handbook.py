@@ -4678,6 +4678,19 @@ def test_the_readme_status_names_the_study_whose_state_and_decision_history_stat
     assert "`status` shows a Study's state and decision history" in " ".join(readme_status().split())
 
 
+def test_the_readme_status_says_what_figures_does_with_a_verb_and_recover_repairs_the_study_status_names():
+    status = " ".join(readme_status().split())
+    assert "`status` shows a Study's state and decision history, `recover` repairs it," in status
+    assert re.search(r"`figures` [a-z]+s ", status), "a verb after `figures`"
+
+
+def test_the_client_chapter_prose_writes_no_capitalised_figures_as_if_it_were_a_term_of_the_glossary():
+    # GLOSSARY.md holds the terms (docs/agents/domain.md), and "Figures" is not one; a label of the panel quoted in a table may hold it.
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    assert "Figures" not in (ROOT / "GLOSSARY.md").read_text(encoding="utf-8")
+    assert re.findall(r".{40}\bFigures\b.{20}", prose) == []
+
+
 def test_the_readme_names_the_decision_history_in_the_status_command():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     line = next(l for l in readme.splitlines() if "hypotrail status --study" in l)

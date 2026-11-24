@@ -68,51 +68,61 @@ export function axisPosition(value: number, min: number, max: number): number {
 const rect = (kind: string, x: number, y: number, width: number, height: number): string =>
   `<rect class="${kind}" x="${decimal(x)}" y="${decimal(y)}" width="${decimal(width)}" height="${decimal(height)}"></rect>`;
 
-// A histogram: one column per bin, in the bins' order across the width, each as tall as its count over the axis top.
-export function histogram(counts: number[]): string {
+// A mark one `width` wide whose middle stands at `at` on a track from 0 to 100, kept inside the track.
+const centred = (at: number, width: number): number => Math.max(0, Math.min(100 - width, at - width / 2));
+
+// The zero mark of a figure whose axis runs from `low` to `high`, across its whole height, or none when zero is off the axis.
+function zeroMark(low: number, high: number, height: number): string {
+  return low <= 0 && 0 <= high ? rect("zero", centred(axisPosition(0, low, high), 0.4), 0, 0.4, height) : "";
+}
+
+// A histogram: one column per bin, in the bins' order across the width, each as tall as its count over the axis top, and the zero
+// mark of the axis from `low` to `high`.
+export function histogram(counts: number[], [low, high]: [number, number]): string {
   const top = histogramTop(Math.max(0, ...counts));
   const step = 100 / counts.length;
   const gap = step * 0.12;
   const columns = counts.map((count, at) => rect("column", at * step + gap / 2, 100 - barLength(count, top), step - gap, barLength(count, top)));
-  return `<svg viewbox="0 0 100 100" preserveaspectratio="none" aria-hidden="true">${columns.join("")}</svg>`;
+  return `<svg viewbox="0 0 100 100" preserveaspectratio="none" aria-hidden="true">${columns.join("")}${zeroMark(low, high, 100)}</svg>`;
 }
 
 // The five numbers of a box plot, in their order.
 export type Five = [min: number, q1: number, median: number, q3: number, max: number];
 
 // A box plot on one axis from the minimum to the maximum: a whisker from the minimum to the first quartile and one from the third
-// quartile to the maximum, each ended by a cap, the box between the quartiles, the median across it, and the delta's mark when
-// there is a delta, which runs past the box above and below it. A mark narrower than the track stays inside it.
+// quartile to the maximum, each ended by a cap, the box between the quartiles, the median across it, the delta's mark when there is
+// a delta, which runs past the box above and below it and is wider than the median, and the zero mark across the whole height.
 export function boxPlot([min, q1, median, q3, max]: Five, delta: number | null): string {
   const at = (value: number): number => axisPosition(value, min, max);
   const across = (kind: string, from: number, to: number, y: number, height: number): string => rect(kind, at(from), y, at(to) - at(from), height);
-  const mark = (kind: string, value: number, width: number, y: number, height: number): string =>
-    rect(kind, Math.max(0, Math.min(100 - width, at(value) - width / 2)), y, width, height);
+  const mark = (kind: string, value: number, width: number, y: number, height: number): string => rect(kind, centred(at(value), width), y, width, height);
   const marks = [
     across("whisker", min, q1, 6.5, 1),
     across("whisker", q3, max, 6.5, 1),
     mark("cap", min, 0.5, 4.5, 5),
     mark("cap", max, 0.5, 4.5, 5),
-    across("box", q1, q3, 3, 8),
-    mark("median", median, 0.6, 3, 8),
-    delta === null ? "" : mark("delta", delta, 0.8, 0, 14),
+    across("box", q1, q3, 4, 6),
+    mark("median", median, 0.6, 4, 6),
+    delta === null ? "" : mark("delta", delta, 1.2, 0, 14),
+    zeroMark(min, max, 14),
   ];
   return `<svg viewbox="0 0 100 14" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg>`;
 }
 
-// One dot of the Control and one of the Candidate per Item or Case: its id, already escaped, and its two values.
-export type Dot = { id: string; control: number; candidate: number };
+// One dot of the Control and one of the Candidate per Item or Case: its id, already escaped, its two values, and the class of the bar
+// that joins them, which names the side it favours.
+export type Dot = { id: string; control: number; candidate: number; joint: string };
 
 // The dots of a Comparison, one row per Item or Case, on one scale from the smallest to the largest of all their values. In a row,
 // the Control's mark is a tall narrow bar and the Candidate's a shorter one across its middle, both of one width, so that a mark
-// stays inside the track as the others do; a thin bar joins the two.
+// stays inside the track as the others do; a thin bar of the row's `joint` class joins the two.
 export function dots(list: Dot[], [min, max]: [number, number]): string {
   const width = 1.4;
-  const at = (value: number): number => Math.max(0, Math.min(100 - width, axisPosition(value, min, max) - width / 2));
+  const at = (value: number): number => centred(axisPosition(value, min, max), width);
   return list
-    .map(({ id, control, candidate }) => {
+    .map(({ id, control, candidate, joint }) => {
       const [from, to] = [at(control), at(candidate)].sort((a, b) => a - b);
-      const marks = [rect("between", from + width / 2, 4.5, to - from, 1), rect("control", at(control), 0, width, 10), rect("candidate", at(candidate), 2.5, width, 5)];
+      const marks = [rect(joint, from + width / 2, 4.5, to - from, 1), rect("control", at(control), 0, width, 10), rect("candidate", at(candidate), 2.5, width, 5)];
       return `<div data-dot><span data-text>${id}</span><svg viewbox="0 0 100 10" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg></div>`;
     })
     .join("\n");

@@ -1,16 +1,16 @@
 // The figures of a Comparison's paired deltas: a histogram of the bins and a box plot of the five numbers the figures read gives,
-// drawn by the extension as text of the document, in the Comparison's part after its limitations.
+// drawn by the extension as text of the document, in the Comparison's part under chart 1 and before its choices.
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { axisPosition, histogramTop } from "../src/charts";
-import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, partsOf, success } from "./panel-harness";
+import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
 import { exit } from "./recorder";
 
 type Entry = Record<string, any>;
 
 const FAILED = "Figures unavailable. Read again.";
-const UNAVAILABLE = "No figure for this Comparison.";
+const UNAVAILABLE = "No figure for this Comparison:";
 // The reasons an entry may hold, but `delta_withheld`, which keeps the word of a withheld delta alone.
 const OTHER_REASONS = ["artifact_missing", "artifact_integrity", "artifact_malformed", "value_not_finite"];
 const FIVE = ["min", "q1", "median", "q3", "max"];
@@ -212,12 +212,12 @@ for (const name of DRAWN) {
   });
 }
 
-// The numbers of a figure.
-const numbersOf = (entry: Entry): Set<string> =>
-  new Set([...entry.histogram.flatMap((bin: Entry) => [bin.low, bin.high, bin.count]), ...FIVE.map((key) => entry.quartiles[key])].map(written));
+// The numbers of a figure: those of its entry, and the Comparison's own delta, which the key of the box plot names.
+const numbersOf = (entry: Entry, comparison: Entry): Set<string> =>
+  new Set([...entry.histogram.flatMap((bin: Entry) => [bin.low, bin.high, bin.count]), ...FIVE.map((key) => entry.quartiles[key]), comparison.delta.value].map(written));
 
 for (const name of DRAWN) {
-  test(`each number a figure prints is a number of its entry's histogram or quartiles, written as every number is, in a link to the part of its Comparison: ${name}`, async (t) => {
+  test(`each number a figure prints is a number of its entry's histogram or quartiles, or its Comparison's delta, written as every number is, in a link to the part of its Comparison: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     const document = await drawn(t, object, figures);
@@ -228,7 +228,7 @@ for (const name of DRAWN) {
       const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)">([^<]*)<\/a>/g)];
       assert.ok(links.length >= entry.histogram.length + FIVE.length, `${links.length} links`);
       for (const [, index, kind, text] of links) {
-        assert.ok(numbersOf(entry).has(text), `${text} is a number of the entry of ${entry.comparison_id}`);
+        assert.ok(numbersOf(entry, comparison).has(text), `${text} is a number of the entry of ${entry.comparison_id}`);
         assert.equal(object.comparisons[Number(index)].comparison_id, comparison.comparison_id, `${kind} ${text}`);
       }
       const between = partsOf(shown.replace(/<a [^>]*>[^<]*<\/a>/g, "")).between;
@@ -258,7 +258,7 @@ for (const name of ["status-bike-withheld", "status-chinook-withheld"]) {
 }
 
 for (const reason of OTHER_REASONS) {
-  test(`an entry whose unavailable is ${reason} draws no figure, and its Comparison's part shows the label once, after its limitations: status-success`, async (t) => {
+  test(`an entry whose unavailable is ${reason} draws no figure, and its Comparison's part shows the label once with the reason after it, before its choices: status-success`, async (t) => {
     const object = keptObject("status-success");
     const figures = keptObject("figures-success");
     Object.assign(figures.comparisons[0], { unavailable: reason, paired_deltas: null, histogram: null, quartiles: null });
@@ -266,23 +266,130 @@ for (const reason of OTHER_REASONS) {
     assert.ok(!partsOf(part).tags.some((tag) => tag.includes("data-figure")), part);
     assert.equal(count(part, UNAVAILABLE), 1);
     assert.equal(count(part, FAILED), 0);
-    assert.ok(part.indexOf(UNAVAILABLE) > part.indexOf('<div data-part="limitations"'), part);
+    assert.ok(part.includes(`<p data-element="figures-unavailable">${UNAVAILABLE} <span>${reason}</span></p>`), part);
+    assert.ok(part.indexOf(UNAVAILABLE) < part.indexOf("<fieldset "), part);
   });
 }
 
-// Where the figures stand.
+// Where the figures stand: in a pending decision, between the evidence and the choices.
 for (const name of DRAWN) {
-  test(`each Comparison's figures stand after the element of its limitations, in document order: ${name}`, async (t) => {
+  test(`each Comparison's histogram and box plot stand after chart 1 and before the line of its limits, its choices and its warnings: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
       if (entry.unavailable !== null) continue;
-      const limitations = part.indexOf('<div data-part="limitations"');
-      assert.ok(limitations >= 0 && part.indexOf("<div data-figures>") > limitations, entry.comparison_id);
+      const at = part.indexOf("<div data-figures>");
+      const histogram = part.indexOf('<div data-figure="histogram">');
+      assert.ok(at >= 0 && at > part.indexOf('<div data-chart="delta">') && at < histogram && histogram < part.indexOf('<div data-figure="box">'), entry.comparison_id);
+      for (const after of ['<p data-element="limits">', "<fieldset ", '<div data-part="warnings"']) assert.ok(!part.includes(after) || part.indexOf('<div data-figure="box">') < part.indexOf(after), `${entry.comparison_id}: before ${after}`);
     }
+    assert.ok(elementsOf(await drawn(t, object, figures), '<section data-part="pending">').some((pending) => pending.indexOf("<div data-figures>") < pending.indexOf("<fieldset ")), "in a pending decision, above its choices");
   });
 }
 
 test("the labels of the figures are entries of contract.json", () => {
   for (const label of [FAILED, UNAVAILABLE]) assert.ok(contract.labels.includes(label), label);
 });
+
+// What the figures say of zero, of the side that wins, of the quantity and of its unit.
+const LABELS = (text: string): string => contract.labels[contract.labels.indexOf(text)];
+
+function shiftedAboveZero(figures: Entry): Entry {
+  const entry = figures.comparisons[0];
+  const by = 1 - entry.quartiles.min;
+  for (const bin of entry.histogram) Object.assign(bin, { low: bin.low + by, high: bin.high + by });
+  for (const key of FIVE) entry.quartiles[key] += by;
+  return figures;
+}
+
+for (const [label, change, drawsZero] of [
+  ["the kept figures of status-success", (figures: Entry) => figures, true],
+  ["every number of its entry moved above zero in the test", shiftedAboveZero, false],
+] as const) {
+  test(`a zero mark stands through the histogram and the box plot at the place of zero on their axis, and the key names it, only when zero is on the axis: ${label}`, async (t) => {
+    const object = keptObject("status-success");
+    const figures = change(keptObject("figures-success"));
+    const [{ part, entry }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    const { min, max } = entry.quartiles;
+    for (const [figure, height] of [
+      [histogramOf(part)!, 100],
+      [boxOf(part)!, 14],
+    ] as const) {
+      const zero = ofKind(rectsOf(figure), "zero");
+      assert.equal(zero.length, drawsZero ? 1 : 0, figure.slice(0, 80));
+      if (!drawsZero) continue;
+      assert.deepEqual([zero[0].y, zero[0].height], [0, height]);
+      assert.ok(Math.abs(zero[0].x + zero[0].width / 2 - axisPosition(0, min, max)) <= NEAR, `zero at ${zero[0].x}`);
+    }
+    assert.equal(count(part, `<span data-key="zero">${LABELS("Zero")}</span>`), drawsZero ? 1 : 0);
+  });
+}
+
+test("the figures open with the heading of the paired deltas and their unit, then the delta's definition as their caption: status-success and status-chinook-spread", async (t) => {
+  for (const name of ["status-success", "status-chinook-spread"]) {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    const [{ part, comparison }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    const [opening, heading, caption] = elementOf(part, "<div data-figures>")!.split("\n");
+    assert.equal(opening, "<div data-figures>");
+    assert.ok(heading.startsWith(`<h4>${LABELS("Paired deltas")} (<span data-text>`) && heading.endsWith("</span>)</h4>"), heading);
+    assert.deepEqual(markedTexts(heading), [comparison.delta.unit]);
+    assert.ok(caption.startsWith('<p data-element="caption"><span data-text>'), caption);
+    assert.deepEqual(markedTexts(caption), [comparison.delta.definition]);
+  }
+});
+
+for (const [name, caption] of [
+  ["status-success", "Items per bin of paired delta"],
+  ["status-chinook-spread", "Cases per bin of paired delta"],
+] as const) {
+  test(`the counts of the bins stand above their columns under a caption that says what is counted, and the ends of the axis with the unit stand under the baseline, before the box plot: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    const [{ part, comparison, entry }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    const histogram = histogramOf(part)!;
+    const [counts, svg, axis] = [histogram.indexOf('<table data-element="counts">'), histogram.indexOf("<svg"), histogram.indexOf('<p data-element="axis">')];
+    assert.ok(counts >= 0 && counts < svg && svg < axis, histogram);
+    assert.ok(histogram.includes(`<caption>${LABELS(caption)}</caption>`), histogram);
+    const [low, high] = [entry.histogram[0].low, entry.histogram.at(-1).high];
+    const line = elementOf(histogram, '<p data-element="axis">')!;
+    assert.equal(partsOf(line).between.split(/\s+/).filter(Boolean).join(" "), `${written(low)} ${comparison.delta.unit} ${written(high)}`);
+    assert.match(partsOf(await drawn(t, object, figures)).style, /\[data-element="counts"\] caption \{ caption-side: top;/);
+  });
+}
+
+test("the key of the box plot names each mark in the order of the axis, the Delta with the Comparison's delta as a link to its part: status-success and status-chinook-spread", async (t) => {
+  for (const name of ["status-success", "status-chinook-spread"]) {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    const [{ part, comparison, entry }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    const key = elementOf(boxOf(part)!, '<p data-element="quartiles">')!;
+    const index = object.comparisons.indexOf(comparison);
+    assert.ok(key.includes(`<span data-key="delta">${LABELS("Delta")} <a href="#comparison-${index}" data-kind="delta">${written(comparison.delta.value)}</a></span>`), key);
+    const named: [string, number][] = [
+      ...(["Minimum", "First quartile", "Median", "Third quartile", "Maximum"] as const).map((text, at): [string, number] => [LABELS(text), entry.quartiles[FIVE[at]]]),
+      [LABELS("Delta"), comparison.delta.value],
+      [LABELS("Zero"), 0],
+    ];
+    const places = named.map(([text, value]) => [key.indexOf(`>${text} `) >= 0 ? key.indexOf(`>${text} `) : key.indexOf(`>${text}<`), value]);
+    assert.ok(places.every(([at]) => at >= 0), JSON.stringify(places));
+    const byPlace = [...places].sort((a, b) => a[0] - b[0]).map(([, value]) => value);
+    assert.deepEqual(byPlace, [...byPlace].sort((a, b) => a - b), key);
+  }
+});
+
+for (const name of DRAWN) {
+  test(`the delta's mark runs the whole height of the box plot and is wider than the median's, which stands inside the box: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
+      if (entry.unavailable !== null) continue;
+      const rects = rectsOf(boxOf(part)!);
+      const [[delta], [median], [box]] = ["delta", "median", "box"].map((kind) => ofKind(rects, kind));
+      assert.deepEqual([delta.y, delta.height], [0, 14]);
+      assert.ok(delta.width >= 2 * median.width, `${delta.width} against ${median.width}`);
+      assert.ok(median.y >= box.y && median.y + median.height <= box.y + box.height, JSON.stringify([median, box]));
+      assert.ok(box.y >= 4 && box.y + box.height <= 10, JSON.stringify(box));
+    }
+  });
+}

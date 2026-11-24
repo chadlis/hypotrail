@@ -4,7 +4,9 @@ import contract from "../contract.json";
 import { kept } from "./kept";
 import {
   KEPT_FIGURES,
+  elementOf,
   elementsOf,
+  partsOf,
   followLink,
   heldRecorder,
   keptObject,
@@ -19,6 +21,9 @@ import {
 import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
 
 const FAILED = contract.labels[contract.labels.indexOf("Figures unavailable. Read again.")];
+const PAIRED = contract.labels[contract.labels.indexOf("Paired deltas")];
+// The heading of the paired deltas and the label of a failed figures call under it.
+const FAILED_BLOCK = new RegExp(`\\n<h4>${PAIRED} \\(<span data-text>[^<]*</span>\\)</h4>\\n<p data-element="figures-failed">[^\\n]*</p>`, "g");
 const READ_AGAIN = { message: contract.messages[0] };
 const RECORD = contract.messages[1];
 const REFUSED = exit(2, kept("figures-not-found.out"));
@@ -105,7 +110,8 @@ function comparisonParts(document: string): { part: string; withheld: boolean }[
   }));
 }
 
-// The label stands once in each part whose delta is not withheld, after the element of its limitations, and in no part whose delta is.
+// The label stands once in each part whose delta is not withheld, under the heading of its paired deltas, after its delta and before
+// its limits, its choices and its warnings, and in no part whose delta is.
 function labelPlaces(document: string): void {
   const parts = comparisonParts(document);
   assert.ok(parts.length > 0);
@@ -115,18 +121,35 @@ function labelPlaces(document: string): void {
       continue;
     }
     assert.equal(count(part, FAILED), 1, part);
-    assert.ok(part.indexOf(FAILED) > part.indexOf('<div data-part="limitations"'), part);
-    assert.ok(part.indexOf('<div data-part="limitations"') >= 0, part);
+    const at = part.indexOf(FAILED);
+    assert.ok(at > part.indexOf('<p data-element="delta">') && at < part.indexOf('<div data-part="warnings"'), part);
+    for (const after of ['<p data-element="limits">', "<fieldset "]) assert.ok(!part.includes(after) || at < part.indexOf(after), after);
+    assert.ok(part.lastIndexOf(`<h4>${PAIRED}`, at) > part.indexOf('<p data-element="delta">'), "the heading of the paired deltas stands above the label");
   }
   assert.equal(count(document, FAILED), parts.filter((each) => !each.withheld).length);
 }
 
 for (const name of ["status-success", "status-several-pending", "status-bike-withheld", "status-chinook-withheld"]) {
-  test(`with a failed figures call, the label stands once in each Comparison part whose delta is not withheld, after its limitations: ${name}`, async (t) => {
+  test(`with a failed figures call, the label stands once in each Comparison part whose delta is not withheld, under the heading of its paired deltas, before its choices: ${name}`, async (t) => {
     const { document } = await opened(t, status(name), REFUSED);
     labelPlaces(document);
   });
 }
+
+test("with a failed figures call, the label follows the word of a failure, as a link to the top of the document where Read again stands, in an element styled as the panel's failures", async (t) => {
+  const object = keptObject("status-success");
+  const { document } = await opened(t, status("status-success"), REFUSED);
+  const [line] = elementsOf(document, '<p data-element="figures-failed">');
+  const failedWord = contract.labels[contract.labels.indexOf("Failed:")];
+  assert.equal(line, `<p data-element="figures-failed">${failedWord} <a href="#study">${FAILED}</a></p>`);
+  assert.ok(new RegExp(`<h4>${PAIRED} \\(<span data-text>${object.comparisons[0].delta.unit}</span>\\)</h4>\\n${line}`).test(document), "under the heading of the paired deltas");
+  const main = elementOf(document, '<main id="study"')!;
+  assert.ok(elementOf(main, '<div data-element="controls">')!.includes(`<button data-message="${contract.messages[0]}">`), "Read again stands in the element the link names");
+  const { style } = partsOf(document);
+  for (const rule of [/\[data-element="failure"\][^{]*\[data-element="figures-failed"\][^{]*\{[^}]*border-left:/, /\[data-element="failure"\], \[data-element="figures-failed"\] \{ border-left-color: var\(--vscode-inputValidation-errorBorder\)/]) {
+    assert.match(style, rule);
+  }
+});
 
 for (const name of Object.keys(KEPT_FIGURES)) {
   test(`with the figures read of the same Study and a matching write_sequence, the document holds no label: ${name}`, async (t) => {
@@ -175,9 +198,12 @@ for (const [outcome, answer] of [
     const { document } = await opened(t, status("status-success"), answer);
     labelPlaces(document);
     const usableDocument = (await opened(t, status("status-success"), figures("status-success"))).document;
-    // The figures the usable read draws stand where the label stands.
-    const withoutFigures = elementsOf(usableDocument, "<div data-figures>").reduce((rest, shown) => rest.replace(`\n${shown}`, ""), usableDocument);
-    assert.equal(comparable(document).replace(new RegExp(`\\n<p data-element="figures-failed">${FAILED.replace(/\./g, "\\.")}</p>`, "g"), ""), comparable(withoutFigures));
+    // The figures the usable read draws stand where the label stands, and its dots at the end of the part.
+    const withoutFigures = ["<div data-figures>", '<div data-figure="dots"'].reduce(
+      (rest, opening) => elementsOf(rest, opening).reduce((left, shown) => left.replace(`\n${shown}`, ""), rest),
+      usableDocument,
+    );
+    assert.equal(comparable(document).replace(FAILED_BLOCK, ""), comparable(withoutFigures));
   });
 }
 

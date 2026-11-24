@@ -1,7 +1,8 @@
 // What the panel shows of a Study, as HTML. Every text of the object read is escaped and stands between tags; an
 // attribute holds only a literal of the client, an index, or, in a bar's geometry, a length computed from the read's numbers.
 // The client computes nothing else of its own: what is pending, the delta, the roles, whether a Decision applies, its reasons
-// and the state of its evidence are those the object read holds.
+// and the state of its evidence are those the object read holds; the order of the dots and the side a dot's row favours follow the
+// sign of the paired delta the figures read holds.
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
 import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five } from "./charts";
@@ -73,16 +74,21 @@ const LABEL = {
   sent: 42,
   failed: 43,
   none: 44,
-  figuresFailed: 45,
-  figuresUnavailable: 46,
+  figuresUnavailable: 45,
+  noFigure: 46,
   pairedDeltas: 47,
-  countPerBin: 48,
+  itemsPerBin: 48,
   minimum: 49,
   firstQuartile: 50,
   median: 51,
   thirdQuartile: 52,
   maximum: 53,
   dotValues: 54,
+  casesPerBin: 55,
+  itemErrors: 56,
+  zero: 57,
+  itemsBelow: 58,
+  casesBelow: 59,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -104,7 +110,10 @@ const HREF: Record<string, string> = {
   warnings: "#warnings-",
   limitations: "#limitations-",
   choices: "#choices-",
+  dots: "#dots-",
 };
+// The `href` of the document's top, where Read again stands: the `id` of its `main` element.
+const TOP = "#study";
 // The `id` of the element around a pending decision's question, before the place of that decision in `pending_decisions`.
 const QUESTION_ID = "question-";
 // The `id` of an option's text and of its consequence, before the place of that option among all the options of the document.
@@ -123,15 +132,22 @@ const QUARTILES: [string, keyof typeof LABEL][] = [
   ["q3", "thirdQuartile"],
   ["max", "maximum"],
 ];
-// An element of `paired_deltas` as its id and its two sides' values: the absolute errors of an Item on the Regression Track, the shares
-// of a Case on the Agent Track, told apart by the key of the Case's id; undefined when a value is not a finite number.
-function dotOf(element: Entry): Dot | undefined {
+// An element of `paired_deltas` as its id, its two sides' values and its paired delta: the absolute errors of an Item on the Regression
+// Track, the shares of a Case on the Agent Track, told apart by the key of the Case's id; undefined when a value is not a finite number.
+// `worse` is the paired delta signed so that it is positive where the Candidate is worse: on the Regression Track a lower error is
+// better, on the Agent Track a higher share.
+type Pair = Dot & { worse: number };
+function pairOf(element: Entry): Pair | undefined {
   const agent = "case_id" in element;
-  const [id, control, candidate] = agent
-    ? [element.case_id, number(element.control_share), number(element.candidate_share)]
-    : [element.row_id, number(element.control_abs_error), number(element.candidate_abs_error)];
-  return control === null || candidate === null ? undefined : { id: text(id), control, candidate };
+  const [id, control, candidate, delta] = agent
+    ? [element.case_id, number(element.control_share), number(element.candidate_share), number(element.delta_share)]
+    : [element.row_id, number(element.control_abs_error), number(element.candidate_abs_error), number(element.delta_abs_error)];
+  if (control === null || candidate === null || delta === null) return undefined;
+  const worse = agent ? -delta : delta;
+  return { id: text(id), control, candidate, worse, joint: worse > 0 ? "favours-control" : worse < 0 ? "favours-candidate" : "between" };
 }
+// Fewer pairs than this, and the dots stand first, before the histogram and the box plot.
+const FEW = 10;
 // The reason of an entry whose Comparison withholds its delta.
 const DELTA_WITHHELD = "delta_withheld";
 
@@ -288,10 +304,10 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
   ].join("\n");
 }
 
-// A Comparison: its delta, its coverage, its roles and chart 1, then, where it is pending, a line of how many warnings and limitations
-// it holds and `choices`, then the rest, and last its figures when its delta is not withheld. `roles` are the
-// ids of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta
-// record carries no value of its own.
+// A Comparison: its delta, its coverage, its roles, chart 1 and the figures of its paired deltas, then, where it is pending, a line of
+// how many warnings and limitations it holds and `choices`, then the rest, and last its dots when they do not stand with the figures.
+// `roles` are the ids of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where
+// the delta record carries no value of its own.
 function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = ""): string {
   const index = shown.comparisons.findIndex((each) => each.comparison_id === id);
   const comparison = shown.comparisons[index];
@@ -311,6 +327,8 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     const warnings = list(comparison.warnings).map((warning) => `<li>${value(warning.code)} ${marked(warning.message)}</li>`);
     const limitations = (Array.isArray(comparison.limitations) ? comparison.limitations : []).map((limitation) => marked(limitation, "li"));
     lines.push(deltaChartOf(delta, index, roles, shown));
+    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first);
+    lines.push(figures);
     if (choices !== "") {
       lines.push(`<p data-element="limits">${label("warnings")} ${link("warnings", index, warnings.length)} ${label("limitations")} ${link("limitations", index, limitations.length)}</p>`, choices);
     }
@@ -323,8 +341,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     for (const [kind, items] of [["warnings", warnings], ["limitations", limitations]] as const) {
       lines.push(`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>");
     }
-    // A withheld delta keeps its word alone.
-    if (delta.value !== null) lines.push(figuresOf(shown.figures, id, index, number(delta.value)));
+    lines.push(rest);
   } else {
     lines.push(choices);
   }
@@ -332,52 +349,77 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
   return lines.filter((line) => line !== "").join("\n");
 }
 
-// The figures of a Comparison's paired deltas from its entry of the figures read: the label of a failed figures call when there are
-// no entries, nothing when the entry's reason is a withheld delta, the label of an entry with no figures for any other reason, and
-// otherwise a histogram of its bins with the count of each, then a box plot of its five numbers on the axis from the first bin's low
-// to the last bin's high, with the mark of the Comparison's delta, then the dots of its Items or Cases.
-function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: number | null): string {
-  if (entries === undefined) return `<p data-element="figures-failed">${label("figuresFailed")}</p>`;
+// The figures of a Comparison's paired deltas from its entry of the figures read, as two texts: the first stands under chart 1, the
+// second at the end of the Comparison's part. A withheld delta keeps its word alone: no figure and no label. Otherwise, under a heading
+// with the delta's unit: the label of a failed figures call when there are no entries, the label of an entry with no figures with its
+// reason, or the figures: the delta's definition, a histogram of the bins with the count of each above its column and the ends of the
+// axis under it, then a box plot of the five numbers on that axis with the mark of the Comparison's delta, a zero mark through both,
+// and a key of the marks in the order of the axis; then the dots of its Items or Cases, first when there are few, otherwise at the
+// end of the part, with a link to them where the part is the Comparison's first.
+function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean): [string, string] {
+  if (delta.value === null) return ["", ""];
+  const heading = `<h4>${label("pairedDeltas")} (${marked(delta.unit)})</h4>`;
+  if (entries === undefined) return [[heading, `<p data-element="figures-failed">${label("failed")} <a href="${TOP}">${label("figuresUnavailable")}</a></p>`].join("\n"), ""];
   const entry = record(entries.find((each) => each.comparison_id === id));
-  if (entry.unavailable === DELTA_WITHHELD) return "";
+  if (entry.unavailable === DELTA_WITHHELD) return ["", ""];
   const bins = list(entry.histogram);
   const counts = bins.map((bin) => number(bin.count));
   const quartiles = record(entry.quartiles);
   const five = QUARTILES.map(([key]) => number(quartiles[key]));
-  const pairs = list(entry.paired_deltas).map(dotOf);
-  if (entry.unavailable !== null || bins.length === 0 || [...counts, ...five].includes(null) || pairs.length === 0 || pairs.includes(undefined)) return `<p data-element="figures-unavailable">${label("figuresUnavailable")}</p>`;
-  const [low, high] = [bins[0].low, bins[bins.length - 1].high];
-  const edges = low === high ? [low] : [low, high];
-  const named = QUARTILES.map(([key, name]) => `<span${key === "median" ? ' data-key="median"' : ""}>${label(name)} ${link("quartile", index, quartiles[key])}</span>`);
+  const pairs = list(entry.paired_deltas).map(pairOf);
+  if (entry.unavailable !== null || bins.length === 0 || [...counts, ...five].includes(null) || pairs.length === 0 || pairs.includes(undefined)) {
+    return [[heading, `<p data-element="figures-unavailable">${label("noFigure")} ${value(entry.unavailable)}</p>`].join("\n"), ""];
+  }
+  const agent = "case_id" in list(entry.paired_deltas)[0];
+  const ends: [number, number] = [five[0]!, five[4]!];
+  const edges = bins[0].low === bins[bins.length - 1].high ? [bins[0].low] : [bins[0].low, bins[bins.length - 1].high];
+  const marks: [number, string][] = QUARTILES.map(([key, name]) => [number(quartiles[key])!, `<span${key === "median" ? ' data-key="median"' : ""}>${label(name)} ${link("quartile", index, quartiles[key])}</span>`]);
+  marks.push([number(delta.value)!, `<span data-key="delta">${label("delta")} ${link("delta", index, delta.value)}</span>`]);
+  if (ends[0] <= 0 && 0 <= ends[1]) marks.push([0, `<span data-key="zero">${label("zero")}</span>`]);
+  // In the order of the axis; `sort` keeps the order above between equal numbers.
+  marks.sort((a, b) => a[0] - b[0]);
+  const few = pairs.length < FEW;
+  const shownDots = dotsOf(pairs as Pair[], index, delta, agent, first && !few);
   return [
-    "<div data-figures>",
-    `<h4>${label("pairedDeltas")}</h4>`,
-    '<div data-figure="histogram">',
-    histogram(counts as number[]),
-    `<table data-element="counts"><caption>${label("countPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
-    "</div>",
-    '<div data-figure="box">',
-    boxPlot(five as Five, delta),
-    `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(" ")}</p>`,
-    `<p data-element="quartiles">${named.join(" ")}${delta === null ? "" : ` <span data-key="delta">${label("delta")}</span>`}</p>`,
-    "</div>",
-    dotsOf(pairs as Dot[], index),
-    "</div>",
-  ].join("\n");
+    [
+      "<div data-figures>",
+      heading,
+      `<p data-element="caption">${marked(delta.definition)}</p>`,
+      few ? shownDots : "",
+      '<div data-figure="histogram">',
+      `<table data-element="counts"><caption>${label(agent ? "casesPerBin" : "itemsPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
+      histogram(counts as number[], ends),
+      `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(` ${marked(delta.unit)} `)}</p>`,
+      "</div>",
+      '<div data-figure="box">',
+      boxPlot(five as Five, number(delta.value)),
+      `<p data-element="quartiles">${marks.map(([, mark]) => mark).join(" ")}</p>`,
+      "</div>",
+      few || !first ? "" : `<p data-element="to-dots"><a href="${HREF.dots}${index}">${label(agent ? "casesBelow" : "itemsBelow")}</a></p>`,
+      "</div>",
+    ]
+      .filter((line) => line !== "")
+      .join("\n"),
+    few ? "" : shownDots,
+  ];
 }
 
 // The dots of a Comparison: per Item or Case, its id and the marks of its two sides on one scale, which runs from the smallest to the
-// largest of their values, both printed under it.
-function dotsOf(pairs: Dot[], index: number): string {
+// largest of their values, both printed above the rows; the rows run from the one where the Candidate is worst. `anchored` gives the
+// dots the id a link names.
+function dotsOf(pairs: Pair[], index: number, delta: Entry, agent: boolean, anchored: boolean): string {
   const values = pairs.flatMap((pair) => [pair.control, pair.candidate]);
   const ends: [number, number] = [values.reduce((a, b) => Math.min(a, b)), values.reduce((a, b) => Math.max(a, b))];
+  // `sort` keeps the order of the read between rows of equal deltas.
+  const ordered = [...pairs].sort((a, b) => b.worse - a.worse);
+  const printed = `<p data-element="dot-ends">${(ends[0] === ends[1] ? [ends[0]] : ends).map((end) => link("dot_end", index, end)).join(" ")}</p>`;
   return [
-    '<div data-figure="dots">',
-    `<h4>${label("dotValues")}</h4>`,
+    `<div data-figure="dots"${anchored ? anchor("dots", index) : ""}>`,
+    `<h4>${label(agent ? "dotValues" : "itemErrors")} (${marked(delta.unit)})</h4>`,
     `<p data-element="dot-key"><span data-key="control">${label("control")}</span> <span data-key="candidate">${label("candidate")}</span></p>`,
     '<div data-element="dots">',
-    dots(pairs, ends),
-    `<p data-element="dot-ends">${(ends[0] === ends[1] ? [ends[0]] : ends).map((end) => link("dot_end", index, end)).join(" ")}</p>`,
+    printed,
+    dots(ordered, ends),
     "</div>",
     "</div>",
   ].join("\n");

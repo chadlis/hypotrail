@@ -83,6 +83,16 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       return { document: (await documentFor(t, ...answers)).document, answers };
     },
   ],
+  [
+    "status-chinook-spread with ten Cases in its figures read",
+    async (t) => {
+      const figures = keptObject("figures-chinook-spread");
+      const entry = figures.comparisons[0];
+      entry.paired_deltas = Array.from({ length: 10 }, (_, at) => ({ ...entry.paired_deltas[at % 4], case_id: `D${10 + at}` }));
+      const answers = [read("status-chinook-spread"), success(figures)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
   ["a read the CLI refuses", async (t) => ({ document: (await documentFor(t, NOT_FOUND)).document, answers: [NOT_FOUND] })],
   ...NO_ANSWERS.map(([cause, answer]): [string, (t: TestContext) => Promise<Built>] => [`a read with no answer (${cause})`, async (t) => ({ document: (await documentFor(t, answer)).document, answers: [answer] })]),
   [

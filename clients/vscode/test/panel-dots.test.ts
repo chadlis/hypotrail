@@ -8,7 +8,7 @@ import { exit } from "./recorder";
 type Entry = Record<string, any>;
 
 const FAILED = "Figures unavailable. Read again.";
-const UNAVAILABLE = "No figure for this Comparison.";
+const UNAVAILABLE = "No figure for this Comparison:";
 const OTHER_REASONS = ["artifact_missing", "artifact_integrity", "artifact_malformed", "value_not_finite"];
 // How far two places may stand apart and still be one: two decimals, and the sum of two of them.
 const NEAR = 0.011;
@@ -56,6 +56,13 @@ function sidesOf(element: Entry): { id: string; control: number; candidate: numb
 const dotsOf = (part: string): string[] => elementsOf(part, "<div data-dot>");
 const middle = (rect: Rect): number => rect.x + rect.width / 2;
 const sideOf = (dot: string, side: string): Rect[] => rectsOf(dot).filter((rect) => rect.kind === side);
+
+// The elements of an entry's paired deltas in the order of their rows: the one where the Candidate is worst first, by its paired
+// delta, which is positive where the Candidate is worse on the Regression Track and where it is better on the Agent Track.
+function orderOf(entry: Entry): Entry[] {
+  const worse = (element: Entry): number => ("case_id" in element ? -element.delta_share : element.delta_abs_error);
+  return [...entry.paired_deltas].sort((a, b) => worse(b) - worse(a));
+}
 
 // The kept status reads whose kept figures read holds an entry with figures.
 const DRAWN = Object.keys(KEPT_FIGURES).filter((name) => keptObject(KEPT_FIGURES[name]).comparisons.some((entry: Entry) => entry.unavailable === null));
@@ -191,7 +198,7 @@ for (const [name, key] of [
     const [{ part }] = comparisonsOf(await drawn(t, object, figures), object, figures);
     const dot = dotsOf(part).find((each) => markedTexts(each).includes("replaced <id> & 7"));
     assert.ok(dot, part.slice(0, 200));
-    assert.equal(dotsOf(part).indexOf(dot), 1);
+    assert.equal(dotsOf(part).indexOf(dot), orderOf(entry).indexOf(element));
     const marks = marksOf(part, entry);
     assert.equal(middle(sideOf(dot, "control")[0]), marks[2].at);
     assert.equal(middle(sideOf(dot, "candidate")[0]), marks[3].at);
@@ -205,7 +212,7 @@ for (const name of DRAWN) {
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
       if (entry.unavailable !== null) continue;
-      const dots = elementOf(part, '<div data-figure="dots">')!;
+      const dots = elementOf(part, '<div data-figure="dots"')!;
       const values = entry.paired_deltas.flatMap((element: Entry) => [sidesOf(element).control, sidesOf(element).candidate]);
       const ends = [...new Set([Math.min(...values), Math.max(...values)].map(written))];
       const links = [...dots.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)">([^<]*)<\/a>/g)];
@@ -218,15 +225,27 @@ for (const name of DRAWN) {
   });
 }
 
-// Where the dots stand.
+// Where the dots stand: from ten pairs, at the end of the Comparison's part, after its limitations, with a link to them under the box
+// plot; under ten, first among the figures, before the histogram.
 for (const name of DRAWN) {
-  test(`each Comparison's dots stand after its limitations and after its box plot: ${name}`, async (t) => {
+  test(`each Comparison's dots stand after its limitations, linked from under its box plot, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
       if (entry.unavailable !== null) continue;
-      const at = part.indexOf('<div data-figure="dots">');
-      assert.ok(at > part.indexOf('<div data-part="limitations"') && at > part.indexOf('<div data-figure="box">') && part.indexOf('<div data-figure="box">') >= 0, entry.comparison_id);
+      const at = part.indexOf('<div data-figure="dots"');
+      const [histogram, box] = [part.indexOf('<div data-figure="histogram">'), part.indexOf('<div data-figure="box">')];
+      assert.ok(at >= 0 && histogram >= 0 && box >= 0, entry.comparison_id);
+      if (entry.paired_deltas.length < 10) {
+        assert.ok(at < histogram && !part.includes('data-element="to-dots"'), `${entry.comparison_id}: ${entry.paired_deltas.length} pairs`);
+        continue;
+      }
+      assert.ok(at > part.indexOf('<div data-part="limitations"') && at > box, `${entry.comparison_id}: ${entry.paired_deltas.length} pairs`);
+      const index = object.comparisons.findIndex((each: Entry) => each.comparison_id === entry.comparison_id);
+      const link = elementOf(part, '<p data-element="to-dots">')!;
+      assert.ok(part.indexOf(link) > box && part.indexOf(link) < at, link);
+      assert.match(link, new RegExp(`^<p data-element="to-dots"><a href="#dots-${index}">[^<]+</a></p>$`));
+      assert.ok(part.includes(`<div data-figure="dots" id="dots-${index}">`), "the dots hold the id the link names");
     }
   });
 }
@@ -260,5 +279,74 @@ for (const reason of [...OTHER_REASONS, "a failed figures call"]) {
     assert.equal(dotsOf(part).length, 0, part);
     assert.ok(!part.includes('data-figure="dots"'), part);
     assert.equal(count(part, OTHER_REASONS.includes(reason) ? UNAVAILABLE : FAILED), 1);
+  });
+}
+
+// The order of the rows, the side each favours, the ends of the scale above them, and what their heading names.
+for (const name of DRAWN) {
+  test(`the rows run from the Item or Case where the Candidate is worst, by its paired delta, and the ends of the scale stand above the first: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
+      if (entry.unavailable !== null) continue;
+      assert.deepEqual(
+        dotsOf(part).map((dot) => markedTexts(dot)[0]),
+        orderOf(entry).map((element) => sidesOf(element).id),
+      );
+      const grid = elementOf(part, '<div data-element="dots">')!;
+      assert.ok(grid.indexOf('<p data-element="dot-ends">') >= 0 && grid.indexOf('<p data-element="dot-ends">') < grid.indexOf("<div data-dot>"), grid.slice(0, 300));
+    }
+  });
+}
+
+test("a paired delta changed in the test to the largest puts its row first: status-success", async (t) => {
+  const object = keptObject("status-success");
+  const figures = keptObject("figures-success");
+  const entry = figures.comparisons[0];
+  entry.paired_deltas[120].delta_abs_error = 1e6;
+  const [{ part }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+  assert.equal(markedTexts(dotsOf(part)[0])[0], entry.paired_deltas[120].row_id);
+});
+
+for (const name of DRAWN) {
+  test(`the bar that joins a row's two marks takes the class of the side it favours, or none when they are equal: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
+      if (entry.unavailable !== null) continue;
+      for (const element of entry.paired_deltas) {
+        const sides = sidesOf(element);
+        const dot = dotsOf(part).find((each) => markedTexts(each)[0] === sides.id)!;
+        const lower = sides.candidate < sides.control ? "candidate" : sides.control < sides.candidate ? "control" : undefined;
+        // A lower absolute error wins on the Regression Track, a higher share on the Agent Track.
+        const favoured = lower === undefined ? undefined : "case_id" in element ? (lower === "control" ? "candidate" : "control") : lower;
+        const joints = rectsOf(dot).filter((rect) => !["control", "candidate"].includes(rect.kind)).map((rect) => rect.kind);
+        assert.deepEqual(joints, [favoured === undefined ? "between" : `favours-${favoured}`], `${sides.id}: ${sides.control} against ${sides.candidate}`);
+      }
+    }
+  });
+}
+
+test("each class of a joining bar draws in its side's colour, and the id column is as wide as its widest id up to 9.5em", async (t) => {
+  const { style } = partsOf(await drawn(t, keptObject("status-success"), keptObject("figures-success")));
+  for (const side of ["control", "candidate"]) {
+    const colour = new RegExp(`rect\\.${side} \\{ fill: (var\\(--vscode-[a-zA-Z0-9-]+\\));`).exec(style)![1];
+    assert.ok(style.includes(`rect.favours-${side} { fill: ${colour}; }`), side);
+  }
+  assert.match(style, /\[data-element="dots"\] \{ display: grid; grid-template-columns: fit-content\(9\.5em\) /);
+});
+
+for (const [name, heading] of [
+  ["status-success", "Absolute error per Item"],
+  ["status-chinook-spread", "Values of the Control and the Candidate"],
+] as const) {
+  test(`the heading of the dots names what they plot, then its unit: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const figures = keptObject(KEPT_FIGURES[name]);
+    const [{ part }] = comparisonsOf(await drawn(t, object, figures), object, figures);
+    const dots = elementOf(part, '<div data-figure="dots"')!;
+    const title = elementOf(dots, "<h4>")!;
+    assert.ok(title.startsWith(`<h4>${heading} (<span data-text>`), title);
+    assert.deepEqual(markedTexts(title), [object.comparisons[0].delta.unit]);
   });
 }
