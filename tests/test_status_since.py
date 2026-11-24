@@ -207,3 +207,11 @@ def test_without_json_a_refused_since_value_gets_the_refusals_human_form(bike):
     code, out, err = run_cli("status", "--study", bike, "--since", 13)
     assert (code, out) == (2, "")
     assert err.startswith("WRITE_SEQUENCE_AHEAD [sequence]: "), err
+
+
+def test_chapter_04s_example_of_the_human_form_ends_with_the_lines_the_cli_prints_after_the_lines_of_status_on_the_bike_study(bike):
+    chapter = (ROOT / "docs" / "handbook" / "chapters" / "04-study-and-attempts.html").read_text(encoding="utf-8")
+    [example] = [block for block in re.findall(r"<pre[^>]*>(.*?)</pre>", chapter, re.S) if "--since 10" in block]
+    code, out, err = run_cli("status", "--study", bike, "--since", 10)
+    assert code == 0, err
+    assert example.splitlines()[-3:] == out.splitlines()[-3:]
