@@ -88,6 +88,14 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
     },
   ],
   ["a write the CLI accepts, then its read", (t) => afterWrite(t, read("status-success"), keptAnswer("decide-success"), read("status-decided"))],
+  [
+    "a write the CLI accepts, then its read that holds the Decision recorded",
+    (t) => {
+      const answer = JSON.parse(kept("decide-success.out"));
+      answer.decision.decision_id = keptObject("status-decided").decisions[0].decision_id;
+      return afterWrite(t, read("status-success"), exit(0, JSON.stringify(answer)), read("status-decided"));
+    },
+  ],
   ["a write the CLI refuses, then its read", (t) => afterWrite(t, read("status-success"), keptAnswer("decide-study-changed"), read("status-success"))],
   ["a write with no answer", (t) => afterWrite(t, read("status-success"), NO_ANSWERS[1][1])],
   ["a write the bridge refuses", (t) => afterWrite(t, withoutQuestion())],
@@ -239,3 +247,14 @@ for (const [name, build] of DOCUMENTS) {
     for (const text of markedTexts(built.document).slice(1)) assert.ok(values.includes(text), text);
   });
 }
+
+// The text between the tags of a document, its script, style and marked texts removed, as one line of words.
+const fixedWordsOf = (document: string): string =>
+  ` ${partsOf(document.replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "")).between.split(/\s+/).filter(Boolean).join(" ")} `;
+
+test("every entry of labels is printed outside a marked text by one of the documents the panel builds", async (t) => {
+  const printed: string[] = [];
+  for (const [, build] of DOCUMENTS) printed.push(fixedWordsOf((await build(t)).document));
+  const unprinted = contract.labels.filter((label) => !printed.some((words) => words.includes(` ${label.split(/\s+/).join(" ")} `)));
+  assert.deepEqual(unprinted, []);
+});
