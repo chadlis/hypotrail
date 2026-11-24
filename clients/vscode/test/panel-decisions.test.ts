@@ -279,6 +279,76 @@ test("status-result-changed with roles removed from the cited Comparison: its de
   assert.equal(elementOf(part, "<div data-role="), undefined, "no Assessment under a role");
 });
 
+// A Comparison a Decision cites, where the document already holds its full part: a summary in its place.
+const SUMMARY = '<div data-summary="comparison">';
+const SECOND_ID = "3c9e7a51-8d24-4f6b-a0e3-6b1f2d9c4e87";
+
+// status-decided with a second Decision that cites the same Comparison.
+function citedTwice(): Entry {
+  const object = keptObject("status-decided");
+  object.decisions.push({ ...structuredClone(object.decisions[0]), decision_id: SECOND_ID });
+  return object;
+}
+
+// status-decided with its Comparison also pending.
+function citedAndPending(): Entry {
+  const object = keptObject("status-decided");
+  const comparison = object.comparisons[0];
+  object.pending_decisions = keptObject("status-success").pending_decisions.map((pending: Entry) => ({
+    ...pending,
+    comparison_id: comparison.comparison_id,
+    control_assessment_id: comparison.roles.control_assessment_id,
+    candidate_assessment_id: comparison.roles.candidate_assessment_id,
+  }));
+  return object;
+}
+
+// The element whose `id` is the `href` of a link, without its `#`.
+function targetOf(document: string, href: string): string | undefined {
+  const opening = new RegExp(`<([a-z0-9]+) [^>]*\\bid="${href.slice(1)}"[^>]*>`).exec(document);
+  return opening ? elementOf(document.slice(opening.index), opening[0]) : undefined;
+}
+
+// The summary of `comparison` in `part`: its id as a link to its full part, its delta's element, the definition, then chart 1, and
+// nothing else; and the document holds one full part of it.
+function assertSummary(document: string, part: string, object: Entry): void {
+  const comparison = object.comparisons[0];
+  const summary = elementOf(part, SUMMARY);
+  assert.ok(summary, "a summary of the cited Comparison");
+  assert.equal(elementOf(part, '<div data-part="comparison"'), undefined, "no full part in this Decision");
+  const values = [comparison.roles.control_assessment_id, comparison.roles.candidate_assessment_id].map(
+    (id) => object.assessments.find((each: Entry) => each.assessment_id === id).metrics.find((metric: Entry) => metric.id === comparison.delta.metric).value,
+  );
+  const { delta } = comparison;
+  assert.equal(
+    words(between(summary)),
+    words(`Comparison ${comparison.comparison_id} Delta ${written(delta.value)} ${delta.metric} ${delta.unit} ${delta.definition} Control ${written(values[0])} Candidate ${written(values[1])}`),
+  );
+  const order = ['<p data-element="delta">', '<p data-element="definition">', '<div data-chart="delta">'].map((opening) => summary.indexOf(opening));
+  assert.ok(order.every((at, index) => at > (order[index - 1] ?? -1)), `the delta, the definition, then chart 1: ${order}`);
+  const link = /<a href="(#[^"]*)"[^>]*>([^<]*)<\/a>/.exec(summary)!;
+  assert.equal(link[2], comparison.comparison_id, "the id is the first link");
+  const full = elementsOf(document, '<div data-part="comparison"').filter((each) => between(each).includes(comparison.comparison_id));
+  assert.equal(full.length, 1, "one full part of the Comparison");
+  assert.equal(targetOf(document, link[1]), full[0], "the id links to the full part");
+}
+
+test("a Comparison two Decisions cite stands whole in the first and as its summary in the second: status-decided with a second Decision", async (t) => {
+  const object = citedTwice();
+  const document = (await documentFor(t, success(object))).document;
+  const parts = decisionParts(document);
+  assert.ok(elementOf(parts[0], '<div data-part="comparison"'), "the full part in the first Decision");
+  assert.equal(elementOf(parts[0], SUMMARY), undefined, "no summary in the first Decision");
+  assertSummary(document, parts[1], object);
+});
+
+test("a Comparison that is pending and that a Decision cites stands whole in the pending decision and as its summary in the Decision: status-decided", async (t) => {
+  const object = citedAndPending();
+  const document = (await documentFor(t, success(object))).document;
+  assert.ok(elementOf(elementOf(document, '<section data-part="pending">')!, '<div data-part="comparison"'), "the full part in the pending decision");
+  assertSummary(document, decisionParts(document)[0], object);
+});
+
 // The Decision a deep link names.
 async function linkedDocument(t: Parameters<typeof workspace>[0], object: Entry, decision: string): Promise<string> {
   const [study] = workspace(t, ["bike"]);

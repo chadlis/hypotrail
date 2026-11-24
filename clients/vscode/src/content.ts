@@ -225,8 +225,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     const delta = record(comparison.delta);
     // The coverage is read once, as a list of its keys and values.
     const coverage = Object.entries(record(comparison.coverage));
-    const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
-    lines.push(`<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
+    lines.push(deltaOf(delta, index));
     lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.map(([key, number]) => `${value(key)} ${link("coverage", index, number)}`).join(" ")}</p>`);
     // "when the delta's `value` is null the Comparison's part holds no roles' element" (chadlis/hypotrail#177).
     if (delta.value !== null && ("control" in delta || "candidate" in delta)) {
@@ -248,6 +247,29 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
   }
   lines.push("</div>");
   return lines.filter((line) => line !== "").join("\n");
+}
+
+// A Comparison whose full part the document already holds: its id as a link to that part, its delta, the delta's definition and
+// chart 1.
+function summaryOf(comparison: Entry, shown: Shown, roles: unknown[]): string {
+  const index = shown.comparisons.indexOf(comparison);
+  const delta = record(comparison.delta);
+  return [
+    '<div data-summary="comparison">',
+    `<p>${label("comparison")} <a href="${HREF.comparison}${index}">${text(comparison.comparison_id)}</a></p>`,
+    deltaOf(delta, index),
+    `<p data-element="definition">${marked(delta.definition)}</p>`,
+    deltaChartOf(delta, index, roles, shown),
+    "</div>",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+// The delta's element: its value as a link, or the word of a withheld delta, with its Metric and unit.
+function deltaOf(delta: Entry, index: number): string {
+  const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
+  return `<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}</p>`;
 }
 
 // Chart 1: the Control's and the Candidate's values of the Metric the delta names, from the delta record where it carries them,
@@ -338,6 +360,10 @@ function decisionOf(decision: Entry, index: number, linked: boolean, shown: Show
     if (comparison !== undefined) {
       const roles = record(comparison.roles);
       const ids = "roles" in comparison ? [roles.control_assessment_id, roles.candidate_assessment_id] : [];
+      if (shown.parts.has(comparison)) {
+        lines.push(summaryOf(comparison, shown, ids));
+        continue;
+      }
       lines.push(comparisonOf(id, shown, ids));
       if ("roles" in comparison) lines.push(assessmentOf("control", roles.control_assessment_id, shown), assessmentOf("candidate", roles.candidate_assessment_id, shown));
     } else if (shown.assessments.some((each) => each.assessment_id === id)) {

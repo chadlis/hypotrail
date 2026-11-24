@@ -111,7 +111,7 @@ for (const name of KEPT_READS) {
   });
 }
 
-test("status-decided with its Comparison also pending and its Decision not applying: the Comparison shown twice, each id once, and the same links", async (t) => {
+test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once and its summary in the Decision, each id once, and the same links", async (t) => {
   const object = keptObject("status-decided");
   const comparison = object.comparisons[0];
   object.decisions[0].applies = false;
@@ -122,8 +122,18 @@ test("status-decided with its Comparison also pending and its Decision not apply
     candidate_assessment_id: comparison.roles.candidate_assessment_id,
   }));
   const { document } = await documentFor(t, success(object));
-  assert.equal(partsByKind(document, "comparison").length, 2);
+  assert.equal(partsByKind(document, "comparison").length, 1);
+  assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 1);
   assertLinksAndIds(document, object, "status-decided changed");
+});
+
+test("status-decided with a second Decision that cites its Comparison: the Comparison's part shown once and its summary in the second Decision, each id once, and the same links", async (t) => {
+  const object = keptObject("status-decided");
+  object.decisions.push({ ...structuredClone(object.decisions[0]), decision_id: "3c9e7a51-8d24-4f6b-a0e3-6b1f2d9c4e87" });
+  const { document } = await documentFor(t, success(object));
+  assert.equal(partsByKind(document, "comparison").length, 1);
+  assert.equal(elementsOf(partsByKind(document, "decision")[1], '<div data-summary="comparison">').length, 1);
+  assertLinksAndIds(document, object, "status-decided with a second Decision");
 });
 
 const KEPT_WRITES = ["decide-success", "decide-replay", "decide-study-changed", "decide-write-sequence-ahead", "decide-request-conflict", "decide-invalid-arguments", "decide-study-not-found"];
