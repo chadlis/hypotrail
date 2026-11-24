@@ -223,7 +223,8 @@ for (const name of DRAWN) {
     const document = await drawn(t, object, figures);
     for (const { part, comparison, entry } of comparisonsOf(document, object, figures)) {
       if (entry.unavailable !== null) continue;
-      const shown = elementOf(part, "<div data-figures>")!;
+      // The histogram and the box plot; the dots, whose numbers are values of the entry's paired deltas, have their own test.
+      const shown = [histogramOf(part), boxOf(part)].join("\n");
       const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)">([^<]*)<\/a>/g)];
       assert.ok(links.length >= entry.histogram.length + FIVE.length, `${links.length} links`);
       for (const [, index, kind, text] of links) {

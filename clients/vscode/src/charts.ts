@@ -57,11 +57,12 @@ export function histogramTop(largest: number): number {
 }
 
 // Ported from hypotrail/hypotrail@4ef4925, clients/vscode-companion/media/components/boxplot.js:39-41.
-// The companion widens a zero range by 1, which leaves it zero near 1e308; here a zero range puts every number at the middle.
+// The companion widens a zero range by 1, which leaves it zero near 1e308; here a zero range puts every number at the middle. Each
+// number is halved before a difference is taken, so that a range from -1e308 to 1e308 stays finite.
 export function axisPosition(value: number, min: number, max: number): number {
-  const range = max - min;
+  const range = max / 2 - min / 2;
   if (!(range > 0) || !Number.isFinite(range)) return 50;
-  return Math.max(0, Math.min(100, ((value - min) / range) * 100));
+  return Math.max(0, Math.min(100, ((value / 2 - min / 2) / range) * 100));
 }
 
 const rect = (kind: string, x: number, y: number, width: number, height: number): string =>
@@ -97,4 +98,22 @@ export function boxPlot([min, q1, median, q3, max]: Five, delta: number | null):
     delta === null ? "" : mark("delta", delta, 0.8, 0, 14),
   ];
   return `<svg viewbox="0 0 100 14" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg>`;
+}
+
+// One dot of the Control and one of the Candidate per Item or Case: its id, already escaped, and its two values.
+export type Dot = { id: string; control: number; candidate: number };
+
+// The dots of a Comparison, one row per Item or Case, on one scale from the smallest to the largest of all their values. In a row,
+// the Control's mark is a tall narrow bar and the Candidate's a shorter one across its middle, both of one width, so that a mark
+// stays inside the track as the others do; a thin bar joins the two.
+export function dots(list: Dot[], [min, max]: [number, number]): string {
+  const width = 1.4;
+  const at = (value: number): number => Math.max(0, Math.min(100 - width, axisPosition(value, min, max) - width / 2));
+  return list
+    .map(({ id, control, candidate }) => {
+      const [from, to] = [at(control), at(candidate)].sort((a, b) => a - b);
+      const marks = [rect("between", from + width / 2, 4.5, to - from, 1), rect("control", at(control), 0, width, 10), rect("candidate", at(candidate), 2.5, width, 5)];
+      return `<div data-dot><span data-text>${id}</span><svg viewbox="0 0 100 10" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg></div>`;
+    })
+    .join("\n");
 }

@@ -4,7 +4,7 @@
 // and the state of its evidence are those the object read holds.
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
-import { bars, boxPlot, histogram, partBar, type Bar, type Five } from "./charts";
+import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five } from "./charts";
 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
 // the outcome of a read that failed, `written` the answer of the
@@ -82,6 +82,7 @@ const LABEL = {
   median: 51,
   thirdQuartile: 52,
   maximum: 53,
+  dotValues: 54,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -122,6 +123,15 @@ const QUARTILES: [string, keyof typeof LABEL][] = [
   ["q3", "thirdQuartile"],
   ["max", "maximum"],
 ];
+// An element of `paired_deltas` as its id and its two sides' values: the absolute errors of an Item on the Regression Track, the shares
+// of a Case on the Agent Track, told apart by the key of the Case's id; undefined when a value is not a finite number.
+function dotOf(element: Entry): Dot | undefined {
+  const agent = "case_id" in element;
+  const [id, control, candidate] = agent
+    ? [element.case_id, number(element.control_share), number(element.candidate_share)]
+    : [element.row_id, number(element.control_abs_error), number(element.candidate_abs_error)];
+  return control === null || candidate === null ? undefined : { id: text(id), control, candidate };
+}
 // The reason of an entry whose Comparison withholds its delta.
 const DELTA_WITHHELD = "delta_withheld";
 
@@ -325,7 +335,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
 // The figures of a Comparison's paired deltas from its entry of the figures read: the label of a failed figures call when there are
 // no entries, nothing when the entry's reason is a withheld delta, the label of an entry with no figures for any other reason, and
 // otherwise a histogram of its bins with the count of each, then a box plot of its five numbers on the axis from the first bin's low
-// to the last bin's high, with the mark of the Comparison's delta.
+// to the last bin's high, with the mark of the Comparison's delta, then the dots of its Items or Cases.
 function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: number | null): string {
   if (entries === undefined) return `<p data-element="figures-failed">${label("figuresFailed")}</p>`;
   const entry = record(entries.find((each) => each.comparison_id === id));
@@ -334,7 +344,8 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
   const counts = bins.map((bin) => number(bin.count));
   const quartiles = record(entry.quartiles);
   const five = QUARTILES.map(([key]) => number(quartiles[key]));
-  if (entry.unavailable !== null || bins.length === 0 || [...counts, ...five].includes(null)) return `<p data-element="figures-unavailable">${label("figuresUnavailable")}</p>`;
+  const pairs = list(entry.paired_deltas).map(dotOf);
+  if (entry.unavailable !== null || bins.length === 0 || [...counts, ...five].includes(null) || pairs.length === 0 || pairs.includes(undefined)) return `<p data-element="figures-unavailable">${label("figuresUnavailable")}</p>`;
   const [low, high] = [bins[0].low, bins[bins.length - 1].high];
   const edges = low === high ? [low] : [low, high];
   const named = QUARTILES.map(([key, name]) => `<span${key === "median" ? ' data-key="median"' : ""}>${label(name)} ${link("quartile", index, quartiles[key])}</span>`);
@@ -349,6 +360,24 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
     boxPlot(five as Five, delta),
     `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(" ")}</p>`,
     `<p data-element="quartiles">${named.join(" ")}${delta === null ? "" : ` <span data-key="delta">${label("delta")}</span>`}</p>`,
+    "</div>",
+    dotsOf(pairs as Dot[], index),
+    "</div>",
+  ].join("\n");
+}
+
+// The dots of a Comparison: per Item or Case, its id and the marks of its two sides on one scale, which runs from the smallest to the
+// largest of their values, both printed under it.
+function dotsOf(pairs: Dot[], index: number): string {
+  const values = pairs.flatMap((pair) => [pair.control, pair.candidate]);
+  const ends: [number, number] = [values.reduce((a, b) => Math.min(a, b)), values.reduce((a, b) => Math.max(a, b))];
+  return [
+    '<div data-figure="dots">',
+    `<h4>${label("dotValues")}</h4>`,
+    `<p data-element="dot-key"><span data-key="control">${label("control")}</span> <span data-key="candidate">${label("candidate")}</span></p>`,
+    '<div data-element="dots">',
+    dots(pairs, ends),
+    `<p data-element="dot-ends">${(ends[0] === ends[1] ? [ends[0]] : ends).map((end) => link("dot_end", index, end)).join(" ")}</p>`,
     "</div>",
     "</div>",
   ].join("\n");

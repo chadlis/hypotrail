@@ -91,7 +91,8 @@
     "First quartile",
     "Median",
     "Third quartile",
-    "Maximum"
+    "Maximum",
+    "Values of the Control and the Candidate"
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
@@ -101,7 +102,7 @@
   "decide_author": "human",
   "guard_bounds": ["width=420", "question=200", "evidence=350"],
   "colour_forms": ["hexadecimal", "rgb()", "rgba()", "hsl()", "hsla()", "hwb()", "lab()", "lch()", "oklab()", "oklch()", "color()", "color-mix()", "named"],
-  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment", "pending_decisions=study", "warnings=warnings", "limitations=limitations", "bin_count=comparison", "bin_edge=comparison", "quartile=comparison"],
+  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment", "pending_decisions=study", "warnings=warnings", "limitations=limitations", "bin_count=comparison", "bin_edge=comparison", "quartile=comparison", "dot_end=comparison"],
   "statuses": ["status", "comparability.status", "applies", "withdrawn"],
   "key_paths": [
     "assessments[].assessment_id",
@@ -158,7 +159,12 @@
     "comparisons[].histogram[].count",
     "comparisons[].histogram[].high",
     "comparisons[].histogram[].low",
-    "comparisons[].paired_deltas",
+    "comparisons[].paired_deltas[].candidate_abs_error",
+    "comparisons[].paired_deltas[].candidate_share",
+    "comparisons[].paired_deltas[].case_id",
+    "comparisons[].paired_deltas[].control_abs_error",
+    "comparisons[].paired_deltas[].control_share",
+    "comparisons[].paired_deltas[].row_id",
     "comparisons[].quartiles.max",
     "comparisons[].quartiles.median",
     "comparisons[].quartiles.min",
