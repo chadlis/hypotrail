@@ -4,6 +4,7 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { checkoutRoot, readStudy, type Outcome } from "../src/bridge";
 import { kept } from "./kept";
+import { PATHS } from "./paths";
 import { exit, recorder, type Answer } from "./recorder";
 
 const ROOT = "/checkout";
@@ -89,8 +90,6 @@ test("a success keeps write_sequence and every key the CLI printed, a key the cl
   assert.equal(object.a_key_the_client_does_not_know, 1);
   assert.equal((object.decisions as Record<string, unknown>[])[0].a_key_in_an_entry, "x");
 });
-
-const PATHS = ["/work/a study", '/work/a "quoted" study', "/work/a;b", "/work/a$(touch b)", "/work/a\nb", "-x/study"];
 
 for (const study of PATHS) {
   test(`the Study path ${JSON.stringify(study)} reaches the CLI inside the one argument --study=, unchanged`, async (t) => {

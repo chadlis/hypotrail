@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "write_sequence": 12,
+  "comparisons": [
+    {
+      "comparison_id": "00000000-0000-4000-8000-000000000008",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "case_id": "D01",
+          "repeats": 3,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D03",
+          "repeats": 3,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D07",
+          "repeats": 3,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D08",
+          "repeats": 3,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        }
+      ],
+      "histogram": [
+        {
+          "low": 0.0,
+          "high": 0.0,
+          "count": 4
+        }
+      ],
+      "quartiles": {
+        "min": 0.0,
+        "q1": 0.0,
+        "median": 0.0,
+        "q3": 0.0,
+        "max": 0.0
+      }
+    }
+  ]
+}

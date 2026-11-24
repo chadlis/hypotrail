@@ -4,7 +4,7 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
-import { KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED } from "./panel-harness";
 
 type Entry = Record<string, any>;
 
@@ -71,6 +71,8 @@ test("while a read, a write and a second sending are in flight every button is d
   await runCommand();
   assertBusy(lastDocument(), true, "a read in flight");
   answer(success(keptObject("status-success")));
+  await settle();
+  answer(FIGURES_FAILED);
   await settle();
   assertBusy(lastDocument(), false, "after the read");
   panelOf().send({ message: RECORD, pending: 0, option: 0 });

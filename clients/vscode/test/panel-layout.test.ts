@@ -7,7 +7,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
-import { KEPT_READS, documentFor, keptObject, success } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, documentFor, keptObject, success } from "./panel-harness";
 
 const HEIGHT = 900;
 const BOUND = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.split("=")[0], Number(entry.split("=")[1])]));
@@ -42,7 +42,9 @@ const guarded = (t: TestContext): boolean => hasChrome(t, "the guard of how far 
 test("at the width of guard_bounds, the first question and the first evidence number of status-success are within their bounds of the top", { timeout: 60000 }, async (t) => {
   if (!guarded(t)) return;
   const object = keptObject("status-success");
-  const { document } = await documentFor(t, success(object));
+  // The figures read answered after the status read, so that the figures stand in the document measured.
+  const { document } = await documentFor(t, success(object), success(keptObject(KEPT_FIGURES["status-success"])));
+  assert.ok(document.includes("data-figures"), "the document holds the figures");
   const at = await measured(t, document, evidenceOf(object));
   if (at === undefined) return;
   assert.notEqual(at.question, null, "the first question is found");
@@ -70,5 +72,42 @@ for (const name of KEPT_READS.filter((read) => keptObject(read).pending_decision
     const delta = document.indexOf('<p data-element="delta">', document.indexOf('<section data-part="pending">'));
     assert.ok(question >= 0 && delta >= 0, "both are found");
     assert.ok(question < delta, `the question at ${question}, the delta's element at ${delta}`);
+  });
+}
+
+// The figures at the two widths of the review, with VS Code's font size and the side padding of its webview.
+const VS_CODE_BODY = 'document.body.style.fontSize = "13px"; document.body.style.margin = "0"; document.body.style.padding = "0 20px";';
+
+async function figuresAt(t: TestContext, name: string, width: number): Promise<{ tracks: { left: number; width: number }[]; key: number; box: number } | undefined> {
+  const address = await startChrome(t);
+  if (address === undefined) {
+    t.skip(`the layout of the figures is not measured: Chrome at ${CHROME} did not start, or its debugging port did not open within ${START_MS} ms`);
+    return undefined;
+  }
+  const { document } = await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])));
+  const evaluate = await opened(t, address, document, width, HEIGHT);
+  await evaluate(`(() => { ${VS_CODE_BODY} return true; })()`);
+  return evaluate(`(() => {
+    const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+    const tracks = [...document.querySelectorAll("[data-dot] svg")].map((svg) => ({ left: Math.round(svg.getBoundingClientRect().left), width: Math.round(svg.getBoundingClientRect().width) }));
+    return { tracks, key: box('[data-element="quartiles"]').right, box: box('[data-figure="box"] svg').right };
+  })()`);
+}
+
+// From ten pairs the dots stand after the choices and run on in columns where the panel is wide enough; under ten they stand first,
+// under their scale, in one column: status-chinook-pending holds four Cases.
+for (const [name, width, columns] of [
+  ["status-success", 420, 1],
+  ["status-success", 900, 2],
+  ["status-chinook-pending", 900, 1],
+] as const) {
+  test(`at ${width} px the rows of the dots of ${name} stand in ${columns} column${columns > 1 ? "s" : ""}, every track as wide as the others, and the key of the box plot ends within the box plot`, { timeout: 60000 }, async (t) => {
+    if (!hasChrome(t, "the layout of the figures")) return;
+    const at = await figuresAt(t, name, width);
+    if (at === undefined) return;
+    assert.equal(at.tracks.length, keptObject(KEPT_FIGURES[name]).comparisons[0].paired_deltas.length);
+    assert.equal(new Set(at.tracks.map((track) => track.left)).size, columns, JSON.stringify([...new Set(at.tracks.map((track) => track.left))]));
+    assert.equal(new Set(at.tracks.map((track) => track.width)).size, 1, JSON.stringify([...new Set(at.tracks.map((track) => track.width))]));
+    assert.ok(at.key <= at.box + 0.5, `the key ends at ${at.key} px, the box plot at ${at.box} px`);
   });
 }

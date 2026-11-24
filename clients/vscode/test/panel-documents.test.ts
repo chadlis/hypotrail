@@ -7,6 +7,7 @@ import contract from "../contract.json";
 import { written } from "../src/content";
 import { kept } from "./kept";
 import {
+  KEPT_FIGURES,
   KEPT_READS,
   LITERALS,
   attributeValues,
@@ -25,6 +26,8 @@ import {
   success,
   unescaped,
   workspace,
+  FIGURES_FAILED,
+  withFigures,
 } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
@@ -45,7 +48,7 @@ type Built = { document: string; answers: Answer[]; link?: string };
 
 async function afterWrite(t: TestContext, ...answers: Answer[]): Promise<Built> {
   workspace(t, ["bike"]);
-  recorder(t, ...answers);
+  recorder(t, ...withFigures(...answers));
   await runCommand();
   await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });
@@ -64,6 +67,32 @@ const withoutQuestion = (): Answer => {
 // Every document the tests of the panel build, by the case it shows.
 const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
   ...KEPT_READS.map((name): [string, (t: TestContext) => Promise<Built>] => [name, async (t) => ({ document: (await documentFor(t, read(name))).document, answers: [read(name)] })]),
+  ...Object.keys(KEPT_FIGURES).map((name): [string, (t: TestContext) => Promise<Built>] => [
+    `${name} with ${KEPT_FIGURES[name]}`,
+    async (t) => {
+      const answers = [read(name), read(KEPT_FIGURES[name])];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ]),
+  [
+    "status-success with an entry of its figures read whose figures are unavailable",
+    async (t) => {
+      const figures = keptObject("figures-success");
+      Object.assign(figures.comparisons[0], { unavailable: "artifact_missing", paired_deltas: null, histogram: null, quartiles: null });
+      const answers = [read("status-success"), success(figures)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
+  [
+    "status-chinook-spread with ten Cases in its figures read",
+    async (t) => {
+      const figures = keptObject("figures-chinook-spread");
+      const entry = figures.comparisons[0];
+      entry.paired_deltas = Array.from({ length: 10 }, (_, at) => ({ ...entry.paired_deltas[at % 4], case_id: `D${10 + at}` }));
+      const answers = [read("status-chinook-spread"), success(figures)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
   ["a read the CLI refuses", async (t) => ({ document: (await documentFor(t, NOT_FOUND)).document, answers: [NOT_FOUND] })],
   ...NO_ANSWERS.map(([cause, answer]): [string, (t: TestContext) => Promise<Built>] => [`a read with no answer (${cause})`, async (t) => ({ document: (await documentFor(t, answer)).document, answers: [answer] })]),
   [
@@ -82,6 +111,8 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       const { answer } = heldRecorder(t);
       await runCommand();
       answer(read("status-success"));
+      await settle();
+      answer(FIGURES_FAILED);
       await settle();
       panelOf().send({ message: RECORD, pending: 0, option: 0 });
       return { document: lastDocument(), answers: [read("status-success")] };

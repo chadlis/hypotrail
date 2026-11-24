@@ -4,7 +4,7 @@ Hypotrail runs small, explicit studies of machine-learning models and LLM agents
 
 ## Status
 
-Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (plan: chadlis/hypotrail#1). `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt, `import ml` and `import agent` adopt outputs produced elsewhere, `assess` scores them against References, `compare` writes a Comparison of two Assessments of either Track, `status` shows a Study's state and decision history, `recover` repairs it, `decide` records a decision, `deviation` a Declared deviation, `data verify` and `data fetch` check and acquire public data, and `report` renders one self-contained page for a Study. The handbook gives each capability in detail. A Study holds one frozen Protocol per revision, a freeze record, an Exposure journal for `public_check` and a write sequence.
+Early development. The first milestone runs two public Workloads end to end: a daily bike-rental regression and a tool-using agent on the Chinook SQLite database (chadlis/hypotrail#1). `init` creates a Study, `run ml` records a Bike Attempt, `run agent` records a Chinook Attempt, `import ml` and `import agent` adopt outputs produced elsewhere, `assess` scores them against References, `compare` writes a Comparison of two Assessments of either Track, `status` shows a Study's state and decision history, `recover` repairs it, `figures` summarizes paired deltas, `decide` records a decision, `deviation` a Declared deviation, `data verify` and `data fetch` check and acquire public data, and `report` renders one self-contained page. The handbook gives each capability in detail. A Study holds one frozen Protocol per revision, a freeze record, an Exposure journal for `public_check` and a write sequence.
 
 Acceptance is test by test in the [acceptance grid](docs/handbook/handbook.html#acceptance-grid) (T01–T24). `OFFLINE_ACCEPTED` reached. `LIVE_ACCEPTED` conditional: References E01–E10 reviewed by proxy, owner review pending. The 2026-11-21 Campaign (T20 holds) did not alternate its Configurations, against AG-12 of the L1 specification (`SPEC-LOT-1.md`, linked from chadlis/hypotrail#1; chapter 16). `USABILITY_REVIEW_PENDING` open: an agent walked the README path, no other reader has; it is not claimed usable by a third party until one has.
 
@@ -47,7 +47,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 
 ## Use the VS Code panel
 
-The VS Code client shows a Study's pending decisions with their evidence and records a Decision through the CLI. From a checkout:
+The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.

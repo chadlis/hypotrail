@@ -3,7 +3,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { barLength, scaleTop } from "../src/charts";
-import { KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
 
 type Entry = Record<string, any>;
 
@@ -47,9 +47,18 @@ test("the top of a scale is the largest value, or 1 when no value is above zero"
   assert.equal(scaleTop([]), 1);
 });
 
-for (const name of KEPT_READS) {
+// Each kept read alone, its figures call failed, then each kept read with its kept figures read, whose documents hold the figures.
+const SVG_DOCUMENTS: [string, (t: TestContext) => Promise<string>][] = [
+  ...KEPT_READS.map((name): [string, (t: TestContext) => Promise<string>] => [name, (t) => documentOf(t, keptObject(name))]),
+  ...Object.keys(KEPT_FIGURES).map((name): [string, (t: TestContext) => Promise<string>] => [
+    `${name} with ${KEPT_FIGURES[name]}`,
+    async (t) => (await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])))).document,
+  ]),
+];
+
+for (const [name, documentOfName] of SVG_DOCUMENTS) {
   test(`each svg holds rect elements only, carries aria-hidden and no xmlns, holds no text, and no tag holds a colour or style attribute: ${name}`, async (t) => {
-    const document = await documentOf(t, keptObject(name));
+    const document = await documentOfName(t);
     const svgs = elementsOf(document, "<svg ");
     for (const svg of svgs) {
       const { tags, between } = partsOf(svg);
@@ -60,7 +69,9 @@ for (const name of KEPT_READS) {
     }
     assert.deepEqual(partsOf(document).tags.filter((tag) => /\s(fill|stroke|color|style)=/.test(tag)), []);
   });
+}
 
+for (const name of KEPT_READS) {
   test(`each chart holds, for each bar, its name, one svg and one link or the word of no_value: ${name}`, async (t) => {
     const object = keptObject(name);
     const document = await documentOf(t, object);

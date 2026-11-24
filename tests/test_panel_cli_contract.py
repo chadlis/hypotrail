@@ -221,3 +221,28 @@ def test_the_dated_lines_hold_one_line_that_quotes_the_client_writes_sentence_of
     for command in ("assess", "compare", "recover", "init", "report"):
         assert command in leaves and "--request-id" not in leaves[command], command
     assert leaves["decide"].get("--request-id") is True and leaves["decide"].get("--read-sequence") is True
+
+
+# --- the dated line of the `figures` read ----------------------------------------------------------------------------------------
+
+FIGURES_COMMAND_SENTENCE = "The CLI gains one leaf command, `figures`, taking `--study=DIR` and `--json`, for the whole Study."
+FIGURES_READ_SENTENCE = (
+    "The read takes no lock, writes nothing, records no Exposure and does not advance the Write sequence, and it answers while another"
+    " writer holds the Study's lock."
+)
+READ_THROUGH_STATUS_SENTENCE = (
+    "A client reads through `status --json`, which takes no lock and writes nothing, and writes only through the documented CLI commands."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_figures_read_that_quotes_its_ticket_overrides_the_read_line_says_why_and_names_lines_1_and_15():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#187" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert FIGURES_COMMAND_SENTENCE in line and FIGURES_READ_SENTENCE in line
+    assert f"the earlier line it overrides: \"{READ_THROUGH_STATUS_SENTENCE}\"" in line
+    outside = line.replace(READ_THROUGH_STATUS_SENTENCE, "").replace(FIGURES_READ_SENTENCE, "")
+    assert [s for s in re.split(r"(?<=[.:;])\s+", outside) if "takes no lock and writes nothing" in s], outside  # the reason, in a sentence of its own
+    assert "line 1" in line and "line 15" in line

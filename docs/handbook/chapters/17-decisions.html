@@ -213,6 +213,57 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <tr data-code="CONTRACT_VIOLATION" data-exit="3" data-stage="contract" data-details="kind message path"><td><code>CONTRACT_VIOLATION</code></td><td>A Declared deviation file that does not match the contract schema when it is read</td><td>3</td><td><code>contract</code></td><td><code>kind</code>, <code>path</code>, <code>message</code></td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="figures-read">The figures read</p>
+<div class="prose">
+<p><code>figures</code> reads a whole Study and gives, for each of its Comparisons, the lines of the Comparison's paired-deltas file and two summaries computed from its paired deltas: the bins of a histogram and the five numbers of a box. It is a read, as <code>status</code> is: it writes nothing and holds no lock; it probes whether a writer holds the lock (<code>lock.is_held</code>) with a non-blocking shared lock taken and dropped at once, so a writer starting at that instant is refused. It records no Exposure and leaves the Write sequence where it was, so it answers while a writer holds the Study. The numbers are computed each time the Study is read and never stored: no record of the Study holds them, and no record changes.</p>
+<p>With <code>--json</code>, stdout holds one object whose key paths are those of the table below, in the form a client lists them (<code>[]</code> for an element of a list). It holds one entry per Comparison, whatever its Track, in the order of the Comparisons of <code>status --json</code>. On the Regression Track a line stands for an Item, on the Agent Track for a Case; no Episode value is read. A line keeps the file's own column names, with each value as a number, and every number printed is finite. A later version may add keys to the object, or to an entry, so a client should ignore a key it does not know rather than refuse the object. Without <code>--json</code>, the read prints one line per Comparison: its id, its count of pairs and its five numbers, or the reason it has none.</p>
+<p>The read refuses the Study where <code>status</code> refuses it, with the same code, before it reads any Comparison. A Comparison whose figures cannot be given does not refuse the read: its entry holds the first reason of the table below that applies, its three figure keys are null, and the other entries are given in full. The file of a Comparison whose main delta is withheld is not opened. A Comparison of an earlier Study revision is given as it was recorded, from its own file. The read recomputes no delta: the main delta of a Comparison stays the one <code>status --json</code> lists.</p>
+<p>A module of the core computes the numbers, with the standard library only, for both Tracks: the paired delta of a line is the file's last column. The table of definitions gives each rule beside the name of the function of that module that applies it.</p>
+</div>
+<pre class="code"><span class="cm"># the figures of every Comparison of the Study, read only</span>
+uv run python -m hypotrail figures --study runs/bike --json</pre>
+<div class="tblwrap"><table class="tbl" id="figures-key-paths"><thead><tr><th>Key path</th><th>Value</th></tr></thead><tbody>
+<tr data-path="ok"><td><code>ok</code></td><td>True: the read answered.</td></tr>
+<tr data-path="write_sequence"><td><code>write_sequence</code></td><td>The Study's Write sequence, as <code>status --json</code> shows it.</td></tr>
+<tr data-path="comparisons[].comparison_id"><td><code>comparisons[].comparison_id</code></td><td>The id of the Comparison the entry stands for.</td></tr>
+<tr data-path="comparisons[].unavailable"><td><code>comparisons[].unavailable</code></td><td>Null, or the reason the entry holds no figures (the reasons table).</td></tr>
+<tr data-path="comparisons[].paired_deltas[].row_id"><td><code>comparisons[].paired_deltas[].row_id</code></td><td>Regression Track: the Item of the line, as the file holds it.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].control_abs_error"><td><code>comparisons[].paired_deltas[].control_abs_error</code></td><td>Regression Track: the Control's absolute error on the Item.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].candidate_abs_error"><td><code>comparisons[].paired_deltas[].candidate_abs_error</code></td><td>Regression Track: the Candidate's absolute error on the Item.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].delta_abs_error"><td><code>comparisons[].paired_deltas[].delta_abs_error</code></td><td>Regression Track: the paired delta of the Item, as the Comparison recorded it.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].case_id"><td><code>comparisons[].paired_deltas[].case_id</code></td><td>Agent Track: the Case of the line, as the file holds it.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].repeats"><td><code>comparisons[].paired_deltas[].repeats</code></td><td>Agent Track: the Repeats of the Case, an integer when the cell is a whole number.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].control_share"><td><code>comparisons[].paired_deltas[].control_share</code></td><td>Agent Track: the Control's share of Repeats scored true on the Case.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].candidate_share"><td><code>comparisons[].paired_deltas[].candidate_share</code></td><td>Agent Track: the Candidate's share of Repeats scored true on the Case.</td></tr>
+<tr data-path="comparisons[].paired_deltas[].delta_share"><td><code>comparisons[].paired_deltas[].delta_share</code></td><td>Agent Track: the paired delta of the Case, as the Comparison recorded it.</td></tr>
+<tr data-path="comparisons[].histogram[].low"><td><code>comparisons[].histogram[].low</code></td><td>The low edge of a bin; the bins are in ascending order.</td></tr>
+<tr data-path="comparisons[].histogram[].high"><td><code>comparisons[].histogram[].high</code></td><td>The high edge of a bin.</td></tr>
+<tr data-path="comparisons[].histogram[].count"><td><code>comparisons[].histogram[].count</code></td><td>The number of paired deltas the bin holds, counted against the edges as printed.</td></tr>
+<tr data-path="comparisons[].quartiles.min"><td><code>comparisons[].quartiles.min</code></td><td>The smallest paired delta.</td></tr>
+<tr data-path="comparisons[].quartiles.q1"><td><code>comparisons[].quartiles.q1</code></td><td>The first quartile of the paired deltas.</td></tr>
+<tr data-path="comparisons[].quartiles.median"><td><code>comparisons[].quartiles.median</code></td><td>The median of the paired deltas.</td></tr>
+<tr data-path="comparisons[].quartiles.q3"><td><code>comparisons[].quartiles.q3</code></td><td>The third quartile of the paired deltas.</td></tr>
+<tr data-path="comparisons[].quartiles.max"><td><code>comparisons[].quartiles.max</code></td><td>The largest paired delta.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="figures-reasons"><thead><tr><th>Reason, in the order they are looked for</th><th>When</th></tr></thead><tbody>
+<tr data-reason="delta_withheld"><td><code>delta_withheld</code></td><td>The Comparison record's main delta has a null value; its file is not opened.</td></tr>
+<tr data-reason="artifact_missing"><td><code>artifact_missing</code></td><td>The recorded paired-deltas file is absent.</td></tr>
+<tr data-reason="artifact_integrity"><td><code>artifact_integrity</code></td><td>The file's bytes do not match the digest or the size the record holds for it.</td></tr>
+<tr data-reason="artifact_malformed"><td><code>artifact_malformed</code></td><td>Its header is not its Track's columns, a line has another number of cells than the header, a value cell is not parsed by Python's <code>float()</code>, or it has no line of data. An id cell is not parsed: an empty id, or one given twice, is carried as recorded.</td></tr>
+<tr data-reason="value_not_finite"><td><code>value_not_finite</code></td><td>A value cell parses to an infinity or a NaN, or a computed number (a quartile, a bin edge or the bin width) is not finite, as when finite paired deltas have a range that overflows.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="figures-definitions"><thead><tr><th>Rule</th><th>Function of the module</th><th>Definition, over the n paired deltas of an entry</th></tr></thead><tbody>
+<tr data-rule="quantile_position" data-expression="(n − 1) × p, over the values sorted in ascending order and numbered from 0"><td>The position of a quantile</td><td><code>quantile_position</code></td><td>(n − 1) × p, over the values sorted in ascending order and numbered from 0</td></tr>
+<tr data-rule="quantile_value" data-expression="a × (1 − t) + b × t, where a and b are the values at the two positions around the quantile position and t its fractional part"><td>The value of a quantile</td><td><code>quantile_value</code></td><td>a × (1 − t) + b × t, where a and b are the values at the two positions around the quantile position and t its fractional part</td></tr>
+<tr data-rule="bin_count" data-expression="ceil(log2 n) + 1"><td>The number of bins (Sturges), uncapped</td><td><code>bin_count</code></td><td>ceil(log2 n) + 1</td></tr>
+<tr data-rule="bin_edge" data-expression="minimum + k × ((maximum − minimum) / bins) for 0 &lt; k &lt; bins; the minimum for k = 0 and the maximum for k = bins"><td>The edge k of the bins, equal-width</td><td><code>bin_edge</code></td><td>minimum + k × ((maximum − minimum) / bins) for 0 &lt; k &lt; bins; the minimum for k = 0 and the maximum for k = bins</td></tr>
+<tr data-rule="bin_of" data-expression="the bin whose low ≤ v &lt; high, the last bin also holding its high"><td>The bin of a value v</td><td><code>bin_of</code></td><td>the bin whose low ≤ v &lt; high, the last bin also holding its high</td></tr>
+<tr data-quartile="q1" data-p="0.25"><td>The first quartile</td><td><code>QUARTILES</code></td><td>p = 0.25</td></tr>
+<tr data-quartile="median" data-p="0.5"><td>The median</td><td><code>QUARTILES</code></td><td>p = 0.5</td></tr>
+<tr data-quartile="q3" data-p="0.75"><td>The third quartile</td><td><code>QUARTILES</code></td><td>p = 0.75</td></tr>
+</tbody></table></div>
+<p class="prose">When the paired deltas are one value, or all equal, the five numbers are that value and there is one bin whose low and high are that value, holding them all.</p>
+
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>Read at view time, never stored</h3><p>Whether a Decision still applies is computed each time <code>status</code> reads the Study. No record is written when it changes. The panel shows it for each Decision, as <code>status --json</code> gives it (<a href="#vscode-client">chapter 18</a>); the Workloads do not show an outdated Decision yet.</p></div>
@@ -231,6 +282,6 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <div class="tblwrap"><table class="tbl" id="adr-map-decisions"><thead><tr><th>ADR</th><th>What it explains here</th></tr></thead><tbody>
 <tr><td><a href="../adr/0001-core-independent-of-inspect.md">0001</a></td><td>Why the Decision record and its command are in the core, which imports neither Inspect nor a Track.</td></tr>
 <tr><td><a href="../adr/0003-two-html-books.md">0003</a></td><td>Why this chapter describes current behaviour and is updated in the pull request that changes it.</td></tr>
-<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> and <code>deviation</code> require <code>--read-sequence</code> and <code>--request-id</code>, and why whether a Decision still applies, or a Declared deviation is withdrawn, is computed when the Study is read.</td></tr>
+<tr><td><a href="../adr/0004-panel-cli-contract.md">0004</a></td><td>Why the Study is the only decision authority, why <code>decide</code> and <code>deviation</code> require <code>--read-sequence</code> and <code>--request-id</code>, why whether a Decision still applies, or a Declared deviation is withdrawn, is computed when the Study is read, and why a client also reads through <code>figures</code>.</td></tr>
 </tbody></table></div>
-<p class="prose">The tests are <code>tests/test_decide.py</code> and <code>tests/test_declared_deviation.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>
+<p class="prose">The tests are <code>tests/test_decide.py</code>, <code>tests/test_declared_deviation.py</code> and <code>tests/test_figures.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>

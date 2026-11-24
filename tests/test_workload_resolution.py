@@ -277,4 +277,4 @@ def test_every_command_the_parser_defines_either_takes_the_flag_or_reads_no_work
 
     walk(cli.build_parser(), [])
     # the commands that read no Workload: a new command is in the list above or here, or this test fails
-    assert leaves - _parsers_taking_the_flag() == {"status", "recover", "data fetch", "decide", "deviation"}  # `decide` and `deviation` record ids and text and read no Workload; `data fetch` is given its lock and its destination, and finds no Workload (#22)
+    assert leaves - _parsers_taking_the_flag() == {"status", "figures", "recover", "data fetch", "decide", "deviation"}  # `decide` and `deviation` record ids and text and read no Workload; `figures` reads what `status` reads and the Comparisons' `paired_deltas.csv`; `data fetch` is given its lock and its destination, and finds no Workload (#22)

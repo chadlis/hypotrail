@@ -16,6 +16,7 @@ import {
   settle,
   success,
   workspace,
+  withFigures,
 } from "./panel-harness";
 import { recorder } from "./recorder";
 import * as stub from "./vscode-stub";
@@ -92,7 +93,7 @@ test("a Decision on screen comes from the read alone: after the panel is closed 
   const decided = keptObject("status-decided");
   decided.decisions[0].decision_id = PLANTED_ID;
   const [study] = workspace(t, ["bike"]);
-  recorder(t, success(decided), success(keptObject("status-success")));
+  recorder(t, ...withFigures(success(decided), success(keptObject("status-success"))));
   await runCommand();
   await settle();
   assert.ok(lastDocument().includes(PLANTED_ID));
@@ -107,7 +108,7 @@ test("a Decision on screen comes from the read alone: the panel, never closed, o
   const decided = keptObject("status-decided");
   decided.decisions[0].decision_id = PLANTED_ID;
   const [first, second] = workspace(t, ["a", "b"]);
-  recorder(t, success(keptObject("status-success")), success(decided), success(keptObject("status-success")));
+  recorder(t, ...withFigures(success(keptObject("status-success")), success(decided), success(keptObject("status-success"))));
   await followLink(0, first);
   await settle();
   assert.ok(!lastDocument().includes(PLANTED_ID), "no Decision before the read that holds it");

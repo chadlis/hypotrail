@@ -1,14 +1,15 @@
 // The one webview panel of the extension. It holds in memory only, for as long as it is open, the target it was
 // opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
-// call is answered, and whether a call is in flight. It reads the Study through the bridge when it is opened, after
-// each write the CLI answered and on the control "Read again", and at no other time; it writes only through
-// `recordDecision`, on the control that records and on "Send again".
+// call is answered, whether a call is in flight, and the last figures read. It reads the Study through the bridge when it
+// is opened, after each write the CLI answered and on the control "Read again", and at no other time, each status read
+// that succeeds followed by the figures call; it writes only through `recordDecision`, on the control that records and on
+// "Send again".
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, type View } from "./content";
+import { checkoutRoot, newRequestId, readFigures, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
+import { bodyOf, usableFigures, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
@@ -24,6 +25,7 @@ let target: Target | undefined;
 let held: Record<string, unknown> | undefined;
 let unanswered: DecisionInput | undefined;
 let inFlight = false;
+let figures: Record<string, unknown> | undefined;
 
 export function openPanel(next: Target): void {
   if (panel && (inFlight || unanswered)) {
@@ -32,6 +34,7 @@ export function openPanel(next: Target): void {
   }
   target = next;
   held = undefined;
+  figures = undefined;
   if (panel) {
     panel.reveal();
   } else {
@@ -41,6 +44,7 @@ export function openPanel(next: Target): void {
       panel = undefined;
       target = undefined;
       held = undefined;
+      figures = undefined;
       unanswered = undefined;
       inFlight = false;
     });
@@ -85,30 +89,35 @@ function record(message: Message): void {
 async function write(input: DecisionInput): Promise<void> {
   const opened = panel!;
   inFlight = true;
-  show({ reading: false, writing: true, object: held, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
+  show({ reading: false, writing: true, object: held, figures, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
   const outcome = await recordDecision(ROOT, target!.study, input);
   if (panel !== opened) return;
   inFlight = false;
   unanswered = outcome.outcome === "no_answer" ? input : undefined;
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
-    show({ reading: false, object: held, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
+    show({ reading: false, object: held, figures, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
 }
 
-// `written` is the answer of the write this read follows, if any.
+// `written` is the answer of the write this read follows, if any. The panel stays in flight, with no new document, until the
+// figures call that follows a successful status read has answered; only a figures read usable beside that status read is kept.
 async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: true, object: held, figures, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   const outcome = await readStudy(ROOT, study);
   if (panel !== opened) return;
+  const object = outcome.outcome === "success" ? outcome.object : undefined;
+  const answer = object === undefined ? undefined : await readFigures(ROOT, study);
+  if (panel !== opened) return;
   inFlight = false;
-  held = outcome.outcome === "success" ? outcome.object : undefined;
+  held = object;
+  figures = answer?.outcome === "success" ? usableFigures(object, answer.object) : undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
-  show({ reading: false, object: held, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: false, object: held, figures, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {
@@ -179,12 +188,12 @@ const STYLE = [
   "button:disabled { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); border-style: dashed; cursor: default; }",
   ":focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }",
   'input[type="radio"] { accent-color: var(--vscode-button-background); margin: 0.2em 0 0; }',
-  '[data-element="notice"], [data-element="failure"] { margin: 0.3em 0; padding: 0.3em 0.6em; border-left: 3px solid var(--vscode-focusBorder); background: var(--vscode-textBlockQuote-background); }',
-  '[data-element="failure"] { border-left-color: var(--vscode-inputValidation-errorBorder); }',
+  '[data-element="notice"], [data-element="failure"], [data-element="figures-failed"], [data-element="figures-unavailable"] { margin: 0.3em 0; padding: 0.3em 0.6em; border-left: 3px solid var(--vscode-focusBorder); background: var(--vscode-textBlockQuote-background); }',
+  '[data-element="failure"], [data-element="figures-failed"] { border-left-color: var(--vscode-inputValidation-errorBorder); }',
   '[data-element="unknown"] { font-weight: 600; }',
   '[data-element="unknown"]::first-letter { text-transform: uppercase; }',
   '[data-element="controls"] { display: flex; gap: 0.4em; margin: 0.4em 0; }',
-  'div[data-part="comparison"] > p:first-child, div[data-summary="comparison"] > p:first-child, [data-element="coverage"], [data-element="definition"], [data-element="limits"] { font-size: 0.9em; color: var(--vscode-descriptionForeground); }',
+  'div[data-part="comparison"] > p:first-child, div[data-summary="comparison"] > p:first-child, [data-element="coverage"], [data-element="definition"], [data-element="caption"], [data-element="limits"] { font-size: 0.9em; color: var(--vscode-descriptionForeground); }',
   '[data-element="controls"] a { align-self: center; }',
   '[data-element="count"] { margin: 0 0 0.2em; font-size: 0.85em; line-height: 1.2; color: var(--vscode-descriptionForeground); }',
   '[data-element="delta"] a[data-kind="delta"] { font-size: 1.25em; font-weight: 600; }',
@@ -212,6 +221,47 @@ const STYLE = [
   "rect.rest { fill: transparent; stroke: var(--vscode-charts-lines); stroke-dasharray: 2 2; }",
   "rect.cited { fill: var(--vscode-charts-lines); }",
   "rect.latest { fill: var(--vscode-charts-foreground); }",
+  "[data-figures] { margin: 0.6em 0 0.9em; }",
+  "[data-figure] svg { display: block; width: 100%; }",
+  '[data-figure="dots"] { margin-bottom: 0.5em; }',
+  // Only the dots that stand after the choices, from ten pairs, run on in columns; under ten they stand among the figures, under their scale.
+  ':not([data-figures]) > [data-figure="dots"] { column-width: 18em; column-gap: 1.5em; }',
+  '[data-figure="dots"] > h4, [data-element="dot-key"], [data-element="dot-order"] { column-span: all; }',
+  '[data-figure="histogram"] svg { height: 4.5em; border-bottom: 1px solid var(--vscode-charts-lines); }',
+  '[data-figure="box"] svg { height: 1.9em; margin-top: 0.3em; }',
+  '[data-element="counts"] { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.8em; line-height: 1.3; }',
+  '[data-element="counts"] td { padding: 0.1em 0 0; text-align: center; overflow: hidden; }',
+  '[data-element="counts"] caption { caption-side: top; text-align: left; color: var(--vscode-descriptionForeground); }',
+  '[data-element="axis"] { display: flex; justify-content: space-between; gap: 0.5em; font-size: 0.85em; margin: 0.1em 0 0; }',
+  '[data-element="axis"] > span { color: var(--vscode-descriptionForeground); }',
+  '[data-element="axis"] a:only-child { margin: 0 auto; }',
+  '[data-element="quartiles"] { display: flex; flex-wrap: wrap; gap: 0.1em 0.7em; font-size: 0.82em; }',
+  "[data-key]::before { content: \"\"; display: inline-block; width: 0.25em; height: 0.9em; margin-right: 0.3em; vertical-align: -0.1em; }",
+  '[data-key="median"]::before { background: var(--vscode-foreground); }',
+  '[data-key="delta"]::before { width: 0.4em; height: 1.2em; vertical-align: -0.25em; background: var(--vscode-charts-green); }',
+  '[data-key="zero"]::before { width: 0.15em; height: 1.2em; vertical-align: -0.25em; background: var(--vscode-charts-lines); }',
+  "rect.column { fill: var(--vscode-charts-purple); }",
+  "rect.whisker { fill: var(--vscode-charts-purple); }",
+  "rect.cap { fill: var(--vscode-charts-purple); }",
+  "rect.box { fill: var(--vscode-charts-purple); fill-opacity: 0.35; stroke: var(--vscode-charts-purple); }",
+  "rect.median { fill: var(--vscode-foreground); }",
+  "rect.delta { fill: var(--vscode-charts-green); }",
+  "rect.zero { fill: var(--vscode-charts-lines); }",
+  "rect.whisker, rect.cap, rect.median, rect.delta, rect.zero { stroke: none; }",
+  '[data-element="dots"] { display: grid; grid-template-columns: fit-content(9.5em) minmax(3em, 1fr); align-items: center; gap: 0.1em 0.5em; }',
+  "[data-dot] { display: contents; }",
+  "[data-dot] > span { font-size: 0.8em; line-height: 1.2; overflow-wrap: anywhere; color: var(--vscode-descriptionForeground); }",
+  "[data-dot] svg { height: 0.8em; background: var(--vscode-editorWidget-background); }",
+  "[data-dot] rect { stroke: none; }",
+  "rect.between { fill: var(--vscode-charts-lines); }",
+  "rect.favours-control { fill: var(--vscode-charts-blue); }",
+  "rect.favours-candidate { fill: var(--vscode-charts-orange); }",
+  '[data-element="dot-ends"] { grid-column: 2; display: flex; justify-content: space-between; font-size: 0.85em; margin: 0 0 0.1em; }',
+  '[data-element="dot-ends"] a:only-child { margin: 0 auto; }',
+  '[data-element="dot-key"] { display: flex; gap: 1em; font-size: 0.9em; }',
+  '[data-element="dot-order"] { font-size: 0.85em; color: var(--vscode-descriptionForeground); }',
+  '[data-key="control"]::before { background: var(--vscode-charts-blue); }',
+  '[data-key="candidate"]::before { width: 0.35em; height: 0.45em; vertical-align: 0.1em; background: var(--vscode-charts-orange); }',
   'section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--vscode-panel-border); }',
   "section[data-linked], section[data-recorded] { border-left-color: var(--vscode-focusBorder); }",
   "[data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--vscode-badge-foreground); background: var(--vscode-badge-background); }",
