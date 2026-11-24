@@ -40,3 +40,25 @@ def test_the_skill_states_its_word_ceiling_in_step_10_and_stays_at_or_under_it()
     stated = re.search(r"keeps `SKILL.md` at or under ([\d,]+) words \(`LC_ALL=C wc -w`\)", row)
     assert stated and int(stated.group(1).replace(",", "")) == WORD_CEILING
     assert c_locale_word_count(SKILL) <= WORD_CEILING
+
+
+RENDER = (ROOT / ".claude/skills/verify-panel/render.js").read_text()
+HARNESS = (ROOT / "clients/vscode/test/panel-harness.ts").read_text()
+
+
+def test_verify_panel_draws_each_kept_read_of_the_harness_with_its_kept_figures_and_answers_no_kept_read_without_its_figures():
+    """D-115 on chadlis/hypotrail#75: "each read's kept figures answer queued". The reads come from the harness's list, and a kept
+    status read is answered through `keptRead` or `answerRead`, which queue its figures answer after it, or with a failed
+    figures answer written beside it; any other literal `keptAnswer("status-…")` is a read that fails, after which the panel
+    makes no figures call."""
+    kept_reads = set(re.findall(r'"(status-[\w-]+)"', HARNESS.split("export const KEPT_READS", 1)[1].split("];", 1)[0]))
+    assert "for (const name of H.KEPT_READS)" in RENDER and "H.documentFor(t, ...keptRead(name))" in RENDER
+    assert "const figuresAnswer = (name) => (H.KEPT_FIGURES[name] ? keptAnswer(H.KEPT_FIGURES[name]) : H.FIGURES_FAILED);" in RENDER
+    assert set(re.findall(r'keptAnswer\("(status-[\w-]+)"\)(?!, H\.FIGURES_FAILED)', RENDER)) & kept_reads == set()
+
+
+def test_verify_panel_defines_in_each_of_its_four_themes_every_chart_colour_the_client_uses():
+    used = {name for path in (ROOT / "clients/vscode/src").glob("*.ts") for name in re.findall(r"--vscode-(charts-[\w-]+)", path.read_text())}
+    themes = re.findall(r'\n  (\w+): \{ kind: "[^"]*", v: \{(.*?)\} \},', RENDER.split("const THEMES = {", 1)[1].split("\n};", 1)[0] + ",", re.DOTALL)
+    assert [name for name, _ in themes] == ["light", "dark", "hc", "hcl"] and {"charts-green", "charts-purple"} <= used
+    assert {name: sorted(used - set(re.findall(r'"([\w-]+)":', block))) for name, block in themes} == {name: [] for name, _ in themes}
