@@ -272,7 +272,7 @@ function deltaChartOf(delta: Entry, index: number, roles: unknown[], shown: Show
     { ...control, name: label("control"), kind: "control" },
     { ...candidate, name: label("candidate"), kind: "candidate" },
   ];
-  return ['<div data-chart="delta">', bars(values), `<p>${label("delta")} ${link("delta", index, delta.value)}</p>`, "</div>"].join("\n");
+  return ['<div data-chart="delta">', bars(values), "</div>"].join("\n");
 }
 
 // Chart 2: the coverage, one bar per role, its scored part over the expected whole; without those keys, no chart.

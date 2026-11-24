@@ -85,7 +85,7 @@ test("the script of the document builds and changes no chart", async (t) => {
   for (const name of ["svg", "rect", "createElement", "setAttribute"]) assert.ok(!script.includes(name), name);
 });
 
-// Chart 1: Control against Candidate, for the Metric the delta names, with the delta's value.
+// Chart 1: Control against Candidate, for the Metric the delta names; the delta's value stands in the delta's element above it.
 const chartOne = (part: string): string | undefined => elementOf(part, '<div data-chart="delta">');
 const pendingParts = (document: string): string[] => elementsOf(document, '<section data-part="pending">');
 
@@ -93,13 +93,13 @@ for (const [name, values] of [
   ["status-success", (object: Entry) => [object.assessments[0].metrics[0].value, object.assessments[1].metrics[0].value]],
   ["status-chinook-pending", (object: Entry) => [object.comparisons[0].delta.control, object.comparisons[0].delta.candidate]],
 ] as const) {
-  test(`chart 1 shows two bars, named Control and Candidate, with their values and the delta's: ${name}`, async (t) => {
+  test(`chart 1 shows two bars, named Control and Candidate, with their values and nothing else: ${name}`, async (t) => {
     const object = keptObject(name);
     const chart = chartOne(pendingParts(await documentOf(t, object))[0])!;
     assert.ok(chart, "chart 1");
     assert.equal(rectsOf(chart).length, 2);
     const [control, candidate] = values(object);
-    assert.match(words(chart), new RegExp(`^Control ${written(control)} Candidate ${written(candidate)} Delta ${written(object.comparisons[0].delta.value).replace(".", "\\.")}$`));
+    assert.equal(words(chart), `Control ${written(control)} Candidate ${written(candidate)}`);
   });
 
   test(`chart 1 gives the larger bar to the larger value once the Control's value is doubled in the test: ${name}`, async (t) => {
