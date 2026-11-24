@@ -111,6 +111,14 @@ for (const name of KEPT_READS) {
   });
 }
 
+// The kept reads with their kept figures read, whose documents hold the figures and their numbers.
+for (const name of Object.keys(KEPT_FIGURES)) {
+  test(`every number is in a link to the part of its record, each link names one element, and each id is the read's: ${name} with ${KEPT_FIGURES[name]}`, async (t) => {
+    const object = keptObject(name);
+    assertLinksAndIds((await documentFor(t, success(object), success(keptObject(KEPT_FIGURES[name])))).document, object, name);
+  });
+}
+
 test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once and its summary in the Decision, each id once, and the same links", async (t) => {
   const object = keptObject("status-decided");
   const comparison = object.comparisons[0];
@@ -172,9 +180,27 @@ const IN_A_COMPARISON: Record<string, [string, (object: Entry) => [number, strin
   limitations: ["status-success", (o) => [o.comparisons[0].limitations.length, o.comparisons[0].comparison_id]],
 };
 
+// For each pair whose number a figure prints, one number of that kind of a kept figures read, and the id of the Comparison of its entry.
+const IN_A_FIGURE: Record<string, [string, (figures: Entry) => [number, string]]> = {
+  bin_count: ["status-success", (f) => [f.comparisons[0].histogram[2].count, f.comparisons[0].comparison_id]],
+  bin_edge: ["status-success", (f) => [f.comparisons[0].histogram[0].low, f.comparisons[0].comparison_id]],
+  quartile: ["status-success", (f) => [f.comparisons[0].quartiles.median, f.comparisons[0].comparison_id]],
+};
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE)].sort());
 });
+
+for (const [kind, [name, instance]] of Object.entries(IN_A_FIGURE)) {
+  test(`a number of the kind ${kind} links to the part of the Comparison its figure is drawn for: ${name} with ${KEPT_FIGURES[name]}`, async (t) => {
+    const figures = keptObject(KEPT_FIGURES[name]);
+    const [number, id] = instance(figures);
+    const { document } = await documentFor(t, success(keptObject(name)), success(figures));
+    const links = linksOf(document).filter((link) => link.kind === kind && link.text === written(number));
+    assert.ok(links.length > 0, `a link of ${kind} holding ${written(number)}`);
+    for (const link of links) assert.ok(partKind(link.target) === "comparison" && firstId(link.target) === id, `${kind} ${written(number)} in the part of ${id}`);
+  });
+}
 
 for (const [kind, [name, instance]] of Object.entries(IN_A_COMPARISON)) {
   test(`a number of the kind ${kind} links to its list in the part of its Comparison: ${name}`, async (t) => {

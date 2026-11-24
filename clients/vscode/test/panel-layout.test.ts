@@ -7,7 +7,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
-import { KEPT_READS, documentFor, keptObject, success } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, documentFor, keptObject, success } from "./panel-harness";
 
 const HEIGHT = 900;
 const BOUND = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.split("=")[0], Number(entry.split("=")[1])]));
@@ -42,7 +42,9 @@ const guarded = (t: TestContext): boolean => hasChrome(t, "the guard of how far 
 test("at the width of guard_bounds, the first question and the first evidence number of status-success are within their bounds of the top", { timeout: 60000 }, async (t) => {
   if (!guarded(t)) return;
   const object = keptObject("status-success");
-  const { document } = await documentFor(t, success(object));
+  // The figures read answered after the status read, so that the figures stand in the document measured.
+  const { document } = await documentFor(t, success(object), success(keptObject(KEPT_FIGURES["status-success"])));
+  assert.ok(document.includes("data-figures"), "the document holds the figures");
   const at = await measured(t, document, evidenceOf(object));
   if (at === undefined) return;
   assert.notEqual(at.question, null, "the first question is found");

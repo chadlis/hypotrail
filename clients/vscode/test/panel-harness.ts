@@ -107,10 +107,11 @@ export function withFigures(...answers: Answer[]): Answer[] {
   return answers.flatMap((answer) => (status(answer) ? [answer, FIGURES_FAILED] : [answer]));
 }
 
-// The document the panel shows once the command opened it on one Study and the read was answered with `answer`.
-export async function documentFor(t: TestContext, answer: Answer): Promise<{ document: string; calls: RecordedCall[] }> {
+// The document the panel shows once the command opened it on one Study and its calls were answered with `answers` in turn: the
+// status read, then the figures call, which takes the last answer again when it is the only one.
+export async function documentFor(t: TestContext, ...answers: Answer[]): Promise<{ document: string; calls: RecordedCall[] }> {
   workspace(t, ["bike"]);
-  const calls = recorder(t, answer);
+  const calls = recorder(t, ...answers);
   await runCommand();
   await settle();
   return { document: lastDocument(), calls };

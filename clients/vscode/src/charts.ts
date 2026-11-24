@@ -1,6 +1,7 @@
-// The panel's charts, built by the extension as text of the document: each bar is a name, a track drawn as one `svg` of `rect`
-// elements, and its value as text. A bar's length is the one number the client computes from the read's numbers; it stands only
-// in the geometry attributes of a `rect`, and a `rect` takes its colour from its class.
+// The panel's charts and figures, built by the extension as text of the document: each bar is a name, a track drawn as one `svg`
+// of `rect` elements, and its value as text; a figure is an `svg` of `rect` elements beside the numbers it is drawn from. A bar's
+// length and a mark's place are the only numbers the client computes from the read's numbers; they stand only in the geometry
+// attributes of a `rect`, and a `rect` takes its colour from its class.
 
 // One bar: its name, already escaped, its value as the document writes it (a link, or the word of a null value), its value as a
 // number, null when no track is drawn, and the class its `rect` takes its colour from.
@@ -45,4 +46,55 @@ export function bars(list: Bar[]): string {
 export function partBar(name: string, kind: string, part: number, whole: number, shown: string): string {
   const length = barLength(part, whole > 0 ? whole : 1);
   return row(name, track([kind, "rest"], [length, 100 - length]), shown);
+}
+
+// Ported from hypotrail/hypotrail@4ef4925, clients/vscode-companion/media/components/histogram.js:16-21.
+export function histogramTop(largest: number): number {
+  if (largest <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(largest));
+  for (const step of [1, 2, 2.5, 5, 10]) if (step * power >= largest) return step * power;
+  return 10 * power;
+}
+
+// Ported from hypotrail/hypotrail@4ef4925, clients/vscode-companion/media/components/boxplot.js:39-41.
+// The companion widens a zero range by 1, which leaves it zero near 1e308; here a zero range puts every number at the middle.
+export function axisPosition(value: number, min: number, max: number): number {
+  const range = max - min;
+  if (!(range > 0) || !Number.isFinite(range)) return 50;
+  return Math.max(0, Math.min(100, ((value - min) / range) * 100));
+}
+
+const rect = (kind: string, x: number, y: number, width: number, height: number): string =>
+  `<rect class="${kind}" x="${decimal(x)}" y="${decimal(y)}" width="${decimal(width)}" height="${decimal(height)}"></rect>`;
+
+// A histogram: one column per bin, in the bins' order across the width, each as tall as its count over the axis top.
+export function histogram(counts: number[]): string {
+  const top = histogramTop(Math.max(0, ...counts));
+  const step = 100 / counts.length;
+  const gap = step * 0.12;
+  const columns = counts.map((count, at) => rect("column", at * step + gap / 2, 100 - barLength(count, top), step - gap, barLength(count, top)));
+  return `<svg viewbox="0 0 100 100" preserveaspectratio="none" aria-hidden="true">${columns.join("")}</svg>`;
+}
+
+// The five numbers of a box plot, in their order.
+export type Five = [min: number, q1: number, median: number, q3: number, max: number];
+
+// A box plot on one axis from the minimum to the maximum: a whisker from the minimum to the first quartile and one from the third
+// quartile to the maximum, each ended by a cap, the box between the quartiles, the median across it, and the delta's mark when
+// there is a delta, which runs past the box above and below it. A mark narrower than the track stays inside it.
+export function boxPlot([min, q1, median, q3, max]: Five, delta: number | null): string {
+  const at = (value: number): number => axisPosition(value, min, max);
+  const across = (kind: string, from: number, to: number, y: number, height: number): string => rect(kind, at(from), y, at(to) - at(from), height);
+  const mark = (kind: string, value: number, width: number, y: number, height: number): string =>
+    rect(kind, Math.max(0, Math.min(100 - width, at(value) - width / 2)), y, width, height);
+  const marks = [
+    across("whisker", min, q1, 6.5, 1),
+    across("whisker", q3, max, 6.5, 1),
+    mark("cap", min, 0.5, 4.5, 5),
+    mark("cap", max, 0.5, 4.5, 5),
+    across("box", q1, q3, 3, 8),
+    mark("median", median, 0.6, 3, 8),
+    delta === null ? "" : mark("delta", delta, 0.8, 0, 14),
+  ];
+  return `<svg viewbox="0 0 100 14" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg>`;
 }

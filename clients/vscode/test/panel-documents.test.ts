@@ -7,6 +7,7 @@ import contract from "../contract.json";
 import { written } from "../src/content";
 import { kept } from "./kept";
 import {
+  KEPT_FIGURES,
   KEPT_READS,
   LITERALS,
   attributeValues,
@@ -66,6 +67,22 @@ const withoutQuestion = (): Answer => {
 // Every document the tests of the panel build, by the case it shows.
 const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
   ...KEPT_READS.map((name): [string, (t: TestContext) => Promise<Built>] => [name, async (t) => ({ document: (await documentFor(t, read(name))).document, answers: [read(name)] })]),
+  ...Object.keys(KEPT_FIGURES).map((name): [string, (t: TestContext) => Promise<Built>] => [
+    `${name} with ${KEPT_FIGURES[name]}`,
+    async (t) => {
+      const answers = [read(name), read(KEPT_FIGURES[name])];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ]),
+  [
+    "status-success with an entry of its figures read whose figures are unavailable",
+    async (t) => {
+      const figures = keptObject("figures-success");
+      Object.assign(figures.comparisons[0], { unavailable: "artifact_missing", paired_deltas: null, histogram: null, quartiles: null });
+      const answers = [read("status-success"), success(figures)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
   ["a read the CLI refuses", async (t) => ({ document: (await documentFor(t, NOT_FOUND)).document, answers: [NOT_FOUND] })],
   ...NO_ANSWERS.map(([cause, answer]): [string, (t: TestContext) => Promise<Built>] => [`a read with no answer (${cause})`, async (t) => ({ document: (await documentFor(t, answer)).document, answers: [answer] })]),
   [

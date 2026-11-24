@@ -175,7 +175,9 @@ for (const [outcome, answer] of [
     const { document } = await opened(t, status("status-success"), answer);
     labelPlaces(document);
     const usableDocument = (await opened(t, status("status-success"), figures("status-success"))).document;
-    assert.equal(comparable(document).replace(new RegExp(`\\n<p data-element="figures-failed">${FAILED.replace(/\./g, "\\.")}</p>`, "g"), ""), comparable(usableDocument));
+    // The figures the usable read draws stand where the label stands.
+    const withoutFigures = elementsOf(usableDocument, "<div data-figures>").reduce((rest, shown) => rest.replace(`\n${shown}`, ""), usableDocument);
+    assert.equal(comparable(document).replace(new RegExp(`\\n<p data-element="figures-failed">${FAILED.replace(/\./g, "\\.")}</p>`, "g"), ""), comparable(withoutFigures));
   });
 }
 
