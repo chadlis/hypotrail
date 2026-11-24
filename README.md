@@ -45,13 +45,23 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
+## Use the VS Code panel
+
+The VS Code client shows a Study's pending decisions with their evidence and records a Decision through the CLI. From a checkout:
+
+1. `uv sync --locked --all-extras` at the checkout root.
+2. `npm ci && npm run compile` in `clients/vscode/`.
+3. In VS Code, `Developer: Install Extension from Location...` and pick `clients/vscode/`.
+
+Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
+
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
 - [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the account of the live Campaign (T20).
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
-- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension and its CLI bridge).
+- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge and the Study panel).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.

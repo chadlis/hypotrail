@@ -110,15 +110,136 @@ def test_the_workflow_has_a_second_job_that_sets_up_node_22_and_runs_npm_ci_and_
 # --- the CLI output the client tests keep -----------------------------------------------------------------------------------------
 
 
-def test_the_kept_status_object_has_the_top_level_keys_the_cli_prints_and_the_kept_read_refusal_is_its_stdout_byte_for_byte(tmp_path):
-    study, _ = init_study(tmp_path)
-    code, out, _ = run_cli("status", "--study", study, "--json")
-    assert code == 0
-    kept = read_json(KEPT / "status-success.out")
-    assert set(json.loads(out)) == set(kept)
-    code, out, _ = run_cli("status", "--study=/nonexistent-x", "--json")
-    assert code == 2
-    assert out == (KEPT / "status-not-found.out").read_text(encoding="utf-8")
+def kept_status_names() -> list:
+    return sorted(Path(name).stem for name in tracked("clients/vscode/test/cli") if re.fullmatch(r".*/status-[a-z-]+\.out", name))
+
+
+# The id each record of the object holds for itself, by list.
+OWN_IDS = {"attempts": "attempt_id", "assessments": "assessment_id", "comparisons": "comparison_id", "decisions": "decision_id", "declared_deviations": "declared_deviation_id"}
+
+
+def test_each_kept_status_read_holds_numbered_placeholders_in_order_of_first_appearance_of_the_shape_they_replace_and_no_two_records_share_an_id():
+    from _client_helpers import DIGEST, TIMESTAMP, UUID, placeholder
+
+    names = kept_status_names()
+    assert "status-success" in names and "status-not-found" in names
+    for name in names:
+        text = (KEPT / f"{name}.out").read_text(encoding="utf-8")
+        for kind, pattern in (("uuid", UUID), ("timestamp", TIMESTAMP), ("digest", DIGEST)):
+            found = list(dict.fromkeys(pattern.findall(text)))
+            assert found == [placeholder(kind, number) for number in range(1, len(found) + 1)], (name, kind, found)
+            assert all(pattern.fullmatch(each) for each in found), (name, kind)
+        payload = json.loads(text)
+        if not payload["ok"]:
+            continue
+        ids = [payload["study"]["study_id"]] + [record[key] for list_name, key in OWN_IDS.items() for record in payload[list_name]]
+        assert len(ids) == len(set(ids)), (name, ids)
+
+
+@pytest.mark.parametrize(
+    "case, edit",
+    [
+        ("a code_revision that is not an object", lambda o: o["comparisons"][0]["code_environment"]["control"].update(code_revision="62b8c8d")),
+        ("a python that is not a text", lambda o: o["comparisons"][0]["code_environment"]["control"].update(python=3.13)),
+        ("a request_id that is not a text", lambda o: o["attempts"][0].update(request_id=None)),
+        ("two Attempts that share a request_id", lambda o: o["attempts"][1].update(request_id=o["attempts"][0]["request_id"])),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_a_value_the_four_rules_cannot_take_fails_the_making_with_no_fall_back(case, edit):
+    from _client_helpers import replaced
+
+    payload = json.loads((KEPT / "status-success.out").read_text(encoding="utf-8"))
+    assert replaced(json.dumps(payload, indent=2)) is not None
+    edit(payload)
+    with pytest.raises(AssertionError):
+        replaced(json.dumps(payload, indent=2))
+
+
+def test_each_kept_status_read_whose_ok_is_true_is_the_clis_own_once_its_values_are_replaced_and_the_four_rules_applied(tmp_path):
+    from _client_helpers import first_difference, kept, status_outputs
+
+    made = status_outputs(tmp_path)
+    assert sorted(made) == kept_status_names()
+    for name, (code, out, err) in made.items():
+        kept_code, kept_out, kept_err = kept(name)
+        assert (code, err) == (kept_code, kept_err), name
+        if not json.loads(kept_out)["ok"]:
+            assert out == kept_out, name  # a refusal names no scratch folder and is kept as printed
+            continue
+        assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
+
+
+# Each kept read, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
+# `declared_deviations`, the `workload` of the Study, and for each Decision the `state` of its `evidence_change` (None when it is null) and
+# whether `revision_changed` is among its `reasons`.
+KEPT_CASES = {
+    "status-success": (1, 0, [], "bike_day", []),
+    "status-chinook-pending": (1, 0, [], "chinook", []),
+    "status-several-pending": (2, 0, [], "bike_day", []),
+    "status-decided": (0, 1, [], "bike_day", [(None, False)]),
+    "status-deviation": (1, 0, [False, True, False], "bike_day", []),
+    "status-rescored": (0, 1, [], "bike_day", [("evidence_rescored", True)]),
+    "status-result-changed": (0, 2, [], "bike_day", [("result_changed", True), ("result_changed", True)]),
+    "status-repeated": (0, 1, [], "bike_day", [("repeated", False)]),
+    "status-chinook-decided": (0, 1, [], "chinook", [(None, False)]),
+    "status-chinook-withheld": (1, 0, [], "chinook", []),
+    "status-bike-withheld": (1, 0, [], "bike_day", []),
+    "status-public-check": (1, 0, [], "bike_day", []),
+}
+
+
+def test_each_kept_read_holds_the_case_it_is_kept_for():
+    names = kept_status_names()
+    for name, (pending, decided, withdrawn, workload, evidence) in KEPT_CASES.items():
+        assert name in names, name
+        payload = read_json(KEPT / f"{name}.out")
+        assert (len(payload["pending_decisions"]), len(payload["decisions"])) == (pending, decided), name
+        assert [entry["withdrawn"] for entry in payload["declared_deviations"]] == withdrawn, name
+        assert payload["study"]["workload"] == workload, name
+        found = [((d["evidence_change"] or {}).get("state"), "revision_changed" in [r["reason"] for r in d["reasons"]]) for d in payload["decisions"]]
+        assert found == evidence, name
+
+
+def test_status_public_check_holds_an_attempt_on_public_check_that_no_assessment_or_comparison_names():
+    names = kept_status_names()
+    assert "status-public-check" in names
+    payload = read_json(KEPT / "status-public-check.out")
+    [public] = [attempt for attempt in payload["attempts"] if attempt["request_id"] == "ml-public_check-seasonal_7"]
+    records = json.dumps([payload["assessments"], payload["comparisons"]])
+    assert public["attempt_id"] not in records and all(artifact["path"] not in records for artifact in public["artifacts"])
+    assert payload["exposures"]["entries"] == [] and payload["check_informed"] == []
+
+
+AGENT_DELTA_KEYS = ["candidate", "control", "definition", "metric", "reason", "unit", "value"]
+REGRESSION_DELTA_KEYS = ["definition", "metric", "unit", "value"]
+
+# Each kept read that holds a Comparison whose main `delta.value` is null, with, for each such Comparison, the keys of its delta record,
+# its `reason` (None when the record has no such key) and whether its `paired_deltas_ref` is null; then the count of `pending_decisions`.
+WITHHELD_CASES = {
+    "status-chinook-withheld": ([(AGENT_DELTA_KEYS, "coverage_incomplete", True)], 1),
+    "status-bike-withheld": ([(REGRESSION_DELTA_KEYS, None, False)], 1),
+}
+
+
+def strict_json(text: str):
+    """The JSON value of `text`, refusing the `Infinity`, `-Infinity` and `NaN` tokens that Python's parser accepts by default."""
+
+    def refused(token):
+        raise AssertionError(f"{token} is not JSON")
+
+    return json.loads(text, parse_constant=refused)
+
+
+def test_each_kept_read_whose_comparison_withholds_its_delta_holds_the_record_shape_of_its_track_and_is_strict_json():
+    holders = {}
+    for name in kept_status_names():
+        payload = strict_json((KEPT / f"{name}.out").read_text(encoding="utf-8"))
+        withheld = [c for c in payload.get("comparisons", []) if c["delta"]["value"] is None]
+        if withheld:
+            shapes = [(sorted(c["delta"]), c["delta"].get("reason"), c["paired_deltas_ref"] is None) for c in withheld]
+            holders[name] = (shapes, len(payload["pending_decisions"]))
+    assert holders == WITHHELD_CASES
 
 
 # --- the listings over the client's sources ---------------------------------------------------------------------------------------
@@ -130,11 +251,14 @@ PROCESS_PATTERNS = {"exec(": r"(?<!\.)\bexec\(", "shell": r"\bshell\b"}
 VSCODE_RUNNERS = ["createTerminal", "sendText", "executeTask", "ShellExecution", "ProcessExecution", "CustomExecution", "startDebugging"]
 STATE_NAMES = ["globalState", "workspaceState", "setState", "localStorage"]
 WRITE_NAMES = ["writeFile", "appendFile", "createWriteStream"]
+# The names of a watcher and of a read on visibility or on a timer, and the names that read or open a file.
+WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeViewState", "onDidChangeTextDocument", "setInterval"]
+FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
-# Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel and
-# the one assignment of a webview's document.
-ONCE_NAMES = {"createWebviewPanel": "clients/vscode/src/panel.ts", ".html =": "clients/vscode/src/panel.ts"}
+# Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel,
+# the one assignment of a webview's document, and the one receiver of the document's messages.
+ONCE_NAMES = {"createWebviewPanel": "clients/vscode/src/panel.ts", ".html =": "clients/vscode/src/panel.ts", "onDidReceiveMessage": "clients/vscode/src/panel.ts"}
 CHILD_PROCESS_IMPORT = 'import { execFile } from "node:child_process";'
 VSCODE_IMPORT = 'import * as vscode from "vscode";'
 
@@ -143,7 +267,7 @@ def listing(files: dict) -> set:
     """Each pair (file, name) for a name of the lists above that the file holds."""
     found = set()
     for path, text in files.items():
-        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES:
+        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES + WATCH_NAMES + FILE_READ_NAMES:
             if name in text:
                 found.add((path, name))
         for name, pattern in PROCESS_PATTERNS.items():
@@ -198,6 +322,8 @@ PLANTED = [
     ("a second file that names study.json", "clients/vscode/src/other.ts", 'const marker = "study.json";\n'),
     ("a second panel created in another file", "clients/vscode/src/other.ts", 'vscode.window.createWebviewPanel("x", "x", 1, {});\n'),
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
+    ("a second message receiver", "clients/vscode/src/other.ts", "other.webview.onDidReceiveMessage(listen);\n"),
+    *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
 ]
 
 
@@ -206,6 +332,33 @@ def test_a_planted_escape_is_found_by_the_listing(case, path, line):
     files = sources()
     files[path] = files.get(path, "") + line
     assert listing_problems(files) != [], case
+
+
+# The module-level `let` bindings of the client's sources, each with what it holds: the handle of the webview panel, and one entry each of
+# "The closed list of what the client's extension holds in memory, from L2.5 on" (chadlis/hypotrail#103, comment 7100122376).
+LET_BINDINGS = {
+    ("clients/vscode/src/panel.ts", "panel"): "the handle of the webview panel",
+    ("clients/vscode/src/panel.ts", "target"): "1. the target the panel was opened on",
+    ("clients/vscode/src/panel.ts", "held"): "2. the last object a read gave back with `success`",
+    ("clients/vscode/src/panel.ts", "unanswered"): "3. from a `no_answer` of a write to that call's answer: its request id, with the call's five identity values and the read sequence it passed",
+    ("clients/vscode/src/panel.ts", "inFlight"): "4. whether a call is in flight",
+}
+
+
+def let_bindings(files: dict) -> set:
+    """Each pair (file, name) for a line of a file that starts with `let `."""
+    return {(path, re.match(r"let\s+([A-Za-z_$][\w$]*)", line)[1]) for path, text in files.items() for line in text.splitlines() if line.startswith("let ")}
+
+
+def test_the_module_level_let_bindings_of_the_client_sources_are_the_listed_ones_each_naming_what_it_holds_both_ways():
+    """What a binding's value holds at run time is not a property of the source text: this listing goes no further than the names."""
+    assert let_bindings(sources()) == set(LET_BINDINGS)
+
+
+def test_a_planted_third_entry_held_in_memory_is_found_by_the_let_listing():
+    files = sources()
+    files["clients/vscode/src/panel.ts"] += "let notice: string | undefined;\n"
+    assert let_bindings(files) - set(LET_BINDINGS) == {("clients/vscode/src/panel.ts", "notice")}
 
 
 @pytest.mark.parametrize("line", ["const found = pattern.exec(text);\n", "function buildShellLess() {}\nconst x = buildShell;\n"])
@@ -297,7 +450,7 @@ def test_no_tracked_client_file_is_javascript():
 
 # --- the README ----------------------------------------------------------------------------------------------------------------------
 
-README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension and its CLI bridge)."
+README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge and the Study panel)."
 
 
 def test_where_to_look_names_the_client_directory_which_holds_the_manifest():
@@ -401,3 +554,63 @@ def test_the_authority_of_both_link_forms_is_the_manifests_publisher_and_name():
     forms = read_json(CLIENT / "contract.json").get("link_forms", [])
     assert len(forms) == 2
     assert [re.match(r"vscode://([^/]+)/", form)[1] for form in forms] == [f"{manifest['publisher']}.{manifest['name']}"] * 2
+
+
+# --- the texts of a pending decision ------------------------------------------------------------------------------------------------
+
+
+def pending_texts() -> list:
+    """The question's text and each option's text and consequence, as the core holds them (`hypotrail.core.decisions`)."""
+    from hypotrail.core.decisions import PENDING_OPTIONS, PENDING_QUESTION
+
+    return [PENDING_QUESTION["text"]] + [option[key] for option in PENDING_OPTIONS for key in ("text", "consequence")]
+
+
+def pending_text_holders(files: dict) -> list:
+    """Each pair (file, text) for a text of a pending decision that a file holds."""
+    return [(path, text) for path, held in sorted(files.items()) for text in pending_texts() if text in held]
+
+
+def client_source_and_contract() -> dict:
+    return {**sources(), "clients/vscode/contract.json": (CLIENT / "contract.json").read_text(encoding="utf-8")}
+
+
+def test_no_client_source_and_not_contract_json_holds_a_text_of_the_pending_decision():
+    assert len(pending_texts()) == 7
+    assert pending_text_holders(client_source_and_contract()) == []
+
+
+def test_a_planted_file_that_holds_an_option_text_is_found():
+    from hypotrail.core.decisions import PENDING_OPTIONS
+
+    files = client_source_and_contract()
+    files["clients/vscode/src/other.ts"] = f'const option = "{PENDING_OPTIONS[1]["text"]}";\n'
+    assert pending_text_holders(files) == [("clients/vscode/src/other.ts", PENDING_OPTIONS[1]["text"])]
+
+
+# --- the panel's own words ------------------------------------------------------------------------------------------------------
+
+# The two headings that name the keys `warnings` and `limitations` of a Comparison; the _Avoid_ entry that lists "limitation" and
+# "warning" is about naming a Declared deviation, not these keys.
+AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison")
+
+
+def avoided_words(glossary: str) -> list:
+    """Each word or phrase of the _Avoid_ lines of the glossary, the text before any parenthesis."""
+    lines = [line.split("_Avoid_:", 1)[1] for line in glossary.splitlines() if line.startswith("_Avoid_:")]
+    return sorted({part.split("(", 1)[0].strip() for line in lines for part in line.split(",") if part.split("(", 1)[0].strip()})
+
+
+def avoided_in(entries: list, words: list) -> list:
+    """(entry, word) for each word found as a whole word in an entry, ignoring case, the exempted headings left out."""
+    return [(entry, word) for entry in entries if entry not in AVOID_EXEMPT for word in words if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", entry, re.I)]
+
+
+def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
+    words = avoided_words((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
+    assert {"run", "label", "limitation", "warning", "case"} <= set(words)
+    contract = read_json(CLIENT / "contract.json")
+    labels = contract["labels"]
+    assert set(AVOID_EXEMPT) <= set(labels)
+    phrases = [entry.split("=", 1)[1] for entry in contract["applies_phrases"]]
+    assert avoided_in(labels + phrases, words) == []

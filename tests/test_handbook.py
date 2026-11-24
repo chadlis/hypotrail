@@ -5161,10 +5161,188 @@ def test_the_client_budget_table_equals_the_constants_of_the_counting_test_both_
     }
 
 
-def test_the_line_budget_section_prose_states_neither_3000_nor_3_000():
+def test_the_line_budget_section_prose_states_neither_5000_nor_5_000():
     chapter = chapter_text(CLIENT_CHAPTER)
     assert '<p class="sub2">The line budget</p>' in chapter
     section = chapter.split('<p class="sub2">The line budget</p>', 1)[1].split('<p class="sub2">', 1)[0]
     prose = plain_text(prose_of(section))
     assert "client-budget" in section and prose
-    assert "3000" not in prose and "3,000" not in prose
+    assert "5000" not in prose and "5,000" not in prose
+
+
+def test_the_client_chapter_has_one_section_on_the_panels_content_found_by_its_id(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert chapter.count('id="panel-content"') == 1
+    assert re.search(r'<p class="sub2" id="panel-content">[^<]+</p>', chapter)
+    assert page.count('id="panel-content"') == 1
+
+
+# --- the panel's recorded Decisions (chapter 18): the phrases of the states and the word of a null value ---------------------------
+
+# The tables of chapter 18 on what the panel shows of a recorded Decision, each with the entries of `clients/vscode/contract.json` its rows
+# carry in `data-entry`.
+PANEL_DECISION_TABLES = {
+    "panel-evidence-phrases": lambda contract: contract["evidence_phrases"],
+    "panel-no-value": lambda contract: [contract["no_value"]],
+    "panel-applies-phrases": lambda contract: contract["applies_phrases"],
+}
+
+
+def test_the_evidence_phrases_of_contract_json_equal_the_table_of_states_of_chapter_17_both_ways(page):
+    rows = client_rows(page, "evidence-states")
+    assert len(rows) == 3
+    assert [f"{row['data-code']}={row['data-phrase']}" for row in rows] == client_contract()["evidence_phrases"]
+
+
+def test_the_panel_decision_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_DECISION_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_decision_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_DECISION_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_decision_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_DECISION_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
+
+
+# The table of chapter 18 that holds the word of a withheld delta, with the entry of contract.json it equals.
+PANEL_WITHHELD_TABLE = ("panel-withheld", "withheld")
+
+
+def test_the_panel_withheld_table_of_chapter_18_equals_contract_json_both_ways(page):
+    table, key = PANEL_WITHHELD_TABLE
+    assert [row["data-entry"] for row in client_rows(page, table)] == [client_contract()[key]]
+
+
+def test_no_row_of_the_panel_withheld_table_carries_an_attribute_of_the_l24_value_attributes(page):
+    rows = client_rows(page, PANEL_WITHHELD_TABLE[0])
+    assert rows
+    for row in rows:
+        assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], row
+
+
+def test_the_prose_of_chapter_18_names_the_panel_withheld_table_by_one_link_to_its_id(page):
+    table = PANEL_WITHHELD_TABLE[0]
+    assert prose_of(chapter_text(CLIENT_CHAPTER)).count(f'href="#{table}"') == 1
+    assert page.count(f'id="{table}"') == 1
+
+
+# --- recording a Decision from the panel (chapter 18): the names of the messages and the author's value -----------------------------
+
+# The tables of chapter 18 on how the panel records a Decision, each with the entries of `clients/vscode/contract.json` its rows carry in
+# `data-entry`.
+PANEL_WRITE_TABLES = {"panel-messages": lambda contract: contract["messages"], "panel-author": lambda contract: [contract["decide_author"]]}
+
+
+def test_the_panel_write_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_WRITE_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_write_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_WRITE_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_write_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_WRITE_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
+
+
+# --- the links of the panel (chapter 18): the part each kind of number links to, the statuses shown and the key paths read ----------
+
+# The tables of chapter 18 on the panel's links and on what the panel reads, each with the entries of `clients/vscode/contract.json` its
+# rows carry in `data-entry`.
+PANEL_LINK_TABLES = {
+    "panel-number-links": lambda contract: contract["number_links"],
+    "panel-statuses": lambda contract: contract["statuses"],
+    "panel-key-paths": lambda contract: contract["key_paths"],
+}
+
+
+def test_the_panel_link_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_LINK_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_link_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_LINK_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_LINK_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
+
+
+# --- the panel's style, the guard of its layout and its own words (chapter 18) -----------------------------------------------------
+
+# The tables of chapter 18 on the panel's colours, the bounds of the guard of its layout and its own words, each with the entries of
+# `clients/vscode/contract.json` its rows carry in `data-entry`.
+PANEL_STYLE_TABLES = {
+    "panel-guard-bounds": lambda contract: contract["guard_bounds"],
+    "panel-colour-forms": lambda contract: contract["colour_forms"],
+    "panel-labels": lambda contract: contract["labels"],
+}
+
+
+def test_the_panel_style_bounds_and_label_tables_of_chapter_18_equal_contract_json_both_ways(page):
+    contract = client_contract()
+    for table, entries in PANEL_STYLE_TABLES.items():
+        assert [row["data-entry"] for row in client_rows(page, table)] == entries(contract), table
+
+
+def test_no_row_of_the_panel_style_bounds_and_label_tables_carries_an_attribute_of_the_l24_value_attributes(page):
+    for table in PANEL_STYLE_TABLES:
+        rows = client_rows(page, table)
+        assert rows, table
+        for row in rows:
+            assert sorted(set(row) & set(CLIENT_VALUE_ATTRIBUTES)) == [], (table, row)
+
+
+def test_the_prose_of_chapter_18_names_each_panel_style_bounds_and_label_table_by_one_link_to_its_id(page):
+    prose = prose_of(chapter_text(CLIENT_CHAPTER))
+    for table in PANEL_STYLE_TABLES:
+        assert prose.count(f'href="#{table}"') == 1, table
+        assert page.count(f'id="{table}"') == 1, table
+
+
+# --- the README's way to the panel ------------------------------------------------------------------------------------------------
+
+
+def test_the_readme_section_on_the_vs_code_panel_follows_the_walked_path_and_gives_the_install_steps_in_order_and_the_command_title(page):
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    heading = "## Use the VS Code panel\n"
+    assert readme.count(heading) == 1
+    assert readme.index(heading) > readme.index("```", readme.index("```") + 3), "after the walked path's fenced block"
+    section = readme.split(heading, 1)[1].split("\n## ", 1)[0]
+    places = []
+    for row in client_rows(page, "client-install"):
+        command = html.unescape(row["data-command"])
+        assert command in section, command
+        places.append(section.index(command))
+    assert places == sorted(places) and len(places) == 3
+    title = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))["contributes"]["commands"][0]["title"]
+    assert title in section

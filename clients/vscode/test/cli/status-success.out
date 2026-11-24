@@ -1,45 +1,45 @@
 {
   "ok": true,
   "study": {
-    "study_id": "UUID",
+    "study_id": "00000000-0000-4000-8000-000000000001",
     "workload": "bike_day",
     "protocol_id": "bike_day:protocol",
-    "protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
-    "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654",
+    "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000002",
     "revision_number": 1
   },
   "writer_alive": false,
   "revisions": [
     {
       "revision_number": 1,
-      "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000002",
       "previous_revision": null,
-      "protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
       "artifacts": [
         {
           "artifact_id": "memberships-204bf1f9317286f8",
           "role": "memberships",
           "version": 1,
-          "sha256": "204bf1f9317286f8ea0d572d3606fd7d15d4b1e04a5df4d6b14c81a94c7d024b"
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
         },
         {
           "artifact_id": "references-7520d791bfe31924",
           "role": "references",
           "version": 1,
-          "sha256": "7520d791bfe31924448b27a16ac439b1ae983404d3a838881838b298bdfc83e0"
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
         }
       ]
     }
   ],
   "attempts": [
     {
-      "attempt_id": "UUID",
-      "request_id": "ml-dev-seasonal_7",
+      "attempt_id": "00000000-0000-4000-8000-000000000002",
+      "request_id": "ml-dev-ridge_v1",
       "operation": "execute",
       "mode": "native_ml",
       "technical_status": "completed",
-      "started_at": "2026-11-23T07:04:52.764832+00:00",
-      "finished_at": "2026-11-23T07:04:52.797116+00:00",
+      "started_at": "2000-01-01T00:00:00.000001+00:00",
+      "finished_at": "2000-01-01T00:00:00.000002+00:00",
       "outcome_unknown": false,
       "retry_of": null,
       "reason": null,
@@ -52,33 +52,41 @@
       "recoverable": false,
       "artifacts": [
         {
-          "path": "attempts/UUID/observation_set.json",
-          "sha256": "dac22d9ae066d6643f23b6eae85e825f7a4dd17aa15c44297d1cfef26d61a5e7",
-          "size_bytes": 989,
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observation_set.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000005",
+          "size_bytes": 0,
           "media_type": "application/json",
           "referenced": true,
           "role": "observation_set"
         },
         {
-          "path": "attempts/UUID/observations.csv",
-          "sha256": "56794cdb3b690bd3b1c0c8d6c8e0038bfcf78d036e2a17662b126667474e11b3",
-          "size_bytes": 7317,
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observations.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000006",
+          "size_bytes": 0,
           "media_type": "text/csv",
           "referenced": true,
           "role": "observations"
         },
         {
-          "path": "attempts/UUID/predictions.csv",
-          "sha256": "3fced18a420df42d7fe676ee579d72785eba0d608ba807e34c5ba384dc2afd46",
-          "size_bytes": 7495,
+          "path": "attempts/00000000-0000-4000-8000-000000000002/predictions.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000007",
+          "size_bytes": 0,
           "media_type": "text/csv",
           "referenced": true,
           "role": "predictions"
         },
         {
-          "path": "attempts/UUID/workload.json",
-          "sha256": "ac82d8834af38543c1f2d31ee3bfc15cb276b75afc8d008b709aa662252c81d9",
-          "size_bytes": 2430,
+          "path": "attempts/00000000-0000-4000-8000-000000000002/sklearn_params.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000008",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "effective_parameters"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
           "media_type": "application/json",
           "referenced": true,
           "role": "workload_declaration"
@@ -87,13 +95,13 @@
       "temporary_files": []
     },
     {
-      "attempt_id": "UUID",
-      "request_id": "ml-dev-ridge_v1",
+      "attempt_id": "00000000-0000-4000-8000-000000000003",
+      "request_id": "ml-dev-seasonal_7",
       "operation": "execute",
       "mode": "native_ml",
       "technical_status": "completed",
-      "started_at": "2026-11-23T07:04:52.829552+00:00",
-      "finished_at": "2026-11-23T07:04:53.770710+00:00",
+      "started_at": "2000-01-01T00:00:00.000003+00:00",
+      "finished_at": "2000-01-01T00:00:00.000004+00:00",
       "outcome_unknown": false,
       "retry_of": null,
       "reason": null,
@@ -106,41 +114,33 @@
       "recoverable": false,
       "artifacts": [
         {
-          "path": "attempts/UUID/observation_set.json",
-          "sha256": "3f59e99d7cf1b1ec47ae60a3f1d1a18a1b3205047f1cedefff0e9fab91a55bba",
-          "size_bytes": 1222,
+          "path": "attempts/00000000-0000-4000-8000-000000000003/observation_set.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000a",
+          "size_bytes": 0,
           "media_type": "application/json",
           "referenced": true,
           "role": "observation_set"
         },
         {
-          "path": "attempts/UUID/observations.csv",
-          "sha256": "dff052403f55eed72dcf7e5fb7ace603c6df773233d31b93d2e316286c6a3f06",
-          "size_bytes": 12145,
+          "path": "attempts/00000000-0000-4000-8000-000000000003/observations.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000b",
+          "size_bytes": 0,
           "media_type": "text/csv",
           "referenced": true,
           "role": "observations"
         },
         {
-          "path": "attempts/UUID/predictions.csv",
-          "sha256": "2c166989e056df26cb8cad718ecdff17cd32e77407acbfcfec612af4dfde9927",
-          "size_bytes": 11959,
+          "path": "attempts/00000000-0000-4000-8000-000000000003/predictions.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000c",
+          "size_bytes": 0,
           "media_type": "text/csv",
           "referenced": true,
           "role": "predictions"
         },
         {
-          "path": "attempts/UUID/sklearn_params.json",
-          "sha256": "4c1f1150511725e1278c54258c0653a0d8991b9ffb1274c2ac8667575c4e237d",
-          "size_bytes": 2049,
-          "media_type": "application/json",
-          "referenced": true,
-          "role": "effective_parameters"
-        },
-        {
-          "path": "attempts/UUID/workload.json",
-          "sha256": "ac82d8834af38543c1f2d31ee3bfc15cb276b75afc8d008b709aa662252c81d9",
-          "size_bytes": 2430,
+          "path": "attempts/00000000-0000-4000-8000-000000000003/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
           "media_type": "application/json",
           "referenced": true,
           "role": "workload_declaration"
@@ -162,7 +162,7 @@
   "declared_deviations": [],
   "assessments": [
     {
-      "assessment_id": "UUID",
+      "assessment_id": "00000000-0000-4000-8000-000000000004",
       "counts": {
         "attempted": 182,
         "correct": null,
@@ -188,26 +188,26 @@
           "value": 1090.7912087912089
         }
       ],
-      "observation_set_id": "UUID",
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "per_item_ref": {
         "media_type": "text/csv",
-        "path": "assessments/UUID/per_item.csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000004/per_item.csv",
         "role": "per_item",
-        "sha256": "03c19eb6812da03ae24a9d15fabbdb64af02a9ba03174205e798d286c80d84a5",
-        "size_bytes": 10672
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000d",
+        "size_bytes": 0
       },
-      "recorded_at": "2026-11-23T07:04:53.793074+00:00",
+      "recorded_at": "2000-01-01T00:00:00.000005+00:00",
       "references_ref": {
         "media_type": "text/csv",
         "path": "artifacts/references.csv",
         "role": "references",
-        "sha256": "7520d791bfe31924448b27a16ac439b1ae983404d3a838881838b298bdfc83e0",
-        "size_bytes": 18097
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+        "size_bytes": 0
       },
       "rescoring": null,
       "schema_version": "assessment/1",
       "scorer": {
-        "config_digest": "79f16737adff496957959bf5ab3dea1133900013927ef6bd79fb416783349690",
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
         "id": "regression_mae_v1",
         "version": "1"
       },
@@ -217,12 +217,12 @@
       },
       "study_revision": {
         "number": 1,
-        "protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
-        "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654"
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000002"
       }
     },
     {
-      "assessment_id": "UUID",
+      "assessment_id": "00000000-0000-4000-8000-000000000006",
       "counts": {
         "attempted": 182,
         "correct": null,
@@ -248,26 +248,26 @@
           "value": 1264.730691775682
         }
       ],
-      "observation_set_id": "UUID",
+      "observation_set_id": "00000000-0000-4000-8000-000000000007",
       "per_item_ref": {
         "media_type": "text/csv",
-        "path": "assessments/UUID/per_item.csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000006/per_item.csv",
         "role": "per_item",
-        "sha256": "9c3d5c98a5aa3815b3b33f8b8dd434aa8889e7d76cd0bc1d2cb52b1788d59dd5",
-        "size_bytes": 12891
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000f",
+        "size_bytes": 0
       },
-      "recorded_at": "2026-11-23T07:04:53.823189+00:00",
+      "recorded_at": "2000-01-01T00:00:00.000006+00:00",
       "references_ref": {
         "media_type": "text/csv",
         "path": "artifacts/references.csv",
         "role": "references",
-        "sha256": "7520d791bfe31924448b27a16ac439b1ae983404d3a838881838b298bdfc83e0",
-        "size_bytes": 18097
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+        "size_bytes": 0
       },
       "rescoring": null,
       "schema_version": "assessment/1",
       "scorer": {
-        "config_digest": "79f16737adff496957959bf5ab3dea1133900013927ef6bd79fb416783349690",
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
         "id": "regression_mae_v1",
         "version": "1"
       },
@@ -327,8 +327,8 @@
       },
       "study_revision": {
         "number": 1,
-        "protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
-        "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654"
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000002"
       }
     }
   ],
@@ -337,27 +337,27 @@
       "code_environment": {
         "candidate": {
           "code_revision": {
-            "commit": "62b8c8dde24630dbc70f2e658037a29c8a94619d",
+            "commit": "0000000000000000000000000000000000000000",
             "dirty": false,
             "local_code_fingerprint": null
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "d08344cce5b3890a5b0984836e0912b425d88d88fdd178c55ec517a3bcdfe71a"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
           },
-          "python": "3.13.18"
+          "python": "PYTHON"
         },
         "control": {
           "code_revision": {
-            "commit": "62b8c8dde24630dbc70f2e658037a29c8a94619d",
+            "commit": "0000000000000000000000000000000000000000",
             "dirty": false,
             "local_code_fingerprint": null
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "d08344cce5b3890a5b0984836e0912b425d88d88fdd178c55ec517a3bcdfe71a"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
           },
-          "python": "3.13.18"
+          "python": "PYTHON"
         },
         "differs": [],
         "same": true
@@ -402,7 +402,7 @@
         ],
         "status": "compatible"
       },
-      "comparison_id": "UUID",
+      "comparison_id": "00000000-0000-4000-8000-000000000008",
       "coverage": {
         "candidate_scored": 182,
         "control_scored": 182,
@@ -416,45 +416,45 @@
         "value": 173.93948298447322
       },
       "kind": "comparison",
-      "left_assessment_id": "UUID",
+      "left_assessment_id": "00000000-0000-4000-8000-000000000004",
       "limitations": [
         "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
         "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
-        "The candidate of this Comparison (Assessment UUID, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
+        "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-000000000006, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
       ],
       "paired_deltas_ref": {
         "media_type": "text/csv",
-        "path": "comparisons/UUID/paired_deltas.csv",
+        "path": "comparisons/00000000-0000-4000-8000-000000000008/paired_deltas.csv",
         "role": "paired_deltas",
-        "sha256": "0bb048c5975a2ac0a041ab008fd5710ebb94f73fa6b30dbec29078aae826bd55",
-        "size_bytes": 11644
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000011",
+        "size_bytes": 0
       },
       "population_ref": {
         "media_type": "application/json",
-        "path": "comparisons/UUID/population.json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000008/population.json",
         "role": "comparison_population",
-        "sha256": "c68801ac6c4393bc4a81e99298aeae1decd17c81e3b5dfea7aaa505f2e4a40f4",
-        "size_bytes": 4134
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
+        "size_bytes": 0
       },
-      "right_assessment_id": "UUID",
+      "right_assessment_id": "00000000-0000-4000-8000-000000000006",
       "roles": {
-        "candidate_assessment_id": "UUID",
-        "control_assessment_id": "UUID"
+        "candidate_assessment_id": "00000000-0000-4000-8000-000000000006",
+        "control_assessment_id": "00000000-0000-4000-8000-000000000004"
       },
       "schema_version": "comparison/1",
       "warnings": [
         {
           "code": "COMPARISON_SINGLE_FEATURE_BEATS",
-          "message": "The candidate of this Comparison (Assessment UUID, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
+          "message": "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-000000000006, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
         }
       ]
     }
   ],
   "pending_decisions": [
     {
-      "comparison_id": "UUID",
-      "control_assessment_id": "UUID",
-      "candidate_assessment_id": "UUID",
+      "comparison_id": "00000000-0000-4000-8000-000000000008",
+      "control_assessment_id": "00000000-0000-4000-8000-000000000004",
+      "candidate_assessment_id": "00000000-0000-4000-8000-000000000006",
       "question": {
         "id": "keep_after_comparison",
         "text": "Which Configuration do we keep after this Comparison?"

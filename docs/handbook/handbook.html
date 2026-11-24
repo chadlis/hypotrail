@@ -2618,7 +2618,7 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 
 <p class="sub2">Limits</p>
 <div class="grid2">
-<div class="card" style="--c:var(--coral)"><h3>Read at view time, never stored</h3><p>Whether a Decision still applies is computed each time <code>status</code> reads the Study. No record is written when it changes, and the Workloads and the panel do not show an outdated Decision yet.</p></div>
+<div class="card" style="--c:var(--coral)"><h3>Read at view time, never stored</h3><p>Whether a Decision still applies is computed each time <code>status</code> reads the Study. No record is written when it changes. The panel shows it for each Decision, as <code>status --json</code> gives it (<a href="#vscode-client">chapter 18</a>); the Workloads do not show an outdated Decision yet.</p></div>
 <div class="card" style="--c:var(--amber)"><h3>Free text, no declared question</h3><p>The question and the option are the caller's words: <code>decide</code> records them as given and checks neither against the question and the options that the core supplies for a pending decision (above). The Study declares no question of its own, so nothing checks that an option is one of a list.</p></div>
 <div class="card" data-limit="corrected-references-not-covered" style="--c:var(--teal)"><h3>A corrected References set is another set</h3><p>A corrected References set, added by a new revision (<a href="#revisions-rescoring">chapter 10</a>), is a Study artifact of its own, with a new <code>artifact_id</code>. A declaration that cites the earlier set does not cover a side whose Assessment was scored against the corrected one; a new declaration that cites the corrected set does.</p></div>
 <div class="card" data-limit="comparison-not-updated" style="--c:var(--pink)"><h3>A Comparison is not updated</h3><p>A Comparison written before a declaration or a withdrawal is not updated: its file stays as it was, so it holds no warning for a later declaration and keeps the warning of a declaration withdrawn since. A new <code>compare</code> of the same two Assessments is the remedy: it writes another Comparison, with its own id, from the declarations in force then. A new <code>compare</code> of <code>public_check</code> Items appends an Exposure entry, as every Comparison of them does (<a href="#freeze-exposure">chapter 12</a>).</p></div>
@@ -2639,7 +2639,7 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <p class="prose">The tests are <code>tests/test_decide.py</code> and <code>tests/test_declared_deviation.py</code>, with the rows of <code>tests/test_stale_sequence.py</code> and <code>tests/test_write_sequence.py</code> that name <code>decide</code>; the tables above are compared with the code in <code>tests/test_handbook.py</code>. They run offline and call no model.</p>
 </section>
 <section id="vscode-client" style="--ac:var(--sky)"><div class="sh"><div class="n">18</div><div><p class="k">Client</p><h2>The VS Code client</h2></div></div>
-<p class="lead">The VS Code client is a TypeScript extension that talks to the CLI through one module, the <b>bridge</b>. It reads a Study and records a Decision only through the CLI, and holds no Decision, no record and no path of its own: the Study is the only decision authority (<a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>). It ships the bridge and the way to find a Study; the panel's content and the chat channels are later slices of chadlis/hypotrail#103.</p>
+<p class="lead">The VS Code client is a TypeScript extension that talks to the CLI through one module, the <b>bridge</b>. It reads a Study and records a Decision only through the CLI, and holds no Decision, no record and no path of its own: the Study is the only decision authority (<a href="../adr/0004-panel-cli-contract.md">ADR 0004</a>). It ships the bridge, the way to find a Study, and a panel that shows a Study's pending decisions with their evidence; the chat channels are later slices of chadlis/hypotrail#103.</p>
 
 <p class="sub2">Install</p>
 <div class="prose">
@@ -2671,7 +2671,7 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <p>The client stays under the line budget of the table below, C6 of chadlis/hypotrail#103, which counts TypeScript, HTML and CSS and leaves out the tests and the generated output (D-031 on chadlis/hypotrail#75, item 11). The check is <code>tests/test_client_line_budget.py</code>, a test of the job <code>pytest</code> that needs no Node. It lists the tracked files of the extension's folder at each check and holds no list of files: each file is counted, a test, refused or other, by its kind and its folder. Every line of a counted file counts, blank lines and comments included. One refused file fails the check, wherever it is. The other files (the manifest, the lockfile, <code>contract.json</code>, the kept CLI output) are neither counted nor refused; <code>contract.json</code> holds lists only, one flat object of strings, numbers and lists of them, with no string over 200 characters.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-budget"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
-<tr data-item="budget" data-value="3000"><td>The count of lines the client stays under</td><td><code>3000</code></td></tr>
+<tr data-item="budget" data-value="5000"><td>The count of lines the client stays under, as its owner amended C6</td><td><code>5000</code></td></tr>
 <tr data-item="counted" data-value=".ts"><td>A counted kind, outside the tests' folder</td><td><code>.ts</code></td></tr>
 <tr data-item="counted" data-value=".tsx"><td>A counted kind, outside the tests' folder</td><td><code>.tsx</code></td></tr>
 <tr data-item="counted" data-value=".mts"><td>A counted kind, outside the tests' folder</td><td><code>.mts</code></td></tr>
@@ -2767,8 +2767,8 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 
 <p class="sub2">The panel and its content security policy</p>
 <div class="prose">
-<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document holds nothing of a Study yet: the panel's content is L2.5's.</p>
-<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute, no inline event handler and no remote address. The colours come from VS Code's own theme variables; setting custom properties from a script is left to L2.5.</p>
+<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document shows what the Study holds, as the section below says.</p>
+<p>The panel is created in one place, with the options below, and every document the client gives to a webview is built by one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined by a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute and no inline event handler. No element or attribute of the document holds a remote address, and a text of a Study is shown as text, whatever it holds. The colours come from VS Code's own theme variables, and the script sets no style, as the section on the panel's style says.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-command"><thead><tr><th>Command</th><th>Title</th></tr></thead><tbody>
 <tr data-command="hypotrail.openPanel" data-title="Hypotrail: Open the Study panel"><td><code>hypotrail.openPanel</code></td><td>Hypotrail: Open the Study panel</td></tr>
@@ -2791,9 +2791,215 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 <tr data-value="base-uri 'none'"><td><code>base-uri 'none'</code></td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="panel-content">What the panel shows</p>
+<div class="prose">
+<p>The panel reads its Study through the bridge when it is opened, by the command or by a link, after each write the CLI answered, and when the reviewer presses Read again; it reads at no other time: no watcher, no timer, and no read when the panel is hidden or shown again. While a read is in flight the document says so, a press of Read again starts nothing, and an opening only reveals the panel. The extension builds each document whole from the object it read, and keeps in memory, besides the target, only that object, whether a call is in flight and, from a write with no usable answer to the answer of its repeat, that call's request id and arguments.</p>
+<p>The document opens with its heading: the Study's path, as the string the panel was opened with, so that with several Studies the reviewer sees which one is open. Beside Read again stands a link to the choices of the first pending decision, when one is pending. The document then shows the Study's id whole and its Write sequence, then the count of pending decisions under their heading and each pending decision in the order the CLI lists them, the second and later ones each after a rule. A pending decision opens with the core's wording of the decision; then comes the Comparison it names, with its delta, its coverage and, where the delta record carries them, the Control's and the Candidate's values; then a chart of the two values the delta compares; then a line with the count of the Comparison's warnings and of its limitations, each a link to its list; then its choices, as one group the wording names, each choice in bold with its consequence on a muted line under it, its radio input named by the choice alone and described by the consequence, and the control that records, which the wording also describes; then the core's own sentence on what the delta's sign means, a chart of the coverage, and the warnings and limitations the Comparison recorded; and last the two Assessments it depends on, each under its role with every Metric. When nothing is pending, a fixed sentence stands where the first decision would. The recorded Decisions follow, as the next section says, then the Declared deviations, each with whether it is withdrawn; a fixed word stands under either heading when the Study holds none. A number that is not an integer is written with six significant digits and an integer as held; a null number is written with a fixed word.</p>
+<p>The first chart draws the Control's and the Candidate's values of the Metric the delta names, from the delta record where it carries them and otherwise from that Metric in each role's Assessment, under the delta's own line; when the delta is withheld, or neither the delta record nor the Assessments hold the Metric, it is not drawn. The second draws one bar per role: its scored part over what was expected, the rest of the bar outlined and dashed, so that the two parts differ by more than a colour; it is not drawn when the coverage lacks those keys. Each bar is a name, a track and its value as a link, as every number is, and the bars of one chart share one grid, so that equal values draw tracks of equal length. The client computes the lengths of its bars and nothing else: a bar's length is its value over the largest value of its chart, from zero, clamped to the track; what is pending, the delta, the roles and every value shown are those the object read holds, and a key it does not know is ignored.</p>
+<p>A read that the CLI refuses shows the CLI's code and message unchanged; a read with no usable answer shows its cause after a fixed text; either failure opens with a fixed word that says it failed. Either way nothing of an earlier read stays: the document holds the failure and Read again. Every word the panel prints is an entry of <code>clients/vscode/contract.json</code>.</p>
+</div>
+
+<p class="sub2" id="panel-decisions">What the panel shows of a recorded Decision</p>
+<div class="prose">
+<p>After the pending decisions, the panel shows each recorded Decision in the order the CLI lists them. Its part opens with its outcome: what was chosen, whole as recorded, beside <a href="#panel-applies-phrases">the phrase of whether it applies</a>; then its id, the wording of the decision it answers, and, when its evidence changed since, the state of the whole, with the reason <code>revision_changed</code> beside it when the Decision holds that reason, and each line of its evidence with its state, its count of changed Items and, for each Metric, a chart of the cited value and the latest one, as two bars on one scale; a latest value that is null shows no bar; then each reason and its id. Then come who recorded it and each id it cites, with the Comparisons it cites as said below; whether it still applies, as the key and the value the CLI gives; and the Assessments each line names. Each Comparison the Decision cites is shown whole, as a pending one is, with the two Assessments that its roles name, unless the document already shows it whole, in a pending decision or in an earlier Decision; the Decision then shows a summary of it: its id as a link to its whole part, its delta with the definition of the delta's sign, and the chart of the two values. A Comparison record without roles shows no Assessment under a role. The client computes none of this: whether a Decision applies, its reasons and the state of its evidence are those the object read holds, no difference of two values is written, and the delta shown is the Comparison's own.</p>
+<p>A state is written with its phrase from <a href="#panel-evidence-phrases">the table of phrases</a>, which equals the table of states of chapter 17.</p>
+<p>A latest value that the latest Assessment does not hold is written with <a href="#panel-no-value">the word of a null value</a>, and the cited value stays beside it.</p>
+<p>A link of the second form shows the Decision it names in its place among the others, with a fixed line in its part, and the document's script scrolls to it. When the Study holds no Decision of that id, the document shows the Study with one line that names the id, and the link is not refused.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-evidence-phrases"><thead><tr><th>An entry of <code>evidence_phrases</code>: a state, then its phrase</th></tr></thead><tbody>
+<tr data-entry="result_changed=result changed"><td><code>result_changed=result changed</code></td></tr>
+<tr data-entry="evidence_rescored=evidence rescored"><td><code>evidence_rescored=evidence rescored</code></td></tr>
+<tr data-entry="repeated=repeated, nothing changed"><td><code>repeated=repeated, nothing changed</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-applies-phrases"><thead><tr><th>An entry of <code>applies_phrases</code>: a value of <code>applies</code>, then its phrase</th></tr></thead><tbody>
+<tr data-entry="true=applies"><td><code>true=applies</code></td></tr>
+<tr data-entry="false=does not apply"><td><code>false=does not apply</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-no-value"><thead><tr><th>The word of a null value (<code>no_value</code>)</th></tr></thead><tbody>
+<tr data-entry="no value"><td>no value</td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-delta-withheld">What the panel shows when a Comparison withholds its delta</p>
+<div class="prose">
+<p>When the main delta of a Comparison has no value, on either Track, the delta's element holds <a href="#panel-withheld">the word of the table below</a> in the place of the value, beside the delta's Metric and unit, with no number, no bound and no reason, and none of the Comparison's secondary deltas is shown; the coverage stays in the element that follows, as for every Comparison, and so do the warnings and limitations the Comparison recorded.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-withheld"><thead><tr><th>The word of a withheld delta (<code>withheld</code>)</th></tr></thead><tbody>
+<tr data-entry="withheld"><td>withheld</td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-write">Recording a Decision from the panel</p>
+<div class="prose">
+<p>The reviewer records a Decision in two actions: selecting one of the choices of a pending decision, then pressing the control that records it, which stays inert until a choice is selected. The selected choice lives only in the document: the script sends the place of the pending decision and of the choice, and the extension finds both in the object it read. One write follows, through the bridge, with the wording of the decision and of the choice as that object holds them, the Comparison alone as the cited id, no origin, a new request id and the Write sequence of that object. Opening the panel, scrolling, following a link and Read again are not actions of a Decision.</p>
+<p>While a read or a write is in flight the document says so, every control is inert and the document is marked busy for assistive technology; the notice is a live region, which a screen reader announces. When the CLI answers, the panel reads the Study once and builds one document: a notice above the first pending decision, then what the read gives. A write the CLI accepted shows its Decision among the others, with whether it applies as the object read says, and the notice names what was chosen in a link to that Decision, and that Decision's part is marked; the document's script moves the focus to the notice and leaves the view at the top. When the read holds no Decision of the answer's id, the notice is a fixed sentence with that id. A write it turned down shows the CLI's code and message unchanged in the notice, after the word that says it failed, then a fixed sentence that the Study was read again and the choice is to be made again, and for a Study written to since the read this is the backstop of a stale Write sequence. If that read fails, the document shows the write's answer and the read's failure, both: after an accepted write the answer is a fixed sentence with the id of the recorded Decision, and nothing of an earlier read stays.</p>
+<p>A write that gets no usable answer may still have happened, so the panel reads nothing by itself. The extension keeps that call's request id and arguments in memory; every document then names the choice sent, whose radio input stands checked, as it does while the write is in flight, and says that the write's outcome is not known, in the words of the bridge's table above, that the Decision may have been recorded and that sending again does not write it twice, and holds Send again beside Read again, and the controls that record are inert; the first of these documents also gives the cause after a fixed text. Send again sends the same call again: the same id, the same values and the same Write sequence as the first. A read keeps the id; it is dropped on the answer to the second sending and when the panel closes, so the next write has a new one. While a write is in flight or an id is held, opening the panel, by the command or a link, only reveals it. A write the bridge itself turns down starts nothing: the notice names the missing inputs after a fixed text, no id is kept, and no read follows.</p>
+<p>The script posts one of <a href="#panel-messages">the messages of the table below</a>, and the extension calls a handler only through one table keyed by their names.</p>
+<p>The Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited, and a Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-messages"><thead><tr><th>A message the document's script posts (<code>messages</code>)</th><th>What it starts</th></tr></thead><tbody>
+<tr data-entry="read-again"><td><code>read-again</code></td><td>A read, on Read again</td></tr>
+<tr data-entry="record"><td><code>record</code></td><td>The write of the selected choice, sent with the place of its pending decision and of the choice</td></tr>
+<tr data-entry="send-again"><td><code>send-again</code></td><td>The held call again, on Send again</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-author"><thead><tr><th>The kind of decider the panel passes (<code>decide_author</code>)</th></tr></thead><tbody>
+<tr data-entry="human"><td>human</td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-links">Links inside the panel</p>
+<div class="prose">
+<p>A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing. Each record the document shows, the Study, a Comparison, an Assessment, a recorded Decision and a Declared deviation, stands in a part of its own with its id; the part of an Assessment or a Comparison also gives the path of each output that record names, as the CLI prints it, and never the path of the References. An Assessment has one part in a document, at the first place that refers to it; every other place gives its id as a link to that part, and an Assessment that nothing shown refers to is not shown. Every number the panel prints is a link to the part of the record it comes from; when the Assessment of a line of a Decision's evidence is not among those the CLI lists, its numbers lead to that Decision's part. The texts the core supplies, such as wordings, messages, units and paths, are shown whole and hold no link.</p>
+<p>Each kind of number leads to the part of <a href="#panel-number-links">the table of the parts numbers lead to</a>.</p>
+<p>The panel shows each of <a href="#panel-statuses">the keys of the table of what is shown beside a value</a> with the value the CLI gives, and computes none of them.</p>
+<p>The document is built from the keys of <a href="#panel-key-paths">the table of what the panel reads</a> and from no other, so nothing of an Attempt is shown, and no output on the checked partition that no Assessment or Comparison recorded.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-number-links"><thead><tr><th>An entry of <code>number_links</code>: a kind of number, then its part</th><th>The number</th><th>The part its link leads to</th></tr></thead><tbody>
+<tr data-entry="write_sequence=study"><td><code>write_sequence=study</code></td><td>The Write sequence</td><td>The Study</td></tr>
+<tr data-entry="value=assessment"><td><code>value=assessment</code></td><td>A Metric's value</td><td>The Assessment that holds the Metric</td></tr>
+<tr data-entry="delta=comparison"><td><code>delta=comparison</code></td><td>The delta's value</td><td>The Comparison</td></tr>
+<tr data-entry="control=comparison"><td><code>control=comparison</code></td><td>The Control's value in the delta record</td><td>The Comparison</td></tr>
+<tr data-entry="candidate=comparison"><td><code>candidate=comparison</code></td><td>The Candidate's value in the delta record</td><td>The Comparison</td></tr>
+<tr data-entry="coverage=comparison"><td><code>coverage=comparison</code></td><td>Each entry of a Comparison's coverage</td><td>The Comparison</td></tr>
+<tr data-entry="cited=assessment"><td><code>cited=assessment</code></td><td>The cited value of a line of a Decision's evidence</td><td>The Assessment the line names first</td></tr>
+<tr data-entry="latest=assessment"><td><code>latest=assessment</code></td><td>The latest value of a line</td><td>The Assessment the line names as the latest</td></tr>
+<tr data-entry="changed_item_count=assessment"><td><code>changed_item_count=assessment</code></td><td>The count of changed Items of a line</td><td>The Assessment the line names as the latest</td></tr>
+<tr data-entry="pending_decisions=study"><td><code>pending_decisions=study</code></td><td>The count of pending decisions, under their heading</td><td>The Study</td></tr>
+<tr data-entry="warnings=warnings"><td><code>warnings=warnings</code></td><td>The count of a pending Comparison's warnings, above its choices</td><td>The list of those warnings in the Comparison's part</td></tr>
+<tr data-entry="limitations=limitations"><td><code>limitations=limitations</code></td><td>The count of its limitations, beside it</td><td>The list of those limitations in the Comparison's part</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-statuses"><thead><tr><th>An entry of <code>statuses</code>: a key shown beside its value</th><th>Of which record</th></tr></thead><tbody>
+<tr data-entry="status"><td><code>status</code></td><td>Of a Metric</td></tr>
+<tr data-entry="comparability.status"><td><code>comparability.status</code></td><td>Of a Comparison</td></tr>
+<tr data-entry="applies"><td><code>applies</code></td><td>Of a Decision</td></tr>
+<tr data-entry="withdrawn"><td><code>withdrawn</code></td><td>Of a Declared deviation</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-key-paths"><thead><tr><th>An entry of <code>key_paths</code>: what the panel reads, <code>[]</code> for each entry of a list and <code>.*</code> for a map it shows whole</th></tr></thead><tbody>
+<tr data-entry="assessments[].assessment_id"><td><code>assessments[].assessment_id</code></td></tr>
+<tr data-entry="assessments[].metrics[].id"><td><code>assessments[].metrics[].id</code></td></tr>
+<tr data-entry="assessments[].metrics[].status"><td><code>assessments[].metrics[].status</code></td></tr>
+<tr data-entry="assessments[].metrics[].unit"><td><code>assessments[].metrics[].unit</code></td></tr>
+<tr data-entry="assessments[].metrics[].value"><td><code>assessments[].metrics[].value</code></td></tr>
+<tr data-entry="assessments[].per_item_ref.path"><td><code>assessments[].per_item_ref.path</code></td></tr>
+<tr data-entry="comparisons[].comparability.status"><td><code>comparisons[].comparability.status</code></td></tr>
+<tr data-entry="comparisons[].comparison_id"><td><code>comparisons[].comparison_id</code></td></tr>
+<tr data-entry="comparisons[].coverage.*"><td><code>comparisons[].coverage.*</code></td></tr>
+<tr data-entry="comparisons[].delta.candidate"><td><code>comparisons[].delta.candidate</code></td></tr>
+<tr data-entry="comparisons[].delta.control"><td><code>comparisons[].delta.control</code></td></tr>
+<tr data-entry="comparisons[].delta.definition"><td><code>comparisons[].delta.definition</code></td></tr>
+<tr data-entry="comparisons[].delta.metric"><td><code>comparisons[].delta.metric</code></td></tr>
+<tr data-entry="comparisons[].delta.unit"><td><code>comparisons[].delta.unit</code></td></tr>
+<tr data-entry="comparisons[].delta.value"><td><code>comparisons[].delta.value</code></td></tr>
+<tr data-entry="comparisons[].limitations"><td><code>comparisons[].limitations</code></td></tr>
+<tr data-entry="comparisons[].paired_deltas_ref.path"><td><code>comparisons[].paired_deltas_ref.path</code></td></tr>
+<tr data-entry="comparisons[].population_ref.path"><td><code>comparisons[].population_ref.path</code></td></tr>
+<tr data-entry="comparisons[].roles.candidate_assessment_id"><td><code>comparisons[].roles.candidate_assessment_id</code></td></tr>
+<tr data-entry="comparisons[].roles.control_assessment_id"><td><code>comparisons[].roles.control_assessment_id</code></td></tr>
+<tr data-entry="comparisons[].warnings[].code"><td><code>comparisons[].warnings[].code</code></td></tr>
+<tr data-entry="comparisons[].warnings[].message"><td><code>comparisons[].warnings[].message</code></td></tr>
+<tr data-entry="decisions[].applies"><td><code>decisions[].applies</code></td></tr>
+<tr data-entry="decisions[].author"><td><code>decisions[].author</code></td></tr>
+<tr data-entry="decisions[].cited_ids"><td><code>decisions[].cited_ids</code></td></tr>
+<tr data-entry="decisions[].decision_id"><td><code>decisions[].decision_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].assessment_id"><td><code>decisions[].evidence_change.lines[].assessment_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].changed_item_count"><td><code>decisions[].evidence_change.lines[].changed_item_count</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].latest_assessment_id"><td><code>decisions[].evidence_change.lines[].latest_assessment_id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].cited"><td><code>decisions[].evidence_change.lines[].metrics[].cited</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].id"><td><code>decisions[].evidence_change.lines[].metrics[].id</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].metrics[].latest"><td><code>decisions[].evidence_change.lines[].metrics[].latest</code></td></tr>
+<tr data-entry="decisions[].evidence_change.lines[].state"><td><code>decisions[].evidence_change.lines[].state</code></td></tr>
+<tr data-entry="decisions[].evidence_change.state"><td><code>decisions[].evidence_change.state</code></td></tr>
+<tr data-entry="decisions[].option"><td><code>decisions[].option</code></td></tr>
+<tr data-entry="decisions[].question"><td><code>decisions[].question</code></td></tr>
+<tr data-entry="decisions[].reasons[].id"><td><code>decisions[].reasons[].id</code></td></tr>
+<tr data-entry="decisions[].reasons[].reason"><td><code>decisions[].reasons[].reason</code></td></tr>
+<tr data-entry="declared_deviations[].declared_deviation_id"><td><code>declared_deviations[].declared_deviation_id</code></td></tr>
+<tr data-entry="declared_deviations[].withdrawn"><td><code>declared_deviations[].withdrawn</code></td></tr>
+<tr data-entry="pending_decisions[].candidate_assessment_id"><td><code>pending_decisions[].candidate_assessment_id</code></td></tr>
+<tr data-entry="pending_decisions[].comparison_id"><td><code>pending_decisions[].comparison_id</code></td></tr>
+<tr data-entry="pending_decisions[].control_assessment_id"><td><code>pending_decisions[].control_assessment_id</code></td></tr>
+<tr data-entry="pending_decisions[].options[].consequence"><td><code>pending_decisions[].options[].consequence</code></td></tr>
+<tr data-entry="pending_decisions[].options[].text"><td><code>pending_decisions[].options[].text</code></td></tr>
+<tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
+<tr data-entry="study.study_id"><td><code>study.study_id</code></td></tr>
+<tr data-entry="write_sequence"><td><code>write_sequence</code></td></tr>
+</tbody></table></div>
+
+<p class="sub2" id="panel-style">The panel's style, the guard of its layout and its own words</p>
+<div class="prose">
+<p>Every colour the panel's style sets is a theme variable of VS Code, written <code>var(--vscode-…)</code>, or one of the keywords <code>transparent</code>, <code>currentColor</code> and <code>inherit</code>, and the style sets the colour and the background of the body from theme variables, so that each keyword takes its colour from the theme. The buttons take the theme's button colours, including on hover and when disabled, and a border from the High Contrast border; no inert control or choice is drawn faded, so its text keeps its contrast; a disabled button's border is dashed, which the High Contrast themes draw, and the checked choice has an outline from the High Contrast active border; every focused control shows an outline in the theme's focus colour; the radio inputs take the theme's accent and are drawn in the scheme of the theme's kind. Each bar of a chart takes its colour from a class whose rule names a theme variable, and no element carries a colour, a fill or a style of its own. The style is written in TypeScript, in the document's one style element; the script sets no style, builds and changes no chart, and its text holds none of the names that would set one.</p>
+<p>A test of the client searches the values of that style for each of <a href="#panel-colour-forms">the forms of a literal colour of the table below</a>, and the colours of a border, of an outline and of a shadow are searched as any other.</p>
+<p>A second test measures the panel's document in headless Chrome, driven over its debugging port with Node's own WebSocket and no package: it sets the width of <a href="#panel-guard-bounds">the table of the guard's bounds</a> by device-metric emulation, checks the page's width before it measures, and fails when the wording of the first pending decision or the first evidence number stands farther from the top than its bound. The first evidence number is the delta's value of the first pending Comparison, or the delta's element when that delta is withheld; in the document the Comparison's delta follows the decision's wording, and the choices stand under the delta and its chart. The test runs with the client's other tests, with no step of its own in the workflow, and it is skipped with a named message where Chrome is absent or does not start. It is a regression guard only: the acceptance of the layout at that width, and of contrast and visible focus in the four themes, is the owner's check in VS Code. Other tests in headless Chrome, under approximations of the defaults of the four themes, check that every text of the documents of a write in flight and of a write with no answer is at the contrast of WCAG's AA, that the two equal bars of a chart are drawn equally long, that a radio input stands on the first line of its choice, that the checked choice is outlined and a disabled button drawn unlike an enabled one in the High Contrast themes, and that after a recorded write the view stays at the top with the notice focused.</p>
+<p>Every label, heading and fixed sentence the panel prints is an entry of <a href="#panel-labels">the label list of the table below</a>, or one of the words of the tables above and of the bridge's tables, the phrases of whether a Decision applies included; each entry is in English, and a test finds in none a word that the glossary lists under <em>Avoid</em>, the headings on the warnings and limitations of a Comparison excepted by name, since they name those keys of the record.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="panel-colour-forms"><thead><tr><th>An entry of <code>colour_forms</code>: a form of a literal colour</th><th>What the test finds</th></tr></thead><tbody>
+<tr data-entry="hexadecimal"><td><code>hexadecimal</code></td><td>A hexadecimal colour, such as <code>#c0ffee</code></td></tr>
+<tr data-entry="rgb()"><td><code>rgb()</code></td><td>The functional notation <code>rgb(…)</code></td></tr>
+<tr data-entry="rgba()"><td><code>rgba()</code></td><td>The functional notation <code>rgba(…)</code></td></tr>
+<tr data-entry="hsl()"><td><code>hsl()</code></td><td>The functional notation <code>hsl(…)</code></td></tr>
+<tr data-entry="hsla()"><td><code>hsla()</code></td><td>The functional notation <code>hsla(…)</code></td></tr>
+<tr data-entry="hwb()"><td><code>hwb()</code></td><td>The functional notation <code>hwb(…)</code></td></tr>
+<tr data-entry="lab()"><td><code>lab()</code></td><td>The functional notation <code>lab(…)</code></td></tr>
+<tr data-entry="lch()"><td><code>lch()</code></td><td>The functional notation <code>lch(…)</code></td></tr>
+<tr data-entry="oklab()"><td><code>oklab()</code></td><td>The functional notation <code>oklab(…)</code></td></tr>
+<tr data-entry="oklch()"><td><code>oklch()</code></td><td>The functional notation <code>oklch(…)</code></td></tr>
+<tr data-entry="color()"><td><code>color()</code></td><td>The functional notation <code>color(…)</code></td></tr>
+<tr data-entry="color-mix()"><td><code>color-mix()</code></td><td>The functional notation <code>color-mix(…)</code></td></tr>
+<tr data-entry="named"><td><code>named</code></td><td>A named or system colour of CSS Color Module Level 4, in any case, as a whole token outside <code>var(…)</code></td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-guard-bounds"><thead><tr><th>An entry of <code>guard_bounds</code>: a bound, then its value</th><th>What it bounds</th></tr></thead><tbody>
+<tr data-entry="width=420"><td><code>width=420</code></td><td>The width of the page, in CSS pixels, that the guard sets and checks before it measures</td></tr>
+<tr data-entry="question=200"><td><code>question=200</code></td><td>The greatest distance, in CSS pixels, from the top of the page to the top of the first pending decision's wording</td></tr>
+<tr data-entry="evidence=350"><td><code>evidence=350</code></td><td>The greatest distance, in CSS pixels, from the top of the page to the top of the first evidence number</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="panel-labels"><thead><tr><th>An entry of <code>labels</code>, in its order</th></tr></thead><tbody>
+<tr data-entry="Reading the Study."><td>Reading the Study.</td></tr>
+<tr data-entry="Read again"><td>Read again</td></tr>
+<tr data-entry="Study"><td>Study</td></tr>
+<tr data-entry="Write sequence"><td>Write sequence</td></tr>
+<tr data-entry="Pending decisions"><td>Pending decisions</td></tr>
+<tr data-entry="No pending decision."><td>No pending decision.</td></tr>
+<tr data-entry="Comparison"><td>Comparison</td></tr>
+<tr data-entry="Delta"><td>Delta</td></tr>
+<tr data-entry="Coverage"><td>Coverage</td></tr>
+<tr data-entry="Control"><td>Control</td></tr>
+<tr data-entry="Candidate"><td>Candidate</td></tr>
+<tr data-entry="Assessment"><td>Assessment</td></tr>
+<tr data-entry="Metric"><td>Metric</td></tr>
+<tr data-entry="status"><td>status</td></tr>
+<tr data-entry="Warnings of the Comparison"><td>Warnings of the Comparison</td></tr>
+<tr data-entry="Limitations of the Comparison"><td>Limitations of the Comparison</td></tr>
+<tr data-entry="Decisions"><td>Decisions</td></tr>
+<tr data-entry="Declared deviations"><td>Declared deviations</td></tr>
+<tr data-entry="withdrawn"><td>withdrawn</td></tr>
+<tr data-entry="No answer from the CLI:"><td>No answer from the CLI:</td></tr>
+<tr data-entry="Author"><td>Author</td></tr>
+<tr data-entry="Cited ids"><td>Cited ids</td></tr>
+<tr data-entry="applies"><td>applies</td></tr>
+<tr data-entry="Reasons"><td>Reasons</td></tr>
+<tr data-entry="Changed Items"><td>Changed Items</td></tr>
+<tr data-entry="Cited value"><td>Cited value</td></tr>
+<tr data-entry="Latest value"><td>Latest value</td></tr>
+<tr data-entry="Opened from a link"><td>Opened from a link</td></tr>
+<tr data-entry="This Study holds no Decision with the id"><td>This Study holds no Decision with the id</td></tr>
+<tr data-entry="Send again"><td>Send again</td></tr>
+<tr data-entry="Record this Decision"><td>Record this Decision</td></tr>
+<tr data-entry="Recording the Decision."><td>Recording the Decision.</td></tr>
+<tr data-entry="Nothing was sent. Missing:"><td>Nothing was sent. Missing:</td></tr>
+<tr data-entry="The Decision was recorded."><td>The Decision was recorded.</td></tr>
+<tr data-entry="Output path"><td>Output path</td></tr>
+<tr data-entry="comparability.status"><td>comparability.status</td></tr>
+<tr data-entry="Recorded:"><td>Recorded:</td></tr>
+<tr data-entry="The Decision may have been recorded."><td>The Decision may have been recorded.</td></tr>
+<tr data-entry="Send again: a Decision already recorded is not written twice."><td>Send again: a Decision already recorded is not written twice.</td></tr>
+<tr data-entry="The Study was read again; choose again."><td>The Study was read again; choose again.</td></tr>
+<tr data-entry="Number of pending decisions:"><td>Number of pending decisions:</td></tr>
+<tr data-entry="To the choices"><td>To the choices</td></tr>
+<tr data-entry="Sent:"><td>Sent:</td></tr>
+<tr data-entry="Failed:"><td>Failed:</td></tr>
+<tr data-entry="None."><td>None.</td></tr>
+</tbody></table></div>
+
 <p class="sub2">Deep links</p>
 <div class="prose">
-<p>A deep link is a <code>vscode://</code> URI that the extension handles, of one of the two forms below. Its authority is the manifest's publisher and name, joined by a dot, and the manifest's activation events let a link start the extension. The query is the key and the path, which is the whole rest of the query: required, absolute, within the limit below, with no NUL character, and a Study that the walk above finds in the workspace. A valid link opens the panel on its Study, and on the Decision the second form names; the panel's content renders it in L2.5. Anything else (another authority, a fragment, another path, a decision id that does not match the pattern) is refused with the one notification below, and opens nothing. A link never writes.</p>
+<p>A deep link is a <code>vscode://</code> URI that the extension handles, of one of the two forms below. Its authority is the manifest's publisher and name, joined by a dot, and the manifest's activation events let a link start the extension. The query is the key and the path, which is the whole rest of the query: required, absolute, within the limit below, with no NUL character, and a Study that the walk above finds in the workspace. A valid link opens the panel on its Study, and on the Decision the second form names, as <a href="#panel-decisions">the section on recorded Decisions</a> says. Anything else (another authority, a fragment, another path, a decision id that does not match the pattern) is refused with the one notification below, and opens nothing. A link never writes.</p>
 <p>The two forms, the publisher and the name are a public contract of the client, which a link printed outside the repository would fix.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-links"><thead><tr><th>What</th><th>Value</th></tr></thead><tbody>
@@ -2811,7 +3017,7 @@ uv run python -m hypotrail deviation --study runs/bike --text "the owner reviewe
 
 <p class="sub2">Reuse of the earlier companion</p>
 <div class="prose">
-<p id="ported-passages">No passage of the earlier companion (hypotrail/hypotrail at <code>4ef4925</code>) is ported into the client.</p>
+<p id="ported-passages">Three passages of the earlier companion (hypotrail/hypotrail at <code>4ef4925</code>) are ported into the client's charts, rewritten in TypeScript, each with its note: the length of a bar clamped to its track (clients/vscode-companion/media/components/bars.js:21-23), the top of a scale (clients/vscode-companion/media/components/bars.js:59-60), and the layout of a bar as a name, a track and a value (clients/vscode-companion/media/components/bars.js:81-86).</p>
 </div>
 
 <p class="sub2">Which ADR explains what</p>
