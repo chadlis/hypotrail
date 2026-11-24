@@ -36,9 +36,15 @@ type Session = { send: (method: string, params?: Record<string, unknown>) => Pro
 async function startChrome(t: TestContext): Promise<string | undefined> {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-chrome-"));
   let chrome: ChildProcess | undefined;
-  t.after(() => {
-    chrome?.kill("SIGKILL");
-    fs.rmSync(profile, { recursive: true, force: true });
+  // Chrome's helper processes write into the profile until they die with the browser: the whole process group is killed, the
+  // browser's exit awaited, and a folder a helper still writes into when the removal starts is removed again.
+  t.after(async () => {
+    if (chrome?.pid !== undefined && chrome.exitCode === null && chrome.signalCode === null) {
+      const exited = new Promise((resolve) => chrome!.once("exit", resolve));
+      process.kill(-chrome.pid, "SIGKILL");
+      await exited;
+    }
+    fs.rmSync(profile, { recursive: true, force: true, maxRetries: 10 });
   });
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(undefined), START_MS);
@@ -47,7 +53,7 @@ async function startChrome(t: TestContext): Promise<string | undefined> {
       resolve(address);
     };
     try {
-      chrome = spawn(CHROME, ["--headless", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--disable-gpu", "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+      chrome = spawn(CHROME, ["--headless", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--disable-gpu", "about:blank"], { stdio: ["ignore", "ignore", "pipe"], detached: true });
     } catch {
       return done(undefined);
     }
