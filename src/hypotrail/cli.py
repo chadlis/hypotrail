@@ -279,6 +279,14 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("--json", action="store_true", help="print one JSON object")
     status.set_defaults(handler=_status)
 
+    figures = commands.add_parser(
+        "figures",
+        help="show, for each Comparison of a Study, its paired deltas with the bins and the five numbers of a box computed from them (read only)",
+    )
+    figures.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to read")
+    figures.add_argument("--json", action="store_true", help="print one JSON object")
+    figures.set_defaults(handler=_figures)
+
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
     )
@@ -696,6 +704,21 @@ def _status(args) -> int:
             + (" (no live writer: `recover` can record it as interrupted)" if attempt["recoverable"] else "")
         )
     _emit({"ok": True, **report}, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
+def _figures(args) -> int:
+    from hypotrail.core import figures
+
+    report = figures.read(args.study)
+    lines = []
+    for entry in report["comparisons"]:
+        if entry["unavailable"] is None:
+            numbers = ", ".join(f"{name} {value:.6g}" for name, value in entry["quartiles"].items())
+            lines.append(f"{entry['comparison_id']}: {len(entry['paired_deltas'])} pairs, {numbers}")
+        else:
+            lines.append(f"{entry['comparison_id']}: no figures ({entry['unavailable']})")
+    _emit({"ok": True, **report}, args.json, "\n".join(lines) or "no Comparison in this Study")
     return EXIT_OK
 
 

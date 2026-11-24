@@ -318,6 +318,7 @@ LEAF_COMMANDS = {
     "assess": WRITER,
     "compare": WRITER,
     "status": NON_WRITER,
+    "figures": NON_WRITER,
     "decide": WRITER,
     "deviation": WRITER,
     "recover": WRITER,

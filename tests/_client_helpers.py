@@ -252,6 +252,42 @@ def public_check_study(tmp_path):
     return study
 
 
+def public_check_compared_study(tmp_path):
+    """A Bike Study with seasonal_7 and ridge_v1 run on public_check, each assessed, and one Comparison of the two: each records an
+    Exposure."""
+    from _report_tracks import TRACKS as REPORT_TRACKS
+
+    study, _, _, _ = REPORT_TRACKS["bike"].public_world(tmp_path)
+    return study
+
+
+def chinook_spread_study(tmp_path):
+    """A Chinook Study with two imports, the full answers as the Control and answers wrong on D01 once and on D03 always as the Candidate,
+    each assessed, and one Comparison of the two: its paired deltas are not all equal and its delta has a value."""
+    from _agent_compare_helpers import answer_lines, imported
+    from _chinook_helpers import init_chinook
+    from _deviation_helpers import compare_ids
+
+    study, _ = init_chinook(tmp_path)
+    _, control = imported(tmp_path, study, "full", answer_lines())
+    _, candidate = imported(tmp_path, study, "some-wrong", answer_lines(wrong={("D01", 0), ("D03", 0), ("D03", 1), ("D03", 2)}))
+    compare_ids(study, control["assessment_id"], candidate["assessment_id"])
+    return study
+
+
+# The Studies the `figures` read is checked on.
+FIGURES_STUDIES = {
+    "compared": compared_study,
+    "several-pending": several_pending_study,
+    "bike-withheld": bike_withheld_study,
+    "chinook-pending": chinook_pending_study,
+    "chinook-withheld": chinook_withheld_study,
+    "public-check": public_check_study,
+    "public-check-compared": public_check_compared_study,
+    "chinook-spread": chinook_spread_study,
+}
+
+
 STUDIES = {
     "status-success": compared_study,
     "status-chinook-pending": chinook_pending_study,
