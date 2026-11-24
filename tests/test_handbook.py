@@ -5435,6 +5435,64 @@ def test_the_prose_of_chapter_18_names_each_panel_style_bounds_and_label_table_b
         assert page.count(f'id="{table}"') == 1, table
 
 
+# --- the Claude Code hook template (chapter 18): its table against the values the script defines -------------------------------------
+
+HOOK_SCRIPT = ROOT / "clients" / "claude-code" / "hypotrail_study_hook.py"
+HOOK_TABLE = "claude-code-hook"
+# Each row of the table, by its `data-item`, and the name the script gives that value.
+HOOK_ROWS = {
+    "command": "COMMAND",
+    "since": "SINCE",
+    "text-limit": "TEXT_LIMIT",
+    "output-cap": "OUTPUT_CAP",
+    "read-timeout-seconds": "READ_TIMEOUT_SECONDS",
+    "left-out-line": "LEFT_OUT_LINE",
+    "failure-line": "FAILURE_LINE",
+    "rule": "RULE",
+}
+
+
+def hook_script_values() -> dict:
+    """{name: value} of each upper-case name the script defines, read by importing it, which starts nothing."""
+    spec = importlib.util.spec_from_file_location("hypotrail_study_hook", HOOK_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {name: value for name, value in vars(module).items() if name.isupper()}
+
+
+def test_the_hook_table_of_chapter_18_equals_the_values_the_script_defines_both_ways(page):
+    values = hook_script_values()
+    rows = client_items(page, HOOK_TABLE)
+    assert set(rows) == set(HOOK_ROWS)
+    assert set(HOOK_ROWS.values()) == set(values)
+    for item, name in HOOK_ROWS.items():
+        value = values[name]
+        assert rows[item] == (" ".join(value) if isinstance(value, tuple) else str(value)), item
+
+
+def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert chapter.count(f'id="{HOOK_TABLE}"') == 1
+    section = chapter.split('<p class="sub2" id="claude-code-hook-section">', 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    assert HOOK_TABLE in section and prose
+    found = [value for value in client_items(page, HOOK_TABLE).values() if re.search(rf"(?<![\w-]){re.escape(html.unescape(value))}(?![\w-])", prose)]
+    assert found == []
+
+
+def test_the_opening_of_chapter_18_names_the_claude_code_hook_and_l2_6_and_no_longer_calls_every_chat_channel_a_later_slice():
+    lead = plain_text(re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1])
+    assert "UserPromptSubmit" in lead and "L2.6" in lead
+    assert "the chat channels are later slices" not in lead
+
+
+def test_the_readme_gives_claude_code_the_study_at_every_prompt_and_names_the_template_folder_where_to_look():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "UserPromptSubmit" in readme and "clients/claude-code/" in readme
+    where = readme.split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    assert "clients/claude-code/" in where
+
+
 # --- the README's way to the panel ------------------------------------------------------------------------------------------------
 
 

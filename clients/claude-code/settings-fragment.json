@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I \"$CLAUDE_PROJECT_DIR\"/clients/claude-code/hypotrail_study_hook.py --study runs/bike",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
