@@ -5482,8 +5482,8 @@ def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
 
 def test_the_opening_of_chapter_18_names_the_userpromptsubmit_hook_and_copilots_channel_and_no_longer_calls_every_chat_channel_later():
     lead = plain_text(re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1])
-    assert "UserPromptSubmit" in lead and "Copilot" in lead and "L2.6" in lead
-    assert "the chat channels are later slices" not in lead
+    assert "Claude Code's is the UserPromptSubmit hook template" in lead and "Copilot's is L2.6" in lead
+    assert "later slice" not in lead
 
 
 def test_the_readme_gives_claude_code_the_study_at_every_prompt_and_names_the_template_folder_where_to_look():
