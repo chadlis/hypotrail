@@ -44,6 +44,13 @@ test("the style gives h1 the declaration overflow-wrap: anywhere", async (t) => 
   assert.ok(rulesOf(await styleOf(t)).some(([s, b]) => /(^|,\s*)h1\s*(,|$)/.test(s) && declares(b, "overflow-wrap", /^anywhere$/)));
 });
 
+test("the style mutes the first line of a Comparison's summary as it mutes the first line of its full part", async (t) => {
+  const muted = rulesOf(await styleOf(t)).filter(([, b]) => declares(b, "color", /^var\(--vscode-descriptionForeground\)$/) && declares(b, "font-size", /^0\.9em$/));
+  const selectors = muted.flatMap(([s]) => s.split(",").map((each) => each.trim()));
+  assert.ok(selectors.includes('div[data-part="comparison"] > p:first-child'), selectors.join(" | "));
+  assert.ok(selectors.includes('div[data-summary="comparison"] > p:first-child'), selectors.join(" | "));
+});
+
 // A call in flight: every control is disabled and main is busy; the document after it is not busy; a notice is a status.
 const tagsOf = (document: string): string[] => partsOf(document).tags;
 const mainTag = (document: string): string => tagsOf(document).find((tag) => tag.startsWith("<main"))!;
