@@ -68,7 +68,7 @@ Then open the checkout, or a Study's folder, and run the command "Hypotrail: Ope
 - [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, the selected milestones L2 and L3, later options and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.
 - [`AGENTS.md`](AGENTS.md): rules for contributors and coding agents.
-- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/) and the checks on its fix prompts and merges (`premises.py`, `fix_prompt_check.py`, `check_record.py`; the hooks are registered in [`.claude/settings.json`](.claude/settings.json)).
+- [`.claude/skills/drive/`](.claude/skills/drive/SKILL.md): how a slice is taken from its issue to a pull request (`/drive`, or `/drive #n` for a given slice), with the agent types it uses in [`.claude/agents/`](.claude/agents/) and the checks on its fix prompts and merges (`premises.py`, `fix_prompt_check.py`, `post_fix_prompt.sh`, `check_record.py`; the hooks are registered in [`.claude/settings.json`](.claude/settings.json)).
 - [chadlis/hypotrail-learning](https://github.com/chadlis/hypotrail-learning): the learning book (French) and the original specification of the first milestone.
 
 ## License

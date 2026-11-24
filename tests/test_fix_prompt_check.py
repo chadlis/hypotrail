@@ -294,3 +294,32 @@ def test_the_hook_runs_on_all_fixture_prompts_but_the_first_of_the_first_slice_w
 
 def test_every_source_fixture_is_named_after_its_issue_and_comment_or_after_the_repository_file_it_copies():
     assert all(re.fullmatch(r"issue-\d+-(body|comment-\d+)|repo-[\w-]+", path.stem) for path in (FIXTURES / "sources").glob("*.md"))
+
+
+def strict(prompt: str, sources, tmp_path):
+    """`fix_prompt_check.py --strict` run on a prompt file, as `post_fix_prompt.sh` runs it."""
+    path = tmp_path / "prompt.md"
+    path.write_text(prompt)
+    project = sources.parent / "project"
+    env = {**os.environ, "HYPOTRAIL_PROMPT_SOURCES": str(sources), "CLAUDE_PROJECT_DIR": str(project)}
+    return run("fix_prompt_check", "--strict", path, env=env, cwd=project)
+
+
+def test_strict_exits_0_on_a_prompt_whose_quotations_are_whole_and_that_names_a_finding_id(sources, tmp_path):
+    result = strict(f'{TRIGGER}. B1-P-01, #1 Tightened C says: "The check refuses a call."', sources, tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "0 warning(s)" in result.stdout and "Finding IDs named: B1-P-01." in result.stdout
+
+
+@pytest.mark.parametrize(
+    "prompt, warning",
+    [
+        (f'{TRIGGER}. B1-P-01, #1 Tightened C says: "refuses a call. It also logs"', "not a whole sentence or item of its source"),
+        (f'{TRIGGER}. B1-P-01, **remove** what #1 Tightened C says: "refuses a call. It also logs"', "not a whole sentence or item of its source"),
+        (f'{TRIGGER}. #1 Tightened C says: "The check refuses a call."', "finding IDs: the prompt names none"),
+    ],
+    ids=["partial quotation", "partial quotation of removed text", "no finding ID"],
+)
+def test_strict_exits_1_on_a_quotation_warning_text_the_prompt_removes_included_or_on_a_prompt_that_names_no_finding_id(sources, tmp_path, prompt, warning):
+    result = strict(prompt, sources, tmp_path)
+    assert result.returncode == 1 and warning in result.stdout

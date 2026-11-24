@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook on the Agent tool (D-055 on chadlis/hypotrail#75, item 1). It warns and never blocks.
+"""PreToolUse hook on the Agent tool (D-055 on chadlis/hypotrail#75, item 1). As a hook, it warns and never blocks.
 
 It acts only on a prompt that contains "This is a review fix", or that reads "Read <absolute path> and do exactly what it
 says" for a file that contains it. It then runs two checks and the premise sheet (`premises.py`), and lets the call through. Its
@@ -30,6 +30,10 @@ warning: a quotation that no readable source holds is then reported as unchecked
 
 An error of the hook itself is a warning too, and the call goes through: this is the one hook of the apparatus that
 does not fail closed.
+
+`fix_prompt_check.py --strict <prompt file>` runs the same checks on a file and prints the same report, headed "strict".
+It exits 1 on any quotation warning, a quotation of text the prompt removes included, or when the prompt names no finding
+ID, and 2 on an error of its own. `post_fix_prompt.sh` runs it before it posts a fix prompt.
 """
 
 import json
@@ -343,17 +347,18 @@ def premise_sheet(text: str, worktree: Path) -> list:
     return ([f"premise sheet exited {done.returncode}:"] if done.returncode else []) + lines
 
 
-def report(text: str) -> str:
+def report(text: str, strict: bool = False) -> tuple:
+    """(the report, whether `--strict` refuses the prompt: a quotation warning or no finding ID)."""
     worktree = worktree_of(text)
     texts, complete, missing = sources(text, worktree)
-    warnings = [f"source not read: {reason}" for reason in missing]
-    warnings += check_quotations(text, texts, complete)
+    quotation_warnings = check_quotations(text, texts, complete)
     ids, id_warnings = check_finding_ids(text)
-    warnings += id_warnings
+    warnings = [f"source not read: {reason}" for reason in missing] + quotation_warnings + id_warnings
     sheet = premise_sheet(text, worktree)
-    head = f"Fix-prompt check (warns only, the call goes through): {len(warnings)} warning(s). Finding IDs named: {', '.join(ids) or 'none'}."
+    mode = "strict" if strict else "warns only, the call goes through"
+    head = f"Fix-prompt check ({mode}): {len(warnings)} warning(s). Finding IDs named: {', '.join(ids) or 'none'}."
     body = [f"- {warning}" for warning in warnings] + (["", "Premise sheet:", *sheet] if sheet else [])
-    return "\n".join([head, *body])
+    return "\n".join([head, *body]), bool(quotation_warnings or id_warnings)
 
 
 def emit(context: str):
@@ -362,12 +367,28 @@ def emit(context: str):
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": context}}))
 
 
+def strict(argv: list) -> int:
+    """`--strict <prompt file>`: the report on stdout; exit 1 when it refuses the prompt, 2 on an error of the check itself."""
+    if len(argv) != 1:
+        print("usage: fix_prompt_check.py --strict <prompt file>", file=sys.stderr)
+        return 2
+    try:
+        text, refused = report(Path(argv[0]).read_text(encoding="utf-8"), strict=True)
+    except Exception as error:
+        print(f"Fix-prompt check failed and did not check the prompt ({type(error).__name__}: {error})", file=sys.stderr)
+        return 2
+    print(text)
+    return 1 if refused else 0
+
+
 def main() -> int:
+    if sys.argv[1:2] == ["--strict"]:
+        return strict(sys.argv[2:])
     try:
         prompt = json.load(sys.stdin)["tool_input"]["prompt"]
         text = review_fix_text(prompt) if isinstance(prompt, str) else None
         if text is not None:
-            emit(report(text))
+            emit(report(text)[0])
     except Exception as error:
         emit(f"Fix-prompt check failed and did not check the prompt ({type(error).__name__}: {error}). The call goes through.")
     return 0
