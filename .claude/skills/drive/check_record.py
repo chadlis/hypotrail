@@ -61,9 +61,21 @@ for the slice issue of the pull request:
    because ..." when no `slice-builder` prompt corrected it. A routing or disposition heading that mentions a fix
    prompt is neither (D-082 on chadlis/hypotrail#75, item 2: "**add** the fixed heading of a fix prompt, and
    `check_record.py` rule 10, which refuses a merge while a corrected round has no such comment;"). The rule skips the slices merged before it was added,
-   which `MERGED_BEFORE_FIX_PROMPT_RULE` lists, L2.3's (chadlis/hypotrail#159) the last of them. Its limits: it reads
-   headings, so it does not check that the comment is the prompt word for word, that it carries `premises.py`'s sheet,
-   that a "none, because" reason is true, or that a correction after the last round has one.
+   which `MERGED_BEFORE_FIX_PROMPT_RULE` lists, L2.3's (chadlis/hypotrail#159) the last of them. From the slice after
+   L2.5b (chadlis/hypotrail#186), which `MERGED_BEFORE_MARKER_RULE` closes, a round whose documentation fixes a
+   "round <r>: <axis> verification" comment reads needs one too, and a fix-prompt comment counts only when it holds
+   "This is a review fix" and a line "Fix-prompt check (strict): 0 warning(s)", as `post_fix_prompt.sh` posts it (D-115
+   on chadlis/hypotrail#75, proposal 2). Its limits: it reads headings and those two texts, so it does not check that the
+   comment is the prompt word for word, that it carries `premises.py`'s sheet, that a "none, because" reason is true,
+   that every fix-prompt comment of a round counts when one does, or that a correction after the last round that no
+   verification reads has one.
+11. each table row of a routing or closing register comment holds a finding ID that `FINDING_ID` reads in its first cell,
+   the header row (first cell "ID") and the separator row aside, so that a row the other rules cannot read refuses the
+   record rather than passing unseen (D-115 on chadlis/hypotrail#75: the L2.5b retro's 3b). It reads rows of seven cells
+   or more, as `rows_of` does, and skips the slices `MERGED_BEFORE_ID_RULE` lists, L2.5b's the last of them.
+
+`check_record.py --slice <n>` runs the same rules on the comments of slice issue <n> before any pull request exists: it
+skips rule 5 and the missing closing register, prints each reason, and exits 0; a failed `gh` call exits 2.
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -190,6 +202,11 @@ DELEGATED_ENTRY = re.compile(r"\bdrive decision \(delegated\)", re.IGNORECASE)
 MERGED_BEFORE_DELEGATED_ENTRY = frozenset({6, 7, 8, 9, 10, 56, 60, 80, 93, 104, 119, 120, 121, 138, 150})
 FIX_PROMPT = re.compile(r"\bround (\d+): fix prompt(?: \(to `?slice-builder`?\)|: none, because\b)", re.IGNORECASE)
 MERGED_BEFORE_FIX_PROMPT_RULE = MERGED_BEFORE_DELEGATED_ENTRY | {159}
+MERGED_BEFORE_MARKER_RULE = MERGED_BEFORE_FIX_PROMPT_RULE | {166, 176, 186}
+MERGED_BEFORE_ID_RULE = MERGED_BEFORE_MARKER_RULE
+TRIGGER = "This is a review fix"
+STRICT_PASSED = re.compile(r"^Fix-prompt check \(strict\): 0 warning\(s\)", re.MULTILINE)
+VERIFICATION = re.compile(r"\bround (\d+)\b.*\b(?:Standards|Spec)\b.*\bverification|\bround (\d+)\b.*\bverification.*\b(?:Standards|Spec)\b", re.IGNORECASE)
 
 
 def round_line_problems(number: int, comment: dict) -> list:
@@ -231,20 +248,58 @@ def unlisted_decisions(comments: list, tickets: dict, log: list, slice_number: i
     ]
 
 
-def unposted_fix_prompts(comments: list, reviewed: set) -> list:
-    """The rounds followed by another whose correction has no fix-prompt comment on the slice issue."""
-    prompted = {int(m.group(1)) for c in comments for m in [FIX_PROMPT.search(first_line(c))] if m}
-    return [
-        f"round {r} is followed by round {r + 1}, and no comment headed 'round {r}: fix prompt' holds the prompt of its correction"
-        for r in sorted(reviewed)
-        if r + 1 in reviewed and r not in prompted
-    ]
+def unposted_fix_prompts(comments: list, reviewed: set, checked: bool = False) -> list:
+    """The rounds followed by another whose correction has no fix-prompt comment on the slice issue.
+
+    When `checked`, a round whose documentation fixes a verification comment reads needs one too, and a fix-prompt comment
+    counts only when it holds "This is a review fix" and a line of `fix_prompt_check.py --strict` with no warning; a
+    "none, because" heading still counts."""
+    prompts = {}
+    for c in comments:
+        match = FIX_PROMPT.search(first_line(c))
+        if match:
+            body = c["body"] or ""
+            counts = not checked or "none, because" in match.group(0) or (TRIGGER in body and STRICT_PASSED.search(body))
+            prompts.setdefault(int(match.group(1)), []).append(bool(counts))
+    needed = {r: f"round {r} is followed by round {r + 1}" for r in sorted(reviewed) if r + 1 in reviewed}
+    if checked:
+        for c in comments:
+            match = VERIFICATION.search(first_line(c))
+            if match:
+                needed.setdefault(int(match.group(1) or match.group(2)), f"round {int(match.group(1) or match.group(2))} has a verification of its documentation fixes")
+    found = []
+    for r, why in sorted(needed.items()):
+        if r not in prompts:
+            found.append(f"{why}, and no comment headed 'round {r}: fix prompt' holds the prompt of its correction")
+        elif not any(prompts[r]):
+            found.append(f"round {r}: no comment headed 'round {r}: fix prompt' holds \"{TRIGGER}\" and a line 'Fix-prompt check (strict): 0 warning(s)'")
+    return found
 
 
-def problems(pr_body: str, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None) -> list:
+def unread_ids(comments: list, routed: dict) -> list:
+    """The table rows of the routing and closing register comments whose first cell holds no finding ID that `FINDING_ID` reads, header and separator rows aside."""
+    sources = [(f"round {number}'s routing comment", comment) for number, comment in sorted(routed.items())]
+    sources += [("the closing register", c) for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
+    found = []
+    for where, comment in sources:
+        for line in (comment["body"] or "").splitlines():
+            if not line.startswith("|"):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            first = cells[0].replace("*", "").replace("`", "").strip()
+            if len(cells) < 7 or first.lower() == "id" or all(re.fullmatch(r":?-+:?", cell) for cell in cells):
+                continue
+            if not FINDING_ID.search(cells[0]):
+                found.append(f"{where}: the table row whose first cell is {cells[0]!r} holds no finding ID of the form the check reads")
+    return found
+
+
+def problems(pr_body: str | None, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete.
 
-    `tickets` maps each sub-issue of the slice issue to its comments, and `log` holds the comments of the decision log."""
+    `tickets` maps each sub-issue of the slice issue to its comments, and `log` holds the comments of the decision log.
+    A `pr_body` of None is the record of a slice with no pull request yet (`--slice`): rule 5 is skipped, and so is the
+    missing closing register."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
     routed = {int(m.group(1)): c for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? routing", first_line(c))] if m}
     found = []
@@ -274,7 +329,7 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None, tick
                     pattern = rf"\bround {number}\b.*\b{axis}\b.*\bverification|\bround {number}\b.*\bverification.*\b{axis}\b"
                     if not any(re.search(pattern, first_line(c), re.IGNORECASE) for c in comments):
                         found.append(f"round {number}, documentation path ({cells[0]}): no 'round {number}: {axis} verification' comment")
-            promised = re.search(r"\bPR body\b", " ".join(cells[3:]))
+            promised = pr_body is not None and re.search(r"\bPR body\b", " ".join(cells[3:]))
             if promised:
                 for finding in FINDING_ID.findall(cells[0]):
                     if not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE) and finding not in pr_body:
@@ -287,11 +342,14 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None, tick
     if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
         found += unlisted_decisions(comments, tickets or {}, log or [], slice_number)
     if slice_number not in MERGED_BEFORE_FIX_PROMPT_RULE:
-        found += unposted_fix_prompts(comments, reviewed)
+        found += unposted_fix_prompts(comments, reviewed, checked=slice_number not in MERGED_BEFORE_MARKER_RULE)
+    if slice_number not in MERGED_BEFORE_ID_RULE:
+        found += unread_ids(comments, routed)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
-        found.append("no closing register comment")
+        if pr_body is not None:
+            found.append("no closing register comment")
     else:
         text = "\n".join(c["body"] or "" for c in registers)
         missing = sorted({i for i in ids if i not in text})
@@ -574,17 +632,40 @@ def check(repo: str, number: int, subject: str | None) -> str | None:
             "End the squash subject with '(#<slice>)' or write 'Part of #<slice>' in the PR body."
         )
     slice_number = candidates.pop()
-    comments, tickets, log = gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), {}, []
-    if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
-        tickets = {item["number"]: gh_pages(f"repos/{repo}/issues/{item['number']}/comments") for item in gh_pages(f"repos/{repo}/issues/{slice_number}/sub_issues")}
-        log = gh_pages(f"repos/{repo}/issues/{DECISION_LOG}/comments")
-    reasons = problems(pull.get("body") or "", comments, slice_number, tickets, log)
+    reasons = problems(pull.get("body") or "", *slice_record(repo, slice_number))
     if reasons:
         raise Refusal(f"the record of slice #{slice_number} is incomplete, so pull request #{number} is not merged:\n" + "\n".join(f"- {r}" for r in reasons))
     return None
 
 
+def slice_record(repo: str, slice_number: int) -> tuple:
+    """(the comments of the slice issue, the slice number, its tickets' comments, the decision log's comments), as `problems` takes them."""
+    comments, tickets, log = gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), {}, []
+    if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
+        tickets = {item["number"]: gh_pages(f"repos/{repo}/issues/{item['number']}/comments") for item in gh_pages(f"repos/{repo}/issues/{slice_number}/sub_issues")}
+        log = gh_pages(f"repos/{repo}/issues/{DECISION_LOG}/comments")
+    return comments, slice_number, tickets, log
+
+
+def slice_check(argv: list) -> int:
+    """`--slice <n>`: the reasons of the slice's record so far on stdout, exit 0; 2 on a usage error or a failed `gh` call."""
+    if len(argv) != 1 or not argv[0].isdigit():
+        print("usage: check_record.py --slice <slice issue number>", file=sys.stderr)
+        return 2
+    try:
+        reasons = problems(None, *slice_record(REPOSITORY, int(argv[0])))
+    except (Refusal, subprocess.SubprocessError, ValueError) as error:
+        print(f"check_record failed ({type(error).__name__}: {error})", file=sys.stderr)
+        return 2
+    print(f"Record check of slice #{argv[0]}: {f'{len(reasons)} reason(s).' if reasons else 'no reason.'}")
+    for reason in reasons:
+        print(f"- {reason}")
+    return 0
+
+
 def main() -> int:
+    if sys.argv[1:2] == ["--slice"]:
+        return slice_check(sys.argv[2:])
     try:
         note = run(json.load(sys.stdin))
     except Refusal as refusal:
