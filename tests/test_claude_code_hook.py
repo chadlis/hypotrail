@@ -86,7 +86,7 @@ def hook_table() -> dict:
     return rows.items
 
 
-# --- B2: the fragment registers the script -------------------------------------------------------------------------------
+# --- the fragment registers the script -------------------------------------------------------------------------------
 
 
 def test_the_fragment_registers_the_script_once_under_user_prompt_submit_with_one_study_and_a_timeout_above_the_scripts_bound():
@@ -132,7 +132,7 @@ def started(arguments, *, session="session-1", env=None, path=None, script=SCRIP
 
 
 def assert_never_blocks(result):
-    """B11: exit 0, and a stdout that is plain text: not a JSON object, and not a text that Claude Code would try to parse as one."""
+    """exit 0, and a stdout that is plain text: not a JSON object, and not a text that Claude Code would try to parse as one."""
     assert result.returncode == 0, (result.stdout, result.stderr)
     text = result.stdout.strip()
     assert not (text.startswith("{") and text.endswith("}")), text[:200]
@@ -166,7 +166,7 @@ def since_zero(study) -> str:
     return out
 
 
-# --- B3: what a start of the script starts and reads ---------------------------------------------------------------------
+# --- what a start of the script starts and reads ---------------------------------------------------------------------
 
 
 def test_the_script_starts_one_process_the_status_since_0_read_in_the_project_folder_and_prints_from_its_answer(tmp_path):
@@ -186,7 +186,7 @@ def test_the_script_starts_one_process_the_status_since_0_read_in_the_project_fo
     assert not missing.exists()
 
 
-# --- B5: what the text holds ---------------------------------------------------------------------------------------------
+# --- what the text holds ---------------------------------------------------------------------------------------------
 
 
 def quoted(value) -> str:
@@ -247,7 +247,7 @@ def test_the_text_names_the_study_its_write_sequence_each_pending_decision_and_e
     assert_ends_with_the_rule(result.stdout)
 
 
-# --- B7: the rule --------------------------------------------------------------------------------------------------------
+# --- the rule --------------------------------------------------------------------------------------------------------
 
 
 def assert_ends_with_the_rule(stdout: str):
@@ -263,7 +263,7 @@ def test_the_rule_names_the_read_the_read_sequence_decide_and_a_proxy_decision_w
         assert named in rule, named
 
 
-# --- B10: when the script cannot read --------------------------------------------------------------------------------------
+# --- when the script cannot read --------------------------------------------------------------------------------------
 
 
 def failure_line() -> str:
@@ -343,7 +343,7 @@ def test_without_claude_project_dir_the_script_starts_nothing_and_prints_the_fai
     assert stub.starts() == []
 
 
-# --- B6 and B8: the next prompt knows a Decision recorded since ---------------------------------------------------------------
+# --- the next prompt knows a Decision recorded since ---------------------------------------------------------------
 
 QUOTED = r'"(?:[^"\\]|\\.)*"'
 
@@ -397,7 +397,7 @@ def test_a_proxy_decision_recorded_as_the_rule_says_is_listed_with_its_source_an
     assert decision["decision_id"] in line and "author proxy;" in line and f"source {quoted(RULE_SOURCE)};" in line
 
 
-# --- B9: the cut ---------------------------------------------------------------------------------------------------------
+# --- the cut ---------------------------------------------------------------------------------------------------------
 
 # Claude Code's cap on a hook's plain stdout, past which it gives the model a file path and a preview instead (code.claude.com/docs/en/hooks,
 # read 2026-11-24).
@@ -443,7 +443,7 @@ def unbounded(tmp_path) -> Path:
     return copy
 
 
-# --- B4: the script writes nothing and keeps nothing -----------------------------------------------------------------------
+# --- the script writes nothing and keeps nothing -----------------------------------------------------------------------
 
 
 def recorded(result) -> dict:
@@ -484,11 +484,13 @@ def test_two_prompts_in_two_sessions_get_the_same_text_and_the_scripts_process_w
     assert porcelain() == status_before
 
 
-def test_with_a_stub_uv_the_home_and_temporary_folders_given_to_the_script_stay_empty(tmp_path):
-    stub = Stub(tmp_path, since_zero(compared_study(tmp_path / "bike")))
+@pytest.mark.parametrize("make", [compared_study, chinook_pending_study], ids=["bike", "chinook"])
+def test_with_a_stub_uv_the_home_and_temporary_folders_given_to_the_script_stay_empty(tmp_path, make):
+    study = make(tmp_path / "study")
+    stub = Stub(tmp_path, since_zero(study))
     home, temporary = tmp_path / "home", tmp_path / "tmp"
     home.mkdir(), temporary.mkdir()
     env = {**stub.env, "HOME": str(home), "TMPDIR": str(temporary)}
-    texts = [started(["--study", "runs/bike"], session=session, env=env, path=stub.path).stdout for session in ("session-1", "session-2")]
-    assert texts[0] == texts[1] and write_sequence_of(texts[0]) == 12
+    texts = [started(["--study", str(study)], session=session, env=env, path=stub.path).stdout for session in ("session-1", "session-2")]
+    assert texts[0] == texts[1] and write_sequence_of(texts[0]) == status_json(study)["write_sequence"]
     assert list(home.iterdir()) == [] and list(temporary.iterdir()) == []

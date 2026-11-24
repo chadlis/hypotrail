@@ -22,9 +22,8 @@ LEFT_OUT_LINE = "Decisions left out of this text, the oldest first, to keep it w
 RULE = (
     "Rule for an agent on this Study: read the Study's state at the start of each turn; when this hook printed the Study's values above,"
     " they are that read, from `status --since 0 --json`, and `status --json` gives the rest. Pass the `write_sequence` you read as"
-    " `--read-sequence` on every write to the Study, and read again when a write is refused with `STUDY_CHANGED`. Record a Decision only"
-    " through `decide`. Record an answer chosen by a stated rule as a proxy Decision: `decide --author proxy` with a `--source` that names"
-    " the rule."
+    " `--read-sequence` on every write to the Study. Record a Decision only through `decide`. Record an answer chosen by a stated rule as a"
+    " proxy Decision: `decide --author proxy` with a `--source` that names the rule."
 )
 FAILURE_LINE = "Hypotrail: this hook could not read the Study at this prompt, so it printed none of its values. " + RULE
 
