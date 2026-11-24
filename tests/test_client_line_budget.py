@@ -1,7 +1,8 @@
 """C6 of chadlis/hypotrail#103, "client under 3,000 lines", amended to 5,000 by its owner: the line count of the VS Code client, read from
 `git ls-files` at each check.
 
-"**C6:** the bound is 5,000 lines, not 3,000: the owner raised it (« q2 : relève à 5000 »)." (chadlis/hypotrail#103, comment 7112020066.)
+"**replace** in C6 the bound "3,000 lines" by "5,000 lines": the owner's criterion of #1 comment 7043566976 is amended by its owner; the
+line-budget test and the handbook follow in L2.5." (D-100 on chadlis/hypotrail#75, comment 7112019719.)
 "The 3,000 lines count TypeScript, HTML and CSS. Tests and generated bundles are excluded." (D-031 on chadlis/hypotrail#75, item 11.)
 Every tracked file under `clients/vscode/` is in exactly one class: counted, test, refused or other. No list of files is written here.
 """
