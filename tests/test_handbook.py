@@ -4103,9 +4103,10 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 15
+    assert len(parser_commands()) == 16
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     assert rows["deviation"]["data-chapter"] == "decisions"
+    assert rows["figures"]["data-chapter"] == "decisions"
     for command, row in rows.items():
         section = re.search(rf'<section id="{re.escape(row["data-chapter"])}".*?</section>', page, re.S)
         assert section, command
@@ -5041,6 +5042,74 @@ def test_chapter_17_says_decide_records_the_question_and_option_as_given_and_che
     card = plain_text(re.search(r'<div class="card"[^>]*><h3>Free text, no declared question</h3>.*?</div>', chapter_text("17-decisions.html"), re.S)[0])
     assert "as given" in card and "checks neither" in card, card
     assert "declares no question with options yet" not in plain_text(chapter_text("17-decisions.html"))
+
+
+# --- the figures read (chapter 17): its key paths, its reasons and its definitions against the read and the module -------------------
+
+FIGURES_TABLES = ("figures-key-paths", "figures-reasons", "figures-definitions")
+
+
+def figures_rows(page, table_id):
+    """The data attributes of each row of one table of chapter 17's section on the figures read, in order."""
+    section = re.search(r'<section id="decisions".*?</section>', page, re.S)[0]
+    return [row["attrs"] for row in parse(section).tables.get(table_id, []) if any(k.startswith("data-") for k in row["attrs"])]
+
+
+def figures_section() -> str:
+    """The section of chapter 17 that documents the figures read, from its heading to the next heading."""
+    chapter = chapter_text("17-decisions.html")
+    assert chapter.count('id="figures-read"') == 1
+    return re.search(r'<p class="sub2" id="figures-read">.*?(?=<p class="sub2")', chapter, re.S)[0]
+
+
+@pytest.fixture(scope="module")
+def figures_reads(tmp_path_factory):
+    """The object of the read on each fixture Study of the read and on each Study whose Comparison's figures cannot be given."""
+    from _figures_helpers import built_cases, built_studies, figures
+
+    base = tmp_path_factory.mktemp("figures-handbook")
+    studies = [*built_studies(base / "studies").values(), *(study for study, _ in built_cases(base / "cases").values())]
+    reads = []
+    for study in studies:
+        code, payload, err = figures(study)
+        assert code == 0, (payload, err)
+        reads.append(payload)
+    return reads
+
+
+def test_the_key_path_table_of_chapter_17_equals_the_leaf_paths_the_read_prints_both_ways_and_holds_no_mean_or_delta_of_a_comparison(page, figures_reads):
+    from _figures_helpers import leaf_paths
+
+    table = [row["data-path"] for row in figures_rows(page, "figures-key-paths")]
+    assert len(table) == len(set(table))
+    printed = leaf_paths(figures_reads)
+    assert sorted(set(table) - printed) == [] and sorted(printed - set(table)) == []
+    paired = {path for path in table if path.startswith("comparisons[].paired_deltas[].")}
+    assert [path for path in set(table) - paired if re.search(r"(^|[.\[\]])(mean|delta|value)($|[.\[])", path)] == []  # the main delta stays `status`'s
+
+
+def test_the_reasons_table_of_chapter_17_equals_the_reasons_of_the_module_in_their_order(page):
+    from hypotrail.core import figures
+
+    assert [row["data-reason"] for row in figures_rows(page, "figures-reasons")] == list(figures.REASONS)
+
+
+def test_the_definitions_table_of_chapter_17_equals_the_rules_and_the_quartiles_of_the_module_both_ways(page):
+    from hypotrail.core import figures
+
+    rows = figures_rows(page, "figures-definitions")
+    rules = {row["data-rule"]: row["data-expression"] for row in rows if "data-rule" in row}
+    assert sorted(rules) == sorted(figures.RULES)
+    assert rules == {name: getattr(figures, name).__doc__ for name in figures.RULES}
+    assert {row["data-quartile"]: float(row["data-p"]) for row in rows if "data-quartile" in row} == figures.QUARTILES
+
+
+def test_the_section_of_chapter_17_on_the_figures_read_states_no_value_of_its_tables(page):
+    values = {value for table in FIGURES_TABLES for row in figures_rows(page, table) for name, value in row.items() if name.startswith("data-")}
+    assert {"comparisons[].histogram[].low", "value_not_finite", "bin_edge", "ceil(log2 n) + 1", "0.25"} <= values  # the collection reads the tables
+    prose = html.unescape(plain_text(prose_of(figures_section())))
+    assert "ignore a key it does not know" in prose
+    assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
 
 
 # --- the VS Code client (chapter 18): its tables against `clients/vscode/contract.json`, the manifest and the workflow -------------
