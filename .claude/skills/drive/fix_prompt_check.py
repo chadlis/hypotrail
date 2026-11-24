@@ -32,8 +32,8 @@ An error of the hook itself is a warning too, and the call goes through: this is
 does not fail closed.
 
 `fix_prompt_check.py --strict <prompt file>` runs the same checks on a file and prints the same report, headed "strict".
-It exits 1 on any quotation warning, a quotation of text the prompt removes included, or when the prompt names no finding
-ID, and 2 on an error of its own. `post_fix_prompt.sh` runs it before it posts a fix prompt.
+It exits 1 on any quotation warning, a quotation of text the prompt removes included, when the prompt names no finding
+ID, or when it does not contain "This is a review fix", which the Agent hook needs to check it; 2 on an error of its own. `post_fix_prompt.sh` runs it before it posts a fix prompt.
 """
 
 import json
@@ -348,17 +348,18 @@ def premise_sheet(text: str, worktree: Path) -> list:
 
 
 def report(text: str, strict: bool = False) -> tuple:
-    """(the report, whether `--strict` refuses the prompt: a quotation warning or no finding ID)."""
+    """(the report, whether `--strict` refuses the prompt: a quotation warning, no finding ID or no "This is a review fix")."""
     worktree = worktree_of(text)
     texts, complete, missing = sources(text, worktree)
     quotation_warnings = check_quotations(text, texts, complete)
     ids, id_warnings = check_finding_ids(text)
-    warnings = [f"source not read: {reason}" for reason in missing] + quotation_warnings + id_warnings
+    marker_warnings = [] if TRIGGER in text else [f'the prompt does not contain "{TRIGGER}"; the Agent hook will not check it']
+    warnings = [f"source not read: {reason}" for reason in missing] + marker_warnings + quotation_warnings + id_warnings
     sheet = premise_sheet(text, worktree)
     mode = "strict" if strict else "warns only, the call goes through"
     head = f"Fix-prompt check ({mode}): {len(warnings)} warning(s). Finding IDs named: {', '.join(ids) or 'none'}."
     body = [f"- {warning}" for warning in warnings] + (["", "Premise sheet:", *sheet] if sheet else [])
-    return "\n".join([head, *body]), bool(quotation_warnings or id_warnings)
+    return "\n".join([head, *body]), bool(marker_warnings or quotation_warnings or id_warnings)
 
 
 def emit(context: str):

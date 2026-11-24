@@ -323,3 +323,10 @@ def test_strict_exits_0_on_a_prompt_whose_quotations_are_whole_and_that_names_a_
 def test_strict_exits_1_on_a_quotation_warning_text_the_prompt_removes_included_or_on_a_prompt_that_names_no_finding_id(sources, tmp_path, prompt, warning):
     result = strict(prompt, sources, tmp_path)
     assert result.returncode == 1 and warning in result.stdout
+
+
+def test_strict_exits_1_on_a_prompt_without_the_review_fix_marker_and_counts_it_as_a_warning(sources, tmp_path):
+    result = strict('B1-P-01, #1 Tightened C says: "The check refuses a call."', sources, tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stdout.startswith("Fix-prompt check (strict): 1 warning(s). Finding IDs named: B1-P-01.")
+    assert f'the prompt does not contain "{TRIGGER}"; the Agent hook will not check it' in result.stdout
