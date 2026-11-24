@@ -115,7 +115,7 @@ def test_the_drive_skill_runs_the_premise_sheet_before_it_posts_a_fix_prompt_and
     lines = (ROOT / ".claude/skills/drive/SKILL.md").read_text().splitlines()
     row = next(line for line in lines if line.startswith("| 6 |"))
     paragraph = next(line for line in lines if line.startswith("**Check the premise before you route.**"))
-    assert "after `premises.py` accepts it" in row
+    assert "posted by `.claude/skills/drive/post_fix_prompt.sh`, before the builder starts; it posts nothing while `premises.py` or `fix_prompt_check.py --strict` refuses the prompt" in row
     assert "`callers(<package.module.function>) = {<package.module:function>, \u2026}`" in paragraph and "premises.py <prompt file> <worktree>" in paragraph
     assert "`checked_by(<package.module.function>) = {<tests/file.py::test_name>, \u2026}`" in paragraph
 

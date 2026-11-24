@@ -25,6 +25,7 @@ This was decided without evidence from the engineer's walk. The engineer's walk 
 - [D-062](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7074979450), change 3: "L2 is narrowed to one review decision, end to end." The L2 section below is rewritten for it.
 - D-062, change 4, as amended by [D-063](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7075198791): a decision pilot gates how far L3 widens, and L2 is recorded as "built, not demonstrated". See "Pending gate: the decision pilot" below.
 - [D-068](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7076156755): the chain stops at the end of L2 for the owner's demonstration, before any L3 construction.
+  - Amended on 2026-11-24, by [D-088](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7095319824) (owner decision, 2026-11-23): when L2 is delivered, the run continues with chadlis/hypotrail#173, modelled then built, and the stop for the owner's demonstration moves to the end of #173's build.
 - [D-077](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7080379605) (decision by proxy): the eleven points the rewrite left open, among them which decision L2 delivers and what the owner's demonstration lifts.
 
 Where these decisions and the text below disagree, the decisions prevail.

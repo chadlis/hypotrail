@@ -14,4 +14,4 @@ Answer with:
 - what would make the choice wrong;
 - its reversibility.
 
-If the question is one of the owner-only cases (spending beyond the agreed budget, an irreversible act other than a pull-request merge, the licence, changing a Reference to improve a score), say so and do not choose. If the question is whether to continue past the end of L2, case (v) "end of L2, owner's demonstration" (D-068 on chadlis/hypotrail#75), say so and do not choose.
+If the question is one of the owner-only cases (spending beyond the agreed budget, an irreversible act other than a pull-request merge, the licence, changing a Reference to improve a score), say so and do not choose. If the question is whether to continue past the end of #173's build, case (v) "end of #173's build, owner's demonstration" (D-068 on chadlis/hypotrail#75, as amended by D-088), say so and do not choose.

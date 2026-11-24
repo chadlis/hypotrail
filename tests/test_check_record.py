@@ -326,6 +326,23 @@ def test_a_closing_register_that_leaves_out_an_assigned_finding_id_is_refused():
     assert problems(record) == ["the closing register does not list: B1-S-01"]
 
 
+BEHAVIOUR_ROW = "| B2-U-01 | 2 | Spec | the controls are inert until an outcome | behaviour, no line | open | the render |"
+UNSETTLED_BEHAVIOUR = "B2-U-01 is a 'behaviour, no line' row, and the closing register leaves it unsettled: open"
+
+
+def behaviour_record(register_status: str) -> list:
+    record = complete_record()
+    record[6] = routing(2, "| B2-S-01 | 2 | Standards | another name | 1 | open | y |\n" + BEHAVIOUR_ROW)
+    record[-1] = comment("## R9: closing register", f"B1-P-02 carried. B1-S-01 fixed. B2-S-01 fixed. B2-U-01 {register_status}\n")
+    return record
+
+
+@pytest.mark.parametrize("status, refused", [("open", True), ("disputed", True), ("fixed-verified by the UX review", False), ("refuted by the render", False)])
+def test_a_behaviour_no_line_row_that_the_closing_register_leaves_unsettled_is_refused(status, refused):
+    found = problems(behaviour_record(status))
+    assert found == ([UNSETTLED_BEHAVIOUR.replace(": open", f": {status}")] if refused else [])
+
+
 def test_a_promised_line_that_the_pr_body_does_not_name_is_refused_unless_the_finding_is_settled():
     assert problems(complete_record(), body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
     record = complete_record()
@@ -626,7 +643,7 @@ def calls_of_a_merge(tickets: int) -> int:
     return 5 + tickets
 
 
-def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_four_tickets(monkeypatch):
+def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_ten_tickets(monkeypatch):
     module = load("check_record")
     seen = []
 
@@ -644,9 +661,9 @@ def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_h
         assert seen == [20] * calls_of_a_merge(tickets)
     timeouts = {e["timeout"] for e in check_record_entries()}
     covered = max(t for t in range(20) if calls_of_a_merge(t) * module.GH_TIMEOUT <= min(timeouts))
-    assert timeouts == {180} and covered == 4
+    assert timeouts == {300} and covered == 10
     doc = " ".join(module.__doc__.split())
-    assert "covers a slice of at most 4 tickets" in doc and "fails closed" in doc
+    assert "the hook's 300 s timeout" in doc and "covers a slice of at most 10 tickets" in doc and "fails closed" in doc
 
 
 @pytest.mark.parametrize(
