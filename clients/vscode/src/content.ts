@@ -397,7 +397,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
       boxPlot(five as Five, number(delta.value)),
       `<p data-element="quartiles">${marks.map(([, mark]) => mark).join(" ")}</p>`,
       "</div>",
-      few || !first ? "" : `<p data-element="to-dots">${link("dot_count", index, pairs.length)} <a href="${HREF.dots}${index}">${label(agent ? "casesBelow" : "itemsBelow")}</a></p>`,
+      few || !first ? "" : `<p data-element="to-dots"><a href="${HREF.dots}${index}">${label(agent ? "casesBelow" : "itemsBelow")}</a></p>`,
       "</div>",
     ]
       .filter((line) => line !== "")

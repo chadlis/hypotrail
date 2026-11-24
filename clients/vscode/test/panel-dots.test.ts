@@ -227,9 +227,9 @@ for (const name of DRAWN) {
 }
 
 // Where the dots stand: from ten pairs, at the end of the Comparison's part, after its limitations, with a link to them under the box
-// plot that counts their rows; under ten, first among the figures, before the histogram.
+// plot that prints no number; under ten, first among the figures, before the histogram.
 for (const name of DRAWN) {
-  test(`each Comparison's dots stand after its limitations, linked from under its box plot by the count of their rows, as a link to the Comparison's part, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
+  test(`each Comparison's dots stand after its limitations, linked from under its box plot by one link that prints no number, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
@@ -246,7 +246,7 @@ for (const name of DRAWN) {
       const link = elementOf(part, '<p data-element="to-dots">')!;
       assert.ok(part.indexOf(link) > box && part.indexOf(link) < at, link);
       const below = "case_id" in entry.paired_deltas[0] ? "Cases below" : "Items below";
-      assert.equal(link, `<p data-element="to-dots"><a href="#comparison-${index}" data-kind="dot_count">${entry.paired_deltas.length}</a> <a href="#dots-${index}">${below}</a></p>`);
+      assert.equal(link, `<p data-element="to-dots"><a href="#dots-${index}">${below}</a></p>`);
       assert.ok(part.includes(`<div data-figure="dots" id="dots-${index}">`), "the dots hold the id the link names");
     }
   });

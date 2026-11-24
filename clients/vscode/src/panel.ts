@@ -223,7 +223,9 @@ const STYLE = [
   "rect.latest { fill: var(--vscode-charts-foreground); }",
   "[data-figures] { margin: 0.6em 0 0.9em; }",
   "[data-figure] svg { display: block; width: 100%; }",
-  '[data-figure="dots"] { margin-bottom: 0.5em; column-width: 18em; column-gap: 1.5em; }',
+  '[data-figure="dots"] { margin-bottom: 0.5em; }',
+  // Only the dots that stand after the choices, from ten pairs, run on in columns; under ten they stand among the figures, under their scale.
+  ':not([data-figures]) > [data-figure="dots"] { column-width: 18em; column-gap: 1.5em; }',
   '[data-figure="dots"] > h4, [data-element="dot-key"], [data-element="dot-order"] { column-span: all; }',
   '[data-figure="histogram"] svg { height: 4.5em; border-bottom: 1px solid var(--vscode-charts-lines); }',
   '[data-figure="box"] svg { height: 1.9em; margin-top: 0.3em; }',

@@ -186,7 +186,6 @@ const IN_A_FIGURE: Record<string, [string, (figures: Entry) => [number, string]]
   bin_edge: ["status-success", (f) => [f.comparisons[0].histogram[0].low, f.comparisons[0].comparison_id]],
   quartile: ["status-success", (f) => [f.comparisons[0].quartiles.median, f.comparisons[0].comparison_id]],
   dot_end: ["status-success", (f) => [Math.max(...f.comparisons[0].paired_deltas.flatMap((each: Entry) => [each.control_abs_error, each.candidate_abs_error])), f.comparisons[0].comparison_id]],
-  dot_count: ["status-success", (f) => [f.comparisons[0].paired_deltas.length, f.comparisons[0].comparison_id]],
 };
 
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
