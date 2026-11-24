@@ -404,3 +404,22 @@ for (const [place, at] of PLACES) {
     assert.equal(samePath(sameNonce(added)), samePath(sameNonce(plain)), "the same document");
   });
 }
+
+// "the cited/latest chart and the evidence state stand under the Decision's heading, before the cited Comparison" (chadlis/hypotrail#176,
+// comment 7123326768).
+for (const name of CHANGED) {
+  test(`in each Decision's part, the state of its evidence and the chart of each line stand after its question and before the Comparison it cites: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const parts = decisionParts((await documentFor(t, success(object))).document);
+    object.decisions.forEach((decision: Entry, index: number) => {
+      if (decision.evidence_change === null) return;
+      const part = parts[index];
+      const comparisons = ['<div data-part="comparison"', SUMMARY].map((opening) => part.indexOf(opening)).filter((at) => at >= 0);
+      assert.equal(comparisons.length > 0, citedComparisons(object, decision).length > 0, "a part or a summary of each Comparison it cites");
+      const places = [part.indexOf(`<span data-text>${decision.question}</span>`), part.indexOf('<p data-element="evidence">'), part.indexOf('<li data-chart="evidence">')];
+      if (comparisons.length > 0) places.push(Math.min(...comparisons));
+      assert.ok(places.every((place) => place >= 0), `${places}`);
+      assert.deepEqual(places, [...places].sort((a, b) => a - b), `${places}`);
+    });
+  });
+}

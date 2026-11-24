@@ -163,11 +163,30 @@ const INSTANCES: Record<string, [string, (object: Entry) => [number, string]]> =
   cited: ["status-result-changed", (o) => [o.decisions[0].evidence_change.lines[0].metrics[0].cited, o.decisions[0].evidence_change.lines[0].assessment_id]],
   latest: ["status-result-changed", (o) => [o.decisions[0].evidence_change.lines[0].metrics[0].latest, o.decisions[0].evidence_change.lines[0].latest_assessment_id]],
   changed_item_count: ["status-result-changed", (o) => [o.decisions[0].evidence_change.lines[0].changed_item_count, o.decisions[0].evidence_change.lines[0].latest_assessment_id]],
+  pending_decisions: ["status-several-pending", (o) => [o.pending_decisions.length, o.study.study_id]],
+};
+
+// For each pair whose part is a list of a Comparison's part, one number of that kind of a kept read, and the id of that Comparison.
+const IN_A_COMPARISON: Record<string, [string, (object: Entry) => [number, string]]> = {
+  warnings: ["status-success", (o) => [o.comparisons[0].warnings.length, o.comparisons[0].comparison_id]],
+  limitations: ["status-success", (o) => [o.comparisons[0].limitations.length, o.comparisons[0].comparison_id]],
 };
 
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), Object.keys(INSTANCES).sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON)].sort());
 });
+
+for (const [kind, [name, instance]] of Object.entries(IN_A_COMPARISON)) {
+  test(`a number of the kind ${kind} links to its list in the part of its Comparison: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const [number, id] = instance(object);
+    const { document } = await documentFor(t, success(object));
+    const links = linksOf(document).filter((link) => link.kind === kind && link.text === written(number));
+    assert.ok(links.length > 0, `a link of ${kind} holding ${written(number)}`);
+    const comparison = partsByKind(document, "comparison").find((part) => firstId(part) === id)!;
+    for (const link of links) assert.ok(link.target && comparison.includes(link.target) && partKind(link.target) === kind, `${kind} ${written(number)} in the part of ${id}`);
+  });
+}
 
 // The numbers of a line are looked for in the first line of the first Decision, where the same number may stand in another line.
 const IN_A_LINE = ["cited", "latest", "changed_item_count"];

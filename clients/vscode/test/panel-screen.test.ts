@@ -196,3 +196,83 @@ for (const name of DECIDED_READS) {
     assertDecisionOrder((await documentFor(t, success(object))).document, object);
   });
 }
+
+// The way to the choices: how many decisions are pending, a link that jumps to the first choices, what bears on the choice above it,
+// and each option's radio named by the option alone.
+const COUNT = "Number of pending decisions:";
+const SKIP = "To the choices";
+const NONE = "None.";
+const WARNINGS = "Warnings of the Comparison";
+const LIMITATIONS = "Limitations of the Comparison";
+const linkTo = (html: string): [string, string][] => [...html.matchAll(/<a href="#([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((match) => [match[1], match[2]]);
+
+for (const name of PENDING_READS) {
+  test(`the heading of the pending decisions is followed by their count, in a link to the Study's part: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    const after = document.slice(document.indexOf("<h2>Pending decisions</h2>") + "<h2>Pending decisions</h2>".length).trimStart();
+    const line = elementOf(after, "<p")!;
+    assert.ok(after.startsWith(line), after.slice(0, 80));
+    assert.equal(words(line), `${COUNT} ${object.pending_decisions.length}`);
+    const [[target, count]] = linkTo(line);
+    assert.equal(count, String(object.pending_decisions.length));
+    assert.match(elementWithId(document, target) ?? "", /^<div data-part="study"/);
+  });
+
+  test(`the controls hold a link to the choices of the first pending decision: ${name}`, async (t) => {
+    const { document } = await documentFor(t, success(keptObject(name)));
+    const controls = elementOf(document, '<div data-element="controls">')!;
+    const skip = linkTo(controls).filter(([, text]) => text === SKIP);
+    assert.equal(skip.length, 1, controls);
+    const fieldset = elementOf(elementsOf(document, '<section data-part="pending">')[0], "<fieldset ")!;
+    assert.equal(elementWithId(document, skip[0][0]), fieldset);
+  });
+
+  test(`directly above each fieldset, a line names how many warnings and limitations its Comparison holds, each count a link to its list: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    elementsOf(document, '<section data-part="pending">').forEach((part, index) => {
+      const comparison = object.comparisons.find((each: Entry) => each.comparison_id === object.pending_decisions[index].comparison_id);
+      const before = part.slice(0, part.indexOf("<fieldset ")).trimEnd();
+      const line = before.slice(before.lastIndexOf("<p "));
+      assert.equal(words(line), `${WARNINGS} ${comparison.warnings.length} ${LIMITATIONS} ${comparison.limitations.length}`, line);
+      const [warnings, limitations] = linkTo(line).map(([target]) => elementWithId(document, target) ?? "");
+      assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li>").length === comparison.warnings.length, warnings);
+      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text>").length === comparison.limitations.length, limitations);
+    });
+  });
+
+  test(`each radio is named by its option's text alone and described by its consequence: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    object.pending_decisions.forEach((pending: Entry, index: number) => {
+      const radios = partsOf(elementsOf(document, '<section data-part="pending">')[index]).tags.filter((tag) => tag.startsWith('<input type="radio"'));
+      assert.equal(radios.length, pending.options.length);
+      pending.options.forEach((option: Entry, at: number) => {
+        const named = idOf(radios[at], "aria-labelledby");
+        const described = idOf(radios[at], "aria-describedby");
+        assert.ok(named && described, radios[at]);
+        assert.deepEqual(markedTexts(elementWithId(document, named) ?? ""), [option.text]);
+        assert.deepEqual(markedTexts(elementWithId(document, described) ?? ""), [option.consequence]);
+      });
+    });
+  });
+}
+
+test("with no Decision and no Declared deviation, the headings Decisions and Declared deviations are each followed by None.: status-success", async (t) => {
+  const object = keptObject("status-success");
+  assert.equal(object.decisions.length + object.declared_deviations.length, 0);
+  const { document } = await documentFor(t, success(object));
+  for (const heading of ["Decisions", "Declared deviations"]) {
+    const after = document.slice(document.indexOf(`<h2>${heading}</h2>`) + `<h2>${heading}</h2>`.length).trimStart();
+    assert.ok(after.startsWith(`<p>${NONE}</p>`), `${heading}: ${after.slice(0, 60)}`);
+  }
+});
+
+test("with a Decision and a Declared deviation, neither heading is followed by None.: status-deviation with status-decided's Decision", async (t) => {
+  const object = keptObject("status-deviation");
+  object.decisions = keptObject("status-decided").decisions;
+  assert.ok(object.declared_deviations.length > 0);
+  const { document } = await documentFor(t, success(object));
+  assert.ok(!document.includes(`<p>${NONE}</p>`));
+});

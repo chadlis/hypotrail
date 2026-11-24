@@ -76,7 +76,12 @@
     "Recorded:",
     "The Decision may have been recorded.",
     "Send again: a Decision already recorded is not written twice.",
-    "The Study was read again; choose again."
+    "The Study was read again; choose again.",
+    "Number of pending decisions:",
+    "To the choices",
+    "Sent:",
+    "Failed:",
+    "None."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
@@ -86,7 +91,7 @@
   "decide_author": "human",
   "guard_bounds": ["width=420", "question=200", "evidence=350"],
   "colour_forms": ["hexadecimal", "rgb()", "rgba()", "hsl()", "hsla()", "hwb()", "lab()", "lch()", "oklab()", "oklch()", "color()", "color-mix()", "named"],
-  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment"],
+  "number_links": ["write_sequence=study", "value=assessment", "delta=comparison", "control=comparison", "candidate=comparison", "coverage=comparison", "cited=assessment", "latest=assessment", "changed_item_count=assessment", "pending_decisions=study", "warnings=warnings", "limitations=limitations"],
   "statuses": ["status", "comparability.status", "applies", "withdrawn"],
   "key_paths": [
     "assessments[].assessment_id",

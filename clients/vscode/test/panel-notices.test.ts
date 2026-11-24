@@ -4,12 +4,12 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { kept } from "./kept";
-import { elementOf, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { elementOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
 
-const [READ_AGAIN, RECORD] = contract.messages;
+const [READ_AGAIN, RECORD, SEND_AGAIN] = contract.messages;
 const RECORDED = "Recorded:";
 const RECORDED_ID = "The Decision was recorded.";
 const MAY_HAVE = "The Decision may have been recorded.";
@@ -76,12 +76,20 @@ for (const write of ["decide-success", "decide-replay"]) {
   });
 }
 
-test("the notice can take the focus, and the script scrolls to the recorded Decision and moves the focus to the notice", async (t) => {
+test("the notice can take the focus, and the script moves the focus to it", async (t) => {
   const read = keptObject("status-decided");
   const document = await afterWrite(t, answerWith("decide-success", read.decisions[0].decision_id), success(read));
   assert.match(partsOf(noticeOf(document)).tags[0], /\stabindex="-1"/);
-  const { script } = partsOf(document);
-  for (const name of ["scrollIntoView", "focus("]) assert.ok(script.includes(name), name);
+  assert.ok(partsOf(document).script.includes("focus("));
+});
+
+test("after a write whose Decision the read that follows holds, that Decision's part is marked as recorded, and no other part", async (t) => {
+  const read = keptObject("status-result-changed");
+  assert.equal(read.decisions.length, 2);
+  const document = await afterWrite(t, answerWith("decide-success", read.decisions[1].decision_id), success(read));
+  const marked = partsOf(document).tags.filter((tag) => /\sdata-recorded(\s|>)/.test(tag) && !tag.startsWith("<a "));
+  assert.deepEqual(marked, [`<section data-part="decision" id="decision-1" data-recorded>`]);
+  assert.ok(/section\[data-recorded\][^{]*\{[^}]*var\(--vscode-focusBorder\)/.test(partsOf(document).style), "the style marks it with the focus colour");
 });
 
 // A write with no answer, then a read while its id is held.
@@ -118,4 +126,74 @@ test("after a refusal and a read that fails, the sentence that the Study was rea
   const document = await afterWrite(t, keptAnswer("decide-study-changed"), NOT_FOUND);
   assert.ok(!partsOf(document).between.includes(READ_AGAIN_SENTENCE));
   assert.ok(partsOf(document).between.includes("STUDY_CHANGED"));
+});
+
+// The option a write sends, named while it is in flight and while it has no answer, its radio checked.
+const SENT = "Sent:";
+
+// The radio inputs of a document that are checked, as the indexes of their pending decision and option.
+const checkedOf = (document: string): string[] =>
+  partsOf(document)
+    .tags.filter((tag) => tag.startsWith('<input type="radio"') && /\schecked(\s|>)/.test(tag))
+    .map((tag) => `${/data-pending="(\d+)"/.exec(tag)![1]} ${/data-option="(\d+)"/.exec(tag)![1]}`);
+
+for (const option of [0, 1]) {
+  test(`with option ${option + 1} chosen, the notice of a write in flight, of its sending again and of a write with no answer names that option, and its radio is checked`, async (t) => {
+    const object = keptObject("status-success");
+    const text = object.pending_decisions[0].options[option].text;
+    workspace(t, ["bike"]);
+    const { answer } = heldRecorder(t);
+    await runCommand();
+    answer(success(object));
+    await settle();
+    assert.deepEqual(checkedOf(lastDocument()), [], "no radio checked before a write");
+    panelOf().send({ message: RECORD, pending: 0, option });
+    const states: [string, string][] = [["in flight", lastDocument()]];
+    answer(TIMEOUT);
+    await settle();
+    states.push(["with no answer", lastDocument()]);
+    panelOf().send({ message: READ_AGAIN });
+    answer(success(object));
+    await settle();
+    states.push(["read again with no answer held", lastDocument()]);
+    panelOf().send({ message: SEND_AGAIN });
+    states.push(["sent again, in flight", lastDocument()]);
+    for (const [state, document] of states) {
+      const notice = noticeOf(document);
+      assert.ok(words(notice).includes(`${SENT} ${text}`), `${state}: ${words(notice)}`);
+      assert.ok(markedTexts(notice).includes(text), state);
+      assert.deepEqual(checkedOf(document), [`0 ${option}`], state);
+    }
+  });
+}
+
+test("after a read with no write, no notice names an option sent", async (t) => {
+  workspace(t, ["bike"]);
+  recorder(t, success(keptObject("status-success")));
+  await runCommand();
+  await settle();
+  assert.ok(!partsOf(lastDocument()).between.includes(SENT));
+});
+
+// A failure opens with the word that says it failed.
+const FAILED = "Failed:";
+const failureOf = (document: string): string => elementOf(document, '<div data-element="failure">') ?? "";
+
+for (const [name, answer] of [
+  ["a read the CLI refuses", NOT_FOUND],
+  ["a read with no answer", { error: { code: "ENOENT" } }],
+] as [string, Answer][]) {
+  test(`the failure of ${name} opens with ${FAILED}`, async (t) => {
+    workspace(t, ["bike"]);
+    recorder(t, answer);
+    await runCommand();
+    await settle();
+    const failure = failureOf(lastDocument());
+    assert.ok(words(failure).startsWith(`${FAILED} `), words(failure));
+  });
+}
+
+test(`the refusal of a write in the notice opens with ${FAILED}: decide-study-changed`, async (t) => {
+  const notice = noticeOf(await afterWrite(t, keptAnswer("decide-study-changed"), success(keptObject("status-success"))));
+  assert.ok(words(notice).startsWith(`${FAILED} STUDY_CHANGED`), words(notice));
 });

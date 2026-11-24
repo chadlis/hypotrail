@@ -85,13 +85,13 @@ function record(message: Message): void {
 async function write(input: DecisionInput): Promise<void> {
   const opened = panel!;
   inFlight = true;
-  show({ reading: false, writing: true, object: held, unanswered: unanswered !== undefined, decision: target!.decision, study: target!.study });
+  show({ reading: false, writing: true, object: held, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
   const outcome = await recordDecision(ROOT, target!.study, input);
   if (panel !== opened) return;
   inFlight = false;
   unanswered = outcome.outcome === "no_answer" ? input : undefined;
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
-    show({ reading: false, object: held, written: outcome, unanswered: unanswered !== undefined, decision: target!.decision, study: target!.study });
+    show({ reading: false, object: held, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
@@ -102,13 +102,13 @@ async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, unanswered: unanswered !== undefined, decision: target!.decision, study });
+  show({ reading: true, object: held, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   const outcome = await readStudy(ROOT, study);
   if (panel !== opened) return;
   inFlight = false;
   held = outcome.outcome === "success" ? outcome.object : undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
-  show({ reading: false, object: held, failure, written, unanswered: unanswered !== undefined, decision: target!.decision, study });
+  show({ reading: false, object: held, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {
@@ -132,7 +132,8 @@ function newNonce(): string {
 
 // The document's script: each control sends the message its attribute names, and the control that records sends with
 // it the indexes of its pending decision and of the option selected there; selecting an option makes that control
-// active. The view scrolls to the Decision a link names, and to the Decision a write recorded, whose notice takes the focus.
+// active. The notice of a write the CLI recorded takes the focus, which keeps the view at the top; otherwise the view scrolls to the
+// Decision a link names.
 const SCRIPT = [
   '"use strict";',
   "const api = acquireVsCodeApi();",
@@ -155,12 +156,8 @@ const SCRIPT = [
   "    if (control !== null) control.disabled = false;",
   "  });",
   "}",
-  'document.querySelector("[data-linked]")?.scrollIntoView();',
-  'const recorded = document.querySelector("a[data-recorded]");',
-  "if (recorded !== null) {",
-  '  document.querySelector(recorded.getAttribute("href"))?.scrollIntoView();',
-  '  document.querySelector(\'[data-element="notice"]\')?.focus({ preventScroll: true });',
-  "}",
+  'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
+  'else document.querySelector("[data-linked]")?.scrollIntoView();',
 ].join("\n");
 
 // The document's style. Every colour it sets is a theme variable of VS Code, or `transparent` where a High Contrast theme
@@ -172,14 +169,14 @@ const STYLE = [
   "body { color: var(--vscode-foreground); background: var(--vscode-editor-background); font-family: var(--vscode-font-family); line-height: 1.4; }",
   "main { max-width: 46em; overflow-wrap: anywhere; }",
   "h1 { font-size: 0.9em; font-weight: normal; margin: 0.4em 0; color: var(--vscode-descriptionForeground); overflow-wrap: anywhere; }",
-  "h2 { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vscode-descriptionForeground); margin: 0.9em 0 0.3em; padding-bottom: 0.15em; border-bottom: 1px solid var(--vscode-panel-border); }",
+  "h2 { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--vscode-descriptionForeground); margin: 0.7em 0 0.25em; padding-bottom: 0.15em; border-bottom: 1px solid var(--vscode-panel-border); }",
   "h3 { font-size: 1.08em; margin: 0.3em 0 0.2em; }",
   "h4 { font-size: 0.85em; color: var(--vscode-descriptionForeground); margin: 0.5em 0 0.1em; }",
   "p, ul { margin: 0.2em 0; }",
   "ul { padding-left: 1.2em; }",
   "button { font: inherit; padding: 0.2em 0.8em; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid var(--vscode-contrastBorder, transparent); border-radius: 2px; cursor: pointer; }",
   "button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }",
-  "button:disabled { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); opacity: 0.6; cursor: default; }",
+  "button:disabled { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); border-style: dashed; cursor: default; }",
   ":focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }",
   'input[type="radio"] { accent-color: var(--vscode-button-background); margin: 0.2em 0 0; }',
   '[data-element="notice"], [data-element="failure"] { margin: 0.3em 0; padding: 0.3em 0.6em; border-left: 3px solid var(--vscode-focusBorder); background: var(--vscode-textBlockQuote-background); }',
@@ -187,20 +184,25 @@ const STYLE = [
   '[data-element="unknown"] { font-weight: 600; }',
   '[data-element="unknown"]::first-letter { text-transform: uppercase; }',
   '[data-element="controls"] { display: flex; gap: 0.4em; margin: 0.4em 0; }',
-  'div[data-part="comparison"] > p:first-child, div[data-summary="comparison"] > p:first-child, [data-element="coverage"], [data-element="definition"] { font-size: 0.9em; color: var(--vscode-descriptionForeground); }',
+  'div[data-part="comparison"] > p:first-child, div[data-summary="comparison"] > p:first-child, [data-element="coverage"], [data-element="definition"], [data-element="limits"] { font-size: 0.9em; color: var(--vscode-descriptionForeground); }',
+  '[data-element="controls"] a { align-self: center; }',
+  '[data-element="count"] { margin: 0 0 0.2em; font-size: 0.85em; line-height: 1.2; color: var(--vscode-descriptionForeground); }',
   '[data-element="delta"] a[data-kind="delta"] { font-size: 1.25em; font-weight: 600; }',
   "hr { border: 0; border-top: 1px solid var(--vscode-panel-border); margin: 1em 0 0.6em; }",
   "fieldset { margin: 0.5em 0; padding: 0.3em 0.5em 0.5em; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }",
   "label { display: grid; grid-template-columns: auto 1fr; column-gap: 0.5em; padding: 0.3em; border-radius: 3px; cursor: pointer; }",
   "label:hover { background: var(--vscode-list-hoverBackground); }",
-  "label:has(input:checked) { background: var(--vscode-list-inactiveSelectionBackground); }",
-  "label:has(input:disabled) { cursor: default; opacity: 0.7; }",
-  "label input { grid-row: 1 / span 2; }",
+  "label:has(input:checked) { background: var(--vscode-list-inactiveSelectionBackground); outline: 1px solid var(--vscode-contrastActiveBorder, transparent); }",
+  "label:has(input:disabled) { cursor: default; }",
+  "label:has(input:checked) small { color: inherit; }",
+  "label input { grid-row: 1 / span 2; align-self: start; }",
   "label small { grid-column: 2; font-size: 0.92em; color: var(--vscode-descriptionForeground); }",
   "fieldset button { margin-top: 0.4em; }",
-  "[data-chart] { margin: 0.4em 0; }",
+  "[data-chart] { display: grid; grid-template-columns: 6.5em minmax(3em, 1fr) auto; align-items: center; gap: 0.3em 0.5em; margin: 0.4em 0; }",
   "li[data-chart] { list-style: none; }",
-  "[data-bar] { display: grid; grid-template-columns: 6.5em minmax(3em, 1fr) auto; align-items: center; column-gap: 0.5em; margin: 0.15em 0; }",
+  "[data-chart] > p { grid-column: 1 / -1; }",
+  "[data-bar] { display: contents; }",
+  "[data-bar] > span:last-child { grid-column: 3; }",
   "[data-bar] svg { display: block; width: 100%; height: 0.75em; background: var(--vscode-editorWidget-background); }",
   "rect { stroke: var(--vscode-contrastBorder, transparent); vector-effect: non-scaling-stroke; }",
   "rect.control { fill: var(--vscode-charts-blue); }",
@@ -211,7 +213,7 @@ const STYLE = [
   "rect.cited { fill: var(--vscode-charts-lines); }",
   "rect.latest { fill: var(--vscode-charts-foreground); }",
   'section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--vscode-panel-border); }',
-  "section[data-linked] { border-left-color: var(--vscode-focusBorder); }",
+  "section[data-linked], section[data-recorded] { border-left-color: var(--vscode-focusBorder); }",
   "[data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--vscode-badge-foreground); background: var(--vscode-badge-background); }",
   '[data-applies="no"] { color: inherit; background: transparent; border: 1px solid var(--vscode-editorWarning-foreground); }',
   '[data-element="question"] { color: var(--vscode-descriptionForeground); }',
