@@ -12,8 +12,9 @@ and whether it still applies (`hypotrail.core.decisions`, `history`), computed n
 deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It lists every Assessment
 record (`assessments`) and every Comparison record (`comparisons`) the Study holds, each as stored, in the order of the write journal
 (`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
-`hypotrail.core.decisions`, `pending`). It takes no lock and writes nothing; it probes whether a
-writer holds the lock (`lock.is_held`).
+`hypotrail.core.decisions`, `pending`). It writes nothing and holds no lock; it probes whether a
+writer holds the lock (`lock.is_held`) with a non-blocking shared lock taken and dropped at once, so a writer starting at
+that instant is refused.
 
 `recover` is the explicit command that writes (chadlis/hypotrail#65, Tightened A). Under the writer
 lock, it records as `interrupted`, with `finished_at` and a Reason, an Attempt that is `running`

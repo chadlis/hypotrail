@@ -3,8 +3,9 @@
 For each Comparison, in the order `status` lists them, the read gives the lines of its `paired_deltas.csv` (per Item on the Regression
 Track, per Case on the Agent Track) and, from its paired deltas, the five numbers of a box and the bins of a histogram, computed when the
 Study is read and never stored; or the reason why its entry holds none. It reads the Study as `status` reads it, and so refuses what
-`status` refuses, then the `paired_deltas.csv` of each Comparison whose delta is not withheld. Through `state.status`, it takes no
-lock and writes nothing; it probes whether a writer holds the lock (`lock.is_held`).
+`status` refuses, then the `paired_deltas.csv` of each Comparison whose delta is not withheld. It writes nothing and holds no lock;
+it probes whether a writer holds the lock (`lock.is_held`) with a non-blocking shared lock taken and dropped at once, so a writer starting at
+that instant is refused.
 """
 
 import csv
