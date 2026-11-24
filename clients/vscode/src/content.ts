@@ -7,8 +7,8 @@ import type { Outcome } from "./bridge";
 import { bars, partBar, type Bar } from "./charts";
 
 // `study` is the string the panel was opened with, `failure` the outcome of a read that failed, `written` the answer of the
-// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question and option of the
-// write in flight or held; `decision` is the id a link of the second form names.
+// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option and cited
+// ids of the write in flight or held; `decision` is the id a link of the second form names.
 export type View = {
   study?: string;
   reading: boolean;
@@ -17,7 +17,7 @@ export type View = {
   failure?: Outcome;
   written?: Outcome;
   unanswered?: boolean;
-  sent?: { question: unknown; option: unknown };
+  sent?: { question: unknown; option: unknown; cited_ids: unknown };
   decision?: string;
 };
 
@@ -210,11 +210,12 @@ function studyOf(object: Entry, linked: string | undefined, locked: boolean, rec
 
 // The question, then the Comparison it names with the choices under its evidence: the first action selects an option's radio
 // input, named by the option's text and described by its consequence; the second is the control that records, disabled until
-// then. The option of the write `sent` is checked where its question is this one.
+// then. The option of the write `sent` is checked where its question is this one and its cited ids hold this Comparison's id.
 function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown, sent: View["sent"]): string {
   const inert = locked ? " disabled" : "";
   const question = `${QUESTION_ID}${index}`;
-  const asked = sent !== undefined && sent.question === record(pending.question).text;
+  const asked =
+    sent !== undefined && sent.question === record(pending.question).text && Array.isArray(sent.cited_ids) && sent.cited_ids.includes(pending.comparison_id);
   const options = list(pending.options).map((option, at) => {
     const place = shown.options++;
     const checked = asked && sent.option === option.text ? " checked" : "";

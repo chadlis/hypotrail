@@ -167,6 +167,24 @@ for (const option of [0, 1]) {
   });
 }
 
+test("status-several-pending: a write sent on the second pending decision checks the radio in that decision's part only, and its Sent: notice stands once", async (t) => {
+  const object = keptObject("status-several-pending");
+  workspace(t, ["bike"]);
+  const { answer } = heldRecorder(t);
+  await runCommand();
+  answer(success(object));
+  await settle();
+  panelOf().send({ message: RECORD, pending: 1, option: 0 });
+  const states: [string, string][] = [["in flight", lastDocument()]];
+  answer(TIMEOUT);
+  await settle();
+  states.push(["with no answer", lastDocument()]);
+  for (const [state, document] of states) {
+    assert.deepEqual(checkedOf(document), ["1 0"], state);
+    assert.equal(partsOf(document).between.split(SENT).length - 1, 1, state);
+  }
+});
+
 test("after a read with no write, no notice names an option sent", async (t) => {
   workspace(t, ["bike"]);
   recorder(t, success(keptObject("status-success")));
