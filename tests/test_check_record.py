@@ -45,6 +45,8 @@ def routing(number: int, rows: str, lines: str = ROUND_LINES) -> dict:
 
 ROW1 = f"| B1-P-02 | 1 | Spec | the PR body will give each red run | 1 | open | x |\n| B1-S-01 | 1 | Standards | a name | 1 | open | y |"
 FIX_PROMPT_1 = "## R9, round 1: fix prompt (to slice-builder), word for word"
+# The body `post_fix_prompt.sh` posts: the prompt, with its marker, then the sheet of `fix_prompt_check.py --strict`.
+CHECKED = "````\nThis is a review fix. B1-S-01: rename the function.\n````\n\nFix-prompt check (strict): 0 warning(s). Finding IDs named: B1-S-01.\n"
 ROW5 = "| B5-S-01 | 5 | Standards | a docstring | 1 (documentation) | open | z |\n| B5-P-01 | 5 | Spec | a limit | 1 (documentation) | open | z |"
 
 
@@ -54,7 +56,7 @@ def complete_record() -> list:
         comment("## R9, round 1: Standards axis (review of record, `x`)"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, ROW1),
-        comment(FIX_PROMPT_1),
+        comment(FIX_PROMPT_1, CHECKED),
         comment("## R9, round 2: Standards axis (review of record, `x`)"),
         routing(2, "| B2-S-01 | 2 | Standards | another name | 1 | open | y |"),
         comment("## R9: closing register", "B1-P-02 carried. B1-S-01 fixed. B2-S-01 fixed.\n"),
@@ -62,14 +64,13 @@ def complete_record() -> list:
 
 
 def documentation_record() -> list:
-    """Five reviewed rounds, the documentation path in round 5, both verifications and a register that lists every ID."""
+    """Five reviewed rounds, the documentation path in round 5 with its fix prompt, both verifications and a register that lists every ID."""
     record = [comment("## R9: state (updated in place)", "- **Review rounds used:** 5 of 5.\n")]
     for number in range(1, 6):
         record.append(comment(f"## R9, round {number}: Standards axis (review of record, `x`)"))
         rows = ROW5 if number == 5 else f"| B{number}-S-01 | {number} | Standards | the name of round {number} | 1 | open | y |"
         record.append(routing(number, rows))
-        if number < 5:
-            record.append(comment(f"## R9, round {number}: fix prompt (to slice-builder), word for word"))
+        record.append(comment(f"## R9, round {number}: fix prompt (to slice-builder), word for word", CHECKED))
     record.append(comment("## R9, round 5: Standards verification of the documentation fixes"))
     record.append(comment("## R9, round 5: Spec verification of the documentation fixes"))
     record.append(comment("## R9: closing register", "B1-S-01 B2-S-01 B3-S-01 B4-S-01 B5-S-01 B5-P-01\n"))
@@ -94,7 +95,7 @@ def test_a_round_followed_by_another_whose_correction_has_no_fix_prompt_comment_
 
 def test_a_round_followed_by_another_whose_fix_prompt_is_posted_under_the_fixed_heading_passes():
     record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
-    record.insert(4, comment(FIX_PROMPT_1, "1. B1-S-01: rename the function."))
+    record.insert(4, comment(FIX_PROMPT_1, CHECKED))
     assert problems(record) == []
 
 
@@ -117,6 +118,88 @@ def test_the_fix_prompt_rule_skips_l2_3_and_every_slice_merged_before_it_and_onl
     assert module.MERGED_BEFORE_FIX_PROMPT_RULE == module.MERGED_BEFORE_DELEGATED_ENTRY | {159}
     assert all(problems(record, slice_number=n) == [] for n in sorted(module.MERGED_BEFORE_FIX_PROMPT_RULE))
     assert problems(record, slice_number=166) == [UNPOSTED_1]
+
+
+UNCHECKED_1 = "round 1: no comment headed 'round 1: fix prompt' holds \"This is a review fix\" and a line 'Fix-prompt check (strict): 0 warning(s)'"
+UNPOSTED_5 = "round 5 has a verification of its documentation fixes, and no comment headed 'round 5: fix prompt' holds the prompt of its correction"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "1. B1-S-01: rename the function.",
+        CHECKED.replace("This is a review fix. ", ""),
+        CHECKED.replace("Fix-prompt check (strict): 0 warning(s).", "Fix-prompt check (strict): 1 warning(s)."),
+        CHECKED.replace("(strict)", "(warns only, the call goes through)"),
+    ],
+    ids=["neither", "no marker", "a strict warning", "the hook's run only"],
+)
+def test_a_fix_prompt_comment_without_the_review_fix_marker_and_a_strict_line_with_no_warning_does_not_count(body):
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    record.insert(4, comment(FIX_PROMPT_1, body))
+    assert problems(record) == [UNCHECKED_1]
+
+
+def test_a_round_whose_documentation_fixes_a_verification_reads_needs_its_fix_prompt_like_a_round_followed_by_another():
+    record = [c for c in documentation_record() if "round 5: fix prompt" not in c["body"]]
+    assert problems(record) == [UNPOSTED_5]
+    record.insert(-1, comment("## R9, round 5: fix prompt (to slice-builder), word for word", CHECKED.replace("This is a review fix. ", "")))
+    assert problems(record) == [UNCHECKED_1.replace("1", "5")]
+
+
+def test_the_marker_and_verification_conditions_skip_l2_5b_and_every_slice_merged_before_them_and_only_those():
+    module = load("check_record")
+    assert module.MERGED_BEFORE_MARKER_RULE == module.MERGED_BEFORE_FIX_PROMPT_RULE | {166, 176, 186}
+    unchecked = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"]]
+    unchecked.insert(4, comment(FIX_PROMPT_1, "1. B1-S-01: rename the function."))
+    unverified = [c for c in documentation_record() if "round 5: fix prompt" not in c["body"]]
+    assert all(problems(unchecked, slice_number=n) == [] == problems(unverified, slice_number=n) for n in (166, 176, 186))
+    assert problems(unchecked, slice_number=191) == [UNCHECKED_1] and problems(unverified, slice_number=191) == [UNPOSTED_5]
+
+
+@pytest.mark.parametrize("cell", ["L25B-P-01", "R9-P-1", "**B1-P-2**", "b1-p-02"])
+def test_a_row_of_a_routing_table_whose_first_cell_holds_no_finding_id_the_check_reads_refuses_the_record(cell):
+    record = complete_record()
+    record[3] = routing(1, ROW1 + f"\n| {cell} | 1 | Spec | a limit | 1 | open | z |")
+    unread = f"round 1's routing comment: the table row whose first cell is {cell!r} holds no finding ID of the form the check reads"
+    assert problems(record) == [unread]
+    assert problems(record, slice_number=186) == []
+
+
+def test_a_closing_register_row_whose_first_cell_holds_no_finding_id_refuses_the_record_and_its_header_and_separator_rows_do_not():
+    record = complete_record()
+    record[-1] = comment("## R9: closing register", "| ID | round | axis | requirement | row | status | evidence |\n|---|---|---|---|---|---|---|\n| B1-P-02 | 1 | Spec | x | 1 | carried | x |\n| B1-S-01 | 1 | Standards | y | 1 | fixed | y |\n| B2-S-01 | 2 | Standards | z | 1 | fixed | z |\n")
+    assert problems(record) == []
+    record[-1] = comment("## R9: closing register", record[-1]["body"] + "| L25B-S-01 | 2 | Standards | z | 1 | fixed | z |\n")
+    assert problems(record) == ["the closing register: the table row whose first cell is 'L25B-S-01' holds no finding ID of the form the check reads"]
+
+
+def slice_check(gh_dir, number=50):
+    env = {**os.environ, "PATH": f"{gh_dir.parent / 'bin'}:{os.environ['PATH']}", "FAKE_GH_DIR": str(gh_dir)}
+    return run("check_record", "--slice", number, env=env)
+
+
+def test_slice_prints_each_reason_of_the_record_so_far_and_exits_0_without_the_pr_body_rule_or_a_missing_closing_register(gh_dir):
+    record = [c for c in complete_record() if FIX_PROMPT_1 not in c["body"] and "closing register" not in c["body"]]
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", record)
+    result = slice_check(gh_dir)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["Record check of slice #50: 1 reason(s).", f"- {UNPOSTED_1}"]
+
+
+def test_slice_reads_the_closing_register_rules_once_a_register_exists_and_says_when_nothing_is_left(gh_dir):
+    record = complete_record()
+    record[-1] = comment("## R9: closing register", "B1-P-02 carried.\n")
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", record)
+    assert slice_check(gh_dir).stdout.splitlines() == ["Record check of slice #50: 1 reason(s).", "- the closing register does not list: B1-S-01, B2-S-01"]
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record())
+    result = slice_check(gh_dir)
+    assert (result.returncode, result.stdout) == (0, "Record check of slice #50: no reason.\n")
+
+
+def test_slice_exits_2_when_github_cannot_be_read(gh_dir):
+    result = slice_check(gh_dir, 51)
+    assert result.returncode == 2 and "failed" in result.stderr
 
 
 def test_a_state_comment_whose_round_count_is_not_the_number_of_reviewed_rounds_is_refused():
@@ -153,7 +236,7 @@ def two_round_record(first: str, second_rows: str, round_1_text: str = "", round
         comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(1, f"| B1-P-01 | 1 | Spec | {first} | 1 | open | x |")["body"] + round_1_text},
-        comment(FIX_PROMPT_1),
+        comment(FIX_PROMPT_1, CHECKED),
         comment("## R9, round 2: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(2, second_rows)["body"] + round_2_text},
         comment("## R9: closing register", "B1-P-01 fixed. B2-P-01 fixed.\n"),

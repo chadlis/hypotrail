@@ -9,7 +9,8 @@
 // 1. `clients/vscode/` at <head> is extracted with `git archive` into a scratch folder, never the checkout, then `npm ci` and the
 //    TypeScript build run there, so the client's own harness (`test/panel-harness.ts`), its kept CLI output (`test/cli/`) and
 //    its Chrome driver (`test/chrome.ts`) are those of <head>.
-// 2. The panel's documents are made by the harness on the kept CLI output: each read, and each step of a write.
+// 2. The panel's documents are made by the harness on the kept CLI output: each read of the harness's `KEPT_READS`, its figures
+//    call answered with the kept figures read made beside it, or as a failed call when none is kept, and each step of a write.
 // 3. Each document is drawn at 420 and 900 px wide in each theme, full page. At 420 px, every text whose contrast with what it
 //    stands on (every opacity and background composited) is under WCAG's AA (4.5, or 3 for large text) is listed, with the
 //    positions of the first pending question, its first number and its Record control.
@@ -65,18 +66,18 @@ const THEMES = {
   light: { kind: "vscode-light", v: { "panel-border": "rgba(128,128,128,0.35)", foreground: "#616161", "editor-foreground": "#000000", "editor-background": "#ffffff", descriptionForeground: "#717171", "textLink-foreground": "#006ab1", focusBorder: "#0090f1",
     "button-background": "#007acc", "button-foreground": "#ffffff", "button-hoverBackground": "#0062a3", "button-secondaryBackground": "#5f6a79", "button-secondaryForeground": "#ffffff",
     "textBlockQuote-background": "#f2f2f2", "inputValidation-errorBorder": "#be1100", "list-hoverBackground": "#f0f0f0", "list-inactiveSelectionBackground": "#e4e6f1",
-    "editorWidget-background": "#f3f3f3", "charts-blue": "#1a85ff", "charts-orange": "#d18616", "charts-lines": "rgba(97,97,97,0.5)", "charts-foreground": "#616161", "badge-background": "#c4c4c4", "badge-foreground": "#333333", "editorWarning-foreground": "#bf8803" } },
+    "editorWidget-background": "#f3f3f3", "charts-blue": "#1a85ff", "charts-orange": "#d18616", "charts-green": "#388a34", "charts-purple": "#652d90", "charts-lines": "rgba(97,97,97,0.5)", "charts-foreground": "#616161", "badge-background": "#c4c4c4", "badge-foreground": "#333333", "editorWarning-foreground": "#bf8803" } },
   dark: { kind: "vscode-dark", v: { "panel-border": "rgba(128,128,128,0.35)", foreground: "#cccccc", "editor-foreground": "#d4d4d4", "editor-background": "#1e1e1e", descriptionForeground: "rgba(204,204,204,0.7)", "textLink-foreground": "#3794ff", focusBorder: "#007fd4",
     "button-background": "#0e639c", "button-foreground": "#ffffff", "button-hoverBackground": "#1177bb", "button-secondaryBackground": "#3a3d41", "button-secondaryForeground": "#ffffff",
     "textBlockQuote-background": "#222222", "inputValidation-errorBorder": "#be1100", "list-hoverBackground": "#2a2d2e", "list-inactiveSelectionBackground": "#37373d",
-    "editorWidget-background": "#252526", "charts-blue": "#3794ff", "charts-orange": "#d18616", "charts-lines": "rgba(204,204,204,0.5)", "charts-foreground": "#cccccc", "badge-background": "#4d4d4d", "badge-foreground": "#ffffff", "editorWarning-foreground": "#cca700" } },
+    "editorWidget-background": "#252526", "charts-blue": "#3794ff", "charts-orange": "#d18616", "charts-green": "#89d185", "charts-purple": "#b180d7", "charts-lines": "rgba(204,204,204,0.5)", "charts-foreground": "#cccccc", "badge-background": "#4d4d4d", "badge-foreground": "#ffffff", "editorWarning-foreground": "#cca700" } },
   hc: { kind: "vscode-high-contrast", v: { foreground: "#ffffff", "editor-foreground": "#ffffff", "editor-background": "#000000", descriptionForeground: "rgba(255,255,255,0.7)", "textLink-foreground": "#21a6ff", focusBorder: "#f38518", contrastBorder: "#6fc3df", contrastActiveBorder: "#f38518",
     "button-foreground": "#ffffff", "button-secondaryForeground": "#ffffff", "panel-border": "#6fc3df", "inputValidation-errorBorder": "#6fc3df", "list-hoverBackground": "rgba(255,255,255,0.1)",
-    "editorWidget-background": "#0c141f", "charts-blue": "#3794ff", "charts-orange": "#d18616", "charts-lines": "rgba(255,255,255,0.5)", "charts-foreground": "#ffffff", "badge-background": "#000000", "badge-foreground": "#ffffff", "editorWarning-foreground": "#ffd370" } },
+    "editorWidget-background": "#0c141f", "charts-blue": "#3794ff", "charts-orange": "#d18616", "charts-green": "#89d185", "charts-purple": "#b180d7", "charts-lines": "rgba(255,255,255,0.5)", "charts-foreground": "#ffffff", "badge-background": "#000000", "badge-foreground": "#ffffff", "editorWarning-foreground": "#ffd370" } },
   hcl: { kind: "vscode-high-contrast vscode-high-contrast-light", v: { foreground: "#292929", "editor-foreground": "#292929", "editor-background": "#ffffff", descriptionForeground: "rgba(41,41,41,0.7)", "textLink-foreground": "#0f4a85", focusBorder: "#006bbd", contrastBorder: "#0f4a85", contrastActiveBorder: "#006bbd",
     "button-background": "#0f4a85", "button-foreground": "#ffffff", "button-hoverBackground": "rgba(15,74,133,0.8)", "button-secondaryBackground": "#ffffff", "button-secondaryForeground": "#292929", "panel-border": "#0f4a85",
     "textBlockQuote-background": "#f2f2f2", "inputValidation-errorBorder": "#0f4a85", "list-hoverBackground": "rgba(15,74,133,0.1)", "list-inactiveSelectionBackground": "rgba(15,74,133,0.1)",
-    "editorWidget-background": "#ffffff", "charts-blue": "#1a85ff", "charts-orange": "#d18616", "charts-lines": "rgba(41,41,41,0.5)", "charts-foreground": "#292929", "badge-background": "#0f4a85", "badge-foreground": "#ffffff", "editorWarning-foreground": "#895503" } },
+    "editorWidget-background": "#ffffff", "charts-blue": "#1a85ff", "charts-orange": "#d18616", "charts-green": "#374e06", "charts-purple": "#652d90", "charts-lines": "rgba(41,41,41,0.5)", "charts-foreground": "#292929", "badge-background": "#0f4a85", "badge-foreground": "#ffffff", "editorWarning-foreground": "#895503" } },
 };
 const WIDTHS = [420, 900];
 
@@ -122,17 +123,27 @@ const POSITIONS = `(() => {
 
 const documents = new Map();
 const keptAnswer = (name) => exit(Number(kept(`${name}.exit`)), kept(`${name}.out`), kept(`${name}.err`));
+// The panel makes a figures call after each status read that succeeds. Its answer is the kept figures read made beside the status
+// read when the harness keeps one, otherwise a failed call, which the document shows as such.
+const figuresAnswer = (name) => (H.KEPT_FIGURES[name] ? keptAnswer(H.KEPT_FIGURES[name]) : H.FIGURES_FAILED);
+const keptRead = (name) => [keptAnswer(name), figuresAnswer(name)];
+// Answers the calls in flight of a held recorder with a kept status read, then the figures call that follows it.
+async function answerRead(held, name) {
+  held.answer(keptAnswer(name)); await H.settle();
+  held.answer(figuresAnswer(name)); await H.settle();
+}
 const TIMEOUT = { error: { code: null, killed: true, signal: "SIGTERM" } };
 const NOT_FOUND = { error: { code: "ENOENT" } };
 
-for (const name of ["status-success", "status-chinook-pending", "status-several-pending", "status-chinook-withheld", "status-rescored", "status-result-changed", "status-repeated", "status-decided", "status-deviation", "status-chinook-decided", "status-bike-withheld"]) {
-  test(name, async (t) => documents.set(name, (await H.documentFor(t, keptAnswer(name))).document));
+for (const name of H.KEPT_READS) {
+  test(name, async (t) => documents.set(name, (await H.documentFor(t, ...keptRead(name))).document));
 }
+test("figures-failed", async (t) => documents.set("figures-failed", (await H.documentFor(t, keptAnswer("status-success"), H.FIGURES_FAILED)).document));
 test("read-refused", async (t) => documents.set("read-refused", (await H.documentFor(t, keptAnswer("status-not-found"))).document));
 test("read-noanswer", async (t) => documents.set("read-noanswer", (await H.documentFor(t, NOT_FOUND)).document));
 test("linked-decision", async (t) => {
   const [study] = H.workspace(t, ["bike"]);
-  recorder(t, keptAnswer("status-rescored"));
+  recorder(t, ...keptRead("status-rescored"));
   await H.followLink(1, study, JSON.parse(kept("status-rescored.out")).decisions[0].decision_id);
   await H.settle();
   documents.set("linked-decision", H.lastDocument());
@@ -140,38 +151,40 @@ test("linked-decision", async (t) => {
 test("status-decided-cited-twice", async (t) => {
   const read = JSON.parse(kept("status-decided.out"));
   read.decisions.push({ ...structuredClone(read.decisions[0]), decision_id: "3c9e7a51-8d24-4f6b-a0e3-6b1f2d9c4e87" });
-  documents.set("status-decided-cited-twice", (await H.documentFor(t, H.success(read))).document);
+  documents.set("status-decided-cited-twice", (await H.documentFor(t, H.success(read), figuresAnswer("status-decided"))).document);
 });
 
 // A write after the read of status-success with the first option chosen: the document of each step, unless `prefix` is null.
+// `readAfter` names the kept status read that answers the read after the write, or is the answer of a read that fails.
 async function writeFlow(t, prefix, writeAnswer, readAfter) {
   const keep = (step) => prefix && documents.set(`${prefix}-${step}`, H.lastDocument());
   H.workspace(t, ["bike"]);
   const held = H.heldRecorder(t);
   await H.runCommand(); await H.settle(); keep("0-reading");
-  held.answer(keptAnswer("status-success")); await H.settle(); keep("0b-read");
+  await answerRead(held, "status-success"); keep("0b-read");
   H.panelOf().send({ message: RECORD, pending: 0, option: 0 }); await H.settle(); keep("1-writing");
   held.answer(writeAnswer); await H.settle(); keep("2-after-write");
-  if (readAfter) { held.answer(readAfter); await H.settle(); keep("3-after-read"); }
+  if (typeof readAfter === "string") { await answerRead(held, readAfter); keep("3-after-read"); }
+  else if (readAfter) { held.answer(readAfter); await H.settle(); keep("3-after-read"); }
   return held;
 }
-test("w-success", (t) => writeFlow(t, "w-success", keptAnswer("decide-success"), keptAnswer("status-decided")));
-test("w-refused", (t) => writeFlow(t, "w-refused", keptAnswer("decide-study-changed"), keptAnswer("status-success")));
+test("w-success", (t) => writeFlow(t, "w-success", keptAnswer("decide-success"), "status-decided"));
+test("w-refused", (t) => writeFlow(t, "w-refused", keptAnswer("decide-study-changed"), "status-success"));
 test("w-noanswer", (t) => writeFlow(t, "w-noanswer", TIMEOUT, null));
 test("w-success-readfail", (t) => writeFlow(t, "w-success-readfail", keptAnswer("decide-success"), NOT_FOUND));
-test("w-invalid", (t) => writeFlow(t, "w-invalid", keptAnswer("decide-invalid-arguments"), keptAnswer("status-success")));
+test("w-invalid", (t) => writeFlow(t, "w-invalid", keptAnswer("decide-invalid-arguments"), "status-success"));
 test("w-noanswer-send-again", async (t) => {
   const held = await writeFlow(t, null, TIMEOUT, null);
   H.panelOf().send({ message: SEND_AGAIN }); await H.settle(); documents.set("w-noanswer-3-sending-again", H.lastDocument());
   held.answer(keptAnswer("decide-replay")); await H.settle(); documents.set("w-noanswer-4-replay", H.lastDocument());
-  held.answer(keptAnswer("status-decided")); await H.settle(); documents.set("w-noanswer-5-after-read", H.lastDocument());
+  await answerRead(held, "status-decided"); documents.set("w-noanswer-5-after-read", H.lastDocument());
 });
 test("w-success-4-matched", async (t) => {
   const read = JSON.parse(kept("status-decided.out"));
   const answer = JSON.parse(kept("decide-success.out"));
   answer.decision.decision_id = read.decisions[0].decision_id;
   H.workspace(t, ["bike"]);
-  recorder(t, keptAnswer("status-success"), exit(0, JSON.stringify(answer)), H.success(read));
+  recorder(t, ...keptRead("status-success"), exit(0, JSON.stringify(answer)), H.success(read), figuresAnswer("status-decided"));
   await H.runCommand(); await H.settle();
   H.panelOf().send({ message: RECORD, pending: 0, option: 0 }); await H.settle(); await H.settle();
   documents.set("w-success-4-matched", H.lastDocument());

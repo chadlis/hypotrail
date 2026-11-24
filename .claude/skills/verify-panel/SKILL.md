@@ -21,7 +21,7 @@ node .claude/skills/verify-panel/render.js <output folder> <head>
 
 ## What the sheet shows
 
-- Every read the harness can make from the kept output (each `status-*` file, a refused read, a read with no answer, a Decision a link names, a Comparison two Decisions cite) and every step of a write (in flight, recorded, refused, invalid, with no answer, sent again), each in Light+, Dark+, High Contrast and High Contrast Light at 420 and 900 px, full page.
+- Every read the harness can make from the kept output (each read of its `KEPT_READS` with the figures of the kept `figures-*` read made beside it, or a failed figures call where none is kept, a read whose figures call fails, a refused read, a read with no answer, a Decision a link names, a Comparison two Decisions cite) and every step of a write (in flight, recorded, refused, invalid, with no answer, sent again), each in Light+, Dark+, High Contrast and High Contrast Light at 420 and 900 px, full page.
 - At 420 px, each text whose contrast with what it stands on is under WCAG's AA, and where the first pending question, its first number and its Record control stand.
 - On the read of status-success at 420 by 700 px: the Tab stops up to the first radio, then Space, Tab, Enter and the pointer over the options, each shot, with the messages the document posted.
 
