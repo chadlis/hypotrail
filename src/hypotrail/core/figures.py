@@ -2,8 +2,8 @@
 
 For each Comparison, in the order `status` lists them, the read gives the lines of its `paired_deltas.csv` (per Item on the Regression
 Track, per Case on the Agent Track) and, from its paired deltas, the five numbers of a box and the bins of a histogram, computed when the
-Study is read and never stored; or the reason why its entry holds none. It reads the Study's spec, its write journal and its Comparison
-records, as `status` does, and the `paired_deltas.csv` of each Comparison whose delta is not withheld. It takes no lock and writes nothing.
+Study is read and never stored; or the reason why its entry holds none. It reads the Study as `status` reads it, and so refuses what
+`status` refuses, then the `paired_deltas.csv` of each Comparison whose delta is not withheld. It takes no lock and writes nothing.
 """
 
 import csv
@@ -12,8 +12,7 @@ import math
 from bisect import bisect_right
 from pathlib import Path
 
-from hypotrail.core import artifacts, write_journal
-from hypotrail.core import study as layout
+from hypotrail.core import artifacts, state
 from hypotrail.core.agent_comparison import PAIRED_COLUMNS as CASE_COLUMNS
 from hypotrail.core.comparison import PAIRED_COLUMNS as ITEM_COLUMNS
 from hypotrail.core.errors import IntegrityError
@@ -161,7 +160,5 @@ def entry(study: Path, record: dict) -> dict:
 def read(study) -> dict:
     """The write sequence of the Study and one entry per Comparison, in the order `status` lists them; refuses the Study as `status` does."""
     study = Path(study)
-    layout.read_spec(study)
-    sequence = write_journal.write_sequence(study)
-    records = sorted(layout.comparison_records(study), key=write_journal.comparison_order(study))
-    return {"write_sequence": sequence, "comparisons": [entry(study, record) for record in records]}
+    listing = state.status(study)
+    return {"write_sequence": listing["write_sequence"], "comparisons": [entry(study, record) for record in listing["comparisons"]]}

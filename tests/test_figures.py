@@ -371,6 +371,42 @@ def test_the_read_refuses_the_study_where_status_refuses_it_with_the_same_code_a
         assert files(target) == before
 
 
+def unreadable(path: Path) -> None:
+    """The record at `path` stripped of its `kind`, which the contract schema requires, so that reading it refuses."""
+    record = json.loads(path.read_text(encoding="utf-8"))
+    del record["kind"]
+    path.write_bytes(canonical.dumps(record))
+
+
+def status_refusal(case: str, tmp_path: Path, studies: dict) -> list:
+    """The arguments, after the command, of a Study `status` refuses: the cases the tests of `status` make (tests/test_study_lock.py,
+    tests/test_handbook.py and the five above), and a copy of `compared_study` with one record `status` reads made unreadable."""
+    if case == "no-study-flag":
+        return []
+    if case in ("no-folder", "unknown-flag"):
+        return [f"--study={tmp_path / 'none'}", *(["--bogus"] if case == "unknown-flag" else [])]
+    study = tmp_path / "study"
+    if case == "a-file":
+        study.write_text("not a Study\n", encoding="utf-8")
+    elif case == "no-study-json":
+        study.mkdir()
+    else:
+        copy_of(studies["compared"], study)
+        unreadable(sorted(study.glob(case))[0])
+    return [f"--study={study}"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["no-folder", "a-file", "no-study-json", "no-study-flag", "unknown-flag", "study.json", "attempts/*/attempt.json", "assessments/*/assessment.json"],
+)
+def test_the_read_refuses_every_study_status_refuses_with_the_same_exit_code_and_stage(case, tmp_path, studies):
+    flags = status_refusal(case, tmp_path, studies)
+    by_status = refusal("status", *flags, "--json")
+    assert by_status[0] != 0, by_status
+    assert refusal("figures", *flags, "--json") == by_status
+
+
 EXPECTED = {
     "6-no-comparison": None,
     "7-paired-deltas-removed": "artifact_missing",
