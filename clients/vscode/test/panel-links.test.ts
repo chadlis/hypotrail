@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
 import { kept } from "./kept";
-import { KEPT_READS, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -143,7 +143,7 @@ for (const name of KEPT_WRITES) {
   test(`after a write answered by ${name}, the document of the read that follows holds the same links and ids`, async (t) => {
     const after = keptObject(JSON.parse(kept(`${name}.out`)).ok ? "status-decided" : "status-success");
     workspace(t, ["bike"]);
-    recorder(t, success(keptObject("status-success")), keptAnswer(name), success(after));
+    recorder(t, ...withFigures(success(keptObject("status-success")), keptAnswer(name), success(after)));
     await runCommand();
     await settle();
     panelOf().send({ message: contract.messages[1], pending: 0, option: 0 });
@@ -289,7 +289,7 @@ test("the decision_id of a write's answer, when the read that follows fails, sta
   const answer = JSON.parse(kept("decide-success.out"));
   answer.decision.decision_id = "1234abcd-0000-4000-8000-00000000beef";
   workspace(t, ["bike"]);
-  recorder(t, success(keptObject("status-success")), exit(0, JSON.stringify(answer)), exit(Number(kept("status-not-found.exit")), kept("status-not-found.out"), kept("status-not-found.err")));
+  recorder(t, ...withFigures(success(keptObject("status-success")), exit(0, JSON.stringify(answer)), exit(Number(kept("status-not-found.exit")), kept("status-not-found.out"), kept("status-not-found.err"))));
   await runCommand();
   await settle();
   panelOf().send({ message: contract.messages[1], pending: 0, option: 0 });
@@ -401,6 +401,19 @@ test("the key paths the function reads over every kept read are the entries of k
   const read = new Set<string>();
   for (const name of KEPT_READS) for (const path of pathsRead(keptObject(name))) read.add(path);
   assert.deepEqual(leaves(read), [...contract.key_paths].sort());
+});
+
+// The key paths the function reads from the object of the figures read, beside the kept status read made with it.
+function figuresPathsRead(name: string): Set<string> {
+  const read = new Set<string>();
+  bodyOf({ reading: false, object: keptObject(name), figures: recording(keptObject(KEPT_FIGURES[name]), "", read) as Entry });
+  return read;
+}
+
+test("the key paths the function reads from the figures read over every kept figures read are the entries of figures_key_paths, both ways", () => {
+  const read = new Set<string>();
+  for (const name of Object.keys(KEPT_FIGURES)) for (const path of figuresPathsRead(name)) read.add(path);
+  assert.deepEqual(leaves(read), [...contract.figures_key_paths].sort());
 });
 
 test("status-public-check: the document holds none of the attempt_id, the request_id and the artifact paths of the Attempt no Assessment assessed", async (t) => {

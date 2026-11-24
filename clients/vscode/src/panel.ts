@@ -1,14 +1,15 @@
 // The one webview panel of the extension. It holds in memory only, for as long as it is open, the target it was
 // opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
-// call is answered, and whether a call is in flight. It reads the Study through the bridge when it is opened, after
-// each write the CLI answered and on the control "Read again", and at no other time; it writes only through
-// `recordDecision`, on the control that records and on "Send again".
+// call is answered, whether a call is in flight, and the last figures read. It reads the Study through the bridge when it
+// is opened, after each write the CLI answered and on the control "Read again", and at no other time, each status read
+// that succeeds followed by the figures call; it writes only through `recordDecision`, on the control that records and on
+// "Send again".
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, type View } from "./content";
+import { checkoutRoot, newRequestId, readFigures, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
+import { bodyOf, usableFigures, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
@@ -24,6 +25,7 @@ let target: Target | undefined;
 let held: Record<string, unknown> | undefined;
 let unanswered: DecisionInput | undefined;
 let inFlight = false;
+let figures: Record<string, unknown> | undefined;
 
 export function openPanel(next: Target): void {
   if (panel && (inFlight || unanswered)) {
@@ -32,6 +34,7 @@ export function openPanel(next: Target): void {
   }
   target = next;
   held = undefined;
+  figures = undefined;
   if (panel) {
     panel.reveal();
   } else {
@@ -41,6 +44,7 @@ export function openPanel(next: Target): void {
       panel = undefined;
       target = undefined;
       held = undefined;
+      figures = undefined;
       unanswered = undefined;
       inFlight = false;
     });
@@ -85,30 +89,35 @@ function record(message: Message): void {
 async function write(input: DecisionInput): Promise<void> {
   const opened = panel!;
   inFlight = true;
-  show({ reading: false, writing: true, object: held, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
+  show({ reading: false, writing: true, object: held, figures, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
   const outcome = await recordDecision(ROOT, target!.study, input);
   if (panel !== opened) return;
   inFlight = false;
   unanswered = outcome.outcome === "no_answer" ? input : undefined;
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
-    show({ reading: false, object: held, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
+    show({ reading: false, object: held, figures, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
 }
 
-// `written` is the answer of the write this read follows, if any.
+// `written` is the answer of the write this read follows, if any. The panel stays in flight, with no new document, until the
+// figures call that follows a successful status read has answered; only a figures read usable beside that status read is kept.
 async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: true, object: held, figures, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   const outcome = await readStudy(ROOT, study);
   if (panel !== opened) return;
+  const object = outcome.outcome === "success" ? outcome.object : undefined;
+  const answer = object === undefined ? undefined : await readFigures(ROOT, study);
+  if (panel !== opened) return;
   inFlight = false;
-  held = outcome.outcome === "success" ? outcome.object : undefined;
+  held = object;
+  figures = answer?.outcome === "success" ? usableFigures(object, answer.object) : undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
-  show({ reading: false, object: held, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: false, object: held, figures, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {

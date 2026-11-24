@@ -68,7 +68,19 @@ export const KEPT_READS = [
   "status-chinook-withheld",
   "status-bike-withheld",
   "status-public-check",
+  "status-chinook-spread",
 ];
+
+// The kept figures read made beside each kept status read that has one, by the status read's name.
+export const KEPT_FIGURES: Record<string, string> = {
+  "status-success": "figures-success",
+  "status-several-pending": "figures-several-pending",
+  "status-bike-withheld": "figures-bike-withheld",
+  "status-chinook-pending": "figures-chinook-pending",
+  "status-chinook-withheld": "figures-chinook-withheld",
+  "status-public-check": "figures-public-check",
+  "status-chinook-spread": "figures-chinook-spread",
+};
 
 export function keptObject(name: string): Record<string, any> {
   return JSON.parse(kept(`${name}.out`));
@@ -76,6 +88,23 @@ export function keptObject(name: string): Record<string, any> {
 
 export function success(object: unknown): Answer {
   return exit(0, JSON.stringify(object));
+}
+
+// The answer of a figures call that fails, which leaves the document of its status read with the label of a failed figures call.
+export const FIGURES_FAILED: Answer = exit(0, "not JSON");
+
+// `answers` with the answer of a figures call after each answer of a status read that succeeds (exit 0 and an object with
+// `pending_decisions`), since the panel makes the figures call after each such read: a test that queues the answers of a status read
+// and of the write after it keeps them in step.
+export function withFigures(...answers: Answer[]): Answer[] {
+  const status = (answer: Answer): boolean => {
+    try {
+      return !answer.error && "pending_decisions" in JSON.parse(answer.stdout ?? "");
+    } catch {
+      return false;
+    }
+  };
+  return answers.flatMap((answer) => (status(answer) ? [answer, FIGURES_FAILED] : [answer]));
 }
 
 // The document the panel shows once the command opened it on one Study and the read was answered with `answer`.

@@ -6,7 +6,8 @@ import contract from "../contract.json";
 import type { Outcome } from "./bridge";
 import { bars, partBar, type Bar } from "./charts";
 
-// `study` is the string the panel was opened with, `failure` the outcome of a read that failed, `written` the answer of the
+// `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
+// the outcome of a read that failed, `written` the answer of the
 // write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option and cited
 // ids of the write in flight or held; `decision` is the id a link of the second form names.
 export type View = {
@@ -14,6 +15,7 @@ export type View = {
   reading: boolean;
   writing?: boolean;
   object?: Record<string, unknown>;
+  figures?: Record<string, unknown>;
   failure?: Outcome;
   written?: Outcome;
   unanswered?: boolean;
@@ -71,6 +73,7 @@ const LABEL = {
   sent: 42,
   failed: 43,
   none: 44,
+  figuresFailed: 45,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -101,6 +104,9 @@ const CONSEQUENCE_ID = "consequence-";
 // "It is shown beside the label." (D-077 on chadlis/hypotrail#75, Q5, of `revision_changed`)
 const BESIDE_THE_STATE = "revision_changed";
 
+// The keys every entry of the figures read holds.
+const FIGURES_KEYS = ["comparison_id", "unavailable", "paired_deltas", "histogram", "quartiles"];
+
 const label = (name: keyof typeof LABEL): string => escaped(contract.labels[LABEL[name]]);
 
 export function escaped(text: string): string {
@@ -130,7 +136,19 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 
 // The lists of the object read that a document's parts are found in, the records that already have a part in it (an Assessment
 // or a Comparison has one part that links name, at the first place that shows it) and how many options the document shows.
-type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number };
+// `figuresFailed` is whether the figures read cannot stand beside the status read.
+type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figuresFailed: boolean };
+
+// The object of the figures read when it is usable beside the status read: the same Write sequence, and one entry with its five keys
+// for each Comparison the status read lists. Otherwise there is none, and the figures call counts as failed.
+export function usableFigures(object: Entry | undefined, figures: Entry | undefined): Entry | undefined {
+  if (object === undefined || figures === undefined || figures.write_sequence !== object.write_sequence || !Array.isArray(figures.comparisons)) return undefined;
+  const entries = list(figures.comparisons);
+  const complete = entries.length === figures.comparisons.length && entries.every((entry) => FIGURES_KEYS.every((key) => key in entry));
+  const ids = list(object.comparisons).map((comparison) => comparison.comparison_id);
+  const matched = entries.length === ids.length && ids.every((id) => entries.filter((entry) => entry.comparison_id === id).length === 1);
+  return complete && matched ? figures : undefined;
+}
 
 export function bodyOf(view: View): string {
   const parts: string[] = [marked(view.study, "h1")];
@@ -146,7 +164,10 @@ export function bodyOf(view: View): string {
   parts.push(`<div data-element="controls">${controls.join(" ")}</div>`);
   // The controls that record are inert while a call is in flight or a write that got no answer is held.
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
-  if (view.object) parts.push(studyOf(view.object, view.decision, busy || view.unanswered === true, recorded, view.sent));
+  if (view.object) {
+    const figuresFailed = usableFigures(view.object, view.figures) === undefined;
+    parts.push(studyOf(view.object, view.decision, busy || view.unanswered === true, recorded, view.sent, figuresFailed));
+  }
   return parts.join("\n");
 }
 
@@ -189,10 +210,10 @@ function failureOf(failure: Outcome): string {
 }
 
 // `recorded` is the id of the Decision the write this document follows recorded, `sent` the write in flight or held.
-function studyOf(object: Entry, linked: string | undefined, locked: boolean, recorded: unknown, sent: View["sent"]): string {
+function studyOf(object: Entry, linked: string | undefined, locked: boolean, recorded: unknown, sent: View["sent"], figuresFailed: boolean): string {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
-  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0 };
+  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figuresFailed };
   const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
   return [
     `<h2>${label("study")}</h2>`,
@@ -240,7 +261,7 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
 }
 
 // A Comparison: its delta, its coverage, its roles and chart 1, then, where it is pending, a line of how many warnings and limitations
-// it holds and `choices`, then the rest. `roles` are the
+// it holds and `choices`, then the rest, and last the label of a failed figures call when its delta is not withheld. `roles` are the
 // ids of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta
 // record carries no value of its own.
 function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = ""): string {
@@ -274,6 +295,8 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     for (const [kind, items] of [["warnings", warnings], ["limitations", limitations]] as const) {
       lines.push(`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>");
     }
+    // Where the Comparison's figures would stand; a withheld delta keeps its word alone.
+    if (shown.figuresFailed && delta.value !== null) lines.push(`<p data-element="figures-failed">${label("figuresFailed")}</p>`);
   } else {
     lines.push(choices);
   }

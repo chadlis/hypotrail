@@ -50,14 +50,14 @@ def fixed(value):
     return out
 
 
-def numbered(text: str, kind: str, pattern) -> str:
-    seen: dict = {}
+def numbered(text: str, kind: str, pattern, seen: dict) -> str:
     return pattern.sub(lambda match: seen.setdefault(match[0], placeholder(kind, len(seen) + 1)), text)
 
 
-def replaced(text: str) -> str:
+def replaced(text: str, seen: dict | None = None) -> str:
     """A `status --json` text as kept: the top-level `attempts` sorted by `request_id`, the keyed rules applied, then each distinct UUID,
-    timestamp and 64-hex digest replaced, in order of first appearance, by its numbered placeholder."""
+    timestamp and 64-hex digest replaced, in order of first appearance, by its numbered placeholder. `seen` holds, by kind, the placeholder
+    of each value already replaced in another text, so that a second text made from the same Study goes on with the same numbering."""
     payload = json.loads(text)
     if isinstance(payload.get("attempts"), list):
         keys = [attempt.get("request_id") for attempt in payload["attempts"]]
@@ -65,8 +65,9 @@ def replaced(text: str) -> str:
         assert len(set(keys)) == len(keys), f"two Attempts share a request_id: {keys}"
         payload["attempts"] = sorted(payload["attempts"], key=lambda attempt: attempt["request_id"])
     text = json.dumps(fixed(payload), indent=2) + "\n"
+    seen = {} if seen is None else seen
     for kind, pattern in (("uuid", UUID), ("timestamp", TIMESTAMP), ("digest", DIGEST)):
-        text = numbered(text, kind, pattern)
+        text = numbered(text, kind, pattern, seen.setdefault(kind, {}))
     return text
 
 
@@ -301,6 +302,7 @@ STUDIES = {
     "status-chinook-withheld": chinook_withheld_study,
     "status-bike-withheld": bike_withheld_study,
     "status-public-check": public_check_study,
+    "status-chinook-spread": chinook_spread_study,
 }
 
 
@@ -354,3 +356,32 @@ def write_kept(outputs: dict) -> None:
         (KEPT / f"{name}.exit").write_text(f"{code}\n", encoding="utf-8")
         (KEPT / f"{name}.out").write_text(out, encoding="utf-8")
         (KEPT / f"{name}.err").write_text(err, encoding="utf-8")
+
+
+# The kept `figures` reads, each with the kept `status` read made from the same helper call.
+FIGURES_KEPT = {
+    "figures-success": "status-success",
+    "figures-several-pending": "status-several-pending",
+    "figures-bike-withheld": "status-bike-withheld",
+    "figures-chinook-pending": "status-chinook-pending",
+    "figures-chinook-withheld": "status-chinook-withheld",
+    "figures-public-check": "status-public-check",
+    "figures-chinook-spread": "status-chinook-spread",
+}
+
+
+def pair_outputs(tmp_path) -> dict:
+    """{name: (exit code, stdout, stderr)} of each kept `figures` read and of the kept `status` read made beside it from the same Study, both
+    replaced with one numbering, so that a value of the two objects has one placeholder; and the `figures` read of a Study that does not
+    exist, kept as printed."""
+    made = {}
+    for name, status in FIGURES_KEPT.items():
+        (tmp_path / name).mkdir()
+        study = STUDIES[status](tmp_path / name)
+        seen: dict = {}
+        for kept_name, command in ((status, "status"), (name, "figures")):
+            code, out, err = run_cli(command, "--study", study, "--json")
+            assert code == 0, (kept_name, out, err)
+            made[kept_name] = (code, replaced(out.replace(str(study), "SCRATCH"), seen), err.replace(str(study), "SCRATCH"))
+    made["figures-not-found"] = run_cli("figures", "--study=/nonexistent-x", "--json")
+    return made

@@ -5,7 +5,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome, type Evaluate } from "./chrome";
-import { documentFor, heldRecorder, keptObject, lastDocument, panelOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { documentFor, heldRecorder, keptObject, lastDocument, panelOf, runCommand, settle, success, workspace, FIGURES_FAILED, withFigures } from "./panel-harness";
 import { exit, recorder } from "./recorder";
 import { kept } from "./kept";
 
@@ -90,13 +90,15 @@ async function writeInFlight(t: TestContext): Promise<string> {
   await runCommand();
   answer(success(keptObject("status-success")));
   await settle();
+  answer(FIGURES_FAILED);
+  await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });
   return lastDocument();
 }
 
 async function writeWithNoAnswer(t: TestContext): Promise<string> {
   workspace(t, ["bike"]);
-  recorder(t, success(keptObject("status-success")), TIMEOUT);
+  recorder(t, ...withFigures(success(keptObject("status-success")), TIMEOUT));
   await runCommand();
   await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });
@@ -209,7 +211,7 @@ test("at 420 by 700 px, once a write is recorded and read again, the view stays 
   const answer = JSON.parse(kept("decide-success.out"));
   answer.decision.decision_id = read.decisions[0].decision_id;
   workspace(t, ["bike"]);
-  recorder(t, success(keptObject("status-success")), exit(0, JSON.stringify(answer)), success(read));
+  recorder(t, ...withFigures(success(keptObject("status-success")), exit(0, JSON.stringify(answer)), success(read)));
   await runCommand();
   await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });

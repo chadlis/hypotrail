@@ -170,6 +170,43 @@ def test_each_kept_status_read_whose_ok_is_true_is_the_clis_own_once_its_values_
         assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
 
 
+def kept_figures_names() -> list:
+    return sorted(Path(name).stem for name in tracked("clients/vscode/test/cli") if re.fullmatch(r".*/figures-[a-z-]+\.out", name))
+
+
+def test_each_kept_figures_read_is_the_clis_own_once_its_values_are_replaced_as_the_kept_status_read_beside_it_replaces_them(tmp_path):
+    from _client_helpers import FIGURES_KEPT, first_difference, kept, pair_outputs
+
+    made = pair_outputs(tmp_path)
+    assert sorted(name for name in made if name.startswith("figures-")) == kept_figures_names() == sorted([*FIGURES_KEPT, "figures-not-found"])
+    for name, (code, out, err) in made.items():
+        kept_code, kept_out, kept_err = kept(name)
+        assert (code, err) == (kept_code, kept_err), name
+        if not json.loads(kept_out)["ok"]:
+            assert out == kept_out, name  # a refusal names no scratch folder and is kept as printed
+            continue
+        assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
+
+
+def test_each_kept_figures_read_whose_ok_is_true_carries_the_write_sequence_and_the_comparison_ids_of_the_kept_status_read_beside_it():
+    from _client_helpers import FIGURES_KEPT, STUDIES
+
+    assert set(FIGURES_KEPT.values()) <= set(STUDIES)
+    for name, status in FIGURES_KEPT.items():
+        figures, read = read_json(KEPT / f"{name}.out"), read_json(KEPT / f"{status}.out")
+        assert figures["ok"] is True and read["ok"] is True, name
+        assert figures["write_sequence"] == read["write_sequence"], name
+        assert [entry["comparison_id"] for entry in figures["comparisons"]] == [entry["comparison_id"] for entry in read["comparisons"]], name
+
+
+def test_each_kept_figures_read_is_shorter_than_the_output_limit_of_contract_json():
+    limit = read_json(CLIENT / "contract.json")["max_buffer_bytes"]
+    names = kept_figures_names()
+    assert names
+    for name in names:
+        assert len((KEPT / f"{name}.out").read_bytes()) < limit, name
+
+
 # Each kept read, with the keys that make its case: the counts of `pending_decisions` and `decisions`, the `withdrawn` values of
 # `declared_deviations`, the `workload` of the Study, and for each Decision the `state` of its `evidence_change` (None when it is null) and
 # whether `revision_changed` is among its `reasons`.
@@ -186,6 +223,7 @@ KEPT_CASES = {
     "status-chinook-withheld": (1, 0, [], "chinook", []),
     "status-bike-withheld": (1, 0, [], "bike_day", []),
     "status-public-check": (1, 0, [], "bike_day", []),
+    "status-chinook-spread": (1, 0, [], "chinook", []),
 }
 
 
@@ -334,15 +372,45 @@ def test_a_planted_escape_is_found_by_the_listing(case, path, line):
     assert listing_problems(files) != [], case
 
 
-# The module-level `let` bindings of the client's sources, each with what it holds: the handle of the webview panel, and one entry each of
-# "The closed list of what the client's extension holds in memory, from L2.5 on" (chadlis/hypotrail#103, comment 7100122376).
+# The module-level `let` bindings of the client's sources, each with what it holds: the handle of the webview panel, one entry each of
+# "The closed list of what the client's extension holds in memory, from L2.5 on" (chadlis/hypotrail#103, comment 7100122376), and the
+# entry that D-107 on chadlis/hypotrail#75 adds to it: "The closed list of #103 (7100122376) gains "the last figures read" by a dated
+# line under this decision."
 LET_BINDINGS = {
     ("clients/vscode/src/panel.ts", "panel"): "the handle of the webview panel",
     ("clients/vscode/src/panel.ts", "target"): "1. the target the panel was opened on",
     ("clients/vscode/src/panel.ts", "held"): "2. the last object a read gave back with `success`",
     ("clients/vscode/src/panel.ts", "unanswered"): "3. from a `no_answer` of a write to that call's answer: its request id, with the call's five identity values and the read sequence it passed",
     ("clients/vscode/src/panel.ts", "inFlight"): "4. whether a call is in flight",
+    ("clients/vscode/src/panel.ts", "figures"): "the last figures read",
 }
+
+
+# The bridge function that starts the figures call, with the one file that defines it and the one file that calls it.
+FIGURES_CALL = "readFigures"
+FIGURES_CALL_HOLDERS = {"clients/vscode/src/bridge.ts": 1, "clients/vscode/src/panel.ts": 1}
+
+
+def figures_call_counts(files: dict) -> dict:
+    """{file: count} of the matches of `\\bNAME\\(` for the bridge function of the figures call, over the files that hold one."""
+    pattern = re.compile(rf"\b{FIGURES_CALL}\(")
+    return {path: len(pattern.findall(text)) for path, text in files.items() if pattern.search(text)}
+
+
+def test_the_figures_call_is_defined_in_the_bridge_and_called_once_in_the_panel_and_named_nowhere_else_both_ways():
+    """The panel makes the figures call after each status read and at no other time; this listing finds the one place it is called.
+    It is bounded by its convention: the function is called by its own name, not through an alias, a property or a re-export, and a
+    call made another way escapes it. The stop rule of D-054 on chadlis/hypotrail#75 applies: "**Stop rule.** A later escape that code
+    under `src/` actually uses is a blocker. An escape that is only planted is a stated limit, written down in the test's docstring and
+    in the PR body."
+    """
+    assert figures_call_counts(sources()) == FIGURES_CALL_HOLDERS
+
+
+def test_a_planted_second_call_of_the_figures_read_is_found_by_the_listing():
+    files = sources()
+    files["clients/vscode/src/extension.ts"] += f"void {FIGURES_CALL}(root, study);\n"
+    assert figures_call_counts(files) != FIGURES_CALL_HOLDERS
 
 
 def let_bindings(files: dict) -> set:
@@ -532,7 +600,7 @@ def test_the_kept_decide_outputs_are_the_clis_own_once_each_uuid_and_the_scratch
 def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_request_id_and_read_sequence_and_no_other_writer_is_listed():
     contract = read_json(CLIENT / "contract.json")
     leaves = leaf_commands()
-    assert contract["reads"] == ["status"] and contract["writes"] == ["decide"]
+    assert contract["reads"] == ["status", "figures"] and contract["writes"] == ["decide"]
     for command in contract["reads"] + contract["writes"]:
         assert command in leaves, command
     for command in contract["writes"]:

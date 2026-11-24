@@ -4,7 +4,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { kept } from "./kept";
-import { elementOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { elementOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED, withFigures } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -31,7 +31,7 @@ function answerWith(name: string, id: string): Answer {
 // The document after the first read answered by status-success, a write answered by `write`, then `after`.
 async function afterWrite(t: TestContext, write: Answer, ...after: Answer[]): Promise<string> {
   workspace(t, ["bike"]);
-  recorder(t, success(keptObject("status-success")), write, ...after);
+  recorder(t, ...withFigures(success(keptObject("status-success")), write, ...after));
   await runCommand();
   await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });
@@ -146,6 +146,8 @@ for (const option of [0, 1]) {
     await runCommand();
     answer(success(object));
     await settle();
+    answer(FIGURES_FAILED);
+    await settle();
     assert.deepEqual(checkedOf(lastDocument()), [], "no radio checked before a write");
     panelOf().send({ message: RECORD, pending: 0, option });
     const states: [string, string][] = [["in flight", lastDocument()]];
@@ -154,6 +156,8 @@ for (const option of [0, 1]) {
     states.push(["with no answer", lastDocument()]);
     panelOf().send({ message: READ_AGAIN });
     answer(success(object));
+    await settle();
+    answer(FIGURES_FAILED);
     await settle();
     states.push(["read again with no answer held", lastDocument()]);
     panelOf().send({ message: SEND_AGAIN });
@@ -173,6 +177,8 @@ test("status-several-pending: a write sent on the second pending decision checks
   const { answer } = heldRecorder(t);
   await runCommand();
   answer(success(object));
+  await settle();
+  answer(FIGURES_FAILED);
   await settle();
   panelOf().send({ message: RECORD, pending: 1, option: 0 });
   const states: [string, string][] = [["in flight", lastDocument()]];

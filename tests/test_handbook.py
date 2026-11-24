@@ -5150,6 +5150,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "program": contract["program"],
         "first-arguments": " ".join(contract["first_arguments"]),
         "read": " ".join(contract["read_arguments"]),
+        "figures-read": " ".join(contract["figures_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }
@@ -5342,6 +5343,7 @@ PANEL_LINK_TABLES = {
     "panel-number-links": lambda contract: contract["number_links"],
     "panel-statuses": lambda contract: contract["statuses"],
     "panel-key-paths": lambda contract: contract["key_paths"],
+    "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
 }
 
 
@@ -5364,6 +5366,15 @@ def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_
     for table in PANEL_LINK_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+def test_each_key_path_the_panel_reads_from_the_figures_read_is_a_row_of_the_key_path_table_of_chapter_17_or_a_prefix_of_its_rows(page):
+    """An entry is a row of the table, or a container whose leaves the table lists: a prefix of one or more rows followed by `[]` or `.`."""
+    rows = [row["data-path"] for row in figures_rows(page, "figures-key-paths")]
+    entries = client_contract()["figures_key_paths"]
+    assert rows and entries
+    found = {entry: entry in rows or any(row.startswith(f"{entry}[]") or row.startswith(f"{entry}.") for row in rows) for entry in entries}
+    assert [entry for entry, held in found.items() if not held] == []
 
 
 # --- the panel's style, the guard of its layout and its own words (chapter 18) -----------------------------------------------------

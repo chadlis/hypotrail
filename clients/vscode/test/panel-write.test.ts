@@ -4,7 +4,7 @@ import contract from "../contract.json";
 import * as bridge from "../src/bridge";
 import { HANDLERS } from "../src/panel";
 import { kept } from "./kept";
-import { elementOf, followLink, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, samePath, settle, success, workspace } from "./panel-harness";
+import { elementOf, followLink, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, samePath, settle, success, withFigures, workspace, FIGURES_FAILED } from "./panel-harness";
 import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
 import * as stub from "./vscode-stub";
 
@@ -84,7 +84,7 @@ function expectedArguments(study: string, pending: Entry, option: Entry, request
 async function opened(t: TestContext, object: Entry, ...after: Answer[]): Promise<{ study: string; calls: RecordedCall[]; made: string[] }> {
   const [study] = workspace(t, ["bike"]);
   const made = madeIds(t);
-  const calls = recorder(t, success(object), ...after);
+  const calls = recorder(t, ...withFigures(success(object), ...after));
   await runCommand();
   await settle();
   return { study, calls, made };
@@ -180,7 +180,7 @@ for (const name of KEPT_WRITES) {
     record(0, 0);
     await settle();
     await settle();
-    assert.deepEqual(commandsOf(calls), ["status", "decide", "status"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide", "status", "figures"]);
   });
 }
 
@@ -315,10 +315,10 @@ for (const [cause, answer] of NO_ANSWERS) {
     assert.deepEqual(controls(document).filter((name) => name !== RECORD), [READ_AGAIN, SEND_AGAIN]);
     const radios = partsOf(document).tags.filter((tag) => tag.startsWith("<input "));
     assert.ok(radios.length > 0 && radios.every((tag) => /\sdisabled(\s|>)/.test(tag)), "no option can be selected while an id is held");
-    assert.deepEqual(commandsOf(calls), ["status", "decide"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
     record(0, 1);
     await settle();
-    assert.deepEqual(commandsOf(calls), ["status", "decide"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
     send(SEND_AGAIN);
     await settle();
     const decides = decideCalls(calls);
@@ -399,7 +399,7 @@ test("a write the bridge refuses starts nothing, its notice names the missing in
   const { calls, made } = await opened(t, changed, success(keptObject("status-success")), keptAnswer("decide-success"));
   record(0, 0);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures"]);
   const document = lastDocument();
   assert.match(notice(document), new RegExp(`${MISSING}\\s+question(\\s|$)`));
   assert.ok(!controls(document).includes(SEND_AGAIN));
@@ -420,10 +420,12 @@ test("two messages of the second action before the answer give one decide call, 
   await runCommand();
   answer(success(keptObject("status-success")));
   await settle();
+  answer(FIGURES_FAILED);
+  await settle();
   record(0, 0);
   record(0, 1);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "decide"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
   assert.ok(notice(lastDocument()).includes(RECORDING));
   assert.ok(!/<input [^>]*data-option(?![^>]*\sdisabled)[^>]*>/.test(lastDocument()), "no radio input can be selected");
 });
@@ -441,6 +443,8 @@ for (const [way, open] of OPENINGS) {
     await runCommand();
     answer(success(keptObject("status-success")));
     await settle();
+    answer(FIGURES_FAILED);
+    await settle();
     record(0, 0);
     await settle();
     const before = { calls: calls.length, documents: [...panelOf().documents], reveals: panelOf().reveals };
@@ -454,7 +458,7 @@ for (const [way, open] of OPENINGS) {
   test(`an opening by ${way} while a request id is held reveals the panel and changes nothing else, and Send again sends the held call`, async (t) => {
     const [other] = workspace(t, ["a", "b"]);
     stub.state.pick = (items) => items[1];
-    const calls = recorder(t, success(keptObject("status-success")), NO_ANSWERS[1][1], keptAnswer("decide-success"), success(keptObject("status-decided")));
+    const calls = recorder(t, ...withFigures(success(keptObject("status-success")), NO_ANSWERS[1][1], keptAnswer("decide-success"), success(keptObject("status-decided"))));
     await runCommand();
     await settle();
     stub.state.pick = (items) => items[0];
@@ -480,12 +484,14 @@ test("while a second sending is in flight the request id is still held: the docu
   await runCommand();
   answer(success(keptObject("status-success")));
   await settle();
+  answer(FIGURES_FAILED);
+  await settle();
   record(0, 0);
   answer(NO_ANSWERS[1][1]);
   await settle();
   send(SEND_AGAIN);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "decide", "decide"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "decide", "decide"]);
   const document = lastDocument();
   assert.ok(notice(document).includes(RECORDING));
   assert.ok(notice(document).includes(contract.write_no_answer_words));

@@ -25,6 +25,8 @@ import {
   success,
   unescaped,
   workspace,
+  FIGURES_FAILED,
+  withFigures,
 } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
@@ -45,7 +47,7 @@ type Built = { document: string; answers: Answer[]; link?: string };
 
 async function afterWrite(t: TestContext, ...answers: Answer[]): Promise<Built> {
   workspace(t, ["bike"]);
-  recorder(t, ...answers);
+  recorder(t, ...withFigures(...answers));
   await runCommand();
   await settle();
   panelOf().send({ message: RECORD, pending: 0, option: 0 });
@@ -82,6 +84,8 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       const { answer } = heldRecorder(t);
       await runCommand();
       answer(read("status-success"));
+      await settle();
+      answer(FIGURES_FAILED);
       await settle();
       panelOf().send({ message: RECORD, pending: 0, option: 0 });
       return { document: lastDocument(), answers: [read("status-success")] };

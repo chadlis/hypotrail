@@ -46,7 +46,7 @@ test("a success of decide gives back the CLI's object, decision and replayed inc
 });
 
 // Each export of the bridge, marked true when calling it starts a process.
-const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, recordDecision: true, newRequestId: false };
+const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, recordDecision: true, newRequestId: false };
 
 test("the bridge's exports are the test's list, both ways, and its starters start only the commands of contract.json", async (t) => {
   assert.deepEqual(Object.keys(bridge).sort(), Object.keys(EXPORTS).sort());

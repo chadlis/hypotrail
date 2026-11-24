@@ -2,7 +2,8 @@
   "program": "uv",
   "first_arguments": ["run", "--no-sync", "python", "-m", "hypotrail"],
   "read_arguments": ["status", "--study={path}", "--json"],
-  "reads": ["status"],
+  "figures_arguments": ["figures", "--study={path}", "--json"],
+  "reads": ["status", "figures"],
   "writes": ["decide"],
   "decide_options": ["--study", "--question", "--option", "--author", "--source", "--artifact", "--request-id", "--read-sequence", "--json"],
   "decide_optional_options": ["--source"],
@@ -81,7 +82,8 @@
     "To the choices",
     "Sent:",
     "Failed:",
-    "None."
+    "None.",
+    "Figures unavailable. Read again."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
@@ -141,6 +143,14 @@
     "pending_decisions[].options[].text",
     "pending_decisions[].question.text",
     "study.study_id",
+    "write_sequence"
+  ],
+  "figures_key_paths": [
+    "comparisons[].comparison_id",
+    "comparisons[].histogram",
+    "comparisons[].paired_deltas",
+    "comparisons[].quartiles",
+    "comparisons[].unavailable",
     "write_sequence"
   ]
 }
