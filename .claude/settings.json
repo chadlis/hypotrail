@@ -27,7 +27,7 @@
           {
             "type": "command",
             "command": "python3 -I \"$CLAUDE_PROJECT_DIR\"/.claude/skills/drive/check_record.py",
-            "timeout": 180,
+            "timeout": 300,
             "onFailure": "block"
           }
         ]
@@ -38,7 +38,7 @@
           {
             "type": "command",
             "command": "python3 -I \"$CLAUDE_PROJECT_DIR\"/.claude/skills/drive/check_record.py",
-            "timeout": 180,
+            "timeout": 300,
             "onFailure": "block"
           }
         ]

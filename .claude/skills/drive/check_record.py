@@ -11,7 +11,9 @@ for the slice issue of the pull request:
 2. each round that has a review of record has a "round <r>: routing" comment;
 3. when a routing comment of round 5 or later routes a row as documentation, each axis of that row has a
    "round <r>: <axis> verification" comment (the documentation path of the skill);
-4. a "closing register" comment exists and names every finding ID that a routing table assigned;
+4. a "closing register" comment exists and names every finding ID that a routing table assigned, and leaves no row routed
+   `behaviour, no line` with a status that is not settled (refuted, out of scope, a duplicate, fixed or withdrawn): a finding
+   about what a user sees or can do that no live line covers is settled by the rendered panel, never by a reading of words;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
    fixed has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
    when there is one, the routing row otherwise. A fix prompt or a report settles no row;
@@ -72,7 +74,7 @@ Stated limits: the merge detection reads the text of the command, so it does not
 through `xargs`, or whose command words are built in a variable or in a script it does not open. A gap found only by planting a
 command built to evade it is a stated limit. A gap that the drive actually uses is a defect.
 The record check of one merge makes five `gh` calls plus one per ticket of the slice (three for a slice that rule 9 skips),
-each capped at `GH_TIMEOUT` seconds, so the hook's 180 s timeout in `.claude/settings.json` covers a slice of at most 4 tickets
+each capped at `GH_TIMEOUT` seconds, so the hook's 300 s timeout in `.claude/settings.json` covers a slice of at most 10 tickets
 when every call takes its full cap. Past that, the hook can time out, and a timed-out hook blocks the merge: it fails closed.
 """
 
@@ -260,10 +262,12 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None, tick
         found.append(f"round {number} has a review of record and no 'round {number}: routing' comment")
 
     statuses = latest_statuses(comments)
-    ids = []
+    ids, behaviours = [], []
     for number, comment in sorted(routed.items()):
         for cells in rows_of(comment):
             ids += FINDING_ID.findall(cells[0])
+            if "behaviour, no line" in cells[4]:
+                behaviours += FINDING_ID.findall(cells[0])
             axes = {w for w in ("Standards", "Spec") if w in cells[2]} or ({"Standards", "Spec"} if "both" in cells[2].lower() else set())
             if number >= ROUND_LIMIT and "documentation" in cells[4].lower():
                 for axis in sorted(axes):
@@ -293,6 +297,10 @@ def problems(pr_body: str, comments: list, slice_number: int | None = None, tick
         missing = sorted({i for i in ids if i not in text})
         if missing:
             found.append(f"the closing register does not list: {', '.join(missing)}")
+        for finding in dict.fromkeys(behaviours):
+            status = statuses[finding].strip(" .;|")
+            if not re.match(rf"[\W_]*{SETTLED}", status, re.IGNORECASE):
+                found.append(f"{finding} is a 'behaviour, no line' row, and the closing register leaves it unsettled: {status}")
     return list(dict.fromkeys(found))
 
 
