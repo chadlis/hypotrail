@@ -1187,3 +1187,38 @@ def test_a_request_cannot_be_reassigned():
     request = agentic_live.Request.this_attempt(limits_module.EpisodeLimits())
     with pytest.raises(dataclasses.FrozenInstanceError):
         request.source = agentic_live.RequestSource.KEPT_LOG
+
+
+# --- pins of `run_live`'s database digest and of its SECRET_IN_OUTPUT, kept unchanged while the file hash and the error are each written once ---
+
+
+def test_run_live_records_the_digest_of_the_database_before_and_after_its_execution(tmp_path, monkeypatch):
+    from _run_agent_helpers import patch_model
+    from _study_helpers import sha256
+
+    patch_model(monkeypatch)
+    expected = sha256(CHINOOK / "data" / "Chinook_Sqlite.sqlite")
+    record = agentic_live.run_live(
+        model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain"
+    )
+    assert record["database_sha256"]["before"] == expected
+    assert record["database_sha256"]["after"] == expected
+
+
+def test_run_live_refuses_an_output_that_holds_the_key_with_its_code_message_stage_details_and_exit(tmp_path, monkeypatch):
+    from _run_agent_helpers import answering_with, patch_model
+
+    from hypotrail.core.errors import EXIT_INFRASTRUCTURE, HypotrailError
+
+    patch_model(monkeypatch, answering_with(FAKE_KEY))
+    with pytest.raises(HypotrailError) as caught:
+        agentic_live.run_live(
+            model_id=MODEL_ID, api_key=FAKE_KEY, workload_dir=CHINOOK, case_ids=["D03"], repeats=1, out_dir=tmp_path / "out", configuration="plain"
+        )
+    error = caught.value
+    files = error.details["files"]
+    assert error.code == "SECRET_IN_OUTPUT"
+    assert error.message == f"the API key was found in the execution output: {', '.join(files)}; do not keep or commit it"
+    assert error.stage == "live"
+    assert set(error.details) == {"files"}
+    assert error.exit_code == EXIT_INFRASTRUCTURE
