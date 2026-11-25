@@ -144,9 +144,11 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
 
 
 def test_l2_1_tracks_no_agent_instruction():
-    # #111 Tightened C: as at `main` 607740c, no Copilot instructions file is tracked and `.claude/settings.json` holds no UserPromptSubmit hook.
-    # The Copilot instructions file is looked up in the tracked tree, so that the uncommitted install of the L2 demonstration,
-    # which .gitignore keeps out, does not fail this test. `.claude/settings.json` is read on disk, as #111 Tightened C does.
+    # `.claude/settings.json` is read on disk; the Copilot instructions file is read in the tracked tree.
+    # What #111 Tightened C states, as at `main` 607740c, is "neither exists". The tracked-tree read is #205's, so that the
+    # uncommitted install of the L2 demonstration, which .gitignore keeps out, does not fail this test.
+    # The settings half therefore fails on a `UserPromptSubmit` hook installed in `.claude/settings.json`. The L2 demonstration
+    # installs the hook in `.claude/settings.local.json` (chapter 19), which this test does not read.
     tracked = subprocess.run(["git", "ls-files", "--", ".github/copilot-instructions.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     assert tracked == ""
     settings = ROOT / ".claude" / "settings.json"
