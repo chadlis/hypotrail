@@ -143,9 +143,10 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
     assert "`.github/` holds no such file" in line
 
 
-def test_l2_1_writes_no_agent_instruction():
-    # #111 Tightened C: as at `main` 607740c, neither exists. The Copilot instructions file is read in the tracked tree, so that a copy
-    # installed in this checkout for the L2 demonstration, which .gitignore keeps out of commits, does not fail this test.
+def test_l2_1_tracks_no_agent_instruction():
+    # #111 Tightened C: as at `main` 607740c, no Copilot instructions file is tracked and the tracked settings hold no UserPromptSubmit hook.
+    # The file is looked for in the tracked tree, so that a copy installed in this checkout for the L2 demonstration, which
+    # .gitignore keeps out of commits, does not fail this test.
     tracked = subprocess.run(["git", "ls-files", "--", ".github/copilot-instructions.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     assert tracked == ""
     settings = ROOT / ".claude" / "settings.json"

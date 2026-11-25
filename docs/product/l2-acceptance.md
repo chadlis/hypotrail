@@ -4,13 +4,13 @@ L2 is the review decision of chadlis/hypotrail#103: a Study's pending decision, 
 
 ## Status
 
-L2 is "built, not demonstrated". "The owner's demonstration lifts "built, not demonstrated", and the owner lifts it." (chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9.) This grid holds no result of that demonstration: its owner checks are listed, none of them is marked here.
+L2 is "built, not demonstrated". Who lifts that status is in chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9: "The owner's demonstration lifts" it, "and the owner lifts it." This grid holds no result of that demonstration: its owner checks are listed, none of them is marked here.
 
-""Usable" waits for an engineer who did not implement it." (chadlis/hypotrail#103, "End state".) The owner's demonstration does not make L2 usable.
+chadlis/hypotrail#103 says under "End state" that "Usable" "waits for an engineer who did not implement it." The owner's demonstration does not make L2 usable.
 
 P2A is not in this grid: it is deferred (chadlis/hypotrail#103, "Acceptance"; D-077 on chadlis/hypotrail#75, Q8).
 
-The panel's renders of the demonstration's Study were not made: the panel's contact sheet draws the kept reads of the client's tests and cannot take a live Study, so no render of a task stands in for the owner's view in VS Code (the drive's answers on chadlis/hypotrail#204, comment 7159599569, Q3).
+No picture of the panel was made on the demonstration's Study: the tool that draws the panel outside VS Code draws it only from the saved outputs of `status --json` that the client's tests use, never from a live Study, so no picture of a task stands in for the owner's view in VS Code (the drive's answers on chadlis/hypotrail#204, comment 7159599569, Q3).
 
 ## Criteria
 

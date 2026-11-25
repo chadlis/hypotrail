@@ -5571,7 +5571,7 @@ def names(text: str, string: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(string)}(?![\w-])", text) is not None
 
 
-def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_holds_neither_copilot_instruction_place(page):
+def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_tracks_no_copilot_instructions_file_and_has_no_instructions_folder(page):
     path = client_items(page, INSTRUCTIONS_TABLE).get("path", "")
     assert path.startswith("clients/vscode/") and path.endswith(".md") and path in tracked_files("clients/vscode"), path
     assert tracked_files(DESTINATION) == []  # a copy installed for the L2 demonstration is ignored, not tracked
