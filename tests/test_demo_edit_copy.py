@@ -6,7 +6,6 @@ The script is run as the owner runs it, in a process of its own; the CLI is run 
 import ast
 import csv
 import hashlib
-import importlib.util
 import json
 import shutil
 import subprocess
@@ -14,18 +13,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from _demo_helpers import SCRIPT, script_values
 from _study_helpers import EXAMPLES, run_cli, run_json, sha256
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "docs" / "demo" / "edit_copy.py"
-
-
-def script_values() -> dict:
-    """{name: value} of each upper-case name the script defines, read by importing it, which edits nothing."""
-    spec = importlib.util.spec_from_file_location("edit_copy", SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return {name: value for name, value in vars(module).items() if name.isupper()}
 
 
 def run_script(*args) -> subprocess.CompletedProcess:

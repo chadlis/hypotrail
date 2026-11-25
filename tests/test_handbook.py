@@ -5712,3 +5712,57 @@ def test_the_l2_grid_has_one_row_per_criterion_of_103_names_tests_that_exist_and
     for sentence in quoted:
         assert sentence in roadmap, sentence
     assert "built, not demonstrated" in text and "P2A" in text
+
+
+# --- the L2 demonstration (chapter 19): the script's table, its section's prose, and the links to the L2 grid ---------------------
+
+DEMO_CHAPTER = "19-l2-demonstration.html"
+DEMO_TABLE = "demo-edits"
+DEMO_SECTION = '<p class="sub2" id="demo-edits-section">'
+DEMO_VALUE_ATTRIBUTES = ("data-path", "data-day", "data-partition", "data-amount", "data-columns", "data-label")
+
+
+def demo_rows(page) -> dict:
+    """{data-row: the data attributes of that row} of the table of chapter 19 that the script defines."""
+    return {attrs["data-row"]: attrs for attrs in client_rows(page, DEMO_TABLE)}
+
+
+def bike_partition_of_each_day() -> dict:
+    from hypotrail.ml.memberships import derive_memberships
+
+    return {row["date"]: row["partition"] for row in derive_memberships(ROOT / "examples" / "bike_day")}
+
+
+def test_the_demo_edits_table_names_the_tracked_script_and_each_edit_row_equals_the_script_and_the_partition_of_its_day(page):
+    from _demo_helpers import SCRIPT, script_values
+
+    values, rows, partitions = script_values(), demo_rows(page), bike_partition_of_each_day()
+    assert set(rows) == {"script", *values["EDITS"]}, sorted(rows)
+    path = rows["script"]["data-path"]
+    assert tracked_files(path) == [path] and (ROOT / path).resolve() == SCRIPT
+    for edit, day in values["EDITS"].items():
+        row = rows[edit]
+        assert row["data-day"] == day, edit
+        assert row["data-amount"] == str(values["AMOUNT"]), edit
+        assert tuple(row["data-columns"].split()) == values["COLUMNS"], edit
+        assert row["data-partition"] == partitions[day], edit
+    assert {rows[edit]["data-label"] for edit in values["EDITS"]} == {"evidence rescored", "result changed"}
+
+
+def test_the_prose_of_the_demo_edits_section_restates_no_value_of_its_table(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{DEMO_TABLE}"') == 1 and chapter.count(DEMO_SECTION) == 1
+    section = chapter.split(DEMO_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    values = {value for row in client_rows(page, DEMO_TABLE) for name, value in row.items() if name in DEMO_VALUE_ATTRIBUTES}
+    assert f'id="{DEMO_TABLE}"' in section and prose and len(values) >= 8
+    for value in sorted(values):
+        assert not names(prose, html.unescape(value)), value
+
+
+def test_the_handbook_links_the_l2_grid_from_chapter_19_and_from_chapter_16():
+    target = "../product/l2-acceptance.md"
+    assert (HANDBOOK / target).resolve() == (ROOT / "docs" / "product" / "l2-acceptance.md").resolve()
+    for name in (DEMO_CHAPTER, "16-acceptance-grid.html"):
+        path = HANDBOOK / "chapters" / name
+        assert path.is_file() and f'href="{target}"' in chapter_text(name), name
