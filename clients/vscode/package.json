@@ -44,7 +44,7 @@
         "toolReferenceName": "hypotrailDecide",
         "displayName": "Record a Hypotrail Decision",
         "userDescription": "Records one Decision in a Hypotrail Study through the CLI's `decide`, after you confirm it, unless you chose \"Always Allow\" for this tool.",
-        "modelDescription": "Records one Decision in a Hypotrail Study of this workspace with the CLI command `decide`, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give the question and the option as the Study's pending decision words them, cited_ids (the ids of the records the Decision cites, such as the Comparison's), and read_sequence, the write_sequence of the Study as you last read it. author is human when the user stated the choice in chat, and proxy when you chose by a stated rule; with proxy, give source, which names that rule. The extension makes the request id. A write the CLI refuses, or that gets no answer, is reported and never sent again by this tool: read the Study before any other write.",
+        "modelDescription": "Records one Decision in a Hypotrail Study of this workspace with the CLI command `decide`, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give the question and the option as the Study's pending decision words them, cited_ids (the ids of the records the Decision cites, such as the Comparison's), read_sequence, the write_sequence of the Study as you last read it, and study, the absolute path of the folder of the Study to write to, even when the workspace holds one Study. author is human when the user stated the choice in chat, and proxy when you chose by a stated rule; with proxy, give source, which names that rule. The extension makes the request id. A write the CLI refuses, or that gets no answer, is reported and never sent again by this tool: read the Study before any other write.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -83,7 +83,7 @@
             },
             "study": {
               "type": "string",
-              "description": "The absolute path of the folder of the Study. Needed only when the workspace holds several Studies."
+              "description": "The absolute path of the folder of the Study to write to, as a read or a refusal of these tools lists it. Required, even when the workspace holds one Study."
             }
           },
           "required": [
@@ -91,7 +91,8 @@
             "option",
             "author",
             "cited_ids",
-            "read_sequence"
+            "read_sequence",
+            "study"
           ]
         }
       }

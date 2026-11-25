@@ -5,7 +5,7 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { kept } from "./kept";
 import { recorder } from "./recorder";
-import { FIRST, invoke, jsonAfterFirstLine, keptAnswer, NO_ANSWERS, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
+import { CALLERS, FIRST, invoke, jsonAfterFirstLine, keptAnswer, NO_ANSWERS, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
 
 type ArgumentList = { name: string; study: string; decision: Record<string, unknown>; arguments: string[] };
 const LISTS: ArgumentList[] = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "test", "decide-arguments.json"), "utf8"));
@@ -20,7 +20,7 @@ for (const list of LISTS) {
     const calls = recorder(t, keptAnswer("decide-success"));
     const { request_id, ...input } = list.decision;
     void request_id;
-    const text = await invoke(WRITE_TOOL, input);
+    const text = await invoke(WRITE_TOOL, { ...input, study: studies[0] });
     assert.equal(calls.length, 1);
     const args = calls[0].args;
     assert.equal(args[FIRST.length], "decide");
@@ -44,36 +44,38 @@ const AUTHOR_CASES: [string, Record<string, unknown>, string | undefined][] = [
   ["no read_sequence", { read_sequence: undefined }, "read_sequence"],
 ];
 
-for (const [name, change, named] of AUTHOR_CASES) {
-  test(`the write tool with ${name} ${named ? `starts nothing and names ${named}` : "starts decide once, with no --source"}`, async (t) => {
-    workspace(t, ["bike"]);
+for (const [how, call] of CALLERS) {
+  for (const [name, change, named] of AUTHOR_CASES) {
+    test(`the write tool called ${how} with ${name} ${named ? `starts nothing and names ${named}` : "starts decide once, with no --source"}`, async (t) => {
+      const { studies } = workspace(t, ["bike"]);
+      const calls = recorder(t, keptAnswer("decide-success"));
+      const text = await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0], ...change });
+      if (named) {
+        assert.equal(calls.length, 0);
+        assert.match(text, new RegExp(`(?<![\\w-])${named}(?![\\w-])`));
+      } else {
+        assert.equal(calls.length, 1);
+        assert.ok(calls[0].args.includes(`--author=${change.author}`));
+        assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false);
+      }
+    });
+  }
+
+  test(`the write tool called ${how} passes author proxy and its source as given`, async (t) => {
+    const { studies } = workspace(t, ["bike"]);
     const calls = recorder(t, keptAnswer("decide-success"));
-    const text = await invoke(WRITE_TOOL, { ...WRITE_INPUT, ...change });
-    if (named) {
-      assert.equal(calls.length, 0);
-      assert.match(text, new RegExp(`(?<![\\w-])${named}(?![\\w-])`));
-    } else {
-      assert.equal(calls.length, 1);
-      assert.ok(calls[0].args.includes(`--author=${change.author}`));
-      assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false);
-    }
+    await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0], author: "proxy", source: "the rule: keep the lower MAE" });
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].args.includes("--author=proxy"));
+    assert.ok(calls[0].args.includes("--source=the rule: keep the lower MAE"));
   });
 }
 
-test("the write tool passes author proxy and its source as given", async (t) => {
-  workspace(t, ["bike"]);
-  const calls = recorder(t, keptAnswer("decide-success"));
-  await invoke(WRITE_TOOL, { ...WRITE_INPUT, author: "proxy", source: "the rule: keep the lower MAE" });
-  assert.equal(calls.length, 1);
-  assert.ok(calls[0].args.includes("--author=proxy"));
-  assert.ok(calls[0].args.includes("--source=the rule: keep the lower MAE"));
-});
-
 test("two invocations of the write tool with the same inputs start decide with two different request ids", async (t) => {
-  workspace(t, ["bike"]);
+  const { studies } = workspace(t, ["bike"]);
   const calls = recorder(t, keptAnswer("decide-success"), keptAnswer("decide-success"));
-  await invoke(WRITE_TOOL, WRITE_INPUT);
-  await invoke(WRITE_TOOL, WRITE_INPUT);
+  await invoke(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
+  await invoke(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
   const ids = calls.map((call) => call.args.filter((argument) => argument.startsWith("--request-id=")));
   assert.equal(ids.length, 2);
   for (const each of ids) assert.match(each[0].slice("--request-id=".length), UUID);
@@ -82,25 +84,27 @@ test("two invocations of the write tool with the same inputs start decide with t
 
 const REFUSALS = ["decide-study-changed", "decide-write-sequence-ahead", "decide-request-conflict", "decide-invalid-arguments", "decide-study-not-found"];
 
-for (const name of REFUSALS) {
-  test(`the write tool gives the refusal ${name} with its error object as printed, from one start`, async (t) => {
-    workspace(t, ["bike"]);
-    const calls = recorder(t, keptAnswer(name), keptAnswer("decide-success"));
-    const text = await invoke(WRITE_TOOL, WRITE_INPUT);
-    assert.equal(calls.length, 1);
-    const printed = JSON.parse(kept(`${name}.out`)).error;
-    assert.deepEqual(jsonAfterFirstLine(text), printed);
-    if (printed.code === "STUDY_CHANGED") assert.deepEqual(jsonAfterFirstLine(text).details.writes_since, printed.details.writes_since);
-  });
-}
+for (const [how, call] of CALLERS) {
+  for (const name of REFUSALS) {
+    test(`the write tool called ${how} gives the refusal ${name} with its error object as printed, from one start`, async (t) => {
+      const { studies } = workspace(t, ["bike"]);
+      const calls = recorder(t, keptAnswer(name), keptAnswer("decide-success"));
+      const text = await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
+      assert.equal(calls.length, 1);
+      const printed = JSON.parse(kept(`${name}.out`)).error;
+      assert.deepEqual(jsonAfterFirstLine(text), printed);
+      if (printed.code === "STUDY_CHANGED") assert.deepEqual(jsonAfterFirstLine(text).details.writes_since, printed.details.writes_since);
+    });
+  }
 
-for (const [cause, answer] of NO_ANSWERS) {
-  test(`the write tool gives a write with no answer (${cause}) as ${contract.write_no_answer_words}, from one start`, async (t) => {
-    workspace(t, ["bike"]);
-    const calls = recorder(t, answer, keptAnswer("decide-success"));
-    const text = await invoke(WRITE_TOOL, WRITE_INPUT);
-    assert.equal(calls.length, 1);
-    assert.ok(text.includes(contract.write_no_answer_words), text);
-    assert.ok(text.includes(cause), text);
-  });
+  for (const [cause, answer] of NO_ANSWERS) {
+    test(`the write tool called ${how} gives a write with no answer (${cause}) as ${contract.write_no_answer_words}, from one start`, async (t) => {
+      const { studies } = workspace(t, ["bike"]);
+      const calls = recorder(t, answer, keptAnswer("decide-success"));
+      const text = await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
+      assert.equal(calls.length, 1);
+      assert.ok(text.includes(contract.write_no_answer_words), text);
+      assert.ok(text.includes(cause), text);
+    });
+  }
 }

@@ -15,7 +15,7 @@ A Study is the only authority on its decisions: a Decision exists once the Study
 
 ## Calling the tools
 
-- With one Study in the workspace, leave `study` out. With several, pass `study`, the absolute path of the Study's folder, as a tool's answer lists it. A path that is not absolute matches no Study, and the call is refused.
+- On every write with `hypotrail_decide`, pass `study`, the absolute path of the Study's folder, as a tool's answer lists it, even when the workspace holds one Study. On a read, with one Study in the workspace, leave `study` out; with several, pass it. A path that is not absolute matches no Study, and the call is refused.
 - Pass `question` and `option` exactly as the pending decision words them in your read, and in `cited_ids` the ids of the records the Decision cites, such as the Comparison's.
 - VS Code asks the user to confirm each Decision before it is recorded, unless the user chose "Always Allow" for `hypotrail_decide`. When the user cancels, nothing is recorded.
 - A write that is refused, or that gets no answer, is not sent again by the tool. Read the Study before you write again: a write that got no answer may have been recorded.

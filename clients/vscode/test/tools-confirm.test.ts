@@ -13,7 +13,7 @@ const CITED = ["c53337e9-d255-423d-a851-414278d5c3f0", "817d7c96-0d5e-4a2b-9c55-
 type Accepted = { name: string; names: string[]; given?: (root: string) => string; source?: string; author: string };
 
 const ACCEPTED: Accepted[] = [
-  { name: "study absent, one Study found, author proxy and a source", names: ["only"], author: "proxy", source: "the rule: keep the lower MAE" },
+  { name: "study given, one Study found, author proxy and a source", names: ["only"], given: (root) => path.join(root, "only"), author: "proxy", source: "the rule: keep the lower MAE" },
   { name: "study given, two Studies found, author human and no source", names: ["a", "b"], given: (root) => path.join(root, "b"), author: "human" },
 ];
 
@@ -46,6 +46,7 @@ for (const each of ACCEPTED) {
 }
 
 const REFUSED: { name: string; names: string[]; given?: (root: string) => string }[] = [
+  { name: "study absent and one Study found", names: ["only"] },
   { name: "study absent and no Study found", names: [] },
   { name: "study absent and two Studies found", names: ["a", "b"] },
   { name: "study given as a folder the walk does not find", names: ["a", "b"], given: (root) => path.join(root, "c") },
@@ -73,9 +74,9 @@ for (const each of REFUSED) {
 }
 
 test("with author proxy and no source, prepareInvocation refuses, naming source, with no start", async (t) => {
-  workspace(t, ["only"]);
+  const { studies } = workspace(t, ["only"]);
   const calls = recorder(t, keptAnswer("decide-success"));
-  const input = { question: "q", option: "o", author: "proxy", cited_ids: CITED, read_sequence: 0 };
+  const input = { question: "q", option: "o", author: "proxy", cited_ids: CITED, read_sequence: 0, study: studies[0] };
   await assert.rejects(toolOf(WRITE_TOOL).prepareInvocation!({ input }, {}) as Promise<unknown>, (error: Error) => {
     assert.match(error.message, /(?<![\w-])source(?![\w-])/);
     return true;
@@ -101,9 +102,9 @@ const NOT_VALID: [string, Record<string, unknown>][] = [
 
 for (const [name, change] of NOT_VALID) {
   test(`with ${name}, prepareInvocation refuses, giving no confirmation and starting nothing`, async (t) => {
-    workspace(t, ["only"]);
+    const { studies } = workspace(t, ["only"]);
     const calls = recorder(t, keptAnswer("decide-success"));
-    const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, ...change };
+    const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, study: studies[0], ...change };
     let prepared: unknown = "nothing";
     await assert.rejects(
       (async () => {
@@ -116,9 +117,9 @@ for (const [name, change] of NOT_VALID) {
 }
 
 test("with author human and an empty source, the confirmation shows no source and invoke passes no --source", async (t) => {
-  workspace(t, ["only"]);
+  const { studies } = workspace(t, ["only"]);
   const calls = recorder(t, keptAnswer("decide-success"));
-  const input = { question: "q", option: "o", author: "human", source: "", cited_ids: CITED, read_sequence: 0 };
+  const input = { question: "q", option: "o", author: "human", source: "", cited_ids: CITED, read_sequence: 0, study: studies[0] };
   const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
   const text = prepared.confirmationMessages.message;
   assert.ok(text.includes("Source: none"), text);
@@ -128,32 +129,36 @@ test("with author human and an empty source, the confirmation shows no source an
   assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false, calls[0].args.join(" "));
 });
 
-test("a workspace whose walk finds another Study between prepareInvocation and invoke, with study absent, gets no write to a folder that was not shown", async (t) => {
-  // The walk visits at most `walk_max_folders` folders: here the root, 498 folders below it, and the shown Study, last.
+test("a given Study that the walk no longer finds once a second Study takes its last visit gets no write: invoke starts nothing", async (t) => {
+  // The walk visits at most `walk_max_folders` folders: here the root, `walk_max_folders` - 2 folders below it, and the
+  // given Study, last.
   const { root } = workspace(t, []);
   for (let index = 0; index < contract.walk_max_folders - 3; index += 1) fs.mkdirSync(path.join(root, `f${String(index).padStart(3, "0")}`));
   const shown = path.join(root, "z", "shown");
   fs.mkdirSync(shown, { recursive: true });
   fs.writeFileSync(path.join(shown, "study.json"), "{}");
   const calls = recorder(t, keptAnswer("decide-success"));
-  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0 };
+  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, study: shown };
   const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
   assert.ok(prepared.confirmationMessages.message.includes(JSON.stringify(shown)), prepared.confirmationMessages.message);
-  // A second Study, sorted first, takes the last visit of the walk from the shown one.
+  // A second Study, sorted first, takes the last visit of the walk from the given one.
   fs.mkdirSync(path.join(root, "a"));
   fs.writeFileSync(path.join(root, "a", "study.json"), "{}");
   await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
   const written = calls.map((call) => call.args.find((argument) => argument.startsWith("--study="))!.slice("--study=".length));
   assert.deepEqual(written.filter((study) => study !== shown), []);
+  assert.equal(calls.length, 0);
 });
 
-test("invoke with no confirmation shown for its inputs starts nothing and says to call again", async (t) => {
-  workspace(t, ["only"]);
+test("a given Study whose study.json is removed between prepareInvocation and invoke starts nothing, and the refusal names the Studies found", async (t) => {
+  const { studies } = workspace(t, ["gone", "kept"]);
   const calls = recorder(t, keptAnswer("decide-success"));
-  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0 };
-  const prepared = { ...input, option: "another option" };
-  await toolOf(WRITE_TOOL).prepareInvocation!({ input: prepared }, {});
+  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, study: studies[0] };
+  await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {});
+  fs.rmSync(path.join(studies[0], "study.json"));
   const result = await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  const text = result.content.map((part) => part.value).join("");
   assert.equal(calls.length, 0);
-  assert.match(result.content.map((part) => part.value).join(""), /Nothing was started\. Call hypotrail_decide again/);
+  assert.match(text, /Nothing was started\./);
+  assert.ok(text.includes(JSON.stringify([studies[1]])), text);
 });

@@ -641,7 +641,7 @@ TOOLS = {
             "read_sequence": {"type": "integer", "minimum": 0},
             "study": {"type": "string"},
         },
-        "required": ["question", "option", "author", "cited_ids", "read_sequence"],
+        "required": ["question", "option", "author", "cited_ids", "read_sequence", "study"],
     },
 }
 

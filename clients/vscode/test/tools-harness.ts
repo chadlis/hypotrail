@@ -52,12 +52,24 @@ export async function invoke(name: string, input: Record<string, unknown>): Prom
   return result.content.map((part) => part.value).join("");
 }
 
+// Calls a tool's `invoke` alone, with no `prepareInvocation` first: what a call gets that no confirmation came before.
+export async function invokeAlone(name: string, input: Record<string, unknown>): Promise<string> {
+  const result = await toolOf(name).invoke({ input, toolInvocationToken: undefined }, {});
+  return result.content.map((part) => part.value).join("");
+}
+
+// The two ways a test calls the write tool, by name: as VS Code does, and by `invoke` alone.
+export const CALLERS: [string, typeof invoke][] = [
+  ["through prepareInvocation", invoke],
+  ["by invoke alone", invokeAlone],
+];
+
 // The JSON a text gives after its first line.
 export function jsonAfterFirstLine(text: string): any {
   return JSON.parse(text.slice(text.indexOf("\n") + 1));
 }
 
-// Inputs of the write tool that the bridge accepts, with no Study named.
+// Inputs of the write tool that the bridge accepts, with no Study named: a test adds `study`.
 export const WRITE_INPUT = {
   question: "Which Configuration do we keep after this Comparison?",
   option: "Keep the Control",
