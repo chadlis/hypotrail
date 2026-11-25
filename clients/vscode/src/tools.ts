@@ -41,7 +41,8 @@ function noStudy(tool: string): string {
 
 // The Study a call of `tool` takes, or the text of its refusal. A given folder is compared, once resolved, with the
 // folders the walk finds; a folder that is not absolute is never one of them. Its branches for an absent `study` serve
-// only the read, because the write refuses an absent `study` before it calls this.
+// only the read, because the write refuses an absent `study` before it calls this. The read keeps the narrower meaning
+// of an absent `study` on purpose: there a `study` given as "" or null is a folder given, and is refused as not found.
 async function studyOf(given: unknown, tool: string): Promise<{ study: string } | { refusal: string }> {
   const found = await findStudies(workspaceFolders());
   if (given !== undefined) {
@@ -54,7 +55,8 @@ async function studyOf(given: unknown, tool: string): Promise<{ study: string } 
   return { refusal: `This workspace holds several Hypotrail Studies. ${NOTHING_STARTED} Call ${tool} again with study set to the absolute path of one of the Studies found: ${json(found)}.` };
 }
 
-// The write's refusal of a call with no `study`, whatever else its input lacks.
+// The write's refusal of a call with no `study`, whatever else its input lacks. It covers any `study` that is not a
+// non-empty string.
 async function noStudyGiven(): Promise<string> {
   const found = await findStudies(workspaceFolders());
   if (found.length === 0) return noStudy(DECIDE);
