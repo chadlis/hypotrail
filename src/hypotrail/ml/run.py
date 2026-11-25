@@ -29,15 +29,15 @@ import json
 import shutil
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import study as layout
-from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
+from hypotrail.core.errors import HypotrailError, InvalidInputError
 from hypotrail.ml.configuration import checked_configuration
 from hypotrail.ml.declaration import RidgeConfiguration, SeasonalConfiguration, load_declaration, plain
 from hypotrail.ml.metrics import declared_partition
 from hypotrail.ml.partitions import TRAIN
 from hypotrail.ml.predictions import PREDICTIONS_NAME
-from hypotrail.ml.study import DOMAIN, MODE, protocol_content
+from hypotrail.ml.study import DOMAIN, MODE, PROTOCOL_CHANGED_MESSAGE, protocol_content
 
 COMMAND = study_write.RUN_ML
 OBSERVATIONS_COLUMNS = ["row_id", "status", "reason", "y_pred_raw", "y_pred"]
@@ -141,13 +141,7 @@ def _run_locked(
         memberships_sha256=by_role["memberships"]["sha256"],
         references_sha256=by_role["references"]["sha256"],
     )
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Partitions, population, References or rules)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
     def produce(recording: attempts.Recording) -> attempts.Produced:
         folder, writes = recording.folder, recording.writes

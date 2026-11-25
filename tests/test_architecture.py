@@ -827,14 +827,8 @@ def test_the_recorder_rule_finds_each_planted_violation_outside_the_recorder_and
 
 CODE_BUILDING_ERRORS = {f"hypotrail.core.errors.{name}" for name in ("InvalidInputError", "IntegrityError", "HypotrailError")}
 
-# The end state is the one module that builds the code; until it exists, every place that builds it is listed.
-LISTED_PROTOCOL_CHANGED_BUILDERS = {
-    "hypotrail.ml.run:_run_locked": Listed(1, "C #215", "R2a"),
-    "hypotrail.ml.imports:_import_locked": Listed(1, "C #215", "R2a"),
-    "hypotrail.agentic.run:_run_locked": Listed(1, "C #215", "R2a"),
-    "hypotrail.agentic.imports:_import_locked": Listed(1, "C #215", "R2a"),
-    "hypotrail.core.exposure:checked_basis": Listed(1, "C #215", "R2a"),
-}
+# The one function that builds the code, which every path that checks the Protocol calls.
+PROTOCOL_CHANGED_BUILDER = {"hypotrail.core.protocol_check:require_unchanged": 1}
 
 
 def protocol_changed_builders(trees: dict) -> dict:
@@ -853,8 +847,8 @@ def protocol_changed_builders(trees: dict) -> dict:
     return tally(builders)
 
 
-def test_the_functions_under_src_that_build_protocol_changed_with_their_numbers_of_calls_are_the_listed_ones():
-    found, expected = both_ways(protocol_changed_builders(parse_all(SOURCE)), {}, LISTED_PROTOCOL_CHANGED_BUILDERS)
+def test_protocol_changed_is_built_by_one_call_in_one_function_of_one_core_module():
+    found, expected = both_ways(protocol_changed_builders(parse_all(SOURCE)), PROTOCOL_CHANGED_BUILDER, {})
     assert found == expected
 
 
@@ -1027,7 +1021,7 @@ READ_ONLY_RULES = (
     "test_outside_the_recorder_the_record_literals_the_manifest_writes_and_the_write_attempt_calls_are_the_listed_ones_and_recover_stays",
     "test_the_recorder_rule_finds_each_planted_violation_outside_the_recorder_and_none_in_a_planted_core_attempts",
     "protocol_changed_builders",
-    "test_the_functions_under_src_that_build_protocol_changed_with_their_numbers_of_calls_are_the_listed_ones",
+    "test_protocol_changed_is_built_by_one_call_in_one_function_of_one_core_module",
     "test_protocol_changed_built_through_an_alias_of_each_error_class_in_a_second_module_and_twice_in_one_function_is_found",
     "private_name_uses",
     "test_the_uses_of_a_private_name_of_another_module_under_src_are_the_listed_ones",

@@ -35,12 +35,12 @@ import math
 import re
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.ml.declaration import load_declaration
 from hypotrail.ml.run import OBSERVATIONS_COLUMNS
-from hypotrail.ml.study import DOMAIN, protocol_content
+from hypotrail.ml.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
 
 COMMAND = study_write.IMPORT_ML
 MODE = "external_unknown"
@@ -349,13 +349,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         memberships_sha256=by_role["memberships"]["sha256"],
         references_sha256=by_role["references"]["sha256"],
     )
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Partitions, population, References or rules)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
     mapping = _checked_mapping(mapping_bytes, mapping_path)
     header, rows = _checked_source(source_bytes, source, mapping)

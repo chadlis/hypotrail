@@ -42,11 +42,11 @@ from importlib import metadata
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
-from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, attempts, canonical, data, environment, study_write
+from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, dataset_sha256, protocol_content
+from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now
-from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
+from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, InvalidInputError
 
 COMMAND = study_write.IMPORT_AGENT
 MODE = "external_unknown"
@@ -490,13 +490,7 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         return recorded, True
 
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Cases, References, answer schema, database or primary Criterion)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
     partition, keys = _checked_population(population_bytes, population_path, partition_of)
     declared_log = None

@@ -44,6 +44,8 @@ MEMBERSHIPS_PATH = f"{ARTIFACTS_DIR}/memberships.csv"
 ANSWER_SCHEMA_PATH = f"{ARTIFACTS_DIR}/answer-schema.json"
 PRIMARY_DIRECTION = "higher_is_better"
 PRIMARY_UNIT = "share of Episodes"
+# What `run agent` and `import agent` say when the Protocol check refuses (`hypotrail.core.protocol_check`).
+PROTOCOL_CHANGED_MESSAGE = "the Workload's Protocol is no longer the one of this Study (Cases, References, answer schema, database or primary Criterion)"
 
 
 def protocol_id(workload: str) -> str:

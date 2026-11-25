@@ -37,9 +37,9 @@ import datetime
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, environment, study_write
+from hypotrail.core import artifacts, canonical, contracts, environment, protocol_check, study_write
 from hypotrail.core import study as layout
-from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.errors import InvalidInputError
 
 STAGE = "exposure"
 FREEZE_NAME = "freeze.json"
@@ -164,14 +164,12 @@ def checked_basis(spec: dict, live_basis) -> dict:
             details={},
         )
     live = live_basis(spec)
-    if live["protocol_digest"] != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study's current revision: "
-            "a Protocol change is made with `init --new-revision`",
-            stage=STAGE,
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": live["protocol_digest"]},
-        )
+    protocol_check.require_unchanged(
+        spec,
+        live["protocol_digest"],
+        message="the Workload's Protocol is no longer the one of this Study's current revision: a Protocol change is made with `init --new-revision`",
+        stage=STAGE,
+    )
     return live
 
 

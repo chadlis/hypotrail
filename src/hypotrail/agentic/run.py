@@ -47,8 +47,8 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.agentic.study import DOMAIN, protocol_content
-from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, study_write
+from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import leak
@@ -231,13 +231,7 @@ def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_
     for ref in study_refs:
         artifacts.read_verified(study, ref)
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Cases, References, answer schema, database or primary Criterion)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
     from hypotrail.agentic import imports
 
     imports.require_inspect(INSPECT_STAGE, COMMAND)
