@@ -91,8 +91,9 @@ def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage=STAGE, details=details)
 
 
-def _strict_episodes_or_empty(population):
-    """The Episodes of a population value that hold a Case ID and an integer Repeat, or none when it holds no list of Episodes: used only to identify a request."""
+def _strict_episodes_or_empty(raw: bytes):
+    """The Episodes of the population, read as strict JSON, that hold a Case ID and an integer Repeat, or none when it holds no list of Episodes: used only to identify a request."""
+    population = strict_json_or_none(raw)
     episodes = population.get(POPULATION_KEY) if isinstance(population, dict) else None
     if not isinstance(episodes, list):
         return []
@@ -443,7 +444,7 @@ def _import_locked(study, write, source, population_path, request_id, *, example
     population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
     partition_of = layout.partition_of(artifacts.read_verified(study, by_role["memberships"]), "case_id")
 
-    episodes = _strict_episodes_or_empty(strict_json_or_none(population_bytes))
+    episodes = _strict_episodes_or_empty(population_bytes)
     partitions = {partition_of.get(e["case_id"]) for e in episodes}
     log_import = is_log(source)
     model, configuration = _log_identity(source) if log_import else (_strict_model_or_unknown(source_bytes), UNKNOWN)
