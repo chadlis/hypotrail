@@ -38,15 +38,14 @@ independently.
 """
 
 import json
-import uuid
 from importlib import metadata
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, requests, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, study_write
 from hypotrail.core import study as layout
-from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
+from hypotrail.core.attempts import ITEM_STATUSES, now
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
 
 COMMAND = study_write.IMPORT_AGENT
@@ -486,15 +485,7 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         },
     }
     code_environment = environment.code_environment()
-    requested = requests.identity(effective_config, code_environment)
-
-    def check_recorded(recorded):
-        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
-        if differs:
-            raise requests.conflict(request_id, recorded["attempt_id"], differs)
-        verify_recorded(study, recorded)
-
-    recorded = write.replay_attempt(check_recorded)
+    recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
         return recorded, True
 
@@ -524,83 +515,48 @@ def _import_locked(study, write, source, population_path, request_id, *, example
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
     if declared_log is not None:
         effective_config["log"] = declared_log
-    attempt_id = str(uuid.uuid4())
-    folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
-    manifest_path = layout.attempt_manifest_path(attempt_id)
-    manifest = {
-        "kind": "attempt",
-        "schema_version": "attempt/1",
-        "attempt_id": attempt_id,
-        "request_id": request_id,
-        "operation": "import",
-        "mode": MODE,
-        "technical_status": "running",
-        "started_at": import_time,
-        "finished_at": None,
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": study_refs,
-        "code_environment": code_environment,
-        "outcome_unknown": False,
-        "retry_of": None,
-    }
-    contracts.validate(manifest)
-    write.begin()  # the running manifest is the first write
-    write.attempt(attempt_id)
-    artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
-    try:
+
+    def produce(recording: attempts.Recording) -> attempts.Produced:
+        folder, writes = recording.folder, recording.writes
         original = Path(source).name or "source.jsonl"
-        source_ref = artifacts.publish_bytes(
-            study,
-            f"{folder}/source/{original}",
-            source_bytes,
-            media_type="application/zip" if log_import else "application/jsonl",
-            role="import_source",
+        source_ref = writes.publish(
+            f"{folder}/source/{original}", source_bytes, media_type="application/zip" if log_import else "application/jsonl", role="import_source"
         )
-        population_ref = artifacts.publish_bytes(
-            study, f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population"
+        population_ref = writes.publish(f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population")
+        report_ref = writes.publish_record(
+            f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
         )
-        report_ref = artifacts.publish_record(
-            study, f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
-        )
-        normalized_ref = artifacts.publish_bytes(
-            study, f"{folder}/{OBSERVATIONS_NAME}", normalized(entries), media_type="application/jsonl", role="observations"
-        )
-        observation_set = {
-            "kind": "observations",
-            "schema_version": "observations/1",
-            "observation_set_id": str(uuid.uuid4()),
-            "attempt_id": attempt_id,
-            "domain": DOMAIN,
-            "origin": "imported",
-            "mode": MODE,
-            "population_ref": population_ref,
-            "raw_refs": [source_ref],
-            "normalized_ref": normalized_ref,
-            "provenance": {
+        recording.observations(
+            OBSERVATIONS_NAME,
+            normalized(entries),
+            [entry["status"] for entry in entries.values()],
+            media_type="application/jsonl",
+            domain=DOMAIN,
+            origin="imported",
+            population_ref=population_ref,
+            raw_refs=[source_ref],
+            provenance={
                 "produced_by": "external",
                 "partition": partition,
                 "import_time": import_time,
                 **producer,
                 **({} if declared_log is None else {"log": declared_log}),
             },
-            "unknown_fields": [field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
+            unknown_fields=[field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
             + [f"log.{name}" for name, entry in (declared_log or {}).items() if entry["origin"] == UNKNOWN],
-        }
-        contracts.validate(observation_set)
-        observation_set_ref = artifacts.publish_record(study, f"{folder}/observation_set.json", observation_set, role="observation_set")
-        statuses = [entry["status"] for entry in entries.values()]
-        terminal = {
-            **manifest,
-            "technical_status": "completed",
-            "finished_at": now(),
-            "input_refs": [*study_refs, source_ref, population_ref],
-            "output_refs": [report_ref, normalized_ref, observation_set_ref],
-            "item_counts": {status: statuses.count(status) for status in ITEM_STATUSES},
-        }
-        contracts.validate(terminal)
-        artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
-        return terminal, False
-    except Exception as error:
-        record_failure(study, manifest_path, manifest, error)
-        raise
+        )
+        return attempts.Produced(inputs=[source_ref, population_ref], outputs=[report_ref], effective_config=effective_config)
+
+    terminal = attempts.record(
+        study,
+        write,
+        request_id=request_id,
+        operation="import",
+        mode=MODE,
+        effective_config=effective_config,
+        code_environment=code_environment,
+        input_refs=study_refs,
+        produce=produce,
+        started_at=import_time,
+    )
+    return terminal, False

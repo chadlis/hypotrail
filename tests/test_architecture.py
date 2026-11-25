@@ -686,29 +686,9 @@ MANIFEST_PATH = "hypotrail.core.study.attempt_manifest_path"
 # `recover` writes the `interrupted` manifest of a crashed Attempt and is not one of the four Attempt writers, so it stays where it is.
 MANIFEST_WRITES_THAT_STAY = {"hypotrail.core.state:recover": 1}
 
-LISTED_RECORD_LITERALS = {
-    "hypotrail.ml.run:174": Listed(1, "B #214", "R2a"),
-    "hypotrail.ml.run:236": Listed(1, "B #214", "R2a"),
-    "hypotrail.ml.imports:391": Listed(1, "B #214", "R2a"),
-    "hypotrail.ml.imports:428": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.run:298": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.run:434": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.imports:532": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.imports:571": Listed(1, "B #214", "R2a"),
-}
-LISTED_MANIFEST_WRITES = {
-    "hypotrail.ml.run:_run_locked": Listed(2, "B #214", "R2a"),
-    "hypotrail.ml.imports:_import_locked": Listed(2, "B #214", "R2a"),
-    "hypotrail.agentic.imports:_import_locked": Listed(2, "B #214", "R2a"),
-    # through `_Writes.replace`
-    "hypotrail.agentic.run:_run_locked": Listed(2, "B #214", "R2a"),
-}
-LISTED_ATTEMPT_CALLS = {
-    "hypotrail.ml.run:_run_locked": Listed(1, "B #214", "R2a"),
-    "hypotrail.ml.imports:_import_locked": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.run:_run_locked": Listed(1, "B #214", "R2a"),
-    "hypotrail.agentic.imports:_import_locked": Listed(1, "B #214", "R2a"),
-}
+LISTED_RECORD_LITERALS: dict = {}
+LISTED_MANIFEST_WRITES: dict = {}
+LISTED_ATTEMPT_CALLS: dict = {}
 
 
 def recorder_sites(trees: dict) -> dict:
@@ -906,8 +886,6 @@ def test_protocol_changed_built_through_an_alias_of_each_error_class_in_a_second
 # --- no module uses a private name of another module ----------------------------------------------------------------------------------
 
 LISTED_PRIVATE_NAME_USES = {
-    # `_record_failure` and `_verify_recorded` of `hypotrail.ml.run`
-    "hypotrail.ml.imports:43": Listed(1, "B #214", "R2a"),
     # `_refuse` of `hypotrail.core.comparison`
     "hypotrail.core.agent_comparison:60": Listed(1, "K", "R2b"),
     # `gather._rows`

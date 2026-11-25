@@ -43,17 +43,16 @@ Inspect check run where Inspect cannot be imported.
 import json
 import os
 import tempfile
-import uuid
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
 from hypotrail.agentic.study import DOMAIN, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, requests, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, study_write
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
-from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
-from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError, coded_error
+from hypotrail.core.attempts import leak
+from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
 
 COMMAND = study_write.RUN_AGENT
 
@@ -134,45 +133,7 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
     }
 
 
-# --- What is written, scanned for the key first -----------------------------------------------------------------------------------
-
-
-class _Writes:
-    """The Attempt's writes. With a `secret`, each file is scanned for it before it is written (`SECRET_IN_OUTPUT`, exit 4)."""
-
-    def __init__(self, study: Path, secret: str | None):
-        self.study, self.secret = study, secret
-
-    def _scanned(self, data, where: str) -> None:
-        if self.secret and self.secret.encode() in data:
-            raise leak([where])
-
-    def scan(self, relative: str, data) -> None:
-        """Refuse a file that holds the key before anything is written: not even the journal's `begin` entry follows."""
-        self._scanned(data, relative)
-
-    def replace(self, relative: str, data) -> None:
-        self._scanned(data, relative)
-        artifacts.replace_bytes(self.study, relative, data)
-
-    def publish(self, relative: str, data, *, media_type: str, role: str) -> dict:
-        self._scanned(data, relative)
-        return artifacts.publish_bytes(self.study, relative, data, media_type=media_type, role=role)
-
-    def publish_record(self, relative: str, record: dict, *, role: str) -> dict:
-        return self.publish(relative, canonical.dumps(record), media_type="application/json", role=role)
-
-    def publish_file(self, source: Path, relative: str, *, media_type: str, role: str) -> dict:
-        return self.publish(relative, Path(source).read_bytes(), media_type=media_type, role=role)
-
-
-def leak(files: list) -> HypotrailError:
-    return HypotrailError(
-        "SECRET_IN_OUTPUT",
-        f"the API key was found in what this Attempt would write: {', '.join(files)}; nothing holding it was kept",
-        stage="live",
-        details={"files": files},
-    )
+# --- What a scan of the Study finds after the Attempt -------------------------------------------------------------------------------
 
 
 def _warnings_of(study: Path, secret: str | None) -> list:
@@ -262,15 +223,7 @@ def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_
         "input_digests": input_digests,
     }
     code_environment = environment.code_environment()
-    requested = requests.identity(effective_config, code_environment)
-
-    def check_recorded(recorded):
-        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
-        if differs:
-            raise requests.conflict(request_id, recorded["attempt_id"], differs)
-        verify_recorded(study, recorded)
-
-    recorded = write.replay_attempt(check_recorded)
+    recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
         return recorded, True, []  # no key, no Inspect, no provider, no scan
 
@@ -290,47 +243,29 @@ def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_
     imports.require_inspect(INSPECT_STAGE, COMMAND)
     api_key = core_live.read_api_key(environ) if mode == LIVE else None
 
-    writes = _Writes(study, api_key)
-    attempt_id = str(uuid.uuid4())
-    manifest_path = layout.attempt_manifest_path(attempt_id)
-    manifest = {
-        "kind": "attempt",
-        "schema_version": "attempt/1",
-        "attempt_id": attempt_id,
-        "request_id": request_id,
-        "operation": "execute",
-        "mode": mode,
-        "technical_status": "running",
-        "started_at": now(),
-        "finished_at": None,
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": study_refs,
-        # outside `effective_config`, so a replay of a request recorded before this key existed is not a conflict
-        **({"case_digests": _case_digests(workload, plan)} if mode == LIVE else {}),
-        "code_environment": code_environment,
-        "outcome_unknown": False,
-        "retry_of": retry_of,
-        # a Configuration whose digest the freeze record of the Study's first Exposure does not hold (hypotrail.core.exposure)
-        **exposure.marks(study, [{"effective_config": effective_config}]),
-    }
-    contracts.validate(manifest)
-    running = canonical.dumps(manifest)
-    writes.scan(manifest_path, running)  # a hit here writes nothing, not even the journal's `begin` entry, and leaves no Attempt
-    write.begin()  # the running manifest is the first write
-    write.attempt(attempt_id)
-    writes.replace(manifest_path, running)
-    try:
-        terminal = _record(study, writes, workload, examples, manifest, plan, api_key)
-        writes.replace(manifest_path, canonical.dumps(terminal))
-    except Exception as error:
-        coded = coded_error(error)  # a foreign exception by its type only: the failed manifest and the raised error say the same
-        if api_key and api_key in f"{coded.code}: {coded.message}":  # the Reason is the failed manifest's one new text: scanned like every file
-            coded = leak([manifest_path])  # a hit is the Reason, with no message text of the error
-        record_failure(study, manifest_path, manifest, coded)
+
+    def with_warnings(coded: HypotrailError) -> None:
         # the Study is scanned whether or not the Attempt failed (#74): what the scan finds travels with the error
         coded.details["warnings"] = _warnings_of(study, api_key)
-        raise coded from error
+
+    terminal = attempts.record(
+        study,
+        write,
+        request_id=request_id,
+        operation="execute",
+        mode=mode,
+        effective_config=effective_config,
+        code_environment=code_environment,
+        input_refs=study_refs,
+        produce=lambda recording: _record(recording, workload, plan, api_key),
+        retry_of=retry_of,
+        # outside `effective_config`, so a replay of a request recorded before this key existed is not a conflict
+        outside_config={"case_digests": _case_digests(workload, plan)} if mode == LIVE else None,
+        # a Configuration whose digest the freeze record of the Study's first Exposure does not hold (hypotrail.core.exposure)
+        marks=exposure.marks(study, [{"effective_config": effective_config}]),
+        writes=attempts.Scanned(study, api_key),
+        failed=with_warnings,
+    )
     return terminal, False, _warnings_of(study, api_key)
 
 
@@ -360,16 +295,15 @@ def _changed(before: str, after: str) -> IntegrityError:
     )
 
 
-def _record(study: Path, writes: _Writes, workload, examples: Path, manifest: dict, plan: dict, api_key) -> dict:
-    """Run the Episodes, publish what they left and return the terminal manifest."""
+def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> attempts.Produced:
+    """Run the Episodes and publish what they left."""
     from hypotrail.agentic import imports, inspect_log, projection, runner
     from hypotrail.agentic import limits as limits_module
     from hypotrail.agentic import live as agentic_live
 
-    mode = manifest["mode"]
-    attempt_id = manifest["attempt_id"]
-    folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
-    effective_config = manifest["effective_config"]
+    mode = recording.manifest["mode"]
+    folder, writes = recording.folder, recording.writes
+    effective_config = recording.manifest["effective_config"]
     declaration_ref = writes.publish(
         f"{folder}/workload.json", (workload.directory / "workload.json").read_bytes(), media_type="application/json", role="workload_declaration"
     )
@@ -426,31 +360,26 @@ def _record(study: Path, writes: _Writes, workload, examples: Path, manifest: di
         published = [log_ref, run_ref]
         if self_check is not None:
             published.append(writes.publish_record(f"{folder}/{SELF_CHECK_NAME}", self_check, role="self_check"))
-        normalized_ref = writes.publish(f"{folder}/{OBSERVATIONS_NAME}", imports.normalized(entries), media_type="application/jsonl", role="observations")
         reported = agentic_live.served_models(log)  # what the provider says, as `run.json`'s `served_models`: never the requested name
         served_model = ", ".join(reported) if reported else None
-        observation_set = {
-            "kind": "observations",
-            "schema_version": "observations/1",
-            "observation_set_id": str(uuid.uuid4()),
-            "attempt_id": attempt_id,
-            "domain": DOMAIN,
-            "origin": "generated",
-            "mode": mode,
-            "population_ref": population_ref,
-            "raw_refs": [log_ref],
-            "normalized_ref": normalized_ref,
-            "provenance": {
+        recording.observations(
+            OBSERVATIONS_NAME,
+            imports.normalized(entries),
+            [entry["status"] for entry in entries.values()],
+            media_type="application/jsonl",
+            domain=DOMAIN,
+            origin="generated",
+            population_ref=population_ref,
+            raw_refs=[log_ref],
+            provenance={
                 "produced_by": "hypotrail",
                 "configuration": plan["configuration"]["id"],
                 "partition": plan["partition"],
                 "model": plan["model"],
                 "served_model": served_model,
             },
-            "unknown_fields": [],
-        }
-        contracts.validate(observation_set)
-        observation_set_ref = writes.publish_record(f"{folder}/observation_set.json", observation_set, role="observation_set")
+            unknown_fields=[],
+        )
         effective = limits_module.effective_limits(log)
         effective_config = {
             **effective_config,
@@ -460,16 +389,4 @@ def _record(study: Path, writes: _Writes, workload, examples: Path, manifest: di
             "limit_notes": agentic_live.limit_notes(effective),
             "effective_parameters": agentic_live.effective_parameters(log),
         }
-    statuses = [entry["status"] for entry in entries.values()]
-    terminal = {
-        **manifest,
-        "technical_status": "completed",
-        "finished_at": now(),
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": [*manifest["input_refs"], declaration_ref],
-        "output_refs": [population_ref, *published, normalized_ref, observation_set_ref],
-        "item_counts": {status: statuses.count(status) for status in ITEM_STATUSES},
-    }
-    contracts.validate(terminal)
-    return terminal
+    return attempts.Produced(inputs=[declaration_ref], outputs=[population_ref, *published], effective_config=effective_config)

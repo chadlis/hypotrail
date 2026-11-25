@@ -127,8 +127,9 @@ LOCK_HELD_ENTERS_NONE = {
 
 # Every function under `src` that takes the writer lock, as `module:function`: by `study_write.locked`, which takes it for every writer;
 # `tests/test_order_probe.py` holds this set equal to the set found in the source. `reads_sequence`: the function takes `--read-sequence`. `lock_held`
-# and `after`: its row of `LOCK_HELD` and of `UNDER_THE_LOCK` (the `AFTER` one). `stale_check_in`: the function that calls `require_current`, or the
-# `replay_attempt`, `replay_decision` or `replay_deviation` of the Study-write module that runs it, when it is not the locked function itself.
+# and `after`: its row of `LOCK_HELD` and of `UNDER_THE_LOCK` (the `AFTER` one). `stale_check_in`: the function that calls `require_current`, the
+# `replay_attempt`, `replay_decision` or `replay_deviation` of the Study-write module that runs it, or the Attempt recorder's `replayed` that runs
+# `replay_attempt`, when it is not the locked function itself.
 # `then`: the function the locked function calls after `require_current`, whose calls are the ones that follow it.
 LOCKED_PATHS = {
     ML_INIT: {"writer": "init", "reads_sequence": False, "lock_held": "init", "after": None},

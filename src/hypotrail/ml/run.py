@@ -27,11 +27,9 @@ import datetime
 import io
 import json
 import shutil
-import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, exposure, requests, study_write
-from hypotrail.core.attempts import ITEM_STATUSES, now as _now, record_failure as _record_failure, verify_recorded as _verify_recorded
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
 from hypotrail.ml.configuration import checked_configuration
@@ -63,13 +61,6 @@ def _normalized(items: list, predictions: list) -> bytes:
         else:
             writer.writerow([row_id, "produced", "", row["y_pred_raw"], row["y_pred"]])
     return out.getvalue().encode("utf-8")
-
-
-def item_counts(normalized: bytes) -> dict:
-    counts = dict.fromkeys(ITEM_STATUSES, 0)
-    for row in _rows(normalized):
-        counts[row["status"]] += 1
-    return counts
 
 
 def run_ml(
@@ -140,15 +131,7 @@ def _run_locked(
         "bounds": {"clip_min": configuration.post_processing.clip_min, "fit_partition": TRAIN},
     }
     code_environment = environment.code_environment()
-    requested = requests.identity(effective_config, code_environment)
-
-    def check_recorded(recorded: dict) -> None:
-        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
-        if differs:
-            raise requests.conflict(request_id, recorded["attempt_id"], differs)
-        _verify_recorded(study, recorded)
-
-    recorded = write.replay_attempt(check_recorded)
+    recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
         return recorded, True
 
@@ -166,42 +149,12 @@ def _run_locked(
             details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
         )
 
-    attempt_id = str(uuid.uuid4())
-    folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
-    manifest_path = layout.attempt_manifest_path(attempt_id)
-    manifest = {
-        "kind": "attempt",
-        "schema_version": "attempt/1",
-        "attempt_id": attempt_id,
-        "request_id": request_id,
-        "operation": "execute",
-        "mode": MODE,
-        "technical_status": "running",
-        "started_at": _now(),
-        "finished_at": None,
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": study_refs,
-        "code_environment": code_environment,
-        "outcome_unknown": False,
-        "retry_of": retry_of,
-        # a Configuration whose digest the freeze record of the Study's first Exposure does not hold (hypotrail.core.exposure)
-        **exposure.marks(study, [{"effective_config": effective_config}]),
-    }
-    contracts.validate(manifest)
-    write.begin()  # the running manifest is the first write
-    write.attempt(attempt_id)
-    artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
-
-    try:
-        declaration_ref = artifacts.publish_bytes(
-            study,
-            f"{folder}/workload.json",
-            (source / "workload.json").read_bytes(),
-            media_type="application/json",
-            role="workload_declaration",
+    def produce(recording: attempts.Recording) -> attempts.Produced:
+        folder, writes = recording.folder, recording.writes
+        declaration_ref = writes.publish(
+            f"{folder}/workload.json", (source / "workload.json").read_bytes(), media_type="application/json", role="workload_declaration"
         )
-        scratch = study / layout.SCRATCH_DIR / attempt_id
+        scratch = study / layout.SCRATCH_DIR / recording.attempt_id
         try:
             if isinstance(configuration, SeasonalConfiguration):
                 from hypotrail.ml import baselines
@@ -216,54 +169,41 @@ def _run_locked(
                 ridge.write_outputs(source, scratch, config_id, partition)
                 parameters = json.loads((scratch / PARAMETERS_NAME).read_text(encoding="utf-8"))
                 raw_files = [(PREDICTIONS_NAME, "predictions"), (PARAMETERS_NAME, "effective_parameters")]
-            raw_refs = [
-                artifacts.publish_file(
-                    study, scratch / name, f"{folder}/{name}", media_type=layout.media_type_of(name), role=role
-                )
-                for name, role in raw_files
-            ]
+            raw_refs = [writes.publish_file(scratch / name, f"{folder}/{name}", media_type=layout.media_type_of(name), role=role) for name, role in raw_files]
             predictions = _rows((scratch / PREDICTIONS_NAME).read_bytes())
         finally:
-            shutil.rmtree(study / layout.SCRATCH_DIR / attempt_id, ignore_errors=True)
+            shutil.rmtree(scratch, ignore_errors=True)
 
         items = [row["row_id"] for row in _rows(artifacts.read_verified(study, by_role["memberships"])) if row["partition"] == partition]
         normalized = _normalized(items, predictions)
-        normalized_ref = artifacts.publish_bytes(
-            study, f"{folder}/observations.csv", normalized, media_type="text/csv", role="observations"
+        recording.observations(
+            "observations.csv",
+            normalized,
+            [row["status"] for row in _rows(normalized)],
+            media_type="text/csv",
+            domain=DOMAIN,
+            origin="generated",
+            population_ref=by_role["memberships"],
+            raw_refs=raw_refs,
+            provenance={"produced_by": "hypotrail", "configuration": config_id, "partition": partition},
+            unknown_fields=[],
         )
-        observation_set = {
-            "kind": "observations",
-            "schema_version": "observations/1",
-            "observation_set_id": str(uuid.uuid4()),
-            "attempt_id": attempt_id,
-            "domain": DOMAIN,
-            "origin": "generated",
-            "mode": MODE,
-            "population_ref": by_role["memberships"],
-            "raw_refs": raw_refs,
-            "normalized_ref": normalized_ref,
-            "provenance": {"produced_by": "hypotrail", "configuration": config_id, "partition": partition},
-            "unknown_fields": [],
-        }
-        contracts.validate(observation_set)
-        observation_set_ref = artifacts.publish_record(
-            study, f"{folder}/observation_set.json", observation_set, role="observation_set"
+        return attempts.Produced(
+            inputs=[declaration_ref], outputs=raw_refs, effective_config={**effective_config, "effective_parameters": parameters}
         )
 
-        effective_config = {**effective_config, "effective_parameters": parameters}
-        terminal = {
-            **manifest,
-            "technical_status": "completed",
-            "finished_at": _now(),
-            "effective_config": effective_config,
-            "effective_config_digest": canonical.digest(effective_config),
-            "input_refs": [*study_refs, declaration_ref],
-            "output_refs": [*raw_refs, normalized_ref, observation_set_ref],
-            "item_counts": item_counts(normalized),
-        }
-        contracts.validate(terminal)
-        artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
-        return terminal, False
-    except Exception as error:
-        _record_failure(study, manifest_path, manifest, error)
-        raise
+    terminal = attempts.record(
+        study,
+        write,
+        request_id=request_id,
+        operation="execute",
+        mode=MODE,
+        effective_config=effective_config,
+        code_environment=code_environment,
+        input_refs=study_refs,
+        produce=produce,
+        retry_of=retry_of,
+        # a Configuration whose digest the freeze record of the Study's first Exposure does not hold (hypotrail.core.exposure)
+        marks=exposure.marks(study, [{"effective_config": effective_config}]),
+    )
+    return terminal, False
