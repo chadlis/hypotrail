@@ -42,6 +42,8 @@ MODE = "native_ml"
 SPEC_VERSION = "study/1"
 MEMBERSHIPS_PATH = f"{ARTIFACTS_DIR}/{MEMBERSHIPS_NAME}"
 REFERENCES_PATH = f"{ARTIFACTS_DIR}/{REFERENCES_NAME}"
+# What `run ml` and `import ml` say when the Protocol check refuses (`hypotrail.core.protocol_check`).
+PROTOCOL_CHANGED_MESSAGE = "the Workload's Protocol is no longer the one of this Study (Partitions, population, References or rules)"
 
 
 def protocol_id(workload: str) -> str:

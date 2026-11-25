@@ -11,7 +11,7 @@ environment) is copied.
 
 from inspect_ai.log import read_eval_log
 
-from hypotrail.agentic import limits, projection
+from hypotrail.agentic import imports, limits, projection
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 STAGE = "import"
@@ -102,20 +102,12 @@ def checked_episodes(log, keys: list, partition: str, partition_of: dict) -> tup
         key = (str(sample.id), sample.epoch - 1)
         case_id, repeat = key
         if key not in expected:
-            if case_id not in partition_of:
-                problem = "unknown_case"
-            elif partition_of[case_id] != partition:
-                problem = "other_partition"
-            elif case_id not in cases_listed:
-                problem = "not_in_population"
-            else:
-                problem = "repeat_out_of_range"
             raise _refuse(
                 "LOG_EPISODE_OUTSIDE_POPULATION",
                 f"({case_id}, repeat {repeat}) is in the log and is not an Episode of the population",
                 case_id=case_id,
                 repeat=repeat,
-                problem=problem,
+                problem=imports.problem_outside_population(case_id, partition, partition_of, cases_listed),
             )
         if key in seen:
             raise _refuse("LOG_EPISODE_DUPLICATE", f"({case_id}, repeat {repeat}) appears twice in the log", case_id=case_id, repeat=repeat)

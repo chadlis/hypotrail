@@ -33,12 +33,12 @@ The order is fixed, and nothing is written before the checks that precede it:
 import csv
 import io
 import math
-import datetime
 import uuid
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
+from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml import single_features
 from hypotrail.ml.partitions import requires_exposure
@@ -250,7 +250,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         "limitations": list(LIMITATIONS),
         "study_revision": revisions.identity(spec),
         **exposure.marks(study, [manifest]),
-        "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "recorded_at": now(),
         "rescoring": rescoring.describe(
             study,
             observation_set_id=observation_set["observation_set_id"],

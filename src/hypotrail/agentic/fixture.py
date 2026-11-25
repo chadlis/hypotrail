@@ -26,10 +26,10 @@ from inspect_ai.log import read_eval_log
 from inspect_ai.model import ModelOutput
 
 from hypotrail.agentic import counts, limits as limits_module, projection, rescore, runner
-from hypotrail.agentic.declaration import SCENARIOS, check_document, load_workload, read_json
+from hypotrail.agentic.declaration import SCENARIOS, check_document, database_changed, load_workload, read_json
 from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 from hypotrail.core.data import sha256_file
-from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.errors import InvalidInputError
 
 MODE = SCENARIO_MODE
 BANNER = SCENARIO_BANNER
@@ -78,15 +78,7 @@ class ScenarioScript:
 
 
 def load_scenarios(workload) -> list[dict]:
-    path = workload.scenarios_path
-    if path is None:
-        raise InvalidInputError(
-            "SCENARIOS_NOT_DECLARED",
-            f"the Workload {workload.workload_id!r} declares no scenarios",
-            stage="fixture",
-            details={"path": "scenarios"},
-        )
-    document = read_json(path, stage="fixture", noun="scenarios file", key="scenarios")
+    document = read_json(workload.scenarios_file(), stage="fixture", noun="scenarios file", key="scenarios")
     check_document(document, SCENARIOS)
     return document["scenarios"]
 
@@ -171,10 +163,5 @@ def run_fixture(
     _write(out_dir, "verdicts.json", {"verdicts": verdicts})
     _write(out_dir, "run.json", record)
     if hash_before != hash_after:
-        raise IntegrityError(
-            "DATABASE_CHANGED",
-            "the Chinook file changed during the execution",
-            stage="fixture",
-            details={"sha256_before": hash_before, "sha256_after": hash_after},
-        )
+        raise database_changed(hash_before, hash_after, stage="fixture")
     return {"mode": MODE, "banner": BANNER, **record}

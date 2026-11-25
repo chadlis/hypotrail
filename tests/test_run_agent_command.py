@@ -268,9 +268,9 @@ def test_the_checks_run_in_the_order_of_the_ticket_and_each_pair_of_adjacent_ref
 
 def test_the_generic_run_agent_code_names_no_workload_in_its_message_or_its_help():
     """R1-06, ADR 0002: the Track's code stays generic; a Workload's name is declared data, never a literal of the Track."""
-    from hypotrail.agentic import run
+    from hypotrail.agentic.declaration import database_changed
 
-    assert "chinook" not in run._changed("a", "b").message.lower()
+    assert "chinook" not in database_changed("a", "b", stage="run").message.lower()
     parser = cli.build_parser()
     sub = next(a for a in parser._actions if getattr(a, "choices", None) and "run" in a.choices)
     run_parser = sub.choices["run"]

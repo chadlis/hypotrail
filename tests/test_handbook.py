@@ -843,7 +843,7 @@ def test_the_record_table_equals_the_required_and_optional_fields_of_the_contrac
 
 def test_the_status_table_equals_the_attempt_and_item_statuses_of_the_code(page):
     from hypotrail.core import contracts
-    from hypotrail.ml.run import ITEM_STATUSES
+    from hypotrail.core.attempts import ITEM_STATUSES
 
     rows = attrs_of(page, "statuses", "data-level")
     definitions = contracts.schema()["$defs"]

@@ -29,25 +29,22 @@ independently.
 """
 
 import csv
-import datetime
 import io
 import math
 import re
-import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, environment, requests, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
 from hypotrail.ml.declaration import load_declaration
-from hypotrail.ml.run import ITEM_STATUSES, OBSERVATIONS_COLUMNS, _record_failure, _verify_recorded
-from hypotrail.ml.study import DOMAIN, protocol_content
+from hypotrail.ml.run import OBSERVATIONS_COLUMNS
+from hypotrail.ml.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
 
 COMMAND = study_write.IMPORT_ML
 MODE = "external_unknown"
 STAGE = "import"
-UNKNOWN = "unknown"
-DECLARED = "declared"
 
 # The keys a mapping may hold, and whether each is required. The first three name columns of the
 # source file; the others are what the mapping declares about the producer.
@@ -72,8 +69,6 @@ PRODUCER_FIELDS = {
     "saw_public_check": None,
 }
 POPULATION_KEY = layout.IMPORT_POPULATION_KEY
-SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
-SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 # A value that names a callable or a module (`os.system`, `pickle:loads`, `f(x)`) is not a column name.
 _EXECUTABLE = re.compile(r"[():;/\\]|^__|^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$|^(lambda|eval|exec|import)\b")
@@ -81,25 +76,6 @@ _EXECUTABLE = re.compile(r"[():;/\\]|^__|^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$|^(lambd
 
 def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage=STAGE, details=details)
-
-
-def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-
-def _read(path, code, what) -> bytes:
-    try:
-        return Path(path).read_bytes()
-    except OSError:
-        raise _refuse(code, f"the {what} file cannot be read: {path}", **{what: str(path)}) from None
-
-
-def _strict_json_or_none(raw: bytes):
-    """The value of `raw` read as strict JSON, or None when it is not: used only to identify a request, never to accept an input."""
-    try:
-        return canonical.loads(raw)
-    except InvalidInputError:
-        return None
 
 
 def _partition_or_none(population, partition_of: dict):
@@ -143,12 +119,7 @@ def _checked_mapping(raw: bytes, mapping_path) -> dict:
 def _checked_source(raw: bytes, source_path, mapping: dict):
     """(header, rows) of the source CSV, once it is known to be data in UTF-8 that holds the mapped columns."""
     name = str(source_path)
-    if Path(source_path).suffix.lower() in SERIALIZED_SUFFIXES or raw.startswith(SERIALIZED_MAGIC):
-        raise _refuse(
-            "SOURCE_SERIALIZED",
-            "the source is a serialized object (pickle, joblib or an array dump); an import adopts a CSV of predictions and loads nothing",
-            source=name,
-        )
+    require_not_serialized(raw, source_path, adopts="a CSV of predictions")
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -244,13 +215,7 @@ def _normalized(items: list, joined: dict) -> bytes:
 
 def _producer(mapping: dict) -> dict:
     """What the import says about how the outputs were made: `declared` by the mapping, otherwise `unknown`."""
-    producer = {}
-    for field, key in PRODUCER_FIELDS.items():
-        if key is not None and key in mapping:
-            producer[field] = {"value": mapping[key].strip(), "origin": DECLARED}
-        else:
-            producer[field] = {"value": None, "origin": UNKNOWN}
-    return producer
+    return {field: producer_entry(mapping[key].strip() if key is not None and key in mapping else None) for field, key in PRODUCER_FIELDS.items()}
 
 
 def _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition) -> dict:
@@ -314,20 +279,20 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     declaration = load_declaration(workload_dir)
     dataset_sha = data.sha256_file(workload_dir / declaration.data_file)
 
-    source_bytes = _read(source, "SOURCE_NOT_FOUND", "source")
-    mapping_bytes = _read(mapping_path, "MAPPING_NOT_FOUND", "mapping")
-    population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")
+    source_bytes = read_input(source, "SOURCE_NOT_FOUND", "source")
+    mapping_bytes = read_input(mapping_path, "MAPPING_NOT_FOUND", "mapping")
+    population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
     memberships = artifacts.read_verified(study, by_role["memberships"])
     partition_of = layout.partition_of(memberships, "row_id")
 
-    mapping_json_or_none = _strict_json_or_none(mapping_bytes)
+    mapping_json_or_none = strict_json_or_none(mapping_bytes)
     model = mapping_json_or_none.get("model") if isinstance(mapping_json_or_none, dict) else None
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
         "workload": workload,
         "mode": MODE,
-        "partition": _partition_or_none(_strict_json_or_none(population_bytes), partition_of),
+        "partition": _partition_or_none(strict_json_or_none(population_bytes), partition_of),
         "configuration": UNKNOWN,
         "model": model.strip() if isinstance(model, str) and model.strip() else UNKNOWN,
         "repeats": UNKNOWN,
@@ -340,15 +305,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         },
     }
     code_environment = environment.code_environment()
-    requested = requests.identity(effective_config, code_environment)
-
-    def check_recorded(recorded):
-        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
-        if differs:
-            raise requests.conflict(request_id, recorded["attempt_id"], differs)
-        _verify_recorded(study, recorded)
-
-    recorded = write.replay_attempt(check_recorded)
+    recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
         return recorded, True
 
@@ -358,13 +315,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         memberships_sha256=by_role["memberships"]["sha256"],
         references_sha256=by_role["references"]["sha256"],
     )
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Partitions, population, References or rules)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
     mapping = _checked_mapping(mapping_bytes, mapping_path)
     header, rows = _checked_source(source_bytes, source, mapping)
@@ -381,77 +332,44 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     effective_config = {**effective_config, "partition": partition}
 
     producer = _producer(mapping)
-    import_time = _now()
+    import_time = attempts.now()
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
-    attempt_id = str(uuid.uuid4())
-    folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
-    manifest_path = layout.attempt_manifest_path(attempt_id)
-    manifest = {
-        "kind": "attempt",
-        "schema_version": "attempt/1",
-        "attempt_id": attempt_id,
-        "request_id": request_id,
-        "operation": "import",
-        "mode": MODE,
-        "technical_status": "running",
-        "started_at": import_time,
-        "finished_at": None,
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": study_refs,
-        "code_environment": code_environment,
-        "outcome_unknown": False,
-        "retry_of": None,
-    }
-    contracts.validate(manifest)
-    write.begin()  # the running manifest is the first write
-    write.attempt(attempt_id)
-    artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
-    try:
+
+    def produce(recording: attempts.Recording) -> attempts.Produced:
+        folder, writes = recording.folder, recording.writes
         original = Path(source).name or "source.csv"
-        source_ref = artifacts.publish_bytes(
-            study, f"{folder}/source/{original}", source_bytes, media_type=layout.media_type_of(original), role="import_source"
-        )
-        mapping_ref = artifacts.publish_bytes(study, f"{folder}/mapping.json", mapping_bytes, media_type="application/json", role="import_mapping")
-        population_ref = artifacts.publish_bytes(
-            study, f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population"
-        )
-        report_ref = artifacts.publish_record(
-            study,
+        source_ref = writes.publish(f"{folder}/source/{original}", source_bytes, media_type=layout.media_type_of(original), role="import_source")
+        mapping_ref = writes.publish(f"{folder}/mapping.json", mapping_bytes, media_type="application/json", role="import_mapping")
+        population_ref = writes.publish(f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population")
+        report_ref = writes.publish_record(
             f"{folder}/validation_report.json",
             _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition),
             role="validation_report",
         )
-        normalized_ref = artifacts.publish_bytes(study, f"{folder}/observations.csv", normalized, media_type="text/csv", role="observations")
-        observation_set = {
-            "kind": "observations",
-            "schema_version": "observations/1",
-            "observation_set_id": str(uuid.uuid4()),
-            "attempt_id": attempt_id,
-            "domain": DOMAIN,
-            "origin": "imported",
-            "mode": MODE,
-            "population_ref": population_ref,
-            "raw_refs": [source_ref],
-            "normalized_ref": normalized_ref,
-            "provenance": {"produced_by": "external", "partition": partition, "import_time": import_time, **producer},
-            "unknown_fields": [field for field, entry in producer.items() if entry["origin"] == UNKNOWN],
-        }
-        contracts.validate(observation_set)
-        observation_set_ref = artifacts.publish_record(study, f"{folder}/observation_set.json", observation_set, role="observation_set")
-        counts = dict.fromkeys(ITEM_STATUSES, 0)
-        counts["produced"] = len(items)
-        terminal = {
-            **manifest,
-            "technical_status": "completed",
-            "finished_at": _now(),
-            "input_refs": [*study_refs, source_ref, mapping_ref, population_ref],
-            "output_refs": [report_ref, normalized_ref, observation_set_ref],
-            "item_counts": counts,
-        }
-        contracts.validate(terminal)
-        artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
-        return terminal, False
-    except Exception as error:
-        _record_failure(study, manifest_path, manifest, error)
-        raise
+        recording.observations(
+            "observations.csv",
+            normalized,
+            ["produced"] * len(items),
+            media_type="text/csv",
+            domain=DOMAIN,
+            origin="imported",
+            population_ref=population_ref,
+            raw_refs=[source_ref],
+            provenance={"produced_by": "external", "partition": partition, "import_time": import_time, **producer},
+            unknown_fields=[field for field, entry in producer.items() if entry["origin"] == UNKNOWN],
+        )
+        return attempts.Produced(inputs=[source_ref, mapping_ref, population_ref], outputs=[report_ref], effective_config=effective_config)
+
+    terminal = attempts.record(
+        study,
+        write,
+        request_id=request_id,
+        operation="import",
+        mode=MODE,
+        effective_config=effective_config,
+        code_environment=code_environment,
+        input_refs=study_refs,
+        produce=produce,
+        started_at=import_time,
+    )
+    return terminal, False

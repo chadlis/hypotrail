@@ -48,7 +48,7 @@ from jsonschema import Draft202012Validator
 
 from hypotrail.agentic.cases import load_cases
 from hypotrail.agentic.partitions import DEV
-from hypotrail.core.errors import InvalidInputError
+from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 DECLARATION_NAME = "workload.json"
 SCHEMA_NAME = "workload.schema.json"
@@ -242,6 +242,17 @@ class Workload:
         declared = self.declaration.get("scenarios")
         return None if declared is None else self.directory / declared
 
+    def scenarios_file(self) -> Path:
+        """The scenarios file the `scripted_fixture` Mode reads; a Workload that declares none is refused (SCENARIOS_NOT_DECLARED)."""
+        if self.scenarios_path is None:
+            raise InvalidInputError(
+                "SCENARIOS_NOT_DECLARED",
+                f"the Workload {self.workload_id!r} declares no scenarios",
+                stage="fixture",
+                details={"path": "scenarios"},
+            )
+        return self.scenarios_path
+
     @property
     def answer_schema_path(self) -> Path:
         """The answer schema file. Optional in the declaration: its readers refuse its absence (ANSWER_SCHEMA_NOT_DECLARED)."""
@@ -286,6 +297,24 @@ class Workload:
     def cases(self, partition: str = DEV, case_ids: list[str] | None = None) -> list[dict]:
         """The Cases of a declared Partition. Nothing here reads the References."""
         return load_cases(self.cases_path(partition), case_ids)
+
+
+# What `DATABASE_CHANGED` says, by the stage that hashed the database before and after: the stage `run` (an `llm_live` Attempt)
+# names no Workload; the stage `fixture` (the scenarios' runner, `hypotrail.agentic.fixture`) names the Chinook file.
+DATABASE_CHANGED_MESSAGES = {
+    "run": "the Workload's database changed during the Attempt",
+    "fixture": "the Chinook file changed during the execution",
+}
+
+
+def database_changed(before: str, after: str, *, stage: str) -> IntegrityError:
+    """`DATABASE_CHANGED` (exit 3): the Workload's database hashed to `before` and then to `after`, at `stage` (`run` or `fixture`)."""
+    return IntegrityError(
+        "DATABASE_CHANGED",
+        DATABASE_CHANGED_MESSAGES[stage],
+        stage=stage,
+        details={"sha256_before": before, "sha256_after": after},
+    )
 
 
 def load_workload(workload_dir: Path) -> Workload:

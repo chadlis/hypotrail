@@ -6,7 +6,6 @@ Assessments, whose journal order and `recorded_at` disagree, for a regression St
 
 import ast
 import datetime
-import types
 
 import pytest
 from _architecture import SOURCE, calls, owners_in, parse_all
@@ -24,18 +23,16 @@ from hypotrail.report import gather
 
 
 class Clock:
-    """A `datetime` module whose `now` runs through the given instants, one per call, so that `recorded_at` can run backwards."""
+    """A `now` that runs through the given instants, one per call, each as an ISO string, so that `recorded_at` can run backwards.
+
+    It replaces the `now` an assess module calls, and no other: the Exposure and write-journal records keep the real time.
+    """
 
     def __init__(self, *instants):
         self.instants = list(instants)
-        outer = self
 
-        class _Datetime(datetime.datetime):
-            @classmethod
-            def now(cls, tz=None):
-                return outer.instants.pop(0)
-
-        self.module = types.SimpleNamespace(datetime=_Datetime, timezone=datetime.timezone)
+    def now(self) -> str:
+        return self.instants.pop(0).isoformat()
 
 
 def instant(day: int) -> datetime.datetime:
@@ -75,7 +72,7 @@ def agentic(tmp_path, monkeypatch):
 def test_two_assessments_whose_journal_order_and_recorded_at_disagree_are_ordered_the_same_way_by_status_assess_and_report(tmp_path, monkeypatch, track):
     study, assess_once, correct, module = track(tmp_path, monkeypatch)
     clock = Clock(instant(20), instant(10), instant(30))
-    monkeypatch.setattr(module, "datetime", clock.module)
+    monkeypatch.setattr(module, "now", clock.now)
     first, second = assess_once(), assess_once()
     assert first["recorded_at"] > second["recorded_at"], "the clock did not run backwards"
     decision = decide(study, [first["assessment_id"]], request_id="d-1")

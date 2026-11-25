@@ -10,8 +10,9 @@ from _architecture import calls, dotted, parse_all
 STUDY_WRITE = "hypotrail.core.study_write"
 STUDY_WRITE_LOCK_CALL = "hypotrail.core.study_write.locked"
 WRITER_LOCK_CALL = "hypotrail.core.lock.writer_lock"
-# A call that holds the stale check: `require_current` itself, or a step of the Study-write module that runs it after the replay lookup.
-STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision", "replay_deviation"}
+# A call that holds the stale check: `require_current` itself, a step of the Study-write module that runs it after the replay lookup, or `replayed`,
+# the step of the Attempt recorder (`hypotrail.core.attempts`) that runs `replay_attempt` for the four Attempt writers.
+STALE_CHECK_CALLS = {"require_current", "replay_attempt", "replay_decision", "replay_deviation", "replayed"}
 
 
 def _parse(path):

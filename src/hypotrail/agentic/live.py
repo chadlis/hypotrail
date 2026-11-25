@@ -11,7 +11,6 @@ execution's own in a record written by the execution, and in a re-summary is nul
 machine's value under `summarised_by` (#62).
 """
 
-import hashlib
 import json
 import platform
 from dataclasses import InitVar, dataclass
@@ -27,6 +26,8 @@ from hypotrail.agentic import projection, runner
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.partitions import DEV
 from hypotrail.core.answer_scoring import parse_answer
+from hypotrail.core.attempts import leak
+from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com"
@@ -94,12 +95,7 @@ def scan_for_secret(directory: Path, secret: str) -> list[str]:
 def _raise_if_leaked(out_dir: Path, api_key: str) -> None:
     leaked = scan_for_secret(out_dir, api_key)
     if leaked:
-        raise HypotrailError(
-            "SECRET_IN_OUTPUT",
-            f"the API key was found in the execution output: {', '.join(leaked)}; do not keep or commit it",
-            stage="live",
-            details={"files": leaked},
-        )
+        raise leak(leaked, scanned="execution")
 
 
 def _scanned(out_dir: Path, api_key: str, work):
@@ -319,10 +315,6 @@ def _planned(log) -> list[tuple[str, int]] | None:
     return [(str(case_id), repeat) for case_id in ids for repeat in range(epochs)]
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
-
-
 def prepared_model(model_id: str, api_key: str, base_url: str = ANTHROPIC_BASE_URL) -> Model:
     """The live model of an execution, once its request is known to state the reasoning setting (nothing is sent to check it).
 
@@ -366,7 +358,7 @@ def run_live(
 
     def work() -> dict:
         workload = load_workload(workload_dir)
-        before = _sha256(workload.database_path)
+        before = sha256_file(workload.database_path)
         limits = limits_module.EpisodeLimits()
         location = runner.run_episodes(
             workload.cases(DEV, case_ids),
@@ -382,7 +374,7 @@ def run_live(
             request=Request.this_attempt(limits),
             location=location,
             out_dir=out_dir,
-            database_sha256={"before": before, "after": _sha256(workload.database_path)},
+            database_sha256={"before": before, "after": sha256_file(workload.database_path)},
         )
 
     return _scanned(out_dir, api_key, work)

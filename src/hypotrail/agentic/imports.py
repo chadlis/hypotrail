@@ -38,30 +38,26 @@ independently.
 """
 
 import json
-import uuid
 from importlib import metadata
 from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
-from hypotrail.agentic.study import DOMAIN, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, canonical, contracts, data, environment, requests, study_write
+from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, dataset_sha256, protocol_content
+from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
-from hypotrail.core.attempts import ITEM_STATUSES, now, record_failure, verify_recorded
-from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, IntegrityError, InvalidInputError
+from hypotrail.core.attempts import ITEM_STATUSES, now
+from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, InvalidInputError
+from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
 
 COMMAND = study_write.IMPORT_AGENT
 MODE = "external_unknown"
 STAGE = "import"
-UNKNOWN = "unknown"
-DECLARED = "declared"
 POPULATION_KEY = "episodes"
 LOG_SUFFIX = ".eval"  # a source with this extension is an Inspect log; any other source is JSON Lines
 INSPECT_UNAVAILABLE = "INSPECT_UNAVAILABLE"
 LOG_VERSION_UNSUPPORTED = "LOG_INSPECT_VERSION_UNSUPPORTED"
 SUPPORTED_INSPECT = "0.3.287"  # the Inspect version `pyproject.toml` pins (a test keeps the two equal): installed and written by the log
 OBSERVATIONS_NAME = "observations.jsonl"
-SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
-SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
 
 # The producer fields of the provenance, and where in a line each is declared.
 PRODUCER_FIELDS = {
@@ -95,33 +91,20 @@ def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage=STAGE, details=details)
 
 
-def _read(path, code, what) -> bytes:
-    try:
-        return Path(path).read_bytes()
-    except OSError:
-        raise _refuse(code, f"the {what} file cannot be read: {path}", **{what: str(path)}) from None
-
-
-def _loose_json(raw: bytes):
-    """The JSON value of `raw`, or None: used only to identify a request, never to accept an input."""
-    try:
-        return canonical.loads(raw)
-    except InvalidInputError:
-        return None
-
-
-def _loose_episodes(population):
+def _strict_episodes_or_empty(raw: bytes):
+    """The Episodes of the population, read as strict JSON, that hold a Case ID and an integer Repeat, or none when it holds no list of Episodes: used only to identify a request."""
+    population = strict_json_or_none(raw)
     episodes = population.get(POPULATION_KEY) if isinstance(population, dict) else None
     if not isinstance(episodes, list):
         return []
     return [e for e in episodes if isinstance(e, dict) and isinstance(e.get("case_id"), str) and type(e.get("repeat")) is int]
 
 
-def _loose_model(raw: bytes) -> str:
-    """The model every line of the source declares, or `unknown`: used only to identify a request."""
+def _strict_model_or_unknown(raw: bytes) -> str:
+    """The model every line of the source declares, each line read as strict JSON, or `unknown`: used only to identify a request."""
     models = set()
     for text in raw.decode("utf-8", errors="replace").splitlines():
-        line = _loose_json(text.encode("utf-8")) if text.strip() else None
+        line = strict_json_or_none(text.encode("utf-8")) if text.strip() else None
         producer = line.get("producer") if isinstance(line, dict) else None
         models.add(producer.get("model") if isinstance(producer, dict) else None)
     only = next(iter(models)) if len(models) == 1 else None
@@ -220,17 +203,14 @@ def _log_producer(header: dict) -> tuple:
     """(producer, log): what the log header states, all `declared`, and what it leaves out, `unknown`."""
     from hypotrail.agentic import inspect_log
 
-    def entry(value):
-        return {"value": value, "origin": UNKNOWN if value in (None, "") else DECLARED}
-
     mode = header["mode"] if isinstance(header["mode"], str) else None
     if mode == "llm_live" and inspect_log.is_mock(header["model"]):
         mode = None  # Inspect's mock model never ran a live model, whatever the header says
-    producer = {field: entry(None) for field in PRODUCER_FIELDS}
-    producer["model"] = entry(header["model"])
-    producer["generation_time"] = entry(header["generation_time"])
-    producer["file_mode"] = entry(mode)
-    log = {name: entry(header[name]) for name in LOG_FIELDS}
+    producer = {field: producer_entry(None) for field in PRODUCER_FIELDS}
+    producer["model"] = producer_entry(header["model"])
+    producer["generation_time"] = producer_entry(header["generation_time"])
+    producer["file_mode"] = producer_entry(mode)
+    log = {name: producer_entry(header[name]) for name in LOG_FIELDS}
     return producer, log
 
 
@@ -289,16 +269,26 @@ def _trace(line, number):
 
 def _decoded(raw: bytes, source_path) -> str:
     name = str(source_path)
-    if Path(source_path).suffix.lower() in SERIALIZED_SUFFIXES or raw.startswith(SERIALIZED_MAGIC):
-        raise _refuse(
-            "SOURCE_SERIALIZED",
-            "the source is a serialized object (pickle, joblib or an array dump); an import adopts JSON Lines and loads nothing",
-            source=name,
-        )
+    require_not_serialized(raw, source_path, adopts="JSON Lines")
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
         raise _refuse("SOURCE_NOT_UTF8", "the source is not valid UTF-8", source=name) from None
+
+
+def problem_outside_population(case_id: str, partition: str, partition_of: dict, cases_listed: set) -> str:
+    """Why an Episode of `case_id` that is not one of the population's is outside it, from JSON Lines and from an Inspect log alike.
+
+    The Case is of no Partition of the Protocol, of another Partition than the population's, not listed by the population, or
+    listed with other Repeats.
+    """
+    if case_id not in partition_of:
+        return "unknown_case"
+    if partition_of[case_id] != partition:
+        return "other_partition"
+    if case_id not in cases_listed:
+        return "not_in_population"
+    return "repeat_out_of_range"
 
 
 def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partition_of: dict):
@@ -343,21 +333,13 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             raise _refuse("PRODUCED_WITHOUT_ANSWER", f"line {number}: {case_id} is produced and holds no answer", case_id=case_id, repeat=repeat, line=number)
         key = (case_id, repeat)
         if key not in expected:
-            if case_id not in partition_of:
-                problem = "unknown_case"
-            elif partition_of[case_id] != partition:
-                problem = "other_partition"
-            elif case_id not in cases_listed:
-                problem = "not_in_population"
-            else:
-                problem = "repeat_out_of_range"
             raise _refuse(
                 "EPISODE_OUTSIDE_POPULATION",
                 f"line {number}: ({case_id}, repeat {repeat}) is not an Episode of the population",
                 case_id=case_id,
                 repeat=repeat,
                 line=number,
-                problem=problem,
+                problem=problem_outside_population(case_id, partition, partition_of, cases_listed),
             )
         if key in entries:
             raise _refuse("EPISODE_DUPLICATE", f"({case_id}, repeat {repeat}) appears twice in the source", case_id=case_id, repeat=repeat, line=number)
@@ -389,10 +371,8 @@ def _producer(claims: list) -> dict:
     for field, place in PRODUCER_FIELDS.items():
         key = None if place is None else place[-1]
         values = {claim[key] for claim in claims} if key else {None}
-        if key and len(values) == 1 and None not in values:
-            producer[field] = {"value": next(iter(values)).strip(), "origin": DECLARED}
-        else:
-            producer[field] = {"value": None, "origin": UNKNOWN}
+        agreed = next(iter(values)) if len(values) == 1 else None
+        producer[field] = producer_entry(agreed.strip() if agreed is not None else None)
     return producer
 
 
@@ -460,15 +440,14 @@ def _import_locked(study, write, source, population_path, request_id, *, example
     workload = load_workload(examples / workload_name)
     dataset_sha = dataset_sha256(spec)  # the Study's own copy, read back above: the live database is never opened or hashed
 
-    source_bytes = _read(source, "SOURCE_NOT_FOUND", "source")
-    population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")
+    source_bytes = read_input(source, "SOURCE_NOT_FOUND", "source")
+    population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
     partition_of = layout.partition_of(artifacts.read_verified(study, by_role["memberships"]), "case_id")
 
-    loose = _loose_json(population_bytes)
-    episodes = _loose_episodes(loose)
+    episodes = _strict_episodes_or_empty(population_bytes)
     partitions = {partition_of.get(e["case_id"]) for e in episodes}
     log_import = is_log(source)
-    model, configuration = _log_identity(source) if log_import else (_loose_model(source_bytes), UNKNOWN)
+    model, configuration = _log_identity(source) if log_import else (_strict_model_or_unknown(source_bytes), UNKNOWN)
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
@@ -486,26 +465,12 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         },
     }
     code_environment = environment.code_environment()
-    requested = requests.identity(effective_config, code_environment)
-
-    def check_recorded(recorded):
-        differs = requests.differences(requests.identity(recorded["effective_config"], recorded["code_environment"]), requested)
-        if differs:
-            raise requests.conflict(request_id, recorded["attempt_id"], differs)
-        verify_recorded(study, recorded)
-
-    recorded = write.replay_attempt(check_recorded)
+    recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
         return recorded, True
 
     protocol = protocol_content(workload, dataset_sha256=dataset_sha)
-    if canonical.digest(protocol) != spec["protocol_digest"]:
-        raise IntegrityError(
-            "PROTOCOL_CHANGED",
-            "the Workload's Protocol is no longer the one of this Study (Cases, References, answer schema, database or primary Criterion)",
-            stage="request",
-            details={"expected_protocol_digest": spec["protocol_digest"], "actual_protocol_digest": canonical.digest(protocol)},
-        )
+    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
     partition, keys = _checked_population(population_bytes, population_path, partition_of)
     declared_log = None
@@ -524,83 +489,48 @@ def _import_locked(study, write, source, population_path, request_id, *, example
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
     if declared_log is not None:
         effective_config["log"] = declared_log
-    attempt_id = str(uuid.uuid4())
-    folder = f"{layout.ATTEMPTS_DIR}/{attempt_id}"
-    manifest_path = layout.attempt_manifest_path(attempt_id)
-    manifest = {
-        "kind": "attempt",
-        "schema_version": "attempt/1",
-        "attempt_id": attempt_id,
-        "request_id": request_id,
-        "operation": "import",
-        "mode": MODE,
-        "technical_status": "running",
-        "started_at": import_time,
-        "finished_at": None,
-        "effective_config": effective_config,
-        "effective_config_digest": canonical.digest(effective_config),
-        "input_refs": study_refs,
-        "code_environment": code_environment,
-        "outcome_unknown": False,
-        "retry_of": None,
-    }
-    contracts.validate(manifest)
-    write.begin()  # the running manifest is the first write
-    write.attempt(attempt_id)
-    artifacts.replace_bytes(study, manifest_path, canonical.dumps(manifest))
-    try:
+
+    def produce(recording: attempts.Recording) -> attempts.Produced:
+        folder, writes = recording.folder, recording.writes
         original = Path(source).name or "source.jsonl"
-        source_ref = artifacts.publish_bytes(
-            study,
-            f"{folder}/source/{original}",
-            source_bytes,
-            media_type="application/zip" if log_import else "application/jsonl",
-            role="import_source",
+        source_ref = writes.publish(
+            f"{folder}/source/{original}", source_bytes, media_type="application/zip" if log_import else "application/jsonl", role="import_source"
         )
-        population_ref = artifacts.publish_bytes(
-            study, f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population"
+        population_ref = writes.publish(f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population")
+        report_ref = writes.publish_record(
+            f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
         )
-        report_ref = artifacts.publish_record(
-            study, f"{folder}/validation_report.json", _report(source_ref, population_ref, partition, count, keys, entries, log=log_import), role="validation_report"
-        )
-        normalized_ref = artifacts.publish_bytes(
-            study, f"{folder}/{OBSERVATIONS_NAME}", normalized(entries), media_type="application/jsonl", role="observations"
-        )
-        observation_set = {
-            "kind": "observations",
-            "schema_version": "observations/1",
-            "observation_set_id": str(uuid.uuid4()),
-            "attempt_id": attempt_id,
-            "domain": DOMAIN,
-            "origin": "imported",
-            "mode": MODE,
-            "population_ref": population_ref,
-            "raw_refs": [source_ref],
-            "normalized_ref": normalized_ref,
-            "provenance": {
+        recording.observations(
+            OBSERVATIONS_NAME,
+            normalized(entries),
+            [entry["status"] for entry in entries.values()],
+            media_type="application/jsonl",
+            domain=DOMAIN,
+            origin="imported",
+            population_ref=population_ref,
+            raw_refs=[source_ref],
+            provenance={
                 "produced_by": "external",
                 "partition": partition,
                 "import_time": import_time,
                 **producer,
                 **({} if declared_log is None else {"log": declared_log}),
             },
-            "unknown_fields": [field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
+            unknown_fields=[field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
             + [f"log.{name}" for name, entry in (declared_log or {}).items() if entry["origin"] == UNKNOWN],
-        }
-        contracts.validate(observation_set)
-        observation_set_ref = artifacts.publish_record(study, f"{folder}/observation_set.json", observation_set, role="observation_set")
-        statuses = [entry["status"] for entry in entries.values()]
-        terminal = {
-            **manifest,
-            "technical_status": "completed",
-            "finished_at": now(),
-            "input_refs": [*study_refs, source_ref, population_ref],
-            "output_refs": [report_ref, normalized_ref, observation_set_ref],
-            "item_counts": {status: statuses.count(status) for status in ITEM_STATUSES},
-        }
-        contracts.validate(terminal)
-        artifacts.replace_bytes(study, manifest_path, canonical.dumps(terminal))
-        return terminal, False
-    except Exception as error:
-        record_failure(study, manifest_path, manifest, error)
-        raise
+        )
+        return attempts.Produced(inputs=[source_ref, population_ref], outputs=[report_ref], effective_config=effective_config)
+
+    terminal = attempts.record(
+        study,
+        write,
+        request_id=request_id,
+        operation="import",
+        mode=MODE,
+        effective_config=effective_config,
+        code_environment=code_environment,
+        input_refs=study_refs,
+        produce=produce,
+        started_at=import_time,
+    )
+    return terminal, False
