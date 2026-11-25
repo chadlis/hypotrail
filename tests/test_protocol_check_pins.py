@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-from _chinook_helpers import FIXTURE, database_of, episodes_file, fixture_population, import_agent, init_chinook, spec_of, write_lines
+from _chinook_helpers import FIXTURE, chinook_examples, database_of, episodes_file, fixture_population, import_agent, init_chinook, spec_of, write_lines
 from _exposure_helpers import PUBLIC_CASES, REPEATS, assess_agent, correct_e01, edit_chinook_references, freezes, public_lines
 from _import_helpers import import_ml, ready
 from _run_agent_helpers import fixture
@@ -159,7 +159,7 @@ def test_run_ml_refused_for_a_changed_protocol_writes_no_running_manifest_and_no
 
 def with_changed_database(tmp_path) -> Path:
     """A copy of `examples/` whose live Chinook database has one more byte, with its lock entry rewritten so that the data verification passes."""
-    examples = edit_chinook_references(tmp_path, lambda records: None, name="changed-database")
+    examples = chinook_examples(tmp_path, name="changed-database")
     database = database_of(examples)
     database.write_bytes(database.read_bytes() + b"x")
     lock_path = examples / "chinook" / "data-sources.lock.json"
