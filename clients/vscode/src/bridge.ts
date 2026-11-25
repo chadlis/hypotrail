@@ -121,6 +121,7 @@ const CHECKS: Record<string, (value: unknown) => boolean> = {
   read_sequence: (value) => Number.isSafeInteger(value) && (value as number) >= 0,
 };
 
-function missingInputs(decision: Record<string, unknown>): string[] {
+// The fields of `client_refusal_fields` that `decision` lacks or holds a value of that does not pass its check.
+export function missingInputs(decision: Record<string, unknown>): string[] {
   return contract.client_refusal_fields.filter((field) => !CHECKS[field](decision[field]));
 }

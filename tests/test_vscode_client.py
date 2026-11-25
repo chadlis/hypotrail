@@ -292,6 +292,8 @@ WRITE_NAMES = ["writeFile", "appendFile", "createWriteStream"]
 # The names of a watcher and of a read on visibility or on a timer, and the names that read or open a file.
 WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeViewState", "onDidChangeTextDocument", "setInterval"]
 FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
+# The names of a call to a language model through VS Code.
+MODEL_NAMES = ["selectChatModels", "sendRequest"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
 # Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel,
@@ -305,7 +307,7 @@ def listing(files: dict) -> set:
     """Each pair (file, name) for a name of the lists above that the file holds."""
     found = set()
     for path, text in files.items():
-        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES + WATCH_NAMES + FILE_READ_NAMES:
+        for name in PROCESS_NAMES + VSCODE_RUNNERS + STATE_NAMES + WRITE_NAMES + WATCH_NAMES + FILE_READ_NAMES + MODEL_NAMES:
             if name in text:
                 found.add((path, name))
         for name, pattern in PROCESS_PATTERNS.items():
@@ -362,6 +364,8 @@ PLANTED = [
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
     ("a second message receiver", "clients/vscode/src/other.ts", "other.webview.onDidReceiveMessage(listen);\n"),
     *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
+    ("selectChatModels", "clients/vscode/src/tools.ts", "const models = await vscode.lm.selectChatModels();\n"),
+    ("sendRequest", "clients/vscode/src/tools.ts", "const response = await model.sendRequest(messages);\n"),
 ]
 
 
@@ -518,7 +522,7 @@ def test_no_tracked_client_file_is_javascript():
 
 # --- the README ----------------------------------------------------------------------------------------------------------------------
 
-README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge and the Study panel)."
+README_LINE = "- [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools)."
 
 
 def test_where_to_look_names_the_client_directory_which_holds_the_manifest():
@@ -615,6 +619,78 @@ def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_r
 def test_the_manifest_contributes_exactly_the_one_command_and_its_title():
     commands = read_json(CLIENT / "package.json").get("contributes", {}).get("commands")
     assert commands == [{"command": "hypotrail.openPanel", "title": "Hypotrail: Open the Study panel"}]
+
+
+# --- the Copilot tools ----------------------------------------------------------------------------------------------------------
+
+# The two language-model tools, by name, with the reference name and the input schema each is contributed with.
+TOOLS = {
+    "hypotrail_read_study": {
+        "toolReferenceName": "hypotrailStudy",
+        "properties": {"study": {"type": "string"}},
+        "required": [],
+    },
+    "hypotrail_decide": {
+        "toolReferenceName": "hypotrailDecide",
+        "properties": {
+            "question": {"type": "string"},
+            "option": {"type": "string"},
+            "author": {"type": "string", "enum": ["human", "proxy"]},
+            "cited_ids": {"type": "array", "items": {"type": "string"}},
+            "source": {"type": "string"},
+            "read_sequence": {"type": "integer", "minimum": 0},
+            "study": {"type": "string"},
+        },
+        "required": ["question", "option", "author", "cited_ids", "read_sequence", "study"],
+    },
+}
+
+
+def manifest_tools() -> dict:
+    """{name: entry} of the manifest's `contributes.languageModelTools`."""
+    return {entry.get("name"): entry for entry in read_json(CLIENT / "package.json").get("contributes", {}).get("languageModelTools", [])}
+
+
+def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_and_activation_events_and_no_other():
+    manifest = read_json(CLIENT / "package.json")
+    tools = manifest_tools()
+    assert len(manifest.get("contributes", {}).get("languageModelTools", [])) == 2
+    assert set(tools) == set(TOOLS)
+    for name, expected in TOOLS.items():
+        assert tools[name]["name"] == name
+        assert tools[name]["toolReferenceName"] == expected["toolReferenceName"], name
+        assert tools[name]["canBeReferencedInPrompt"] is True, name
+        assert tools[name]["inputSchema"]["type"] == "object", name
+    events = manifest.get("activationEvents", [])
+    assert sorted(events) == sorted(["onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"])
+    for event in ("onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"):
+        assert event in events, event
+
+
+def test_the_input_schema_of_each_copilot_tool_holds_its_properties_with_their_types_and_minimum_and_required_inputs_and_no_request_id_or_mode():
+    tools = manifest_tools()
+    assert set(tools) == set(TOOLS)
+    for name, expected in TOOLS.items():
+        schema = tools[name]["inputSchema"]
+        assert set(schema.get("properties", {})) == set(expected["properties"]), name
+        for key, value in expected["properties"].items():
+            given = schema["properties"][key]
+            assert {k: given.get(k) for k in value} == value, (name, key)
+            assert given.get("minimum") == value.get("minimum"), (name, key)
+        assert sorted(schema.get("required", [])) == sorted(expected["required"]), name
+        for absent in ("request_id", "mode"):
+            assert absent not in schema.get("properties", {}), (name, absent)
+
+
+def test_the_write_tools_inputs_less_study_are_the_client_refusal_fields_less_request_id_both_ways():
+    inputs = set(manifest_tools()["hypotrail_decide"]["inputSchema"]["properties"]) - {"study"}
+    fields = set(read_json(CLIENT / "contract.json")["client_refusal_fields"]) - {"request_id"}
+    assert sorted(inputs - fields) == []
+    assert sorted(fields - inputs) == []
+
+
+def test_the_files_of_the_client_sources_that_name_decide_author_are_the_panel_alone():
+    assert sorted(path for path, text in sources().items() if "decide_author" in text) == ["clients/vscode/src/panel.ts"]
 
 
 def test_the_authority_of_both_link_forms_is_the_manifests_publisher_and_name():
