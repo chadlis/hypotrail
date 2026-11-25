@@ -5493,6 +5493,58 @@ def test_the_readme_gives_claude_code_the_study_at_every_prompt_and_names_the_te
     assert "clients/claude-code/" in where
 
 
+# --- the Copilot tools (chapter 18): their table against the manifest ------------------------------------------------------------------
+
+COPILOT_TABLE = "copilot-tools"
+COPILOT_SECTION = '<p class="sub2" id="copilot-tools-section">'
+# The data attributes of the table's rows: a tool's row names its reference name and activation event, an input's row its name
+# and whether the manifest requires it.
+COPILOT_ATTRIBUTES = ("data-tool", "data-reference", "data-activation", "data-input", "data-required")
+
+
+def copilot_rows_of_the_manifest():
+    """The rows the manifest defines: (name, reference name, activation event) of each tool, and (tool, input, required or optional)
+    of each input of its schema. An activation event the manifest does not hold is None."""
+    manifest = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))
+    tools, inputs = set(), set()
+    for entry in manifest["contributes"]["languageModelTools"]:
+        event = f"onLanguageModelTool:{entry['name']}"
+        tools.add((entry["name"], entry["toolReferenceName"], event if event in manifest["activationEvents"] else None))
+        schema = entry["inputSchema"]
+        for name in schema["properties"]:
+            inputs.add((entry["name"], name, "required" if name in schema.get("required", []) else "optional"))
+    return tools, inputs
+
+
+def test_the_copilot_tools_table_of_chapter_18_equals_the_manifest_both_ways(page):
+    rows = client_rows(page, COPILOT_TABLE)
+    tools = {(row["data-tool"], row["data-reference"], row["data-activation"]) for row in rows if "data-reference" in row}
+    inputs = {(row["data-tool"], row["data-input"], row["data-required"]) for row in rows if "data-input" in row}
+    expected_tools, expected_inputs = copilot_rows_of_the_manifest()
+    assert len(expected_tools) == 2 and len(expected_inputs) == 8
+    assert sorted(tools - expected_tools) == [] and sorted(expected_tools - tools) == []
+    assert sorted(inputs - expected_inputs) == [] and sorted(expected_inputs - inputs) == []
+    assert len(rows) == len(tools) + len(inputs)
+
+
+def test_the_prose_of_the_copilot_tools_section_restates_no_value_of_its_table(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert chapter.count(f'id="{COPILOT_TABLE}"') == 1 and chapter.count(COPILOT_SECTION) == 1
+    section = chapter.split(COPILOT_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    values = {value for row in client_rows(page, COPILOT_TABLE) for name, value in row.items() if name in COPILOT_ATTRIBUTES}
+    assert f'id="{COPILOT_TABLE}"' in section and prose
+    assert {"hypotrail_decide", "hypotrailStudy", "onLanguageModelTool:hypotrail_read_study", "read_sequence", "optional"} <= values  # the collection reads the table
+    found = sorted(value for value in values if re.search(rf"(?<![\w-]){re.escape(html.unescape(value))}(?![\w-])", prose))
+    assert found == []
+
+
+def test_the_readme_names_the_two_copilot_tools():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for name in ("hypotrail_read_study", "hypotrail_decide"):
+        assert re.search(rf"`{name}`", readme), name
+
+
 # --- the README's way to the panel ------------------------------------------------------------------------------------------------
 
 

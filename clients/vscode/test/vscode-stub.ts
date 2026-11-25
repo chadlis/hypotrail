@@ -17,6 +17,14 @@ export type StubPanel = {
   dispose(): void;
 };
 
+// A tool registered through `lm.registerTool`, with the disposable the call gave back.
+export type RegisteredTool = { name: string; tool: StubTool; disposable: { dispose(): void } };
+
+export type StubTool = {
+  invoke(options: { input: unknown; toolInvocationToken: undefined }, token: unknown): Promise<LanguageModelToolResult>;
+  prepareInvocation?(options: { input: unknown }, token: unknown): Promise<unknown>;
+};
+
 export const calls: Call[] = [];
 
 export const state = {
@@ -25,6 +33,7 @@ export const state = {
   commands: new Map<string, (...args: unknown[]) => unknown>(),
   uriHandlers: [] as { handleUri(uri: unknown): unknown }[],
   panels: [] as StubPanel[],
+  tools: [] as RegisteredTool[],
 };
 
 export function reset(): void {
@@ -34,6 +43,7 @@ export function reset(): void {
   state.commands.clear();
   state.uriHandlers.length = 0;
   state.panels.length = 0;
+  state.tools.length = 0;
 }
 
 export function callsOf(name: string): Call[] {
@@ -146,6 +156,23 @@ export const commands = {
     return disposable;
   },
 };
+
+export const lm = {
+  registerTool(name: string, tool: StubTool) {
+    record("registerTool", [name]);
+    const registered = { name, tool, disposable: { dispose(): void {} } };
+    state.tools.push(registered);
+    return registered.disposable;
+  },
+};
+
+export class LanguageModelTextPart {
+  constructor(public value: string) {}
+}
+
+export class LanguageModelToolResult {
+  constructor(public content: LanguageModelTextPart[]) {}
+}
 
 // Marks this module, so that a test can tell the stub from any other module named `vscode`.
 export const isTheStub = true;

@@ -10,13 +10,90 @@
   },
   "main": "./out/src/extension.js",
   "activationEvents": [
-    "onUri"
+    "onUri",
+    "onLanguageModelTool:hypotrail_read_study",
+    "onLanguageModelTool:hypotrail_decide"
   ],
   "contributes": {
     "commands": [
       {
         "command": "hypotrail.openPanel",
         "title": "Hypotrail: Open the Study panel"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "hypotrail_read_study",
+        "toolReferenceName": "hypotrailStudy",
+        "displayName": "Read a Hypotrail Study",
+        "userDescription": "Reads a Hypotrail Study of this workspace through the CLI, which writes nothing.",
+        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. It starts that read alone, which writes nothing. With one Study in the workspace, leave study out; with several, give study, the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "study": {
+              "type": "string",
+              "description": "The folder of the Study to read. Needed only when the workspace holds several Studies."
+            }
+          }
+        }
+      },
+      {
+        "name": "hypotrail_decide",
+        "toolReferenceName": "hypotrailDecide",
+        "displayName": "Record a Hypotrail Decision",
+        "userDescription": "Records one Decision in a Hypotrail Study through the CLI's `decide`, after you confirm it, unless you chose \"Always Allow\" for this tool.",
+        "modelDescription": "Records one Decision in a Hypotrail Study of this workspace with the CLI command `decide`, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give the question and the option as the Study's pending decision words them, cited_ids (the ids of the records the Decision cites, such as the Comparison's), and read_sequence, the write_sequence of the Study as you last read it. author is human when the user stated the choice in chat, and proxy when you chose by a stated rule; with proxy, give source, which names that rule. The extension makes the request id. A write the CLI refuses, or that gets no answer, is reported and never sent again by this tool: read the Study before any other write.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "description": "The question of the pending decision, as the Study words it."
+            },
+            "option": {
+              "type": "string",
+              "description": "The option chosen, as the Study words it."
+            },
+            "author": {
+              "type": "string",
+              "enum": [
+                "human",
+                "proxy"
+              ],
+              "description": "human when the user stated the choice; proxy when it was chosen by a stated rule."
+            },
+            "cited_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The ids of the records the Decision cites."
+            },
+            "source": {
+              "type": "string",
+              "description": "What the Decision rests on; required with author proxy, where it names the rule."
+            },
+            "read_sequence": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The write_sequence of the Study as last read."
+            },
+            "study": {
+              "type": "string",
+              "description": "The folder of the Study. Needed only when the workspace holds several Studies."
+            }
+          },
+          "required": [
+            "question",
+            "option",
+            "author",
+            "cited_ids",
+            "read_sequence"
+          ]
+        }
       }
     ]
   },
