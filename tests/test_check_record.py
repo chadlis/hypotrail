@@ -279,6 +279,30 @@ def test_a_carried_row_counts_for_a_round_only_while_that_round_lists_it_in_row_
     assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried.format(status="open").replace("| 1 | open", "| 4 | open"))) == []
 
 
+def test_a_wording_row_in_round_2_needs_no_structural_option_line():
+    rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1 (wording: test name) | open | x |'
+    record = two_round_record('#142 B: "a duplicate key is accepted"', rows)
+    record[-1:-1] = [
+        comment("## R9, round 2: fix prompt (to slice-builder), word for word", CHECKED),
+        comment("## R9, round 2: Spec verification of the wording fixes"),
+    ]
+    assert problems(record) == []
+
+
+def test_a_row_with_the_status_stated_limit_counts_as_settled():
+    carried = '| B1-P-01 | 1 | Spec | #142 B: "a duplicate key is accepted" | 1 | stated limit | x |'
+    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried)) == []
+
+
+def test_a_pr_body_row_carried_open_in_two_rounds_does_not_count_as_a_repeat():
+    row = '| B1-P-01 | {number} | Spec | #142 B: "a duplicate key is accepted" | 1 (PR body) | open | x |'
+    record = two_round_record("unused", row.format(number=1))
+    record[2] = routing(1, row.format(number=1))
+    record[5] = routing(2, row.format(number=1))
+    record[-1] = comment("## R9: closing register", "B1-P-01 open, stated in the PR body.\n")
+    assert problems(record, body="Slice R9 (#50).\n\nB1-P-01: a stated limit.\n") == []
+
+
 @pytest.mark.parametrize(
     ("first", "second"),
     [

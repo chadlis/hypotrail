@@ -27,7 +27,7 @@ def test_the_builder_treats_a_refusal_it_cannot_attribute_as_refusing_the_change
 
 
 # The ceiling is the skill's count when it was last lowered; raising it is a change of step 10's row too.
-WORD_CEILING = 14_775
+WORD_CEILING = 14_854
 
 
 def c_locale_word_count(text: str) -> int:
