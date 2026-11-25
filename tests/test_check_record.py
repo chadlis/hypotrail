@@ -311,6 +311,33 @@ def test_a_wording_row_in_round_2_with_no_verification_comment_is_refused():
     assert problems(record) == ["round 2, documentation path (B2-P-01): no 'round 2: Spec verification' comment"]
 
 
+def test_a_wording_row_carried_into_a_later_table_owes_the_verification_of_its_own_round():
+    record = [
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
+        comment("## R9, round 1: Spec axis (review of record, `x`)"),
+        routing(1, "| B1-P-01 | 1 | Spec | a test name | 1 (wording: test name) | open | x |"),
+        comment(FIX_PROMPT_1, CHECKED),
+        comment("## R9, round 1: Spec verification of the wording fixes"),
+        comment("## R9, round 2: Spec axis (review of record, `x`)"),
+        routing(2, "| B1-P-01 | 1 | Spec | a test name | 1 (wording: test name) | fixed-verified | v |\n| B2-P-01 | 2 | Spec | a limit | 1 | open | y |"),
+        comment("## R9: closing register", "B1-P-01 fixed-verified. B2-P-01 fixed.\n"),
+    ]
+    assert problems(record) == []
+
+
+def test_a_ux_wording_row_owes_a_ux_verification_of_its_round():
+    record = [
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 1 of 5.\n"),
+        comment("## R9, round 1: Spec axis (review of record, `x`)"),
+        routing(1, "| B1-U-01 | 1 | UX | the confirmation | 1 (wording) | open | x |"),
+        comment(FIX_PROMPT_1, CHECKED),
+        comment("## R9: closing register", "B1-U-01 fixed.\n"),
+    ]
+    assert problems(record) == ["round 1, documentation path (B1-U-01): no 'round 1: UX verification' comment"]
+    record.insert(4, comment("## R9, round 1: UX verification of the wording fixes"))
+    assert problems(record) == []
+
+
 def test_a_pr_body_row_carried_open_in_two_rounds_does_not_count_as_a_repeat():
     row = '| B1-P-01 | {number} | Spec | #142 B: "a duplicate key is accepted" | 1 (PR body) | open | x |'
     record = two_round_record("unused", row.format(number=1))

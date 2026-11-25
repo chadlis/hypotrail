@@ -11,7 +11,8 @@ for the slice issue of the pull request:
 2. each round that has a review of record has a "round <r>: routing" comment;
 3. when a routing comment of round 5 or later routes a row as documentation, or a routing comment of any round routes a
    row whose row cell says "wording", each axis of that row has a "round <r>: <axis> verification" comment (the
-   documentation and wording paths of the skill); the wording part skips the slices `MERGED_BEFORE_WORDING_PATH` lists,
+   documentation and wording paths of the skill). For a wording row, <r> is the row's round cell, so a later table that
+   lists the row again owes nothing more, and `UX` is an axis too; the wording part skips the slices `MERGED_BEFORE_WORDING_PATH` lists,
    L2.2's (chadlis/hypotrail#194) the last of them;
 4. a "closing register" comment exists and names every finding ID that a routing table assigned, and leaves no row routed
    `behaviour, no line` with a status that is not settled (refuted, out of scope, a duplicate, fixed, withdrawn or a stated limit): a finding
@@ -328,11 +329,14 @@ def problems(pr_body: str | None, comments: list, slice_number: int | None = Non
                 behaviours += FINDING_ID.findall(cells[0])
             axes = {w for w in ("Standards", "Spec") if w in cells[2]} or ({"Standards", "Spec"} if "both" in cells[2].lower() else set())
             wording = slice_number not in MERGED_BEFORE_WORDING_PATH and "wording" in cells[4].lower()
+            if wording and "UX" in cells[2]:
+                axes.add("UX")
             if wording or (number >= ROUND_LIMIT and "documentation" in cells[4].lower()):
+                owed = int(cells[1]) if wording and cells[1].isdigit() else number
                 for axis in sorted(axes):
-                    pattern = rf"\bround {number}\b.*\b{axis}\b.*\bverification|\bround {number}\b.*\bverification.*\b{axis}\b"
+                    pattern = rf"\bround {owed}\b.*\b{axis}\b.*\bverification|\bround {owed}\b.*\bverification.*\b{axis}\b"
                     if not any(re.search(pattern, first_line(c), re.IGNORECASE) for c in comments):
-                        found.append(f"round {number}, documentation path ({cells[0]}): no 'round {number}: {axis} verification' comment")
+                        found.append(f"round {owed}, documentation path ({cells[0]}): no 'round {owed}: {axis} verification' comment")
             promised = pr_body is not None and re.search(r"\bPR body\b", " ".join(cells[3:]))
             for finding in FINDING_ID.findall(cells[0]) if pr_body is not None else ():
                 # A stated limit settles the repeat count, and is still a line the PR body owes.
