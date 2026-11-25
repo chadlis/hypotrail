@@ -423,6 +423,10 @@ ENTRY = 9000
 UNLISTED = "names the drive in its first line, and the slice's #75 entry labelled 'drive decision (delegated)', linked from the state comment, does not list it"
 
 
+# A ticket body that rule 12 lets through, so that the delegated-entry cases test rule 9 alone.
+TIGHTENED_61 = "## Acceptance criteria\n\n- A1. The key is `x`.\n\n## Tightened after the build\n\nEvery line above stands as written.\n"
+
+
 def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, label="## R9: drive decision (delegated)"):
     """A complete record of the slice, a drive comment on the slice issue (9101) and on its ticket #61 (9201), a ticket-gate comment on #61 (9202), and the slice's entry on #75 (9000), which lists `listed`."""
     record = complete_record()
@@ -430,7 +434,7 @@ def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, 
     record.insert(1, comment("## R9 A: the drive's delegated answers to the builder", "1. The key is `x`.", n=9101))
     put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"Part of #{slice_number}.\nB1-P-02 is carried."})
     put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/comments", record)
-    put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/sub_issues", [{"number": 61}])
+    put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/sub_issues", [{"number": 61, "body": TIGHTENED_61}])
     put(gh_dir, "repos/chadlis/hypotrail/issues/61/comments", [comment("## R9 A: the drive's answer on TA5", n=9201), comment("## R9: ticket gate, A, reading 1", n=9202)])
     put(gh_dir, "repos/chadlis/hypotrail/issues/75/comments", [comment("## R9: another decision", "9101 9201", n=8999), comment(label, " ".join(map(str, listed)), n=ENTRY)])
 
@@ -875,3 +879,57 @@ def test_the_module_docstring_states_the_scope_and_the_limit_of_the_round_lines_
     assert "`MERGED_BEFORE_ROUND_LINES`" in doc and "four `unknown`" in doc
     assert "8. each routing comment has four lines" in doc and "only the first line that carries a label is read" in doc
     assert "7. is held for D-065 on chadlis/hypotrail#75, item 1: \"`check_record.py` rule 7 is not added; revisit it if a later record shows a requirement cell worded by the drive.\"" in doc
+
+
+# Ticket bodies shaped like three real ones: #205 (L2.7, A) was rewritten in place under routing markers and never
+# tightened, #195 (L2.2, A) says in its Tightened section that a line replaces another and marks no line "(replaced by",
+# and #201 (L2.6, A) marks each replaced line and has its history comment.
+BODY_205 = (
+    "## Words of this ticket\n\n- \"A Workload copy\" is a copy of `examples/` made outside the checkout (round 1, routing 7162015662 on #204, L27-P-08).\n\n"
+    "## Acceptance criteria\n\n- [ ] **A6** Witness: its settings half still reading `.claude/settings.json` on disk (round 4, routing on #204, L27-P-20).\n"
+)
+BODY_195 = (
+    "## Acceptance criteria\n\n- [ ] **A3** `status --since N` gives the entries after N.\n\n"
+    "## Tightened after the build, 2026-11-25\n\nA3d replaces A3; every other line above stands as written.\n\n- [ ] **A3d** The key `writes_since`.\n"
+)
+BODY_201 = (
+    "## Acceptance criteria\n\n- **A2** (replaced by A2d: history, comment 7158845349)\n\n"
+    "## Tightened after the build, 2026-11-25\n\nA2d replaces A2. The replaced lines are in the history comment 7158845349.\n\n- [ ] **A2d** The write tool requires `study`.\n"
+)
+
+
+def ticket_record(gh_dir, number, body, history=False):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/sub_issues", [{"number": number, "body": body}])
+    put(gh_dir, f"repos/chadlis/hypotrail/issues/{number}/comments", [comment(f"## #{number} history, 2026-11-25", "A2 read: ...", n=7158845349)] if history else [])
+
+
+NO_HISTORY_205 = "no comment of #205 has a first line '## #205 history'"
+
+
+def test_a_ticket_rewritten_in_place_under_routing_markers_and_never_tightened_blocks_the_merge_until_it_has_a_history_comment(gh_dir):
+    ticket_record(gh_dir, 205, BODY_205)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2
+    assert f"ticket #205 holds a '(round <n>, routing' marker, and {NO_HISTORY_205}" in result.stderr
+    assert f"ticket #205 has no '## Tightened' section, and {NO_HISTORY_205}" in result.stderr
+    ticket_record(gh_dir, 205, BODY_205, history=True)
+    assert hook(gh_dir, merge_tool()).returncode == 0
+
+
+def test_a_ticket_whose_tightened_section_replaces_a_line_that_no_line_marks_replaced_by_blocks_the_merge_without_a_history_comment(gh_dir):
+    ticket_record(gh_dir, 195, BODY_195)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2
+    assert "ticket #195's '## Tightened' section says a line replaces another, and no line of the ticket says '(replaced by', and no comment of #195 has a first line '## #195 history'" in result.stderr
+
+
+def test_a_tightened_ticket_that_marks_each_replaced_line_and_has_its_history_comment_lets_the_merge_through(gh_dir):
+    ticket_record(gh_dir, 201, BODY_201, history=True)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_history_rule_skips_l2_7_and_each_issue_merged_before_it_and_only_those():
+    module = load("check_record")
+    assert module.MERGED_BEFORE_HISTORY_RULE == module.MERGED_BEFORE_WORDING_PATH | {200, 204}
+    assert all(module.problems(BODY, complete_record(), n, {205: []}, [], {205: BODY_205}) == [] for n in sorted(module.MERGED_BEFORE_HISTORY_RULE))
