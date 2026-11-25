@@ -15,6 +15,7 @@ const CASES: Case[] = [
   { name: "study absent and two Studies found", names: ["a", "b/c"] },
   { name: "study given as a found Study, written unresolved", names: ["a", "b"], given: (root) => `${root}/a/../b/`, takes: 1 },
   { name: "study given as a folder the walk does not find", names: ["a", "b"], given: (root) => path.join(root, "c") },
+  { name: "study given as a relative path that resolves, from the working folder, to a found Study", names: ["a", "b"], given: (root) => path.relative(process.cwd(), path.join(root, "a")) },
 ];
 
 for (const tool of [READ_TOOL, WRITE_TOOL]) {

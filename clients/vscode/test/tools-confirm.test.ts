@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
 import * as path from "node:path";
+import contract from "../contract.json";
 import { recorder } from "./recorder";
 import { invoke, keptAnswer, toolOf, workspace, WRITE_TOOL } from "./tools-harness";
 
@@ -79,4 +81,79 @@ test("with author proxy and no source, prepareInvocation refuses, naming source,
     return true;
   });
   assert.equal(calls.length, 0);
+});
+
+// Each input that the bridge's own checks refuse, with the input that makes it so.
+const NOT_VALID: [string, Record<string, unknown>][] = [
+  ["no question", { question: undefined }],
+  ["an empty question", { question: "" }],
+  ["no option", { option: undefined }],
+  ["an empty option", { option: "" }],
+  ["no author", { author: undefined }],
+  ["no cited_ids", { cited_ids: undefined }],
+  ["cited_ids that is not a list", { cited_ids: "c53337e9-d255-423d-a851-414278d5c3f0" }],
+  ["cited_ids holding an empty id", { cited_ids: [""] }],
+  ["a source that is not a text", { source: 3 }],
+  ["no read_sequence", { read_sequence: undefined }],
+  ["a negative read_sequence", { read_sequence: -1 }],
+  ["a read_sequence that is not an integer", { read_sequence: 1.5 }],
+];
+
+for (const [name, change] of NOT_VALID) {
+  test(`with ${name}, prepareInvocation refuses, giving no confirmation and starting nothing`, async (t) => {
+    workspace(t, ["only"]);
+    const calls = recorder(t, keptAnswer("decide-success"));
+    const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, ...change };
+    let prepared: unknown = "nothing";
+    await assert.rejects(
+      (async () => {
+        prepared = await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {});
+      })(),
+    );
+    assert.equal(prepared, "nothing");
+    assert.equal(calls.length, 0);
+  });
+}
+
+test("with author human and an empty source, the confirmation shows no source and invoke passes no --source", async (t) => {
+  workspace(t, ["only"]);
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const input = { question: "q", option: "o", author: "human", source: "", cited_ids: CITED, read_sequence: 0 };
+  const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
+  const text = prepared.confirmationMessages.message;
+  assert.ok(text.includes("Source: none"), text);
+  assert.equal(text.includes('Source: ""'), false, text);
+  await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false, calls[0].args.join(" "));
+});
+
+test("a workspace whose walk finds another Study between prepareInvocation and invoke, with study absent, gets no write to a folder that was not shown", async (t) => {
+  // The walk visits at most `walk_max_folders` folders: here the root, 498 folders below it, and the shown Study, last.
+  const { root } = workspace(t, []);
+  for (let index = 0; index < contract.walk_max_folders - 3; index += 1) fs.mkdirSync(path.join(root, `f${String(index).padStart(3, "0")}`));
+  const shown = path.join(root, "z", "shown");
+  fs.mkdirSync(shown, { recursive: true });
+  fs.writeFileSync(path.join(shown, "study.json"), "{}");
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0 };
+  const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
+  assert.ok(prepared.confirmationMessages.message.includes(JSON.stringify(shown)), prepared.confirmationMessages.message);
+  // A second Study, sorted first, takes the last visit of the walk from the shown one.
+  fs.mkdirSync(path.join(root, "a"));
+  fs.writeFileSync(path.join(root, "a", "study.json"), "{}");
+  await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  const written = calls.map((call) => call.args.find((argument) => argument.startsWith("--study="))!.slice("--study=".length));
+  assert.deepEqual(written.filter((study) => study !== shown), []);
+});
+
+test("invoke with no confirmation shown for its inputs starts nothing and says to call again", async (t) => {
+  workspace(t, ["only"]);
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0 };
+  const prepared = { ...input, option: "another option" };
+  await toolOf(WRITE_TOOL).prepareInvocation!({ input: prepared }, {});
+  const result = await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  assert.equal(calls.length, 0);
+  assert.match(result.content.map((part) => part.value).join(""), /Nothing was started\. Call hypotrail_decide again/);
 });

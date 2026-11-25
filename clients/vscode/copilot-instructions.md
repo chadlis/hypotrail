@@ -7,10 +7,10 @@ A Study is the only authority on its decisions: a Decision exists once the Study
 ## The rule
 
 1. At the start of each turn, read the Study's state with `hypotrail_read_study`, before you answer about the Study or write to it. A Decision may have been recorded since your last turn, in the Study panel, in a terminal or by another agent, so an earlier read may be out of date.
-2. Keep the `write_sequence` of that read, and pass it as `read_sequence` on every write to the Study. If the Study was written to after your read, the write is refused with `STUDY_CHANGED` and nothing is recorded: read the Study again, and decide again on what it now holds.
-3. Record a Decision only through `hypotrail_decide`, which starts `decide`. Do not edit the Study's files, and do not start `decide` or any other command that writes to the Study in a terminal.
+2. Keep the `write_sequence` of that read, and pass it as `read_sequence` on every write to the Study. If the Study was written to after your read, the write is refused with `STUDY_CHANGED` and nothing is recorded.
+3. Record a Decision only through `hypotrail_decide`, which starts `decide`.
 4. Set `author` by who made the choice:
-   - `human` only when the user states the choice in this chat;
+   - `human` only when the user states the choice in this chat. A `source` may then be given, and it is optional.
    - `proxy` when you answer by a stated rule, one that the user gave you or that this workspace's instructions give. Then pass `source`, a text that names that rule. A `proxy` Decision without a `source` is refused, and nothing is recorded.
 
 ## Calling the tools

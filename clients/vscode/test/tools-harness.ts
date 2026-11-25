@@ -37,8 +37,18 @@ export function toolOf(name: string): stub.StubTool {
   return registered[0].tool;
 }
 
+// Calls a tool as VS Code does: `prepareInvocation` first, when the tool has one, then `invoke`. A refusal that
+// `prepareInvocation` throws ends the call before `invoke`, and its message is the text given back.
 export async function invoke(name: string, input: Record<string, unknown>): Promise<string> {
-  const result = await toolOf(name).invoke({ input, toolInvocationToken: undefined }, {});
+  const tool = toolOf(name);
+  if (tool.prepareInvocation) {
+    try {
+      await tool.prepareInvocation({ input }, {});
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }
+  const result = await tool.invoke({ input, toolInvocationToken: undefined }, {});
   return result.content.map((part) => part.value).join("");
 }
 

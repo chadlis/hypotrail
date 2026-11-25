@@ -638,7 +638,7 @@ TOOLS = {
             "author": {"type": "string", "enum": ["human", "proxy"]},
             "cited_ids": {"type": "array", "items": {"type": "string"}},
             "source": {"type": "string"},
-            "read_sequence": {"type": "integer"},
+            "read_sequence": {"type": "integer", "minimum": 0},
             "study": {"type": "string"},
         },
         "required": ["question", "option", "author", "cited_ids", "read_sequence"],
@@ -667,7 +667,7 @@ def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_an
         assert event in events, event
 
 
-def test_the_input_schema_of_each_copilot_tool_holds_its_properties_and_required_inputs_and_no_request_id_or_mode():
+def test_the_input_schema_of_each_copilot_tool_holds_its_properties_with_their_types_and_minimum_and_required_inputs_and_no_request_id_or_mode():
     tools = manifest_tools()
     assert set(tools) == set(TOOLS)
     for name, expected in TOOLS.items():
@@ -676,6 +676,7 @@ def test_the_input_schema_of_each_copilot_tool_holds_its_properties_and_required
         for key, value in expected["properties"].items():
             given = schema["properties"][key]
             assert {k: given.get(k) for k in value} == value, (name, key)
+            assert given.get("minimum") == value.get("minimum"), (name, key)
         assert sorted(schema.get("required", [])) == sorted(expected["required"]), name
         for absent in ("request_id", "mode"):
             assert absent not in schema.get("properties", {}), (name, absent)
