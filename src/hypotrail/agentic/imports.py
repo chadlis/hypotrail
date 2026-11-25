@@ -91,7 +91,7 @@ def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage=STAGE, details=details)
 
 
-def _episodes_or_empty(population):
+def _strict_episodes_or_empty(population):
     """The Episodes of a population value that hold a Case ID and an integer Repeat, or none when it holds no list of Episodes: used only to identify a request."""
     episodes = population.get(POPULATION_KEY) if isinstance(population, dict) else None
     if not isinstance(episodes, list):
@@ -99,7 +99,7 @@ def _episodes_or_empty(population):
     return [e for e in episodes if isinstance(e, dict) and isinstance(e.get("case_id"), str) and type(e.get("repeat")) is int]
 
 
-def _model_or_unknown(raw: bytes) -> str:
+def _strict_model_or_unknown(raw: bytes) -> str:
     """The model every line of the source declares, each line read as strict JSON, or `unknown`: used only to identify a request."""
     models = set()
     for text in raw.decode("utf-8", errors="replace").splitlines():
@@ -443,10 +443,10 @@ def _import_locked(study, write, source, population_path, request_id, *, example
     population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
     partition_of = layout.partition_of(artifacts.read_verified(study, by_role["memberships"]), "case_id")
 
-    episodes = _episodes_or_empty(strict_json_or_none(population_bytes))
+    episodes = _strict_episodes_or_empty(strict_json_or_none(population_bytes))
     partitions = {partition_of.get(e["case_id"]) for e in episodes}
     log_import = is_log(source)
-    model, configuration = _log_identity(source) if log_import else (_model_or_unknown(source_bytes), UNKNOWN)
+    model, configuration = _log_identity(source) if log_import else (_strict_model_or_unknown(source_bytes), UNKNOWN)
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
