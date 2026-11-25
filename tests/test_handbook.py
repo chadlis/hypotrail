@@ -5766,3 +5766,57 @@ def test_the_handbook_links_the_l2_grid_from_chapter_19_and_from_chapter_16():
     for name in (DEMO_CHAPTER, "16-acceptance-grid.html"):
         path = HANDBOOK / "chapters" / name
         assert path.is_file() and f'href="{target}"' in chapter_text(name), name
+
+
+# --- the README for the L2 demonstration: its status, where the ids of assess come from, and where to look --------------------------
+
+
+def readme_sentences(text: str) -> list:
+    """The sentences of a Markdown text, its lines joined: a sentence ends at a full stop that a space or the end follows."""
+    return [sentence for sentence in re.split(r"(?<=\.)\s+", " ".join(text.split())) if sentence]
+
+
+def test_the_readme_status_says_in_a_sentence_that_names_l2_that_it_is_built_not_demonstrated():
+    sentences = [sentence for sentence in readme_sentences(readme_status()) if "built, not demonstrated" in sentence]
+    assert sentences and all(re.search(r"\bL2\b", sentence) for sentence in sentences), sentences
+
+
+def test_one_sentence_after_the_readmes_first_code_block_gives_the_route_of_the_observation_set_id_and_of_the_references_id():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    after = readme.split("```", 2)[2]
+    route = ("`status --since 0 --json`", "`writes_since`", "`written`", "`observation_set`", "`status --json`")
+    found = [sentence for sentence in readme_sentences(after) if all(name in sentence for name in route)]
+    assert len(found) == 1, found
+    [sentence] = found
+    for name in route:
+        assert name in sentence, name
+    assert sentence.index("`status --json`") > sentence.index("`observation_set`") and "References ID" in sentence[sentence.index("`observation_set`"):]
+
+
+def test_the_ids_found_by_the_readmes_route_are_accepted_by_assess(tmp_path):
+    from _study_helpers import run_json
+
+    study = tmp_path / "study"
+    assert run_json("init", "--workload", "bike_day", "--study", study)[0] == 0
+    code, payload, err = run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
+    assert code == 0, (payload, err)
+    _, since, _ = run_json("status", "--study", study, "--since", "0")
+    [observations] = [
+        written["id"]
+        for entry in since["writes_since"]
+        if entry["command"] == "run ml" and entry["phase"] == "end"
+        for written in entry["written"]
+        if written["kind"] == "observation_set"
+    ] or [None]
+    _, status, _ = run_json("status", "--study", study)
+    [references] = [entry["artifact_id"] for entry in status["revisions"][-1]["artifacts"] if entry["role"] == "references"]
+    code, payload, err = run_json("assess", "--study", study, "--observations", observations, "--scorer", "regression_mae_v1", "--references", references)
+    assert code == 0, (payload, err)
+    assert payload["assessment"]["observation_set_id"] == observations
+
+
+def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_tracked_path(page):
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    for path in ("docs/product/l2-acceptance.md", demo_rows(page).get("script", {}).get("data-path", "<no row>")):
+        assert path in where, path
+        assert tracked_files(path) == [path], path
