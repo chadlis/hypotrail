@@ -5656,3 +5656,59 @@ def test_the_readme_section_on_the_vs_code_panel_follows_the_walked_path_and_giv
     assert places == sorted(places) and len(places) == 3
     title = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))["contributes"]["commands"][0]["title"]
     assert title in section
+
+
+# --- the L2 acceptance grid (docs/product/l2-acceptance.md) ---------------------------------------------------------------------
+
+L2_GRID = ROOT / "docs" / "product" / "l2-acceptance.md"
+ROADMAP = ROOT / "docs" / "product" / "ROADMAP.md"
+# The ids of the table "Acceptance" of chadlis/hypotrail#103.
+L2_CRITERIA = ("D1", "D2", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "S1", "P3B")
+CLIENT_TEST = re.compile(r'`(clients/vscode/test/[\w.-]+\.test\.ts)`: "([^"]+)"')
+PYTEST_NODE = re.compile(r"`(tests/[\w./-]+\.py::[\w\[\]-]+)`")
+MARKED_AS_PASSED = re.compile(r"\b(?:passed|pass|done)\b|[✓✔☑✅]", re.IGNORECASE)
+
+
+def grid_tables(text: str) -> dict:
+    """{heading: [cells of each body row]} of the Markdown tables of the grid, each under the `## ` heading before it."""
+    tables, heading = {}, None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            heading = line[3:].strip()
+        elif line.startswith("|") and heading is not None:
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if all(set(cell) <= set("-: ") for cell in cells):
+                continue
+            tables.setdefault(heading, []).append(cells)
+    return {heading: rows[1:] for heading, rows in tables.items()}  # the first row of each table is its header
+
+
+def test_the_l2_grid_has_one_row_per_criterion_of_103_names_tests_that_exist_and_marks_no_owner_or_engineer_check_as_passed(collected):
+    """Stated limit: the test checks that a named test exists, not that it proves the row's criterion; for that, and for the
+    quotations of chadlis/hypotrail#103, the Spec reader reads the grid. The quotations of ROADMAP.md are checked here."""
+    text = L2_GRID.read_text(encoding="utf-8")
+    tables = grid_tables(text)
+    criteria, owner, engineer = tables.get("Criteria", []), tables.get("Owner checks", []), tables.get("Engineer checks", [])
+    ids = [row[0].strip("*`") for row in criteria]
+    assert sorted(ids) == sorted(L2_CRITERIA), (sorted(set(ids) - set(L2_CRITERIA)), sorted(set(L2_CRITERIA) - set(ids)))
+    for row in criteria:
+        identifier, _, automated, owner_check = row
+        nodes, client_tests = PYTEST_NODE.findall(automated), CLIENT_TEST.findall(automated)
+        for node in nodes:
+            assert node_is_collected(node, collected), (identifier, node)
+        for path, title in client_tests:
+            assert (ROOT / path).is_file() and title in (ROOT / path).read_text(encoding="utf-8"), (identifier, path, title)
+        assert nodes or client_tests or "owner check, final review" in owner_check, identifier
+        assert not MARKED_AS_PASSED.search(owner_check), (identifier, owner_check)
+    assert owner and engineer
+    for row in owner + engineer:
+        for cell in row:
+            assert not MARKED_AS_PASSED.search(cell), cell
+    for row in owner:
+        assert "owner check, final review" in row[-1], row
+    roadmap = " ".join(ROADMAP.read_text(encoding="utf-8").split())
+    quoted = [row[0].strip('"') for row in engineer if "docs/product/ROADMAP.md" in row[1]]
+    assert len(quoted) == 5
+    for sentence in quoted:
+        assert sentence in roadmap, sentence
+    assert "built, not demonstrated" in text and "P2A" in text
