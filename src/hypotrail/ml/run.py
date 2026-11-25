@@ -36,12 +36,11 @@ from hypotrail.ml.configuration import checked_configuration
 from hypotrail.ml.declaration import RidgeConfiguration, SeasonalConfiguration, load_declaration, plain
 from hypotrail.ml.metrics import declared_partition
 from hypotrail.ml.partitions import TRAIN
-from hypotrail.ml.predictions import PREDICTIONS_NAME
+from hypotrail.ml.predictions import PARAMETERS_NAME, PREDICTIONS_NAME
 from hypotrail.ml.study import DOMAIN, MODE, PROTOCOL_CHANGED_MESSAGE, protocol_content
 
 COMMAND = study_write.RUN_ML
 OBSERVATIONS_COLUMNS = ["row_id", "status", "reason", "y_pred_raw", "y_pred"]
-PARAMETERS_NAME = "sklearn_params.json"
 
 
 def _rows(data_bytes: bytes) -> list:

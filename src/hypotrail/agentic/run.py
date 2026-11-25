@@ -45,14 +45,14 @@ import os
 import tempfile
 from pathlib import Path
 
-from hypotrail.agentic.declaration import load_workload, read_json
+from hypotrail.agentic.declaration import database_changed, load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
 from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
 from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import leak
-from hypotrail.core.errors import HypotrailError, IntegrityError, InvalidInputError
+from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 COMMAND = study_write.RUN_AGENT
 
@@ -97,14 +97,7 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
     system_text = workload.system_text(config)  # CONFIGURATION_NOT_DECLARED
     configuration = {"id": config, "declared": workload.declaration["configurations"][config], "system_text": system_text}
     if mode == FIXTURE:
-        if workload.scenarios_path is None:
-            raise InvalidInputError(
-                "SCENARIOS_NOT_DECLARED",
-                f"the Workload {workload.workload_id!r} declares no scenarios",
-                stage="fixture",
-                details={"path": "scenarios"},
-            )
-        read_json(workload.scenarios_path, stage="fixture", noun="scenarios file", key="scenarios")
+        read_json(workload.scenarios_file(), stage="fixture", noun="scenarios file", key="scenarios")
         return {"configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None}
     if partition not in ROLES:
         raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(ROLES))
@@ -276,19 +269,6 @@ def _usage(sample) -> dict | None:
     return {"latency_seconds": figures["latency_seconds"], "tokens": figures["total_tokens"], "cost": figures["cost"]}
 
 
-def _sha256(path: Path) -> str:
-    return data.sha256_file(path)
-
-
-def _changed(before: str, after: str) -> IntegrityError:
-    return IntegrityError(
-        "DATABASE_CHANGED",
-        "the Workload's database changed during the Attempt",
-        stage="run",
-        details={"sha256_before": before, "sha256_after": after},
-    )
-
-
 def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> attempts.Produced:
     """Run the Episodes and publish what they left."""
     from hypotrail.agentic import imports, inspect_log, projection, runner
@@ -302,7 +282,7 @@ def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> att
         f"{folder}/workload.json", (workload.directory / "workload.json").read_bytes(), media_type="application/json", role="workload_declaration"
     )
     limits = limits_module.EpisodeLimits()
-    before = _sha256(workload.database_path)
+    before = data.sha256_file(workload.database_path)
     with tempfile.TemporaryDirectory(prefix="hypotrail-run-") as scratch:  # Inspect's log stays outside the Study until it is scanned and read
         out = Path(scratch) / "run"
         if mode == LIVE:
@@ -317,12 +297,12 @@ def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> att
                 limits=limits,
                 reasoning_effort=agentic_live.REASONING_EFFORT,
             )
-            after = _sha256(workload.database_path)
+            after = data.sha256_file(workload.database_path)
             if before != after:
-                raise _changed(before, after)
+                raise database_changed(before, after, stage="run")
             leaked = agentic_live.scan_for_secret(out, api_key)
             if leaked:
-                raise leak(leaked)
+                raise leak(leaked, scanned="attempt")
             keys = [(case, repeat) for case in plan["cases"] for repeat in range(plan["repeats"])]
             agentic_live.record_execution(
                 location=location, out_dir=out, limits=limits, database_sha256={"before": before, "after": after}

@@ -32,11 +32,9 @@ from hypotrail.ml.declaration import Declaration, RidgeConfiguration, load_decla
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.memberships import memberships_of
 from hypotrail.ml.partitions import TRAIN
-from hypotrail.ml.predictions import write_predictions
+from hypotrail.ml.predictions import PARAMETERS_NAME, write_predictions
 from hypotrail.ml.series import read_target_series
 from hypotrail.ml.table import read_table
-
-PARAMETERS_NAME = "sklearn_params.json"
 
 
 def _refuse(code, message, **details):

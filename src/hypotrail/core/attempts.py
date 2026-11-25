@@ -34,6 +34,8 @@ say the same words.
 
 
 def now() -> str:
+    """The time, as an ISO string in UTC: every record that holds a timestamp takes it from here (an Attempt manifest, an Assessment,
+    a freeze record, an Exposure entry, a recovered Attempt)."""
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
@@ -101,7 +103,7 @@ class Scanned(Plain):
 
     def _scanned(self, data: bytes, where: str) -> None:
         if self.secret and self.secret.encode() in data:
-            raise leak([where])
+            raise leak([where], scanned="attempt")
 
     def scan(self, relative: str, data: bytes) -> None:
         """Refuse a file that holds the key before anything is written: not even the journal's `begin` entry follows."""
@@ -125,14 +127,23 @@ class Scanned(Plain):
         """The error the `failed` manifest records and the writer raises: a foreign exception by its type only, and the key never in the Reason."""
         coded = coded_error(error)  # a foreign exception by its type only: the failed manifest and the raised error say the same
         if self.secret and self.secret in f"{coded.code}: {coded.message}":  # the Reason is the failed manifest's one new text: scanned like every file
-            coded = leak([manifest_path])  # a hit is the Reason, with no message text of the error
+            coded = leak([manifest_path], scanned="attempt")  # a hit is the Reason, with no message text of the error
         return coded
 
 
-def leak(files: list) -> HypotrailError:
+# What a hit says, by what was scanned: an Attempt's file is refused before it is written; an execution's output (`spike live`)
+# is already on disk when it is scanned.
+LEAK_MESSAGES = {
+    "attempt": "the API key was found in what this Attempt would write: {files}; nothing holding it was kept",
+    "execution": "the API key was found in the execution output: {files}; do not keep or commit it",
+}
+
+
+def leak(files: list, *, scanned: str) -> HypotrailError:
+    """`SECRET_IN_OUTPUT` (exit 4) for the `files` that hold the key, in the words of what was `scanned` (`attempt` or `execution`)."""
     return HypotrailError(
         "SECRET_IN_OUTPUT",
-        f"the API key was found in what this Attempt would write: {', '.join(files)}; nothing holding it was kept",
+        LEAK_MESSAGES[scanned].format(files=", ".join(files)),
         stage="live",
         details={"files": files},
     )

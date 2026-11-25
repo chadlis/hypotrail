@@ -33,7 +33,6 @@ The order is fixed, and nothing is written before the checks that precede it:
 import csv
 import io
 import json
-import datetime
 import uuid
 from collections import Counter
 from pathlib import Path
@@ -42,6 +41,7 @@ from hypotrail.agentic.counts import counters
 from hypotrail.agentic.unproduced import criteria_of_unproduced
 from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
+from hypotrail.core.attempts import now
 from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.agentic.study import live_basis as _live_basis
@@ -263,7 +263,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         "limitations": list(LIMITATIONS),
         "study_revision": revisions.identity(spec),
         **exposure.marks(study, [manifest]),
-        "recorded_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "recorded_at": now(),
         "rescoring": rescoring.describe(
             study,
             observation_set_id=observation_set["observation_set_id"],

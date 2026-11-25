@@ -28,11 +28,11 @@ A lock that is gone never proves that a remote call was cancelled: an Attempt wh
 provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held before.
 """
 
-import datetime
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, exposure, lock, revisions, study_write, write_journal
 from hypotrail.core import study as layout
+from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
 
 PROVIDER_MODES = ("llm_live",)
@@ -40,10 +40,6 @@ RECOVER_REASON = (
     "the writer ended before the terminal manifest; recorded as interrupted by `recover` "
     "(partial artifacts kept, nothing resubmitted)"
 )
-
-
-def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _listed_artifacts(study: Path, manifest: dict) -> tuple[list, list]:
@@ -164,7 +160,7 @@ def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict
         interrupted = {
             **manifest,
             "technical_status": "interrupted",
-            "finished_at": _now(),
+            "finished_at": now(),
             "reason": RECOVER_REASON,
             "outcome_unknown": manifest["outcome_unknown"] or manifest["mode"] in PROVIDER_MODES,
         }

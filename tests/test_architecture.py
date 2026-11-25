@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 from typing import NamedTuple
 
-from _architecture import SOURCE, calls, dotted, functions_of, import_targets, imports, names_of, owners_in, parse_all, resolve
+from _architecture import FUNCTION_NODES, SOURCE, calls, dotted, functions_of, import_targets, imports, names_of, owners_in, parse_all, resolve
 from _study_helpers import run_json
 
 PACKAGE = "hypotrail"
@@ -1176,3 +1176,168 @@ def test_the_four_rules_their_tests_and_the_functions_they_call_use_no_name_impo
     test_modules = {name: ast.parse((TESTS / f"{name}.py").read_text(encoding="utf-8")) for name in ("test_architecture", "_architecture")}
     assert set(READ_ONLY_RULES) <= {node.name for node in test_modules["test_architecture"].body if isinstance(node, ast.FunctionDef)}
     assert names_imported_from_outside(test_modules, READ_ONLY_RULES) == {}
+
+
+# --- one clock, one assignment of each of two path names, one builder of each of three error codes -------------------------------------
+
+CLOCK = "datetime.datetime.now"
+
+# The one function that gives the time every record that holds a timestamp is given.
+ONE_CLOCK = {"hypotrail.core.attempts:now": 1}
+
+# {name: the one module that assigns it}
+NAMES_ASSIGNED_ONCE = {"REVISIONS_DIR": {"hypotrail.core.revisions"}, "PARAMETERS_NAME": {"hypotrail.ml.predictions"}}
+
+# {code: the one function that builds an error with it}: a code with two texts or two stages keeps each, given by its caller.
+ONE_BUILDER = {
+    "SCENARIOS_NOT_DECLARED": {"hypotrail.agentic.declaration:Workload.scenarios_file": 1},
+    "DATABASE_CHANGED": {"hypotrail.agentic.declaration:database_changed": 1},
+    "SECRET_IN_OUTPUT": {"hypotrail.core.attempts:leak": 1},
+}
+
+
+def clock_calls(trees: dict) -> dict:
+    """{`module:function`: the number of its calls that resolve to `datetime.datetime.now`}, through the names the module imports or assigns."""
+    return tally(site.owner for site in calls(trees) if site.callee == CLOCK)
+
+
+def modules_assigning(trees: dict, name: str) -> set:
+    """The modules that assign `name` anywhere: a plain, an annotated or an augmented assignment, unpacking included. An import that binds the name is not an assignment."""
+    found = set()
+    for module, tree in trees.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                targets = [node.target]
+            else:
+                continue
+            if any(isinstance(each, ast.Name) and each.id == name for target in targets for each in ast.walk(target)):
+                found.add(module)
+    return found
+
+
+def code_builders(trees: dict, code: str) -> dict:
+    """{`module:function`: the number of its calls of `InvalidInputError`, `IntegrityError` or `HypotrailError` of `hypotrail.core.errors` whose code is the literal `code`}.
+
+    The code is the first argument, or the keyword `code`; the class is resolved through the names the module imports or assigns.
+    Stated limit: a code held in a variable, or an error built through another class than the three named, is outside the rule.
+    """
+    builders = []
+    for site in calls(trees):
+        if site.callee not in CODE_BUILDING_ERRORS:
+            continue
+        given = site.node.args[0] if site.node.args else next((k.value for k in site.node.keywords if k.arg == "code"), None)
+        if isinstance(given, ast.Constant) and given.value == code:
+            builders.append(site.owner)
+    return tally(builders)
+
+
+def test_datetime_now_is_called_in_one_function_each_path_name_is_assigned_in_one_module_and_each_of_three_codes_is_built_in_one_function():
+    trees = parse_all(SOURCE)
+    assert clock_calls(trees) == ONE_CLOCK
+    assert modules_assigning(trees, "REVISIONS_DIR") == NAMES_ASSIGNED_ONCE["REVISIONS_DIR"]
+    assert modules_assigning(trees, "PARAMETERS_NAME") == NAMES_ASSIGNED_ONCE["PARAMETERS_NAME"]
+    assert code_builders(trees, "SCENARIOS_NOT_DECLARED") == ONE_BUILDER["SCENARIOS_NOT_DECLARED"]
+    assert code_builders(trees, "DATABASE_CHANGED") == ONE_BUILDER["DATABASE_CHANGED"]
+    assert code_builders(trees, "SECRET_IN_OUTPUT") == ONE_BUILDER["SECRET_IN_OUTPUT"]
+
+
+ONE_OF_EACH_TREE = {
+    "hypotrail/__init__.py": "",
+    "hypotrail/core/__init__.py": "",
+    "hypotrail/core/errors.py": "class HypotrailError(Exception):\n    pass\n\n\nclass InvalidInputError(HypotrailError):\n    pass\n\n\nclass IntegrityError(HypotrailError):\n    pass\n",
+    "hypotrail/core/attempts.py": (
+        "import datetime\n\nfrom hypotrail.core.errors import HypotrailError\n\n\n"
+        "def now():\n    return datetime.datetime.now(datetime.timezone.utc).isoformat()\n\n\n"
+        "def leak(files):\n    return HypotrailError('SECRET_IN_OUTPUT', 'm', stage='live', details={'files': files})\n"
+    ),
+    "hypotrail/core/revisions.py": "REVISIONS_DIR = 'revisions'\n",
+    "hypotrail/agentic/__init__.py": "",
+    "hypotrail/agentic/declaration.py": (
+        "from hypotrail.core.errors import IntegrityError, InvalidInputError\n\n\n"
+        "class Workload:\n    def scenarios_file(self):\n        raise InvalidInputError('SCENARIOS_NOT_DECLARED', 'm', stage='fixture')\n\n\n"
+        "def database_changed(before, after, *, stage):\n    return IntegrityError('DATABASE_CHANGED', 'm', stage=stage)\n"
+    ),
+    "hypotrail/ml/__init__.py": "",
+    "hypotrail/ml/predictions.py": "PARAMETERS_NAME = 'sklearn_params.json'\n",
+}
+
+
+def test_a_second_clock_a_second_assignment_of_each_path_name_and_a_second_builder_of_each_code_are_found_in_a_planted_tree(tmp_path):
+    root = plant(tmp_path, ONE_OF_EACH_TREE)
+    trees = parse_all(root)
+    assert clock_calls(trees) == ONE_CLOCK
+    assert modules_assigning(trees, "REVISIONS_DIR") == NAMES_ASSIGNED_ONCE["REVISIONS_DIR"]
+    assert modules_assigning(trees, "PARAMETERS_NAME") == NAMES_ASSIGNED_ONCE["PARAMETERS_NAME"]
+    assert {code: code_builders(trees, code) for code in ONE_BUILDER} == ONE_BUILDER
+    plant(root, {
+        "hypotrail/ml/stamp.py": "from datetime import datetime as moment\n\n\ndef stamped():\n    return moment.now()\n",
+        "hypotrail/core/exposure.py": "REVISIONS_DIR: str = 'revisions'\n",
+        "hypotrail/ml/run.py": "def names():\n    PARAMETERS_NAME, other = 'sklearn_params.json', None\n    return PARAMETERS_NAME\n",
+        "hypotrail/agentic/fixture.py": (
+            "from hypotrail.core.errors import HypotrailError as Coded, IntegrityError as Broken, InvalidInputError as Refused\n\n\n"
+            "def load_scenarios(workload):\n    raise Refused('SCENARIOS_NOT_DECLARED', 'm', stage='fixture')\n\n\n"
+            "def run_fixture():\n    raise Broken('DATABASE_CHANGED', 'm', stage='fixture')\n\n\n"
+            "def scanned():\n    raise Coded(code='SECRET_IN_OUTPUT', message='m', stage='live')\n"
+        ),
+    })
+    trees = parse_all(root)
+    assert clock_calls(trees) == {**ONE_CLOCK, "hypotrail.ml.stamp:stamped": 1}
+    assert modules_assigning(trees, "REVISIONS_DIR") == {"hypotrail.core.revisions", "hypotrail.core.exposure"}
+    assert modules_assigning(trees, "PARAMETERS_NAME") == {"hypotrail.ml.predictions", "hypotrail.ml.run"}
+    assert code_builders(trees, "SCENARIOS_NOT_DECLARED") == {**ONE_BUILDER["SCENARIOS_NOT_DECLARED"], "hypotrail.agentic.fixture:load_scenarios": 1}
+    assert code_builders(trees, "DATABASE_CHANGED") == {**ONE_BUILDER["DATABASE_CHANGED"], "hypotrail.agentic.fixture:run_fixture": 1}
+    assert code_builders(trees, "SECRET_IN_OUTPUT") == {**ONE_BUILDER["SECRET_IN_OUTPUT"], "hypotrail.agentic.fixture:scanned": 1}
+
+
+# --- a file is hashed through `data.sha256_file`: `hashlib.sha256` is called in the listed modules only ----------------------------------
+
+AGENTIC = "hypotrail.agentic"
+
+# {module: what it hashes with `hashlib.sha256`}
+HASHING_MODULES = {
+    "hypotrail.core.canonical": "bytes held in memory (`sha256_hex`)",
+    "hypotrail.core.data": "a file, read in blocks (`sha256_file`)",
+    "hypotrail.core.fetch": "a download and an archive member while their bytes arrive, before any file holds them whole",
+}
+
+
+def sha256_functions(trees: dict, package: str) -> set:
+    """`module:line` of every function named `_sha256`, nested ones included, in the modules of `package`."""
+    return {
+        f"{module}:{node.lineno}"
+        for module, tree in trees.items()
+        if module == package or module.startswith(package + ".")
+        for node in ast.walk(tree)
+        if isinstance(node, FUNCTION_NODES) and node.name == "_sha256"
+    }
+
+
+def hashing_modules(trees: dict) -> set:
+    """The modules with a call that resolves to `hashlib.sha256`, through the names the module imports or assigns. Stated limit: `hashlib.new("sha256")` is outside it."""
+    return {site.module for site in calls(trees) if site.callee == "hashlib.sha256"}
+
+
+def test_no_agentic_module_defines_a_sha256_function_and_hashlib_sha256_is_called_in_the_listed_modules_only():
+    trees = parse_all(SOURCE)
+    assert sha256_functions(trees, AGENTIC) == set()
+    found = hashing_modules(trees)
+    union = sorted(found | set(HASHING_MODULES))
+    assert {module: module in found for module in union} == {module: module in HASHING_MODULES for module in union}
+
+
+def test_a_sha256_function_in_an_agentic_module_and_a_hashlib_sha256_call_outside_the_listed_modules_are_found_in_a_planted_tree(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/data.py": "import hashlib\n\n\ndef sha256_file(path):\n    return hashlib.sha256(path.read_bytes()).hexdigest()\n",
+        "hypotrail/agentic/__init__.py": "",
+        "hypotrail/agentic/live.py": "import hashlib\n\n\ndef _sha256(path):\n    return hashlib.sha256(path.read_bytes()).hexdigest()\n",
+        "hypotrail/agentic/run.py": "from hypotrail.core import data\n\n\ndef record(path):\n    def _sha256(p):\n        return data.sha256_file(p)\n\n    return _sha256(path)\n",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/run.py": "from hashlib import sha256 as digest\n\n\ndef f(raw):\n    return digest(raw).hexdigest()\n",
+    })
+    trees = parse_all(root)
+    assert sha256_functions(trees, AGENTIC) == {"hypotrail.agentic.live:4", "hypotrail.agentic.run:5"}
+    assert hashing_modules(trees) == {"hypotrail.core.data", "hypotrail.agentic.live", "hypotrail.ml.run"}

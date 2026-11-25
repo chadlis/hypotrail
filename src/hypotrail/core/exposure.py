@@ -33,27 +33,23 @@ nothing written) when the Workload's live Protocol is not the revision's. Which 
 compute on is the entry point's own rule; this module only records.
 """
 
-import datetime
 import uuid
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, environment, protocol_check, study_write
 from hypotrail.core import study as layout
+from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
+from hypotrail.core.revisions import REVISIONS_DIR
 
 STAGE = "exposure"
 FREEZE_NAME = "freeze.json"
 JOURNAL_DIR = "exposures"
-REVISIONS_DIR = "revisions"
 UNKNOWN_EARLIER = "unknown"
 EARLIER_EXPOSURE_STATEMENT = (
     "This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the "
     "producer of an Import, is unknown: no local lock proves that it never happened."
 )
-
-
-def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def freeze_path(number: int) -> str:
@@ -187,7 +183,7 @@ def _write_freeze(study, spec: dict, live: dict) -> dict:
         "configuration_digests": live["configuration_digests"],
         "environment": {"python": code["python"], "dependency_lock_sha256": code["dependency_lock"]["sha256"]},
         "code": {"revision": code["code_revision"]["commit"], "dirty": code["code_revision"]["dirty"]},
-        "recorded_at": _now(),
+        "recorded_at": now(),
     }
     contracts.validate(record)
     artifacts.publish_record(study, freeze_path(number), record, role="freeze")
@@ -213,7 +209,7 @@ def record(study, write, spec: dict, live_basis, *, attempt_ids=(), assessment_i
         "schema_version": "exposure/1",
         "entry_id": str(uuid.uuid4()),
         "freeze_id": freeze["freeze_id"],
-        "recorded_at": _now(),
+        "recorded_at": now(),
         "attempt_ids": sorted(set(attempt_ids)),
         "assessment_ids": sorted(set(assessment_ids)),
         "comparison_ids": sorted(set(comparison_ids)),

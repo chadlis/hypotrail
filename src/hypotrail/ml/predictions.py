@@ -1,4 +1,5 @@
-"""The predictions artifact, shared by every Configuration of the temporal regression Track.
+"""The predictions artifact, shared by every Configuration of the temporal regression Track, and the name of the parameters file
+`ridge_v1` writes beside it.
 
 `predictions.csv` holds `row_id`, `y_pred_raw`, `y_pred` and `config_id`, and
 never a target: the References are a separate artifact (`references.py`).
@@ -11,6 +12,7 @@ from pathlib import Path
 from hypotrail.core.errors import InvalidInputError
 
 PREDICTIONS_NAME = "predictions.csv"
+PARAMETERS_NAME = "sklearn_params.json"
 COLUMNS = ["row_id", "y_pred_raw", "y_pred", "config_id"]
 
 

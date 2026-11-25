@@ -27,6 +27,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import (
     EXIT_INFRASTRUCTURE,
     HypotrailError,
@@ -234,11 +235,7 @@ def _present(path: Path, expected_sha256: str, expected_size: int | None, file: 
     actual_sha256 = actual_size = None
     if path.is_file():
         actual_size = path.stat().st_size
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for block in iter(lambda: handle.read(1 << 20), b""):
-                digest.update(block)
-        actual_sha256 = digest.hexdigest()
+        actual_sha256 = sha256_file(path)
         if actual_sha256 == expected_sha256 and (expected_size is None or actual_size == expected_size):
             return True
     raise IntegrityError(

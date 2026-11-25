@@ -29,7 +29,6 @@ independently.
 """
 
 import csv
-import datetime
 import io
 import math
 import re
@@ -77,10 +76,6 @@ _EXECUTABLE = re.compile(r"[():;/\\]|^__|^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$|^(lambd
 
 def _refuse(code, message, **details):
     return InvalidInputError(code, message, stage=STAGE, details=details)
-
-
-def _now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _partition_or_none(population, partition_of: dict):
@@ -337,7 +332,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     effective_config = {**effective_config, "partition": partition}
 
     producer = _producer(mapping)
-    import_time = _now()
+    import_time = attempts.now()
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
 
     def produce(recording: attempts.Recording) -> attempts.Produced:
