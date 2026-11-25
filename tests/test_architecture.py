@@ -450,7 +450,10 @@ def test_a_py_file_in_a_workload_folder_and_an_absolute_or_relative_import_of_hy
 
 # --- the import modules read every JSON input with the strict reader ----------------------------------------------------------
 
-IMPORT_MODULES = ("hypotrail.ml.imports", "hypotrail.agentic.imports")
+TRACK_IMPORT_MODULES = ("hypotrail.ml.imports", "hypotrail.agentic.imports")
+# The core module of what the two import commands share, the strict JSON read among it.
+IMPORT_HELPERS = "hypotrail.core.imports"
+IMPORT_MODULES = (*TRACK_IMPORT_MODULES, IMPORT_HELPERS)
 LOOSE_READS = {"json.load", "json.loads"}
 
 
@@ -482,6 +485,104 @@ def test_a_json_read_through_an_alias_in_either_import_module_is_found(tmp_path)
         "hypotrail/agentic/imports.py": "from json import load as ld\n\ndef g(handle):\n    return ld(handle)\n",
     })
     assert loose_json_reads(parse_all(root)) == ["hypotrail.agentic.imports:g", "hypotrail.ml.imports:f"]
+
+
+def test_a_json_read_in_the_core_module_of_the_import_helpers_is_found(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/imports.py": "import json\n\ndef h(raw):\n    return json.loads(raw)\n",
+    })
+    assert loose_json_reads(parse_all(root)) == ["hypotrail.core.imports:h"]
+
+
+# --- what the two import commands share is written once -------------------------------------------------------------------------
+
+SERIALIZED_CONSTANTS = ("SERIALIZED_SUFFIXES", "SERIALIZED_MAGIC")
+# The `problem` of an Episode outside the population, from JSON Lines and from an Inspect log, and the one function that chooses it.
+OUTSIDE_PROBLEMS = ("unknown_case", "other_partition", "not_in_population", "repeat_out_of_range")
+OUTSIDE_PROBLEM_CLASSIFIER = "hypotrail.agentic.imports:problem_outside_population"
+SHARED_IMPORT_FUNCTIONS = tuple(f"{IMPORT_HELPERS}.{name}" for name in ("read_input", "strict_json_or_none", "producer_entry"))
+
+
+def shared_import_helper_sites(trees: dict) -> dict:
+    """What the rule reads, in three parts:
+
+    - `assignments`: {constant: the module of each assignment of it, one entry per assignment}, over `SERIALIZED_CONSTANTS`;
+    - `holders`: {value: the `module:function` (`module:<module>` outside any) of each string constant equal to it, one entry per constant}, over `OUTSIDE_PROBLEMS`;
+    - `callers`: {function: the modules that call it, found through the resolver}, over `SHARED_IMPORT_FUNCTIONS`.
+
+    Stated limit: an assignment is to a bare name (`X = ...`, `X: T = ...`, or a name in a tuple target); a value is a string constant equal to it.
+    A constant set through an attribute or `globals()`, or a value built from parts, is outside the rule.
+    """
+    assignments: dict = {name: [] for name in SERIALIZED_CONSTANTS}
+    holders: dict = {value: [] for value in OUTSIDE_PROBLEMS}
+    for module, tree in trees.items():
+        for node, owner in owners_in(module, tree):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+            for target in targets:
+                for name in ast.walk(target):
+                    if isinstance(name, ast.Name) and name.id in assignments:
+                        assignments[name.id].append(module)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in holders:
+                holders[node.value].append(owner)
+    callers = {function: sorted({site.module for site in calls(trees) if site.callee == function}) for function in SHARED_IMPORT_FUNCTIONS}
+    return {"assignments": assignments, "holders": holders, "callers": callers}
+
+
+def test_each_serialized_constant_is_assigned_in_one_module_each_problem_value_is_held_by_one_function_and_both_import_modules_call_each_shared_helper():
+    found = shared_import_helper_sites(parse_all(SOURCE))
+    for name in SERIALIZED_CONSTANTS:
+        assert found["assignments"][name] == [IMPORT_HELPERS], name
+    for value in OUTSIDE_PROBLEMS:
+        assert found["holders"][value] == [OUTSIDE_PROBLEM_CLASSIFIER], value
+    for function in SHARED_IMPORT_FUNCTIONS:
+        for module in TRACK_IMPORT_MODULES:
+            assert module in found["callers"][function], (function, module)
+
+
+SHARED_IMPORT_TREE = {
+    "hypotrail/__init__.py": "",
+    "hypotrail/core/__init__.py": "",
+    "hypotrail/core/imports.py": (
+        "SERIALIZED_SUFFIXES = ('.pkl',)\nSERIALIZED_MAGIC = b'\\x80'\n\n\n"
+        "def read_input(path, code, what):\n    pass\n\n\ndef strict_json_or_none(raw):\n    pass\n\n\ndef producer_entry(value):\n    pass\n"
+    ),
+    "hypotrail/ml/__init__.py": "",
+    "hypotrail/ml/imports.py": (
+        "from hypotrail.core import imports as shared\nfrom hypotrail.core.imports import producer_entry\n\n\n"
+        "def f(path, raw):\n    return shared.read_input(path, 'C', 'source'), shared.strict_json_or_none(raw), producer_entry(None)\n"
+    ),
+    "hypotrail/agentic/__init__.py": "",
+    "hypotrail/agentic/imports.py": (
+        "from hypotrail.core.imports import producer_entry, read_input, strict_json_or_none\n\n\n"
+        "def g(path, raw):\n    return read_input(path, 'C', 'source'), strict_json_or_none(raw), producer_entry(None)\n\n\n"
+        "def problem_outside_population(case_id, known, listed):\n"
+        "    if case_id not in known:\n        return 'unknown_case'\n    if case_id == 'x':\n        return 'other_partition'\n"
+        "    if case_id not in listed:\n        return 'not_in_population'\n    return 'repeat_out_of_range'\n"
+    ),
+    "hypotrail/agentic/inspect_log.py": "from hypotrail.agentic import imports\n\n\ndef checked(case_id):\n    return imports.problem_outside_population(case_id, {}, set())\n",
+}
+
+
+def test_a_second_serialized_constant_a_second_classification_and_a_helper_one_import_module_does_not_call_are_found_in_a_planted_tree(tmp_path):
+    root = plant(tmp_path, SHARED_IMPORT_TREE)
+    assert shared_import_helper_sites(parse_all(root)) == {
+        "assignments": {"SERIALIZED_SUFFIXES": [IMPORT_HELPERS], "SERIALIZED_MAGIC": [IMPORT_HELPERS]},
+        "holders": {value: [OUTSIDE_PROBLEM_CLASSIFIER] for value in OUTSIDE_PROBLEMS},
+        "callers": {function: sorted(TRACK_IMPORT_MODULES) for function in SHARED_IMPORT_FUNCTIONS},
+    }
+    plant(root, {
+        "hypotrail/ml/imports.py": "SERIALIZED_MAGIC: bytes = b'\\x80'\n\n\ndef f(path):\n    return path\n",
+        "hypotrail/agentic/inspect_log.py": (
+            "def checked(case_id, known):\n    if case_id not in known:\n        problem = 'unknown_case'\n    else:\n        problem = 'repeat_out_of_range'\n    return problem\n"
+        ),
+    })
+    found = shared_import_helper_sites(parse_all(root))
+    assert found["assignments"]["SERIALIZED_MAGIC"] == [IMPORT_HELPERS, "hypotrail.ml.imports"]
+    assert found["holders"]["unknown_case"] == ["hypotrail.agentic.imports:problem_outside_population", "hypotrail.agentic.inspect_log:checked"]
+    assert found["holders"]["repeat_out_of_range"] == ["hypotrail.agentic.imports:problem_outside_population", "hypotrail.agentic.inspect_log:checked"]
+    assert found["callers"]["hypotrail.core.imports.read_input"] == ["hypotrail.agentic.imports"]
 
 
 # --- the functions under `src/` that raise `INVALID_ARGUMENTS`, with their numbers of calls, are those in `INVALID_ARGUMENTS_BUILDERS`, and six command lines give the `details.command` stated for each ---

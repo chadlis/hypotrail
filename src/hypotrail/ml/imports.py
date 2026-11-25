@@ -38,6 +38,7 @@ from pathlib import Path
 from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
 from hypotrail.ml.declaration import load_declaration
 from hypotrail.ml.run import OBSERVATIONS_COLUMNS
 from hypotrail.ml.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
@@ -45,8 +46,6 @@ from hypotrail.ml.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_conten
 COMMAND = study_write.IMPORT_ML
 MODE = "external_unknown"
 STAGE = "import"
-UNKNOWN = "unknown"
-DECLARED = "declared"
 
 # The keys a mapping may hold, and whether each is required. The first three name columns of the
 # source file; the others are what the mapping declares about the producer.
@@ -71,8 +70,6 @@ PRODUCER_FIELDS = {
     "saw_public_check": None,
 }
 POPULATION_KEY = layout.IMPORT_POPULATION_KEY
-SERIALIZED_SUFFIXES = (".pkl", ".pickle", ".joblib", ".npy", ".npz")
-SERIALIZED_MAGIC = b"\x80"  # pickle protocol 2 and later
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 # A value that names a callable or a module (`os.system`, `pickle:loads`, `f(x)`) is not a column name.
 _EXECUTABLE = re.compile(r"[():;/\\]|^__|^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$|^(lambda|eval|exec|import)\b")
@@ -84,21 +81,6 @@ def _refuse(code, message, **details):
 
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-
-def _read(path, code, what) -> bytes:
-    try:
-        return Path(path).read_bytes()
-    except OSError:
-        raise _refuse(code, f"the {what} file cannot be read: {path}", **{what: str(path)}) from None
-
-
-def _strict_json_or_none(raw: bytes):
-    """The value of `raw` read as strict JSON, or None when it is not: used only to identify a request, never to accept an input."""
-    try:
-        return canonical.loads(raw)
-    except InvalidInputError:
-        return None
 
 
 def _partition_or_none(population, partition_of: dict):
@@ -142,12 +124,7 @@ def _checked_mapping(raw: bytes, mapping_path) -> dict:
 def _checked_source(raw: bytes, source_path, mapping: dict):
     """(header, rows) of the source CSV, once it is known to be data in UTF-8 that holds the mapped columns."""
     name = str(source_path)
-    if Path(source_path).suffix.lower() in SERIALIZED_SUFFIXES or raw.startswith(SERIALIZED_MAGIC):
-        raise _refuse(
-            "SOURCE_SERIALIZED",
-            "the source is a serialized object (pickle, joblib or an array dump); an import adopts a CSV of predictions and loads nothing",
-            source=name,
-        )
+    require_not_serialized(raw, source_path, adopts="a CSV of predictions")
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
@@ -243,13 +220,7 @@ def _normalized(items: list, joined: dict) -> bytes:
 
 def _producer(mapping: dict) -> dict:
     """What the import says about how the outputs were made: `declared` by the mapping, otherwise `unknown`."""
-    producer = {}
-    for field, key in PRODUCER_FIELDS.items():
-        if key is not None and key in mapping:
-            producer[field] = {"value": mapping[key].strip(), "origin": DECLARED}
-        else:
-            producer[field] = {"value": None, "origin": UNKNOWN}
-    return producer
+    return {field: producer_entry(mapping[key].strip() if key is not None and key in mapping else None) for field, key in PRODUCER_FIELDS.items()}
 
 
 def _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition) -> dict:
@@ -313,20 +284,20 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     declaration = load_declaration(workload_dir)
     dataset_sha = data.sha256_file(workload_dir / declaration.data_file)
 
-    source_bytes = _read(source, "SOURCE_NOT_FOUND", "source")
-    mapping_bytes = _read(mapping_path, "MAPPING_NOT_FOUND", "mapping")
-    population_bytes = _read(population_path, "POPULATION_NOT_FOUND", "population")
+    source_bytes = read_input(source, "SOURCE_NOT_FOUND", "source")
+    mapping_bytes = read_input(mapping_path, "MAPPING_NOT_FOUND", "mapping")
+    population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
     memberships = artifacts.read_verified(study, by_role["memberships"])
     partition_of = layout.partition_of(memberships, "row_id")
 
-    mapping_json_or_none = _strict_json_or_none(mapping_bytes)
+    mapping_json_or_none = strict_json_or_none(mapping_bytes)
     model = mapping_json_or_none.get("model") if isinstance(mapping_json_or_none, dict) else None
     # The request: every element of the identity, with the import's value or `unknown`.
     effective_config = {
         "command": COMMAND,
         "workload": workload,
         "mode": MODE,
-        "partition": _partition_or_none(_strict_json_or_none(population_bytes), partition_of),
+        "partition": _partition_or_none(strict_json_or_none(population_bytes), partition_of),
         "configuration": UNKNOWN,
         "model": model.strip() if isinstance(model, str) and model.strip() else UNKNOWN,
         "repeats": UNKNOWN,
