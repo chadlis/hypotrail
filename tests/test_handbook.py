@@ -5480,7 +5480,7 @@ def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
     assert found == []
 
 
-def test_the_opening_of_chapter_18_pairs_claude_code_with_the_userpromptsubmit_hook_template_and_copilot_with_its_channel_and_calls_no_chat_channel_later():
+def test_the_opening_of_chapter_18_pairs_claude_code_with_the_userpromptsubmit_hook_template_and_copilot_with_l2_6_and_holds_no_later_slice_phrase():
     lead = plain_text(re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1])
     assert "Claude Code's is the UserPromptSubmit hook template" in lead and "Copilot's is L2.6" in lead
     assert "later slice" not in lead
