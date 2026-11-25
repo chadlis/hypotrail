@@ -76,6 +76,15 @@ for the slice issue of the pull request:
    the header row (first cell "ID") and the separator row aside, so that a row the other rules cannot read refuses the
    record rather than passing unseen (D-115 on chadlis/hypotrail#75: the L2.5b retro's 3b). It reads rows of seven cells
    or more, as `rows_of` does, and skips the slices `MERGED_BEFORE_ID_RULE` lists, L2.5b's the last of them.
+12. each ticket (sub-issue) of the slice whose body holds one of these has a comment whose first line starts with
+   "## #<ticket> history" (D-129 on chadlis/hypotrail#75, adopting the L2.7 retro's D3): a line that replaces another,
+   that is "replaces" inside a "## Tightened" section while no line of the body says "(replaced by", or a
+   "(round <n>, routing" marker; or no "## Tightened" section at all (D-114 on chadlis/hypotrail#75: "the tickets are
+   tightened once after the build"). A "## Tightened" section runs from its heading to the next "## " heading. The rule
+   reads the body that the sub-issue listing gives, so it costs no `gh` call, and skips the slices
+   `MERGED_BEFORE_HISTORY_RULE` lists, L2.7's (chadlis/hypotrail#204) the last of them. Its limits: it reads the words, so
+   it does not check that the history comment holds the replaced lines, that each replaced line is marked, or that a
+   ticket rewritten in place under another wording than a routing marker has one.
 
 `check_record.py --slice <n>` runs the same rules on the comments of slice issue <n> before any pull request exists: it
 skips rule 5 and the missing closing register, prints each reason, and exits 0; a failed `gh` call exits 2.
@@ -208,6 +217,9 @@ MERGED_BEFORE_FIX_PROMPT_RULE = MERGED_BEFORE_DELEGATED_ENTRY | {159}
 MERGED_BEFORE_MARKER_RULE = MERGED_BEFORE_FIX_PROMPT_RULE | {166, 176, 186}
 MERGED_BEFORE_ID_RULE = MERGED_BEFORE_MARKER_RULE
 MERGED_BEFORE_WORDING_PATH = MERGED_BEFORE_MARKER_RULE | {194}
+MERGED_BEFORE_HISTORY_RULE = MERGED_BEFORE_WORDING_PATH | {200, 204}
+TIGHTENED = re.compile(r"^## Tightened\b.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
+ROUTING_MARKER = re.compile(r"\(round \d+, routing")
 TRIGGER = "This is a review fix"
 STRICT_PASSED = re.compile(r"^Fix-prompt check \(strict\): 0 warning\(s\)", re.MULTILINE)
 VERIFICATION = re.compile(r"\bround (\d+)\b.*\b(?:Standards|Spec)\b.*\bverification|\bround (\d+)\b.*\bverification.*\b(?:Standards|Spec)\b", re.IGNORECASE)
@@ -298,10 +310,28 @@ def unread_ids(comments: list, routed: dict) -> list:
     return found
 
 
-def problems(pr_body: str | None, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None) -> list:
+def unrecorded_histories(tickets: dict, bodies: dict) -> list:
+    """The tickets whose body shows a rewritten or untightened line and that have no comment headed "## #<ticket> history"."""
+    found = []
+    for number, body in sorted(bodies.items()):
+        if any(re.match(rf"## #{number} history\b", first_line(c)) for c in tickets.get(number, [])):
+            continue
+        sections = TIGHTENED.findall(body)
+        reasons = []
+        if not sections:
+            reasons.append(f"ticket #{number} has no '## Tightened' section")
+        elif any("replaces" in section for section in sections) and "(replaced by" not in body:
+            reasons.append(f"ticket #{number}'s '## Tightened' section says a line replaces another, and no line of the ticket says '(replaced by'")
+        if ROUTING_MARKER.search(body):
+            reasons.append(f"ticket #{number} holds a '(round <n>, routing' marker")
+        found += [f"{reason}, and no comment of #{number} has a first line '## #{number} history'" for reason in reasons]
+    return found
+
+
+def problems(pr_body: str | None, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None, bodies: dict | None = None) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete.
 
-    `tickets` maps each sub-issue of the slice issue to its comments, and `log` holds the comments of the decision log.
+    `tickets` maps each sub-issue of the slice issue to its comments, `bodies` maps it to its body, and `log` holds the comments of the decision log.
     A `pr_body` of None is the record of a slice with no pull request yet (`--slice`): rule 5 is skipped, and so is the
     missing closing register."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
@@ -354,6 +384,8 @@ def problems(pr_body: str | None, comments: list, slice_number: int | None = Non
         found += unposted_fix_prompts(comments, reviewed, checked=slice_number not in MERGED_BEFORE_MARKER_RULE)
     if slice_number not in MERGED_BEFORE_ID_RULE:
         found += unread_ids(comments, routed)
+    if slice_number not in MERGED_BEFORE_HISTORY_RULE:
+        found += unrecorded_histories(tickets or {}, bodies or {})
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
@@ -648,12 +680,14 @@ def check(repo: str, number: int, subject: str | None) -> str | None:
 
 
 def slice_record(repo: str, slice_number: int) -> tuple:
-    """(the comments of the slice issue, the slice number, its tickets' comments, the decision log's comments), as `problems` takes them."""
-    comments, tickets, log = gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), {}, []
+    """(the comments of the slice issue, the slice number, its tickets' comments, the decision log's comments, its tickets' bodies), as `problems` takes them."""
+    comments, tickets, log, bodies = gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), {}, [], {}
     if slice_number not in MERGED_BEFORE_DELEGATED_ENTRY:
-        tickets = {item["number"]: gh_pages(f"repos/{repo}/issues/{item['number']}/comments") for item in gh_pages(f"repos/{repo}/issues/{slice_number}/sub_issues")}
+        listing = gh_pages(f"repos/{repo}/issues/{slice_number}/sub_issues")
+        tickets = {item["number"]: gh_pages(f"repos/{repo}/issues/{item['number']}/comments") for item in listing}
+        bodies = {item["number"]: item.get("body") or "" for item in listing}
         log = gh_pages(f"repos/{repo}/issues/{DECISION_LOG}/comments")
-    return comments, slice_number, tickets, log
+    return comments, slice_number, tickets, log, bodies
 
 
 def slice_check(argv: list) -> int:

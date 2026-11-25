@@ -116,7 +116,7 @@ def test_the_drive_skill_runs_the_premise_sheet_before_it_posts_a_fix_prompt_and
     row = next(line for line in lines if line.startswith("| 6 |"))
     paragraph = next(line for line in lines if line.startswith("**Check the premise before you route.**"))
     assert "posted by `.claude/skills/drive/post_fix_prompt.sh`, before the builder starts; it posts nothing while `premises.py` or `fix_prompt_check.py --strict` refuses the prompt" in row
-    assert "`callers(\u2026)`" in paragraph and "`checked_by(\u2026)`" in paragraph and "premises.py <prompt file> <worktree>" in paragraph
+    assert "A fix prompt that says who calls a function or which test checks some code carries the line `premises.py` reads, in a form its docstring gives" in paragraph
     docstring = load("premises").__doc__
     assert "callers(<package.module.function>) = {<package.module:function>, ...}" in docstring
     assert "checked_by(<package.module.function>) = {<tests/file.py::test_name>, ...}" in docstring
