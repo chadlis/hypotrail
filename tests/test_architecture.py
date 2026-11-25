@@ -700,7 +700,7 @@ def recorder_sites(trees: dict) -> dict:
 
     A manifest path is the value of `attempt_manifest_path(...)`, or a name assigned from it in the same function. It is given to `artifacts.replace_bytes`
     itself, or to a function of `src/` outside `hypotrail.core.attempts` that passes the parameter it lands in to `artifacts.replace_bytes`: a function or
-    method the resolver names, or a method called on a name the same function assigns from a class of `src/` (`writes = _Writes(...)`, then
+    method the resolver names, or a method called on a name the same function assigns from a class of `src/` (`writes = Adapter(...)`, then
     `writes.replace(...)`). A function of `hypotrail.core.attempts` that writes the path it is given is the recorder's own write.
 
     Stated limit: part (b) follows a manifest path through a name assigned in the same function and through one function that hands it on; a path built
