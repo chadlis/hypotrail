@@ -5480,7 +5480,7 @@ def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
     assert found == []
 
 
-def test_the_opening_of_chapter_18_pairs_claude_code_with_its_hook_template_links_copilot_to_its_tools_and_template_sections_and_holds_neither_l2_6_nor_a_later_slice_phrase():
+def test_the_opening_of_chapter_18_pairs_claude_code_with_its_hook_template_links_copilot_to_its_tools_and_template_sections_and_names_neither_l2_6_nor_later_work_as_copilots():
     markup = re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1]
     lead = plain_text(markup)
     assert "Claude Code's is the UserPromptSubmit hook template" in lead
