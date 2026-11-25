@@ -5571,10 +5571,10 @@ def names(text: str, string: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(string)}(?![\w-])", text) is not None
 
 
-def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_holds_neither_copilot_instruction_place(page):
+def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_tracks_no_copilot_instructions_file_and_has_no_instructions_folder(page):
     path = client_items(page, INSTRUCTIONS_TABLE).get("path", "")
     assert path.startswith("clients/vscode/") and path.endswith(".md") and path in tracked_files("clients/vscode"), path
-    assert not (ROOT / DESTINATION).exists() and tracked_files(DESTINATION) == []
+    assert tracked_files(DESTINATION) == []  # a copy installed for the L2 demonstration is ignored, not tracked
     assert not (ROOT / ".github" / "instructions").exists() and tracked_files(".github/instructions") == []
 
 
@@ -5656,3 +5656,185 @@ def test_the_readme_section_on_the_vs_code_panel_follows_the_walked_path_and_giv
     assert places == sorted(places) and len(places) == 3
     title = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))["contributes"]["commands"][0]["title"]
     assert title in section
+
+
+# --- the L2 acceptance grid (docs/product/l2-acceptance.md) ---------------------------------------------------------------------
+
+L2_GRID = ROOT / "docs" / "product" / "l2-acceptance.md"
+ROADMAP = ROOT / "docs" / "product" / "ROADMAP.md"
+# The ids of the table "Acceptance" of chadlis/hypotrail#103.
+L2_CRITERIA = ("D1", "D2", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "S1", "P3B")
+CLIENT_TEST = re.compile(r'`(clients/vscode/test/[\w.-]+\.test\.ts)`: "([^"]+)"')
+PYTEST_NODE = re.compile(r"`(tests/[\w./-]+\.py::[\w\[\]-]+)`")
+MARKED_AS_PASSED = re.compile(r"\b(?:passed|pass|done)\b|[✓✔☑✅]", re.IGNORECASE)
+# The forms a check of the owner or of an engineer takes in the grid: the "Check" cell of a row of "Owner checks" or "Engineer
+# checks" is one of them exactly; the "Owner" cell of a row of "Criteria" is "none", or the owner's form followed by what is checked.
+OWNER_CHECK, ENGINEER_CHECK, NO_CHECK = "owner check, final review", "engineer check, open", "none"
+
+
+def grid_tables(text: str) -> dict:
+    """{heading: [cells of each body row]} of the Markdown tables of the grid, each under the `## ` heading before it."""
+    tables, heading = {}, None
+    for line in text.splitlines():
+        if line.startswith("## "):
+            heading = line[3:].strip()
+        elif line.startswith("|") and heading is not None:
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if all(set(cell) <= set("-: ") for cell in cells):
+                continue
+            tables.setdefault(heading, []).append(cells)
+    return {heading: rows[1:] for heading, rows in tables.items()}  # the first row of each table is its header
+
+
+def test_the_l2_grid_has_one_row_per_criterion_of_103_names_tests_that_exist_and_marks_no_owner_or_engineer_check_as_passed(collected):
+    """Stated limit: the test checks that a named test exists, not that it proves the row's criterion; for that, and for the
+    quotations of chadlis/hypotrail#103, the Spec reader reads the grid. The quotations of ROADMAP.md are checked here."""
+    text = L2_GRID.read_text(encoding="utf-8")
+    tables = grid_tables(text)
+    criteria, owner, engineer = tables.get("Criteria", []), tables.get("Owner checks", []), tables.get("Engineer checks", [])
+    ids = [row[0].strip("*`") for row in criteria]
+    assert sorted(ids) == sorted(L2_CRITERIA), (sorted(set(ids) - set(L2_CRITERIA)), sorted(set(L2_CRITERIA) - set(ids)))
+    for row in criteria:
+        identifier, _, automated, owner_check = row
+        nodes, client_tests = PYTEST_NODE.findall(automated), CLIENT_TEST.findall(automated)
+        for node in nodes:
+            assert node_is_collected(node, collected), (identifier, node)
+        for path, title in client_tests:
+            assert (ROOT / path).is_file() and title in (ROOT / path).read_text(encoding="utf-8"), (identifier, path, title)
+        assert nodes or client_tests or "owner check, final review" in owner_check, identifier
+        assert not MARKED_AS_PASSED.search(owner_check), (identifier, owner_check)
+        assert owner_check == NO_CHECK or owner_check.startswith(f"{OWNER_CHECK}: "), (identifier, owner_check)
+    assert owner and engineer
+    for row in owner + engineer:
+        for cell in row:
+            assert not MARKED_AS_PASSED.search(cell), cell
+    for row in owner:
+        assert row[-1] == OWNER_CHECK, row
+    for row in engineer:
+        assert row[-1] == ENGINEER_CHECK, row
+    roadmap = " ".join(ROADMAP.read_text(encoding="utf-8").split())
+    quoted = [row[0].strip('"') for row in engineer if "docs/product/ROADMAP.md" in row[1]]
+    assert len(quoted) == 5
+    for sentence in quoted:
+        assert sentence in roadmap, sentence
+    assert "built, not demonstrated" in text and "P2A" in text
+
+
+# The two sentences of chadlis/hypotrail#103, "End state", that the grid quotes, each as a Markdown block quotation of its own.
+END_STATE_SENTENCES = (
+    'The owner\'s demonstration lifts "built, not demonstrated", and the owner lifts it.',
+    '"Usable" waits for an engineer who did not implement it.',
+)
+
+
+def test_the_l2_grid_quotes_each_end_state_sentence_of_103_whole_as_a_block_quotation_of_its_own():
+    quotations = [line[2:] for line in L2_GRID.read_text(encoding="utf-8").splitlines() if line.startswith("> ")]
+    assert quotations == list(END_STATE_SENTENCES), quotations
+
+
+# --- the L2 demonstration (chapter 19): the script's table, its section's prose, and the links to the L2 grid ---------------------
+
+DEMO_CHAPTER = "19-l2-demonstration.html"
+DEMO_TABLE = "demo-edits"
+DEMO_SECTION = '<p class="sub2" id="demo-edits-section">'
+DEMO_VALUE_ATTRIBUTES = ("data-path", "data-day", "data-partition", "data-amount", "data-columns", "data-label")
+
+
+def demo_rows(page) -> dict:
+    """{data-row: the data attributes of that row} of the table of chapter 19 that the script defines."""
+    return {attrs["data-row"]: attrs for attrs in client_rows(page, DEMO_TABLE)}
+
+
+def bike_partition_of_each_day() -> dict:
+    from hypotrail.ml.memberships import derive_memberships
+
+    return {row["date"]: row["partition"] for row in derive_memberships(ROOT / "examples" / "bike_day")}
+
+
+def test_the_demo_edits_table_names_the_tracked_script_and_each_edit_row_equals_the_script_and_the_partition_of_its_day(page):
+    from _demo_helpers import SCRIPT, script_values
+
+    values, rows, partitions = script_values(), demo_rows(page), bike_partition_of_each_day()
+    assert set(rows) == {"script", *values["EDITS"]}, sorted(rows)
+    path = rows["script"]["data-path"]
+    assert tracked_files(path) == [path] and (ROOT / path).resolve() == SCRIPT
+    for edit, day in values["EDITS"].items():
+        row = rows[edit]
+        assert row["data-day"] == day, edit
+        assert row["data-amount"] == str(values["AMOUNT"]), edit
+        assert tuple(row["data-columns"].split()) == values["COLUMNS"], edit
+        assert row["data-partition"] == partitions[day], edit
+    assert {rows[edit]["data-label"] for edit in values["EDITS"]} == {"evidence rescored", "result changed"}
+
+
+def test_the_prose_of_the_demo_edits_section_restates_no_value_of_its_table(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{DEMO_TABLE}"') == 1 and chapter.count(DEMO_SECTION) == 1
+    section = chapter.split(DEMO_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    values = {value for row in client_rows(page, DEMO_TABLE) for name, value in row.items() if name in DEMO_VALUE_ATTRIBUTES}
+    assert f'id="{DEMO_TABLE}"' in section and prose and len(values) >= 8
+    for value in sorted(values):
+        assert not names(prose, html.unescape(value)), value
+
+
+def test_the_handbook_links_the_l2_grid_from_chapter_19_and_from_chapter_16():
+    target = "../product/l2-acceptance.md"
+    assert (HANDBOOK / target).resolve() == (ROOT / "docs" / "product" / "l2-acceptance.md").resolve()
+    for name in (DEMO_CHAPTER, "16-acceptance-grid.html"):
+        path = HANDBOOK / "chapters" / name
+        assert path.is_file() and f'href="{target}"' in chapter_text(name), name
+
+
+# --- the README for the L2 demonstration: its status, where the ids of assess come from, and where to look --------------------------
+
+
+def readme_sentences(text: str) -> list:
+    """The sentences of a Markdown text, its lines joined: a sentence ends at a full stop that a space or the end follows."""
+    return [sentence for sentence in re.split(r"(?<=\.)\s+", " ".join(text.split())) if sentence]
+
+
+def test_the_readme_status_says_in_a_sentence_that_names_l2_that_it_is_built_not_demonstrated():
+    sentences = [sentence for sentence in readme_sentences(readme_status()) if "built, not demonstrated" in sentence]
+    assert sentences and all(re.search(r"\bL2\b", sentence) for sentence in sentences), sentences
+
+
+def test_one_sentence_after_the_readmes_first_code_block_gives_the_route_of_the_observation_set_id_and_of_the_references_id():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    after = readme.split("```", 2)[2]
+    route = ("`status --since 0 --json`", "`writes_since`", "`written`", "`observation_set`", "`status --json`")
+    found = [sentence for sentence in readme_sentences(after) if all(name in sentence for name in route)]
+    assert len(found) == 1, found
+    [sentence] = found
+    for name in route:
+        assert name in sentence, name
+    assert sentence.index("`status --json`") > sentence.index("`observation_set`") and "References ID" in sentence[sentence.index("`observation_set`"):]
+
+
+def test_the_ids_found_by_the_readmes_route_are_accepted_by_assess(tmp_path):
+    from _study_helpers import run_json
+
+    study = tmp_path / "study"
+    assert run_json("init", "--workload", "bike_day", "--study", study)[0] == 0
+    code, payload, err = run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
+    assert code == 0, (payload, err)
+    _, since, _ = run_json("status", "--study", study, "--since", "0")
+    [observations] = [
+        written["id"]
+        for entry in since["writes_since"]
+        if entry["command"] == "run ml" and entry["phase"] == "end"
+        for written in entry["written"]
+        if written["kind"] == "observation_set"
+    ] or [None]
+    _, status, _ = run_json("status", "--study", study)
+    [references] = [entry["artifact_id"] for entry in status["revisions"][-1]["artifacts"] if entry["role"] == "references"]
+    code, payload, err = run_json("assess", "--study", study, "--observations", observations, "--scorer", "regression_mae_v1", "--references", references)
+    assert code == 0, (payload, err)
+    assert payload["assessment"]["observation_set_id"] == observations
+
+
+def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_tracked_path(page):
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    for path in ("docs/product/l2-acceptance.md", demo_rows(page).get("script", {}).get("data-path", "<no row>")):
+        assert path in where, path
+        assert tracked_files(path) == [path], path

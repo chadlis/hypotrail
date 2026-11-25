@@ -249,3 +249,16 @@ def test_the_glossary_entry_pending_decision_says_it_is_derived_never_stored_and
         assert part in text, (part, text)
     [avoid] = [line for line in entry if line.startswith("_Avoid_")]
     assert "open decision" in avoid and "pending choice" in avoid, avoid
+
+
+# --- what the L2 demonstration leaves in a checkout: a Study under runs/ and an installed Copilot instructions file -------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "ignored"),
+    [("runs/bike/study.json", True), (".github/copilot-instructions.md", True), (".github/workflows/tests.yml", False)],
+)
+def test_gitignore_ignores_a_study_under_runs_and_the_installed_copilot_instructions_and_not_the_workflow(path, ignored):
+    exit_code = subprocess.run(["git", "check-ignore", "-q", path], cwd=ROOT).returncode
+    assert exit_code == (0 if ignored else 1), (path, exit_code)
+    assert _git_ls_files(["runs/"]) == []

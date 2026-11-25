@@ -5,6 +5,7 @@ that writes, and no model is called. The handbook rows are in `tests/test_handbo
 """
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -142,9 +143,14 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
     assert "`.github/` holds no such file" in line
 
 
-def test_l2_1_writes_no_agent_instruction():
-    # #111 Tightened C: as at `main` 607740c, neither exists
-    assert not (ROOT / ".github" / "copilot-instructions.md").exists()
+def test_l2_1_tracks_no_agent_instruction():
+    # `.claude/settings.json` is read on disk; the Copilot instructions file is read in the tracked tree.
+    # What #111 Tightened C states, as at `main` 607740c, is "neither exists". The tracked-tree read is #205's, so that the
+    # uncommitted install of the L2 demonstration, which .gitignore keeps out, does not fail this test.
+    # The settings half therefore fails on a `UserPromptSubmit` hook installed in `.claude/settings.json`. The L2 demonstration
+    # installs the hook in `.claude/settings.local.json` (chapter 19), which this test does not read.
+    tracked = subprocess.run(["git", "ls-files", "--", ".github/copilot-instructions.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    assert tracked == ""
     settings = ROOT / ".claude" / "settings.json"
     assert not settings.exists() or "UserPromptSubmit" not in settings.read_text(encoding="utf-8")
 
