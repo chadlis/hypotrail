@@ -276,6 +276,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = commands.add_parser("status", help="show the local state of a Study: its Attempts and their artifacts (read only)")
     status.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to inspect")
+    status.add_argument(
+        "--since",
+        type=_read_sequence_value,
+        metavar="N",
+        help="a write sequence, judged as --read-sequence is: the object also holds `writes_since`, the write-journal entries after it; "
+        "a value above the Study's is refused (WRITE_SEQUENCE_AHEAD)",
+    )
     status.add_argument("--json", action="store_true", help="print one JSON object")
     status.set_defaults(handler=_status)
 
@@ -687,7 +694,7 @@ def _report_command(args) -> int:
 def _status(args) -> int:
     from hypotrail.core import state
 
-    report = state.status(args.study)
+    report = state.status(args.study, since=args.since)
     lines = [f"Study {report['study']['study_id']} ({report['study']['workload']}); a writer is {'active' if report['writer_alive'] else 'not active'}"]
     exposures = report["exposures"]
     lines.append(
@@ -703,6 +710,11 @@ def _status(args) -> int:
             f"{len(attempt['artifacts'])} artifacts"
             + (" (no live writer: `recover` can record it as interrupted)" if attempt["recoverable"] else "")
         )
+    if args.since is not None:
+        writes = report["writes_since"]
+        lines.append(f"{len(writes)} write-journal {'entry' if len(writes) == 1 else 'entries'} after {args.since}, up to {report['write_sequence']}:")
+        for position, entry in enumerate(writes, args.since + 1):
+            lines.append(f"  {position} {entry['phase']} {entry['command']}" + (f" ({entry['outcome']})" if "outcome" in entry else ""))
     _emit({"ok": True, **report}, args.json, "\n".join(lines))
     return EXIT_OK
 

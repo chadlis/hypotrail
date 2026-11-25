@@ -35,7 +35,7 @@ uv run python -m hypotrail init --study runs/chinook --new-revision    # after a
 uv run python -m hypotrail status --study runs/bike --json                 # the freeze record, the Exposure journal, the check_informed marks, the write sequence, and the decisions with whether each still applies
 ```
 
-Every command that writes to an existing Study takes `--read-sequence N`, the write sequence its author read (`write_sequence` of `status --json`): when the Study was written to since, the command is refused with `STUDY_CHANGED` and writes nothing; not given, nothing is checked. `init` that creates a Study takes none (it is refused), and `report` compares it only when its page records an Exposure. The contract between a client and the CLI is [ADR 0004](docs/adr/0004-panel-cli-contract.md).
+Every command that writes to an existing Study takes `--read-sequence N`, the write sequence its author read (`write_sequence` of `status --json`): when the Study was written to since, the command is refused with `STUDY_CHANGED` and writes nothing; not given, nothing is checked. `init` that creates a Study takes none (it is refused), and `report` compares it only when its page records an Exposure. `status --study runs/bike --since N --json` gives the same object as `status --json` plus `writes_since`, the write-journal entries after write sequence N; a value above the Study's is refused with `WRITE_SEQUENCE_AHEAD`. The contract between a client and the CLI is [ADR 0004](docs/adr/0004-panel-cli-contract.md).
 
 `decide` records one decision in a Study and requires `--read-sequence`: `decide --study runs/bike --question TEXT --option TEXT --author human --artifact ASSESSMENT_ID --request-id decide-a --read-sequence N` (`--author human|proxy`, `--artifact` repeatable, `--source TEXT` optional). It is not part of the path above: that path is the one walked for T24.
 
@@ -55,6 +55,10 @@ The VS Code client shows a Study's pending decisions with their evidence, includ
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
+## Give Claude Code the Study at every prompt
+
+`clients/claude-code/` holds a template of a Claude Code `UserPromptSubmit` hook: at every prompt it reads one Study with `status --since 0 --json` and adds, as context, its write sequence, its pending decisions and its decisions, with the rule for an agent (pass the write sequence read as `--read-sequence`; record a rule-based answer with `decide --author proxy` and a `--source`). On a checkout installed with `uv sync`, copy `clients/claude-code/settings-fragment.json` into `.claude/settings.local.json` and set its `--study` to the Study's folder, one entry per Study. It writes and keeps nothing; this repository's `.claude/settings.json` does not register it. The handbook's chapter on the client gives the detail.
+
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
@@ -62,6 +66,7 @@ Then open the checkout, or a Study's folder, and run the command "Hypotrail: Ope
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge and the Study panel).
+- [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.

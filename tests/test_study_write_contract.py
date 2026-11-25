@@ -316,7 +316,8 @@ def test_the_receiver_check_accepts_a_method_called_through_its_class_with_the_i
 def test_the_read_sequence_value_of_the_command_line_is_used_as_a_type_argument_only_and_never_called():
     """The check accepts `type=` by keyword name on any call. `_read_sequence_value` passed as `type=` to a call other than argparse's `add_argument` is a stated limit."""
     assert read_sequence_value_violations(SOURCE) == []
-    assert read_sequence_value_uses(SOURCE) == ["hypotrail.cli:_add_read_sequence"]  # a check that finds no use would pass as well
+    # a check that finds no use would pass as well; `build_parser` gives it to `status --since` (chadlis/hypotrail#195: "N is judged by the rule of `--read-sequence`")
+    assert read_sequence_value_uses(SOURCE) == ["hypotrail.cli:_add_read_sequence", "hypotrail.cli:build_parser"]
 
 
 def test_the_read_sequence_value_check_finds_a_direct_call_a_copy_and_a_use_from_another_module_and_accepts_the_type_argument(tmp_path):
