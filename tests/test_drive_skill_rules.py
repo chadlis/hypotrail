@@ -26,8 +26,8 @@ def test_the_builder_treats_a_refusal_it_cannot_attribute_as_refusing_the_change
     assert "stop and hand back with the refusal text" in after and "make the change with no other tool" in after
 
 
-# The ceiling is the skill's count when it was last lowered; raising it is a change of step 10's row too.
-WORD_CEILING = 14_775
+# The ceiling is the skill's count when the ceiling was last set (D-120); changing it is a change of step 10's row too.
+WORD_CEILING = 14_854
 
 
 def c_locale_word_count(text: str) -> int:

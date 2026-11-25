@@ -9,13 +9,15 @@ for the slice issue of the pull request:
 
 1. the state comment's round count (`Review rounds used: N of 5`) equals the number of rounds that have a review of record;
 2. each round that has a review of record has a "round <r>: routing" comment;
-3. when a routing comment of round 5 or later routes a row as documentation, each axis of that row has a
-   "round <r>: <axis> verification" comment (the documentation path of the skill);
+3. when a routing comment of round 5 or later routes a row as documentation, or a routing comment of any round routes a
+   row whose row cell says "wording", each axis of that row has a "round <r>: <axis> verification" comment (the
+   documentation and wording paths of the skill); the wording part skips the slices `MERGED_BEFORE_WORDING_PATH` lists,
+   L2.2's (chadlis/hypotrail#194) the last of them;
 4. a "closing register" comment exists and names every finding ID that a routing table assigned, and leaves no row routed
-   `behaviour, no line` with a status that is not settled (refuted, out of scope, a duplicate, fixed or withdrawn): a finding
+   `behaviour, no line` with a status that is not settled (refuted, out of scope, a duplicate, fixed, withdrawn or a stated limit): a finding
    about what a user sees or can do that no live line covers is settled by the rendered panel, never by a reading of words;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
-   fixed has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
+   fixed, and each row whose status is a stated limit, has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
    when there is one, the routing row otherwise. A fix prompt or a report settles no row;
 6. when a requirement has row-1 findings in two rounds, the routing comment of the second of those rounds, or of a later
    round, has a line "Structural option for <requirement>: ..." or "Gate for <requirement>: D-nnn" (D-061 on
@@ -24,7 +26,7 @@ for the slice issue of the pull request:
    or a gate decision is recorded."). The requirement of a row is its requirement cell up to its first ": " (a colon
    followed by a space), with the word "Tightened" dropped and whitespace collapsed, so "#142 Tightened B" and "#142 B"
    are one requirement; line numbers and URLs are kept whole. A row counts for the round of the routing comment that
-   lists it when its row cell starts with "1" and its status there is not settled. A row carried open into a later
+   lists it when its row cell starts with "1", holds neither "PR body" nor "wording", and its status there is not settled. A row carried open into a later
    round's table counts for that round too: a blocker a fix left open is a blocker in the next round. A clearing line
    has text after its ": ", and a gate line names a decision. The rule judges every slice record, one merged before it
    was added included: F1's record (chadlis/hypotrail#121) fails it on "#142 B" and on "`slice-builder.md:11`".
@@ -135,7 +137,7 @@ def rows_of(comment: dict) -> list:
     return rows
 
 
-SETTLED = r"(refuted|out of scope|duplicate|fixed|withdrawn)"
+SETTLED = r"(refuted|out of scope|duplicate|fixed|withdrawn|stated limit)"
 
 
 def latest_statuses(comments: list) -> dict:
@@ -172,7 +174,7 @@ def unconverged(routed: dict) -> list:
     rounds = {}
     for number, comment in routed.items():
         for cells in rows_of(comment):
-            if cells[4].strip().startswith("1") and not re.match(rf"[\W_]*{SETTLED}", cells[5], re.IGNORECASE):
+            if cells[4].strip().startswith("1") and not re.search(r"PR body|wording", cells[4]) and not re.match(rf"[\W_]*{SETTLED}", cells[5], re.IGNORECASE):
                 rounds.setdefault(requirement_key(cells[3]), set()).add(number)
     cleared = {}
     for number, comment in routed.items():
@@ -204,6 +206,7 @@ FIX_PROMPT = re.compile(r"\bround (\d+): fix prompt(?: \(to `?slice-builder`?\)|
 MERGED_BEFORE_FIX_PROMPT_RULE = MERGED_BEFORE_DELEGATED_ENTRY | {159}
 MERGED_BEFORE_MARKER_RULE = MERGED_BEFORE_FIX_PROMPT_RULE | {166, 176, 186}
 MERGED_BEFORE_ID_RULE = MERGED_BEFORE_MARKER_RULE
+MERGED_BEFORE_WORDING_PATH = MERGED_BEFORE_MARKER_RULE | {194}
 TRIGGER = "This is a review fix"
 STRICT_PASSED = re.compile(r"^Fix-prompt check \(strict\): 0 warning\(s\)", re.MULTILINE)
 VERIFICATION = re.compile(r"\bround (\d+)\b.*\b(?:Standards|Spec)\b.*\bverification|\bround (\d+)\b.*\bverification.*\b(?:Standards|Spec)\b", re.IGNORECASE)
@@ -324,16 +327,18 @@ def problems(pr_body: str | None, comments: list, slice_number: int | None = Non
             if "behaviour, no line" in cells[4]:
                 behaviours += FINDING_ID.findall(cells[0])
             axes = {w for w in ("Standards", "Spec") if w in cells[2]} or ({"Standards", "Spec"} if "both" in cells[2].lower() else set())
-            if number >= ROUND_LIMIT and "documentation" in cells[4].lower():
+            wording = slice_number not in MERGED_BEFORE_WORDING_PATH and "wording" in cells[4].lower()
+            if wording or (number >= ROUND_LIMIT and "documentation" in cells[4].lower()):
                 for axis in sorted(axes):
                     pattern = rf"\bround {number}\b.*\b{axis}\b.*\bverification|\bround {number}\b.*\bverification.*\b{axis}\b"
                     if not any(re.search(pattern, first_line(c), re.IGNORECASE) for c in comments):
                         found.append(f"round {number}, documentation path ({cells[0]}): no 'round {number}: {axis} verification' comment")
             promised = pr_body is not None and re.search(r"\bPR body\b", " ".join(cells[3:]))
-            if promised:
-                for finding in FINDING_ID.findall(cells[0]):
-                    if not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE) and finding not in pr_body:
-                        found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
+            for finding in FINDING_ID.findall(cells[0]) if pr_body is not None else ():
+                # A stated limit settles the repeat count, and is still a line the PR body owes.
+                limit = re.match(r"[\W_]*stated limit", statuses[finding], re.IGNORECASE)
+                if (limit or (promised and not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE))) and finding not in pr_body:
+                    found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
 
     found += unconverged(routed)
     if slice_number not in MERGED_BEFORE_ROUND_LINES:
