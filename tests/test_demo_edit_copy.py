@@ -179,7 +179,18 @@ def _copy_without_the_data_file(tmp_path: Path) -> tuple:
     return copy, "data/day.csv"
 
 
-MISSING_FILE_CASES = {"a missing folder": _missing_folder, "a folder without data/day.csv": _copy_without_the_data_file}
+def _copy_without_the_lock(tmp_path: Path) -> tuple:
+    copy = tmp_path / "examples"
+    shutil.copytree(EXAMPLES, copy)
+    (copy / "bike_day" / "data-sources.lock.json").unlink()
+    return copy, "data-sources.lock.json"
+
+
+MISSING_FILE_CASES = {
+    "a missing folder": _missing_folder,
+    "a folder without data/day.csv": _copy_without_the_data_file,
+    "a folder without data-sources.lock.json": _copy_without_the_lock,
+}
 
 
 def digests_under(folder: Path) -> dict:
