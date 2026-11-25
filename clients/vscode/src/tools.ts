@@ -40,7 +40,8 @@ function noStudy(tool: string): string {
 }
 
 // The Study a call of `tool` takes, or the text of its refusal. A given folder is compared, once resolved, with the
-// folders the walk finds; a folder that is not absolute is never one of them.
+// folders the walk finds; a folder that is not absolute is never one of them. Its branches for an absent `study` serve
+// only the read, because the write refuses an absent `study` before it calls this.
 async function studyOf(given: unknown, tool: string): Promise<{ study: string } | { refusal: string }> {
   const found = await findStudies(workspaceFolders());
   if (given !== undefined) {
@@ -105,10 +106,10 @@ function proxyRefusal(input: DecideInput): string | undefined {
 }
 
 // What the write refuses before any start, in its confirmation and in its invocation alike, in this order: an absent
-// `study`, the bridge's own checks of the inputs Copilot gives, a proxy Decision with no source, and a `study` that the
-// walk does not find. Otherwise the Study it would write to.
+// `study`, which is any `study` that is not a non-empty string, the bridge's own checks of the inputs Copilot gives, a
+// proxy Decision with no source, and a `study` that the walk does not find. Otherwise the Study it would write to.
 async function checked(input: DecideInput): Promise<{ study: string } | { refusal: string }> {
-  if (input.study === undefined) return { refusal: await noStudyGiven() };
+  if (typeof input.study !== "string" || input.study === "") return { refusal: await noStudyGiven() };
   const missing = missingInputs({ ...input, source: sourceOf(input) }).filter((field) => field !== "request_id");
   if (missing.length > 0) return { refusal: notSent(DECIDE, missing) };
   const refusal = proxyRefusal(input);

@@ -84,16 +84,20 @@ test("with author proxy and no source, prepareInvocation refuses, naming source,
   assert.equal(calls.length, 0);
 });
 
-// A write with no `study` that also lacks another input: the absent `study` is what it is refused for.
-const STUDY_AND_MORE_ABSENT: [string, Record<string, unknown>][] = [
-  ["no study and no question", { question: undefined }],
-  ["author proxy, no study and no source", { author: "proxy" }],
+// A write whose `study` is absent, that is not a non-empty string, and that also lacks another input, in a workspace
+// of the Studies named: the absent `study` is what it is refused for.
+const STUDY_AND_MORE_ABSENT: [string, string[], Record<string, unknown>][] = [
+  ["no study and no question", ["a", "b"], { question: undefined }],
+  ["author proxy, no study and no source", ["a", "b"], { author: "proxy" }],
+  ["an empty study and no question", ["a", "b"], { study: "", question: undefined }],
+  ["a null study and no question", ["a", "b"], { study: null, question: undefined }],
+  ["one Study found, no study and no question", ["only"], { question: undefined }],
 ];
 
 for (const [how, call] of CALLERS) {
-  for (const [name, change] of STUDY_AND_MORE_ABSENT) {
+  for (const [name, names, change] of STUDY_AND_MORE_ABSENT) {
     test(`the write ${how} with ${name} is refused with the list of the Studies found, with no start`, async (t) => {
-      const { studies } = workspace(t, ["a", "b"]);
+      const { studies } = workspace(t, names);
       const calls = recorder(t, keptAnswer("decide-success"));
       const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, ...change };
       const text = await call(WRITE_TOOL, input);
