@@ -289,9 +289,26 @@ def test_a_wording_row_in_round_2_needs_no_structural_option_line():
     assert problems(record) == []
 
 
-def test_a_row_with_the_status_stated_limit_counts_as_settled():
+def stated_limit_record() -> list:
+    """Two rounds on one requirement: round 2 carries B1-P-01 as a stated limit, and the closing register keeps it one."""
     carried = '| B1-P-01 | 1 | Spec | #142 B: "a duplicate key is accepted" | 1 | stated limit | x |'
-    assert problems(two_round_record('#142 B: "a duplicate key is accepted"', carried)) == []
+    record = two_round_record('#142 B: "a duplicate key is accepted"', carried)
+    record[-1] = comment("## R9: closing register", "B1-P-01 stated limit.\n")
+    return record
+
+
+def test_a_row_with_the_status_stated_limit_counts_as_settled():
+    assert problems(stated_limit_record(), body="Slice R9 (#50).\n\nB1-P-01: a stated limit.\n") == []
+
+
+def test_a_stated_limit_row_whose_id_the_pr_body_does_not_name_is_refused():
+    assert problems(stated_limit_record(), body="Slice R9 (#50).\n") == ["B1-P-01 promises a line in the PR body, and the PR body does not name it"]
+
+
+def test_a_wording_row_in_round_2_with_no_verification_comment_is_refused():
+    rows = '| B2-P-01 | 2 | Spec | #142 Tightened B: "plus one accepted call" | 1 (wording: test name) | open | x |'
+    record = two_round_record('#142 B: "a duplicate key is accepted"', rows)
+    assert problems(record) == ["round 2, documentation path (B2-P-01): no 'round 2: Spec verification' comment"]
 
 
 def test_a_pr_body_row_carried_open_in_two_rounds_does_not_count_as_a_repeat():

@@ -17,7 +17,7 @@ for the slice issue of the pull request:
    `behaviour, no line` with a status that is not settled (refuted, out of scope, a duplicate, fixed, withdrawn or a stated limit): a finding
    about what a user sees or can do that no live line covers is settled by the rendered panel, never by a reading of words;
 5. each routing row that promises a line in the PR body ("PR body") and is neither refuted, out of scope, a duplicate nor
-   fixed has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
+   fixed, and each row whose status is a stated limit, has its ID in the PR body. The status of an ID is the one of the latest routing or closing register comment that lists it: the closing register
    when there is one, the routing row otherwise. A fix prompt or a report settles no row;
 6. when a requirement has row-1 findings in two rounds, the routing comment of the second of those rounds, or of a later
    round, has a line "Structural option for <requirement>: ..." or "Gate for <requirement>: D-nnn" (D-061 on
@@ -334,10 +334,11 @@ def problems(pr_body: str | None, comments: list, slice_number: int | None = Non
                     if not any(re.search(pattern, first_line(c), re.IGNORECASE) for c in comments):
                         found.append(f"round {number}, documentation path ({cells[0]}): no 'round {number}: {axis} verification' comment")
             promised = pr_body is not None and re.search(r"\bPR body\b", " ".join(cells[3:]))
-            if promised:
-                for finding in FINDING_ID.findall(cells[0]):
-                    if not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE) and finding not in pr_body:
-                        found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
+            for finding in FINDING_ID.findall(cells[0]) if pr_body is not None else ():
+                # A stated limit settles the repeat count, and is still a line the PR body owes.
+                limit = re.match(r"[\W_]*stated limit", statuses[finding], re.IGNORECASE)
+                if (limit or (promised and not re.match(rf"[\W_]*{SETTLED}", statuses[finding], re.IGNORECASE))) and finding not in pr_body:
+                    found.append(f"{finding} promises a line in the PR body, and the PR body does not name it")
 
     found += unconverged(routed)
     if slice_number not in MERGED_BEFORE_ROUND_LINES:

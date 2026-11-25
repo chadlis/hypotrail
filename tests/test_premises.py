@@ -111,13 +111,15 @@ def test_the_round_1_prompt_of_the_second_slice_that_says_who_calls_the_guard_is
     assert "So `read_sequence_fault` may be called from `core/study_write.py`" in result.stdout
 
 
-def test_the_drive_skill_runs_the_premise_sheet_before_it_posts_a_fix_prompt_and_says_how_a_callers_line_is_written():
+def test_the_drive_skill_runs_the_premise_sheet_before_it_posts_a_fix_prompt_and_names_its_two_lines_whose_forms_the_script_docstring_gives():
     lines = (ROOT / ".claude/skills/drive/SKILL.md").read_text().splitlines()
     row = next(line for line in lines if line.startswith("| 6 |"))
     paragraph = next(line for line in lines if line.startswith("**Check the premise before you route.**"))
     assert "posted by `.claude/skills/drive/post_fix_prompt.sh`, before the builder starts; it posts nothing while `premises.py` or `fix_prompt_check.py --strict` refuses the prompt" in row
-    assert "`callers(<package.module.function>) = {<package.module:function>, \u2026}`" in paragraph and "premises.py <prompt file> <worktree>" in paragraph
-    assert "`checked_by(<package.module.function>) = {<tests/file.py::test_name>, \u2026}`" in paragraph
+    assert "`callers(\u2026)`" in paragraph and "`checked_by(\u2026)`" in paragraph and "premises.py <prompt file> <worktree>" in paragraph
+    docstring = load("premises").__doc__
+    assert "callers(<package.module.function>) = {<package.module:function>, ...}" in docstring
+    assert "checked_by(<package.module.function>) = {<tests/file.py::test_name>, ...}" in docstring
 
 
 REACHED = "pkg.core.reached"
