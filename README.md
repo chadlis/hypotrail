@@ -61,6 +61,10 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 
 `clients/claude-code/` holds a template of a Claude Code `UserPromptSubmit` hook: at every prompt it reads one Study with `status --since 0 --json` and adds, as context, its write sequence, its pending decisions and its decisions, with the rule for an agent (pass the write sequence read as `--read-sequence`; record a rule-based answer with `decide --author proxy` and a `--source`). On a checkout installed with `uv sync`, copy `clients/claude-code/settings-fragment.json` into `.claude/settings.local.json` and set its `--study` to the Study's folder, one entry per Study. It writes and keeps nothing; this repository's `.claude/settings.json` does not register it. The handbook's chapter on the client gives the detail.
 
+## Give Copilot the rule for a Study
+
+`clients/vscode/copilot-instructions.md` is a template of Copilot's instructions file. It tells Copilot chat to read the Study with `hypotrail_read_study` at the start of each turn, to pass the `write_sequence` it read as `read_sequence` on every write, to record a Decision only through `hypotrail_decide`, and to record an answer chosen by a stated rule with `author` `proxy` and a `source` that names the rule. Copy it to `.github/copilot-instructions.md` in the workspace that holds the Study; this repository's own `.github/` holds none. The handbook's chapter on the client gives the detail.
+
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
@@ -68,6 +72,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools).
+- [`clients/vscode/copilot-instructions.md`](clients/vscode/copilot-instructions.md): the template of Copilot's instructions file, copied to `.github/copilot-instructions.md` in a workspace that holds a Study.
 - [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.

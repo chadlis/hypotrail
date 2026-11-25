@@ -127,6 +127,21 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
     assert any(all(name in line for name in ("`UserPromptSubmit`", "`--read-sequence`", "--author proxy`")) for line in lines), lines
 
 
+COPILOT_RULE_SENTENCE = "The template states each of the four requirements in its own words"
+NARROWED_COPILOT_SENTENCE = "L2.6 still writes it for Copilot."
+
+
+def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_written_for_copilot_quoting_its_ticket_and_the_line_it_narrows():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "`.github/copilot-instructions.md`" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "Copilot" in line
+    assert f'"{COPILOT_RULE_SENTENCE}" (chadlis/hypotrail#202, B2)' in line
+    assert f'the earlier line it narrows: "{NARROWED_COPILOT_SENTENCE}"' in line
+    assert "`.github/` holds no such file" in line
+
+
 def test_l2_1_writes_no_agent_instruction():
     # #111 Tightened C: as at `main` 607740c, neither exists
     assert not (ROOT / ".github" / "copilot-instructions.md").exists()

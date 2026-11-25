@@ -5480,9 +5480,13 @@ def test_the_prose_of_the_hook_section_restates_no_row_of_its_table(page):
     assert found == []
 
 
-def test_the_opening_of_chapter_18_pairs_claude_code_with_the_userpromptsubmit_hook_template_and_copilot_with_l2_6_and_holds_no_later_slice_phrase():
-    lead = plain_text(re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1])
-    assert "Claude Code's is the UserPromptSubmit hook template" in lead and "Copilot's is L2.6" in lead
+def test_the_opening_of_chapter_18_pairs_claude_code_with_its_hook_template_links_copilot_to_its_tools_and_template_sections_and_holds_neither_l2_6_nor_later_slice():
+    markup = re.search(r'<p class="lead">(.*?)</p>', chapter_text(CLIENT_CHAPTER), re.S)[1]
+    lead = plain_text(markup)
+    assert "Claude Code's is the UserPromptSubmit hook template" in lead
+    assert 'href="#copilot-tools-section"' in markup
+    assert 'href="#copilot-instructions-section"' in markup
+    assert "Copilot's is L2.6" not in lead
     assert "later slice" not in lead
 
 
@@ -5543,6 +5547,96 @@ def test_the_readme_names_the_two_copilot_tools():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for name in ("hypotrail_read_study", "hypotrail_decide"):
         assert re.search(rf"`{name}`", readme), name
+
+
+# --- the template of Copilot's instructions file (chapter 18): where it lives and what it names ---------------------------------------
+
+INSTRUCTIONS_TABLE = "copilot-instructions"
+INSTRUCTIONS_SECTION = '<p class="sub2" id="copilot-instructions-section">'
+DESTINATION = ".github/copilot-instructions.md"
+
+
+def tracked_files(*pathspecs: str) -> list:
+    listing = subprocess.run(["git", "ls-files", "-z", "--", *pathspecs], cwd=ROOT, capture_output=True, text=True, check=True)
+    return sorted(name for name in listing.stdout.split("\0") if name)
+
+
+def instructions_template(page) -> str:
+    """The text of the template, read at the path that chapter 18's table gives."""
+    return (ROOT / client_items(page, INSTRUCTIONS_TABLE)["path"]).read_text(encoding="utf-8")
+
+
+def names(text: str, string: str) -> bool:
+    """Whether `text` holds `string` as a name of its own: `decide` inside `hypotrail_decide` or `--read-sequence` does not count."""
+    return re.search(rf"(?<![\w-]){re.escape(string)}(?![\w-])", text) is not None
+
+
+def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_holds_neither_copilot_instruction_place(page):
+    path = client_items(page, INSTRUCTIONS_TABLE).get("path", "")
+    assert path.startswith("clients/vscode/") and path.endswith(".md") and path in tracked_files("clients/vscode"), path
+    assert not (ROOT / DESTINATION).exists() and tracked_files(DESTINATION) == []
+    assert not (ROOT / ".github" / "instructions").exists() and tracked_files(".github/instructions") == []
+
+
+def test_the_table_of_the_template_gives_the_one_tracked_markdown_file_of_the_client_and_the_destination(page):
+    rows = client_items(page, INSTRUCTIONS_TABLE)
+    assert set(rows) == {"path", "destination"}, rows
+    assert [rows["path"]] == [name for name in tracked_files("clients/vscode") if name.endswith(".md")]
+    assert rows["destination"] == DESTINATION
+
+
+def test_the_prose_of_the_template_section_restates_no_row_of_its_table(page):
+    chapter = chapter_text(CLIENT_CHAPTER)
+    assert chapter.count(f'id="{INSTRUCTIONS_TABLE}"') == 1 and chapter.count(INSTRUCTIONS_SECTION) == 1
+    section = chapter.split(INSTRUCTIONS_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    assert f'id="{INSTRUCTIONS_TABLE}"' in section and prose
+    found = [value for value in client_items(page, INSTRUCTIONS_TABLE).values() if names(prose, html.unescape(value))]
+    assert found == []
+
+
+# The four requirements of the hook's rule, each with the strings that name it in the hook's rule, then in the template. A name is
+# looked for in its code marks, so that the English words "decide", "proxy" and "source" do not count; `--author proxy` is part of a
+# longer code span of the rule, and is looked for bare.
+FOUR_REQUIREMENTS = [
+    ("read the Study's state at the start of each turn", ("`status --json`",), ("`hypotrail_read_study`",)),
+    ("pass the Write sequence read on every write", ("`--read-sequence`", "`write_sequence`"), ("`read_sequence`", "`write_sequence`")),
+    ("record a Decision only through decide", ("`decide`",), ("`hypotrail_decide`", "`decide`")),
+    ("record an answer chosen by a stated rule as a proxy Decision whose source names the rule", ("--author proxy", "`--source`"), ("`proxy`", "`source`")),
+]
+
+
+def test_the_hook_rule_and_the_copilot_template_each_name_the_four_requirements(page):
+    """Each of the four requirements is named in the hook's rule and in the template, by the strings that name it in each.
+
+    Stated limit: this checks that each requirement is named, not its wording, so a weak paraphrase in the template can pass.
+    """
+    rule, template = hook_script_values()["RULE"], instructions_template(page)
+    for requirement, in_rule, in_template in FOUR_REQUIREMENTS:
+        for string in in_rule:
+            assert names(rule, string), (requirement, "the hook's rule", string)
+        for string in in_template:
+            assert names(template, string), (requirement, "the template", string)
+
+
+def test_the_template_names_both_kinds_of_decider(page):
+    template = instructions_template(page)
+    for author in ("human", "proxy"):
+        assert f"`{author}`" in template, author
+
+
+def test_the_tools_the_template_names_are_the_tools_the_manifest_contributes_both_ways(page):
+    named = set(re.findall(r"hypotrail_[a-z_]+", instructions_template(page)))
+    manifest = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))
+    contributed = {entry["name"] for entry in manifest["contributes"]["languageModelTools"]}
+    assert sorted(named - contributed) == [] and sorted(contributed - named) == []
+
+
+def test_the_readme_names_the_destination_and_where_to_look_names_the_template_path_that_chapter_18_gives(page):
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    where = readme.split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    assert f"`{DESTINATION}`" in readme
+    assert client_items(page, INSTRUCTIONS_TABLE).get("path", "<no row>") in where
 
 
 # --- the README's way to the panel ------------------------------------------------------------------------------------------------
