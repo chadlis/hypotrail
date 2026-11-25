@@ -8,3 +8,6 @@ dist/
 .claude/settings.local.json
 clients/vscode/node_modules/
 clients/vscode/out/
+# a Study made under runs/ by the README's commands, and the Copilot instructions installed for the L2 demonstration
+runs/
+.github/copilot-instructions.md

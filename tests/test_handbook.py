@@ -5574,7 +5574,7 @@ def names(text: str, string: str) -> bool:
 def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_repository_holds_neither_copilot_instruction_place(page):
     path = client_items(page, INSTRUCTIONS_TABLE).get("path", "")
     assert path.startswith("clients/vscode/") and path.endswith(".md") and path in tracked_files("clients/vscode"), path
-    assert not (ROOT / DESTINATION).exists() and tracked_files(DESTINATION) == []
+    assert tracked_files(DESTINATION) == []  # a copy installed for the L2 demonstration is ignored, not tracked
     assert not (ROOT / ".github" / "instructions").exists() and tracked_files(".github/instructions") == []
 
 

@@ -5,6 +5,7 @@ that writes, and no model is called. The handbook rows are in `tests/test_handbo
 """
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -143,8 +144,10 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
 
 
 def test_l2_1_writes_no_agent_instruction():
-    # #111 Tightened C: as at `main` 607740c, neither exists
-    assert not (ROOT / ".github" / "copilot-instructions.md").exists()
+    # #111 Tightened C: as at `main` 607740c, neither exists. The Copilot instructions file is read in the tracked tree, so that a copy
+    # installed in this checkout for the L2 demonstration, which .gitignore keeps out of commits, does not fail this test.
+    tracked = subprocess.run(["git", "ls-files", "--", ".github/copilot-instructions.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    assert tracked == ""
     settings = ROOT / ".claude" / "settings.json"
     assert not settings.exists() or "UserPromptSubmit" not in settings.read_text(encoding="utf-8")
 
