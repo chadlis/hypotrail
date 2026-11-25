@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { recorder } from "./recorder";
-import { invoke, keptAnswer, toolOf, workspace, WRITE_TOOL } from "./tools-harness";
+import { CALLERS, invoke, keptAnswer, toolOf, workspace, WRITE_TOOL } from "./tools-harness";
 
 // A Write sequence read that appears in no other input, so that the message can be searched for it.
 const READ_SEQUENCE = 48151623;
@@ -84,6 +84,51 @@ test("with author proxy and no source, prepareInvocation refuses, naming source,
   assert.equal(calls.length, 0);
 });
 
+// A write with no `study` that also lacks another input: the absent `study` is what it is refused for.
+const STUDY_AND_MORE_ABSENT: [string, Record<string, unknown>][] = [
+  ["no study and no question", { question: undefined }],
+  ["author proxy, no study and no source", { author: "proxy" }],
+];
+
+for (const [how, call] of CALLERS) {
+  for (const [name, change] of STUDY_AND_MORE_ABSENT) {
+    test(`the write ${how} with ${name} is refused with the list of the Studies found, with no start`, async (t) => {
+      const { studies } = workspace(t, ["a", "b"]);
+      const calls = recorder(t, keptAnswer("decide-success"));
+      const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, ...change };
+      const text = await call(WRITE_TOOL, input);
+      assert.equal(calls.length, 0);
+      assert.ok(text.includes(JSON.stringify(studies)), text);
+      assert.match(text, /Nothing was started\./);
+    });
+  }
+}
+
+const WHITE_SPACE = "   ";
+
+test("with author human and a source of white space only, the confirmation shows no source and invoke passes no --source", async (t) => {
+  const { studies } = workspace(t, ["only"]);
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const input = { question: "q", option: "o", author: "human", source: WHITE_SPACE, cited_ids: CITED, read_sequence: 0, study: studies[0] };
+  const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
+  const text = prepared.confirmationMessages.message;
+  assert.ok(text.includes("Source: none"), text);
+  await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false, calls[0].args.join(" "));
+});
+
+for (const [how, call] of CALLERS) {
+  test(`the write ${how} with author proxy and a source of white space only is refused, with no start`, async (t) => {
+    const { studies } = workspace(t, ["only"]);
+    const calls = recorder(t, keptAnswer("decide-success"));
+    const input = { question: "q", option: "o", author: "proxy", source: WHITE_SPACE, cited_ids: CITED, read_sequence: 0, study: studies[0] };
+    const text = await call(WRITE_TOOL, input);
+    assert.equal(calls.length, 0);
+    assert.match(text, /^Nothing was sent to the CLI: a Decision whose author is proxy needs a source/);
+  });
+}
+
 // Each input that the bridge's own checks refuse, with the input that makes it so.
 const NOT_VALID: [string, Record<string, unknown>][] = [
   ["no question", { question: undefined }],
@@ -129,25 +174,27 @@ test("with author human and an empty source, the confirmation shows no source an
   assert.equal(calls[0].args.some((argument) => argument.startsWith("--source")), false, calls[0].args.join(" "));
 });
 
-test("a given Study that the walk no longer finds once a second Study takes its last visit gets no write: invoke starts nothing", async (t) => {
+test("a given Study that the walk no longer finds once a second Study takes its last visit gets no write: invoke starts nothing, and the refusal names the Studies found", async (t) => {
   // The walk visits at most `walk_max_folders` folders: here the root, `walk_max_folders` - 2 folders below it, and the
   // given Study, last.
   const { root } = workspace(t, []);
   for (let index = 0; index < contract.walk_max_folders - 3; index += 1) fs.mkdirSync(path.join(root, `f${String(index).padStart(3, "0")}`));
-  const shown = path.join(root, "z", "shown");
-  fs.mkdirSync(shown, { recursive: true });
-  fs.writeFileSync(path.join(shown, "study.json"), "{}");
+  const given = path.join(root, "z", "given");
+  fs.mkdirSync(given, { recursive: true });
+  fs.writeFileSync(path.join(given, "study.json"), "{}");
   const calls = recorder(t, keptAnswer("decide-success"));
-  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, study: shown };
+  const input = { question: "q", option: "o", author: "human", cited_ids: CITED, read_sequence: 0, study: given };
   const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input }, {})) as { confirmationMessages: { message: string } };
-  assert.ok(prepared.confirmationMessages.message.includes(JSON.stringify(shown)), prepared.confirmationMessages.message);
+  assert.ok(prepared.confirmationMessages.message.includes(JSON.stringify(given)), prepared.confirmationMessages.message);
   // A second Study, sorted first, takes the last visit of the walk from the given one.
-  fs.mkdirSync(path.join(root, "a"));
-  fs.writeFileSync(path.join(root, "a", "study.json"), "{}");
-  await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
-  const written = calls.map((call) => call.args.find((argument) => argument.startsWith("--study="))!.slice("--study=".length));
-  assert.deepEqual(written.filter((study) => study !== shown), []);
+  const second = path.join(root, "a");
+  fs.mkdirSync(second);
+  fs.writeFileSync(path.join(second, "study.json"), "{}");
+  const result = await toolOf(WRITE_TOOL).invoke({ input, toolInvocationToken: undefined }, {});
+  const text = result.content.map((part) => part.value).join("");
   assert.equal(calls.length, 0);
+  assert.match(text, /Nothing was started\./);
+  assert.ok(text.includes(JSON.stringify([second])), text);
 });
 
 test("a given Study whose study.json is removed between prepareInvocation and invoke starts nothing, and the refusal names the Studies found", async (t) => {

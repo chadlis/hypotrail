@@ -34,20 +34,30 @@ function answer(text: string): vscode.LanguageModelToolResult {
   return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(text)]);
 }
 
+// The refusal of a call that names no Study when the walk finds none.
+function noStudy(tool: string): string {
+  return `${contract.no_study_message} ${NOTHING_STARTED} Ask the user to open the folder that holds the Study in this workspace, then call ${tool} again.`;
+}
+
 // The Study a call of `tool` takes, or the text of its refusal. A given folder is compared, once resolved, with the
-// folders the walk finds; a folder that is not absolute is never one of them. With `required`, an absent `study` is
-// refused even when the walk finds one Study.
-async function studyOf(given: unknown, tool: string, required: boolean): Promise<{ study: string } | { refusal: string }> {
+// folders the walk finds; a folder that is not absolute is never one of them.
+async function studyOf(given: unknown, tool: string): Promise<{ study: string } | { refusal: string }> {
   const found = await findStudies(workspaceFolders());
   if (given !== undefined) {
     const folder = typeof given === "string" && path.isAbsolute(given) ? path.resolve(given) : undefined;
     if (folder !== undefined && found.includes(folder)) return { study: folder };
     return { refusal: `The folder ${json(given)} is not one of the Hypotrail Studies found in this workspace: study must be the absolute path of one of them. ${NOTHING_STARTED} Call ${tool} again with study set to one of the Studies found: ${json(found)}.` };
   }
-  if (found.length === 1 && !required) return { study: found[0] };
-  if (found.length === 0) return { refusal: `${contract.no_study_message} ${NOTHING_STARTED} Ask the user to open the folder that holds the Study in this workspace, then call ${tool} again.` };
-  if (required) return { refusal: `${tool} needs study, the absolute path of the folder of the Study to write to. ${NOTHING_STARTED} Call ${tool} again with study set to one of the Studies found: ${json(found)}.` };
+  if (found.length === 1) return { study: found[0] };
+  if (found.length === 0) return { refusal: noStudy(tool) };
   return { refusal: `This workspace holds several Hypotrail Studies. ${NOTHING_STARTED} Call ${tool} again with study set to the absolute path of one of the Studies found: ${json(found)}.` };
+}
+
+// The write's refusal of a call with no `study`, whatever else its input lacks.
+async function noStudyGiven(): Promise<string> {
+  const found = await findStudies(workspaceFolders());
+  if (found.length === 0) return noStudy(DECIDE);
+  return `${DECIDE} needs study, the absolute path of the folder of the Study to write to. ${NOTHING_STARTED} Call ${DECIDE} again with study set to one of the Studies found: ${json(found)}.`;
 }
 
 // The request id is made by the extension, so a refusal never names it.
@@ -94,14 +104,15 @@ function proxyRefusal(input: DecideInput): string | undefined {
   return `Nothing was sent to the CLI: a Decision whose author is proxy needs a source, which names the rule it was chosen by. Call ${DECIDE} again with source set to that rule.`;
 }
 
-// What the write refuses before any start, in its confirmation and in its invocation alike: the bridge's own checks
-// of the inputs Copilot gives, a proxy Decision with no source, and a `study` that is absent or that the walk does not
-// find. Otherwise the Study it would write to.
+// What the write refuses before any start, in its confirmation and in its invocation alike, in this order: an absent
+// `study`, the bridge's own checks of the inputs Copilot gives, a proxy Decision with no source, and a `study` that the
+// walk does not find. Otherwise the Study it would write to.
 async function checked(input: DecideInput): Promise<{ study: string } | { refusal: string }> {
+  if (input.study === undefined) return { refusal: await noStudyGiven() };
   const missing = missingInputs({ ...input, source: sourceOf(input) }).filter((field) => field !== "request_id");
   if (missing.length > 0) return { refusal: notSent(DECIDE, missing) };
   const refusal = proxyRefusal(input);
-  return refusal === undefined ? studyOf(input.study, DECIDE, true) : { refusal };
+  return refusal === undefined ? studyOf(input.study, DECIDE) : { refusal };
 }
 
 // Who the record names as the one who made the choice, by its author.
@@ -131,7 +142,7 @@ function confirmation(study: string, input: DecideInput): string {
 
 export const readTool: vscode.LanguageModelTool<ReadInput> = {
   async invoke(options) {
-    const resolved = await studyOf(options.input.study, READ, false);
+    const resolved = await studyOf(options.input.study, READ);
     if ("refusal" in resolved) return answer(resolved.refusal);
     return answer(readAnswer(resolved.study, await readStudy(ROOT, resolved.study)));
   },
