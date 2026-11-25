@@ -5667,6 +5667,9 @@ L2_CRITERIA = ("D1", "D2", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9",
 CLIENT_TEST = re.compile(r'`(clients/vscode/test/[\w.-]+\.test\.ts)`: "([^"]+)"')
 PYTEST_NODE = re.compile(r"`(tests/[\w./-]+\.py::[\w\[\]-]+)`")
 MARKED_AS_PASSED = re.compile(r"\b(?:passed|pass|done)\b|[✓✔☑✅]", re.IGNORECASE)
+# The forms a check of the owner or of an engineer takes in the grid: the "Check" cell of a row of "Owner checks" or "Engineer
+# checks" is one of them exactly; the "Owner" cell of a row of "Criteria" is "none", or the owner's form followed by what is checked.
+OWNER_CHECK, ENGINEER_CHECK, NO_CHECK = "owner check, final review", "engineer check, open", "none"
 
 
 def grid_tables(text: str) -> dict:
@@ -5700,12 +5703,15 @@ def test_the_l2_grid_has_one_row_per_criterion_of_103_names_tests_that_exist_and
             assert (ROOT / path).is_file() and title in (ROOT / path).read_text(encoding="utf-8"), (identifier, path, title)
         assert nodes or client_tests or "owner check, final review" in owner_check, identifier
         assert not MARKED_AS_PASSED.search(owner_check), (identifier, owner_check)
+        assert owner_check == NO_CHECK or owner_check.startswith(f"{OWNER_CHECK}: "), (identifier, owner_check)
     assert owner and engineer
     for row in owner + engineer:
         for cell in row:
             assert not MARKED_AS_PASSED.search(cell), cell
     for row in owner:
-        assert "owner check, final review" in row[-1], row
+        assert row[-1] == OWNER_CHECK, row
+    for row in engineer:
+        assert row[-1] == ENGINEER_CHECK, row
     roadmap = " ".join(ROADMAP.read_text(encoding="utf-8").split())
     quoted = [row[0].strip('"') for row in engineer if "docs/product/ROADMAP.md" in row[1]]
     assert len(quoted) == 5

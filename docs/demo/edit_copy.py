@@ -28,14 +28,9 @@ CHECKOUT = Path(__file__).resolve().parents[2]
 
 def parser() -> argparse.ArgumentParser:
     made = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    made.add_argument("--copy", required=True, metavar="DIR", help="the Workload copy: the folder passed as --examples-dir, or its bike_day folder")
+    made.add_argument("--copy", required=True, metavar="DIR", help="the Workload copy: the folder passed as --examples-dir")
     made.add_argument("--edit", required=True, choices=sorted(EDITS), help="which edit to make")
     return made
-
-
-def bike_folder(copy: Path) -> Path:
-    """The folder that holds the lock: the bike_day folder of an examples copy, or the folder given."""
-    return copy / "bike_day" if (copy / "bike_day" / LOCK_FILE).is_file() else copy
 
 
 def inside_the_checkout(path: Path) -> bool:
@@ -69,7 +64,7 @@ def edited(text: str, day: str) -> tuple:
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
     copy = Path(args.copy)
-    bike = bike_folder(copy)
+    bike = copy / "bike_day"
     data_path, lock_path = bike / DATA_FILE, bike / LOCK_FILE
     if any(inside_the_checkout(path) for path in (copy, bike, data_path, lock_path)):
         print(
@@ -78,6 +73,10 @@ def main(argv=None) -> int:
             file=sys.stderr,
         )
         return 2
+    for name, path in ((DATA_FILE, data_path), (LOCK_FILE, lock_path)):
+        if not path.is_file():
+            print(f"{name} was not found in {bike}: --copy takes the Workload copy passed as --examples-dir. Nothing was written.", file=sys.stderr)
+            return 1
     day = EDITS[args.edit]
     old_bytes = data_path.read_bytes()
     text, changes = edited(old_bytes.decode("utf-8"), day)

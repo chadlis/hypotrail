@@ -166,3 +166,37 @@ def test_the_script_imports_only_listed_standard_library_modules_and_the_list_ho
     assert imported
     for name in imported:
         assert name in ALLOWED_IMPORTS, name
+
+
+def _missing_folder(tmp_path: Path) -> tuple:
+    return tmp_path / "no-such-copy", "data/day.csv"
+
+
+def _copy_without_the_data_file(tmp_path: Path) -> tuple:
+    copy = tmp_path / "examples"
+    shutil.copytree(EXAMPLES, copy)
+    (copy / "bike_day" / "data" / "day.csv").unlink()
+    return copy, "data/day.csv"
+
+
+MISSING_FILE_CASES = {"a missing folder": _missing_folder, "a folder without data/day.csv": _copy_without_the_data_file}
+
+
+def digests_under(folder: Path) -> dict:
+    if not folder.exists():
+        return {}
+    return {path.relative_to(folder).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(folder.rglob("*")) if path.is_file()}
+
+
+@pytest.mark.parametrize("case", sorted(MISSING_FILE_CASES))
+def test_a_folder_without_the_data_file_or_the_lock_exits_non_zero_with_one_line_naming_the_file_and_the_folder_and_writes_nothing(case, tmp_path):
+    copy, missing = MISSING_FILE_CASES[case](tmp_path)
+    existed, before = copy.exists(), digests_under(copy)
+    result = run_script("--copy", copy, "--edit", "6.2")
+    assert result.returncode != 0, result.stdout
+    lines = result.stderr.splitlines()
+    assert len(lines) == 1, lines
+    [line] = lines
+    assert missing in line and str(copy / "bike_day") in line and not line.startswith("refused:"), line
+    assert result.stdout == ""
+    assert copy.exists() == existed and digests_under(copy) == before
