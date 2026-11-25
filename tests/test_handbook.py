@@ -5720,6 +5720,18 @@ def test_the_l2_grid_has_one_row_per_criterion_of_103_names_tests_that_exist_and
     assert "built, not demonstrated" in text and "P2A" in text
 
 
+# The two sentences of chadlis/hypotrail#103, "End state", that the grid quotes, each as a Markdown block quotation of its own.
+END_STATE_SENTENCES = (
+    'The owner\'s demonstration lifts "built, not demonstrated", and the owner lifts it.',
+    '"Usable" waits for an engineer who did not implement it.',
+)
+
+
+def test_the_l2_grid_quotes_each_end_state_sentence_of_103_whole_as_a_block_quotation_of_its_own():
+    quotations = [line[2:] for line in L2_GRID.read_text(encoding="utf-8").splitlines() if line.startswith("> ")]
+    assert quotations == list(END_STATE_SENTENCES), quotations
+
+
 # --- the L2 demonstration (chapter 19): the script's table, its section's prose, and the links to the L2 grid ---------------------
 
 DEMO_CHAPTER = "19-l2-demonstration.html"

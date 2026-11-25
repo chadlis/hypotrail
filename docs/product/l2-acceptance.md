@@ -4,9 +4,17 @@ L2 is the review decision of chadlis/hypotrail#103: a Study's pending decision, 
 
 ## Status
 
-L2 is "built, not demonstrated". Who lifts that status is in chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9: "The owner's demonstration lifts" it, "and the owner lifts it." This grid holds no result of that demonstration: its owner checks are listed, none of them is marked here.
+L2 is "built, not demonstrated". Who lifts that status is in chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9:
 
-chadlis/hypotrail#103 says under "End state" that "Usable" "waits for an engineer who did not implement it." The owner's demonstration does not make L2 usable.
+> The owner's demonstration lifts "built, not demonstrated", and the owner lifts it.
+
+This grid holds no result of that demonstration: its owner checks are listed, none of them is marked here.
+
+chadlis/hypotrail#103 also says under "End state":
+
+> "Usable" waits for an engineer who did not implement it.
+
+The owner's demonstration does not make L2 usable.
 
 P2A is not in this grid: it is deferred (chadlis/hypotrail#103, "Acceptance"; D-077 on chadlis/hypotrail#75, Q8).
 
