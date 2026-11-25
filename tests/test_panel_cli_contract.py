@@ -144,14 +144,13 @@ def test_the_adr_holds_a_dated_line_that_names_where_the_rule_for_agents_is_writ
 
 
 def test_l2_1_tracks_no_agent_instruction():
-    # #111 Tightened C: as at `main` 607740c, no Copilot instructions file is tracked and the tracked `.claude/settings.json` holds no UserPromptSubmit hook.
-    # Both halves read the tracked tree, not the file system, so that what the L2 demonstration installs in this checkout
-    # without committing it (a Copilot instructions file that .gitignore keeps out, a hook in the settings) does not fail this test.
+    # #111 Tightened C: as at `main` 607740c, no Copilot instructions file is tracked and `.claude/settings.json` holds no UserPromptSubmit hook.
+    # The Copilot instructions file is looked up in the tracked tree, so that the uncommitted install of the L2 demonstration,
+    # which .gitignore keeps out, does not fail this test. `.claude/settings.json` is read on disk, as #111 Tightened C does.
     tracked = subprocess.run(["git", "ls-files", "--", ".github/copilot-instructions.md"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     assert tracked == ""
-    listed = subprocess.run(["git", "ls-files", "--", ".claude/settings.json"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    settings = subprocess.run(["git", "show", ":.claude/settings.json"], cwd=ROOT, capture_output=True, text=True, check=True).stdout if listed else ""
-    assert "UserPromptSubmit" not in settings
+    settings = ROOT / ".claude" / "settings.json"
+    assert not settings.exists() or "UserPromptSubmit" not in settings.read_text(encoding="utf-8")
 
 
 # --- round 1 of the review of #104: R1-S-03, R1-S-04 and R1-P-05 -------------------------------------------------------
