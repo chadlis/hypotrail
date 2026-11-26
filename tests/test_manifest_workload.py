@@ -313,3 +313,30 @@ def test_the_verbose_fixtures_unexpected_identifier_witness_names_an_identifier_
     [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
     criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
     assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
+
+
+TOP_BY = {
+    "the highest total spent": "SELECT CustomerId, ROUND(SUM(Total), 2) AS v FROM Invoice GROUP BY CustomerId",
+    "the most invoices": "SELECT CustomerId, COUNT(*) AS v FROM Invoice GROUP BY CustomerId",
+    "the most tracks bought": "SELECT i.CustomerId, SUM(l.Quantity) AS v FROM Invoice i JOIN InvoiceLine l USING (InvoiceId) GROUP BY i.CustomerId",
+}
+
+
+def test_the_best_customer_reference_texts_state_how_many_customers_each_measure_puts_first_as_the_chinook_bytes_give_it():
+    # D-158 on chadlis/hypotrail#75, item 2: "only spend singles out one customer; invoice count and tracks bought tie 58 ways".
+    from hypotrail.core.data import open_sqlite_readonly
+
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        first = {}
+        for measure, sql in TOP_BY.items():
+            rows = connection.execute(sql).fetchall()
+            top = max(value for _, value in rows)
+            first[measure] = sum(value == top for _, value in rows)
+    finally:
+        connection.close()
+    assert first == {"the highest total spent": 1, "the most invoices": 58, "the most tracks bought": 58}
+    texts = {r["case_id"]: r["reference_text"] for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] in ("D16", "D17", "D18")}
+    for case_id, text in texts.items():
+        assert "these give different customers" not in text, case_id
+        assert "only the highest total spent singles out one customer" in text and "58 customers tie" in text, case_id
