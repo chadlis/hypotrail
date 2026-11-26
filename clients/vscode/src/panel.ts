@@ -15,9 +15,9 @@ import { bodyOf, usableFigures, type View } from "./content";
 export type Target = { study: string; decision?: string };
 
 // What the document's script posts: the name of a message and, for the control that records, the indexes of the
-// pending decision and of the option selected; for a control that opens, the kind of the record's part, its index in its listing and
+// pending decision and of the option selected and the text of its box of words; for a control that opens, the kind of the record's part, its index in its listing and
 // the ref.
-type Message = { message?: unknown; pending?: unknown; option?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
+type Message = { message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -73,16 +73,26 @@ function receive(message: unknown): void {
 const entries = (content: unknown): Record<string, unknown>[] => (Array.isArray(content) ? content : []);
 const at = (list: Record<string, unknown>[], index: unknown) => (Number.isInteger(index) ? list[index as number] : undefined);
 
-// The second action: the extension resolves the indexes it is sent in the object it holds.
+// The channel the panel declares for the words typed in its box. "The panel sends no `by`: it knows no person. `channel` is "panel", with
+// `authenticated` false." (D-151, answer 6)
+const PANEL_CHANNEL = "panel";
+
+// The second action: the extension resolves the indexes it is sent in the object it holds, with the ids of the question and of the option
+// that object gives; the text of the box, sent whole when it is not empty, is the person's words.
 function record(message: Message): void {
   if (unanswered || !held) return;
   const pending = at(entries(held.pending_decisions), message.pending);
   const option = at(entries(pending?.options), message.option);
   if (!pending || !option) return;
+  const question = pending.question as { text?: unknown; id?: unknown } | undefined;
+  const words = typeof message.words === "string" && message.words !== "" ? { words: [message.words], channel: PANEL_CHANNEL } : {};
   void write({
-    question: (pending.question as { text?: unknown } | undefined)?.text as string,
+    question: question?.text as string,
     option: option.text as string,
     author: contract.decide_author,
+    question_id: question?.id as string,
+    option_id: option.id as string,
+    ...words,
     cited_ids: [pending.comparison_id as string],
     request_id: newRequestId(),
     read_sequence: held.write_sequence as number,
@@ -159,7 +169,9 @@ async function write(input: DecisionInput): Promise<void> {
   inFlight = false;
   unanswered = outcome.outcome === "no_answer" ? input : undefined;
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
-    show({ reading: false, object: held, figures, written: outcome, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study });
+    // A write the bridge refuses keeps its choice and its words in the document, so that the person can correct them.
+    const sent = outcome.outcome === "client_refusal" ? input : unanswered;
+    show({ reading: false, object: held, figures, written: outcome, unanswered: unanswered !== undefined, sent, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
@@ -220,6 +232,8 @@ const SCRIPT = [
   "      if (chosen === null) return;",
   "      message.pending = Number(pending);",
   '      message.option = Number(chosen.getAttribute("data-option"));',
+  "      const box = document.querySelector(`textarea[data-words=\"${pending}\"]`);",
+  "      if (box !== null) message.words = box.value;",
   "    }",
   '    const ref = control.getAttribute("data-ref");',
   "    if (ref !== null) {",
@@ -290,6 +304,9 @@ const STYLE = [
   "label input { grid-row: 1 / span 2; align-self: start; }",
   "label small { grid-column: 2; font-size: 0.92em; color: var(--chalk2); }",
   "fieldset button { margin-top: 0.4em; }",
+  'label[data-element="words"] { display: block; margin-top: 0.3em; padding: 0; font-size: 0.9em; color: var(--chalk2); cursor: default; }',
+  'label[data-element="words"]:hover { background: transparent; }',
+  "textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 0.15em; font: inherit; color: var(--chalk); background: var(--board2); border: 1px solid var(--chalk2); border-radius: 2px; resize: vertical; }",
   "[data-chart] { display: grid; grid-template-columns: 6.5em minmax(3em, 1fr) auto; align-items: center; gap: 0.3em 0.5em; margin: 0.4em 0; }",
   "li[data-chart] { list-style: none; }",
   "[data-chart] > p { grid-column: 1 / -1; }",

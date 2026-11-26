@@ -352,6 +352,7 @@ const QUESTION_DRAWN = '[data-element="now-question"]';
 const EVIDENCE_DRAWN = 'section[data-part="now"] [data-element="delta"] a[data-kind="delta"]';
 const RECORD_DRAWN = `section[data-part="now"] button[data-message="${RECORD}"]`;
 const CHOICES_DRAWN = 'section[data-part="now"] fieldset';
+const WORDS_DRAWN = 'section[data-part="now"] textarea[data-words]';
 // The heading of the latest Decision, which holds its option and the phrase of its applies.
 const latestHeading = (object: Entry): string => {
   const at = object.decisions.reduce((best: number, each: Entry, index: number) => (each.write_sequence > object.decisions[best].write_sequence ? index : best), 0);
@@ -409,14 +410,16 @@ for (const name of FIRST_SCREEN_READS) {
     }
   });
 
-  test(`in the first screen at 420 px in each theme, the choices' fieldset and Record of the kept state are drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`in the first screen at 420 px in each theme, the choices' fieldset, the box of words and Record of the kept state are drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
     const document = await demonstrationDocument(t, name);
     for (const theme of Object.keys(THEMES)) {
       const evaluate = await firstScreen(t, address, document, theme);
-      const [choices, record]: Box[] = [await evaluate(BOX(CHOICES_DRAWN)), await evaluate(BOX(RECORD_DRAWN))];
+      const [choices, words, record]: Box[] = [await evaluate(BOX(CHOICES_DRAWN)), await evaluate(BOX(WORDS_DRAWN)), await evaluate(BOX(RECORD_DRAWN))];
       assert.ok(inScreen(choices), `${theme}: the choices at ${JSON.stringify(choices)}, the first screen ${SCREEN.height} px high`);
+      // The box stands open: D-151's yield order did not reach its step 2, "the words box, as a closed "Add your words" above Record".
+      assert.ok(inScreen(words), `${theme}: the box of words at ${JSON.stringify(words)}, the first screen ${SCREEN.height} px high`);
       assert.ok(inScreen(record), `${theme}: Record at ${JSON.stringify(record)}, the first screen ${SCREEN.height} px high`);
     }
   });

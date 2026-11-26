@@ -424,3 +424,22 @@ def test_the_dated_lines_hold_one_line_for_the_panels_read_with_since_quoting_it
     assert PANEL_SINCE_SENTENCE in line and "the earlier line it narrows: the 2026-11-24 line on `figures`" in line
     for name in ("`status --study=DIR --since=N --json`", "`status --study=DIR --json`", "Since this panel's last read"):
         assert name in line, name
+
+
+# --- the dated line of the panel's words box ------------------------------------------------------------------------------------------
+
+PANEL_WORDS_SENTENCE = (
+    "The extension builds the bridge's `DecisionInput` with today's fields plus `question_id` and `option_id` (the ids the held object gives"
+    " for the indexes, F3) and, when the text is not empty, `words` with that one text and `channel` \"panel\", and no `by`"
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_panels_words_quoting_its_ticket_and_naming_the_channel_and_no_by():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#254" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PANEL_WORDS_SENTENCE in line and "the earlier line it narrows" in line
+    for name in ("`--question-id`", "`--option-id`", "`--words`", "`--channel=panel`", "never `--by`", "`client_refusal`"):
+        assert name in line, name

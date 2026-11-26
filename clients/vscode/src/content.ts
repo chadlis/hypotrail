@@ -9,7 +9,7 @@ import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five 
 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
 // the outcome of a read that failed, `written` the answer of the
-// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option and cited
+// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option, words and cited
 // ids of the write in flight or held; `decision` is the id a link of the second form names; `unopened` says that the document follows a
 // message of a control that opens whose file the panel did not open.
 export type View = {
@@ -21,7 +21,7 @@ export type View = {
   failure?: Outcome;
   written?: Outcome;
   unanswered?: boolean;
-  sent?: { question: unknown; option: unknown; cited_ids: unknown };
+  sent?: { question: unknown; option: unknown; cited_ids: unknown; words?: unknown };
   decision?: string;
   unopened?: boolean;
 };
@@ -109,6 +109,7 @@ const LABEL = {
   earlierDecision: 75,
   citedDelta: 76,
   featuresAlone: 77,
+  yourWords: 78,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -360,9 +361,12 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
     const input = `<input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}" aria-labelledby="${OPTION_ID}${place}" aria-describedby="${CONSEQUENCE_ID}${place}"${checked}${inert}>`;
     return `<label>${input} <span id="${OPTION_ID}${place}">${marked(option.text, "strong")}</span> <details data-element="consequence"><summary>${label("consequence")}</summary><span id="${CONSEQUENCE_ID}${place}">${marked(option.consequence, "small")}</span></details></label>`;
   });
+  // The box of the person's own words, beside the control that records, empty but where the write `sent` held words for this decision.
+  const words = asked && Array.isArray(sent.words) ? sent.words.join("") : "";
   const choices = [
     `<fieldset aria-labelledby="${question}" ${anchor("choices", index)}>`,
     ...options,
+    `<label data-element="words">${label("yourWords")} <textarea data-words="${index}" rows="2"${inert}>${text(words)}</textarea></label>`,
     `<button data-message="${contract.messages[1]}" data-pending="${index}" aria-describedby="${question}" disabled>${label("record")}</button>`,
     "</fieldset>",
   ].join("\n");

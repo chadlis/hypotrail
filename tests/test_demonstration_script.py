@@ -55,9 +55,10 @@ QUESTION = "Which Configuration do we keep after this Comparison?"
 STATUS_BIKE = ("hypotrail", "status", "--study", "runs/bike", "--json")
 
 
-def decide_18(option, artifact, request_id, read_sequence, *source, author="human"):
+def decide_18(option, artifact, request_id, read_sequence, *source, author="human", option_id=None):
+    ids = () if option_id is None else ("--question-id=keep_after_comparison", f"--option-id={option_id}")
     return (
-        "hypotrail", "decide", "--study=runs/bike", f"--question={QUESTION}", f"--option={option}", f"--author={author}", *source,
+        "hypotrail", "decide", "--study=runs/bike", f"--question={QUESTION}", f"--option={option}", f"--author={author}", *source, *ids,
         f"--artifact={artifact}", f"--request-id={request_id}", f"--read-sequence={read_sequence}", "--json",
     )
 
@@ -134,7 +135,7 @@ SECTION_18 = {
     ],
     "task 1": [STATUS_BIKE],
     "task 2": [STATUS_BIKE],
-    "task 3": [decide_18("Keep the Control", "$L2_COMPARISON", "demo-task-3", 12), STATUS_BIKE],
+    "task 3": [decide_18("Keep the Control", "$L2_COMPARISON", "demo-task-3", 12, option_id="keep_control"), STATUS_BIKE],
     "C10": [("python3", "-I", "clients/claude-code/hypotrail_study_hook.py", "--study", "runs/bike")],
     "task 4": [STATUS_BIKE],
     "task 5": [STATUS_BIKE],
@@ -145,7 +146,7 @@ SECTION_18 = {
     "S1": [
         ("hypotrail", "run", "ml", "--study", "runs/bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "demo-s1", "--examples-dir", "../demo-examples"),
         STATUS_BIKE,
-        decide_18("Keep the Control", "$L2_COMPARISON_62", "demo-s1-decide", 28),
+        decide_18("Keep the Control", "$L2_COMPARISON_62", "demo-s1-decide", 28, option_id="keep_control"),
     ],
     "C8": [
         decide_18("Keep the Control", "$L2_COMPARISON_62", "demo-c8", "$L2_READ_AFTER_S1", f"--source={MODULE.PROXY_SOURCE}", author="proxy"),
@@ -452,9 +453,12 @@ def capture_of(name) -> tuple:
 
 def test_task_3_records_the_decision_with_the_argument_list_the_panels_bridge_builds():
     options = options_of(decide_of("task 3")["cli"])
-    assert [name for name, _ in options] == [name for name in CONTRACT["decide_options"] if name not in CONTRACT["decide_optional_options"]]
+    # The panel's Record passes the required options and the ids of the pending question and of the option chosen, with no words.
+    given = {"--question-id", "--option-id"}
+    assert [name for name, _ in options] == [name for name in CONTRACT["decide_options"] if name not in CONTRACT["decide_optional_options"] or name in given]
     values = dict(options)
     assert (values["--study"], values["--author"], values["--read-sequence"]) == ("{work}/bike", "human", "12")
+    assert (values["--question-id"], values["--option-id"]) == ("keep_after_comparison", "keep_control")
     assert [value for name, value in options if name == "--artifact"] == ["{L2_COMPARISON}"]
     assert capture_of("L2_COMPARISON")[0] == "A5" and capture_of("L2_COMPARISON")[1]["cli"][0] == "compare" and values["--request-id"]
 

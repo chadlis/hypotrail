@@ -425,3 +425,58 @@ def pair_outputs(tmp_path) -> dict:
             made[kept_name] = (code, replaced(out.replace(str(study), "SCRATCH"), seen), err.replace(str(study), "SCRATCH"))
     made["figures-not-found"] = run_cli("figures", "--study=/nonexistent-x", "--json")
     return made
+
+
+# The person's words of the panel's box that the kept `panel-words` write carries: two French quotation marks, written as escapes, around a
+# French phrase inside an English sentence, a line break, a double quote and a final line break, which a trim or a re-encoding changes.
+PANEL_WORDS = 'Keep the Control, she wrote \u00ab on garde le t\u00e9moin \u00bb.\nAnd "the lag feature can wait".\n'
+PANEL_REQUEST_ID = "panel-words"
+
+
+def panel_decide_arguments(study, comparison: str, read_sequence: int, words: str | None) -> list:
+    """The argument list the panel's Record gives the bridge on the first option of a pending decision, with the box's text `words`, or
+    none when the box is empty: the ids of the question and of the option, then the words and the channel `panel`, and no `--by`."""
+    arguments = [
+        "decide", f"--study={study}", f"--question={QUESTION}", "--option=Keep the Control", "--author=human",
+        "--question-id=keep_after_comparison", "--option-id=keep_control",
+    ]
+    if words is not None:
+        arguments += [f"--words={words}", "--channel=panel"]
+    return arguments + [f"--artifact={comparison}", f"--request-id={PANEL_REQUEST_ID}", f"--read-sequence={read_sequence}", "--json"]
+
+
+# The kept writes of the panel's Record, each with the text of its box: `panel-words` with `PANEL_WORDS`, `panel-no-words` with the box empty.
+PANEL_WRITES = {"panel-words": PANEL_WORDS, "panel-no-words": None}
+
+
+def panel_write_outputs(tmp_path) -> tuple:
+    """({name: {part: text}}, {name: record}) of each kept write of the panel's Record, run through the real `decide` on a Study of
+    `compared_study`: its argument list (`args`, as {"arguments": [...]}), exit code, output and stderr, the list and the output replaced
+    with the numbering of the Study's `status --json` read, which `status-success` keeps, and the Decision record the CLI wrote."""
+    made, records = {}, {}
+    for name, words in PANEL_WRITES.items():
+        (tmp_path / name).mkdir()
+        study = compared_study(tmp_path / name)
+        seen: dict = {}
+        code, out, _ = run_cli("status", "--study", study, "--json")
+        assert code == 0, out
+        replaced(out.replace(str(study), "SCRATCH"), seen)
+        status = json.loads(out)
+        arguments = panel_decide_arguments(study, status["comparisons"][0]["comparison_id"], status["write_sequence"], words)
+        code, out, err = run_cli(*arguments)
+        made[name] = {
+            "args": replaced(json.dumps({"arguments": arguments}), seen),
+            "exit": f"{code}\n",
+            "out": replaced(out.replace(str(study), "SCRATCH"), seen),
+            "err": err.replace(str(study), "SCRATCH"),
+        }
+        [path] = sorted((Path(study) / "decisions").glob("*.json"))
+        records[name] = json.loads(path.read_text(encoding="utf-8"))
+    return made, records
+
+
+def write_panel_writes_kept(tmp_path) -> None:
+    """Writes the files of `panel_write_outputs` under `KEPT`; used by hand, when the panel's Record or the record changes."""
+    for name, parts in panel_write_outputs(tmp_path)[0].items():
+        for part, text in parts.items():
+            (KEPT / f"{name}.{part}").write_text(text, encoding="utf-8")

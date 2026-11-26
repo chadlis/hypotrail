@@ -65,6 +65,9 @@ COPY = "{work}/demo-examples"
 # decide NAME.args, its argument list.
 KEPT = "kept"
 QUESTION = "Which Configuration do we keep after this Comparison?"
+# The ids the core gives the pending question and its option "Keep the Control", which the panel's Record passes.
+QUESTION_ID = "keep_after_comparison"
+KEEP_THE_CONTROL = "keep_control"
 PROXY_SOURCE = "rule: keep the Configuration with the lowest MAE"
 # The person's words of the step WORDS, as a file of the work folder: an apostrophe, an accented name, a narrow no-break space, a
 # double quote and the two French quotation marks around a French phrase, which a shell or a re-encoding damages. The marks are
@@ -95,11 +98,13 @@ def keep(state: str, sequence: int) -> dict:
     return {"keep": state, "study": L2_BIKE, "sequence": sequence}
 
 
-def decide(option: str, artifact: str, request_id: str, read_sequence, author: str = "human", source: str | None = None) -> list:
-    """A decide as the panel's bridge starts it: each option joined to its value by `=`, in the order of `decide_options`."""
+def decide(option: str, artifact: str, request_id: str, read_sequence, author: str = "human", source: str | None = None, option_id: str | None = None) -> list:
+    """A decide as the panel's bridge starts it: each option joined to its value by `=`, in the order of `decide_options`. Given
+    `option_id`, it also passes the id of the pending question and that option's id, as the panel's Record does."""
     return [
         "decide", f"--study={L2_BIKE}", f"--question={QUESTION}", f"--option={option}", f"--author={author}",
         *([] if source is None else [f"--source={source}"]),
+        *([] if option_id is None else [f"--question-id={QUESTION_ID}", f"--option-id={option_id}"]),
         f"--artifact={artifact}", f"--request-id={request_id}", f"--read-sequence={read_sequence}", "--json",
     ]
 
@@ -566,7 +571,7 @@ STEPS = [
         ),
         "actions": [
             {
-                "cli": decide("Keep the Control", "{L2_COMPARISON}", "demo-task-3", 12),
+                "cli": decide("Keep the Control", "{L2_COMPARISON}", "demo-task-3", 12, option_id=KEEP_THE_CONTROL),
                 "kept": "decide-task-3",
                 "capture": {"L2_DECISION": "decision.decision_id"},
                 "print": ["decision.decision_id", "decision.option", "decision.author", "decision.cited_ids", "decision.read_sequence"],
@@ -943,7 +948,7 @@ STEPS = [
                 "expect": {"exit": 0, "values": {"write_sequence": 30, "pending_decisions[*].comparison_id": ["{L2_COMPARISON_62}"]}},
             },
             {
-                "cli": decide("Keep the Control", "{L2_COMPARISON_62}", "demo-s1-decide", 28),
+                "cli": decide("Keep the Control", "{L2_COMPARISON_62}", "demo-s1-decide", 28, option_id=KEEP_THE_CONTROL),
                 "kept": "decide-s1",
                 "print": ["error.code", "error.stage", "error.message", "error.details.read_sequence", "error.details.write_sequence", "error.details.writes_since"],
                 "expect": {

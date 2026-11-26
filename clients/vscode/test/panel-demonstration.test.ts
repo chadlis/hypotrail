@@ -248,7 +248,8 @@ for (const state of Object.keys(SEES)) {
 }
 
 // The record message of the second action on the first option of the first Pending decision.
-const FIRST_OPTION = { message: RECORD, pending: 0, option: 0 };
+// The message of Record on the first option of the first Pending decision, its box of words empty.
+const FIRST_OPTION = { message: RECORD, pending: 0, option: 0, words: "" };
 
 // The list of arguments of a decide call after its first arguments, with the value of --study= made `<study>`, the rule of
 // tests/_client_helpers.py::replaced, and the request id set apart.
@@ -382,7 +383,7 @@ const RECORD_CONTROL = `document.querySelector('button[data-message="${RECORD}"]
 const FIRST_RADIO = "document.querySelector('input[type=\"radio\"]')";
 
 // The document of after-compare brought by the keyboard alone from its top to a recorded choice: Tab to the first option, Space, Tab
-// past the summary of each option's consequence to the control that records, Enter. Gives back the messages the document posted.
+// past the summary of each option's consequence and the box of words to the control that records, Enter. Gives back the messages the document posted.
 async function recordedByKeyboard(t: TestContext, address: string): Promise<Entry[]> {
   const { document } = await seenAt(t, "after-compare");
   const page = await keyboardPage(t, address, document);
@@ -398,16 +399,18 @@ async function recordedByKeyboard(t: TestContext, address: string): Promise<Entr
     assert.ok(await page.evaluate(`document.activeElement.matches('details[data-element="consequence"] > summary')`), `Tab ${at + 1} brings the focus to the summary of a consequence`);
   }
   await page.key("Tab");
+  assert.ok(await page.evaluate(`document.activeElement.matches('textarea[data-words="0"]')`), "Tab brings the focus to the box of words, beside the control that records");
+  await page.key("Tab");
   assert.ok(await page.evaluate(`document.activeElement === ${RECORD_CONTROL}`), `Tab brings the focus to the control that records: ${await page.evaluate("document.activeElement.outerHTML.slice(0, 80)")}`);
   await page.key("Enter");
   return page.evaluate("window.posted");
 }
 
-test("at 420 by 700 px, the keyboard alone brings the document of after-compare from its top to a recorded choice, and it posts the record message of the first option of the first Pending decision and no other", { timeout: 60000 }, async (t) => {
+test("at 420 by 700 px, the keyboard alone brings the document of after-compare from its top to a recorded choice, and it posts the record message of the first option of the first Pending decision, with its empty box of words, and no other", { timeout: 60000 }, async (t) => {
   const address = await browserOrFailInCi(t, "the path to Record in a browser");
   if (address === undefined) return;
   const posted = await recordedByKeyboard(t, address);
-  assert.deepEqual(posted, [{ message: RECORD, pending: 0, option: 0 }], "the record message of contract.json with the first Pending decision and its first option, and no other");
+  assert.deepEqual(posted, [{ message: RECORD, pending: 0, option: 0, words: "" }], "the record message of contract.json with the first Pending decision, its first option and its empty box of words, and no other");
 });
 
 test("the message the document of after-compare posts in a browser is the message the panel is given at task 3, key by key, and given to the panel it starts the decide of task 3", { timeout: 60000 }, async (t) => {

@@ -754,6 +754,16 @@ def test_the_files_of_the_client_sources_that_name_decide_author_are_the_panel_a
     assert sorted(path for path, text in sources().items() if "decide_author" in text) == ["clients/vscode/src/panel.ts"]
 
 
+def test_the_files_of_the_client_sources_that_name_the_channel_panel_are_the_panel_alone_and_the_copilot_tool_never_sends_it():
+    # "an agent never declares `panel`" (D-149, words S1): the channel is written once, by the panel, for the words of its own box.
+    named = sorted(path for path, text in sources().items() if re.search(r"""["'`]panel["'`]""", text))
+    assert named == ["clients/vscode/src/panel.ts"]
+    tools = (ROOT / "clients" / "vscode" / "src" / "tools.ts").read_text(encoding="utf-8")
+    assert 'const CHANNEL = "chat_relayed";' in tools
+    # Each channel the tool passes is the constant above, or none.
+    assert {value.strip() for value in re.findall(r"channel: ([^,\n})]*)", tools)} == {"undefined", "input.words === undefined ? undefined : CHANNEL"}
+
+
 def test_the_authority_of_both_link_forms_is_the_manifests_publisher_and_name():
     manifest = read_json(CLIENT / "package.json")
     forms = read_json(CLIENT / "contract.json").get("link_forms", [])
