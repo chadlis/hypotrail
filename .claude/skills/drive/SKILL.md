@@ -10,6 +10,8 @@ You are the session that stays open while a slice is built. Subagents do the wor
 
 Everything you need is in the repository and its issue tracker. Read it; do not assume it.
 
+Until the complete demonstration, a slice labelled `fast-lane` follows D-144 on chadlis/hypotrail#75 (comment 7182815339) instead of the rules it suspends.
+
 ## What you are, and what you are not
 
 **You are** where the slice's reasoning lives: which option, why, what a finding means, whether something was decided without being written down. You refuse to let a step be skipped.
@@ -39,7 +41,7 @@ Each step runs as a subagent **of a named type**, so its model is fixed by the t
 | review of record, verifications and disposition checks (`slice-gate`) | Opus |
 | retro (`slice-planner`, with a model override to Opus), and the drive itself | Opus |
 
-The ticket gate's reading (step 3) runs as `slice-gate`, with a model override to Fable; every other `slice-gate` step runs on its frontmatter's Opus (D-063 on chadlis/hypotrail#75).
+The ticket gate's reading (step 3) runs as `slice-gate`, with a model override to Fable (D-063 on chadlis/hypotrail#75).
 
 **A subagent cannot start subagents.** A skill that starts its own (`implement-spec`, `mattpocock-skills:code-review`) runs in your session, and only its leaves are delegated, each as a named type below. You orchestrate, you still write no code. For the review of record, each axis report goes to Salah word for word: you route findings, you never merge or summarise the two reports.
 
@@ -346,7 +348,7 @@ Complete affected product documentation before the first review of record. When 
 
 A citation and a line number support investigation, but do not by themselves establish a valid finding. Missing behaviour may be cited without an existing implementation line. A finding that only proposes an improvement is out of scope, whoever raised it.
 
-**Check the premise before you route.** When a finding states what a file holds (a declaration present or absent, a value, a line), run one command that shows it (`grep -n`, `sed -n`) before the finding gets a row, and put the command and its output in the register's evidence column. A premise the command contradicts goes back to the reader who raised it as a disposition check, never into a fix prompt. Every fact your own fix prompt states about a file gets the same check. A fix prompt that says who calls a function or which test checks some code carries the line `premises.py` reads, in a form its docstring gives (D-055 on chadlis/hypotrail#75, item 2; D-065 on chadlis/hypotrail#75, item 2). When a finding states an absence or hedges ("does not seem", "looks like"), that is the premise to check: run the command over the whole span the absence claims (for a call path, every function on it) and quote its output; a check of the finding's other facts leaves the premise unchecked. Every citation a fix prompt asks for carries its quoted source sentence; with none to quote, the prompt asks for none. Each change a fix prompt asks for quotes the sentence it applies. A constraint no quoted sentence states (your reading, bound, layout or test rule) goes to the owner-decision gate when it is not delegated, and is otherwise written as the outcome that sentence protects. "What stays as it is" quotes each criterion that a comment on the changed lines cites.
+**Check the premise before you route.** When a finding states what a file holds (a declaration present or absent, a value, a line), run one command that shows it (`grep -n`, `sed -n`) before the finding gets a row, and put the command and its output in the register's evidence column. A premise the command contradicts goes back to the reader who raised it as a disposition check, never into a fix prompt. Every fact your own fix prompt states about a file gets the same check. A fix prompt that says who calls a function or which test checks some code carries the line `premises.py` reads, in a form its docstring gives (D-055 on chadlis/hypotrail#75, item 2; D-065 on chadlis/hypotrail#75, item 2). When a finding states an absence or hedges ("does not seem", "looks like"), that is the premise to check: run the command over the whole span the absence claims (for a call path, every function on it) and quote its output; a check of the finding's other facts leaves the premise unchecked. Every citation a fix prompt asks for carries its quoted source sentence; with none to quote, the prompt asks for none. Each change a fix prompt asks for quotes the sentence it applies. A constraint no quoted sentence states (your reading, bound, layout or test rule) goes to the owner-decision gate when it is not delegated, and is otherwise written as the outcome that sentence protects. "What stays as it is" quotes each criterion that a comment on the changed lines cites; the prompt quotes each live "What to build" sentence, criterion or Tightened line of the slice's tickets that names a file or function it changes (by `grep -n`); a requirement cell quotes every requirement its finding quotes.
 
 **Quote a decision whole, with its verbs.** A fix prompt that applies or cites a decision item (a decision-log entry, a Tightened line) quotes the whole item, each bullet as its own quotation, never one sentence of it. For each row, test or case the item touches, the prompt says `add`, `replace` or `remove`, and names under "what stays as it is" each existing one it keeps. A fix prompt asks the builder to add no explanatory prose and dictates no wording (a docstring, a comment, a heading's text), unless a criterion or a decision requires that text; the quoted source sentence of a citation that a requirement asks a comment to carry is such text (D-061 on chadlis/hypotrail#75, as amended by D-063 on chadlis/hypotrail#75). A decision you log names the same verb for each change it makes. Before the next round, check each removal the builder's hand-back lists against the prompt line that asks for it; a removal no line asks for is undone first. The PreToolUse hook `.claude/skills/drive/fix_prompt_check.py` on the Agent tool runs on a prompt that contains "This is a review fix": it warns about a quotation that is not word for word a whole sentence or item of its source, and about a prompt that names no finding ID, then lets the call through (D-055 on chadlis/hypotrail#75, item 1). The warnings of its run at the Agent call reach you as additional context; post them beside the prompt only when they differ from those of its run on the prompt file. A quotation of a criterion or decision that it calls not whole is made whole before the prompt is posted, text the prompt removes included, since `fix_prompt_check.py --strict` refuses it (D-090 on chadlis/hypotrail#75, item 2, as D-105 on chadlis/hypotrail#75 narrows it).
 
@@ -445,14 +447,10 @@ Salah asked for every brief, STOP or ordinary, to also reach him as one self-con
 
 ## What goes wrong
 
-- Holding a gate because you are already there and it seems quicker.
 - Writing the slice's code yourself because you have the tools.
 - Appending anything to `/mattpocock-skills:code-review main`, or sending the bare `/code-review` instead.
 - Opening a turn without a banner, or crying STOP for something you could decide.
 - Raising a doubt without options.
 - Forwarding to Salah a question your delegation already covers, or deciding alone one that it does not.
 - Clearing or downgrading a row-1 or row-2 finding without an axis reader's verification.
-- Rerunning an unchanged review, or calling a head accepted when a later change was not reviewed.
-- Adding rounds to reach five when nothing is left to fix.
 - Applying an apparatus change instead of deferring it.
-- Stating the slice's position from memory instead of from the repository.

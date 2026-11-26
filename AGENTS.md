@@ -3,6 +3,7 @@
 ## Rules
 
 - Everything committed to this repository is in English: code, comments, docs, file names, commit messages, issues and pull requests.
+- Workload data keeps the language of its source; Workload data authored in this repository is English.
 - `main` changes only through a pull request; agents may open and merge it.
 - Live LLM calls are opt-in, bounded, and never run in CI.
 - Reference answers are never shown to an evaluated agent, and a reference is never changed to improve a score.
