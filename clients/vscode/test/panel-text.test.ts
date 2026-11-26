@@ -58,9 +58,11 @@ const FINDING_IDS = [
   "next_step.context",
   "assessments[].single_feature_check.computed[].metric.id",
   "assessments[].metrics[].id",
+  "assessments[].observation_set_id",
+  "attempts[].observation_set_id",
 ];
 // The kept reads that together hold a text at every other path of `key_paths` that holds one.
-const PLANTED_READS = ["status-success", "status-chinook-pending", "status-deviation", "status-result-changed"];
+const PLANTED_READS = ["status-success", "status-chinook-pending", "status-deviation", "status-result-changed", "demonstration.final.status"];
 
 // `object` with each text at a path of `key_paths` replaced by a planted text with its own token; a map shown whole is one path
 // ending in `.*`, and a list of texts takes a planted text in each entry.

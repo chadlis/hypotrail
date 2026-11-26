@@ -113,6 +113,15 @@ const RECORD_FILE = contract.open_refs[3];
 // (chadlis/hypotrail#227, T1-4).
 const READ_ONLY = "workbench.action.files.setActiveEditorReadonlyInSession";
 
+// The folders of the Attempts of the object held that no Assessment cites: "`open` refuses any path under that Attempt's folder" (D-143,
+// correction 1). An Attempt is cited when an Assessment holds the `observation_set_id` the read gives the Attempt.
+function uncitedFolders(): string[] {
+  const cited = new Set(entries(held?.assessments).map((assessment) => assessment.observation_set_id));
+  return entries(held?.attempts)
+    .filter((attempt) => attempt.observation_set_id === null || attempt.observation_set_id === undefined || !cited.has(attempt.observation_set_id))
+    .map((attempt) => `attempts/${attempt.attempt_id as string}/`);
+}
+
 // The path relative to the Study folder that the object held gives at the message's kind, index and ref, if any: for a record's own file,
 // the path of the entry of `record_files` of that kind whose id is the record's.
 function namedPath(message: Message): string | undefined {
@@ -125,7 +134,8 @@ function namedPath(message: Message): string | undefined {
     message.ref === RECORD_FILE
       ? entries(held.record_files).find((each) => each.kind === kind && each.id === entry[key])?.path
       : (entry[`${message.ref}_ref`] as { path?: unknown } | null | undefined)?.path;
-  return typeof found === "string" ? found : undefined;
+  if (typeof found !== "string") return undefined;
+  return uncitedFolders().some((folder) => found.replace(/\\/g, "/").startsWith(folder)) ? undefined : found;
 }
 
 // The Study folder joined to `relative`, when `relative` is not absolute, has no `..` segment, and names a file whose real path lies
@@ -269,7 +279,12 @@ const STYLE = [
   "a { color: var(--teal); }",
   'section[data-part="now"] > h2 { color: var(--yellow); }',
   '[data-element="band"] { margin: 0 0 0.2em; font-size: 0.9em; color: var(--chalk2); }',
-  'section[data-part="path"] > h3 { font-size: 0.85em; color: var(--chalk2); margin: 0.3em 0 0.1em; }',
+  'section[data-part="path"] h3 { font-size: 0.85em; color: var(--chalk2); margin: 0.5em 0 0.1em; }',
+  "details[data-step] { margin: 0.15em 0; }",
+  "details[data-step] > summary { color: var(--chalk); }",
+  '[data-element="form"], [data-element="chart"], [data-element="limitation"] { margin: 0.2em 0 0.4em 1em; }',
+  '[data-element="limitation"] { font-size: 0.9em; color: var(--chalk2); }',
+  "[data-mark] { font-weight: 700; color: var(--coral); }",
   'div[data-part="study"] { font-size: 0.85em; }',
   "h1 { font-size: 0.9em; font-weight: normal; margin: 0.4em 0; color: var(--chalk2); overflow-wrap: anywhere; }",
   "h2 { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--chalk2); margin: 0.5em 0 0.2em; padding-bottom: 0.1em; border-bottom: 1px solid var(--line2); }",

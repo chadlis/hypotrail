@@ -55,8 +55,8 @@ function written(value: number | null): string {
 }
 
 const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
-// The part of a document between two of the headings of the Study so far.
-const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h3>${label(heading)}</h3>`), document.indexOf(`<h3>${label(next)}</h3>`));
+// The part of a document between two of the headings of the step of the Decisions.
+const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h4>${label(heading)}</h4>`), document.indexOf(`<h4>${label(next)}</h4>`));
 // Now, where the Pending decision the core names stands.
 const nowPart = (document: string): string => elementOf(document, '<section data-part="now"') ?? "";
 const questionsOf = (html: string): string[] => [...html.matchAll(/<h3 data-text>([^<]*)<\/h3>/g)].map((match) => unescaped(match[1]));
@@ -120,7 +120,9 @@ function assertPending({ document, read, figures }: Seen): Entry {
 function assertDecision(part: string, decision: Entry, appliesValue: boolean, author: string): void {
   assert.equal(decision.applies, appliesValue);
   assert.equal(words(elementOf(part, "<h3>")), `${decision.option} ${applies(appliesValue)}`, "the option and the phrase of its applies");
-  assert.ok(elementsOf(part, "<p>").map(words).includes(`${label("Author")} ${author}`), `the author ${author}`);
+  // "a Decision's `source` beside its author" (D-151, answer 7)
+  const source = decision.source === null ? "" : ` ${label("Source")} ${decision.source}`;
+  assert.ok(elementsOf(part, "<p>").map(words).includes(`${label("Author")} ${author}${source}`), `the author ${author}${source}`);
 }
 
 // The state of a Decision's evidence and each of its two lines, one per side: the phrase, the changed Items, the cited and the latest value.
@@ -171,7 +173,7 @@ function valueAt(object: unknown, keyPath: string): unknown {
 const SEES: Record<string, (seen: Seen) => void> = {
   "after-compare": (seen) => {
     assertPending(seen);
-    assert.ok(seen.document.slice(seen.document.indexOf(`<h3>${label("Decisions")}</h3>`)).includes(`<h3>Decisions</h3>\n<p>${label("None.")}</p>`), "under Decisions, None.");
+    assert.ok(seen.document.slice(seen.document.indexOf(`<h4>${label("Decisions")}</h4>`)).includes(`<h4>Decisions</h4>\n<p>${label("None.")}</p>`), "under Decisions, None.");
   },
   "after-decide": (seen) => {
     assertNoPending(seen);

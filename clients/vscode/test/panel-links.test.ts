@@ -119,7 +119,7 @@ for (const name of Object.keys(KEPT_FIGURES)) {
   });
 }
 
-test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once and its summary in the Decision, each id once, and the same links", async (t) => {
+test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once, its summary in the Decision and in the step of the Comparisons, each id once, and the same links", async (t) => {
   const object = keptObject("status-decided");
   const comparison = object.comparisons[0];
   object.decisions[0].applies = false;
@@ -132,7 +132,8 @@ test("status-decided with its Comparison also pending and its Decision not apply
   object.next_step = { ...object.next_step, kind: "decide", ids: [comparison.comparison_id], context: [object.decisions[0].decision_id] };
   const { document } = await documentFor(t, success(object));
   assert.equal(partsByKind(document, "comparison").length, 1);
-  assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 1);
+  // Its summary in the Decision, and in the step of the Comparisons.
+  assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 2);
   assertLinksAndIds(document, object, "status-decided changed");
 });
 
@@ -197,9 +198,26 @@ const IN_THE_BAND: Record<string, [string, (object: Entry) => number]> = {
 
 // For each pair whose number the delta line prints from the Comparison's `interval`, the kept read the interval is injected into.
 const IN_AN_INTERVAL: Record<string, string> = { interval: "status-success" };
+// For each pair whose number an Attempt's line prints, the kept read whose Attempts an Assessment cites.
+const IN_AN_ATTEMPT: Record<string, string> = { item_counts: "status-success" };
+
+for (const [kind, name] of Object.entries(IN_AN_ATTEMPT)) {
+  test(`each number of the kind ${kind} of an Attempt's line links to the part of the Assessment that cites the Attempt: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    const rows = partsByKind(document, "attempt");
+    assert.equal(rows.length, object.attempts.length);
+    object.attempts.forEach((attempt: Entry, at: number) => {
+      const citing = object.assessments.find((each: Entry) => each.observation_set_id === attempt.observation_set_id);
+      const links = linksOf(rows[at], document).filter((link) => link.kind === kind);
+      assert.deepEqual(links.map((link) => link.text), Object.values(attempt.item_counts).map((each) => written(each as number)), `the counts of ${attempt.request_id}`);
+      for (const link of links) assert.equal(firstId(link.target), citing.assessment_id, link.href);
+    });
+  });
+}
 
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT)].sort());
 });
 
 for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
@@ -299,7 +317,7 @@ for (const name of KEPT_READS) {
 
 // Which Assessments have a part.
 for (const name of ["status-result-changed", "status-several-pending"]) {
-  test(`each Assessment named by a shown pending decision, a cited Comparison's roles, a line or cited_ids has one part, and no other has one: ${name}`, async (t) => {
+  test(`each Assessment has one part: where a shown pending decision, a cited Comparison's roles, a line or cited_ids names it, there; any other in the step of the Assessments: ${name}`, async (t) => {
     const object = keptObject(name);
     const named = new Set<string>();
     for (const pending of object.pending_decisions) named.add(pending.control_assessment_id).add(pending.candidate_assessment_id);
@@ -310,10 +328,12 @@ for (const name of ["status-result-changed", "status-several-pending"]) {
       }
       for (const line of decision.evidence_change?.lines ?? []) named.add(line.assessment_id).add(line.latest_assessment_id);
     }
-    const parts = partsByKind((await documentFor(t, success(object))).document, "assessment");
+    const document = (await documentFor(t, success(object))).document;
+    const parts = partsByKind(document, "assessment");
+    const step = partsByKind(elementOf(document, '<details data-step="assessments">')!, "assessment");
     for (const assessment of object.assessments) {
-      const count = parts.filter((part) => firstId(part) === assessment.assessment_id).length;
-      assert.equal(count, named.has(assessment.assessment_id) ? 1 : 0, assessment.assessment_id);
+      assert.equal(parts.filter((part) => firstId(part) === assessment.assessment_id).length, 1, assessment.assessment_id);
+      assert.equal(step.filter((part) => firstId(part) === assessment.assessment_id).length, named.has(assessment.assessment_id) ? 0 : 1, `${assessment.assessment_id} in the step`);
     }
   });
 }

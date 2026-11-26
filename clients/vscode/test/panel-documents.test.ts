@@ -104,6 +104,13 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       return { document: (await documentFor(t, ...answers)).document, answers };
     },
   ]),
+  [
+    "journey.17-interrupted.status, with a recoverable Attempt",
+    async (t) => {
+      const answers = [read("journey.17-interrupted.status")];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
   ["a read the CLI refuses", async (t) => ({ document: (await documentFor(t, NOT_FOUND)).document, answers: [NOT_FOUND] })],
   ...NO_ANSWERS.map(([cause, answer]): [string, (t: TestContext) => Promise<Built>] => [`a read with no answer (${cause})`, async (t) => ({ document: (await documentFor(t, answer)).document, answers: [answer] })]),
   [
@@ -255,7 +262,7 @@ function valuesOf(answers: Answer[]): string[] {
     if (Array.isArray(value)) value.forEach((each) => walk(each, key));
     else if (value !== null && typeof value === "object") {
       for (const [name, each] of Object.entries(value)) {
-        if (key === "coverage") values.push(name);
+        if (key === "coverage" || key === "item_counts") values.push(name);
         walk(each, name);
       }
     } else values.push(unescaped(written(value)));

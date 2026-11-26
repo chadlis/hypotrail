@@ -444,3 +444,20 @@ test("status-several-pending: Now holds the first Pending decision whole in D-14
   });
   assert.equal(elementsOf(elementOf(document, '<section data-part="now"')!, '<section data-part="pending">').length, 1, "one decision in Now");
 });
+
+// "#224 is built in the redesign (a Decision's `source`, a Declared deviation's text)" (D-151, answer 7).
+test("a Decision's source stands beside its author and a Declared deviation's text beside its id, each a marked text, escaped", async (t) => {
+  const object = keptObject("status-deviation");
+  object.decisions = keptObject("status-decided").decisions;
+  const source = `rule: <b onclick="go()">keep</b> the "lowest" & best`;
+  object.decisions[0].source = source;
+  object.declared_deviations[0].text = `<script>alert(1)</script> owner's review`;
+  const document = (await documentFor(t, success(object))).document;
+  const author = elementsOf(decisionParts(document)[0], "<p>").find((each) => each.startsWith("<p>Author "))!;
+  assert.deepEqual(markedTexts(author), [source]);
+  assert.ok(!document.includes("<b onclick") && !document.includes("<script>alert"));
+  object.declared_deviations.forEach((deviation: Entry, at: number) => {
+    const row = elementsOf(document, '<li data-part="deviation">')[at];
+    assert.deepEqual(markedTexts(row).slice(0, 1), [deviation.text], deviation.declared_deviation_id);
+  });
+});

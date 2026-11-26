@@ -221,10 +221,10 @@ const RULE = "Not counted again: an entry that repeats a message above.";
 const linkTo = (html: string): [string, string][] => [...html.matchAll(/<a href="#([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((match) => [match[1], match[2]]);
 
 for (const name of PENDING_READS) {
-  test(`the heading of the pending decisions is followed by their count, in a link to the Study's part: ${name}`, async (t) => {
+  test(`in the step of the Decisions, the heading of the pending decisions is followed by their count, in a link to the Study's part: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
-    const after = document.slice(document.indexOf("<h3>Pending decisions</h3>") + "<h3>Pending decisions</h3>".length).trimStart();
+    const after = document.slice(document.indexOf("<h4>Pending decisions</h4>") + "<h4>Pending decisions</h4>".length).trimStart();
     const line = elementOf(after, "<p")!;
     assert.ok(after.startsWith(line), after.slice(0, 80));
     assert.equal(words(line), `${COUNT} ${object.pending_decisions.length}`);
@@ -276,14 +276,14 @@ for (const name of PENDING_READS) {
   });
 }
 
-test("with no Decision and no Declared deviation, the headings Decisions and Declared deviations are each followed by None.: status-success", async (t) => {
+test("with no Decision and no Declared deviation, the heading Decisions in its step and the form of the step of the Declared deviations are each followed by None.: status-success", async (t) => {
   const object = keptObject("status-success");
   assert.equal(object.decisions.length + object.declared_deviations.length, 0);
   const { document } = await documentFor(t, success(object));
-  for (const heading of ["Decisions", "Declared deviations"]) {
-    const after = document.slice(document.indexOf(`<h3>${heading}</h3>`) + `<h3>${heading}</h3>`.length).trimStart();
-    assert.ok(after.startsWith(`<p>${NONE}</p>`), `${heading}: ${after.slice(0, 60)}`);
-  }
+  const decisions = document.slice(document.indexOf("<h4>Decisions</h4>") + "<h4>Decisions</h4>".length).trimStart();
+  assert.ok(decisions.startsWith(`<p>${NONE}</p>`), `Decisions: ${decisions.slice(0, 60)}`);
+  const form = elementOf(elementOf(document, '<details data-step="deviations">')!, '<div data-element="form">')!;
+  assert.ok(form.replace('<div data-element="form">', "").trimStart().startsWith(`<p>${NONE}</p>`), `Declared deviations: ${form.slice(0, 80)}`);
 });
 
 test("with a Decision and a Declared deviation, neither heading is followed by None.: status-deviation with status-decided's Decision", async (t) => {
@@ -306,12 +306,15 @@ const BOUNDS = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.sp
 // The mark of Record out of the first screen on a state with a Pending decision: it follows the evidence and the figures.
 const RECORD_OUT_OF_SCREEN: string | undefined = undefined;
 // The mark of the latest Decision out of the first screen on final: the proxy Decision follows the whole part of the first.
-const LATEST_OUT_OF_SCREEN: string | undefined = "the panel redesign: on final the latest Decision follows the whole part of the first Decision";
+// Since the Study so far draws each done step as a closed fold, the latest Decision stands in the closed step of the Decisions on every
+// state that holds one; Now does not draw it under rule 4.
+const LATEST_OUT_OF_SCREEN: string | undefined = "the panel redesign: the latest Decision stands in the closed fold of the step of the Decisions";
 
-type Box = { top: number; bottom: number; width: number; height: number } | null;
+type Box = { top: number; bottom: number; width: number; height: number; visible: boolean } | null;
 const BOX = (selector: string): string =>
-  `(() => { const found = document.querySelector(${JSON.stringify(selector)}); if (!found) return null; const box = found.getBoundingClientRect(); return { top: box.top + scrollY, bottom: box.bottom + scrollY, width: box.width, height: box.height }; })()`;
-const drawnAt = (box: Box): boolean => box !== null && box.width > 0 && box.height > 0;
+  `(() => { const found = document.querySelector(${JSON.stringify(selector)}); if (!found) return null; const box = found.getBoundingClientRect(); return { top: box.top + scrollY, bottom: box.bottom + scrollY, width: box.width, height: box.height, visible: found.checkVisibility() }; })()`;
+// An element inside a closed fold keeps a box in Chrome but is not drawn: `checkVisibility` tells them apart.
+const drawnAt = (box: Box): boolean => box !== null && box.width > 0 && box.height > 0 && box.visible;
 const inScreen = (box: Box): boolean => drawnAt(box) && box!.top >= 0 && box!.bottom <= SCREEN.height;
 
 async function demonstrationDocument(t: TestContext, name: string): Promise<string> {
@@ -441,7 +444,7 @@ for (const name of FIRST_SCREEN_READS) {
 }
 
 for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending_decisions.length === 0 && keptObject(read).decisions.length === 1)) {
-  test(`in the first screen at 420 px in each theme, the latest Decision of the kept state is drawn with the phrase of its applies: ${name}`, { timeout: 120000 }, async (t) => {
+  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, the latest Decision of the kept state is drawn with the phrase of its applies: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
     const object = keptObject(name);
@@ -476,7 +479,7 @@ test("the mark of the latest Decision below the first screen stands only while, 
   const out: string[] = [];
   for (const theme of Object.keys(THEMES)) {
     const heading: Box = await (await firstScreen(t, address, document, theme))(BOX(latestHeading(keptObject(name))));
-    assert.ok(drawnAt(heading), `${theme}: the latest Decision of final is not drawn`);
+    assert.ok(heading !== null, `${theme}: the document of final holds no latest Decision`);
     if (!inScreen(heading)) out.push(theme);
   }
   assert.ok(out.length > 0, `the latest Decision of final is in the first screen in each of the four themes: remove the mark LATEST_OUT_OF_SCREEN, so that its test is no longer expected to fail`);

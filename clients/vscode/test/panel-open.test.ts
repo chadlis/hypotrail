@@ -185,6 +185,11 @@ async function eachControlByTab(keys: Keys, reached: (place: number) => Promise<
   const visited = new Set<number>();
   for (let turn = 0; turn < 3000 && visited.size < count; turn += 1) {
     await keys.key("Tab");
+    // A control inside a closed fold is reached as a person reaches it: Enter on the fold's summary opens it, then Tab goes on.
+    if (await keys.evaluate(`document.activeElement.tagName === "SUMMARY" && !document.activeElement.parentElement.open`)) {
+      await keys.key("Enter");
+      continue;
+    }
     const place: number = await keys.evaluate(`${CONTROLS}.indexOf(document.activeElement)`);
     if (place >= 0 && !visited.has(place)) {
       visited.add(place);
@@ -518,7 +523,12 @@ main { max-width: 46em; overflow-wrap: anywhere; }
 a { color: var(--teal); }
 section[data-part="now"] > h2 { color: var(--yellow); }
 [data-element="band"] { margin: 0 0 0.2em; font-size: 0.9em; color: var(--chalk2); }
-section[data-part="path"] > h3 { font-size: 0.85em; color: var(--chalk2); margin: 0.3em 0 0.1em; }
+section[data-part="path"] h3 { font-size: 0.85em; color: var(--chalk2); margin: 0.5em 0 0.1em; }
+details[data-step] { margin: 0.15em 0; }
+details[data-step] > summary { color: var(--chalk); }
+[data-element="form"], [data-element="chart"], [data-element="limitation"] { margin: 0.2em 0 0.4em 1em; }
+[data-element="limitation"] { font-size: 0.9em; color: var(--chalk2); }
+[data-mark] { font-weight: 700; color: var(--coral); }
 div[data-part="study"] { font-size: 0.85em; }
 h1 { font-size: 0.9em; font-weight: normal; margin: 0.4em 0; color: var(--chalk2); overflow-wrap: anywhere; }
 h2 { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--chalk2); margin: 0.5em 0 0.2em; padding-bottom: 0.1em; border-bottom: 1px solid var(--line2); }
@@ -635,3 +645,21 @@ test("a planted rule on body is neither a kept rule nor a rule of the class of t
   assert.ok(!KEPT_STYLE.includes(rule) && !ofTheControls(rule));
   assert.ok(ofTheControls("button.open:hover:not(:disabled) { background: var(--card); }"));
 });
+
+// "`open` refuses any path under that Attempt's folder" (D-143, correction 1): an Attempt no Assessment cites, and the same path once one does.
+for (const cited of [false, true]) {
+  test(`the open message of a path under the folder of an Attempt ${cited ? "an Assessment cites opens it" : "that no Assessment cites opens nothing and gives the notice"}: status-success with a per_item path planted under that folder`, async (t) => {
+    const read = keptObject("status-success");
+    const [attempt] = read.attempts;
+    const planted = `attempts/${attempt.attempt_id}/predictions.csv`;
+    read.assessments[0].per_item_ref.path = planted;
+    if (!cited) attempt.observation_set_id = "c53337e9-d255-423d-a851-414278d5c3f0";
+    else read.assessments[0].observation_set_id = attempt.observation_set_id;
+    await openedOn(t, [planted], () => read);
+    const documents = panelOf().documents.length;
+    panelOf().send({ message: OPEN, kind: "assessment", index: 0, ref: contract.open_refs[0] });
+    await settled();
+    assert.equal(stub.callsOf("showTextDocument").length, cited ? 1 : 0, "what was asked of the editor");
+    if (!cited) assert.ok(partsOf(lastDocument()).between.includes(NOT_OPENED) && panelOf().documents.length === documents + 1, "the notice of a file not opened");
+  });
+}

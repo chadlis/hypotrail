@@ -111,6 +111,19 @@ const LABEL = {
   featuresAlone: 77,
   yourWords: 78,
   addWords: 79,
+  frame: 80,
+  produce: 81,
+  assessAndCompare: 82,
+  decideAndFollow: 83,
+  attempts: 84,
+  attempt: 85,
+  assessments: 86,
+  comparisons: 87,
+  countsOnceCited: 88,
+  byRule: 89,
+  recoverable: 90,
+  declared: 91,
+  source: 92,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -333,18 +346,101 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const parts = order.map((at, place) => pendingOf(pending[at], at, locked, shown, sent, place === 0 ? context : undefined));
   const waiting = order.slice(1).map((at, place) => ['<details data-element="waiting">', `<summary>${marked(record(pending[at].question).text)}</summary>`, parts[place + 1], "</details>"].join("\n"));
   const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
+  const studyPart = [`<div data-part="study"${anchor("study", 0)}>`, `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`, "</div>"].join("\n");
+  const attempts = list(object.attempts);
+  const assessments = shown.assessments;
+  const comparisons = shown.comparisons;
+  const decisions = list(object.decisions);
+  const deviations = list(object.declared_deviations);
+  // The steps of each moment, in the order of the write journal: the Study, its Attempts, its Assessments and Comparisons, its Decisions
+  // and Declared deviations. A step stands when the read holds its records; the Study's, the Decisions' and the Declared deviations' always.
+  // The Decisions are built before the Assessments and the Comparisons, so that a record a Decision cites keeps its part in that Decision
+  // and the steps of Assess and compare show its summary or a link to it.
+  const decideAndFollow = [decisionsStepOf(decisions, [`<h4>${label("pending")}</h4>`, pending.length === 0 ? `<p>${label("noPending")}</p>` : count, `<h4>${label("decisions")}</h4>`, decisionsOf(decisions, linked, recorded, shown)].join("\n")), deviationsStepOf(deviations, shown)];
+  const produce = attempts.length === 0 ? [] : [attemptsStepOf(attempts, shown)];
+  const assess = [...(assessments.length === 0 ? [] : [assessmentsStepOf(shown)]), ...(comparisons.length === 0 ? [] : [comparisonsStepOf(shown)])];
   return { now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
-    `<h3>${label("study")}</h3>`,
-    `<div data-part="study"${anchor("study", 0)}>`,
-    `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
-    "</div>",
-    `<h3>${label("pending")}</h3>`,
-    pending.length === 0 ? `<p>${label("noPending")}</p>` : count,
-    `<h3>${label("decisions")}</h3>`,
-    decisionsOf(list(object.decisions), linked, recorded, shown),
-    `<h3>${label("deviations")}</h3>`,
-    deviationsOf(list(object.declared_deviations), shown),
-  ].join("\n") };
+    momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),
+    momentOf("produce", produce),
+    momentOf("assessAndCompare", assess),
+    momentOf("decideAndFollow", decideAndFollow),
+  ].filter((part) => part !== "").join("\n") };
+}
+
+// A moment of the Study so far: a plain heading, then its steps; nothing when it holds none.
+const momentOf = (name: keyof typeof LABEL, steps: string[]): string => (steps.length === 0 ? "" : [`<h3>${label(name)}</h3>`, ...steps].join("\n"));
+
+// A mark that restates one read fact, hidden from assistive technology, with the word it stands for after it.
+const markOf = (mark: string, word: keyof typeof LABEL): string => `<span data-mark aria-hidden="true">${mark}</span> <span>${label(word)}</span>`;
+
+// A done step: one line, its mark first when it has one, then its name and its values, which folds open to its review form, then its chart,
+// and closes on its limitation; each part stands only when the step has one.
+function stepOf(name: keyof typeof LABEL, values: string, form: string, chart = "", limitation = "", mark = ""): string {
+  return [
+    `<details data-step="${name}">`,
+    `<summary>${mark === "" ? "" : `${mark} `}<span data-element="step">${label(name)}</span>${values === "" ? "" : ` ${values}`}</summary>`,
+    `<div data-element="form">\n${form}\n</div>`,
+    ...(chart === "" ? [] : [`<div data-element="chart">\n${chart}\n</div>`]),
+    ...(limitation === "" ? [] : [`<div data-element="limitation">\n${limitation}\n</div>`]),
+    "</details>",
+  ].join("\n");
+}
+
+// The Attempts: each with its Mode, its technical status and the mark of a recoverable one. "Its `item_counts`, and anything derived from
+// its outputs, show only once an Assessment cites it" (D-136, question 1): an Attempt is cited when an Assessment holds the
+// `observation_set_id` the read gives the Attempt; its id and its counts then show, each count a link to the part of that Assessment.
+function attemptsStepOf(attempts: Entry[], shown: Shown): string {
+  const rows = attempts.map((attempt) => {
+    const cited = attempt.observation_set_id === null || attempt.observation_set_id === undefined ? -1 : shown.assessments.findIndex((each) => each.observation_set_id === attempt.observation_set_id);
+    const mark = attempt.recoverable === true ? ` ${markOf("!", "recoverable")}` : "";
+    if (cited < 0) return `<li data-part="attempt">${label("attempt")} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark} <span>${label("countsOnceCited")}</span></li>`;
+    const counts = Object.entries(record(attempt.item_counts)).map(([key, number]) => `${value(key)} ${link("item_counts", cited, number)}`);
+    return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark}${counts.length === 0 ? "" : ` ${counts.join(" ")}`}</li>`;
+  });
+  const modes = [...new Set(attempts.map((attempt) => attempt.mode))].map(value).join(" ");
+  const recoverable = attempts.some((attempt) => attempt.recoverable === true) ? markOf("!", "recoverable") : "";
+  return stepOf("attempts", modes, `<ul>\n${rows.join("\n")}\n</ul>`, "", "", recoverable);
+}
+
+// The Assessments: the line holds the first Metric of the latest one; each has its part where the document shows none yet, and the step
+// closes on the latest one's limitations.
+function assessmentsStepOf(shown: Shown): string {
+  const latest = shown.assessments.length - 1;
+  const metric = record(list(shown.assessments[latest].metrics)[0]);
+  const line = `${value(metric.id)} ${link("value", latest, metric.value)} ${marked(metric.unit)}`;
+  const form = shown.assessments.map((assessment) => assessmentOf(undefined, assessment.assessment_id, shown)).join("\n");
+  const limitations = Array.isArray(shown.assessments[latest].limitations) ? shown.assessments[latest].limitations : [];
+  return stepOf("assessments", line, form, "", limitations.length === 0 ? "" : `<ul>\n${limitations.map((each) => marked(each, "li")).join("\n")}\n</ul>`);
+}
+
+// The Comparisons: the line holds the delta of the latest one; each has its part, or its summary where the document shows its part already.
+function comparisonsStepOf(shown: Shown): string {
+  const latest = shown.comparisons.length - 1;
+  const delta = record(shown.comparisons[latest].delta);
+  const line = `${delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", latest, delta.value)} ${value(delta.metric)} ${marked(delta.unit)}`;
+  const form = shown.comparisons
+    .map((comparison) => {
+      const roles = record(comparison.roles);
+      const ids = "roles" in comparison ? [roles.control_assessment_id, roles.candidate_assessment_id] : [];
+      return shown.parts.has(comparison) ? summaryOf(comparison, shown, ids) : comparisonOf(comparison.comparison_id, shown, ids);
+    })
+    .join("\n");
+  return stepOf("comparisons", line, form);
+}
+
+// The Decisions: the line holds the latest one's option and whether it applies, with the mark of a Decision made by a rule.
+function decisionsStepOf(decisions: Entry[], form: string): string {
+  const latest = decisions[decisions.length - 1];
+  if (latest === undefined) return stepOf("decisions", "", form);
+  const applies = APPLIES.get(String(latest.applies));
+  const line = `${marked(latest.option, "strong")}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`}`;
+  return stepOf("decisions", line, form, "", "", latest.author === "proxy" ? markOf("\u25c7", "byRule") : "");
+}
+
+// The Declared deviations, with the mark of a declared one where one is not withdrawn.
+function deviationsStepOf(deviations: Entry[], shown: Shown): string {
+  const declared = deviations.some((deviation) => deviation.withdrawn === false) ? markOf("\u2016", "declared") : "";
+  return stepOf("deviations", "", deviationsOf(deviations, shown), "", "", declared);
 }
 
 // The question, then the Comparison it names with the choices under its evidence: the first action selects an option's radio
@@ -687,7 +783,8 @@ function decisionOf(decision: Entry, index: number, linked: boolean, recorded: b
     ...(change ? [stateOf(change, list(decision.reasons)), linesOf(change, index, shown)] : []),
     ...(reasons.length > 0 ? [`<h4>${label("reasons")}</h4>`] : []),
     `<ul data-element="reasons">\n${reasons.join("\n")}\n</ul>`,
-    `<p>${label("author")} ${value(decision.author)}</p>`,
+    `<p>${label("author")} ${value(decision.author)}${decision.source === null || decision.source === undefined ? "" : ` ${label("source")} ${marked(decision.source)}`}</p>`,
+    ...(decision.author === "proxy" ? [`<p data-element="proxy">${markOf("\u25c7", "byRule")}</p>`] : []),
     `<h4>${label("citedIds")}</h4>`,
     `<ul data-element="cited">\n${cited.map((id) => `<li>${value(id)}</li>`).join("\n")}\n</ul>`,
   ];
@@ -754,7 +851,8 @@ function linesOf(change: Entry, decision: number, shown: Shown): string {
 function deviationsOf(deviations: Entry[], shown: Shown): string {
   const lines = deviations.map((deviation, index) => {
     const file = recordFileOf("deviation", index, deviation.declared_deviation_id, shown, "span");
-    return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
+    const mark = deviation.withdrawn === false ? `${markOf("\u2016", "declared")} ` : "";
+    return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${marked(deviation.text)} ${mark}${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
   });
   return lines.length === 0 ? `<p>${label("none")}</p>` : `<ul>\n${lines.join("\n")}\n</ul>`;
 }

@@ -121,11 +121,15 @@ for (const [name, make] of NOTHING_PENDING) {
   });
 }
 
-test("a Comparison that is not pending and that no Decision cites is not shown", async (t) => {
+test("a Comparison that is not pending and that no Decision cites has its part in the step of the Comparisons of the Study so far, and nowhere else", async (t) => {
   const object = keptObject("status-success");
   object.pending_decisions = [];
   const { document } = await documentFor(t, success(object));
-  for (const comparison of object.comparisons) assert.ok(!document.includes(comparison.comparison_id), comparison.comparison_id);
+  const step = elementOf(document, '<details data-step="comparisons">')!;
+  for (const comparison of object.comparisons) {
+    assert.ok(step.includes(comparison.comparison_id), comparison.comparison_id);
+    assert.equal(document.split(comparison.comparison_id).length - 1, step.split(comparison.comparison_id).length - 1, "nowhere else");
+  }
 });
 
 // The Comparison, its delta, and the two Assessments under their roles.
@@ -250,11 +254,12 @@ for (const name of KEPT_READS) {
   });
 }
 
-test("status-deviation: each Declared deviation shows its id and, beside it, withdrawn with the value the object holds", async (t) => {
+test("status-deviation: each Declared deviation shows its id, its text, the mark of a declared one while it is not withdrawn, and withdrawn with the value the object holds", async (t) => {
   const object = keptObject("status-deviation");
   const { document } = await documentFor(t, success(object));
   for (const deviation of object.declared_deviations) {
     const line = partsOf(elementsOf(document, "<li data-part=\"deviation\">").find((each) => each.includes(deviation.declared_deviation_id))!).between;
-    assert.match(line, new RegExp(`${deviation.declared_deviation_id}\\s+withdrawn\\s+${deviation.withdrawn}(\\s|$)`));
+    const mark = deviation.withdrawn ? "" : "\u2016\\s+declared\\s+";
+    assert.match(line, new RegExp(`${deviation.declared_deviation_id}\\s+${deviation.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+${mark}withdrawn\\s+${deviation.withdrawn}(\\s|$)`));
   }
 });

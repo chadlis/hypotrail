@@ -460,3 +460,17 @@ def test_the_dated_lines_hold_one_line_for_the_observation_set_id_of_attempts_qu
     [line] = found
     assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
     assert OBSERVATION_SET_SENTENCE in line and "the earlier line it overrides: none" in line
+
+
+# --- the dated line of the panel's refusal under an uncited Attempt's folder --------------------------------------------------------------
+
+UNCITED_SENTENCE = "`open` refuses any path under that Attempt's folder."
+
+
+def test_the_dated_lines_hold_one_line_for_the_refusal_under_an_uncited_attempts_folder_that_narrows_the_open_line():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#255" in line and "opens no file" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert f'"{UNCITED_SENTENCE}"' in line and "the earlier line it narrows: the 2026-11-26 line on the `open` message" in line

@@ -34,7 +34,7 @@ function valuesOf(answers: Answer[]): string[] {
     if (Array.isArray(value)) value.forEach((each) => walk(each, key));
     else if (value !== null && typeof value === "object") {
       for (const [name, each] of Object.entries(value)) {
-        if (key === "coverage") values.push(name);
+        if (key === "coverage" || key === "item_counts") values.push(name);
         walk(each, name);
       }
     } else values.push(unescaped(written(value)));
@@ -207,3 +207,95 @@ test("on state 09 the cited Comparison's delta and the new delta both stand in N
   }
   if (cited !== fresh) assert.ok(!words(now).split(" ").includes(written(fresh - cited)), "the difference");
 });
+
+// --- The Study so far, in form 2 -----------------------------------------------------------------------------------------------------
+
+// The steps the read's records give, in the order of the write journal: the Study, its Attempts, its Assessments and its Comparisons where
+// it holds any, its Decisions and its Declared deviations.
+function stepsOf(read: Record<string, any>): string[] {
+  return [
+    "study",
+    ...(read.attempts.length > 0 ? ["attempts"] : []),
+    ...(read.assessments.length > 0 ? ["assessments"] : []),
+    ...(read.comparisons.length > 0 ? ["comparisons"] : []),
+    "decisions",
+    "deviations",
+  ];
+}
+
+for (const state of STATES.filter((each) => readOf(each).ok === true)) {
+  test(`the Study so far holds one closed step per kind of record present, in the order of the write journal, each running its review form, its chart and its limitation: ${state}`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const path = elementOf(document, '<section data-part="path">')!;
+    const steps = elementsOf(path, "<details data-step=");
+    assert.deepEqual(steps.map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]), stepsOf(read));
+    for (const step of steps) {
+      assert.ok(!/^<details[^>]*\sopen/.test(step), "closed");
+      assert.match(step, /^<details data-step="[a-z]+">\n<summary>/, "one line first");
+      const places = ['<div data-element="form">', '<div data-element="chart">', '<div data-element="limitation">'].map((opening) => step.indexOf(opening)).filter((place) => place >= 0);
+      assert.ok(places[0] === step.indexOf('<div data-element="form">') && places[0] > 0, "the review form first");
+      assert.deepEqual(places, [...places].sort((a, b) => a - b), "form, chart, limitation");
+    }
+  });
+}
+
+// B4: "Its `item_counts`, and anything derived from its outputs, show only once an Assessment cites it" (D-136, question 1); "its id and its
+// Observation set's id are plain text, never links" (D-143, correction 1).
+test("on state 12 the document holds no link to the Attempt no Assessment cites or its Observation set, no path under its folder and no 184, and its step reads that its counts and its record open once an Assessment cites it; on state 13 its counts show", async (t) => {
+  const twelve = readOf("12-public-check-run");
+  const [check] = twelve.attempts.filter((attempt: Record<string, any>) => attempt.request_id === "check");
+  assert.ok(!twelve.assessments.some((assessment: Record<string, any>) => assessment.observation_set_id === check.observation_set_id));
+  const { document } = await built(t, "12-public-check-run");
+  for (const id of [check.attempt_id, check.observation_set_id]) assert.ok(!/<a [^>]*>[^<]*<\/a>/.test(document) || ![...document.matchAll(/<a [^>]*>([^<]*)<\/a>/g)].some((match) => match[1].includes(id)), `no link to ${id}`);
+  assert.ok(!document.includes(`attempts/${check.attempt_id}/`), "no path under its folder");
+  assert.ok(!partsOf(document).between.split(/\s+/).includes("184"), "no 184");
+  const step = elementOf(document, '<details data-step="attempts">')!;
+  assert.ok(words(step).includes("its counts and its record open once an Assessment cites it"));
+  const thirteen = readOf("13-exposure");
+  const later = (await built(t, "13-exposure")).document;
+  const row = elementsOf(elementOf(later, '<details data-step="attempts">')!, '<li data-part="attempt">').find((each) => each.includes(check.attempt_id));
+  assert.ok(row && /<a [^>]*data-kind="item_counts">184<\/a>/.test(row), "its counts show once an Assessment cites it");
+  assert.ok(thirteen.assessments.some((assessment: Record<string, any>) => assessment.observation_set_id === check.observation_set_id));
+});
+
+// "A proxy Decision reads "\u25c7 Decided by a rule, not by a person"" (D-151, answer 4).
+const BY_RULE = "Decided by a rule, not by a person";
+for (const state of ["10-proxy", "05-decided", "11-study-changed"]) {
+  test(`the line and the part of each Decision of state ${state} hold the mark and the words of a rule only for a proxy Decision, and nothing stands in the place of a validation`, async (t) => {
+    assert.ok(contract.labels.includes(BY_RULE));
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const parts = elementsOf(document, '<section data-part="decision"');
+    read.decisions.forEach((decision: Record<string, any>, at: number) => {
+      assert.equal(words(parts[at]).includes(`\u25c7 ${BY_RULE}`), decision.author === "proxy", decision.decision_id);
+    });
+    const latest = read.decisions[read.decisions.length - 1];
+    const line = elementOf(elementOf(document, '<details data-step="decisions">')!, "<summary>")!;
+    assert.equal(words(line).includes(`\u25c7 ${BY_RULE}`), latest.author === "proxy", "the step's line");
+    assert.ok(!/awaiting your validation/i.test(partsOf(document).between));
+  });
+}
+
+// The marks: \u2016 a Declared deviation not withdrawn, ! a recoverable Attempt, each followed by its word.
+for (const [state, mark, word, present] of [
+  ["15-deviation", "\u2016", "declared", true],
+  ["16-deviation-withdrawn", "\u2016", "declared", true],
+  ["17-interrupted", "!", "recoverable", true],
+  ["18-recovered", "!", "recoverable", false],
+] as const) {
+  test(`state ${state}: the mark ${mark} stands where the read says so, its word after it`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const marks = [...document.matchAll(/<span data-mark aria-hidden="true">([^<]*)<\/span> <span>([^<]*)<\/span>/g)].filter((match) => match[1] === mark);
+    assert.ok(marks.every((match) => match[2] === word), "the word follows the mark");
+    if (mark === "\u2016") {
+      const rows = elementsOf(document, '<li data-part="deviation">');
+      read.declared_deviations.forEach((deviation: Record<string, any>, at: number) => assert.equal(rows[at].includes(`>${mark}<`), deviation.withdrawn === false, deviation.declared_deviation_id));
+    } else {
+      const rows = elementsOf(document, '<li data-part="attempt">');
+      read.attempts.forEach((attempt: Record<string, any>, at: number) => assert.equal(rows[at].includes(`>${mark}<`), attempt.recoverable === true, attempt.request_id));
+      assert.equal(marks.length > 0, present);
+    }
+  });
+}
