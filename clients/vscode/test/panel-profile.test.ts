@@ -3,6 +3,8 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { written } from "../src/content";
+import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
+import { BELOW_AA, THEMES, themed } from "./themes";
 import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, partsOf, samePath, success } from "./panel-harness";
 import { exit, profile, type Answer } from "./recorder";
 
@@ -129,3 +131,22 @@ for (const [name, answer, line] of FAILURES) {
     assert.equal(restOf(failed), restOf(usable));
   });
 }
+
+// "In the four themes at 420 and 900 px, the step's texts stand at AA contrast on the kept Bike read." (chadlis/hypotrail#262): with
+// every fold of the step open, so that the texts inside them are drawn too.
+test("in each of the four themes at 420 and 900 px, every text of the step on the kept Bike read, its folds open, stands at AA contrast", { timeout: 120000 }, async (t) => {
+  if (!hasChrome(t, "the contrast of the Data profile")) return;
+  const address = await startChrome(t);
+  if (address === undefined) return t.skip(`Chrome at ${CHROME} did not start within ${START_MS} ms`);
+  const document = await documentWith(t, success(kept()));
+  const step = elementOf(document, STEP)!;
+  const open = document.replace(step, step.replace(/<details /g, "<details open "));
+  for (const theme of Object.keys(THEMES)) {
+    for (const width of [420, 900]) {
+      const evaluate = await opened(t, address, open, width, 700);
+      await evaluate(themed(theme));
+      assert.equal(await evaluate('document.querySelector(\'details[data-part="profile"]\').open'), true);
+      assert.deepEqual(await evaluate(BELOW_AA), [], `${theme} at ${width} px`);
+    }
+  }
+});
