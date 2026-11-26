@@ -294,14 +294,13 @@ LIST_ROWS = {
     "a blank line ends a list": ("Invoice 34\n\n2 more are pending", {("invoice", "34")}),
     "a bare space is no joiner": ("Invoice 98 1 track", {("invoice", "98")}),
     "a newline is no joiner": ("invoices 34\n155", {("invoice", "34")}),
-    "an item reached through and closes the list": ("invoices 34, 155 and 166, 3 in total", {("invoice", v) for v in ("34", "155", "166")}),
+    "a trailing count ends a list reached through and": ("invoices 34, 155 and 166, 3 in total", {("invoice", v) for v in ("34", "155", "166")}),
     "an item reached through a comma, then a word": ("invoices 34, 155 for a total of 9.90", {("invoice", "34"), ("invoice", "155")}),
-    "an item reached through & closes the list": ("invoices 34 & 155, 2 in all", {("invoice", "34"), ("invoice", "155")}),
-    "a line with no marker ends a line list": ("Invoices:\n- 34\nSee also\n- 155", {("invoice", "34")}),
+    "a trailing count ends a list reached through &": ("invoices 34 & 155, 2 in all", {("invoice", "34"), ("invoice", "155")}),
+    "a line with no marker continues the item above it": ("Invoices:\n- 34\nSee also\n- 155", {("invoice", "34"), ("invoice", "155")}),
     "marker lines after a label that does not end its line": ("Invoice 34\n- 155", {("invoice", "34")}),
     "a label line followed by a line with no marker": ("Invoices:\n\n2 more are pending", set()),
-    # A documented limit: a count phrase consumes what follows it, so the list after it is not read.
-    "a count phrase before a list": ("the number of invoices 34 and 155 is 2", set()),
+    "a count phrase whose number follows its copula, after a list": ("the number of invoices 34 and 155 is 2", {("invoice", "34"), ("invoice", "155")}),
 }
 
 
