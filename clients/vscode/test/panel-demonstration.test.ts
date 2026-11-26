@@ -55,8 +55,8 @@ function written(value: number | null): string {
 }
 
 const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
-// The part of a document between two of its headings.
-const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h2>${label(heading)}</h2>`), document.indexOf(`<h2>${label(next)}</h2>`));
+// The part of a document between two of the headings of the Study so far.
+const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h3>${label(heading)}</h3>`), document.indexOf(`<h3>${label(next)}</h3>`));
 const questionsOf = (html: string): string[] => [...html.matchAll(/<h3 data-text>([^<]*)<\/h3>/g)].map((match) => unescaped(match[1]));
 const linkTexts = (html: string, kind: string): string[] => [...html.matchAll(new RegExp(`<a [^>]*data-kind="${kind}"[^>]*>([^<]*)</a>`, "g"))].map((match) => match[1]);
 const decisionParts = (document: string): string[] => elementsOf(document, '<section data-part="decision"');
@@ -167,7 +167,7 @@ function valueAt(object: unknown, keyPath: string): unknown {
 const SEES: Record<string, (seen: Seen) => void> = {
   "after-compare": (seen) => {
     assertPending(seen);
-    assert.ok(seen.document.slice(seen.document.indexOf(`<h2>${label("Decisions")}</h2>`)).includes(`<h2>Decisions</h2>\n<p>${label("None.")}</p>`), "under Decisions, None.");
+    assert.ok(seen.document.slice(seen.document.indexOf(`<h3>${label("Decisions")}</h3>`)).includes(`<h3>Decisions</h3>\n<p>${label("None.")}</p>`), "under Decisions, None.");
   },
   "after-decide": (seen) => {
     assertNoPending(seen);
@@ -197,6 +197,8 @@ const SEES: Record<string, (seen: Seen) => void> = {
     // C5-check.
     const [studyId, sequence, pending, ids, values] = C5_PATHS.map((keyPath) => valueAt(seen.read, keyPath)) as [string, number, string[], string[], boolean[]];
     assert.equal(words(elementOf(seen.document, '<div data-part="study"')), `${studyId} ${label("Write sequence")} ${written(sequence)}`, "the study id and the Write sequence of C5-check");
+    assert.ok(words(elementOf(seen.document, '<p data-element="band">')).startsWith(`${label("Write sequence")} ${written(sequence)} `), "the Write sequence of C5-check in the band");
+    assert.ok(elementOf(seen.document, '<section data-part="path">')!.includes('<div data-part="study"'), "the Study id of C5-check under The Study so far");
     assert.deepEqual(elementsOf(seen.document, '<section data-part="pending">').map((each) => /<p>Comparison <span>([^<]*)<\/span><\/p>/.exec(each)?.[1]), pending, "the pending ids of C5-check");
     assert.deepEqual(decisionParts(seen.document).map((each) => [/<p><span>([^<]*)<\/span><\/p>/.exec(each)?.[1], words(elementOf(each, "<h3>")).endsWith(applies(true)) && !words(elementOf(each, "<h3>")).endsWith(applies(false))]), ids.map((id, at) => [id, values[at]]), "each Decision of C5-check with applies or does not apply");
   },
@@ -424,9 +426,9 @@ test("the message the document of after-compare posts in a browser is the messag
 // of each Assessment its `evidence_change` names that `record_files` and `assessments` list; for every other kind, the control of the own
 // file of that record part.
 // The kinds `write_sequence` and `pending_decisions` are exempt: they lead to the Study's part, and neither is read or computed from a file
-// of the Study.
+// of the Study. So is `writes_since`, a count of write-journal entries as `write_sequence` is, which leads to the band's place of its lines.
 const NUMBER_KINDS = new Set(contract.number_links.map((entry) => entry.slice(0, entry.indexOf("="))));
-const EXEMPT = new Set(["write_sequence", "pending_decisions"]);
+const EXEMPT = new Set(["write_sequence", "pending_decisions", "writes_since"]);
 const FROM_PAIRED_DELTAS = new Set(["bin_count", "bin_edge", "quartile", "dot_end"]);
 const OF_A_LINE = new Set(["cited", "latest", "changed_item_count"]);
 const RECORD_PARTS = new Set(["assessment", "comparison", "decision", "deviation"]);

@@ -5,7 +5,9 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome, type Evaluate } from "./chrome";
-import { DEMONSTRATION } from "./kept";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { DEMONSTRATION, JOURNEY, KEPT } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED } from "./panel-harness";
 import { BELOW_AA, THEMES, themed } from "./themes";
 
@@ -20,21 +22,22 @@ const PHRASES = new Map(contract.applies_phrases.map((entry) => [entry.slice(0, 
 const rulesOf = (style: string): [string, string][] => [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => [match[1].trim(), match[2]]);
 const declares = (body: string, property: string, value: RegExp): boolean =>
   body.split(";").some((declaration) => declaration.includes(":") && declaration.slice(0, declaration.indexOf(":")).trim() === property && value.test(declaration.slice(declaration.indexOf(":") + 1).trim()));
-const THEME = /var\(--vscode-[a-zA-Z0-9-]+(?:,[^)]*\)?)?\)/;
+// A variable of the palettes, which hold the theme's colours: a name of their own, never one of VS Code's.
+const THEME = /^var\(--(?!vscode-)[a-z0-9-]+\)$/;
 
 async function styleOf(t: TestContext): Promise<string> {
   return partsOf((await documentFor(t, success(keptObject("status-success")))).document).style;
 }
 
-// The rules a control's colours, border and focus take from the theme, by what each one sets.
+// The rules a control's colours, border and focus take from the palettes, by what each one sets.
 const CONTROL_RULES: [string, (rules: [string, string][]) => boolean][] = [
-  ["button takes its background from --vscode-button-background", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "background", /^var\(--vscode-button-background\)$/))],
-  ["button takes its colour from --vscode-button-foreground", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "color", /^var\(--vscode-button-foreground\)$/))],
-  ["a hovered button takes --vscode-button-hoverBackground", (rules) => rules.some(([s, b]) => /button[^,{]*:hover/.test(s) && declares(b, "background", /^var\(--vscode-button-hoverBackground\)$/))],
-  ["a disabled button takes its colours from theme variables", (rules) => rules.some(([s, b]) => /button[^,{]*:disabled/.test(s) && declares(b, "background", THEME) && declares(b, "color", THEME))],
-  ["button takes a border from --vscode-contrastBorder", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "border", /var\(--vscode-contrastBorder\b/))],
-  [":focus-visible has an outline of 1px solid --vscode-focusBorder", (rules) => rules.some(([s, b]) => /:focus-visible/.test(s) && declares(b, "outline", /^1px solid var\(--vscode-focusBorder\)$/))],
-  ["a radio input takes its accent-color from a theme variable", (rules) => rules.some(([s, b]) => /input\[type="radio"\]/.test(s) && declares(b, "accent-color", THEME))],
+  ["button takes its background from --slate", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "background", /^var\(--slate\)$/))],
+  ["button takes its colour from --btnfg", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "color", /^var\(--btnfg\)$/))],
+  ["a hovered button takes --pen", (rules) => rules.some(([s, b]) => /button[^,{]*:hover/.test(s) && declares(b, "background", /^var\(--pen\)$/))],
+  ["a disabled button takes its colours from the palettes", (rules) => rules.some(([s, b]) => /button[^,{]*:disabled/.test(s) && declares(b, "background", THEME) && declares(b, "color", THEME))],
+  ["button takes a border from --line", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "border", /var\(--line\)/))],
+  [":focus-visible has an outline of 1px solid --focus", (rules) => rules.some(([s, b]) => /:focus-visible/.test(s) && declares(b, "outline", /^1px solid var\(--focus\)$/))],
+  ["a radio input takes its accent-color from the palettes", (rules) => rules.some(([s, b]) => /input\[type="radio"\]/.test(s) && declares(b, "accent-color", THEME))],
 ];
 
 for (const [rule, holds] of CONTROL_RULES) {
@@ -48,7 +51,7 @@ test("the style gives h1 the declaration overflow-wrap: anywhere", async (t) => 
 });
 
 test("the style mutes the first line of a Comparison's summary as it mutes the first line of its full part", async (t) => {
-  const muted = rulesOf(await styleOf(t)).filter(([, b]) => declares(b, "color", /^var\(--vscode-descriptionForeground\)$/) && declares(b, "font-size", /^0\.9em$/));
+  const muted = rulesOf(await styleOf(t)).filter(([, b]) => declares(b, "color", /^var\(--chalk2\)$/) && declares(b, "font-size", /^0\.9em$/));
   const selectors = muted.flatMap(([s]) => s.split(",").map((each) => each.trim()));
   assert.ok(selectors.includes('div[data-part="comparison"] > p:first-child'), selectors.join(" | "));
   assert.ok(selectors.includes('div[data-summary="comparison"] > p:first-child'), selectors.join(" | "));
@@ -163,7 +166,7 @@ test("status-several-pending: each part but the first starts with a separator, a
   });
   const ids = parts.map((part) => idOf(partsOf(part).tags.find((tag) => tag.includes(`data-message="${RECORD}"`))!, "aria-describedby"));
   assert.equal(new Set(ids).size, ids.length);
-  assert.ok(rulesOf(partsOf(document).style).some(([s, b]) => /(^|,\s*)hr\s*(,|$)/.test(s) && /border-top\s*:[^;]*var\(--vscode-[a-zA-Z0-9-]+\)/.test(b)));
+  assert.ok(rulesOf(partsOf(document).style).some(([s, b]) => /(^|,\s*)hr\s*(,|$)/.test(s) && /border-top\s*:[^;]*var\(--(?!vscode-)[a-z0-9-]+\)/.test(b)));
 });
 
 // A recorded Decision: its option and whether it applies, its id, its question, the state of its evidence and its reasons, in this order.
@@ -215,7 +218,7 @@ for (const name of PENDING_READS) {
   test(`the heading of the pending decisions is followed by their count, in a link to the Study's part: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
-    const after = document.slice(document.indexOf("<h2>Pending decisions</h2>") + "<h2>Pending decisions</h2>".length).trimStart();
+    const after = document.slice(document.indexOf("<h3>Pending decisions</h3>") + "<h3>Pending decisions</h3>".length).trimStart();
     const line = elementOf(after, "<p")!;
     assert.ok(after.startsWith(line), after.slice(0, 80));
     assert.equal(words(line), `${COUNT} ${object.pending_decisions.length}`);
@@ -269,7 +272,7 @@ test("with no Decision and no Declared deviation, the headings Decisions and Dec
   assert.equal(object.decisions.length + object.declared_deviations.length, 0);
   const { document } = await documentFor(t, success(object));
   for (const heading of ["Decisions", "Declared deviations"]) {
-    const after = document.slice(document.indexOf(`<h2>${heading}</h2>`) + `<h2>${heading}</h2>`.length).trimStart();
+    const after = document.slice(document.indexOf(`<h3>${heading}</h3>`) + `<h3>${heading}</h3>`.length).trimStart();
     assert.ok(after.startsWith(`<p>${NONE}</p>`), `${heading}: ${after.slice(0, 60)}`);
   }
 });
@@ -321,7 +324,9 @@ async function firstScreen(t: TestContext, address: string, document: string, th
   return evaluate;
 }
 
-const QUESTION_DRAWN = 'section[data-part="pending"] h3[data-text]';
+// "`guard_bounds` guards that the question a person must answer sits near the top; in the redesign, Now's question line is that question"
+// (the drive's answer on chadlis/hypotrail#252, D-133).
+const QUESTION_DRAWN = '[data-element="now-question"]';
 const EVIDENCE_DRAWN = 'section[data-part="pending"] [data-element="delta"] a[data-kind="delta"]';
 const RECORD_DRAWN = `section[data-part="pending"] button[data-message="${RECORD}"]`;
 // The heading of the latest Decision, which holds its option and the phrase of its applies.
@@ -335,6 +340,28 @@ for (const name of DEMONSTRATION_READS) {
     const address = await chromeOrSkip(t, "the drawings of the demonstration's kept states");
     if (address === undefined) return;
     const document = await demonstrationDocument(t, name);
+    for (const theme of Object.keys(THEMES)) {
+      for (const width of [420, 900]) {
+        const evaluate = await opened(t, address, document, width, SCREEN.height);
+        await evaluate(themed(theme));
+        assert.equal(await evaluate("innerWidth"), width);
+        assert.deepEqual(await evaluate(BELOW_AA), [], `${theme} at ${width} px`);
+      }
+    }
+  });
+}
+
+// "every text of the kept states 04, 09, 10, 17 and 33 stands at AA contrast against what it is drawn on; the `verify-panel` sheet covers
+// the rest" (chadlis/hypotrail#252): the states of the journey, each with its figures read where one is kept.
+const JOURNEY_CONTRAST = ["04-pending", "09-new-compare", "10-proxy", "17-interrupted", "33-chinook-assessed"];
+
+for (const state of JOURNEY_CONTRAST) {
+  test(`in each of the four themes at 420 and 900 px, every text of the journey's kept state stands at AA contrast against what it is drawn on: ${state}`, { timeout: 120000 }, async (t) => {
+    const address = await chromeOrSkip(t, "the drawings of the journey's kept states");
+    if (address === undefined) return;
+    const answers = [success(keptObject(`${JOURNEY}${state}.status`))];
+    if (fs.existsSync(path.join(KEPT, "journey", `${state}.figures.out`))) answers.push(success(keptObject(`${JOURNEY}${state}.figures`)));
+    const { document } = await documentFor(t, ...answers);
     for (const theme of Object.keys(THEMES)) {
       for (const width of [420, 900]) {
         const evaluate = await opened(t, address, document, width, SCREEN.height);

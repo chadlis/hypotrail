@@ -22,7 +22,8 @@ for (const name of STATUS_READS) {
     const calls = recorder(t, keptAnswer(name));
     const text = await invoke(READ_TOOL, {});
     assert.equal(calls.length, 1);
-    assert.deepEqual(calls[0].args, [...FIRST, ...contract.read_arguments.map((argument) => argument.replace("{path}", studies[0]))]);
+    assert.deepEqual(calls[0].args, [...FIRST, ...contract.read_arguments.filter((argument) => !argument.includes("{n}")).map((argument) => argument.replace("{path}", studies[0]))]);
+    assert.deepEqual(calls[0].args.slice(FIRST.length), ["status", `--study=${studies[0]}`, "--json"]);
     assert.equal(calls[0].args.includes("decide"), false);
     assert.equal(calls[0].options.cwd, CHECKOUT);
     assert.deepEqual(jsonAfterFirstLine(text), JSON.parse(kept(`${name}.out`)));

@@ -95,6 +95,10 @@ const LABEL = {
   openFile: 61,
   notOpened: 62,
   openRecord: 63,
+  now: 64,
+  studySoFar: 65,
+  tools: 66,
+  since: 67,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -117,6 +121,7 @@ const HREF: Record<string, string> = {
   limitations: "#limitations-",
   choices: "#choices-",
   dots: "#dots-",
+  since: "#since-",
 };
 // The `href` of the document's top, where Read again stands: the `id` of its `main` element.
 const TOP = "#study";
@@ -221,14 +226,44 @@ export function bodyOf(view: View): string {
   const controls = [`<button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button>`];
   if (view.unanswered) controls.push(`<button data-message="${contract.messages[2]}"${inert}>${label("sendAgain")}</button>`);
   if (list(view.object?.pending_decisions).length > 0) controls.push(`<a href="${HREF.choices}0">${label("toChoices")}</a>`);
-  parts.push(`<div data-element="controls">${controls.join(" ")}</div>`);
+  parts.push(['<div data-part="band">', `<div data-element="controls">${controls.join(" ")}</div>`, ...(view.object ? bandOf(view.object) : []), "</div>"].join("\n"));
+  parts.push(nowOf(view.object));
   // The controls that record are inert while a call is in flight or a write that got no answer is held.
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
+  parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`);
   if (view.object) {
     const figures = usableFigures(view.object, view.figures);
     parts.push(studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)));
   }
+  parts.push("</section>", '<section data-part="tools">', `<h2>${label("tools")}</h2>`, "</section>");
   return parts.join("\n");
+}
+
+// The band under the path: the Write sequence of the read, and how many write-journal entries the panel's read gives after the
+// Write sequence of the object it held, as a link to the place of their lines.
+function bandOf(object: Entry): string[] {
+  const since = Array.isArray(object.writes_since) ? object.writes_since.length : 0;
+  return [
+    `<p data-element="band">${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)} ${label("since")} ${link("writes_since", 0, since)}</p>`,
+    `<div data-part="since"${anchor("since", 0)}></div>`,
+  ];
+}
+
+// Now, under its heading: the line that says what waits, from the read's `next_step`. Its kind `decide` gives the question of the
+// pending decision its first id names; `look_again` gives its text; with no kind, the label of no pending decision. Without an object
+// read, Now holds nothing.
+function nowOf(object: Entry | undefined): string {
+  const lines = [`<section data-part="now" id="now">`, `<h2>${label("now")}</h2>`];
+  if (object) {
+    const step = record(object.next_step);
+    const ids = Array.isArray(step.ids) ? step.ids : [];
+    const pending = list(object.pending_decisions).find((each) => each.comparison_id === ids[0]);
+    if (step.kind === "decide" && pending) lines.push(`<p data-element="now-question">${marked(record(pending.question).text, "strong")}</p>`);
+    else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`);
+    else lines.push(`<p data-element="now-question">${label("noPending")}</p>`);
+  }
+  lines.push("</section>");
+  return lines.join("\n");
 }
 
 // What the panel says of a call in flight and of its last write.
@@ -279,15 +314,15 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
   const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
   return [
-    `<h2>${label("study")}</h2>`,
+    `<h3>${label("study")}</h3>`,
     `<div data-part="study"${anchor("study", 0)}>`,
     `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
     "</div>",
-    `<h2>${label("pending")}</h2>`,
+    `<h3>${label("pending")}</h3>`,
     pending.length === 0 ? `<p>${label("noPending")}</p>` : [count, ...pending.map((each, index) => pendingOf(each, index, locked, shown, sent))].join("\n"),
-    `<h2>${label("decisions")}</h2>`,
+    `<h3>${label("decisions")}</h3>`,
     decisionsOf(list(object.decisions), linked, recorded, shown),
-    `<h2>${label("deviations")}</h2>`,
+    `<h3>${label("deviations")}</h3>`,
     deviationsOf(list(object.declared_deviations), shown),
   ].join("\n");
 }

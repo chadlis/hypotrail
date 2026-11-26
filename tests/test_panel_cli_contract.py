@@ -405,3 +405,22 @@ def test_the_dated_lines_hold_one_line_for_next_step_quoting_its_ticket_naming_i
     assert NEXT_STEP_SENTENCE in line and "the earlier line it overrides: none" in line
     for name in ("`kind`", "`text`", "`ids`", "`context`", "`to_handle`", "`flagged`", "`answered`", "`configuration_digest_of`", "Attempt's own id"):
         assert name in line, name
+
+
+# --- the dated line of the panel's own read with `--since` ------------------------------------------------------------------------
+
+PANEL_SINCE_SENTENCE = (
+    "The panel's read becomes `status --study={path} --since={n} --json` with `n` the `write_sequence` of the object held, else 0 (D-136;"
+    " assumption 9)."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_panels_read_with_since_quoting_its_ticket_and_narrowing_the_line_on_figures():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#252" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PANEL_SINCE_SENTENCE in line and "the earlier line it narrows: the 2026-11-24 line on `figures`" in line
+    for name in ("`status --study=DIR --since=N --json`", "`status --study=DIR --json`", "Since this panel's last read"):
+        assert name in line, name

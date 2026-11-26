@@ -38,7 +38,7 @@ test("a key added inside coverage is shown in the coverage element, with its val
 // No text of the object read stands in an attribute, and none becomes markup.
 const PLANT = (token: string) => `<script>alert(1)</script><b onclick="go()" style="color: red">https://example.com/${token}</b>`;
 
-// The paths of `key_paths` that hold an id or a kind the document uses to find a record, which no plant replaces.
+// The paths of `key_paths` that hold an id or a kind the document uses to find a record or a rule of `next_step`, which no plant replaces.
 const FINDING_IDS = [
   "pending_decisions[].comparison_id",
   "pending_decisions[].control_assessment_id",
@@ -53,6 +53,8 @@ const FINDING_IDS = [
   "decisions[].evidence_change.lines[].latest_assessment_id",
   "record_files[].kind",
   "record_files[].id",
+  "next_step.kind",
+  "next_step.ids",
 ];
 // The kept reads that together hold a text at every other path of `key_paths` that holds one.
 const PLANTED_READS = ["status-success", "status-chinook-pending", "status-deviation", "status-result-changed"];

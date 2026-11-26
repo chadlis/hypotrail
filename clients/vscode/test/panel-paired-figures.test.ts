@@ -203,13 +203,13 @@ test("the place of a number on the axis of a box plot is its share of the range,
 
 // What a figure may be in the document.
 for (const name of DRAWN) {
-  test(`each mark of a figure takes its colour from a class whose rule names a theme variable of VS Code: ${name}`, async (t) => {
+  test(`each mark of a figure takes its colour from a class whose rule names a variable of the palettes: ${name}`, async (t) => {
     const document = await drawn(t, keptObject(name), keptObject(KEPT_FIGURES[name]));
     const { style } = partsOf(document);
     const marks = elementsOf(document, "<div data-figures>").flatMap((figures) => rectsOf(figures));
     assert.ok(marks.length > 0);
     for (const kind of new Set(marks.map((mark) => mark.kind))) {
-      assert.match(style, new RegExp(`rect\\.${kind}\\s*\\{[^}]*fill:\\s*var\\(--vscode-[a-zA-Z0-9-]+\\)`), kind);
+      assert.match(style, new RegExp(`rect\\.${kind}\\s*\\{[^}]*fill:\\s*var\\(--(?!vscode-)[a-z0-9-]+\\)`), kind);
     }
   });
 }
@@ -302,14 +302,14 @@ test("the line of an entry with no figures takes the neutral style of a notice, 
   const rules = all.filter(([selectors]) => selectors.includes('[data-element="figures-unavailable"]'));
   const notice = all.find(([selectors]) => selectors.includes('[data-element="notice"]'))!;
   assert.ok(rules.includes(notice), rules.map(([selectors]) => selectors.join(", ")).join(" | "));
-  assert.match(notice[1], /border-left: 3px solid var\(--vscode-focusBorder\)/);
-  assert.match(notice[1], /background: var\(--vscode-textBlockQuote-background\)/);
-  assert.ok(!rules.some(([, body]) => body.includes("inputValidation-errorBorder")), "no colour of a failure");
+  assert.match(notice[1], /border-left: 3px solid var\(--focus\)/);
+  assert.match(notice[1], /background: var\(--board2\)/);
+  assert.ok(!rules.some(([, body]) => body.includes("var(--red)")), "no colour of a failure");
 });
 
-test("the delta's mark and its swatch in the key take --vscode-charts-green, which no other mark of a figure takes", async (t) => {
+test("the delta's mark and its swatch in the key take --mint, which no other mark of a figure takes", async (t) => {
   const { style } = partsOf(await drawn(t, keptObject("status-success"), keptObject("figures-success")));
-  const green = rulesOf(style).filter(([, body]) => body.includes("var(--vscode-charts-green)")).map(([selectors]) => selectors.join(", "));
+  const green = rulesOf(style).filter(([, body]) => body.includes("var(--mint)")).map(([selectors]) => selectors.join(", "));
   assert.deepEqual(green.sort(), ['[data-key="delta"]::before', "rect.delta"]);
 });
 

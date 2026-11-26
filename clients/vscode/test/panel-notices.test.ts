@@ -89,7 +89,7 @@ test("after a write whose Decision the read that follows holds, that Decision's 
   const document = await afterWrite(t, answerWith("decide-success", read.decisions[1].decision_id), success(read));
   const marked = partsOf(document).tags.filter((tag) => /\sdata-recorded(\s|>)/.test(tag) && !tag.startsWith("<a "));
   assert.deepEqual(marked, [`<section data-part="decision" id="decision-1" data-recorded>`]);
-  assert.ok(/section\[data-recorded\][^{]*\{[^}]*var\(--vscode-focusBorder\)/.test(partsOf(document).style), "the style marks it with the focus colour");
+  assert.ok(/section\[data-recorded\][^{]*\{[^}]*var\(--focus\)/.test(partsOf(document).style), "the style marks it with the focus colour");
 });
 
 // A write with no answer, then a read while its id is held.

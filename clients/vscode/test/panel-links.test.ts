@@ -2,7 +2,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
-import { kept } from "./kept";
+import { JOURNEY, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 
@@ -188,9 +188,25 @@ const IN_A_FIGURE: Record<string, [string, (figures: Entry) => [number, string]]
   dot_end: ["status-success", (f) => [Math.max(...f.comparisons[0].paired_deltas.flatMap((each: Entry) => [each.control_abs_error, each.candidate_abs_error])), f.comparisons[0].comparison_id]],
 };
 
+// For each pair whose number the band prints, a kept read of the journey and the number of that kind it holds.
+const IN_THE_BAND: Record<string, [string, (object: Entry) => number]> = {
+  writes_since: [`${JOURNEY}04-pending.status`, (o) => o.writes_since.length],
+};
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND)].sort());
 });
+
+for (const [kind, [name, instance]] of Object.entries(IN_THE_BAND)) {
+  test(`a number of the kind ${kind} stands in the band and links to its one part there: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    const links = linksOf(elementOf(document, '<div data-part="band">')!, document).filter((link) => link.kind === kind);
+    assert.deepEqual(links.map((link) => link.text), [written(instance(object))]);
+    assert.equal(partKind(links[0].target), PAIRS.get(kind));
+    assert.equal(partsByKind(document, PAIRS.get(kind)!).length, 1);
+  });
+}
 
 for (const [kind, [name, instance]] of Object.entries(IN_A_FIGURE)) {
   test(`a number of the kind ${kind} links to the part of the Comparison its figure is drawn for: ${name} with ${KEPT_FIGURES[name]}`, async (t) => {

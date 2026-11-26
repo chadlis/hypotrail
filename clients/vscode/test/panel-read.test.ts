@@ -10,8 +10,9 @@ const STATUS = kept("status-success.out");
 const READING = "Reading the Study.";
 const READ_AGAIN = { message: "read-again" };
 
-function readArguments(study: string): string[] {
-  return [...contract.first_arguments, ...contract.read_arguments.map((argument) => argument.replace("{path}", study))];
+// The arguments of the panel's read of `study`, with `since` the Write sequence of the object it holds, else 0.
+function readArguments(study: string, since = 0): string[] {
+  return [...contract.first_arguments, ...contract.read_arguments.map((argument) => argument.replace("{path}", study).replace("{n}", String(since)))];
 }
 
 function figuresArguments(study: string): string[] {
@@ -37,7 +38,7 @@ for (const [way, open] of WAYS) {
   });
 }
 
-test("the message of Read again on a read that succeeded starts one more status call, with the same arguments", async (t) => {
+test("the message of Read again on a read that succeeded starts one more status call, with the same arguments but --since= the Write sequence of the read held", async (t) => {
   const [study] = workspace(t, ["bike"]);
   const calls = recorder(t, exit(0, STATUS));
   await runCommand();
@@ -45,8 +46,8 @@ test("the message of Read again on a read that succeeded starts one more status 
   panelOf().send(READ_AGAIN);
   await settle();
   assert.equal(calls.length, 4);
-  assert.deepEqual(calls[2].args, readArguments(study));
-  assert.deepEqual(calls[2].args, calls[0].args);
+  assert.deepEqual(calls[2].args, readArguments(study, JSON.parse(STATUS).write_sequence));
+  assert.deepEqual(calls[2].args.filter((argument) => !argument.startsWith("--since=")), calls[0].args.filter((argument) => !argument.startsWith("--since=")));
 });
 
 test("while a read is in flight the document holds the line for a read in flight, and a message of Read again starts no call", async (t) => {

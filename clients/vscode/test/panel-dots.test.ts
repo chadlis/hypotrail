@@ -332,7 +332,7 @@ for (const name of DRAWN) {
 test("each class of a joining bar draws in its side's colour, and the id column is as wide as its widest id up to 9.5em", async (t) => {
   const { style } = partsOf(await drawn(t, keptObject("status-success"), keptObject("figures-success")));
   for (const side of ["control", "candidate"]) {
-    const colour = new RegExp(`rect\\.${side} \\{ fill: (var\\(--vscode-[a-zA-Z0-9-]+\\));`).exec(style)![1];
+    const colour = new RegExp(`rect\\.${side} \\{ fill: (var\\(--(?!vscode-)[a-z0-9-]+\\));`).exec(style)![1];
     assert.ok(style.includes(`rect.favours-${side} { fill: ${colour}; }`), side);
   }
   assert.match(style, /\[data-element="dots"\] \{ display: grid; grid-template-columns: fit-content\(9\.5em\) /);

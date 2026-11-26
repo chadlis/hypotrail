@@ -146,7 +146,7 @@ test("with a failed figures call, the label follows the word of a failure, as a 
   const main = elementOf(document, '<main id="study"')!;
   assert.ok(elementOf(main, '<div data-element="controls">')!.includes(`<button data-message="${contract.messages[0]}">`), "Read again stands in the element the link names");
   const { style } = partsOf(document);
-  for (const rule of [/\[data-element="failure"\][^{]*\[data-element="figures-failed"\][^{]*\{[^}]*border-left:/, /\[data-element="failure"\], \[data-element="figures-failed"\] \{ border-left-color: var\(--vscode-inputValidation-errorBorder\)/]) {
+  for (const rule of [/\[data-element="failure"\][^{]*\[data-element="figures-failed"\][^{]*\{[^}]*border-left:/, /\[data-element="failure"\], \[data-element="figures-failed"\] \{ border-left-color: var\(--red\)/]) {
     assert.match(style, rule);
   }
 });

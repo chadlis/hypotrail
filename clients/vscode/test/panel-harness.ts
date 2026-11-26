@@ -263,3 +263,10 @@ export function geometryValues(document: string): string[] {
 export function samePath(document: string): string {
   return document.replace(/<h1 data-text>[^<]*<\/h1>/, "<h1 data-text>PATH</h1>");
 }
+
+// "fixed `h2` texts: "To handle", "Now", "Waiting", "The Study so far" and "Tools". The test becomes "an in-order subset, with Now, the
+// path and Tools always present"" (D-136, B3).
+export const HEADINGS = ["To handle", "Now", "Waiting", "The Study so far", "Tools"];
+const ALWAYS = ["Now", "The Study so far", "Tools"];
+const inOrderSubset = (headings: string[]): boolean => headings.every((heading, at) => HEADINGS.includes(heading) && (at === 0 || HEADINGS.indexOf(headings[at - 1]) < HEADINGS.indexOf(heading)));
+export const holdsTheHeadings = (headings: string[]): boolean => inOrderSubset(headings) && ALWAYS.every((heading) => headings.includes(heading));

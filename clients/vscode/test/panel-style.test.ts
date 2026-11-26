@@ -1,4 +1,5 @@
-// The panel's style sets no literal colour, and its script sets no style: every colour comes from VS Code's theme.
+// The panel's style holds literal colours only in its two charter palette blocks, one per theme kind, its high-contrast block names
+// VS Code's variables only, and its script sets no style (D-136, C4 amended).
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
@@ -68,11 +69,40 @@ async function styleAndScript(t: TestContext): Promise<{ style: string; script: 
   return partsOf(document);
 }
 
+// The selectors of the palette blocks: the charter's two, which alone hold literal colours, and the high-contrast one.
+const PALETTES = ["body.vscode-dark", "body.vscode-light"];
+const HIGH_CONTRAST = "body.vscode-high-contrast";
+const rulesOf = (style: string): [string, string][] => [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => [match[1].trim(), `{${match[2]}}`]);
+// The style with its two charter palette blocks left out.
+const outsideThePalettes = (style: string): string => rulesOf(style).filter(([selector]) => !PALETTES.includes(selector)).map(([selector, body]) => `${selector} ${body}`).join("\n");
+
+test("the style holds the two charter palette blocks and the high-contrast block, each once, first and in that order", async (t) => {
+  const { style } = await styleAndScript(t);
+  assert.deepEqual(rulesOf(style).slice(0, 3).map(([selector]) => selector), [...PALETTES, HIGH_CONTRAST]);
+  for (const selector of [...PALETTES, HIGH_CONTRAST]) assert.equal(rulesOf(style).filter(([each]) => each === selector).length, 1, selector);
+  for (const selector of PALETTES) assert.ok(contract.colour_forms.some((form) => holds(rulesOf(style).find(([each]) => each === selector)![1], form)), selector);
+});
+
+test("each declaration of the high-contrast block takes one of VS Code's variables, or none at all", async (t) => {
+  const { style } = await styleAndScript(t);
+  const block = rulesOf(style).find(([selector]) => selector === HIGH_CONTRAST)![1];
+  const values = valuesOf(block);
+  assert.ok(values.length > 10);
+  for (const value of values) assert.ok(/^\s*none\s*$/.test(value) || [...value.matchAll(/var\(--([a-z0-9-]+)/gi)].every((match) => match[1].startsWith("vscode-")) && /var\(--vscode-/.test(value), value);
+  assert.deepEqual(contract.colour_forms.filter((form) => holds(block, form)), []);
+});
+
+test("a planted #fff in a rule outside the palette blocks is found, and the same colour inside a palette block is not", async (t) => {
+  const { style } = await styleAndScript(t);
+  assert.equal(holds(outsideThePalettes(`${style}\nmain { color: #fff; }`), "hexadecimal"), true);
+  assert.equal(holds(outsideThePalettes(style.replace("body.vscode-dark{", "body.vscode-dark{ --planted:#fff;")), "hexadecimal"), false);
+});
+
 for (const form of contract.colour_forms) {
-  test(`the style of the document holds no literal colour of the form ${form}`, async (t) => {
+  test(`the style of the document holds no literal colour of the form ${form} outside its two palette blocks`, async (t) => {
     const { style } = await styleAndScript(t);
     assert.ok(style.length > 0);
-    assert.equal(holds(style, form), false, style);
+    assert.equal(holds(outsideThePalettes(style), form), false, outsideThePalettes(style));
   });
 
   test(`a planted style that holds a colour of the form ${form} is found`, () => {
@@ -85,10 +115,14 @@ test("a planted style whose only colours are a theme variable and the three keyw
   assert.deepEqual(contract.colour_forms.filter((form) => holds(style, form)), []);
 });
 
-test("the style sets the color and the background of body from theme variables of VS Code", async (t) => {
+test("the style sets the color and the background of body from variables that each palette block defines", async (t) => {
   const { style } = await styleAndScript(t);
   const body = /(?:^|\})\s*body\s*\{([^{}]*)\}/.exec(style)?.[1] ?? "";
-  for (const property of ["color", "background"]) assert.match(body, new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*var\\(--vscode-[a-z0-9-]+\\)\\s*(?:;|$)`), property);
+  for (const property of ["color", "background"]) {
+    const name = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*var\\((--[a-z0-9-]+)\\)\\s*(?:;|$)`).exec(body)?.[1];
+    assert.ok(name && !name.startsWith("--vscode-"), property);
+    for (const selector of [...PALETTES, HIGH_CONTRAST]) assert.ok(rulesOf(style).find(([each]) => each === selector)![1].includes(`${name}:`), `${selector} defines ${name}`);
+  }
 });
 
 for (const name of STYLE_SETTERS) {

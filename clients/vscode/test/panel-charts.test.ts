@@ -168,8 +168,8 @@ test("chart 2 on status-chinook-withheld: the Candidate's scored part is half th
   assert.match(words(bars[1]), /candidate_scored 2 expected 4/);
   const { style } = partsOf(document);
   const rest = classOf(candidate[1])!;
-  assert.match(style, new RegExp(`rect\\.${rest}\\s*\\{[^}]*fill:\\s*transparent;[^}]*stroke:\\s*var\\(--vscode-[a-zA-Z0-9-]+\\)`));
-  assert.match(style, new RegExp(`rect\\.${classOf(candidate[0])}\\s*\\{[^}]*fill:\\s*var\\(--vscode-[a-zA-Z0-9-]+\\)`));
+  assert.match(style, new RegExp(`rect\\.${rest}\\s*\\{[^}]*fill:\\s*transparent;[^}]*stroke:\\s*var\\(--(?!vscode-)[a-z0-9-]+\\)`));
+  assert.match(style, new RegExp(`rect\\.${classOf(candidate[0])}\\s*\\{[^}]*fill:\\s*var\\(--(?!vscode-)[a-z0-9-]+\\)`));
 });
 
 test("chart 2 is not drawn on a read whose coverage holds no expected", async (t) => {

@@ -9,9 +9,11 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { written } from "../src/content";
 import { JOURNEY, KEPT, kept } from "./kept";
-import { LITERALS, attributeValues, cspProblems, documentFor, geometryValues, markedTexts, unescaped } from "./panel-harness";
+import { LITERALS, attributeValues, cspProblems, documentFor, elementOf, geometryValues, holdsTheHeadings, markedTexts, unescaped } from "./panel-harness";
 import { exit, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
+
+const headingsOf = (document: string): string[] => [...document.matchAll(/<h2>([^<]*)<\/h2>/g)].map((match) => unescaped(match[1]));
 
 // The kept states of the journey on disk, each by the name of its reads: `NN-name`.
 const STATES = fs
@@ -91,5 +93,30 @@ for (const state of STATES) {
     const [heading, ...others] = markedTexts(document);
     assert.equal(heading, study);
     for (const text of others) assert.ok(values.includes(text), text);
+  });
+}
+
+for (const state of STATES) {
+  test(`the section headings of the journey's state ${state} are an in-order subset of the five, with Now, The Study so far and Tools present`, async (t) => {
+    const { document } = await built(t, state);
+    assert.ok(holdsTheHeadings(headingsOf(document)), headingsOf(document).join(" | "));
+    for (const heading of headingsOf(document)) assert.ok(contract.labels.includes(heading), heading);
+  });
+}
+
+// The two states of P3-3: the band holds "Since this panel's last read" with the number of entries of `writes_since`, as a link to the
+// one place of their lines.
+for (const state of ["04-pending", "09-new-compare"]) {
+  test(`the band of the journey's state ${state} holds the label of the panel's read since its last, with the count of writes_since as a link to the one place of their lines`, async (t) => {
+    const { document, answers } = await built(t, state);
+    const read = JSON.parse(answers[0].stdout ?? "");
+    const band = elementOf(document, '<p data-element="band">')!;
+    const label = "Since this panel's last read";
+    assert.ok(contract.labels.includes(label));
+    const link = new RegExp(`${label} <a href="#([^"]*)" data-kind="writes_since">([^<]*)</a>`).exec(unescaped(band));
+    assert.ok(read.writes_since.length > 0 && link, band);
+    assert.equal(link![2], String(read.writes_since.length));
+    assert.equal([...document.matchAll(new RegExp(` id="${link![1]}"`, "g"))].length, 1);
+    assert.match(document, new RegExp(`<div data-part="since" id="${link![1]}">`));
   });
 }
