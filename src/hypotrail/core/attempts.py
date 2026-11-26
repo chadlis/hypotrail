@@ -72,6 +72,15 @@ def observation_set_id(study: Path, manifest: dict) -> str | None:
     return layout.read_record(study, refs[0]["path"])["observation_set_id"]
 
 
+def observation_set_partition(study: Path, manifest: dict) -> str | None:
+    """The Partition the Observation set an Attempt manifest names holds in its `provenance`, read from that record; None when the manifest
+    names none or the record names no Partition."""
+    refs = layout.observation_set_refs(manifest)
+    if not refs:
+        return None
+    return layout.read_record(study, refs[0]["path"]).get("provenance", {}).get("partition")
+
+
 def verify_recorded(study: Path, manifest: dict) -> None:
     for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
         artifacts.read_verified(study, ref)
