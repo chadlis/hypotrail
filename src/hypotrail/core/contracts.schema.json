@@ -157,8 +157,28 @@
           "properties": {
             "unit": {
               "enum": [
-                "case"
+                "case",
+                "item"
               ]
+            },
+            "block": {
+              "type": "object",
+              "properties": {
+                "variant": {
+                  "enum": [
+                    "circular"
+                  ]
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 2
+                }
+              },
+              "required": [
+                "variant",
+                "length"
+              ],
+              "additionalProperties": false
             },
             "seed": {
               "type": "integer",
@@ -1039,6 +1059,7 @@
             "unit": {
               "enum": [
                 "case",
+                "item",
                 null
               ]
             },
@@ -1050,10 +1071,17 @@
               "minimum": 0
             },
             "variant": {
-              "type": "null"
+              "enum": [
+                "circular",
+                null
+              ]
             },
             "block_length": {
-              "type": "null"
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 2
             },
             "resamples": {
               "type": "integer",
@@ -1070,7 +1098,8 @@
                 null,
                 "resampling_not_declared",
                 "delta_withheld",
-                "too_few_units"
+                "too_few_units",
+                "series_not_contiguous"
               ]
             }
           },

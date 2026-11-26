@@ -80,7 +80,8 @@ HOOK_INPUT = json.dumps(
     {"session_id": "demonstration", "hook_event_name": "UserPromptSubmit", "prompt": "Which Decision did the Study record last?", "cwd": "{checkout}"}
 )
 LIMITATIONS = [
-    "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+    "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days "
+    "is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
     "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
 ]
 
@@ -146,7 +147,7 @@ STEPS = [
                     "exit": 0,
                     "values": {
                         "study.revision_number": 1,
-                        "study.protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+                        "study.protocol_digest": "8c814f87519549fd33f1ccbbe342530d11e207e2ac5493c5a8b2f09f3fe13243",
                         "references_id": "references-7520d791bfe31924",
                     },
                 },
@@ -437,7 +438,7 @@ STEPS = [
                     "exit": 0,
                     "values": {
                         "study.revision_number": 1,
-                        "study.protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+                        "study.protocol_digest": "8c814f87519549fd33f1ccbbe342530d11e207e2ac5493c5a8b2f09f3fe13243",
                         "references_id": "references-7520d791bfe31924",
                     },
                 },

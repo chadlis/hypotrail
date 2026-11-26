@@ -525,3 +525,39 @@ def test_a_chinook_attempts_configuration_digest_is_the_one_the_freeze_record_ho
             }
         }
         assert exposure.configuration_digest_of(manifest) == held[name], name
+
+
+# --- the interval of a public_check Comparison comes after its Exposure entry -------------------------------------------------
+
+
+def test_a_public_check_comparison_appends_its_exposure_entry_before_its_interval_and_a_coverage_refusal_leaves_the_entry_and_no_interval(tmp_path, monkeypatch):
+    from _compare_helpers import forged
+
+    from hypotrail import cli
+    from hypotrail.core import comparison, intervals
+
+    study, _, assessments = bike_exposed(tmp_path, "seasonal_7", "ridge_v1")
+    control, candidate = assessments["seasonal_7"], assessments["ridge_v1"]
+    entries_at_interval = []
+    record = intervals.record
+
+    def spy(*args, **kwargs):
+        entries_at_interval.append(len(journal(study)))
+        return record(*args, **kwargs)
+
+    monkeypatch.setattr(intervals, "record", spy)
+    before = len(journal(study))
+    written = comparison.compare(study, control["assessment_id"], candidate["assessment_id"], live_basis=cli._live_basis(None))
+    assert entries_at_interval == [before + 1] and written["interval"]["lower"] is not None
+
+    def lose_one(rows):
+        rows[0].update(state="unscored", value="", reason="item_failed")
+        return rows
+
+    other = forged(study, candidate, per_item=lose_one)
+    comparisons_before = sorted(p.name for p in (study / "comparisons").iterdir())
+    with pytest.raises(HypotrailError) as refused:
+        comparison.compare(study, control["assessment_id"], other["assessment_id"], live_basis=cli._live_basis(None))
+    assert refused.value.code == "COMPARISON_COVERAGE_INSUFFICIENT"
+    assert len(journal(study)) == before + 2 and entries_at_interval == [before + 1]
+    assert sorted(p.name for p in (study / "comparisons").iterdir()) == comparisons_before

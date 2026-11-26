@@ -25,6 +25,10 @@ revision has none and one journal entry names the Comparison and the Assessments
 (`PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's). A Comparison refused
 at `coverage` after that leaves its entry: the Exposure had happened. Its ID names no Comparison.
 
+When the Study's current revision declares a `resampling` by blocks, the Comparison's `interval` resamples the paired differences in the
+order of the days the Study's memberships give, by circular blocks of the declared length (`hypotrail.core.intervals`), once the
+Exposure entry is written; a population that lists fewer days than its Partition gets none (`series_not_contiguous`).
+
 A side whose Assessment lists, in `single_feature_check`, lag features of its own Configuration that beat it gets one warning
 (`COMPARISON_SINGLE_FEATURE_BEATS`) naming the side and those features with their Metrics, also in `limitations`. It is read
 from the record, never computed here, and it leaves the status as the checks and Imports compute it. A side whose field is
@@ -89,6 +93,12 @@ WARNING_DEVIATION_DECLARED = "COMPARISON_DEVIATION_DECLARED"
 # their codes beside the status, as for `agent_comparison.DEVIATIONS`, since a `compatible` Comparison can hold them.
 DEVIATIONS = (WARNING_SINGLE_FEATURE, WARNING_DEVIATION_DECLARED)
 LIMITATION_DEPENDENCE = "Daily observations are dependent: the delta carries no confidence interval and no significance claim."
+# The first limitation once a block interval is computed (`hypotrail.core.intervals`), with the declared block length. Its clause on
+# strong dependence states what the kept coverage simulation measured (`docs/handbook/simulations/interval-coverage.json`).
+LIMITATION_BLOCKS = (
+    "Daily observations are dependent: the interval resamples blocks of {length} consecutive days, which assumes that the dependence "
+    "beyond {length} days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim."
+)
 
 
 def _not_found(code, message, **details):
@@ -290,6 +300,20 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
         return _compare_locked(study, write, control_id, candidate_id, factor, live_basis)
 
 
+def date_order(study: Path, spec: dict, partition: str, row_ids: list):
+    """`row_ids` in the order of their dates in the Study's memberships, or None when they are not every day of `partition`.
+
+    The order is read from the `date` column, never from the spelling of a `row_id`; a population that lists fewer days than the
+    Partition is a series with gaps, whose blocks would join days that are not consecutive.
+    """
+    ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
+    rows = csv.DictReader(io.StringIO(artifacts.read_verified(study, ref).decode("utf-8"), newline=""))
+    days = {row["row_id"]: row["date"] for row in rows if row["partition"] == partition}
+    if set(row_ids) != set(days):
+        return None
+    return sorted(row_ids, key=days.__getitem__)
+
+
 def check_partition(partition) -> bool:
     """True for `public_check` (the Comparison is an Exposure), False for `dev`; any other Partition is refused."""
     if partition in (DEV, PUBLIC_CHECK):
@@ -407,8 +431,18 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     control_metric, candidate_metric = control["metric"]["value"], candidate["metric"]["value"]
     delta = None if control_metric is None or candidate_metric is None else candidate_metric - control_metric
 
+    spec = layout.read_spec(study)
+    resampling = spec.get("resampling")
+    ordered = None if resampling is None or delta is None else date_order(study, spec, control["partition"], row_ids)
+    differences = {row_id: d_error - c_error for row_id, c_error, d_error in paired}
+    interval = intervals.record(
+        resampling,
+        None if ordered is None else [differences[row_id] for row_id in ordered],
+        missing=intervals.DELTA_WITHHELD if delta is None else intervals.SERIES_NOT_CONTIGUOUS,
+    )
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
-    limitations = [LIMITATION_DEPENDENCE, environment_sentence]
+    first = LIMITATION_DEPENDENCE if interval["reason"] is not None else LIMITATION_BLOCKS.format(length=interval["block_length"])
+    limitations = [first, environment_sentence]
     warnings = []
     descriptive = bool(external)
     if descriptive:
@@ -454,7 +488,7 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         "paired_deltas_ref": paired_ref,
         "coverage": coverage,
         "delta": {"metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"], "definition": DELTA_DEFINITION},
-        "interval": intervals.record(None, None),  # the regression Track declares no resampling unit yet
+        "interval": interval,
         **exposure.marks(study, [control["manifest"], candidate["manifest"]], [ca, da]),
         "code_environment": environment,
         "warnings": warnings,

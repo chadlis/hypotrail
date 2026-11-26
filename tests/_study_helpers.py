@@ -63,6 +63,14 @@ def examples_copy(tmp_path, *, edit=None, rows=None, name="examples") -> Path:
     return target
 
 
+def before_resampling_examples(tmp_path, *, name="before-resampling") -> Path:
+    """A private copy of `examples/` whose Bike Workload is the one of `tests/fixtures/bike-before-resampling/`, which declares no
+    `resampling`: the Protocol of every Bike Study made before the key, over the live data."""
+    target = examples_copy(tmp_path, name=name)
+    shutil.copyfile(ROOT / "tests" / "fixtures" / "bike-before-resampling" / "workload.json", target / "bike_day" / "workload.json")
+    return target
+
+
 def init_study(tmp_path, *, examples=None, name="study", **extra):
     study = tmp_path / name
     args = ["init", "--workload", "bike_day", "--study", study]

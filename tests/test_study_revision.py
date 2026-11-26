@@ -264,3 +264,47 @@ def test_a_study_made_before_resampling_gets_no_interval_until_a_new_revision_an
     assert after["interval"]["reason"] is None and after["interval"]["lower"] is not None and after["interval"]["upper"] is not None
     assert after["interval"]["seed"] == spec_of(study)["resampling"]["seed"]
     assert comparison_file(study, before["comparison_id"]).read_bytes() == earlier
+
+
+def test_a_bike_study_made_before_resampling_gets_no_interval_until_a_new_revision_and_its_earlier_comparison_is_never_rewritten(tmp_path):
+    from _assess_helpers import assess, observation_set_id, references_id
+    from _review_helpers import compare, comparison_file, decide, decision_row
+    from _study_helpers import before_resampling_examples
+
+    from hypotrail.core.comparison import LIMITATION_DEPENDENCE
+
+    examples = before_resampling_examples(tmp_path)
+    study, _ = init_study(tmp_path, examples=examples)
+    attempts = []
+    for config in ("seasonal_7", "ridge_v1"):
+        code, payload, err = run_ml(study, config, "dev", f"before-{config}", "--examples-dir", examples)
+        assert code == 0, (payload, err)
+        attempts.append(payload["attempt"])
+
+    def assessed_ids():
+        out = []
+        for attempt in attempts:
+            code, payload, err = assess(study, observation_set_id(study, attempt), "regression_mae_v1", references_id(study))
+            assert code == 0, (payload, err)
+            out.append(payload["assessment"]["assessment_id"])
+        return out
+
+    before = compare(study, *assessed_ids())
+    interval = before["interval"]
+    assert (interval["lower"], interval["upper"], interval["reason"]) == (None, None, "resampling_not_declared")
+    assert before["limitations"][0] == LIMITATION_DEPENDENCE == (
+        "Daily observations are dependent: the delta carries no confidence interval and no significance claim."
+    )
+    earlier = comparison_file(study, before["comparison_id"]).read_bytes()
+    decision = decide(study, [before["comparison_id"]], request_id="before-the-revision")
+
+    code, payload, _ = run_ml(study, "seasonal_7", "dev", "live-refused")  # the live Workload declares `resampling`
+    assert (code, (payload.get("error") or {}).get("code")) == (3, "PROTOCOL_CHANGED")
+
+    code, payload, err = new_revision(study)
+    assert code == 0, (payload, err)
+    assert [r["reason"] for r in decision_row(study, decision["decision_id"])["reasons"]] == ["revision_changed"]
+    after = compare(study, *assessed_ids())
+    assert after["interval"]["reason"] is None and None not in (after["interval"]["lower"], after["interval"]["upper"])
+    assert (after["interval"]["variant"], after["interval"]["block_length"]) == ("circular", 7)
+    assert comparison_file(study, before["comparison_id"]).read_bytes() == earlier

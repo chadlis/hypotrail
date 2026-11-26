@@ -694,6 +694,8 @@ def _compare(args) -> int:
     if interval.get("lower") is not None:
         units = {"case": "Cases", "item": "Items"}[interval["unit"]]
         value += f", {interval['level']:g} interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over {interval['units']} {units}"
+        if interval["block_length"] is not None:
+            value += f" in blocks of {interval['block_length']} days"
     direction = "better" if record.get("primary_criterion") else "worse"
     unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
     status = record["comparability"]["status"]

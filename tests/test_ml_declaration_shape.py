@@ -38,6 +38,7 @@ OPTIONAL = {
             "forbidden_features", "allowed_target_features", "configurations",
         )
     },
+    ("resampling",): "optional: \"the key stays optional in both schemas\" (D-149, S5); a Workload without it gets no interval",
 }
 # Maps whose keys are names the Workload chooses, so adding or removing a child is the
 # Workload's own business, not a schema key. The one child the Track requires is listed
