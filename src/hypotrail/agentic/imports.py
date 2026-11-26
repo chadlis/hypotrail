@@ -241,13 +241,16 @@ def log_entries(episodes: list, usage: dict) -> dict:
             "raw_answer": episode["final_answer"] if answered else None,
             "final_answer": None,
             "trace": episode["steps"] or None,
-            "usage": _log_usage(usage.get((episode["case_id"], episode["repeat"]))),
+            "usage": usage.get((episode["case_id"], episode["repeat"])),
         }
     return entries
 
 
 def _log_usage(usage):
-    """The usage a log states, in the one shape of a normalized entry: a log states no cost and no models apart."""
+    """The usage an imported log states, in the one shape of a JSONL import's normalized entry: a log states no cost and no models apart.
+
+    `run agent` keeps the usage of its own log as it always has.
+    """
     return None if usage is None else {**usage, "cost_usd": None, "by_model": None}
 
 
@@ -576,7 +579,7 @@ def _import_locked(study, write, source, population_path, request_id, *, example
 
         log = inspect_log.read(source)
         episodes, count = inspect_log.checked_episodes(log, keys, partition, partition_of)
-        entries = log_entries(episodes, inspect_log.usage_by_key(log))
+        entries = log_entries(episodes, {key: _log_usage(usage) for key, usage in inspect_log.usage_by_key(log).items()})
         producer, declared_log = _log_producer(inspect_log.header_of(log))
         settings = declared_settings([])
     else:
