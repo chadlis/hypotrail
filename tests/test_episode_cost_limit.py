@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from inspect_ai.log import read_eval_log
 from inspect_ai.model import ModelCost, ModelOutput, ModelUsage
 from inspect_ai.tool import ToolCall
 
@@ -38,8 +39,9 @@ from _run_agent_helpers import (
 )
 from _study_helpers import run_json
 
+from hypotrail.agentic import limits as limits_module
 from hypotrail.agentic import live as agentic_live
-from hypotrail.agentic import runner
+from hypotrail.agentic import runner, sql_tool
 from hypotrail.agentic.limits import EpisodeLimits
 from hypotrail.core import live as core_live
 from hypotrail.core import requests
@@ -47,6 +49,8 @@ from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.core.errors import EXIT_INVALID_INPUT
 
 ROOT = Path(__file__).resolve().parent.parent
+# B in bytes, as `test_b_is_the_larger_of_the_largest_query_message_the_model_is_sent_and_the_schema_message` measures it
+B_BYTES = 16_525
 LIMIT = 0.05
 # USD 0.021 per model call at the helpers' prices (10,000 input tokens at 2, 100 output tokens at 10, per million):
 # USD 0.05 is crossed on the third call, before the sixth model turn and before the output-token budget
@@ -260,6 +264,67 @@ def test_both_flags_enter_the_request_identity(tmp_path, monkeypatch):
     ):
         code, error = error_of(live(study, "plain", "r", *flags, cases=["D03"]))
         assert (error["code"], error["details"]["differs"]) == ("REQUEST_CONFLICT", differs), label
+
+
+# --- B, measured: the largest tool message the model is sent under the caps, and the schema description -----------------
+
+
+def inspect_tool_output_limit() -> int:
+    """The byte limit Inspect truncates a tool's output to when `max_tool_output` is not set, read from the installed Inspect."""
+    from inspect_ai.model._call_tools import truncate_tool_output
+
+    return truncate_tool_output("probe", "x" * (1 << 20), None).truncated_bytes
+
+
+def sent_tool_messages(tmp_path) -> dict:
+    """{tool: bytes of the tool message the model is sent}, from a mock Episode that calls `describe_schema`, then a capped query."""
+    calls = [("describe_schema", {}), ("query_readonly", {"sql": "SELECT * FROM Track"})]
+
+    def script(input, tools, tool_choice, config):
+        done = sum(1 for m in input if m.role == "tool")
+        if done < len(calls):
+            return ModelOutput.for_tool_call(MOCK, *calls[done])
+        return ModelOutput.from_content(MOCK, "done")
+
+    location = runner.run_episodes(
+        WORKLOAD.cases("dev", ["D03"]), workload=WORKLOAD, configuration="plain", model=runner.mock_model(script), repeats=1, log_dir=tmp_path
+    )
+    (sample,) = read_eval_log(location).samples
+    return {m.function: len(m.text.encode("utf-8")) for m in sample.messages if m.role == "tool"}
+
+
+def test_inspect_truncates_a_tool_output_to_its_default_max_tool_output_which_hypotrail_leaves_unset():
+    """B rests on Inspect's truncation of a tool's output, `inspect_ai/model/_call_tools.py:2113-2134` (`truncate_tool_output`):
+    with no `max_tool_output` in the active generation settings, an output longer than 16 * 1024 bytes is cut to that many bytes
+    and wrapped. Hypotrail sets no `max_tool_output`, so the query result capped at 64 KiB (`QueryCaps`, AG-04) reaches the model
+    cut to that limit. An Inspect upgrade that changes the default fails this test, and B is measured again.
+    """
+    from inspect_ai.model import GenerateConfig
+
+    assert GenerateConfig().max_tool_output is None
+    assert "max_tool_output" not in limits_module.eval_options(EpisodeLimits())
+    assert inspect_tool_output_limit() == 16 * 1024
+
+
+def test_b_is_the_larger_of_the_largest_query_message_the_model_is_sent_and_the_schema_message(tmp_path):
+    """B, after the drive's answer on #234 to the question of which message B measures (delegated, D-133), reading (b): "B bounds what is billed, and
+    what is billed is the tool message the model is sent, after Inspect's truncation". So B is the largest tool message the model
+    can be sent under the caps, or the `describe_schema` message, whichever is larger, each measured as the text of the tool
+    message with its JSON serialization.
+
+    The largest query message: `query_readonly` returns ASCII JSON (`json.dumps` escapes every other character), and Inspect's
+    truncation (`inspect_ai/model/_call_tools.py:2113-2134`) keeps exactly its byte limit of a longer ASCII output inside a fixed
+    wrapper. So every query result above the limit is sent as a message of the same length, and none is longer; `SELECT * FROM
+    Track` (200 rows, about 16.5 KB) is one.
+    """
+    limit = inspect_tool_output_limit()
+    result = sql_tool.run_query(WORKLOAD.database_path, "SELECT * FROM Track")
+    assert len(json.dumps(result, default=str).encode()) > limit and result["truncated"] is True  # cut by Inspect, and by the row cap
+    sent = sent_tool_messages(tmp_path)
+    schema = len(json.dumps(sql_tool.schema_description(WORKLOAD.database_path)).encode())
+    assert sent["describe_schema"] == schema  # not cut: the whole description is sent
+    assert limit < sent["query_readonly"] < limit + 512  # the limit, inside Inspect's wrapper
+    assert B_BYTES == max(sent["query_readonly"], sent["describe_schema"]) == sent["query_readonly"]
 
 
 # --- the ceiling is D-146's formula on the price file and the declared limits ------------------------------------
