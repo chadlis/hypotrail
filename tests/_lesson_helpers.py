@@ -21,12 +21,16 @@ def lesson(study, *more):
 
 def resolved(payload, path: str) -> list:
     """The values a key path names in a read, `.` between keys and `[]` for every entry of a list. A key that is missing from the read, or
-    from any entry of a list, raises KeyError; a list with no entry names no value."""
+    from any entry of a list, and a list with no entry name no value: the path gives []."""
     values = [payload]
     for part in path.split("."):
         name, lists = part.rstrip("[]"), part.count("[]")
+        if not all(isinstance(value, dict) and name in value for value in values):
+            return []
         values = [value[name] for value in values]
         for _ in range(lists):
+            if not all(isinstance(value, list) for value in values):
+                return []
             values = [entry for value in values for entry in value]
     return values
 
