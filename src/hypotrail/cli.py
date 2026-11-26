@@ -373,9 +373,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     decide.add_argument(
         "--channel",
-        choices=["panel", "choice", "chat_relayed"],
+        choices=["panel", "choice", "chat_relayed", "file_relayed"],
         help="how the words reached the caller, as the caller declares it: chat_relayed when words are given without it; "
-        "choice records the text of --option-id and takes no text",
+        "choice records the text of --option-id and takes no text; file_relayed, words the caller read from a file, needs --source",
     )
     decide.add_argument("--by", metavar="LABEL", help="a declared label of who gave the words, recorded as given")
     decide.add_argument("--json", action="store_true", help="print one JSON object")

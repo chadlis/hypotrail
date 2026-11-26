@@ -4662,8 +4662,8 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
 
     rows, _ = _history(tmp_path)
     keys = set(attrs_of(page, "decision-history-keys", "data-field"))
-    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecordV2"]["properties"]) | {"applies", "reasons", "evidence_change"}
-    assert len(keys) == 18
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecordV2"]["properties"]) | {"applies", "reasons", "evidence_change", "level"}
+    assert len(keys) == 19
     assert all(set(row) == keys for row in rows)
 
 
