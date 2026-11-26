@@ -466,3 +466,21 @@ def test_the_committed_blind_writer_files_name_no_local_path_and_say_their_scrip
     assert not any("/home/" in text or "Script:" in text for text in texts.values())
     assert "examples/chinook/data/Chinook_Sqlite.sqlite" in texts["brief.md"] and "absolute path into a local worktree" in texts["brief.md"]
     assert all("stays out of the repository" in texts[name] for name in ("writer-a.md", "writer-b.md"))
+
+
+def test_the_verbose_d05_fixture_names_all_but_one_expected_identifier_with_every_fact_right_and_fails_only_identifiers_complete():
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [line] = [item for item in jsonl(PROSE / "fixtures" / "answers-verbose.jsonl") if item["case_id"] == "D05"]
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D05"]
+    expected = {(i["kind"], i["value"]) for i in reference["expected_identifiers"]}
+    assert len(expected) >= 2 and len(expected - text_facts.identifiers_in(line["raw_answer"], config)) == 1
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
+    assert criteria == {
+        "identifiers_complete": (False, "identifier_missing"),
+        "no_unexpected_identifier": (True, None),
+        "facts_present": (True, None),
+        "outcome_matches": (True, None),
+        "text_facts_success": (False, "identifier_missing"),
+    }

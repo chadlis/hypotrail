@@ -10,8 +10,8 @@ FROM InvoiceLine il JOIN Invoice i USING(InvoiceId) JOIN Track t USING(TrackId)
 JOIN Album al USING(AlbumId) JOIN Artist ar USING(ArtistId)
 GROUP BY ar.ArtistId ORDER BY q DESC LIMIT 5;
 -- by distinct customers
-... same joins ... ORDER BY nc DESC LIMIT 5;
 ```
+Note (2026-11-26, added when this file was committed): the second query was written here as "... same joins ... ORDER BY nc DESC LIMIT 5;". Writer A's script took its queries on the command line, so its exact SQL was not kept. Its results are recorded below and agree with writer B's, whose SQL is verbatim.
 Results: by tracks sold Iron Maiden 140 (U2 107); by revenue Iron Maiden $138.60 (U2 $105.93); by distinct customers buying U2 29, Led Zeppelin 28, Iron Maiden 27.
 
 Shared SQL for Q4-Q6:
