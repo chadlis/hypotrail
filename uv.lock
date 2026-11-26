@@ -520,6 +520,7 @@ agent = [
 ml = [
     { name = "numpy" },
     { name = "scikit-learn" },
+    { name = "scipy" },
 ]
 
 [package.dev-dependencies]
@@ -537,6 +538,7 @@ requires-dist = [
     { name = "jsonschema", specifier = "==4.26.0" },
     { name = "numpy", marker = "extra == 'ml'", specifier = "==2.5.4" },
     { name = "scikit-learn", marker = "extra == 'ml'", specifier = "==1.9.1" },
+    { name = "scipy", marker = "extra == 'ml'", specifier = "==1.18.1" },
 ]
 provides-extras = ["agent", "ml"]
 

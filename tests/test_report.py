@@ -1,8 +1,10 @@
-"""Ticket #85: `report` renders one self-contained HTML page per Study, from the Study's records alone.
+"""Ticket #85: `report` renders one self-contained HTML page per Study, from the Study's records and, for a Bike Study, the data profile
+the command hands over (#261).
 
 One test per acceptance criterion or Tightened line; a criterion that states several conditions is one test holding all of them.
 """
 
+import html
 import json
 import os
 import re
@@ -17,6 +19,7 @@ from _assess_helpers import assess, construct, fresh_study, observation_set_id, 
 from _compare_helpers import compare, forged
 from _report_tracks import TRACKS
 from _report_helpers import (
+    Doc,
     constructed_attempt,
     dates_of,
     dev_world,
@@ -34,9 +37,14 @@ from _report_helpers import (
 from _study_helpers import ROOT, examples_copy, init_study, run_cli, run_json, run_ml
 
 from hypotrail.core import canonical, exposure, lock
-from hypotrail.report import render
+# Imported before a test spies on `os.replace`: on their first import, pytest's rewriting hook writes the bytecode of SciPy's
+# `*_test.py` modules with it.
+from hypotrail.ml import profile as _profile  # noqa: F401
+from hypotrail.report import markup, render, render_profile
 
 HANDBOOK = ROOT / "docs" / "handbook"
+# The attributes an `svg` or a `rect` of the Data profile section may carry: its geometry, its class and the day a day rect stands for.
+SVG_ATTRIBUTES = {"viewbox", "preserveaspectratio", "aria-hidden", "x", "y", "width", "height", "data-date"}
 MARKUP = TRACKS["bike"].markup
 _WORLDS = {}
 
@@ -285,7 +293,7 @@ def test_D_the_pages_own_text_is_english_external_strings_are_shown_as_given_and
     assert html_attrs == {"lang": "en", "data-mode": "light"}
     assert "prefers-color-scheme" not in raw and "localStorage" not in raw and "?mode" not in raw
     assert french in doc.text and "<b>du jour</b>" not in raw  # given, escaped
-    assert [s["headings"] for s in doc.sections] == [[heading] for _, heading in render.SECTIONS]
+    assert [s["headings"] for s in doc.sections] == [[heading] for _, heading in render.sections_of(track.domain)]
 
 
 def test_I_the_page_uses_the_light_tokens_of_the_handbook_template_and_no_mode_switch(world):
@@ -301,13 +309,15 @@ def test_I_the_page_uses_the_light_tokens_of_the_handbook_template_and_no_mode_s
     assert not [e for e in doc.elements if e[0] in ("script", "button")] and "doc-mode" not in raw and 'class="mode"' not in raw
 
 
-def test_the_page_sets_out_its_sections_in_this_order_each_with_a_stable_id(world):
-    _, _, _, doc, _ = world
+def test_the_page_sets_out_its_sections_in_this_order_each_with_a_stable_id_and_data_profile_on_a_bike_page_only(world):
+    _, _, _, doc, payload = world
+    profile = ["data-profile"] if world.track.domain == "regression" else []
     assert [s["id"] for s in doc.sections] == [
-        "question-mode", "data-licences", "protocol-partitions", "configurations", "coverage-statuses",
+        "question-mode", "data-licences", "protocol-partitions", *profile, "configurations", "coverage-statuses",
         "metrics-differences", "individual-errors", "limits", "artifact-origin", "exposure",
     ]
-    assert [(s["id"], s["headings"]) for s in doc.sections] == [(i, [h]) for i, h in render.SECTIONS]
+    assert [(s["id"], s["headings"]) for s in doc.sections] == [(i, [h]) for i, h in render.sections_of(world.track.domain)]
+    assert payload["report"]["sections"] == [s["id"] for s in doc.sections]
 
 
 def test_every_external_string_is_escaped_in_text_and_in_attributes(world):
@@ -317,7 +327,8 @@ def test_every_external_string_is_escaped_in_text_and_in_attributes(world):
     assert not [tag for tag, _ in doc.elements if tag in ("xx-marker", "img", "script")]
     for tag, attrs in doc.elements:
         assert not [name for name in attrs if name.startswith("on") or name == "src"], (tag, attrs)
-        assert set(attrs) <= {"lang", "data-mode", "charset", "name", "content", "id", "class", "style", "href", "data-attempt-id"}, (tag, attrs)
+        drawing = SVG_ATTRIBUTES if tag in ("svg", "rect") else set()
+        assert set(attrs) <= {"lang", "data-mode", "charset", "name", "content", "id", "class", "style", "href", "data-attempt-id", "data-path", *drawing}, (tag, attrs)
     for claim, value in world.track.markup.items():
         assert value in doc.text, claim  # shown as the same characters
     hrefs = [attrs["href"] for tag, attrs in doc.elements if "href" in attrs]
@@ -744,6 +755,116 @@ def test_the_page_shows_the_warning_a_comparison_recorded_and_nothing_computed_f
     world = bike_world(tmp_path, count=2)
     (tmp_path / "out").mkdir()
     the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations(world, tmp_path / "out")
+
+
+# --- the Data profile section of a Bike page (#261) ---------------------------------------------------------------------------------
+
+
+def profile_section(raw: str) -> str:
+    """The `section` element of the page whose id is `data-profile`."""
+    [section] = re.findall(r'<section id="data-profile".*?</section>', raw, re.S)
+    return section
+
+
+def value_at(read, path: str):
+    """The value of the profile read at a key path such as `columns[3].distribution.histogram[2].count`."""
+    value = read
+    for key, index in re.findall(r"([A-Za-z_0-9]+)(?:\[(\d+)\])?", path):
+        value = value[key]
+        if index:
+            value = value[int(index)]
+    return value
+
+
+@pytest.fixture(scope="module")
+def profiled(tmp_path_factory):
+    """(the Study, the object of `profile --json`, the raw page, its Data profile section) of a fresh Bike Study with one Attempt on dev."""
+    base = tmp_path_factory.mktemp("profiled")
+    study, _ = fresh_study(base, "seasonal_7")
+    code, read, err = run_json("profile", "--study", study)
+    assert code == 0, (read, err)
+    out = base / "page.html"
+    code, payload, err = report(study, out)
+    assert code == 0, (payload, err)
+    raw = out.read_text(encoding="utf-8")
+    return study, read, raw, profile_section(raw)
+
+
+def test_every_svg_of_the_data_profile_holds_rects_only_with_no_text_or_style_and_the_page_holds_no_script_or_img(profiled):
+    _, _, raw, section = profiled
+    svgs = re.findall(r"<svg\b[^>]*>(.*?)</svg>", section, re.S)
+    assert len(svgs) >= 4
+    for body in svgs:
+        assert re.sub(r'<rect\b[^<>]*></rect>', "", body) == ""
+    assert not re.search(r"<(svg|rect)\b[^>]*\bstyle=", section)
+    assert "<script" not in raw and "<img" not in raw
+
+
+def test_each_number_of_the_data_profile_equals_the_read_at_its_key_path_and_the_target_has_358_days_none_after_2011(profiled):
+    _, read, _, section = profiled
+    spans = re.findall(r'<span data-path="([^"]+)">(.*?)</span>', section)
+    paths = {path for path, _ in spans}
+    assert {"items", "target.figures.quartiles.median", "associations.level", "columns[0].distribution.histogram[0].count"} <= paths
+    assert any(path.startswith("against_target[") and ".values[" in path for path in paths)
+    for path, text in spans:
+        value = value_at(read, path)
+        expected = value if isinstance(value, str) else str(markup.number(value))
+        assert html.unescape(text) == expected, path
+    numeric_cells = re.findall(r'<td class="num">(.*?)</td>', section, re.S)
+    assert numeric_cells and [c for c in numeric_cells if not re.fullmatch(r'<span data-path="[^"]+">[^<]*</span>', c)] == []
+    days = re.findall(r'<rect\b[^>]*data-date="([^"]+)"', section)
+    assert len(days) == 358 and max(days) <= "2011-12-31"
+    shown = re.findall(r"\b20\d\d-\d\d-\d\d\b", re.sub(r'<table[^>]*id="profile-band".*?</table>', "", section, flags=re.S))
+    assert [day for day in shown if day > "2011-12-31"] == []
+
+
+def test_each_forbidden_column_of_the_matrix_says_not_available_at_prediction_time_and_no_available_column_does(profiled):
+    _, read, _, section = profiled
+    doc = Doc(section)
+    rows = {row[0]: row[1] for row in doc.body("profile-order")}
+    available = {column["name"]: column["available"] for column in read["columns"]}
+    assert set(rows) == set(available)
+    assert {name: text == "not available at prediction time" for name, text in rows.items()} == {name: not ok for name, ok in available.items()}
+
+
+def test_a_script_tag_planted_in_a_column_name_of_the_data_is_escaped_on_the_page(tmp_path):
+    planted = "<script>alert(1)</script>"
+    examples = examples_copy(tmp_path)
+    bike = examples / "bike_day"
+    data = bike / "data" / "day.csv"
+    text = data.read_text(encoding="utf-8")
+    data.write_text(text.replace("instant,", f'"{planted}",', 1), encoding="utf-8")
+    checks = json.loads((bike / "data-checks.json").read_text(encoding="utf-8"))
+    checks["columns"][0] = planted
+    (bike / "data-checks.json").write_text(json.dumps(checks), encoding="utf-8")
+    lock_path = bike / "data-sources.lock.json"
+    lock_file = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_file["sources"][0].update(sha256=sha_of(data), size_bytes=data.stat().st_size)
+    lock_path.write_text(json.dumps(lock_file), encoding="utf-8")
+    study, _ = init_study(tmp_path, examples=examples)
+    out = tmp_path / "page.html"
+    code, payload, err = report(study, out, "--examples-dir", examples)
+    assert code == 0, (payload, err)
+    section = profile_section(out.read_text(encoding="utf-8"))
+    assert "<script" not in section and "&lt;script&gt;alert(1)&lt;/script&gt;" in section
+
+
+def test_a_refused_profile_read_leaves_one_sentence_with_its_code_and_a_changed_workload_adds_the_differs_sentence(tmp_path):
+    study, _ = fresh_study(tmp_path / "study", "seasonal_7")
+    missing = examples_copy(tmp_path, edit=lambda d: d.update(target_column="nonesuch"), name="missing")
+    out = tmp_path / "refused.html"
+    code, payload, err = report(study, out, "--examples-dir", missing)
+    assert (code, payload.get("ok")) == (0, True), (payload, err)
+    section = profile_section(out.read_text(encoding="utf-8"))
+    paragraphs = re.findall(r"<p>(.*?)</p>", section, re.S)
+    assert [re.sub(r"<[^>]+>", "", p) for p in paragraphs] == ["The data profile could not be read: COLUMN_MISSING."]
+    assert "<svg" not in section and "<table" not in section
+    changed = examples_copy(tmp_path, edit=lambda d: d["forbidden_features"].remove("temp"), name="changed")
+    out = tmp_path / "differs.html"
+    code, payload, err = report(study, out, "--examples-dir", changed)
+    assert (code, payload.get("ok")) == (0, True), (payload, err)
+    section = profile_section(out.read_text(encoding="utf-8"))
+    assert f"<p>{markup.esc(render_profile.DIFFERS_SENTENCE)}</p>" in section and section.count("<svg") >= 4
 
 
 # --- the interval row of a regression Comparison --------------------------------------------------------------------------------

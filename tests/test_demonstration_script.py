@@ -23,12 +23,12 @@ MODULE = demonstration()
 STEPS = MODULE.STEPS
 
 # The steps of the demonstration, in the order of chadlis/hypotrail#218, "The demonstration, as this slice freezes it": L1.1 to L1.7 on
-# the first Bike Study, then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
+# the first Bike Study, with PROFILE before L1.3 (chadlis/hypotrail#261, "What to build", item 5), then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
 # on the Chinook Study; then the step of chadlis/hypotrail#236, "What to build", item 1, "placed after L1.8", on a copy of the kept
 # Chinook Campaign; then the step of chadlis/hypotrail#242, "What to build", item 2: "the copy of the kept Study takes
 # `init --new-revision`, two Assessments and a `compare` whose line shows the Case interval".
 DEMO_IDS = [
-    "L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
+    "L1.1", "L1.2", "PROFILE", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
     "A4", "A5", "task 1", "task 2", "task 3", "C10", "task 4", "task 5", "task 6.1", "task 6.2", "C5-check", "COMPARE", "S1", "C8",
     "DEV", "REPORT", "WORDS",
     "L1.8",
@@ -88,6 +88,9 @@ SECTION_18 = {
         ("hypotrail", "init", "--workload", "bike_day", "--study", "runs/l1-bike"),
         ("hypotrail", "status", "--study", "runs/l1-bike", "--json"),
     ],
+    # Section 18 has no PROFILE: its one command is written here from chadlis/hypotrail#261, "What to build", item 5, "A `profile` step
+    # on the first Bike Study comes before step L1.3".
+    "PROFILE": [("hypotrail", "profile", "--study", "runs/l1-bike", "--json")],
     "L1.3": [
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"),
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "ridge_v1", "--partition", "dev", "--request-id", "l1-ridge"),

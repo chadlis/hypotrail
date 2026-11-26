@@ -8,7 +8,8 @@ checkout:
 DIR is a new or empty folder outside the checkout: it receives the Studies, the Workload copy, the report pages, the population
 file and the reads kept for the client's tests (`kept/`). The steps are those of section 18 of the teaching page,
 `pages/de-zero-a-la-demo.html` in chadlis/hypotrail-learning (in French; read at commit `164aa3a`), that need no person: a first
-Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. A last step, CAMPAIGN, is not in section 18: it is the
+Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. The step PROFILE, after L1.2 and before the first
+`run ml` of L1.3, is not in section 18: it reads the first Bike Study's data profile (chadlis/hypotrail#261). A last step, CAMPAIGN, is not in section 18 either: it is the
 step of the larger Chinook Workload (chadlis/hypotrail#232, ticket chadlis/hypotrail#236). It copies the Study the Campaign of
 2026-11-26 kept, `docs/handbook/traces/campaign-chinook-dev/study/`, into DIR, and compares and decides on the copy alone; the step
 after it, INTERVAL, gives the copy a new revision whose Workload declares its resampling, and compares again with an interval over
@@ -219,6 +220,26 @@ STEPS = [
         ],
     },
     {
+        "id": "PROFILE",
+        "title": "Read the data profile of train before any Configuration runs",
+        "shows": (
+            "The data profile of the first Bike Study: its 358 train Items, the Partition band, the target over train, one "
+            "distribution per column of the data, the association matrix of the columns and the target against each allowed feature."
+        ),
+        "why": (
+            "Before a Configuration is chosen, the data it will learn from is looked at: how the target moves over the year, which "
+            "columns carry nearly the same information, and which allowed features follow the target. profile reads only the train "
+            "days of the Study's own data, takes no lock and writes nothing; no value of dev or public_check is read."
+        ),
+        "actions": [
+            {
+                "cli": ["profile", "--study", BIKE, "--json"],
+                "print": ["items", "workload_protocol", "associations.order"],
+                "expect": {"exit": 0, "values": {"items": 358, "workload_protocol": "same", "partition": "train", "write_sequence": 2}},
+            },
+        ],
+    },
+    {
         "id": "L1.3",
         "title": "Run two Configurations on dev, then send the first request again",
         "shows": (
@@ -370,7 +391,7 @@ STEPS = [
         ),
         "why": (
             "status reads the Study and writes nothing: its Attempts and the count of its Exposures, the recorded looks at the days "
-            "of the final check (L1.7). report writes one self-contained HTML page from the Study's records alone, with no network; "
+            "of the final check (L1.7). report writes one self-contained HTML page from the Study's records and its data profile, with no network; "
             "open it in a browser to see it. While nothing has touched public_check, the page says so and no Exposure is counted."
         ),
         "actions": [
@@ -378,7 +399,7 @@ STEPS = [
             {
                 "cli": ["report", "--study", BIKE, "--out", "{work}/l1-bike-report.html", "--json"],
                 "print": ["report.out", "report.sections", "report.exposure.recorded"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 11}},
             },
         ],
     },
@@ -425,7 +446,7 @@ STEPS = [
             {
                 "cli": ["report", "--study", BIKE, "--out", "{work}/l1-bike-report.html", "--json"],
                 "print": ["report.out", "report.exposure.recorded", "report.exposure.entry_id"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": True, "report.exposure.journal_entries": 2, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": True, "report.exposure.journal_entries": 2, "len(report.sections)": 11}},
             },
             {
                 "cli": ["status", "--study", BIKE, "--json"],
@@ -1080,16 +1101,16 @@ STEPS = [
     {
         "id": "REPORT",
         "title": "Render the report page of the second Bike Study",
-        "shows": "The report page, written outside the Study, with its ten sections and no Exposure recorded: nothing touched public_check here.",
+        "shows": "The report page, written outside the Study, with its eleven sections and no Exposure recorded: nothing touched public_check here.",
         "why": (
-            "The page is made from the Study's records alone, with no network. It shows neither the Decisions nor the Declared "
+            "The page is made from the Study's records and its data profile, with no network. It shows neither the Decisions nor the Declared "
             "deviation today; the panel and status --json do."
         ),
         "actions": [
             {
                 "cli": ["report", "--study", L2_BIKE, "--out", "{work}/bike-report.html", "--json"],
                 "print": ["report.out", "report.sections", "report.exposure.recorded"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 11}},
             },
         ],
     },

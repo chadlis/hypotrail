@@ -7,16 +7,18 @@ loads nothing and computes nothing when it is opened.
 """
 
 from hypotrail.report import gather
-from hypotrail.report import render_agent
+from hypotrail.report import render_agent, render_profile
 from hypotrail.report.markup import Links, Row, Safe, UNKNOWN, cell, esc, interval, join, json_block, number, paragraph, rescoring_note, scoped, sub, table, tag
 from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 from hypotrail.core.comparison import DEVIATIONS
 
 # The sections of SPEC §9 in their order (id, heading), then the Exposure section the ticket adds. The handbook lists them.
+# "Data profile" is on the page of a regression Study only (`sections_of`).
 SECTIONS = (
     ("question-mode", "Question and Mode"),
     ("data-licences", "Data and licences"),
     ("protocol-partitions", "Protocol and Partitions"),
+    ("data-profile", "Data profile"),
     ("configurations", "Configurations compared"),
     ("coverage-statuses", "Coverage and statuses"),
     ("metrics-differences", "Metrics and differences"),
@@ -25,6 +27,14 @@ SECTIONS = (
     ("artifact-origin", "Origin of the artifacts"),
     ("exposure", "Exposure"),
 )
+REGRESSION_ONLY = ("data-profile",)
+
+
+def sections_of(domain: str) -> tuple:
+    """The sections of the page of a Study of `domain`, in their order."""
+    return SECTIONS if domain == gather.REGRESSION else tuple(s for s in SECTIONS if s[0] not in REGRESSION_ONLY)
+
+
 DELTA_SENTENCE = "A positive delta means the Candidate is worse: the delta is the Metric of the Candidate minus the Metric of the Control, and the Metric is lower-is-better."
 DENIAL = "This report does not state that any output, Configuration or Study is production-ready, safe or independent."
 CHARTER_STYLE = """
@@ -68,7 +78,7 @@ footer{padding-top:24px;padding-bottom:24px;background:var(--bg);font-size:13px;
 @media (max-width:640px){:root{--pad:20px}.hero{padding-top:30px}section{padding-top:28px;padding-bottom:30px}.sh{gap:14px}}
 @media print{section,.hero{break-inside:avoid-page}}
 """
-ACCENTS = ("gold", "teal", "violet", "sky", "green", "pink", "amber", "coral", "gold", "teal")
+ACCENTS = ("gold", "teal", "violet", "sky", "green", "pink", "amber", "coral", "gold", "teal", "violet")
 
 
 def _section(index: int, section_id: str, heading: str, body) -> Safe:
@@ -117,7 +127,7 @@ def _data(model) -> list:
         paragraph("The dataset is a copy the Study keeps, referenced by its SHA-256."),
         table("data-files", ["Role", "Path", "SHA-256", "Bytes"], rows, numeric=(3,)),
         paragraph(
-            "The licence notice and the attribution of the dataset stay with the Workload, not in the Study: this report reads the Study alone and shows no notice text."
+            "The licence notice and the attribution of the dataset stay with the Workload, not in the Study: this report shows no notice text."
         ),
         paragraph("Licence notice file named by the Workload: " + (", ".join(notices) if notices else "not recorded by this Study") + "."),
     ]
@@ -380,6 +390,7 @@ def render(model: dict, links: Links, recorded=None) -> str:
         "question-mode": _question(model),
         "data-licences": _data(model),
         "protocol-partitions": render_agent.protocol(model) if agent else _protocol(model),
+        "data-profile": None if agent else render_profile.section(model.get("profile")),
         "configurations": render_agent.configurations(model) if agent else _configurations(model),
         "coverage-statuses": _coverage(model),
         "metrics-differences": render_agent.metrics(model) if agent else _metrics(model),
@@ -388,7 +399,7 @@ def render(model: dict, links: Links, recorded=None) -> str:
         "artifact-origin": _origin(model, links),
         "exposure": _exposure(model, recorded),
     }
-    sections = join(_section(i, sid, heading, bodies[sid]) for i, (sid, heading) in enumerate(SECTIONS, 1))
+    sections = join(_section(i, sid, heading, bodies[sid]) for i, (sid, heading) in enumerate(sections_of(model["domain"]), 1))
     spec = model["spec"]
     hero = tag(
         "header",
@@ -397,7 +408,7 @@ def render(model: dict, links: Links, recorded=None) -> str:
                 tag("p", join(["Hypotrail ", tag("b", "·"), " Report"]), class_="org"),
                 tag("p", "Study report", class_="kick"),
                 tag("h1", f"Study {spec['study_id']}"),
-                tag("p", "Rendered from the records of the Study. Nothing is computed when this page is opened.", class_="sub"),
+                tag("p", "Rendered from the records of the Study" + ("" if agent else " and its data profile") + ". Nothing is computed when this page is opened.", class_="sub"),
             ]
         ),
         class_="hero",
@@ -417,8 +428,8 @@ def render(model: dict, links: Links, recorded=None) -> str:
         [
             Safe('<!doctype html><html lang="en" data-mode="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'),
             tag("title", f"Hypotrail report, Study {spec['study_id']}"),
-            Safe(f"<style>{CHARTER_STYLE}</style></head><body>"),
-            tag("div", join([hero, banner, sections, tag("footer", "Hypotrail · report · the Study's records are the source; this page is rebuilt, never stored as one.")]), class_="page"),
+            Safe(f"<style>{CHARTER_STYLE}{'' if agent else render_profile.STYLE}</style></head><body>"),
+            tag("div", join([hero, banner, sections, tag("footer", "Hypotrail · report · the Study's records" + ("" if agent else " and its data profile") + " are the source; this page is rebuilt, never stored as one.")]), class_="page"),
             Safe("</body></html>\n"),
         ]
     )
