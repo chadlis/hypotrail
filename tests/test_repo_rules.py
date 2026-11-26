@@ -262,3 +262,13 @@ def test_gitignore_ignores_a_study_under_runs_and_the_installed_copilot_instruct
     exit_code = subprocess.run(["git", "check-ignore", "-q", path], cwd=ROOT).returncode
     assert exit_code == (0 if ignored else 1), (path, exit_code)
     assert _git_ls_files(["runs/"]) == []
+
+
+WORKLOAD_LANGUAGE = "- Workload data keeps the language of its source; Workload data authored in this repository is English."
+
+
+def test_agents_md_states_the_language_of_workload_data_in_the_bullet_after_the_english_rule():
+    # D-145 on chadlis/hypotrail#75 (comment 7182974525): "That sentence is added to `AGENTS.md`."
+    rules = (ROOT / "AGENTS.md").read_text(encoding="utf-8").splitlines()
+    english = next(i for i, line in enumerate(rules) if line.startswith("- Everything committed to this repository is in English"))
+    assert rules[english + 1] == WORKLOAD_LANGUAGE
