@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/agentic/contracts/agent-answers-1/population.schema.json",
+  "title": "agent-answers/1: population.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["episodes"],
+  "properties": {
+    "episodes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "repeat"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "repeat": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "POPULATION_ITEM_ABSENT",
+  "exit": 2,
+  "caught_by": "import",
+  "why": "12348@2011-01-01 is in the population and has no row"
+}

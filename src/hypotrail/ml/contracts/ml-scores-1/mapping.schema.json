@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/ml/contracts/ml-scores-1/mapping.schema.json",
+  "title": "ml-scores/1: mapping.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["row_id", "y_pred", "dataset_sha256"],
+  "properties": {
+    "row_id": {"const": "item_id"},
+    "y_pred": {"const": "score"},
+    "dataset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "model": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "historical_protocol": {"type": "string", "minLength": 1},
+    "tool_use": {"type": "string", "minLength": 1},
+    "settings": {
+      "type": "object",
+      "propertyNames": {"minLength": 1},
+      "additionalProperties": {"type": ["string", "number", "boolean", "null"]}
+    }
+  }
+}
