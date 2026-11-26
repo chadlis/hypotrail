@@ -1,0 +1,3462 @@
+{
+  "ok": true,
+  "write_sequence": 44,
+  "comparisons": [
+    {
+      "comparison_id": "00000000-0000-4000-8000-000000000008",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "row_id": "bike-day:2012-01-01",
+          "control_abs_error": 1540.0,
+          "candidate_abs_error": 411.27298974707855,
+          "delta_abs_error": -1128.7270102529214
+        },
+        {
+          "row_id": "bike-day:2012-01-02",
+          "control_abs_error": 634.0,
+          "candidate_abs_error": 406.8196821817876,
+          "delta_abs_error": -227.18031781821242
+        },
+        {
+          "row_id": "bike-day:2012-01-03",
+          "control_abs_error": 1074.0,
+          "candidate_abs_error": 463.9923007095447,
+          "delta_abs_error": -610.0076992904553
+        },
+        {
+          "row_id": "bike-day:2012-01-04",
+          "control_abs_error": 66.0,
+          "candidate_abs_error": 740.8373847130542,
+          "delta_abs_error": 674.8373847130542
+        },
+        {
+          "row_id": "bike-day:2012-01-05",
+          "control_abs_error": 849.0,
+          "candidate_abs_error": 1399.9158584553952,
+          "delta_abs_error": 550.9158584553952
+        },
+        {
+          "row_id": "bike-day:2012-01-06",
+          "control_abs_error": 1099.0,
+          "candidate_abs_error": 1786.1543268634405,
+          "delta_abs_error": 687.1543268634405
+        },
+        {
+          "row_id": "bike-day:2012-01-07",
+          "control_abs_error": 2036.0,
+          "candidate_abs_error": 1982.3571618651727,
+          "delta_abs_error": -53.64283813482734
+        },
+        {
+          "row_id": "bike-day:2012-01-08",
+          "control_abs_error": 1131.0,
+          "candidate_abs_error": 645.5718814601696,
+          "delta_abs_error": -485.4281185398304
+        },
+        {
+          "row_id": "bike-day:2012-01-09",
+          "control_abs_error": 425.0,
+          "candidate_abs_error": 168.6810858908534,
+          "delta_abs_error": -256.3189141091466
+        },
+        {
+          "row_id": "bike-day:2012-01-10",
+          "control_abs_error": 1362.0,
+          "candidate_abs_error": 1508.751580972245,
+          "delta_abs_error": 146.75158097224494
+        },
+        {
+          "row_id": "bike-day:2012-01-11",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 160.5580585215671,
+          "delta_abs_error": -30.44194147843291
+        },
+        {
+          "row_id": "bike-day:2012-01-12",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 2118.583132510479,
+          "delta_abs_error": 1293.5831325104791
+        },
+        {
+          "row_id": "bike-day:2012-01-13",
+          "control_abs_error": 884.0,
+          "candidate_abs_error": 441.56545676074165,
+          "delta_abs_error": -442.43454323925835
+        },
+        {
+          "row_id": "bike-day:2012-01-14",
+          "control_abs_error": 2028.0,
+          "candidate_abs_error": 216.16214009902433,
+          "delta_abs_error": -1811.8378599009757
+        },
+        {
+          "row_id": "bike-day:2012-01-15",
+          "control_abs_error": 1114.0,
+          "candidate_abs_error": 294.23968624620375,
+          "delta_abs_error": -819.7603137537963
+        },
+        {
+          "row_id": "bike-day:2012-01-16",
+          "control_abs_error": 78.0,
+          "candidate_abs_error": 627.5587287418089,
+          "delta_abs_error": 549.5587287418089
+        },
+        {
+          "row_id": "bike-day:2012-01-17",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 1003.2908789310334,
+          "delta_abs_error": 340.2908789310334
+        },
+        {
+          "row_id": "bike-day:2012-01-18",
+          "control_abs_error": 1199.0,
+          "candidate_abs_error": 1400.6270966149457,
+          "delta_abs_error": 201.62709661494569
+        },
+        {
+          "row_id": "bike-day:2012-01-19",
+          "control_abs_error": 805.0,
+          "candidate_abs_error": 1006.278765015968,
+          "delta_abs_error": 201.27876501596802
+        },
+        {
+          "row_id": "bike-day:2012-01-20",
+          "control_abs_error": 51.0,
+          "candidate_abs_error": 779.9741046981244,
+          "delta_abs_error": 728.9741046981244
+        },
+        {
+          "row_id": "bike-day:2012-01-21",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 937.1699174547384,
+          "delta_abs_error": -254.83008254526158
+        },
+        {
+          "row_id": "bike-day:2012-01-22",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 425.5061656852072,
+          "delta_abs_error": 91.50616568520718
+        },
+        {
+          "row_id": "bike-day:2012-01-23",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 537.9340704816086,
+          "delta_abs_error": 403.9340704816086
+        },
+        {
+          "row_id": "bike-day:2012-01-24",
+          "control_abs_error": 1404.0,
+          "candidate_abs_error": 2383.276552559501,
+          "delta_abs_error": 979.2765525595009
+        },
+        {
+          "row_id": "bike-day:2012-01-25",
+          "control_abs_error": 894.0,
+          "candidate_abs_error": 1831.6808765364267,
+          "delta_abs_error": 937.6808765364267
+        },
+        {
+          "row_id": "bike-day:2012-01-26",
+          "control_abs_error": 783.0,
+          "candidate_abs_error": 1428.4909432132226,
+          "delta_abs_error": 645.4909432132226
+        },
+        {
+          "row_id": "bike-day:2012-01-27",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 736.0143914118903,
+          "delta_abs_error": 443.0143914118903
+        },
+        {
+          "row_id": "bike-day:2012-01-28",
+          "control_abs_error": 2722.0,
+          "candidate_abs_error": 1561.5277166021406,
+          "delta_abs_error": -1160.4722833978594
+        },
+        {
+          "row_id": "bike-day:2012-01-29",
+          "control_abs_error": 1266.0,
+          "candidate_abs_error": 506.52163652114587,
+          "delta_abs_error": -759.4783634788541
+        },
+        {
+          "row_id": "bike-day:2012-01-30",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 1040.4317891731862,
+          "delta_abs_error": -151.5682108268138
+        },
+        {
+          "row_id": "bike-day:2012-01-31",
+          "control_abs_error": 170.0,
+          "candidate_abs_error": 1914.7188979322045,
+          "delta_abs_error": 1744.7188979322045
+        },
+        {
+          "row_id": "bike-day:2012-02-01",
+          "control_abs_error": 309.0,
+          "candidate_abs_error": 1635.850402653381,
+          "delta_abs_error": 1326.850402653381
+        },
+        {
+          "row_id": "bike-day:2012-02-02",
+          "control_abs_error": 314.0,
+          "candidate_abs_error": 573.1126959885664,
+          "delta_abs_error": 259.11269598856643
+        },
+        {
+          "row_id": "bike-day:2012-02-03",
+          "control_abs_error": 695.0,
+          "candidate_abs_error": 1126.9357933330157,
+          "delta_abs_error": 431.9357933330157
+        },
+        {
+          "row_id": "bike-day:2012-02-04",
+          "control_abs_error": 1191.0,
+          "candidate_abs_error": 199.36833487996773,
+          "delta_abs_error": -991.6316651200323
+        },
+        {
+          "row_id": "bike-day:2012-02-05",
+          "control_abs_error": 296.0,
+          "candidate_abs_error": 379.1282238641138,
+          "delta_abs_error": 83.1282238641138
+        },
+        {
+          "row_id": "bike-day:2012-02-06",
+          "control_abs_error": 160.0,
+          "candidate_abs_error": 1092.6690460487844,
+          "delta_abs_error": 932.6690460487844
+        },
+        {
+          "row_id": "bike-day:2012-02-07",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 1494.7321588056307,
+          "delta_abs_error": 1360.7321588056307
+        },
+        {
+          "row_id": "bike-day:2012-02-08",
+          "control_abs_error": 1777.0,
+          "candidate_abs_error": 54.12665423981707,
+          "delta_abs_error": -1722.873345760183
+        },
+        {
+          "row_id": "bike-day:2012-02-09",
+          "control_abs_error": 69.0,
+          "candidate_abs_error": 1359.7770765372966,
+          "delta_abs_error": 1290.7770765372966
+        },
+        {
+          "row_id": "bike-day:2012-02-10",
+          "control_abs_error": 320.0,
+          "candidate_abs_error": 892.6708880530896,
+          "delta_abs_error": 572.6708880530896
+        },
+        {
+          "row_id": "bike-day:2012-02-11",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 690.0882770112812,
+          "delta_abs_error": 27.088277011281207
+        },
+        {
+          "row_id": "bike-day:2012-02-12",
+          "control_abs_error": 1418.0,
+          "candidate_abs_error": 718.8515317173119,
+          "delta_abs_error": -699.1484682826881
+        },
+        {
+          "row_id": "bike-day:2012-02-13",
+          "control_abs_error": 362.0,
+          "candidate_abs_error": 1379.5902725891922,
+          "delta_abs_error": 1017.5902725891922
+        },
+        {
+          "row_id": "bike-day:2012-02-14",
+          "control_abs_error": 453.0,
+          "candidate_abs_error": 1313.009703537884,
+          "delta_abs_error": 860.009703537884
+        },
+        {
+          "row_id": "bike-day:2012-02-15",
+          "control_abs_error": 1367.0,
+          "candidate_abs_error": 1552.1205131158508,
+          "delta_abs_error": 185.12051311585083
+        },
+        {
+          "row_id": "bike-day:2012-02-16",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 101.65409234503113,
+          "delta_abs_error": -723.3459076549689
+        },
+        {
+          "row_id": "bike-day:2012-02-17",
+          "control_abs_error": 323.0,
+          "candidate_abs_error": 1583.871891980336,
+          "delta_abs_error": 1260.871891980336
+        },
+        {
+          "row_id": "bike-day:2012-02-18",
+          "control_abs_error": 2149.0,
+          "candidate_abs_error": 1376.9031131204292,
+          "delta_abs_error": -772.0968868795708
+        },
+        {
+          "row_id": "bike-day:2012-02-19",
+          "control_abs_error": 1160.0,
+          "candidate_abs_error": 423.57496041236936,
+          "delta_abs_error": -736.4250395876306
+        },
+        {
+          "row_id": "bike-day:2012-02-20",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 946.4569163824199,
+          "delta_abs_error": 653.4569163824199
+        },
+        {
+          "row_id": "bike-day:2012-02-21",
+          "control_abs_error": 145.0,
+          "candidate_abs_error": 1143.6947958757596,
+          "delta_abs_error": 998.6947958757596
+        },
+        {
+          "row_id": "bike-day:2012-02-22",
+          "control_abs_error": 604.0,
+          "candidate_abs_error": 2151.7109244310745,
+          "delta_abs_error": 1547.7109244310745
+        },
+        {
+          "row_id": "bike-day:2012-02-23",
+          "control_abs_error": 2057.0,
+          "candidate_abs_error": 1808.343438342189,
+          "delta_abs_error": -248.65656165781093
+        },
+        {
+          "row_id": "bike-day:2012-02-24",
+          "control_abs_error": 667.0,
+          "candidate_abs_error": 3.0376665885864895,
+          "delta_abs_error": -663.9623334114135
+        },
+        {
+          "row_id": "bike-day:2012-02-25",
+          "control_abs_error": 1586.0,
+          "candidate_abs_error": 25.53032680602064,
+          "delta_abs_error": -1560.4696731939794
+        },
+        {
+          "row_id": "bike-day:2012-02-26",
+          "control_abs_error": 700.0,
+          "candidate_abs_error": 865.3784174533362,
+          "delta_abs_error": 165.37841745333617
+        },
+        {
+          "row_id": "bike-day:2012-02-27",
+          "control_abs_error": 1193.0,
+          "candidate_abs_error": 1450.3737273871657,
+          "delta_abs_error": 257.3737273871657
+        },
+        {
+          "row_id": "bike-day:2012-02-28",
+          "control_abs_error": 586.0,
+          "candidate_abs_error": 1224.0527430242482,
+          "delta_abs_error": 638.0527430242482
+        },
+        {
+          "row_id": "bike-day:2012-02-29",
+          "control_abs_error": 2939.0,
+          "candidate_abs_error": 1063.1145629036482,
+          "delta_abs_error": -1875.8854370963518
+        },
+        {
+          "row_id": "bike-day:2012-03-01",
+          "control_abs_error": 72.0,
+          "candidate_abs_error": 2778.2597718950547,
+          "delta_abs_error": 2706.2597718950547
+        },
+        {
+          "row_id": "bike-day:2012-03-02",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 338.57406025622413,
+          "delta_abs_error": 45.57406025622413
+        },
+        {
+          "row_id": "bike-day:2012-03-03",
+          "control_abs_error": 1334.0,
+          "candidate_abs_error": 1285.6764543788522,
+          "delta_abs_error": -48.32354562114779
+        },
+        {
+          "row_id": "bike-day:2012-03-04",
+          "control_abs_error": 34.0,
+          "candidate_abs_error": 301.0573719942222,
+          "delta_abs_error": 267.0573719942222
+        },
+        {
+          "row_id": "bike-day:2012-03-05",
+          "control_abs_error": 989.0,
+          "candidate_abs_error": 375.6662409928863,
+          "delta_abs_error": -613.3337590071137
+        },
+        {
+          "row_id": "bike-day:2012-03-06",
+          "control_abs_error": 407.0,
+          "candidate_abs_error": 1142.1652708637903,
+          "delta_abs_error": 735.1652708637903
+        },
+        {
+          "row_id": "bike-day:2012-03-07",
+          "control_abs_error": 3082.0,
+          "candidate_abs_error": 2004.7945176296867,
+          "delta_abs_error": -1077.2054823703133
+        },
+        {
+          "row_id": "bike-day:2012-03-08",
+          "control_abs_error": 392.0,
+          "candidate_abs_error": 1969.6572647980202,
+          "delta_abs_error": 1577.6572647980202
+        },
+        {
+          "row_id": "bike-day:2012-03-09",
+          "control_abs_error": 1375.0,
+          "candidate_abs_error": 781.1292244540391,
+          "delta_abs_error": -593.8707755459609
+        },
+        {
+          "row_id": "bike-day:2012-03-10",
+          "control_abs_error": 52.0,
+          "candidate_abs_error": 748.9510085083471,
+          "delta_abs_error": 696.9510085083471
+        },
+        {
+          "row_id": "bike-day:2012-03-11",
+          "control_abs_error": 1488.0,
+          "candidate_abs_error": 1659.0106499026938,
+          "delta_abs_error": 171.01064990269379
+        },
+        {
+          "row_id": "bike-day:2012-03-12",
+          "control_abs_error": 1965.0,
+          "candidate_abs_error": 1599.6283232604947,
+          "delta_abs_error": -365.37167673950535
+        },
+        {
+          "row_id": "bike-day:2012-03-13",
+          "control_abs_error": 1891.0,
+          "candidate_abs_error": 2052.4735602179253,
+          "delta_abs_error": 161.4735602179253
+        },
+        {
+          "row_id": "bike-day:2012-03-14",
+          "control_abs_error": 1396.0,
+          "candidate_abs_error": 2532.8327290313014,
+          "delta_abs_error": 1136.8327290313014
+        },
+        {
+          "row_id": "bike-day:2012-03-15",
+          "control_abs_error": 810.0,
+          "candidate_abs_error": 2021.154336685213,
+          "delta_abs_error": 1211.154336685213
+        },
+        {
+          "row_id": "bike-day:2012-03-16",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 74.53409609099799,
+          "delta_abs_error": -116.46590390900201
+        },
+        {
+          "row_id": "bike-day:2012-03-17",
+          "control_abs_error": 3718.0,
+          "candidate_abs_error": 4301.905473884997,
+          "delta_abs_error": 583.9054738849973
+        },
+        {
+          "row_id": "bike-day:2012-03-18",
+          "control_abs_error": 981.0,
+          "candidate_abs_error": 1013.7972675343699,
+          "delta_abs_error": 32.797267534369894
+        },
+        {
+          "row_id": "bike-day:2012-03-19",
+          "control_abs_error": 855.0,
+          "candidate_abs_error": 1853.50542667001,
+          "delta_abs_error": 998.5054266700099
+        },
+        {
+          "row_id": "bike-day:2012-03-20",
+          "control_abs_error": 246.0,
+          "candidate_abs_error": 1774.8090932240793,
+          "delta_abs_error": 1528.8090932240793
+        },
+        {
+          "row_id": "bike-day:2012-03-21",
+          "control_abs_error": 82.0,
+          "candidate_abs_error": 2176.663806607083,
+          "delta_abs_error": 2094.663806607083
+        },
+        {
+          "row_id": "bike-day:2012-03-22",
+          "control_abs_error": 679.0,
+          "candidate_abs_error": 2564.653539871684,
+          "delta_abs_error": 1885.6535398716842
+        },
+        {
+          "row_id": "bike-day:2012-03-23",
+          "control_abs_error": 3984.0,
+          "candidate_abs_error": 3607.0357064309446,
+          "delta_abs_error": -376.96429356905537
+        },
+        {
+          "row_id": "bike-day:2012-03-24",
+          "control_abs_error": 4464.0,
+          "candidate_abs_error": 1760.226239520779,
+          "delta_abs_error": -2703.773760479221
+        },
+        {
+          "row_id": "bike-day:2012-03-25",
+          "control_abs_error": 896.0,
+          "candidate_abs_error": 1702.4884593622446,
+          "delta_abs_error": 806.4884593622446
+        },
+        {
+          "row_id": "bike-day:2012-03-26",
+          "control_abs_error": 595.0,
+          "candidate_abs_error": 1610.4360850005687,
+          "delta_abs_error": 1015.4360850005687
+        },
+        {
+          "row_id": "bike-day:2012-03-27",
+          "control_abs_error": 991.0,
+          "candidate_abs_error": 1045.6057752309734,
+          "delta_abs_error": 54.60577523097345
+        },
+        {
+          "row_id": "bike-day:2012-03-28",
+          "control_abs_error": 532.0,
+          "candidate_abs_error": 2073.750183073881,
+          "delta_abs_error": 1541.750183073881
+        },
+        {
+          "row_id": "bike-day:2012-03-29",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 2139.291584959431,
+          "delta_abs_error": 1401.291584959431
+        },
+        {
+          "row_id": "bike-day:2012-03-30",
+          "control_abs_error": 2903.0,
+          "candidate_abs_error": 1287.066334932906,
+          "delta_abs_error": -1615.933665067094
+        },
+        {
+          "row_id": "bike-day:2012-03-31",
+          "control_abs_error": 2863.0,
+          "candidate_abs_error": 2300.49329632039,
+          "delta_abs_error": -562.5067036796099
+        },
+        {
+          "row_id": "bike-day:2012-04-01",
+          "control_abs_error": 1045.0,
+          "candidate_abs_error": 1210.2903235596514,
+          "delta_abs_error": 165.29032355965137
+        },
+        {
+          "row_id": "bike-day:2012-04-02",
+          "control_abs_error": 378.0,
+          "candidate_abs_error": 1058.7826971145741,
+          "delta_abs_error": 680.7826971145741
+        },
+        {
+          "row_id": "bike-day:2012-04-03",
+          "control_abs_error": 1670.0,
+          "candidate_abs_error": 1977.409539860173,
+          "delta_abs_error": 307.409539860173
+        },
+        {
+          "row_id": "bike-day:2012-04-04",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 1543.6833415443807,
+          "delta_abs_error": 805.6833415443807
+        },
+        {
+          "row_id": "bike-day:2012-04-05",
+          "control_abs_error": 324.0,
+          "candidate_abs_error": 1481.4640835192022,
+          "delta_abs_error": 1157.4640835192022
+        },
+        {
+          "row_id": "bike-day:2012-04-06",
+          "control_abs_error": 1001.0,
+          "candidate_abs_error": 1322.8335186454506,
+          "delta_abs_error": 321.83351864545057
+        },
+        {
+          "row_id": "bike-day:2012-04-07",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1851.8934635290989,
+          "delta_abs_error": 1229.8934635290989
+        },
+        {
+          "row_id": "bike-day:2012-04-08",
+          "control_abs_error": 872.0,
+          "candidate_abs_error": 22.564664131939935,
+          "delta_abs_error": -849.4353358680601
+        },
+        {
+          "row_id": "bike-day:2012-04-09",
+          "control_abs_error": 351.0,
+          "candidate_abs_error": 916.4320135367589,
+          "delta_abs_error": 565.4320135367589
+        },
+        {
+          "row_id": "bike-day:2012-04-10",
+          "control_abs_error": 854.0,
+          "candidate_abs_error": 1226.3919285417287,
+          "delta_abs_error": 372.3919285417287
+        },
+        {
+          "row_id": "bike-day:2012-04-11",
+          "control_abs_error": 1574.0,
+          "candidate_abs_error": 292.0041667734122,
+          "delta_abs_error": -1281.9958332265878
+        },
+        {
+          "row_id": "bike-day:2012-04-12",
+          "control_abs_error": 1048.0,
+          "candidate_abs_error": 1070.2809951547388,
+          "delta_abs_error": 22.280995154738775
+        },
+        {
+          "row_id": "bike-day:2012-04-13",
+          "control_abs_error": 62.0,
+          "candidate_abs_error": 1782.6007537431296,
+          "delta_abs_error": 1720.6007537431296
+        },
+        {
+          "row_id": "bike-day:2012-04-14",
+          "control_abs_error": 603.0,
+          "candidate_abs_error": 2637.632715897119,
+          "delta_abs_error": 2034.632715897119
+        },
+        {
+          "row_id": "bike-day:2012-04-15",
+          "control_abs_error": 1963.0,
+          "candidate_abs_error": 1815.7183629884275,
+          "delta_abs_error": -147.28163701157246
+        },
+        {
+          "row_id": "bike-day:2012-04-16",
+          "control_abs_error": 785.0,
+          "candidate_abs_error": 1421.4762373874782,
+          "delta_abs_error": 636.4762373874782
+        },
+        {
+          "row_id": "bike-day:2012-04-17",
+          "control_abs_error": 773.0,
+          "candidate_abs_error": 1683.2362741991938,
+          "delta_abs_error": 910.2362741991938
+        },
+        {
+          "row_id": "bike-day:2012-04-18",
+          "control_abs_error": 495.0,
+          "candidate_abs_error": 599.5786584995558,
+          "delta_abs_error": 104.57865849955579
+        },
+        {
+          "row_id": "bike-day:2012-04-19",
+          "control_abs_error": 1156.0,
+          "candidate_abs_error": 2276.636169415954,
+          "delta_abs_error": 1120.636169415954
+        },
+        {
+          "row_id": "bike-day:2012-04-20",
+          "control_abs_error": 892.0,
+          "candidate_abs_error": 2104.24191236932,
+          "delta_abs_error": 1212.2419123693198
+        },
+        {
+          "row_id": "bike-day:2012-04-21",
+          "control_abs_error": 836.0,
+          "candidate_abs_error": 1326.4357313106848,
+          "delta_abs_error": 490.4357313106848
+        },
+        {
+          "row_id": "bike-day:2012-04-22",
+          "control_abs_error": 6105.0,
+          "candidate_abs_error": 4033.2630834195534,
+          "delta_abs_error": -2071.7369165804466
+        },
+        {
+          "row_id": "bike-day:2012-04-23",
+          "control_abs_error": 3156.0,
+          "candidate_abs_error": 223.43750449357412,
+          "delta_abs_error": -2932.562495506426
+        },
+        {
+          "row_id": "bike-day:2012-04-24",
+          "control_abs_error": 1058.0,
+          "candidate_abs_error": 2046.581831695772,
+          "delta_abs_error": 988.581831695772
+        },
+        {
+          "row_id": "bike-day:2012-04-25",
+          "control_abs_error": 1829.0,
+          "candidate_abs_error": 1894.5730014240398,
+          "delta_abs_error": 65.57300142403983
+        },
+        {
+          "row_id": "bike-day:2012-04-26",
+          "control_abs_error": 1539.0,
+          "candidate_abs_error": 362.82923446992936,
+          "delta_abs_error": -1176.1707655300706
+        },
+        {
+          "row_id": "bike-day:2012-04-27",
+          "control_abs_error": 1057.0,
+          "candidate_abs_error": 1961.0369194216855,
+          "delta_abs_error": 904.0369194216855
+        },
+        {
+          "row_id": "bike-day:2012-04-28",
+          "control_abs_error": 2404.0,
+          "candidate_abs_error": 354.36847188357933,
+          "delta_abs_error": -2049.6315281164207
+        },
+        {
+          "row_id": "bike-day:2012-04-29",
+          "control_abs_error": 5277.0,
+          "candidate_abs_error": 2262.1544044459897,
+          "delta_abs_error": -3014.8455955540103
+        },
+        {
+          "row_id": "bike-day:2012-04-30",
+          "control_abs_error": 2358.0,
+          "candidate_abs_error": 601.3082099830108,
+          "delta_abs_error": -1756.6917900169892
+        },
+        {
+          "row_id": "bike-day:2012-05-01",
+          "control_abs_error": 107.0,
+          "candidate_abs_error": 714.3091933364358,
+          "delta_abs_error": 607.3091933364358
+        },
+        {
+          "row_id": "bike-day:2012-05-02",
+          "control_abs_error": 27.0,
+          "candidate_abs_error": 1334.8390326976332,
+          "delta_abs_error": 1307.8390326976332
+        },
+        {
+          "row_id": "bike-day:2012-05-03",
+          "control_abs_error": 1395.0,
+          "candidate_abs_error": 1178.8154070373366,
+          "delta_abs_error": -216.18459296266337
+        },
+        {
+          "row_id": "bike-day:2012-05-04",
+          "control_abs_error": 63.0,
+          "candidate_abs_error": 860.6112192867913,
+          "delta_abs_error": 797.6112192867913
+        },
+        {
+          "row_id": "bike-day:2012-05-05",
+          "control_abs_error": 2663.0,
+          "candidate_abs_error": 1528.3942416853024,
+          "delta_abs_error": -1134.6057583146976
+        },
+        {
+          "row_id": "bike-day:2012-05-06",
+          "control_abs_error": 55.0,
+          "candidate_abs_error": 788.3481870331525,
+          "delta_abs_error": 733.3481870331525
+        },
+        {
+          "row_id": "bike-day:2012-05-07",
+          "control_abs_error": 701.0,
+          "candidate_abs_error": 747.3409605832367,
+          "delta_abs_error": 46.340960583236665
+        },
+        {
+          "row_id": "bike-day:2012-05-08",
+          "control_abs_error": 12.0,
+          "candidate_abs_error": 296.30904291165734,
+          "delta_abs_error": 284.30904291165734
+        },
+        {
+          "row_id": "bike-day:2012-05-09",
+          "control_abs_error": 1452.0,
+          "candidate_abs_error": 268.33035617921814,
+          "delta_abs_error": -1183.6696438207819
+        },
+        {
+          "row_id": "bike-day:2012-05-10",
+          "control_abs_error": 151.0,
+          "candidate_abs_error": 1808.3743168067986,
+          "delta_abs_error": 1657.3743168067986
+        },
+        {
+          "row_id": "bike-day:2012-05-11",
+          "control_abs_error": 734.0,
+          "candidate_abs_error": 1473.8665684884936,
+          "delta_abs_error": 739.8665684884936
+        },
+        {
+          "row_id": "bike-day:2012-05-12",
+          "control_abs_error": 546.0,
+          "candidate_abs_error": 1840.7068209977415,
+          "delta_abs_error": 1294.7068209977415
+        },
+        {
+          "row_id": "bike-day:2012-05-13",
+          "control_abs_error": 241.0,
+          "candidate_abs_error": 329.8822422416133,
+          "delta_abs_error": 88.88224224161331
+        },
+        {
+          "row_id": "bike-day:2012-05-14",
+          "control_abs_error": 3430.0,
+          "candidate_abs_error": 2577.344748180385,
+          "delta_abs_error": -852.6552518196149
+        },
+        {
+          "row_id": "bike-day:2012-05-15",
+          "control_abs_error": 613.0,
+          "candidate_abs_error": 1037.9520952799821,
+          "delta_abs_error": 424.95209527998213
+        },
+        {
+          "row_id": "bike-day:2012-05-16",
+          "control_abs_error": 2707.0,
+          "candidate_abs_error": 2730.7261162952072,
+          "delta_abs_error": 23.726116295207248
+        },
+        {
+          "row_id": "bike-day:2012-05-17",
+          "control_abs_error": 812.0,
+          "candidate_abs_error": 1655.6011090665452,
+          "delta_abs_error": 843.6011090665452
+        },
+        {
+          "row_id": "bike-day:2012-05-18",
+          "control_abs_error": 609.0,
+          "candidate_abs_error": 1807.1001806415507,
+          "delta_abs_error": 1198.1001806415507
+        },
+        {
+          "row_id": "bike-day:2012-05-19",
+          "control_abs_error": 865.0,
+          "candidate_abs_error": 2498.556978644345,
+          "delta_abs_error": 1633.5569786443448
+        },
+        {
+          "row_id": "bike-day:2012-05-20",
+          "control_abs_error": 1011.0,
+          "candidate_abs_error": 995.2942217045393,
+          "delta_abs_error": -15.705778295460732
+        },
+        {
+          "row_id": "bike-day:2012-05-21",
+          "control_abs_error": 1516.0,
+          "candidate_abs_error": 1645.1273956637397,
+          "delta_abs_error": 129.12739566373966
+        },
+        {
+          "row_id": "bike-day:2012-05-22",
+          "control_abs_error": 958.0,
+          "candidate_abs_error": 1200.9546086041082,
+          "delta_abs_error": 242.95460860410822
+        },
+        {
+          "row_id": "bike-day:2012-05-23",
+          "control_abs_error": 2164.0,
+          "candidate_abs_error": 74.48526694621614,
+          "delta_abs_error": -2089.514733053784
+        },
+        {
+          "row_id": "bike-day:2012-05-24",
+          "control_abs_error": 614.0,
+          "candidate_abs_error": 1744.1475618466975,
+          "delta_abs_error": 1130.1475618466975
+        },
+        {
+          "row_id": "bike-day:2012-05-25",
+          "control_abs_error": 905.0,
+          "candidate_abs_error": 1081.8140192312767,
+          "delta_abs_error": 176.8140192312767
+        },
+        {
+          "row_id": "bike-day:2012-05-26",
+          "control_abs_error": 1758.0,
+          "candidate_abs_error": 1085.1895800258317,
+          "delta_abs_error": -672.8104199741683
+        },
+        {
+          "row_id": "bike-day:2012-05-27",
+          "control_abs_error": 538.0,
+          "candidate_abs_error": 1199.8787807428926,
+          "delta_abs_error": 661.8787807428926
+        },
+        {
+          "row_id": "bike-day:2012-05-28",
+          "control_abs_error": 1684.0,
+          "candidate_abs_error": 815.7693048575147,
+          "delta_abs_error": -868.2306951424853
+        },
+        {
+          "row_id": "bike-day:2012-05-29",
+          "control_abs_error": 330.0,
+          "candidate_abs_error": 413.74044562473136,
+          "delta_abs_error": 83.74044562473136
+        },
+        {
+          "row_id": "bike-day:2012-05-30",
+          "control_abs_error": 1595.0,
+          "candidate_abs_error": 1837.165381124296,
+          "delta_abs_error": 242.1653811242959
+        },
+        {
+          "row_id": "bike-day:2012-05-31",
+          "control_abs_error": 568.0,
+          "candidate_abs_error": 1736.4617256455222,
+          "delta_abs_error": 1168.4617256455222
+        },
+        {
+          "row_id": "bike-day:2012-06-01",
+          "control_abs_error": 2607.0,
+          "candidate_abs_error": 2010.7148873479964,
+          "delta_abs_error": -596.2851126520036
+        },
+        {
+          "row_id": "bike-day:2012-06-02",
+          "control_abs_error": 1584.0,
+          "candidate_abs_error": 3344.0963139693667,
+          "delta_abs_error": 1760.0963139693667
+        },
+        {
+          "row_id": "bike-day:2012-06-03",
+          "control_abs_error": 1050.0,
+          "candidate_abs_error": 1362.3778638129988,
+          "delta_abs_error": 312.37786381299884
+        },
+        {
+          "row_id": "bike-day:2012-06-04",
+          "control_abs_error": 955.0,
+          "candidate_abs_error": 724.8158830264119,
+          "delta_abs_error": -230.18411697358806
+        },
+        {
+          "row_id": "bike-day:2012-06-05",
+          "control_abs_error": 1258.0,
+          "candidate_abs_error": 993.2062082391894,
+          "delta_abs_error": -264.79379176081056
+        },
+        {
+          "row_id": "bike-day:2012-06-06",
+          "control_abs_error": 200.0,
+          "candidate_abs_error": 1286.6136120909687,
+          "delta_abs_error": 1086.6136120909687
+        },
+        {
+          "row_id": "bike-day:2012-06-07",
+          "control_abs_error": 156.0,
+          "candidate_abs_error": 1521.0809665733432,
+          "delta_abs_error": 1365.0809665733432
+        },
+        {
+          "row_id": "bike-day:2012-06-08",
+          "control_abs_error": 3609.0,
+          "candidate_abs_error": 1340.204303188255,
+          "delta_abs_error": -2268.795696811745
+        },
+        {
+          "row_id": "bike-day:2012-06-09",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1211.8009126726292,
+          "delta_abs_error": 589.8009126726292
+        },
+        {
+          "row_id": "bike-day:2012-06-10",
+          "control_abs_error": 1043.0,
+          "candidate_abs_error": 381.01837943866303,
+          "delta_abs_error": -661.981620561337
+        },
+        {
+          "row_id": "bike-day:2012-06-11",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 666.6964153597164,
+          "delta_abs_error": 332.6964153597164
+        },
+        {
+          "row_id": "bike-day:2012-06-12",
+          "control_abs_error": 2029.0,
+          "candidate_abs_error": 960.6889801370426,
+          "delta_abs_error": -1068.3110198629574
+        },
+        {
+          "row_id": "bike-day:2012-06-13",
+          "control_abs_error": 366.0,
+          "candidate_abs_error": 2395.546638603295,
+          "delta_abs_error": 2029.546638603295
+        },
+        {
+          "row_id": "bike-day:2012-06-14",
+          "control_abs_error": 131.0,
+          "candidate_abs_error": 1261.9161318175902,
+          "delta_abs_error": 1130.9161318175902
+        },
+        {
+          "row_id": "bike-day:2012-06-15",
+          "control_abs_error": 71.0,
+          "candidate_abs_error": 1487.1127131231478,
+          "delta_abs_error": 1416.1127131231478
+        },
+        {
+          "row_id": "bike-day:2012-06-16",
+          "control_abs_error": 204.0,
+          "candidate_abs_error": 1536.2139986825978,
+          "delta_abs_error": 1332.2139986825978
+        },
+        {
+          "row_id": "bike-day:2012-06-17",
+          "control_abs_error": 380.0,
+          "candidate_abs_error": 736.686708942043,
+          "delta_abs_error": 356.68670894204297
+        },
+        {
+          "row_id": "bike-day:2012-06-18",
+          "control_abs_error": 1565.0,
+          "candidate_abs_error": 999.1119568120175,
+          "delta_abs_error": -565.8880431879825
+        },
+        {
+          "row_id": "bike-day:2012-06-19",
+          "control_abs_error": 1853.0,
+          "candidate_abs_error": 1454.8531049948451,
+          "delta_abs_error": -398.1468950051549
+        },
+        {
+          "row_id": "bike-day:2012-06-20",
+          "control_abs_error": 1210.0,
+          "candidate_abs_error": 500.9104685840175,
+          "delta_abs_error": -709.0895314159825
+        },
+        {
+          "row_id": "bike-day:2012-06-21",
+          "control_abs_error": 1458.0,
+          "candidate_abs_error": 251.55901269267815,
+          "delta_abs_error": -1206.4409873073218
+        },
+        {
+          "row_id": "bike-day:2012-06-22",
+          "control_abs_error": 1842.0,
+          "candidate_abs_error": 227.2532754399299,
+          "delta_abs_error": -1614.74672456007
+        },
+        {
+          "row_id": "bike-day:2012-06-23",
+          "control_abs_error": 244.0,
+          "candidate_abs_error": 2081.877566532963,
+          "delta_abs_error": 1837.877566532963
+        },
+        {
+          "row_id": "bike-day:2012-06-24",
+          "control_abs_error": 87.0,
+          "candidate_abs_error": 885.3270588830146,
+          "delta_abs_error": 798.3270588830146
+        },
+        {
+          "row_id": "bike-day:2012-06-25",
+          "control_abs_error": 1680.0,
+          "candidate_abs_error": 785.9819966471532,
+          "delta_abs_error": -894.0180033528468
+        },
+        {
+          "row_id": "bike-day:2012-06-26",
+          "control_abs_error": 617.0,
+          "candidate_abs_error": 1592.2523724628481,
+          "delta_abs_error": 975.2523724628481
+        },
+        {
+          "row_id": "bike-day:2012-06-27",
+          "control_abs_error": 1124.0,
+          "candidate_abs_error": 1428.2463990435863,
+          "delta_abs_error": 304.2463990435863
+        },
+        {
+          "row_id": "bike-day:2012-06-28",
+          "control_abs_error": 974.0,
+          "candidate_abs_error": 760.2910402020625,
+          "delta_abs_error": -213.7089597979375
+        },
+        {
+          "row_id": "bike-day:2012-06-29",
+          "control_abs_error": 360.0,
+          "candidate_abs_error": 638.9957360296048,
+          "delta_abs_error": 278.9957360296048
+        },
+        {
+          "row_id": "bike-day:2012-06-30",
+          "control_abs_error": 1771.0,
+          "candidate_abs_error": 311.4701138724631,
+          "delta_abs_error": -1459.5298861275369
+        }
+      ],
+      "histogram": [
+        {
+          "low": -3014.8455955540103,
+          "high": -2379.1672213930033,
+          "count": 3
+        },
+        {
+          "low": -2379.1672213930033,
+          "high": -1743.4888472319958,
+          "count": 7
+        },
+        {
+          "low": -1743.4888472319958,
+          "high": -1107.8104730709886,
+          "count": 12
+        },
+        {
+          "low": -1107.8104730709886,
+          "high": -472.1320989099813,
+          "count": 24
+        },
+        {
+          "low": -472.1320989099813,
+          "high": 163.5462752510257,
+          "count": 35
+        },
+        {
+          "low": 163.5462752510257,
+          "high": 799.2246494120332,
+          "count": 49
+        },
+        {
+          "low": 799.2246494120332,
+          "high": 1434.9030235730406,
+          "count": 37
+        },
+        {
+          "low": 1434.9030235730406,
+          "high": 2070.5813977340476,
+          "count": 13
+        },
+        {
+          "low": 2070.5813977340476,
+          "high": 2706.2597718950547,
+          "count": 2
+        }
+      ],
+      "quartiles": {
+        "min": -3014.8455955540103,
+        "q1": -474.6797247146874,
+        "median": 258.24321168786605,
+        "q3": 927.0608530863867,
+        "max": 2706.2597718950547
+      }
+    },
+    {
+      "comparison_id": "00000000-0000-4000-8000-00000000000e",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "row_id": "bike-day:2012-01-01",
+          "control_abs_error": 1540.0,
+          "candidate_abs_error": 411.27298974707855,
+          "delta_abs_error": -1128.7270102529214
+        },
+        {
+          "row_id": "bike-day:2012-01-02",
+          "control_abs_error": 634.0,
+          "candidate_abs_error": 406.8196821817876,
+          "delta_abs_error": -227.18031781821242
+        },
+        {
+          "row_id": "bike-day:2012-01-03",
+          "control_abs_error": 1074.0,
+          "candidate_abs_error": 463.9923007095447,
+          "delta_abs_error": -610.0076992904553
+        },
+        {
+          "row_id": "bike-day:2012-01-04",
+          "control_abs_error": 66.0,
+          "candidate_abs_error": 740.8373847130542,
+          "delta_abs_error": 674.8373847130542
+        },
+        {
+          "row_id": "bike-day:2012-01-05",
+          "control_abs_error": 849.0,
+          "candidate_abs_error": 1399.9158584553952,
+          "delta_abs_error": 550.9158584553952
+        },
+        {
+          "row_id": "bike-day:2012-01-06",
+          "control_abs_error": 1099.0,
+          "candidate_abs_error": 1786.1543268634405,
+          "delta_abs_error": 687.1543268634405
+        },
+        {
+          "row_id": "bike-day:2012-01-07",
+          "control_abs_error": 2036.0,
+          "candidate_abs_error": 1982.3571618651727,
+          "delta_abs_error": -53.64283813482734
+        },
+        {
+          "row_id": "bike-day:2012-01-08",
+          "control_abs_error": 1131.0,
+          "candidate_abs_error": 645.5718814601696,
+          "delta_abs_error": -485.4281185398304
+        },
+        {
+          "row_id": "bike-day:2012-01-09",
+          "control_abs_error": 425.0,
+          "candidate_abs_error": 168.6810858908534,
+          "delta_abs_error": -256.3189141091466
+        },
+        {
+          "row_id": "bike-day:2012-01-10",
+          "control_abs_error": 1362.0,
+          "candidate_abs_error": 1508.751580972245,
+          "delta_abs_error": 146.75158097224494
+        },
+        {
+          "row_id": "bike-day:2012-01-11",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 160.5580585215671,
+          "delta_abs_error": -30.44194147843291
+        },
+        {
+          "row_id": "bike-day:2012-01-12",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 2118.583132510479,
+          "delta_abs_error": 1293.5831325104791
+        },
+        {
+          "row_id": "bike-day:2012-01-13",
+          "control_abs_error": 884.0,
+          "candidate_abs_error": 441.56545676074165,
+          "delta_abs_error": -442.43454323925835
+        },
+        {
+          "row_id": "bike-day:2012-01-14",
+          "control_abs_error": 2028.0,
+          "candidate_abs_error": 216.16214009902433,
+          "delta_abs_error": -1811.8378599009757
+        },
+        {
+          "row_id": "bike-day:2012-01-15",
+          "control_abs_error": 1114.0,
+          "candidate_abs_error": 294.23968624620375,
+          "delta_abs_error": -819.7603137537963
+        },
+        {
+          "row_id": "bike-day:2012-01-16",
+          "control_abs_error": 78.0,
+          "candidate_abs_error": 627.5587287418089,
+          "delta_abs_error": 549.5587287418089
+        },
+        {
+          "row_id": "bike-day:2012-01-17",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 1003.2908789310334,
+          "delta_abs_error": 340.2908789310334
+        },
+        {
+          "row_id": "bike-day:2012-01-18",
+          "control_abs_error": 1199.0,
+          "candidate_abs_error": 1400.6270966149457,
+          "delta_abs_error": 201.62709661494569
+        },
+        {
+          "row_id": "bike-day:2012-01-19",
+          "control_abs_error": 805.0,
+          "candidate_abs_error": 1006.278765015968,
+          "delta_abs_error": 201.27876501596802
+        },
+        {
+          "row_id": "bike-day:2012-01-20",
+          "control_abs_error": 51.0,
+          "candidate_abs_error": 779.9741046981244,
+          "delta_abs_error": 728.9741046981244
+        },
+        {
+          "row_id": "bike-day:2012-01-21",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 937.1699174547384,
+          "delta_abs_error": -254.83008254526158
+        },
+        {
+          "row_id": "bike-day:2012-01-22",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 425.5061656852072,
+          "delta_abs_error": 91.50616568520718
+        },
+        {
+          "row_id": "bike-day:2012-01-23",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 537.9340704816086,
+          "delta_abs_error": 403.9340704816086
+        },
+        {
+          "row_id": "bike-day:2012-01-24",
+          "control_abs_error": 1404.0,
+          "candidate_abs_error": 2383.276552559501,
+          "delta_abs_error": 979.2765525595009
+        },
+        {
+          "row_id": "bike-day:2012-01-25",
+          "control_abs_error": 894.0,
+          "candidate_abs_error": 1831.6808765364267,
+          "delta_abs_error": 937.6808765364267
+        },
+        {
+          "row_id": "bike-day:2012-01-26",
+          "control_abs_error": 783.0,
+          "candidate_abs_error": 1428.4909432132226,
+          "delta_abs_error": 645.4909432132226
+        },
+        {
+          "row_id": "bike-day:2012-01-27",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 736.0143914118903,
+          "delta_abs_error": 443.0143914118903
+        },
+        {
+          "row_id": "bike-day:2012-01-28",
+          "control_abs_error": 2722.0,
+          "candidate_abs_error": 1561.5277166021406,
+          "delta_abs_error": -1160.4722833978594
+        },
+        {
+          "row_id": "bike-day:2012-01-29",
+          "control_abs_error": 1266.0,
+          "candidate_abs_error": 506.52163652114587,
+          "delta_abs_error": -759.4783634788541
+        },
+        {
+          "row_id": "bike-day:2012-01-30",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 1040.4317891731862,
+          "delta_abs_error": -151.5682108268138
+        },
+        {
+          "row_id": "bike-day:2012-01-31",
+          "control_abs_error": 170.0,
+          "candidate_abs_error": 1914.7188979322045,
+          "delta_abs_error": 1744.7188979322045
+        },
+        {
+          "row_id": "bike-day:2012-02-01",
+          "control_abs_error": 309.0,
+          "candidate_abs_error": 1635.850402653381,
+          "delta_abs_error": 1326.850402653381
+        },
+        {
+          "row_id": "bike-day:2012-02-02",
+          "control_abs_error": 314.0,
+          "candidate_abs_error": 573.1126959885664,
+          "delta_abs_error": 259.11269598856643
+        },
+        {
+          "row_id": "bike-day:2012-02-03",
+          "control_abs_error": 695.0,
+          "candidate_abs_error": 1126.9357933330157,
+          "delta_abs_error": 431.9357933330157
+        },
+        {
+          "row_id": "bike-day:2012-02-04",
+          "control_abs_error": 1191.0,
+          "candidate_abs_error": 199.36833487996773,
+          "delta_abs_error": -991.6316651200323
+        },
+        {
+          "row_id": "bike-day:2012-02-05",
+          "control_abs_error": 296.0,
+          "candidate_abs_error": 379.1282238641138,
+          "delta_abs_error": 83.1282238641138
+        },
+        {
+          "row_id": "bike-day:2012-02-06",
+          "control_abs_error": 160.0,
+          "candidate_abs_error": 1092.6690460487844,
+          "delta_abs_error": 932.6690460487844
+        },
+        {
+          "row_id": "bike-day:2012-02-07",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 1494.7321588056307,
+          "delta_abs_error": 1360.7321588056307
+        },
+        {
+          "row_id": "bike-day:2012-02-08",
+          "control_abs_error": 1777.0,
+          "candidate_abs_error": 54.12665423981707,
+          "delta_abs_error": -1722.873345760183
+        },
+        {
+          "row_id": "bike-day:2012-02-09",
+          "control_abs_error": 69.0,
+          "candidate_abs_error": 1359.7770765372966,
+          "delta_abs_error": 1290.7770765372966
+        },
+        {
+          "row_id": "bike-day:2012-02-10",
+          "control_abs_error": 320.0,
+          "candidate_abs_error": 892.6708880530896,
+          "delta_abs_error": 572.6708880530896
+        },
+        {
+          "row_id": "bike-day:2012-02-11",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 690.0882770112812,
+          "delta_abs_error": 27.088277011281207
+        },
+        {
+          "row_id": "bike-day:2012-02-12",
+          "control_abs_error": 1418.0,
+          "candidate_abs_error": 718.8515317173119,
+          "delta_abs_error": -699.1484682826881
+        },
+        {
+          "row_id": "bike-day:2012-02-13",
+          "control_abs_error": 362.0,
+          "candidate_abs_error": 1379.5902725891922,
+          "delta_abs_error": 1017.5902725891922
+        },
+        {
+          "row_id": "bike-day:2012-02-14",
+          "control_abs_error": 453.0,
+          "candidate_abs_error": 1313.009703537884,
+          "delta_abs_error": 860.009703537884
+        },
+        {
+          "row_id": "bike-day:2012-02-15",
+          "control_abs_error": 1367.0,
+          "candidate_abs_error": 1552.1205131158508,
+          "delta_abs_error": 185.12051311585083
+        },
+        {
+          "row_id": "bike-day:2012-02-16",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 101.65409234503113,
+          "delta_abs_error": -723.3459076549689
+        },
+        {
+          "row_id": "bike-day:2012-02-17",
+          "control_abs_error": 323.0,
+          "candidate_abs_error": 1583.871891980336,
+          "delta_abs_error": 1260.871891980336
+        },
+        {
+          "row_id": "bike-day:2012-02-18",
+          "control_abs_error": 2149.0,
+          "candidate_abs_error": 1376.9031131204292,
+          "delta_abs_error": -772.0968868795708
+        },
+        {
+          "row_id": "bike-day:2012-02-19",
+          "control_abs_error": 1160.0,
+          "candidate_abs_error": 423.57496041236936,
+          "delta_abs_error": -736.4250395876306
+        },
+        {
+          "row_id": "bike-day:2012-02-20",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 946.4569163824199,
+          "delta_abs_error": 653.4569163824199
+        },
+        {
+          "row_id": "bike-day:2012-02-21",
+          "control_abs_error": 145.0,
+          "candidate_abs_error": 1143.6947958757596,
+          "delta_abs_error": 998.6947958757596
+        },
+        {
+          "row_id": "bike-day:2012-02-22",
+          "control_abs_error": 604.0,
+          "candidate_abs_error": 2151.7109244310745,
+          "delta_abs_error": 1547.7109244310745
+        },
+        {
+          "row_id": "bike-day:2012-02-23",
+          "control_abs_error": 2057.0,
+          "candidate_abs_error": 1808.343438342189,
+          "delta_abs_error": -248.65656165781093
+        },
+        {
+          "row_id": "bike-day:2012-02-24",
+          "control_abs_error": 667.0,
+          "candidate_abs_error": 3.0376665885864895,
+          "delta_abs_error": -663.9623334114135
+        },
+        {
+          "row_id": "bike-day:2012-02-25",
+          "control_abs_error": 1586.0,
+          "candidate_abs_error": 25.53032680602064,
+          "delta_abs_error": -1560.4696731939794
+        },
+        {
+          "row_id": "bike-day:2012-02-26",
+          "control_abs_error": 700.0,
+          "candidate_abs_error": 865.3784174533362,
+          "delta_abs_error": 165.37841745333617
+        },
+        {
+          "row_id": "bike-day:2012-02-27",
+          "control_abs_error": 1193.0,
+          "candidate_abs_error": 1450.3737273871657,
+          "delta_abs_error": 257.3737273871657
+        },
+        {
+          "row_id": "bike-day:2012-02-28",
+          "control_abs_error": 586.0,
+          "candidate_abs_error": 1224.0527430242482,
+          "delta_abs_error": 638.0527430242482
+        },
+        {
+          "row_id": "bike-day:2012-02-29",
+          "control_abs_error": 2939.0,
+          "candidate_abs_error": 1063.1145629036482,
+          "delta_abs_error": -1875.8854370963518
+        },
+        {
+          "row_id": "bike-day:2012-03-01",
+          "control_abs_error": 72.0,
+          "candidate_abs_error": 2778.2597718950547,
+          "delta_abs_error": 2706.2597718950547
+        },
+        {
+          "row_id": "bike-day:2012-03-02",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 338.57406025622413,
+          "delta_abs_error": 45.57406025622413
+        },
+        {
+          "row_id": "bike-day:2012-03-03",
+          "control_abs_error": 1334.0,
+          "candidate_abs_error": 1285.6764543788522,
+          "delta_abs_error": -48.32354562114779
+        },
+        {
+          "row_id": "bike-day:2012-03-04",
+          "control_abs_error": 34.0,
+          "candidate_abs_error": 301.0573719942222,
+          "delta_abs_error": 267.0573719942222
+        },
+        {
+          "row_id": "bike-day:2012-03-05",
+          "control_abs_error": 989.0,
+          "candidate_abs_error": 375.6662409928863,
+          "delta_abs_error": -613.3337590071137
+        },
+        {
+          "row_id": "bike-day:2012-03-06",
+          "control_abs_error": 407.0,
+          "candidate_abs_error": 1142.1652708637903,
+          "delta_abs_error": 735.1652708637903
+        },
+        {
+          "row_id": "bike-day:2012-03-07",
+          "control_abs_error": 3082.0,
+          "candidate_abs_error": 2004.7945176296867,
+          "delta_abs_error": -1077.2054823703133
+        },
+        {
+          "row_id": "bike-day:2012-03-08",
+          "control_abs_error": 392.0,
+          "candidate_abs_error": 1969.6572647980202,
+          "delta_abs_error": 1577.6572647980202
+        },
+        {
+          "row_id": "bike-day:2012-03-09",
+          "control_abs_error": 1375.0,
+          "candidate_abs_error": 781.1292244540391,
+          "delta_abs_error": -593.8707755459609
+        },
+        {
+          "row_id": "bike-day:2012-03-10",
+          "control_abs_error": 52.0,
+          "candidate_abs_error": 748.9510085083471,
+          "delta_abs_error": 696.9510085083471
+        },
+        {
+          "row_id": "bike-day:2012-03-11",
+          "control_abs_error": 1488.0,
+          "candidate_abs_error": 1659.0106499026938,
+          "delta_abs_error": 171.01064990269379
+        },
+        {
+          "row_id": "bike-day:2012-03-12",
+          "control_abs_error": 1965.0,
+          "candidate_abs_error": 1599.6283232604947,
+          "delta_abs_error": -365.37167673950535
+        },
+        {
+          "row_id": "bike-day:2012-03-13",
+          "control_abs_error": 1891.0,
+          "candidate_abs_error": 2052.4735602179253,
+          "delta_abs_error": 161.4735602179253
+        },
+        {
+          "row_id": "bike-day:2012-03-14",
+          "control_abs_error": 1396.0,
+          "candidate_abs_error": 2532.8327290313014,
+          "delta_abs_error": 1136.8327290313014
+        },
+        {
+          "row_id": "bike-day:2012-03-15",
+          "control_abs_error": 910.0,
+          "candidate_abs_error": 2121.154336685213,
+          "delta_abs_error": 1211.154336685213
+        },
+        {
+          "row_id": "bike-day:2012-03-16",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 74.53409609099799,
+          "delta_abs_error": -116.46590390900201
+        },
+        {
+          "row_id": "bike-day:2012-03-17",
+          "control_abs_error": 3718.0,
+          "candidate_abs_error": 4301.905473884997,
+          "delta_abs_error": 583.9054738849973
+        },
+        {
+          "row_id": "bike-day:2012-03-18",
+          "control_abs_error": 981.0,
+          "candidate_abs_error": 1013.7972675343699,
+          "delta_abs_error": 32.797267534369894
+        },
+        {
+          "row_id": "bike-day:2012-03-19",
+          "control_abs_error": 855.0,
+          "candidate_abs_error": 1853.50542667001,
+          "delta_abs_error": 998.5054266700099
+        },
+        {
+          "row_id": "bike-day:2012-03-20",
+          "control_abs_error": 246.0,
+          "candidate_abs_error": 1774.8090932240793,
+          "delta_abs_error": 1528.8090932240793
+        },
+        {
+          "row_id": "bike-day:2012-03-21",
+          "control_abs_error": 82.0,
+          "candidate_abs_error": 2176.663806607083,
+          "delta_abs_error": 2094.663806607083
+        },
+        {
+          "row_id": "bike-day:2012-03-22",
+          "control_abs_error": 679.0,
+          "candidate_abs_error": 2564.653539871684,
+          "delta_abs_error": 1885.6535398716842
+        },
+        {
+          "row_id": "bike-day:2012-03-23",
+          "control_abs_error": 3984.0,
+          "candidate_abs_error": 3607.0357064309446,
+          "delta_abs_error": -376.96429356905537
+        },
+        {
+          "row_id": "bike-day:2012-03-24",
+          "control_abs_error": 4464.0,
+          "candidate_abs_error": 1760.226239520779,
+          "delta_abs_error": -2703.773760479221
+        },
+        {
+          "row_id": "bike-day:2012-03-25",
+          "control_abs_error": 896.0,
+          "candidate_abs_error": 1702.4884593622446,
+          "delta_abs_error": 806.4884593622446
+        },
+        {
+          "row_id": "bike-day:2012-03-26",
+          "control_abs_error": 595.0,
+          "candidate_abs_error": 1610.4360850005687,
+          "delta_abs_error": 1015.4360850005687
+        },
+        {
+          "row_id": "bike-day:2012-03-27",
+          "control_abs_error": 991.0,
+          "candidate_abs_error": 1045.6057752309734,
+          "delta_abs_error": 54.60577523097345
+        },
+        {
+          "row_id": "bike-day:2012-03-28",
+          "control_abs_error": 532.0,
+          "candidate_abs_error": 2073.750183073881,
+          "delta_abs_error": 1541.750183073881
+        },
+        {
+          "row_id": "bike-day:2012-03-29",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 2139.291584959431,
+          "delta_abs_error": 1401.291584959431
+        },
+        {
+          "row_id": "bike-day:2012-03-30",
+          "control_abs_error": 2903.0,
+          "candidate_abs_error": 1287.066334932906,
+          "delta_abs_error": -1615.933665067094
+        },
+        {
+          "row_id": "bike-day:2012-03-31",
+          "control_abs_error": 2863.0,
+          "candidate_abs_error": 2300.49329632039,
+          "delta_abs_error": -562.5067036796099
+        },
+        {
+          "row_id": "bike-day:2012-04-01",
+          "control_abs_error": 1045.0,
+          "candidate_abs_error": 1210.2903235596514,
+          "delta_abs_error": 165.29032355965137
+        },
+        {
+          "row_id": "bike-day:2012-04-02",
+          "control_abs_error": 378.0,
+          "candidate_abs_error": 1058.7826971145741,
+          "delta_abs_error": 680.7826971145741
+        },
+        {
+          "row_id": "bike-day:2012-04-03",
+          "control_abs_error": 1670.0,
+          "candidate_abs_error": 1977.409539860173,
+          "delta_abs_error": 307.409539860173
+        },
+        {
+          "row_id": "bike-day:2012-04-04",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 1543.6833415443807,
+          "delta_abs_error": 805.6833415443807
+        },
+        {
+          "row_id": "bike-day:2012-04-05",
+          "control_abs_error": 324.0,
+          "candidate_abs_error": 1481.4640835192022,
+          "delta_abs_error": 1157.4640835192022
+        },
+        {
+          "row_id": "bike-day:2012-04-06",
+          "control_abs_error": 1001.0,
+          "candidate_abs_error": 1322.8335186454506,
+          "delta_abs_error": 321.83351864545057
+        },
+        {
+          "row_id": "bike-day:2012-04-07",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1851.8934635290989,
+          "delta_abs_error": 1229.8934635290989
+        },
+        {
+          "row_id": "bike-day:2012-04-08",
+          "control_abs_error": 872.0,
+          "candidate_abs_error": 22.564664131939935,
+          "delta_abs_error": -849.4353358680601
+        },
+        {
+          "row_id": "bike-day:2012-04-09",
+          "control_abs_error": 351.0,
+          "candidate_abs_error": 916.4320135367589,
+          "delta_abs_error": 565.4320135367589
+        },
+        {
+          "row_id": "bike-day:2012-04-10",
+          "control_abs_error": 854.0,
+          "candidate_abs_error": 1226.3919285417287,
+          "delta_abs_error": 372.3919285417287
+        },
+        {
+          "row_id": "bike-day:2012-04-11",
+          "control_abs_error": 1574.0,
+          "candidate_abs_error": 292.0041667734122,
+          "delta_abs_error": -1281.9958332265878
+        },
+        {
+          "row_id": "bike-day:2012-04-12",
+          "control_abs_error": 1048.0,
+          "candidate_abs_error": 1070.2809951547388,
+          "delta_abs_error": 22.280995154738775
+        },
+        {
+          "row_id": "bike-day:2012-04-13",
+          "control_abs_error": 62.0,
+          "candidate_abs_error": 1782.6007537431296,
+          "delta_abs_error": 1720.6007537431296
+        },
+        {
+          "row_id": "bike-day:2012-04-14",
+          "control_abs_error": 603.0,
+          "candidate_abs_error": 2637.632715897119,
+          "delta_abs_error": 2034.632715897119
+        },
+        {
+          "row_id": "bike-day:2012-04-15",
+          "control_abs_error": 1963.0,
+          "candidate_abs_error": 1815.7183629884275,
+          "delta_abs_error": -147.28163701157246
+        },
+        {
+          "row_id": "bike-day:2012-04-16",
+          "control_abs_error": 785.0,
+          "candidate_abs_error": 1421.4762373874782,
+          "delta_abs_error": 636.4762373874782
+        },
+        {
+          "row_id": "bike-day:2012-04-17",
+          "control_abs_error": 773.0,
+          "candidate_abs_error": 1683.2362741991938,
+          "delta_abs_error": 910.2362741991938
+        },
+        {
+          "row_id": "bike-day:2012-04-18",
+          "control_abs_error": 495.0,
+          "candidate_abs_error": 599.5786584995558,
+          "delta_abs_error": 104.57865849955579
+        },
+        {
+          "row_id": "bike-day:2012-04-19",
+          "control_abs_error": 1156.0,
+          "candidate_abs_error": 2276.636169415954,
+          "delta_abs_error": 1120.636169415954
+        },
+        {
+          "row_id": "bike-day:2012-04-20",
+          "control_abs_error": 892.0,
+          "candidate_abs_error": 2104.24191236932,
+          "delta_abs_error": 1212.2419123693198
+        },
+        {
+          "row_id": "bike-day:2012-04-21",
+          "control_abs_error": 836.0,
+          "candidate_abs_error": 1326.4357313106848,
+          "delta_abs_error": 490.4357313106848
+        },
+        {
+          "row_id": "bike-day:2012-04-22",
+          "control_abs_error": 6105.0,
+          "candidate_abs_error": 4033.2630834195534,
+          "delta_abs_error": -2071.7369165804466
+        },
+        {
+          "row_id": "bike-day:2012-04-23",
+          "control_abs_error": 3156.0,
+          "candidate_abs_error": 223.43750449357412,
+          "delta_abs_error": -2932.562495506426
+        },
+        {
+          "row_id": "bike-day:2012-04-24",
+          "control_abs_error": 1058.0,
+          "candidate_abs_error": 2046.581831695772,
+          "delta_abs_error": 988.581831695772
+        },
+        {
+          "row_id": "bike-day:2012-04-25",
+          "control_abs_error": 1829.0,
+          "candidate_abs_error": 1894.5730014240398,
+          "delta_abs_error": 65.57300142403983
+        },
+        {
+          "row_id": "bike-day:2012-04-26",
+          "control_abs_error": 1539.0,
+          "candidate_abs_error": 362.82923446992936,
+          "delta_abs_error": -1176.1707655300706
+        },
+        {
+          "row_id": "bike-day:2012-04-27",
+          "control_abs_error": 1057.0,
+          "candidate_abs_error": 1961.0369194216855,
+          "delta_abs_error": 904.0369194216855
+        },
+        {
+          "row_id": "bike-day:2012-04-28",
+          "control_abs_error": 2404.0,
+          "candidate_abs_error": 354.36847188357933,
+          "delta_abs_error": -2049.6315281164207
+        },
+        {
+          "row_id": "bike-day:2012-04-29",
+          "control_abs_error": 5277.0,
+          "candidate_abs_error": 2262.1544044459897,
+          "delta_abs_error": -3014.8455955540103
+        },
+        {
+          "row_id": "bike-day:2012-04-30",
+          "control_abs_error": 2358.0,
+          "candidate_abs_error": 601.3082099830108,
+          "delta_abs_error": -1756.6917900169892
+        },
+        {
+          "row_id": "bike-day:2012-05-01",
+          "control_abs_error": 107.0,
+          "candidate_abs_error": 714.3091933364358,
+          "delta_abs_error": 607.3091933364358
+        },
+        {
+          "row_id": "bike-day:2012-05-02",
+          "control_abs_error": 27.0,
+          "candidate_abs_error": 1334.8390326976332,
+          "delta_abs_error": 1307.8390326976332
+        },
+        {
+          "row_id": "bike-day:2012-05-03",
+          "control_abs_error": 1395.0,
+          "candidate_abs_error": 1178.8154070373366,
+          "delta_abs_error": -216.18459296266337
+        },
+        {
+          "row_id": "bike-day:2012-05-04",
+          "control_abs_error": 63.0,
+          "candidate_abs_error": 860.6112192867913,
+          "delta_abs_error": 797.6112192867913
+        },
+        {
+          "row_id": "bike-day:2012-05-05",
+          "control_abs_error": 2663.0,
+          "candidate_abs_error": 1528.3942416853024,
+          "delta_abs_error": -1134.6057583146976
+        },
+        {
+          "row_id": "bike-day:2012-05-06",
+          "control_abs_error": 55.0,
+          "candidate_abs_error": 788.3481870331525,
+          "delta_abs_error": 733.3481870331525
+        },
+        {
+          "row_id": "bike-day:2012-05-07",
+          "control_abs_error": 701.0,
+          "candidate_abs_error": 747.3409605832367,
+          "delta_abs_error": 46.340960583236665
+        },
+        {
+          "row_id": "bike-day:2012-05-08",
+          "control_abs_error": 12.0,
+          "candidate_abs_error": 296.30904291165734,
+          "delta_abs_error": 284.30904291165734
+        },
+        {
+          "row_id": "bike-day:2012-05-09",
+          "control_abs_error": 1452.0,
+          "candidate_abs_error": 268.33035617921814,
+          "delta_abs_error": -1183.6696438207819
+        },
+        {
+          "row_id": "bike-day:2012-05-10",
+          "control_abs_error": 151.0,
+          "candidate_abs_error": 1808.3743168067986,
+          "delta_abs_error": 1657.3743168067986
+        },
+        {
+          "row_id": "bike-day:2012-05-11",
+          "control_abs_error": 734.0,
+          "candidate_abs_error": 1473.8665684884936,
+          "delta_abs_error": 739.8665684884936
+        },
+        {
+          "row_id": "bike-day:2012-05-12",
+          "control_abs_error": 546.0,
+          "candidate_abs_error": 1840.7068209977415,
+          "delta_abs_error": 1294.7068209977415
+        },
+        {
+          "row_id": "bike-day:2012-05-13",
+          "control_abs_error": 241.0,
+          "candidate_abs_error": 329.8822422416133,
+          "delta_abs_error": 88.88224224161331
+        },
+        {
+          "row_id": "bike-day:2012-05-14",
+          "control_abs_error": 3430.0,
+          "candidate_abs_error": 2577.344748180385,
+          "delta_abs_error": -852.6552518196149
+        },
+        {
+          "row_id": "bike-day:2012-05-15",
+          "control_abs_error": 613.0,
+          "candidate_abs_error": 1037.9520952799821,
+          "delta_abs_error": 424.95209527998213
+        },
+        {
+          "row_id": "bike-day:2012-05-16",
+          "control_abs_error": 2707.0,
+          "candidate_abs_error": 2730.7261162952072,
+          "delta_abs_error": 23.726116295207248
+        },
+        {
+          "row_id": "bike-day:2012-05-17",
+          "control_abs_error": 812.0,
+          "candidate_abs_error": 1655.6011090665452,
+          "delta_abs_error": 843.6011090665452
+        },
+        {
+          "row_id": "bike-day:2012-05-18",
+          "control_abs_error": 609.0,
+          "candidate_abs_error": 1807.1001806415507,
+          "delta_abs_error": 1198.1001806415507
+        },
+        {
+          "row_id": "bike-day:2012-05-19",
+          "control_abs_error": 865.0,
+          "candidate_abs_error": 2498.556978644345,
+          "delta_abs_error": 1633.5569786443448
+        },
+        {
+          "row_id": "bike-day:2012-05-20",
+          "control_abs_error": 1011.0,
+          "candidate_abs_error": 995.2942217045393,
+          "delta_abs_error": -15.705778295460732
+        },
+        {
+          "row_id": "bike-day:2012-05-21",
+          "control_abs_error": 1516.0,
+          "candidate_abs_error": 1645.1273956637397,
+          "delta_abs_error": 129.12739566373966
+        },
+        {
+          "row_id": "bike-day:2012-05-22",
+          "control_abs_error": 958.0,
+          "candidate_abs_error": 1200.9546086041082,
+          "delta_abs_error": 242.95460860410822
+        },
+        {
+          "row_id": "bike-day:2012-05-23",
+          "control_abs_error": 2164.0,
+          "candidate_abs_error": 74.48526694621614,
+          "delta_abs_error": -2089.514733053784
+        },
+        {
+          "row_id": "bike-day:2012-05-24",
+          "control_abs_error": 614.0,
+          "candidate_abs_error": 1744.1475618466975,
+          "delta_abs_error": 1130.1475618466975
+        },
+        {
+          "row_id": "bike-day:2012-05-25",
+          "control_abs_error": 905.0,
+          "candidate_abs_error": 1081.8140192312767,
+          "delta_abs_error": 176.8140192312767
+        },
+        {
+          "row_id": "bike-day:2012-05-26",
+          "control_abs_error": 1758.0,
+          "candidate_abs_error": 1085.1895800258317,
+          "delta_abs_error": -672.8104199741683
+        },
+        {
+          "row_id": "bike-day:2012-05-27",
+          "control_abs_error": 538.0,
+          "candidate_abs_error": 1199.8787807428926,
+          "delta_abs_error": 661.8787807428926
+        },
+        {
+          "row_id": "bike-day:2012-05-28",
+          "control_abs_error": 1684.0,
+          "candidate_abs_error": 815.7693048575147,
+          "delta_abs_error": -868.2306951424853
+        },
+        {
+          "row_id": "bike-day:2012-05-29",
+          "control_abs_error": 330.0,
+          "candidate_abs_error": 413.74044562473136,
+          "delta_abs_error": 83.74044562473136
+        },
+        {
+          "row_id": "bike-day:2012-05-30",
+          "control_abs_error": 1595.0,
+          "candidate_abs_error": 1837.165381124296,
+          "delta_abs_error": 242.1653811242959
+        },
+        {
+          "row_id": "bike-day:2012-05-31",
+          "control_abs_error": 568.0,
+          "candidate_abs_error": 1736.4617256455222,
+          "delta_abs_error": 1168.4617256455222
+        },
+        {
+          "row_id": "bike-day:2012-06-01",
+          "control_abs_error": 2607.0,
+          "candidate_abs_error": 2010.7148873479964,
+          "delta_abs_error": -596.2851126520036
+        },
+        {
+          "row_id": "bike-day:2012-06-02",
+          "control_abs_error": 1584.0,
+          "candidate_abs_error": 3344.0963139693667,
+          "delta_abs_error": 1760.0963139693667
+        },
+        {
+          "row_id": "bike-day:2012-06-03",
+          "control_abs_error": 1050.0,
+          "candidate_abs_error": 1362.3778638129988,
+          "delta_abs_error": 312.37786381299884
+        },
+        {
+          "row_id": "bike-day:2012-06-04",
+          "control_abs_error": 955.0,
+          "candidate_abs_error": 724.8158830264119,
+          "delta_abs_error": -230.18411697358806
+        },
+        {
+          "row_id": "bike-day:2012-06-05",
+          "control_abs_error": 1258.0,
+          "candidate_abs_error": 993.2062082391894,
+          "delta_abs_error": -264.79379176081056
+        },
+        {
+          "row_id": "bike-day:2012-06-06",
+          "control_abs_error": 200.0,
+          "candidate_abs_error": 1286.6136120909687,
+          "delta_abs_error": 1086.6136120909687
+        },
+        {
+          "row_id": "bike-day:2012-06-07",
+          "control_abs_error": 156.0,
+          "candidate_abs_error": 1521.0809665733432,
+          "delta_abs_error": 1365.0809665733432
+        },
+        {
+          "row_id": "bike-day:2012-06-08",
+          "control_abs_error": 3609.0,
+          "candidate_abs_error": 1340.204303188255,
+          "delta_abs_error": -2268.795696811745
+        },
+        {
+          "row_id": "bike-day:2012-06-09",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1211.8009126726292,
+          "delta_abs_error": 589.8009126726292
+        },
+        {
+          "row_id": "bike-day:2012-06-10",
+          "control_abs_error": 1043.0,
+          "candidate_abs_error": 381.01837943866303,
+          "delta_abs_error": -661.981620561337
+        },
+        {
+          "row_id": "bike-day:2012-06-11",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 666.6964153597164,
+          "delta_abs_error": 332.6964153597164
+        },
+        {
+          "row_id": "bike-day:2012-06-12",
+          "control_abs_error": 2029.0,
+          "candidate_abs_error": 960.6889801370426,
+          "delta_abs_error": -1068.3110198629574
+        },
+        {
+          "row_id": "bike-day:2012-06-13",
+          "control_abs_error": 366.0,
+          "candidate_abs_error": 2395.546638603295,
+          "delta_abs_error": 2029.546638603295
+        },
+        {
+          "row_id": "bike-day:2012-06-14",
+          "control_abs_error": 131.0,
+          "candidate_abs_error": 1261.9161318175902,
+          "delta_abs_error": 1130.9161318175902
+        },
+        {
+          "row_id": "bike-day:2012-06-15",
+          "control_abs_error": 71.0,
+          "candidate_abs_error": 1487.1127131231478,
+          "delta_abs_error": 1416.1127131231478
+        },
+        {
+          "row_id": "bike-day:2012-06-16",
+          "control_abs_error": 204.0,
+          "candidate_abs_error": 1536.2139986825978,
+          "delta_abs_error": 1332.2139986825978
+        },
+        {
+          "row_id": "bike-day:2012-06-17",
+          "control_abs_error": 380.0,
+          "candidate_abs_error": 736.686708942043,
+          "delta_abs_error": 356.68670894204297
+        },
+        {
+          "row_id": "bike-day:2012-06-18",
+          "control_abs_error": 1565.0,
+          "candidate_abs_error": 999.1119568120175,
+          "delta_abs_error": -565.8880431879825
+        },
+        {
+          "row_id": "bike-day:2012-06-19",
+          "control_abs_error": 1853.0,
+          "candidate_abs_error": 1454.8531049948451,
+          "delta_abs_error": -398.1468950051549
+        },
+        {
+          "row_id": "bike-day:2012-06-20",
+          "control_abs_error": 1210.0,
+          "candidate_abs_error": 500.9104685840175,
+          "delta_abs_error": -709.0895314159825
+        },
+        {
+          "row_id": "bike-day:2012-06-21",
+          "control_abs_error": 1458.0,
+          "candidate_abs_error": 251.55901269267815,
+          "delta_abs_error": -1206.4409873073218
+        },
+        {
+          "row_id": "bike-day:2012-06-22",
+          "control_abs_error": 1842.0,
+          "candidate_abs_error": 227.2532754399299,
+          "delta_abs_error": -1614.74672456007
+        },
+        {
+          "row_id": "bike-day:2012-06-23",
+          "control_abs_error": 244.0,
+          "candidate_abs_error": 2081.877566532963,
+          "delta_abs_error": 1837.877566532963
+        },
+        {
+          "row_id": "bike-day:2012-06-24",
+          "control_abs_error": 87.0,
+          "candidate_abs_error": 885.3270588830146,
+          "delta_abs_error": 798.3270588830146
+        },
+        {
+          "row_id": "bike-day:2012-06-25",
+          "control_abs_error": 1680.0,
+          "candidate_abs_error": 785.9819966471532,
+          "delta_abs_error": -894.0180033528468
+        },
+        {
+          "row_id": "bike-day:2012-06-26",
+          "control_abs_error": 617.0,
+          "candidate_abs_error": 1592.2523724628481,
+          "delta_abs_error": 975.2523724628481
+        },
+        {
+          "row_id": "bike-day:2012-06-27",
+          "control_abs_error": 1124.0,
+          "candidate_abs_error": 1428.2463990435863,
+          "delta_abs_error": 304.2463990435863
+        },
+        {
+          "row_id": "bike-day:2012-06-28",
+          "control_abs_error": 974.0,
+          "candidate_abs_error": 760.2910402020625,
+          "delta_abs_error": -213.7089597979375
+        },
+        {
+          "row_id": "bike-day:2012-06-29",
+          "control_abs_error": 360.0,
+          "candidate_abs_error": 638.9957360296048,
+          "delta_abs_error": 278.9957360296048
+        },
+        {
+          "row_id": "bike-day:2012-06-30",
+          "control_abs_error": 1771.0,
+          "candidate_abs_error": 311.4701138724631,
+          "delta_abs_error": -1459.5298861275369
+        }
+      ],
+      "histogram": [
+        {
+          "low": -3014.8455955540103,
+          "high": -2379.1672213930033,
+          "count": 3
+        },
+        {
+          "low": -2379.1672213930033,
+          "high": -1743.4888472319958,
+          "count": 7
+        },
+        {
+          "low": -1743.4888472319958,
+          "high": -1107.8104730709886,
+          "count": 12
+        },
+        {
+          "low": -1107.8104730709886,
+          "high": -472.1320989099813,
+          "count": 24
+        },
+        {
+          "low": -472.1320989099813,
+          "high": 163.5462752510257,
+          "count": 35
+        },
+        {
+          "low": 163.5462752510257,
+          "high": 799.2246494120332,
+          "count": 49
+        },
+        {
+          "low": 799.2246494120332,
+          "high": 1434.9030235730406,
+          "count": 37
+        },
+        {
+          "low": 1434.9030235730406,
+          "high": 2070.5813977340476,
+          "count": 13
+        },
+        {
+          "low": 2070.5813977340476,
+          "high": 2706.2597718950547,
+          "count": 2
+        }
+      ],
+      "quartiles": {
+        "min": -3014.8455955540103,
+        "q1": -474.6797247146874,
+        "median": 258.24321168786605,
+        "q3": 927.0608530863867,
+        "max": 2706.2597718950547
+      }
+    },
+    {
+      "comparison_id": "00000000-0000-4000-8000-000000000011",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "row_id": "bike-day:2012-01-01",
+          "control_abs_error": 1540.0,
+          "candidate_abs_error": 411.27298974707855,
+          "delta_abs_error": -1128.7270102529214
+        },
+        {
+          "row_id": "bike-day:2012-01-02",
+          "control_abs_error": 634.0,
+          "candidate_abs_error": 406.8196821817876,
+          "delta_abs_error": -227.18031781821242
+        },
+        {
+          "row_id": "bike-day:2012-01-03",
+          "control_abs_error": 1074.0,
+          "candidate_abs_error": 463.9923007095447,
+          "delta_abs_error": -610.0076992904553
+        },
+        {
+          "row_id": "bike-day:2012-01-04",
+          "control_abs_error": 66.0,
+          "candidate_abs_error": 740.8373847130542,
+          "delta_abs_error": 674.8373847130542
+        },
+        {
+          "row_id": "bike-day:2012-01-05",
+          "control_abs_error": 849.0,
+          "candidate_abs_error": 1399.9158584553952,
+          "delta_abs_error": 550.9158584553952
+        },
+        {
+          "row_id": "bike-day:2012-01-06",
+          "control_abs_error": 1099.0,
+          "candidate_abs_error": 1786.1543268634405,
+          "delta_abs_error": 687.1543268634405
+        },
+        {
+          "row_id": "bike-day:2012-01-07",
+          "control_abs_error": 2036.0,
+          "candidate_abs_error": 1982.3571618651727,
+          "delta_abs_error": -53.64283813482734
+        },
+        {
+          "row_id": "bike-day:2012-01-08",
+          "control_abs_error": 1131.0,
+          "candidate_abs_error": 645.5718814601696,
+          "delta_abs_error": -485.4281185398304
+        },
+        {
+          "row_id": "bike-day:2012-01-09",
+          "control_abs_error": 425.0,
+          "candidate_abs_error": 168.6810858908534,
+          "delta_abs_error": -256.3189141091466
+        },
+        {
+          "row_id": "bike-day:2012-01-10",
+          "control_abs_error": 1362.0,
+          "candidate_abs_error": 1508.751580972245,
+          "delta_abs_error": 146.75158097224494
+        },
+        {
+          "row_id": "bike-day:2012-01-11",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 160.5580585215671,
+          "delta_abs_error": -30.44194147843291
+        },
+        {
+          "row_id": "bike-day:2012-01-12",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 2118.583132510479,
+          "delta_abs_error": 1293.5831325104791
+        },
+        {
+          "row_id": "bike-day:2012-01-13",
+          "control_abs_error": 884.0,
+          "candidate_abs_error": 441.56545676074165,
+          "delta_abs_error": -442.43454323925835
+        },
+        {
+          "row_id": "bike-day:2012-01-14",
+          "control_abs_error": 2028.0,
+          "candidate_abs_error": 216.16214009902433,
+          "delta_abs_error": -1811.8378599009757
+        },
+        {
+          "row_id": "bike-day:2012-01-15",
+          "control_abs_error": 1114.0,
+          "candidate_abs_error": 294.23968624620375,
+          "delta_abs_error": -819.7603137537963
+        },
+        {
+          "row_id": "bike-day:2012-01-16",
+          "control_abs_error": 78.0,
+          "candidate_abs_error": 627.5587287418089,
+          "delta_abs_error": 549.5587287418089
+        },
+        {
+          "row_id": "bike-day:2012-01-17",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 1003.2908789310334,
+          "delta_abs_error": 340.2908789310334
+        },
+        {
+          "row_id": "bike-day:2012-01-18",
+          "control_abs_error": 1199.0,
+          "candidate_abs_error": 1400.6270966149457,
+          "delta_abs_error": 201.62709661494569
+        },
+        {
+          "row_id": "bike-day:2012-01-19",
+          "control_abs_error": 805.0,
+          "candidate_abs_error": 1006.278765015968,
+          "delta_abs_error": 201.27876501596802
+        },
+        {
+          "row_id": "bike-day:2012-01-20",
+          "control_abs_error": 51.0,
+          "candidate_abs_error": 779.9741046981244,
+          "delta_abs_error": 728.9741046981244
+        },
+        {
+          "row_id": "bike-day:2012-01-21",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 937.1699174547384,
+          "delta_abs_error": -254.83008254526158
+        },
+        {
+          "row_id": "bike-day:2012-01-22",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 425.5061656852072,
+          "delta_abs_error": 91.50616568520718
+        },
+        {
+          "row_id": "bike-day:2012-01-23",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 537.9340704816086,
+          "delta_abs_error": 403.9340704816086
+        },
+        {
+          "row_id": "bike-day:2012-01-24",
+          "control_abs_error": 1404.0,
+          "candidate_abs_error": 2383.276552559501,
+          "delta_abs_error": 979.2765525595009
+        },
+        {
+          "row_id": "bike-day:2012-01-25",
+          "control_abs_error": 894.0,
+          "candidate_abs_error": 1831.6808765364267,
+          "delta_abs_error": 937.6808765364267
+        },
+        {
+          "row_id": "bike-day:2012-01-26",
+          "control_abs_error": 783.0,
+          "candidate_abs_error": 1428.4909432132226,
+          "delta_abs_error": 645.4909432132226
+        },
+        {
+          "row_id": "bike-day:2012-01-27",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 736.0143914118903,
+          "delta_abs_error": 443.0143914118903
+        },
+        {
+          "row_id": "bike-day:2012-01-28",
+          "control_abs_error": 2722.0,
+          "candidate_abs_error": 1561.5277166021406,
+          "delta_abs_error": -1160.4722833978594
+        },
+        {
+          "row_id": "bike-day:2012-01-29",
+          "control_abs_error": 1266.0,
+          "candidate_abs_error": 506.52163652114587,
+          "delta_abs_error": -759.4783634788541
+        },
+        {
+          "row_id": "bike-day:2012-01-30",
+          "control_abs_error": 1192.0,
+          "candidate_abs_error": 1040.4317891731862,
+          "delta_abs_error": -151.5682108268138
+        },
+        {
+          "row_id": "bike-day:2012-01-31",
+          "control_abs_error": 170.0,
+          "candidate_abs_error": 1914.7188979322045,
+          "delta_abs_error": 1744.7188979322045
+        },
+        {
+          "row_id": "bike-day:2012-02-01",
+          "control_abs_error": 309.0,
+          "candidate_abs_error": 1635.850402653381,
+          "delta_abs_error": 1326.850402653381
+        },
+        {
+          "row_id": "bike-day:2012-02-02",
+          "control_abs_error": 314.0,
+          "candidate_abs_error": 573.1126959885664,
+          "delta_abs_error": 259.11269598856643
+        },
+        {
+          "row_id": "bike-day:2012-02-03",
+          "control_abs_error": 695.0,
+          "candidate_abs_error": 1126.9357933330157,
+          "delta_abs_error": 431.9357933330157
+        },
+        {
+          "row_id": "bike-day:2012-02-04",
+          "control_abs_error": 1191.0,
+          "candidate_abs_error": 199.36833487996773,
+          "delta_abs_error": -991.6316651200323
+        },
+        {
+          "row_id": "bike-day:2012-02-05",
+          "control_abs_error": 296.0,
+          "candidate_abs_error": 379.1282238641138,
+          "delta_abs_error": 83.1282238641138
+        },
+        {
+          "row_id": "bike-day:2012-02-06",
+          "control_abs_error": 160.0,
+          "candidate_abs_error": 1092.6690460487844,
+          "delta_abs_error": 932.6690460487844
+        },
+        {
+          "row_id": "bike-day:2012-02-07",
+          "control_abs_error": 134.0,
+          "candidate_abs_error": 1494.7321588056307,
+          "delta_abs_error": 1360.7321588056307
+        },
+        {
+          "row_id": "bike-day:2012-02-08",
+          "control_abs_error": 1777.0,
+          "candidate_abs_error": 54.12665423981707,
+          "delta_abs_error": -1722.873345760183
+        },
+        {
+          "row_id": "bike-day:2012-02-09",
+          "control_abs_error": 69.0,
+          "candidate_abs_error": 1359.7770765372966,
+          "delta_abs_error": 1290.7770765372966
+        },
+        {
+          "row_id": "bike-day:2012-02-10",
+          "control_abs_error": 320.0,
+          "candidate_abs_error": 892.6708880530896,
+          "delta_abs_error": 572.6708880530896
+        },
+        {
+          "row_id": "bike-day:2012-02-11",
+          "control_abs_error": 663.0,
+          "candidate_abs_error": 690.0882770112812,
+          "delta_abs_error": 27.088277011281207
+        },
+        {
+          "row_id": "bike-day:2012-02-12",
+          "control_abs_error": 1418.0,
+          "candidate_abs_error": 718.8515317173119,
+          "delta_abs_error": -699.1484682826881
+        },
+        {
+          "row_id": "bike-day:2012-02-13",
+          "control_abs_error": 362.0,
+          "candidate_abs_error": 1379.5902725891922,
+          "delta_abs_error": 1017.5902725891922
+        },
+        {
+          "row_id": "bike-day:2012-02-14",
+          "control_abs_error": 453.0,
+          "candidate_abs_error": 1313.009703537884,
+          "delta_abs_error": 860.009703537884
+        },
+        {
+          "row_id": "bike-day:2012-02-15",
+          "control_abs_error": 1367.0,
+          "candidate_abs_error": 1552.1205131158508,
+          "delta_abs_error": 185.12051311585083
+        },
+        {
+          "row_id": "bike-day:2012-02-16",
+          "control_abs_error": 825.0,
+          "candidate_abs_error": 101.65409234503113,
+          "delta_abs_error": -723.3459076549689
+        },
+        {
+          "row_id": "bike-day:2012-02-17",
+          "control_abs_error": 323.0,
+          "candidate_abs_error": 1583.871891980336,
+          "delta_abs_error": 1260.871891980336
+        },
+        {
+          "row_id": "bike-day:2012-02-18",
+          "control_abs_error": 2149.0,
+          "candidate_abs_error": 1376.9031131204292,
+          "delta_abs_error": -772.0968868795708
+        },
+        {
+          "row_id": "bike-day:2012-02-19",
+          "control_abs_error": 1160.0,
+          "candidate_abs_error": 423.57496041236936,
+          "delta_abs_error": -736.4250395876306
+        },
+        {
+          "row_id": "bike-day:2012-02-20",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 946.4569163824199,
+          "delta_abs_error": 653.4569163824199
+        },
+        {
+          "row_id": "bike-day:2012-02-21",
+          "control_abs_error": 145.0,
+          "candidate_abs_error": 1143.6947958757596,
+          "delta_abs_error": 998.6947958757596
+        },
+        {
+          "row_id": "bike-day:2012-02-22",
+          "control_abs_error": 604.0,
+          "candidate_abs_error": 2151.7109244310745,
+          "delta_abs_error": 1547.7109244310745
+        },
+        {
+          "row_id": "bike-day:2012-02-23",
+          "control_abs_error": 2057.0,
+          "candidate_abs_error": 1808.343438342189,
+          "delta_abs_error": -248.65656165781093
+        },
+        {
+          "row_id": "bike-day:2012-02-24",
+          "control_abs_error": 667.0,
+          "candidate_abs_error": 3.0376665885864895,
+          "delta_abs_error": -663.9623334114135
+        },
+        {
+          "row_id": "bike-day:2012-02-25",
+          "control_abs_error": 1586.0,
+          "candidate_abs_error": 25.53032680602064,
+          "delta_abs_error": -1560.4696731939794
+        },
+        {
+          "row_id": "bike-day:2012-02-26",
+          "control_abs_error": 700.0,
+          "candidate_abs_error": 865.3784174533362,
+          "delta_abs_error": 165.37841745333617
+        },
+        {
+          "row_id": "bike-day:2012-02-27",
+          "control_abs_error": 1193.0,
+          "candidate_abs_error": 1450.3737273871657,
+          "delta_abs_error": 257.3737273871657
+        },
+        {
+          "row_id": "bike-day:2012-02-28",
+          "control_abs_error": 586.0,
+          "candidate_abs_error": 1224.0527430242482,
+          "delta_abs_error": 638.0527430242482
+        },
+        {
+          "row_id": "bike-day:2012-02-29",
+          "control_abs_error": 2939.0,
+          "candidate_abs_error": 1063.1145629036482,
+          "delta_abs_error": -1875.8854370963518
+        },
+        {
+          "row_id": "bike-day:2012-03-01",
+          "control_abs_error": 72.0,
+          "candidate_abs_error": 2778.2597718950547,
+          "delta_abs_error": 2706.2597718950547
+        },
+        {
+          "row_id": "bike-day:2012-03-02",
+          "control_abs_error": 293.0,
+          "candidate_abs_error": 338.57406025622413,
+          "delta_abs_error": 45.57406025622413
+        },
+        {
+          "row_id": "bike-day:2012-03-03",
+          "control_abs_error": 1334.0,
+          "candidate_abs_error": 1285.6764543788522,
+          "delta_abs_error": -48.32354562114779
+        },
+        {
+          "row_id": "bike-day:2012-03-04",
+          "control_abs_error": 34.0,
+          "candidate_abs_error": 301.0573719942222,
+          "delta_abs_error": 267.0573719942222
+        },
+        {
+          "row_id": "bike-day:2012-03-05",
+          "control_abs_error": 989.0,
+          "candidate_abs_error": 375.6662409928863,
+          "delta_abs_error": -613.3337590071137
+        },
+        {
+          "row_id": "bike-day:2012-03-06",
+          "control_abs_error": 407.0,
+          "candidate_abs_error": 1142.1652708637903,
+          "delta_abs_error": 735.1652708637903
+        },
+        {
+          "row_id": "bike-day:2012-03-07",
+          "control_abs_error": 3082.0,
+          "candidate_abs_error": 2004.7945176296867,
+          "delta_abs_error": -1077.2054823703133
+        },
+        {
+          "row_id": "bike-day:2012-03-08",
+          "control_abs_error": 392.0,
+          "candidate_abs_error": 1969.6572647980202,
+          "delta_abs_error": 1577.6572647980202
+        },
+        {
+          "row_id": "bike-day:2012-03-09",
+          "control_abs_error": 1375.0,
+          "candidate_abs_error": 781.1292244540391,
+          "delta_abs_error": -593.8707755459609
+        },
+        {
+          "row_id": "bike-day:2012-03-10",
+          "control_abs_error": 52.0,
+          "candidate_abs_error": 748.9510085083471,
+          "delta_abs_error": 696.9510085083471
+        },
+        {
+          "row_id": "bike-day:2012-03-11",
+          "control_abs_error": 1488.0,
+          "candidate_abs_error": 1659.0106499026938,
+          "delta_abs_error": 171.01064990269379
+        },
+        {
+          "row_id": "bike-day:2012-03-12",
+          "control_abs_error": 1965.0,
+          "candidate_abs_error": 1599.6283232604947,
+          "delta_abs_error": -365.37167673950535
+        },
+        {
+          "row_id": "bike-day:2012-03-13",
+          "control_abs_error": 1891.0,
+          "candidate_abs_error": 2052.4735602179253,
+          "delta_abs_error": 161.4735602179253
+        },
+        {
+          "row_id": "bike-day:2012-03-14",
+          "control_abs_error": 1396.0,
+          "candidate_abs_error": 2532.8327290313014,
+          "delta_abs_error": 1136.8327290313014
+        },
+        {
+          "row_id": "bike-day:2012-03-15",
+          "control_abs_error": 910.0,
+          "candidate_abs_error": 2121.154336685213,
+          "delta_abs_error": 1211.154336685213
+        },
+        {
+          "row_id": "bike-day:2012-03-16",
+          "control_abs_error": 191.0,
+          "candidate_abs_error": 74.53409609099799,
+          "delta_abs_error": -116.46590390900201
+        },
+        {
+          "row_id": "bike-day:2012-03-17",
+          "control_abs_error": 3718.0,
+          "candidate_abs_error": 4301.905473884997,
+          "delta_abs_error": 583.9054738849973
+        },
+        {
+          "row_id": "bike-day:2012-03-18",
+          "control_abs_error": 981.0,
+          "candidate_abs_error": 1013.7972675343699,
+          "delta_abs_error": 32.797267534369894
+        },
+        {
+          "row_id": "bike-day:2012-03-19",
+          "control_abs_error": 855.0,
+          "candidate_abs_error": 1853.50542667001,
+          "delta_abs_error": 998.5054266700099
+        },
+        {
+          "row_id": "bike-day:2012-03-20",
+          "control_abs_error": 246.0,
+          "candidate_abs_error": 1774.8090932240793,
+          "delta_abs_error": 1528.8090932240793
+        },
+        {
+          "row_id": "bike-day:2012-03-21",
+          "control_abs_error": 82.0,
+          "candidate_abs_error": 2176.663806607083,
+          "delta_abs_error": 2094.663806607083
+        },
+        {
+          "row_id": "bike-day:2012-03-22",
+          "control_abs_error": 679.0,
+          "candidate_abs_error": 2564.653539871684,
+          "delta_abs_error": 1885.6535398716842
+        },
+        {
+          "row_id": "bike-day:2012-03-23",
+          "control_abs_error": 3984.0,
+          "candidate_abs_error": 3607.0357064309446,
+          "delta_abs_error": -376.96429356905537
+        },
+        {
+          "row_id": "bike-day:2012-03-24",
+          "control_abs_error": 4464.0,
+          "candidate_abs_error": 1760.226239520779,
+          "delta_abs_error": -2703.773760479221
+        },
+        {
+          "row_id": "bike-day:2012-03-25",
+          "control_abs_error": 896.0,
+          "candidate_abs_error": 1702.4884593622446,
+          "delta_abs_error": 806.4884593622446
+        },
+        {
+          "row_id": "bike-day:2012-03-26",
+          "control_abs_error": 595.0,
+          "candidate_abs_error": 1610.4360850005687,
+          "delta_abs_error": 1015.4360850005687
+        },
+        {
+          "row_id": "bike-day:2012-03-27",
+          "control_abs_error": 991.0,
+          "candidate_abs_error": 1045.6057752309734,
+          "delta_abs_error": 54.60577523097345
+        },
+        {
+          "row_id": "bike-day:2012-03-28",
+          "control_abs_error": 532.0,
+          "candidate_abs_error": 2073.750183073881,
+          "delta_abs_error": 1541.750183073881
+        },
+        {
+          "row_id": "bike-day:2012-03-29",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 2139.291584959431,
+          "delta_abs_error": 1401.291584959431
+        },
+        {
+          "row_id": "bike-day:2012-03-30",
+          "control_abs_error": 2903.0,
+          "candidate_abs_error": 1287.066334932906,
+          "delta_abs_error": -1615.933665067094
+        },
+        {
+          "row_id": "bike-day:2012-03-31",
+          "control_abs_error": 2863.0,
+          "candidate_abs_error": 2300.49329632039,
+          "delta_abs_error": -562.5067036796099
+        },
+        {
+          "row_id": "bike-day:2012-04-01",
+          "control_abs_error": 1045.0,
+          "candidate_abs_error": 1210.2903235596514,
+          "delta_abs_error": 165.29032355965137
+        },
+        {
+          "row_id": "bike-day:2012-04-02",
+          "control_abs_error": 378.0,
+          "candidate_abs_error": 1058.7826971145741,
+          "delta_abs_error": 680.7826971145741
+        },
+        {
+          "row_id": "bike-day:2012-04-03",
+          "control_abs_error": 1670.0,
+          "candidate_abs_error": 1977.409539860173,
+          "delta_abs_error": 307.409539860173
+        },
+        {
+          "row_id": "bike-day:2012-04-04",
+          "control_abs_error": 738.0,
+          "candidate_abs_error": 1543.6833415443807,
+          "delta_abs_error": 805.6833415443807
+        },
+        {
+          "row_id": "bike-day:2012-04-05",
+          "control_abs_error": 324.0,
+          "candidate_abs_error": 1481.4640835192022,
+          "delta_abs_error": 1157.4640835192022
+        },
+        {
+          "row_id": "bike-day:2012-04-06",
+          "control_abs_error": 1001.0,
+          "candidate_abs_error": 1322.8335186454506,
+          "delta_abs_error": 321.83351864545057
+        },
+        {
+          "row_id": "bike-day:2012-04-07",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1851.8934635290989,
+          "delta_abs_error": 1229.8934635290989
+        },
+        {
+          "row_id": "bike-day:2012-04-08",
+          "control_abs_error": 872.0,
+          "candidate_abs_error": 22.564664131939935,
+          "delta_abs_error": -849.4353358680601
+        },
+        {
+          "row_id": "bike-day:2012-04-09",
+          "control_abs_error": 351.0,
+          "candidate_abs_error": 916.4320135367589,
+          "delta_abs_error": 565.4320135367589
+        },
+        {
+          "row_id": "bike-day:2012-04-10",
+          "control_abs_error": 854.0,
+          "candidate_abs_error": 1226.3919285417287,
+          "delta_abs_error": 372.3919285417287
+        },
+        {
+          "row_id": "bike-day:2012-04-11",
+          "control_abs_error": 1574.0,
+          "candidate_abs_error": 292.0041667734122,
+          "delta_abs_error": -1281.9958332265878
+        },
+        {
+          "row_id": "bike-day:2012-04-12",
+          "control_abs_error": 1048.0,
+          "candidate_abs_error": 1070.2809951547388,
+          "delta_abs_error": 22.280995154738775
+        },
+        {
+          "row_id": "bike-day:2012-04-13",
+          "control_abs_error": 62.0,
+          "candidate_abs_error": 1782.6007537431296,
+          "delta_abs_error": 1720.6007537431296
+        },
+        {
+          "row_id": "bike-day:2012-04-14",
+          "control_abs_error": 603.0,
+          "candidate_abs_error": 2637.632715897119,
+          "delta_abs_error": 2034.632715897119
+        },
+        {
+          "row_id": "bike-day:2012-04-15",
+          "control_abs_error": 1963.0,
+          "candidate_abs_error": 1815.7183629884275,
+          "delta_abs_error": -147.28163701157246
+        },
+        {
+          "row_id": "bike-day:2012-04-16",
+          "control_abs_error": 785.0,
+          "candidate_abs_error": 1421.4762373874782,
+          "delta_abs_error": 636.4762373874782
+        },
+        {
+          "row_id": "bike-day:2012-04-17",
+          "control_abs_error": 773.0,
+          "candidate_abs_error": 1683.2362741991938,
+          "delta_abs_error": 910.2362741991938
+        },
+        {
+          "row_id": "bike-day:2012-04-18",
+          "control_abs_error": 495.0,
+          "candidate_abs_error": 599.5786584995558,
+          "delta_abs_error": 104.57865849955579
+        },
+        {
+          "row_id": "bike-day:2012-04-19",
+          "control_abs_error": 1156.0,
+          "candidate_abs_error": 2276.636169415954,
+          "delta_abs_error": 1120.636169415954
+        },
+        {
+          "row_id": "bike-day:2012-04-20",
+          "control_abs_error": 892.0,
+          "candidate_abs_error": 2104.24191236932,
+          "delta_abs_error": 1212.2419123693198
+        },
+        {
+          "row_id": "bike-day:2012-04-21",
+          "control_abs_error": 836.0,
+          "candidate_abs_error": 1326.4357313106848,
+          "delta_abs_error": 490.4357313106848
+        },
+        {
+          "row_id": "bike-day:2012-04-22",
+          "control_abs_error": 6105.0,
+          "candidate_abs_error": 4033.2630834195534,
+          "delta_abs_error": -2071.7369165804466
+        },
+        {
+          "row_id": "bike-day:2012-04-23",
+          "control_abs_error": 3156.0,
+          "candidate_abs_error": 223.43750449357412,
+          "delta_abs_error": -2932.562495506426
+        },
+        {
+          "row_id": "bike-day:2012-04-24",
+          "control_abs_error": 1058.0,
+          "candidate_abs_error": 2046.581831695772,
+          "delta_abs_error": 988.581831695772
+        },
+        {
+          "row_id": "bike-day:2012-04-25",
+          "control_abs_error": 1829.0,
+          "candidate_abs_error": 1894.5730014240398,
+          "delta_abs_error": 65.57300142403983
+        },
+        {
+          "row_id": "bike-day:2012-04-26",
+          "control_abs_error": 1539.0,
+          "candidate_abs_error": 362.82923446992936,
+          "delta_abs_error": -1176.1707655300706
+        },
+        {
+          "row_id": "bike-day:2012-04-27",
+          "control_abs_error": 1057.0,
+          "candidate_abs_error": 1961.0369194216855,
+          "delta_abs_error": 904.0369194216855
+        },
+        {
+          "row_id": "bike-day:2012-04-28",
+          "control_abs_error": 2404.0,
+          "candidate_abs_error": 354.36847188357933,
+          "delta_abs_error": -2049.6315281164207
+        },
+        {
+          "row_id": "bike-day:2012-04-29",
+          "control_abs_error": 5277.0,
+          "candidate_abs_error": 2262.1544044459897,
+          "delta_abs_error": -3014.8455955540103
+        },
+        {
+          "row_id": "bike-day:2012-04-30",
+          "control_abs_error": 2358.0,
+          "candidate_abs_error": 601.3082099830108,
+          "delta_abs_error": -1756.6917900169892
+        },
+        {
+          "row_id": "bike-day:2012-05-01",
+          "control_abs_error": 107.0,
+          "candidate_abs_error": 714.3091933364358,
+          "delta_abs_error": 607.3091933364358
+        },
+        {
+          "row_id": "bike-day:2012-05-02",
+          "control_abs_error": 27.0,
+          "candidate_abs_error": 1334.8390326976332,
+          "delta_abs_error": 1307.8390326976332
+        },
+        {
+          "row_id": "bike-day:2012-05-03",
+          "control_abs_error": 1395.0,
+          "candidate_abs_error": 1178.8154070373366,
+          "delta_abs_error": -216.18459296266337
+        },
+        {
+          "row_id": "bike-day:2012-05-04",
+          "control_abs_error": 63.0,
+          "candidate_abs_error": 860.6112192867913,
+          "delta_abs_error": 797.6112192867913
+        },
+        {
+          "row_id": "bike-day:2012-05-05",
+          "control_abs_error": 2663.0,
+          "candidate_abs_error": 1528.3942416853024,
+          "delta_abs_error": -1134.6057583146976
+        },
+        {
+          "row_id": "bike-day:2012-05-06",
+          "control_abs_error": 55.0,
+          "candidate_abs_error": 788.3481870331525,
+          "delta_abs_error": 733.3481870331525
+        },
+        {
+          "row_id": "bike-day:2012-05-07",
+          "control_abs_error": 701.0,
+          "candidate_abs_error": 747.3409605832367,
+          "delta_abs_error": 46.340960583236665
+        },
+        {
+          "row_id": "bike-day:2012-05-08",
+          "control_abs_error": 12.0,
+          "candidate_abs_error": 296.30904291165734,
+          "delta_abs_error": 284.30904291165734
+        },
+        {
+          "row_id": "bike-day:2012-05-09",
+          "control_abs_error": 1452.0,
+          "candidate_abs_error": 268.33035617921814,
+          "delta_abs_error": -1183.6696438207819
+        },
+        {
+          "row_id": "bike-day:2012-05-10",
+          "control_abs_error": 151.0,
+          "candidate_abs_error": 1808.3743168067986,
+          "delta_abs_error": 1657.3743168067986
+        },
+        {
+          "row_id": "bike-day:2012-05-11",
+          "control_abs_error": 734.0,
+          "candidate_abs_error": 1473.8665684884936,
+          "delta_abs_error": 739.8665684884936
+        },
+        {
+          "row_id": "bike-day:2012-05-12",
+          "control_abs_error": 546.0,
+          "candidate_abs_error": 1840.7068209977415,
+          "delta_abs_error": 1294.7068209977415
+        },
+        {
+          "row_id": "bike-day:2012-05-13",
+          "control_abs_error": 241.0,
+          "candidate_abs_error": 329.8822422416133,
+          "delta_abs_error": 88.88224224161331
+        },
+        {
+          "row_id": "bike-day:2012-05-14",
+          "control_abs_error": 3430.0,
+          "candidate_abs_error": 2577.344748180385,
+          "delta_abs_error": -852.6552518196149
+        },
+        {
+          "row_id": "bike-day:2012-05-15",
+          "control_abs_error": 613.0,
+          "candidate_abs_error": 1037.9520952799821,
+          "delta_abs_error": 424.95209527998213
+        },
+        {
+          "row_id": "bike-day:2012-05-16",
+          "control_abs_error": 2707.0,
+          "candidate_abs_error": 2730.7261162952072,
+          "delta_abs_error": 23.726116295207248
+        },
+        {
+          "row_id": "bike-day:2012-05-17",
+          "control_abs_error": 812.0,
+          "candidate_abs_error": 1655.6011090665452,
+          "delta_abs_error": 843.6011090665452
+        },
+        {
+          "row_id": "bike-day:2012-05-18",
+          "control_abs_error": 609.0,
+          "candidate_abs_error": 1807.1001806415507,
+          "delta_abs_error": 1198.1001806415507
+        },
+        {
+          "row_id": "bike-day:2012-05-19",
+          "control_abs_error": 865.0,
+          "candidate_abs_error": 2498.556978644345,
+          "delta_abs_error": 1633.5569786443448
+        },
+        {
+          "row_id": "bike-day:2012-05-20",
+          "control_abs_error": 1011.0,
+          "candidate_abs_error": 995.2942217045393,
+          "delta_abs_error": -15.705778295460732
+        },
+        {
+          "row_id": "bike-day:2012-05-21",
+          "control_abs_error": 1516.0,
+          "candidate_abs_error": 1645.1273956637397,
+          "delta_abs_error": 129.12739566373966
+        },
+        {
+          "row_id": "bike-day:2012-05-22",
+          "control_abs_error": 958.0,
+          "candidate_abs_error": 1200.9546086041082,
+          "delta_abs_error": 242.95460860410822
+        },
+        {
+          "row_id": "bike-day:2012-05-23",
+          "control_abs_error": 2164.0,
+          "candidate_abs_error": 74.48526694621614,
+          "delta_abs_error": -2089.514733053784
+        },
+        {
+          "row_id": "bike-day:2012-05-24",
+          "control_abs_error": 614.0,
+          "candidate_abs_error": 1744.1475618466975,
+          "delta_abs_error": 1130.1475618466975
+        },
+        {
+          "row_id": "bike-day:2012-05-25",
+          "control_abs_error": 905.0,
+          "candidate_abs_error": 1081.8140192312767,
+          "delta_abs_error": 176.8140192312767
+        },
+        {
+          "row_id": "bike-day:2012-05-26",
+          "control_abs_error": 1758.0,
+          "candidate_abs_error": 1085.1895800258317,
+          "delta_abs_error": -672.8104199741683
+        },
+        {
+          "row_id": "bike-day:2012-05-27",
+          "control_abs_error": 538.0,
+          "candidate_abs_error": 1199.8787807428926,
+          "delta_abs_error": 661.8787807428926
+        },
+        {
+          "row_id": "bike-day:2012-05-28",
+          "control_abs_error": 1684.0,
+          "candidate_abs_error": 815.7693048575147,
+          "delta_abs_error": -868.2306951424853
+        },
+        {
+          "row_id": "bike-day:2012-05-29",
+          "control_abs_error": 330.0,
+          "candidate_abs_error": 413.74044562473136,
+          "delta_abs_error": 83.74044562473136
+        },
+        {
+          "row_id": "bike-day:2012-05-30",
+          "control_abs_error": 1595.0,
+          "candidate_abs_error": 1837.165381124296,
+          "delta_abs_error": 242.1653811242959
+        },
+        {
+          "row_id": "bike-day:2012-05-31",
+          "control_abs_error": 568.0,
+          "candidate_abs_error": 1736.4617256455222,
+          "delta_abs_error": 1168.4617256455222
+        },
+        {
+          "row_id": "bike-day:2012-06-01",
+          "control_abs_error": 2607.0,
+          "candidate_abs_error": 2010.7148873479964,
+          "delta_abs_error": -596.2851126520036
+        },
+        {
+          "row_id": "bike-day:2012-06-02",
+          "control_abs_error": 1584.0,
+          "candidate_abs_error": 3344.0963139693667,
+          "delta_abs_error": 1760.0963139693667
+        },
+        {
+          "row_id": "bike-day:2012-06-03",
+          "control_abs_error": 1050.0,
+          "candidate_abs_error": 1362.3778638129988,
+          "delta_abs_error": 312.37786381299884
+        },
+        {
+          "row_id": "bike-day:2012-06-04",
+          "control_abs_error": 955.0,
+          "candidate_abs_error": 724.8158830264119,
+          "delta_abs_error": -230.18411697358806
+        },
+        {
+          "row_id": "bike-day:2012-06-05",
+          "control_abs_error": 1258.0,
+          "candidate_abs_error": 993.2062082391894,
+          "delta_abs_error": -264.79379176081056
+        },
+        {
+          "row_id": "bike-day:2012-06-06",
+          "control_abs_error": 200.0,
+          "candidate_abs_error": 1286.6136120909687,
+          "delta_abs_error": 1086.6136120909687
+        },
+        {
+          "row_id": "bike-day:2012-06-07",
+          "control_abs_error": 156.0,
+          "candidate_abs_error": 1521.0809665733432,
+          "delta_abs_error": 1365.0809665733432
+        },
+        {
+          "row_id": "bike-day:2012-06-08",
+          "control_abs_error": 3609.0,
+          "candidate_abs_error": 1340.204303188255,
+          "delta_abs_error": -2268.795696811745
+        },
+        {
+          "row_id": "bike-day:2012-06-09",
+          "control_abs_error": 622.0,
+          "candidate_abs_error": 1211.8009126726292,
+          "delta_abs_error": 589.8009126726292
+        },
+        {
+          "row_id": "bike-day:2012-06-10",
+          "control_abs_error": 1043.0,
+          "candidate_abs_error": 381.01837943866303,
+          "delta_abs_error": -661.981620561337
+        },
+        {
+          "row_id": "bike-day:2012-06-11",
+          "control_abs_error": 334.0,
+          "candidate_abs_error": 666.6964153597164,
+          "delta_abs_error": 332.6964153597164
+        },
+        {
+          "row_id": "bike-day:2012-06-12",
+          "control_abs_error": 2029.0,
+          "candidate_abs_error": 960.6889801370426,
+          "delta_abs_error": -1068.3110198629574
+        },
+        {
+          "row_id": "bike-day:2012-06-13",
+          "control_abs_error": 366.0,
+          "candidate_abs_error": 2395.546638603295,
+          "delta_abs_error": 2029.546638603295
+        },
+        {
+          "row_id": "bike-day:2012-06-14",
+          "control_abs_error": 131.0,
+          "candidate_abs_error": 1261.9161318175902,
+          "delta_abs_error": 1130.9161318175902
+        },
+        {
+          "row_id": "bike-day:2012-06-15",
+          "control_abs_error": 71.0,
+          "candidate_abs_error": 1487.1127131231478,
+          "delta_abs_error": 1416.1127131231478
+        },
+        {
+          "row_id": "bike-day:2012-06-16",
+          "control_abs_error": 204.0,
+          "candidate_abs_error": 1536.2139986825978,
+          "delta_abs_error": 1332.2139986825978
+        },
+        {
+          "row_id": "bike-day:2012-06-17",
+          "control_abs_error": 380.0,
+          "candidate_abs_error": 736.686708942043,
+          "delta_abs_error": 356.68670894204297
+        },
+        {
+          "row_id": "bike-day:2012-06-18",
+          "control_abs_error": 1565.0,
+          "candidate_abs_error": 999.1119568120175,
+          "delta_abs_error": -565.8880431879825
+        },
+        {
+          "row_id": "bike-day:2012-06-19",
+          "control_abs_error": 1853.0,
+          "candidate_abs_error": 1454.8531049948451,
+          "delta_abs_error": -398.1468950051549
+        },
+        {
+          "row_id": "bike-day:2012-06-20",
+          "control_abs_error": 1210.0,
+          "candidate_abs_error": 500.9104685840175,
+          "delta_abs_error": -709.0895314159825
+        },
+        {
+          "row_id": "bike-day:2012-06-21",
+          "control_abs_error": 1458.0,
+          "candidate_abs_error": 251.55901269267815,
+          "delta_abs_error": -1206.4409873073218
+        },
+        {
+          "row_id": "bike-day:2012-06-22",
+          "control_abs_error": 1842.0,
+          "candidate_abs_error": 227.2532754399299,
+          "delta_abs_error": -1614.74672456007
+        },
+        {
+          "row_id": "bike-day:2012-06-23",
+          "control_abs_error": 244.0,
+          "candidate_abs_error": 2081.877566532963,
+          "delta_abs_error": 1837.877566532963
+        },
+        {
+          "row_id": "bike-day:2012-06-24",
+          "control_abs_error": 87.0,
+          "candidate_abs_error": 885.3270588830146,
+          "delta_abs_error": 798.3270588830146
+        },
+        {
+          "row_id": "bike-day:2012-06-25",
+          "control_abs_error": 1680.0,
+          "candidate_abs_error": 785.9819966471532,
+          "delta_abs_error": -894.0180033528468
+        },
+        {
+          "row_id": "bike-day:2012-06-26",
+          "control_abs_error": 617.0,
+          "candidate_abs_error": 1592.2523724628481,
+          "delta_abs_error": 975.2523724628481
+        },
+        {
+          "row_id": "bike-day:2012-06-27",
+          "control_abs_error": 1124.0,
+          "candidate_abs_error": 1428.2463990435863,
+          "delta_abs_error": 304.2463990435863
+        },
+        {
+          "row_id": "bike-day:2012-06-28",
+          "control_abs_error": 974.0,
+          "candidate_abs_error": 760.2910402020625,
+          "delta_abs_error": -213.7089597979375
+        },
+        {
+          "row_id": "bike-day:2012-06-29",
+          "control_abs_error": 360.0,
+          "candidate_abs_error": 638.9957360296048,
+          "delta_abs_error": 278.9957360296048
+        },
+        {
+          "row_id": "bike-day:2012-06-30",
+          "control_abs_error": 1771.0,
+          "candidate_abs_error": 311.4701138724631,
+          "delta_abs_error": -1459.5298861275369
+        }
+      ],
+      "histogram": [
+        {
+          "low": -3014.8455955540103,
+          "high": -2379.1672213930033,
+          "count": 3
+        },
+        {
+          "low": -2379.1672213930033,
+          "high": -1743.4888472319958,
+          "count": 7
+        },
+        {
+          "low": -1743.4888472319958,
+          "high": -1107.8104730709886,
+          "count": 12
+        },
+        {
+          "low": -1107.8104730709886,
+          "high": -472.1320989099813,
+          "count": 24
+        },
+        {
+          "low": -472.1320989099813,
+          "high": 163.5462752510257,
+          "count": 35
+        },
+        {
+          "low": 163.5462752510257,
+          "high": 799.2246494120332,
+          "count": 49
+        },
+        {
+          "low": 799.2246494120332,
+          "high": 1434.9030235730406,
+          "count": 37
+        },
+        {
+          "low": 1434.9030235730406,
+          "high": 2070.5813977340476,
+          "count": 13
+        },
+        {
+          "low": 2070.5813977340476,
+          "high": 2706.2597718950547,
+          "count": 2
+        }
+      ],
+      "quartiles": {
+        "min": -3014.8455955540103,
+        "q1": -474.6797247146874,
+        "median": 258.24321168786605,
+        "q3": 927.0608530863867,
+        "max": 2706.2597718950547
+      }
+    }
+  ]
+}

@@ -8,7 +8,11 @@ export const KEPT = path.join(__dirname, "..", "..", "test", "cli");
 // lists of kept reads give their names to the files verify-panel writes for each, one folder deep.
 export const DEMONSTRATION = "demonstration.";
 
+// A file kept of the journey the panel mockups show, under `test/cli/journey/` (tests/_journey_states.py), the same way.
+export const JOURNEY = "journey.";
+
 export function kept(name: string): string {
-  const file = name.startsWith(DEMONSTRATION) ? path.join("demonstration", name.slice(DEMONSTRATION.length)) : name;
+  const folder = [DEMONSTRATION, JOURNEY].find((prefix) => name.startsWith(prefix));
+  const file = folder ? path.join(folder.slice(0, -1), name.slice(folder.length)) : name;
   return fs.readFileSync(path.join(KEPT, file), "utf8");
 }

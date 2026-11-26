@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "error": {
+    "code": "STUDY_NOT_FOUND",
+    "message": "no Study here: no-study-here/study.json does not exist (create one with `init`)",
+    "stage": "study",
+    "details": {
+      "study": "no-study-here"
+    }
+  }
+}

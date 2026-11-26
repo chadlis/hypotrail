@@ -1,0 +1,175 @@
+{
+  "ok": true,
+  "study": {
+    "study_id": "00000000-0000-4000-8000-000000000001",
+    "workload": "chinook",
+    "protocol_id": "chinook:protocol",
+    "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+    "revision_number": 1
+  },
+  "writer_alive": false,
+  "revisions": [
+    {
+      "revision_number": 1,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+      "previous_revision": null,
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-b31055db64b41efa",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        },
+        {
+          "artifact_id": "references-7a47fd1bc0547255",
+          "role": "references",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
+        },
+        {
+          "artifact_id": "answer-schema-72377e13ba30c890",
+          "role": "answer_schema",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000005"
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000002",
+      "request_id": "fixture",
+      "operation": "execute",
+      "mode": "scripted_fixture",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000001+00:00",
+      "finished_at": "2000-01-01T00:00:00.000002+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 1,
+        "missing": 1,
+        "produced": 5
+      },
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/inspect/LOG.eval",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000006",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "inspect_log"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observation_set.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000007",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observations.jsonl",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000008",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/population.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_population"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/run.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000a",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_record"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/self_check.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000b",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "self_check"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/workload.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000c",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    }
+  ],
+  "freeze_records": [],
+  "exposures": {
+    "recorded_in_this_study": 0,
+    "earlier_exposure": "unknown",
+    "statement": "This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.",
+    "entries": []
+  },
+  "check_informed": [],
+  "write_sequence": 4,
+  "decisions": [],
+  "declared_deviations": [],
+  "assessments": [],
+  "comparisons": [],
+  "pending_decisions": [],
+  "record_files": [],
+  "writes_since": [
+    {
+      "command": "init",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "init",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "0000000000000000000000000000000000000000000000000000000000000002",
+          "kind": "revision"
+        }
+      ]
+    },
+    {
+      "command": "run agent",
+      "phase": "begin",
+      "request_id": "fixture"
+    },
+    {
+      "command": "run agent",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "fixture",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "kind": "attempt"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "kind": "observation_set"
+        }
+      ]
+    }
+  ]
+}
