@@ -74,7 +74,7 @@ Ids are compared without their surrounding white space and without regard to cas
 
 ## What is refused before any command starts
 
-A refusal starts no command: nothing is written, and the Write sequence does not move. The tool checks the rules in the order of the table below and gives the code of the first rule that refuses. Only the checks after the read in the order start the read.
+A refusal starts no command: nothing is written, and the Write sequence does not move. The tool checks the rules in the order of the table below and gives the code of the first rule that refuses. A row with two codes gives the one its text names. Only the checks after the read in the order start the read.
 
 Before any check, an argument is normalized for the two scans. It is lowercased, and every white space, `-` and `_` is removed.
 
@@ -86,8 +86,8 @@ Before any check, an argument is normalized for the two scans. It is lowercased,
 | `ARGUMENTS_NOT_VALID` | `arguments` is not a list of strings. |
 | `LIVE_RUN_REFUSED` | An argument holds `llmlive` once normalized. Or, for `run` with `agent` first, an option name that is not exactly one of its row's names is a prefix, in any case, of an option that only `llm_live` takes: `--partition`, `--repeats`, `--model`, `--cases`, `--episode-cost-limit-usd` or `--price-list`. Or the value of `--mode` is not `scripted_fixture`. |
 | `PUBLIC_CHECK_REFUSED` | An argument holds `publiccheck` once normalized. |
-| `ARGUMENTS_NOT_VALID` | For `run`, the first argument is neither `ml` nor `agent`. An argument that is not an option stands where no value is taken, or an option has no value. |
-| `OPTION_NOT_ALLOWED` | An option is not one of its command's row: `--study`, `--json`, `--read-sequence`, `--examples-dir`, `--help`, `-h` and every shortened name included. |
+| `ARGUMENTS_NOT_VALID` | For `run`, the first argument is neither `ml` nor `agent`. |
+| `ARGUMENTS_NOT_VALID`, `OPTION_NOT_ALLOWED` | The options are read in the order given, and the first that fails gives its code. An argument that is not an option stands where no value is taken, or an option of its command's row has no value: `ARGUMENTS_NOT_VALID`. An option is not one of its command's row: `OPTION_NOT_ALLOWED`, with `--study`, `--json`, `--read-sequence`, `--examples-dir`, `--help`, `-h` and every shortened name included. |
 | `OPTION_REPEATED` | An option is given more than once. |
 | `READ_SEQUENCE_MISSING` | The command is not `profile`, and `read_sequence` is not an integer of 0 or more. |
 | `STATUS_UNREADABLE` | For `assess`, `compare` and `report`, the read of the Study did not succeed. |
