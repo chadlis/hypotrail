@@ -226,8 +226,15 @@ def test_the_committed_scoring_config_matches_its_schema():
 KINDS = ("invoice", "customer", "track", "album")
 # "number of", "count of" or "total" before the plural makes a count phrase, whose number is no identifier.
 COUNT_FORMS = ("Number of {kind}s: 7", "number of {kind}s : 7.", "Count of {kind}s: 7", "Total {kind}s: 7", "Total number of {kind}s: 7", "We hold 7 {kind}s.")
-# A labelled form names identifiers; a labelled list reads its first identifier only.
-LABELLED_FORMS = (("{Kind}s: 269, 291, 293", {"269"}), ("{Kind}s: 16 and 24", {"16"}), ("{kind}s:7", {"7"}), ("{kind}s 7", {"7"}))
+# A labelled form names identifiers, and every one of a list that follows its label; a bare "Invoices: 7" is a one-item list.
+LABELLED_FORMS = (
+    ("{Kind}s: 269, 291, 293", {"269", "291", "293"}),
+    ("{Kind}s: 16 and 24", {"16", "24"}),
+    ("{kind}s #34 & #155 or\n166", {"34", "155", "166"}),
+    ("{kind}s 34, 155, and 166", {"34", "155", "166"}),
+    ("{kind}s:7", {"7"}),
+    ("{kind}s 7", {"7"}),
+)
 ID_FORMS = ("See {kind} 7.", "See {kind} #7.", "See {Kind}: 7.", "See {kind} no. 7.")
 
 
@@ -246,9 +253,44 @@ def test_a_count_phrase_is_read_as_the_count_fact_and_names_no_identifier(form, 
 
 @pytest.mark.parametrize("kind", KINDS)
 @pytest.mark.parametrize("form", LABELLED_FORMS, ids=lambda form: form[0])
-def test_a_labelled_form_reads_its_first_identifier_only(form, kind):
-    text, first = form
-    assert values_of(kind, text.format(kind=kind, Kind=kind.capitalize())) == first
+def test_a_labelled_form_reads_every_identifier_of_the_list_that_follows_its_label(form, kind):
+    text, values = form
+    assert values_of(kind, text.format(kind=kind, Kind=kind.capitalize())) == values
+
+
+LIST_ROWS = {
+    "a sentence listing seven invoices": (
+        "Customer 12 has invoices 34, 155, 166, 221, 350, 373 and 395.",
+        {("customer", "12")} | {("invoice", v) for v in ("34", "155", "166", "221", "350", "373", "395")},
+    ),
+    "a labelled list": ("Invoices: 269, 291, 293", {("invoice", "269"), ("invoice", "291"), ("invoice", "293")}),
+    "one invoice": ("invoice 7", {("invoice", "7")}),
+    "a list that ends at a word": ("invoices 34 and 155 for a total of 9.90", {("invoice", "34"), ("invoice", "155")}),
+    "a list that ends at a sentence": ("See invoices 34 and 155. 9 more are due.", {("invoice", "34"), ("invoice", "155")}),
+    "a list before another kind": ("invoices 34 and 155 and customer 12", {("invoice", "34"), ("invoice", "155"), ("customer", "12")}),
+    "a list before a date": ("invoice 34, 2009-05-23", {("invoice", "34")}),
+    "a list before an amount": ("invoice 34, 49.62 in all", {("invoice", "34")}),
+    "a table cell": ("| invoice 34 | 2009-05-23 | $0.99 |", {("invoice", "34")}),
+}
+
+
+@pytest.mark.parametrize("row", list(LIST_ROWS))
+def test_identifiers_in_reads_each_list_to_its_end_and_no_number_past_it(row):
+    text, expected = LIST_ROWS[row]
+    assert text_facts.identifiers_in(text, CONFIG) == expected
+
+
+def test_a_number_past_the_end_of_a_list_is_still_read_as_a_fact():
+    text = "invoices 34 and 155 for a total of 9.90"
+    record = reference(expected_identifiers=[{"kind": "invoice", "value": "34"}, {"kind": "invoice", "value": "155"}], expected_facts=[{"fact_id": "t", "type": "decimal", "value": 9.9, "tolerance": 0.005, "rule": "SELECT 1"}])
+    assert {c["name"]: c["score"] for c in text_facts.score_text(text, record, CONFIG, None)["criteria"]}["facts_present"] is True
+
+
+def test_an_unexpected_identifier_in_the_third_place_of_a_list_is_flagged():
+    record = reference(expected_identifiers=[{"kind": "customer", "value": "12"}] + [{"kind": "invoice", "value": v} for v in ("34", "155", "166")], expected_facts=[])
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.score_text("Customer 12 has invoices 34, 155, 999 and 166.", record, CONFIG, None)["criteria"]}
+    assert criteria["identifiers_complete"] == (True, None)
+    assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
 
 
 @pytest.mark.parametrize("kind", KINDS)

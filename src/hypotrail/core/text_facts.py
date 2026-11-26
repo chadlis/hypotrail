@@ -4,6 +4,7 @@ One pure function, `score_text`, takes the raw answer text, the Reference record
 gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Reason for every non-score and every false:
 
 - `identifiers_complete`: every expected identifier, normalised, is among those found in the text (`identifier_missing`);
+  an identifier found is a kind pattern's capture, then each item of the list that follows it ("invoices 34, 155 and 166");
 - `no_unexpected_identifier`: every identifier found, normalised, is expected or allowed (`identifier_unexpected`); the
   optional `allowed_identifiers` of a Reference lists the records an answer may name beside the expected ones;
 - `facts_present`: every expected fact is found in the text (`fact_missing`). A number counts within its absolute
@@ -51,6 +52,10 @@ CURRENCY_SIGNS = "$€£"
 # optional `,` thousands groups; one followed by `%` is skipped.
 _NUMBER = re.compile(r"(?<![\w.\-])(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?![\d.,]*\d)(?!\s*%)")
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# D-163 on chadlis/hypotrail#75, item 1: "After a kind's label, the scorer reads every identifier in the list that follows it".
+# The next item of a list: a comma, "&", "and", "or" or whitespace, then a number, with "#" before it or not, that is not the
+# start of a date, an amount or a time. Anything else (a word, a full stop, a table bar) ends the list.
+_LIST_NEXT = re.compile(r"(?i)(?:\s*[,&]\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s+)#?([0-9](?:[0-9_]*[0-9])?)\b(?![.,:/-][0-9])")
 _REFERENCE_KEYS = {"case_id", "reference_version", "expected_outcome", "expected_identifiers", "expected_facts", "as_of"}
 _OPTIONAL_REFERENCE_KEYS = {"reference_text", "allowed_identifiers"}
 
@@ -181,13 +186,22 @@ def normalised(kind_config: dict, value: str) -> str:
     return value
 
 
-def identifiers_in(text: str, config: dict) -> set:
-    """Every (kind, normalised value) the config's patterns find in the text, each pattern's one capture group being the value."""
-    found = set()
+def identifier_spans(text: str, config: dict) -> list:
+    """(kind, normalised value, span) of each identifier: a pattern's one capture group, then each item of the list that follows it."""
+    found = []
     for kind, kind_config in config["identifier_kinds"].items():
         for match in re.finditer(kind_config["pattern"], text):
-            found.add((kind, normalised(kind_config, match.group(1))))
+            found.append((kind, normalised(kind_config, match.group(1)), match.span()))
+            end = match.end()
+            while (item := _LIST_NEXT.match(text, end)) is not None:
+                found.append((kind, normalised(kind_config, item.group(1)), item.span()))
+                end = item.end()
     return found
+
+
+def identifiers_in(text: str, config: dict) -> set:
+    """Every (kind, normalised value) found in the text (`identifier_spans`)."""
+    return {(kind, value) for kind, value, _ in identifier_spans(text, config)}
 
 
 def numbers_in(text: str) -> list:
@@ -199,7 +213,7 @@ def numbers_in(text: str) -> list:
 
 def without_identifiers_and_dates(text: str, config: dict) -> str:
     """The text with every identifier match, of any configured kind, and every ISO date blanked to spaces, so their numbers are not read as numbers."""
-    spans = [match.span() for kind_config in config["identifier_kinds"].values() for match in re.finditer(kind_config["pattern"], text)]
+    spans = [span for _, _, span in identifier_spans(text, config)]
     spans += [match.span() for match in _ISO_DATE.finditer(text)]
     chars = list(text)
     for start, end in spans:
