@@ -1,0 +1,15 @@
+{
+  "row_id": "item_id",
+  "y_pred": "score",
+  "dataset_sha256": "9730ae166259feed53c8887b39db6b2ee72d582c318b83ce82c641c6b9d5a1e3",
+  "model": "mlkit reference: recency rule",
+  "generated_at": "2026-11-27T10:00:00Z",
+  "historical_protocol": "none",
+  "tool_use": "none",
+  "settings": {
+    "kit_commit": "0000000000000000000000000000000000000000",
+    "run_id": "r-0001",
+    "frame_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "candidates_compared": 0
+  }
+}

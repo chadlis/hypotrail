@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "DATASET_DIGEST_MISMATCH",
+  "exit": 3,
+  "caught_by": "import",
+  "why": "the digest is not the one of examples/items.csv"
+}

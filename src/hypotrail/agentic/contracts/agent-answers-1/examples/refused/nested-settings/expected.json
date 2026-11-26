@@ -1,0 +1,7 @@
+{
+  "contract": "agent-answers/1",
+  "code": "LINE_FIELD_INVALID",
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "line 1 has an object as a 'settings' value"
+}
