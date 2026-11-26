@@ -1,6 +1,6 @@
 # Where a human act happens, and how a record says it
 
-Status: accepted
+Status: accepted; the owner's read is owed before any private Study (D-168)
 
 ## Context
 
@@ -25,7 +25,7 @@ Hypotrail seals nothing: "Any future holdout mechanism needs its own explicit pr
    - The chat prepares and relays. It may explain, draft a rule or the person's wording, and relay words, but its relay is never presented as the person's act.
    - A pull request is the strongest level.
    - The job is the outside evaluator (D-167), not a surface of Hypotrail. It has an identity the agents do not have, it runs the CLI, and it writes the final Decision of a reserved pass, such as the held-out pass, from a file. Hypotrail supplies only its commands.
-2. **The channel values.** `words.channel` keeps `panel`, `choice` and `chat_relayed`, and gains `file_relayed`: the caller read the words from a file and relays them. A Decision with the channel `file_relayed` requires `source`. Without it, `decide` refuses with `INVALID_ARGUMENTS` before the lock, as it does for other wrong uses of its word options. That `source` names the outside act the file comes from, as non-empty declared text: a pull request citation (point 5), or the job's run and its account. It is not the path or digest of the words file, since the words are already stored whole. `source` stays a string, and there is no `decision/3`.
+2. **The channel values.** `words.channel` keeps `panel`, `choice` and `chat_relayed`, and gains `file_relayed`: the caller read the words from a file and relays them. The `source` of a Decision with the channel `file_relayed` names the outside act the file comes from, as non-empty declared text: a pull request citation (point 5), or the job's run and its account. It is not the path or digest of the words file, since the words are already stored whole. `source` stays a string, and there is no `decision/3`.
 3. **`authenticated` stays always false.** Hypotrail checks no citation, so a cited act is still what the caller declares. A cited pull request raises the derived level mark only. `authenticated` may turn true only when Hypotrail itself has run a check and recorded it, and a later ADR decides that.
 4. **The validation level is configurable** (D-165 items 1 and 2). The level is held in the Plan, as one key beside `rule`, `budget` and `delegation` (ADR 0005). The levels, strongest first, are:
    1. `pr`: `source` cites a merged pull request;
@@ -37,8 +37,8 @@ Hypotrail seals nothing: "Any future holdout mechanism needs its own explicit pr
 5. **A pull request citation** is written in `source` as `https://github.com/<owner>/<repo>/pull/<n>@<40-hex merge commit>`. Hypotrail checks only its form, offline, and never asks the forge. The mark reads "pr, cited, not checked by Hypotrail".
 6. **The order rule and the wall are not configurable.**
    - The order rule: the rule and the declared level are recorded before the Study's first Exposure. It is read from the write journal, where the Exposure entries already are. It is shown at every level, and nothing is refused at write.
-   - The wall: no agent of any kind, whether chat or terminal, reads the held-out labels or the per-Item results of a reserved pass. No surface does either, the panel included, until the final Decision is recorded. Only an aggregate report with no question or answer text leaves it. After the final Decision a person may open that Study in the panel; an agent never does. The wall is held by the evaluator's place and the job's identity, outside Hypotrail. No Hypotrail setting stands for it, and the validation level says nothing about it.
-7. **#269.** Whether `hypotrail_decide` may still write `author: "human"` is decided after the J0-a trial (D-164 and D-166 on chadlis/hypotrail#75). The two options:
+   - The wall: no agent of any kind, whether chat or terminal, reads the held-out labels or the per-Item results of a reserved pass. No surface does either, the panel included, until the final Decision is recorded. The wall is held by the evaluator's place and the job's identity, outside Hypotrail. No Hypotrail setting stands for it, and the validation level says nothing about it.
+7. **#269.** The owner decides, after the J0-a trial, whether `hypotrail_decide` may still write `author: "human"` (D-164 and D-166 on chadlis/hypotrail#75). The two options:
    - **Option 1.** The tool refuses `author: "human"` before any start. It records `proxy` Decisions only, and a `human` Decision goes through the panel's Record or the CLI.
    - **Option 2.** The tool keeps `human`, and such a Decision carries a channel or mark that says the chat tool recorded it. The panel shows it as awaiting the person's validation, through the Validation record.
 
@@ -60,11 +60,11 @@ Hypotrail seals nothing: "Any future holdout mechanism needs its own explicit pr
 ## Alternatives rejected
 
 - **The channel as proof of identity**: the caller declares every channel (`decisions.py:68`), so reading `panel` as "the person chose" says more than the record holds.
-- **`authenticated` true when an act is cited**: an agent with a terminal could pass a pull request URL as `--source` and get `authenticated: true` (D-168).
-- **The level held in the Workload**: a change of level would then stop every Decision from applying, and one Workload serves a public twin and a private Study at different levels (D-168).
-- **Finer ranks, such as the job above the chat**: Hypotrail cannot tell a job from a chat, so a finer rank would claim what the record does not hold (D-168).
-- **The path or sha256 of the words file as `source`**: the words are already stored whole, and a path inside the evaluator's place means nothing to a reader (D-168).
-- **An online check of the pull request**: the core imports nothing, and CI makes no network call. Such a check would be a later opt-in read (D-168).
+- **`authenticated` true when an act is cited**: an agent with a terminal could pass a pull request URL as `--source` and get `authenticated: true`.
+- **The level held in the Workload**: a change of level would then stop every Decision from applying, and one Workload serves a public twin and a private Study at different levels.
+- **Finer ranks, such as the job above the chat**: Hypotrail cannot tell a job from a chat, so a finer rank would claim what the record does not hold.
+- **The path or sha256 of the words file as `source`**: the words are already stored whole, and a path inside the evaluator's place means nothing to a reader.
+- **An online check of the pull request**: the core imports nothing, and CI makes no network call. Such a check would be a later opt-in read.
 - **A fixed level for every Study, with the pull request required**: D-165 items 1 and 2 make it "not a required step".
 - **A physical key as the strongest level**: D-165 item 1, "no physical key is used".
 - **A Decision below the level refused at write**: D-148 item 1, "marked, not refused". A reserved pass is protected by the wall, not by a refusal in the core.
@@ -73,5 +73,9 @@ Hypotrail seals nothing: "Any future holdout mechanism needs its own explicit pr
 
 ## Open
 
-- **#269**: option 1 or option 2, decided after the J0-a trial.
+- **#269**: option 1 or option 2. The owner decides after the J0-a trial.
+- **A `file_relayed` Decision without `source`**: `decide` refuses it with `INVALID_ARGUMENTS` before the lock, as it refuses other wrong uses of its word options, or records it and marks it.
+- **After the final Decision of a reserved pass**: only a person may open its Study in the panel, or an agent may too.
+- **What leaves the wall before the final Decision**: an aggregate report with no question or answer text, or nothing.
+- **Any spending on the wall**: the owner's.
 - **The owner's read of this ADR** comes before any private Study fixes its record format. Public twins do not wait for it.

@@ -17,10 +17,10 @@ The precedent for a read that one Track serves is the data profile: `hypotrail p
 1. **A short `lesson` read, served by the Track.** Each Track with lesson content serves it through one read, `lesson`, built like `profile`: the CLI dispatches to the Track's module, and the core holds no lesson text. The read takes no lock, writes nothing, records no Exposure and does not advance the Write sequence. A Track that serves no cards refuses the read with `UNSUPPORTED_CAPABILITY`, as `profile` does, and a client draws nothing on that code, as `report` already does for the profile (`src/hypotrail/cli.py:747`). An empty list means that the Track serves cards and none applies here.
 2. **What a card is.** One card per kind of step shown (Study, Attempts, Assessments, Comparisons, Decisions, in the order of D-161 item 1), each a title and a few sentences that say what the step is and how to read it. A card is keyed by that kind, never by `next_step.kind`: `next_step` says what waits, and a card keyed on it would drift toward telling the reader what to do (D-136). A card explains the step shown. It does not teach a concept, measure a learning or recommend an option.
 3. **No number of the Study in a card.** A card may hold key paths to values of `status` or `figures`. A client may link to or highlight the value, but never writes it into the card's text.
-4. **Who reads it.** The panel and the Copilot read tool read `lesson`, and Claude Code reads it through the CLI, so that an agent explains with the same text instead of its own. The report does not read it: the teaching that was liked belongs to the accompanied path (D-164), and the report serves a reviewer.
+4. **Who reads it.** The panel and the Copilot read tool read `lesson`, so that the chat agent explains with the same text instead of its own. The report does not read it: the teaching that was liked belongs to the accompanied path (D-164), and the report serves a reviewer.
 5. **Where the texts live.** As data files of the Track, in English, checked against a schema kept beside them, as `src/hypotrail/ml/workload.schema.json` is. Cards are per Track: there is no `lesson --workload` and no card inside a Workload declaration. The free-text agent Workload of D-154 reads the agentic Track's cards.
 6. **English in the product.** Every card served by the product is in English. The French booklet and the journey map live in chadlis/hypotrail-learning, under ADR 0003's boundary: they link to the code at a pinned commit and to this ADR, and the product does not serve them.
-7. **The panel draws the cards folded, after Record.** A card is a closed `<details>` placed after the choices and Record, in the same way the charts fold (D-151 answer 3). It is always present when the read gives it, and no setting hides or shows it (D-136: nothing that a setting hides). It never pushes the question, the delta, a warning, the limitations line, the options or Record out of the first screen.
+7. **The panel draws the cards folded, after Record.** A card is a closed `<details>` placed after the choices and Record, in the same way the charts fold: the choices sit in the first screen at 420 px and the charts fold after Record (D-148 on chadlis/hypotrail#75, item 4; D-151 on chadlis/hypotrail#75, answer 3). It is always present when the read gives it, and no setting hides or shows it (D-136: nothing that a setting hides). It never pushes the question, the delta, a warning, the limitations line, the options or Record out of the first screen.
 
 ## Consequences
 
@@ -39,8 +39,12 @@ The precedent for a read that one Track serves is the data profile: `hypotrail p
 - **The cards open before Record** (rejected): they would push the choices and Record out of the first screen at 420 px (D-148 item 4).
 - **A setting that shows or hides the cards** (rejected): D-136, C3, "nothing that a setting hides".
 - **The cards in French, or in two languages, in the product** (rejected): everything committed here is in English, and the French material belongs to the learning repository (ADR 0003).
-- **Cards keyed by `next_step.kind`** (rejected, D-168): a card would then follow what waits, and drift toward telling the reader what to do.
-- **Numbers written into a card** (rejected, D-168): the client would compose a sentence about the Study's values, which D-136 leaves to the core.
-- **An empty list for a Track without cards** (rejected, D-168): it would not tell "no cards here" from "this Track serves none".
-- **Cards per Workload** (rejected, D-168): the cards explain the steps of a Track, which every Workload of it shares.
-- **The report as a reader** (not now, D-168): it serves a reviewer, not the accompanied path.
+- **Cards keyed by `next_step.kind`** (rejected): a card would then follow what waits, and drift toward telling the reader what to do.
+- **Numbers written into a card** (rejected): the client would compose a sentence about the Study's values, which D-136 leaves to the core.
+- **An empty list for a Track without cards** (rejected): it would not tell "no cards here" from "this Track serves none".
+- **Cards per Workload** (rejected): the cards explain the steps of a Track, which every Workload of it shares.
+- **The report as a reader** (not now): it serves a reviewer, not the accompanied path.
+
+## Open
+
+- **Claude Code as a reader**: it reads `lesson` through the CLI, as the Copilot read tool reads it, or it does not read it.
