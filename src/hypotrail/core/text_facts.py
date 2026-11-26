@@ -6,8 +6,8 @@ gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Rea
 - `identifiers_complete`: every expected identifier, normalised, is among those found in the text (`identifier_missing`);
 - `no_unexpected_identifier`: every identifier found, normalised, is expected (`identifier_unexpected`);
 - `facts_present`: every expected fact is found in the text (`fact_missing`). A number counts within its absolute
-  tolerance, ignoring the currency signs `$ € £` and `,` thousands separators, and never through a `%`; a date counts in
-  ISO form; a text counts as a casefolded substring;
+  tolerance, ignoring the currency signs `$ € £` and `,` thousands separators, and never through a `%`, nor from inside an
+  identifier match or an ISO date; a date counts in ISO form; a text counts as a casefolded substring;
 - `outcome_matches`: the answer's outcome is the Reference's `expected_outcome` (`outcome_mismatch`). The outcome is the
   one the Import line declares; otherwise the one the config's phrase rules recognise (`needs_clarification`, then
   `not_answerable`, else `answered`); without either it is `unscored` with `outcome_not_declared`;
@@ -187,6 +187,16 @@ def numbers_in(text: str) -> list:
     return [float(match.replace(",", "")) for match in _NUMBER.findall(text)]
 
 
+def without_identifiers_and_dates(text: str, config: dict) -> str:
+    """The text with every identifier match, of any configured kind, and every ISO date blanked to spaces, so their numbers are not read as numbers."""
+    spans = [match.span() for kind_config in config["identifier_kinds"].values() for match in re.finditer(kind_config["pattern"], text)]
+    spans += [match.span() for match in _ISO_DATE.finditer(text)]
+    chars = list(text)
+    for start, end in spans:
+        chars[start:end] = " " * (end - start)
+    return "".join(chars)
+
+
 def fact_found(fact: Fact, text: str, numbers: list) -> bool:
     if fact.type in ("integer", "decimal"):
         return any(abs(number - fact.value) <= fact.tolerance for number in numbers)
@@ -242,7 +252,7 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
     kinds = config["identifier_kinds"]
     expected = {(kind, normalised(kinds[kind], value)) for kind, value in reference.identifiers}
     found = identifiers_in(raw_answer, config)
-    numbers = numbers_in(raw_answer)
+    numbers = numbers_in(without_identifiers_and_dates(raw_answer, config))
     outcome = declared_outcome if declared_outcome is not None else recognised_outcome(raw_answer, config)
     if outcome is None:
         outcome_matches = _criterion("outcome_matches", "unscored", None, OUTCOME_NOT_DECLARED)

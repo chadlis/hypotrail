@@ -81,6 +81,27 @@ ROWS = {
         None,
         expect(facts_present=false("fact_missing"), text_facts_success=false("fact_missing")),
     ),
+    "a number inside an identifier against a count": (
+        "Customer 12 bought some tracks.",
+        reference(expected_identifiers=[{"kind": "customer", "value": "12"}], expected_facts=[count_fact(12)["expected_facts"][0]]),
+        CONFIG,
+        None,
+        expect(facts_present=false("fact_missing"), text_facts_success=false("fact_missing")),
+    ),
+    "a number beside an identifier that holds it": (
+        "Customer 12 has 12 invoices.",
+        reference(expected_identifiers=[{"kind": "customer", "value": "12"}], expected_facts=[count_fact(12)["expected_facts"][0]]),
+        CONFIG,
+        None,
+        expect(),
+    ),
+    "a year inside a date against a count": (
+        "The first one was billed on 2010-03-11.",
+        count_fact(2010),
+        CONFIG,
+        None,
+        expect(facts_present=false("fact_missing"), text_facts_success=false("fact_missing")),
+    ),
     "a number with , thousands": ("The total is $12,345.",  count_fact(12345), CONFIG, None, expect()),
     "a number with % against a plain fact": (
         "That is 45% of them.",
