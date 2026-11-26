@@ -529,5 +529,37 @@
         }
       ]
     }
+  ],
+  "record_files": [
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "declared_deviations/000001-00000000-0000-4000-8000-000000000004.json"
+    },
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "declared_deviations/000002-00000000-0000-4000-8000-000000000006.json"
+    },
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "declared_deviations/000003-00000000-0000-4000-8000-000000000008.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000a",
+      "path": "assessments/00000000-0000-4000-8000-00000000000a/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000c",
+      "path": "assessments/00000000-0000-4000-8000-00000000000c/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-00000000000e",
+      "path": "comparisons/00000000-0000-4000-8000-00000000000e/comparison.json"
+    }
   ]
 }

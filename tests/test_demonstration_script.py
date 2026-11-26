@@ -280,16 +280,21 @@ def test_a_work_folder_inside_the_checkout_or_not_empty_is_refused_with_exit_2_a
     assert tracked_files() == before
 
 
+WRITTEN_BY_OTHERS_AT_ROOT = {".git", ".venv", ".pytest_cache"}
+
+
 def checkout_files() -> dict:
-    """{path: (size, modification time)} of every file under the checkout but git's own folder `.git`, which the CLI's `git status`
-    may refresh and which the script does not write."""
+    """{path: (size, modification time)} of every file under the checkout, tracked or not, but those other processes write while the
+    script runs and the script does not write: git's own folder `.git`, which the CLI's `git status` may refresh, the environment `.venv`
+    and pytest's cache `.pytest_cache` at the root, and every `__pycache__` folder and `.pyc` file, where Python writes the bytecode of
+    what other processes import, such as the other pytest-xdist workers that run in the same checkout while the script runs."""
     found = {}
     for top, folders, files in os.walk(ROOT):
-        if Path(top) == ROOT:
-            folders[:] = [name for name in folders if name != ".git"]
+        excluded = WRITTEN_BY_OTHERS_AT_ROOT if Path(top) == ROOT else set()
+        folders[:] = [name for name in folders if name not in excluded and name != "__pycache__"]
         for name in files:
             path = Path(top) / name
-            if path.is_file() and not path.is_symlink():
+            if path.is_file() and not path.is_symlink() and path.suffix != ".pyc":
                 found[path.relative_to(ROOT).as_posix()] = (path.stat().st_size, path.stat().st_mtime_ns)
     return found
 

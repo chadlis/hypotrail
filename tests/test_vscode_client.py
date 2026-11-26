@@ -326,11 +326,17 @@ WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeVie
 FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 # The names of a call to a language model through VS Code.
 MODEL_NAMES = ["selectChatModels", "sendRequest"]
-EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process")}
+EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process"), ("clients/vscode/src/panel.ts", "showTextDocument")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
 # Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel,
-# the one assignment of a webview's document, and the one receiver of the document's messages.
-ONCE_NAMES = {"createWebviewPanel": "clients/vscode/src/panel.ts", ".html =": "clients/vscode/src/panel.ts", "onDidReceiveMessage": "clients/vscode/src/panel.ts"}
+# the one assignment of a webview's document, the one receiver of the document's messages, and the one call that shows a file of
+# the Study in the editor.
+ONCE_NAMES = {
+    "createWebviewPanel": "clients/vscode/src/panel.ts",
+    ".html =": "clients/vscode/src/panel.ts",
+    "onDidReceiveMessage": "clients/vscode/src/panel.ts",
+    "showTextDocument": "clients/vscode/src/panel.ts",
+}
 CHILD_PROCESS_IMPORT = 'import { execFile } from "node:child_process";'
 VSCODE_IMPORT = 'import * as vscode from "vscode";'
 
@@ -395,6 +401,7 @@ PLANTED = [
     ("a second panel created in another file", "clients/vscode/src/other.ts", 'vscode.window.createWebviewPanel("x", "x", 1, {});\n'),
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
     ("a second message receiver", "clients/vscode/src/other.ts", "other.webview.onDidReceiveMessage(listen);\n"),
+    ("a second opening of a file in the panel", "clients/vscode/src/panel.ts", "void vscode.window.showTextDocument(other);\n"),
     *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
     ("selectChatModels", "clients/vscode/src/tools.ts", "const models = await vscode.lm.selectChatModels();\n"),
     ("sendRequest", "clients/vscode/src/tools.ts", "const response = await model.sendRequest(messages);\n"),
