@@ -297,8 +297,11 @@ def test_each_allowed_identifier_set_is_exactly_what_the_sql_its_review_line_rec
     connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
     try:
         for case_id in ALLOWED_CASES:
-            recorded = review[case_id]["allowed_identifiers"]
-            derived = [{"kind": recorded["kind"], "value": str(value)} for (value,) in connection.execute(recorded["sql"]).fetchall()]
+            derived = [
+                {"kind": recorded["kind"], "value": str(value)}
+                for recorded in review[case_id]["allowed_identifiers"]
+                for (value,) in connection.execute(recorded["sql"]).fetchall()
+            ]
             assert derived and references[case_id]["allowed_identifiers"] == derived, case_id
     finally:
         connection.close()
@@ -349,3 +352,17 @@ def test_d17_asks_for_the_best_customer_without_a_word_that_reads_as_money_and_i
     assert not any(word in case["question"].lower() for word in ("valu", "spen", "revenue", "money", "paid", "pay"))
     assert reference["expected_outcome"] == "needs_clarification"
     assert any(note.startswith("2026-11-26, D-158") and case["question"] in note and line["case"]["question"] in note for note in line["dated_notes"])
+
+
+@pytest.mark.parametrize("case_id", ["P04", "P05", "P06"])
+def test_an_answer_naming_the_germany_2012_invoices_and_their_customers_names_no_unexpected_identifier(case_id):
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
+    answer = (
+        "5 invoices were billed to Germany in 2012: invoice 269 (customer 36), invoice 291 (customer 38), "
+        "invoice 293 (customer 2), invoice 321 (customer 36) and invoice 322 (customer 37)."
+    )
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(answer, reference, config, "answered")["criteria"]}
+    assert criteria["no_unexpected_identifier"] == (True, None)
