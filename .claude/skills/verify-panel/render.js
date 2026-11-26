@@ -57,7 +57,7 @@ require(path.join(CLIENT, "out", "test", "vscode-stub-hook.js"));
 const { test } = require("node:test");
 const H = require(path.join(CLIENT, "out", "test", "panel-harness.js"));
 const { exit, recorder } = require(path.join(CLIENT, "out", "test", "recorder.js"));
-const { kept } = require(path.join(CLIENT, "out", "test", "kept.js"));
+const { kept, KEPT: KEPT_FOLDER } = require(path.join(CLIENT, "out", "test", "kept.js"));
 const chrome = require(path.join(CLIENT, "out", "test", "chrome.js"));
 const contract = require(path.join(CLIENT, "contract.json"));
 const [, RECORD, SEND_AGAIN] = contract.messages;
@@ -85,10 +85,11 @@ const WIDTHS = [420, 900];
 function themed(name) {
   const theme = THEMES[name];
   const css = `:root{${Object.entries(theme.v).map(([key, value]) => `--vscode-${key}:${value};`).join("")}--vscode-font-family:system-ui,-apple-system,"Segoe UI",Ubuntu,sans-serif;--vscode-font-size:13px;--vscode-font-weight:normal;}
-html{background:var(--vscode-editor-background)}
+@layer vscode-default{html{background:var(--vscode-editor-background)}
 body{background-color:transparent;color:var(--vscode-editor-foreground);font-family:var(--vscode-font-family);font-weight:var(--vscode-font-weight);font-size:var(--vscode-font-size);margin:0;padding:0 20px;}
-a,a code{color:var(--vscode-textLink-foreground);}`;
-  return `(() => { const style = document.createElement("style"); style.nonce = document.querySelector("style").nonce; style.textContent = ${JSON.stringify(css)}; document.head.append(style); document.body.className = ${JSON.stringify(theme.kind)}; return true; })()`;
+a,a code{color:var(--vscode-textLink-foreground);}}`;
+  // VS Code prepends its default style to the head, inside the layer vscode-default, so that the panel's own rules win.
+  return `(() => { const style = document.createElement("style"); style.nonce = document.querySelector("style").nonce; style.textContent = ${JSON.stringify(css)}; document.head.prepend(style); document.body.className = ${JSON.stringify(theme.kind)}; return true; })()`;
 }
 
 // Each text under AA against what it stands on, every opacity and background under it composited.
@@ -115,9 +116,9 @@ const BELOW_AA = `(() => {
 // Where the first pending question, its first number and its Record control stand, and the page's height.
 const POSITIONS = `(() => {
   const top = (e) => e && Math.round(e.getBoundingClientRect().top + scrollY);
-  const question = document.querySelector('section[data-part="pending"] h3');
-  const number = document.querySelector('section[data-part="pending"] [data-element="delta"] a, section[data-part="pending"] [data-element="delta"] span');
-  const record = document.querySelector('section[data-part="pending"] button[data-message="${RECORD}"]');
+  const question = document.querySelector('[data-element="now-question"]');
+  const number = document.querySelector('section[data-part="now"] [data-element="delta"] a, section[data-part="now"] [data-element="delta"] span');
+  const record = document.querySelector('section[data-part="now"] button[data-message="${RECORD}"]');
   return { question: top(question), number: top(number), numberText: number && number.textContent, record: top(record), height: document.documentElement.scrollHeight, scrollY };
 })()`;
 
@@ -137,6 +138,12 @@ const NOT_FOUND = { error: { code: "ENOENT" } };
 
 for (const name of H.KEPT_READS) {
   test(name, async (t) => documents.set(name, (await H.documentFor(t, ...keptRead(name))).document));
+}
+// The journey's states that the client's contrast test reads, each with its figures read where one is kept.
+for (const state of ["04-pending", "09-new-compare", "10-proxy", "17-interrupted", "33-chinook-assessed"]) {
+  const name = `journey.${state}`;
+  const figures = fs.existsSync(path.join(KEPT_FOLDER, "journey", `${state}.figures.out`)) ? keptAnswer(`${name}.figures`) : H.FIGURES_FAILED;
+  test(name, async (t) => documents.set(name, (await H.documentFor(t, keptAnswer(`${name}.status`), figures)).document));
 }
 test("figures-failed", async (t) => documents.set("figures-failed", (await H.documentFor(t, keptAnswer("status-success"), H.FIGURES_FAILED)).document));
 test("read-refused", async (t) => documents.set("read-refused", (await H.documentFor(t, keptAnswer("status-not-found"))).document));
@@ -242,27 +249,23 @@ test("render", async (t) => {
       await view.open(name, theme);
       if (!shots.has(name)) shots.set(name, []);
       shots.get(name).push({ theme, width, file: await view.shoot(`${name}--${theme}-${width}.png`, true) });
-      if (width === 420) {
-        const below = await view.evaluate(BELOW_AA);
-        if (below.length) contrast[`${name}--${theme}`] = below;
-        positions[`${name}--${theme}`] = await view.evaluate(POSITIONS);
-      }
+      const below = await view.evaluate(BELOW_AA);
+      if (below.length) contrast[`${name}--${theme}-${width}`] = below;
+      if (width === 420) positions[`${name}--${theme}`] = await view.evaluate(POSITIONS);
     }
   }
   for (const theme of Object.keys(THEMES)) {
     const view = await page(t, address, 420, 700);
     await view.open("status-success", theme);
+    // The first radio and Record are found by selector, not by a count of Tab stops, which every new control of the page changes.
     const stops = [];
-    for (let at = 0; at < 30; at += 1) {
-      await view.key("Tab");
-      const stop = await view.evaluate('(() => { const e = document.activeElement; return e.tagName + ":" + (e.getAttribute("data-option") ?? e.textContent.trim().slice(0, 20)); })()');
-      stops.push(stop);
-      if (stop.startsWith("INPUT")) break;
-    }
+    const at = (selector) => view.evaluate(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
+    const stop = () => view.evaluate('(() => { const e = document.activeElement; return e.tagName + ":" + (e.getAttribute("data-option") ?? e.textContent.trim().slice(0, 20)); })()');
+    for (let n = 0; n < 300 && !(await at('input[type="radio"][data-pending="0"]')); n += 1) { await view.key("Tab"); stops.push(await stop()); }
     const steps = [{ step: "Tab to the first radio", file: await view.shoot(`i-focus-radio--${theme}-420.png`, false) }];
     await view.key("Space");
     steps.push({ step: "Space", file: await view.shoot(`i-selected--${theme}-420.png`, false) });
-    await view.key("Tab");
+    for (let n = 0; n < 10 && !(await at(`button[data-message="${RECORD}"][data-pending="0"]`)); n += 1) { await view.key("Tab"); stops.push(await stop()); }
     const after = await view.evaluate("document.activeElement.textContent.trim()");
     steps.push({ step: `Tab (focus: ${after})`, file: await view.shoot(`i-focus-record--${theme}-420.png`, false) });
     await view.key("Enter");
