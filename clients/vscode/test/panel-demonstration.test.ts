@@ -89,7 +89,7 @@ function assertStudy({ document, read }: Seen): void {
 // No pending decision: Now holds no count of pending decisions and states that no decision waits (D-161).
 function assertNoPending({ document }: Seen): void {
   const now = elementOf(document, '<section data-part="now"')!;
-  assert.equal(elementOf(now, '<p data-element="count">'), undefined, "no count of pending decisions");
+  assert.ok(!partsOf(now).tags.some((tag) => tag.includes('data-element="count"')), "no count of pending decisions, whatever its tag");
   assert.equal(words(elementOf(now, '<p data-element="now-question">')), label("No decision waits for you."));
 }
 
