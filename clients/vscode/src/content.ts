@@ -133,6 +133,7 @@ const LABEL = {
   observationSet: 99,
   noDecisionWaits: 100,
   pendingOne: 101,
+  everythingToHandle: 102,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -327,9 +328,9 @@ function toHandleListOf(object: Entry | undefined): string {
     const attempt = list(object?.attempts).find((each) => each.attempt_id === id);
     return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status)} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
   });
-  // The list opens on its own heading, above the level of the Control's and the Candidate's, so that it cannot read as part of the
-  // Candidate drawn above it in Now; the section headings of the page stay the five.
-  return ['<section data-part="tohandle" id="tohandle-list">', `<h3>${label("toHandle")}</h3>`, `<ul>\n${rows.join("\n")}\n</ul>`, "</section>"].join("\n");
+  // The list opens on its own heading, other than the compact line's and above the level of the Control's and the Candidate's, so that
+  // it cannot read as part of the Candidate drawn above it in Now; the section headings of the page stay the five.
+  return ['<section data-part="tohandle" id="tohandle-list">', `<h3>${label("everythingToHandle")}</h3>`, `<ul>\n${rows.join("\n")}\n</ul>`, "</section>"].join("\n");
 }
 
 // Under rule 3, after the core's text: each Decision `next_step` names, its option as a link to its part, the phrase of whether it applies

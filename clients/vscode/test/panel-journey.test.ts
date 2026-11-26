@@ -409,13 +409,13 @@ for (const [state, count] of [["17-interrupted", 1], ["19-two-interrupted", 2], 
 
 // The list of To handle stands under its own heading, so that it cannot read as part of the Candidate above it.
 for (const state of ["17-interrupted", "19-two-interrupted"]) {
-  test(`the list of To handle opens on its own heading, the label To handle, and stands outside Now and every part of Now: ${state}`, async (t) => {
+  test(`the list of To handle opens on its own heading, a label other than the compact line's, and stands outside Now and every part of Now: ${state}`, async (t) => {
     const { document } = await built(t, state);
     const list = elementOf(document, '<section data-part="tohandle" id="tohandle-list">');
     assert.ok(list, "the list is a section of its own");
-    assert.ok(contract.labels.includes("To handle"));
+    assert.ok(contract.labels.includes("Everything to handle"));
     const [, first] = /^<section[^>]*>\n(<h[1-6]>[^<]*<\/h[1-6]>)/.exec(list!) ?? [];
-    assert.equal(first, "<h3>To handle</h3>", "its heading first, above the level of the Candidate's");
+    assert.equal(first, "<h3>Everything to handle</h3>", "its heading first, above the level of the Candidate's, other than the compact line's");
     const now = elementOf(document, '<section data-part="now"')!;
     assert.ok(!now.includes('id="tohandle-list"'), "not inside Now");
   });
