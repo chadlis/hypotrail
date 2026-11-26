@@ -63,4 +63,4 @@ def test_every_consequence_says_it_is_not_built():
 def test_the_adr_cites_every_decision_with_its_issue_and_quotes_no_french():
     text = squash(adr())
     assert [m[0] for m in re.finditer(r"D-\d{3}(?! on chadlis/hypotrail#75)", text)] == []
-    assert "«" not in text and "»" not in text
+    assert "\u00ab" not in text and "\u00bb" not in text
