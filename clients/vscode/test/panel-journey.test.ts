@@ -305,9 +305,10 @@ for (const state of STATES.filter((each) => readOf(each).ok === true)) {
     const steps = elementsOf(path, "<details data-step=");
     const drawn = steps.map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
     assert.deepEqual(drawn, stepsOf(read), "exactly the kinds present");
-    // The journey's reads are made with --since=0: each holds the whole journal, whose first appearances the drawn order agrees with.
-    assert.equal(read.writes_since.filter((entry: Record<string, any>) => entry.phase === "end").length > 0 || read.write_sequence === 0, true);
-    assert.deepEqual(journalOrderOf(read).filter((step) => drawn.includes(step)), drawn.filter((step) => journalOrderOf(read).includes(step)), "the order of first appearance in the journal");
+    // A read holds the whole journal when it lists one entry per write: the steps drawn are then the kinds in the order of their first
+    // appearance in it, the whole ordered list.
+    assert.equal(read.writes_since.length, read.write_sequence, "a read of the whole journal");
+    assert.deepEqual(drawn, journalOrderOf(read), "the order of first appearance in the journal");
     for (const step of steps) {
       assert.ok(!/^<details[^>]*\sopen/.test(step), "closed");
       assert.match(step, /^<details data-step="[a-z]+">\n<summary>/, "one line first");
