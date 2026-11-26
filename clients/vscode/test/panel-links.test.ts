@@ -4,6 +4,7 @@ import contract from "../contract.json";
 import { bodyOf } from "../src/content";
 import { JOURNEY, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -526,4 +527,22 @@ test("status-public-check: the document holds none of the attempt_id, the reques
   const [attempt] = object.attempts.filter((each: Entry) => each.request_id === "ml-public_check-seasonal_7");
   const { document } = await documentFor(t, success(object));
   for (const value of [attempt.attempt_id, attempt.request_id, ...attempt.artifacts.map((artifact: Entry) => artifact.path)]) assert.ok(!document.includes(value), value);
+});
+
+// "a deep link builds the document with the target's folds open" (D-136, I3), in headless Chrome: state 16, its first Decision.
+test("a link of the second form on state 16 opens the fold of the Decision it names and moves the view to it", { timeout: 60000 }, async (t) => {
+  if (!hasChrome(t, "the deep link into a fold")) return;
+  const address = await startChrome(t);
+  if (address === undefined) return t.skip(`Chrome at ${CHROME} did not start within ${START_MS} ms`);
+  const object = keptObject(`${JOURNEY}16-deviation-withdrawn.status`);
+  const [study] = workspace(t, ["bike"]);
+  recorder(t, ...withFigures(success(object)));
+  await followLink(1, study, object.decisions[0].decision_id);
+  await settle();
+  const evaluate = await opened(t, address, lastDocument(), 420, 700);
+  const linked = `document.querySelector("[data-linked]")`;
+  assert.equal(await evaluate(`${linked}.closest("details").open`), true, "the fold of the Decision is open");
+  assert.equal(await evaluate(`${linked}.checkVisibility()`), true, "the Decision is drawn");
+  const top: number = await evaluate(`${linked}.getBoundingClientRect().top`);
+  assert.ok(top > -1 && top < 700, `the view moved to the Decision, now at ${top} px`);
 });

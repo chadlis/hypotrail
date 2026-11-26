@@ -228,8 +228,9 @@ function newNonce(): string {
 
 // The document's script: each control sends the message its attribute names, and the control that records sends with
 // it the indexes of its pending decision and of the option selected there, a control that opens the kind, the index and the ref its
-// attributes name; selecting an option makes that control active. The notice of a write the CLI recorded takes the focus, which keeps the view at the top; otherwise the view scrolls to the
-// Decision a link names.
+// attributes name; selecting an option makes that control active. A link of the document opens the folds that hold its target, then moves
+// the view to it. The notice of a write the CLI recorded takes the focus, which keeps the view at the top; otherwise the folds of the Decision
+// a link names open and the view scrolls to it.
 const SCRIPT = [
   '"use strict";',
   "const api = acquireVsCodeApi();",
@@ -260,8 +261,25 @@ const SCRIPT = [
   "    if (control !== null) control.disabled = false;",
   "  });",
   "}",
+  // "a deep link builds the document with the target's folds open" (D-136, I3): each fold that holds an element is opened before the
+  // view moves to it, for a link of the document and for the Decision a link of the second form names.
+  "const reveal = (element) => {",
+  '  for (let fold = element.closest("details"); fold !== null; fold = fold.parentElement.closest("details")) fold.open = true;',
+  "  element.scrollIntoView();",
+  "};",
+  'for (const anchor of document.querySelectorAll(\'a[href^="#"]\')) {',
+  '  anchor.addEventListener("click", (event) => {',
+  '    const target = document.getElementById(anchor.getAttribute("href").slice(1));',
+  "    if (target === null) return;",
+  "    event.preventDefault();",
+  "    reveal(target);",
+  "  });",
+  "}",
   'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
-  'else document.querySelector("[data-linked]")?.scrollIntoView();',
+  "else {",
+  '  const linked = document.querySelector("[data-linked]");',
+  "  if (linked !== null) reveal(linked);",
+  "}",
 ].join("\n");
 
 // The document's style. Its first three rules are the palettes: "one charter palette block per theme kind" (D-136, C4 amended), the

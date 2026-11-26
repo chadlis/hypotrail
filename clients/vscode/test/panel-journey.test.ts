@@ -9,8 +9,31 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { written } from "../src/content";
 import { JOURNEY, KEPT, kept } from "./kept";
-import { LITERALS, S2_INTERVAL, assertNowOrder, attributeValues, cspProblems, documentFor, elementOf, elementsOf, geometryValues, holdsTheHeadings, markedTexts, partsOf, success, unescaped } from "./panel-harness";
-import { exit, type Answer } from "./recorder";
+import {
+  FIGURES_FAILED,
+  LITERALS,
+  S2_INTERVAL,
+  assertNowOrder,
+  attributeValues,
+  cspProblems,
+  documentFor,
+  elementOf,
+  elementsOf,
+  geometryValues,
+  heldRecorder,
+  holdsTheHeadings,
+  lastDocument,
+  markedTexts,
+  panelOf,
+  partsOf,
+  runCommand,
+  settle,
+  success,
+  unescaped,
+  withFigures,
+  workspace,
+} from "./panel-harness";
+import { exit, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const headingsOf = (document: string): string[] => [...document.matchAll(/<h2>([^<]*)<\/h2>/g)].map((match) => unescaped(match[1]));
@@ -369,4 +392,72 @@ test("Tools holds Read again, then Hand over last, the command report as fixed t
   assert.ok(tools.trimEnd().endsWith(`${hand}\n</section>`), "Hand over last");
   assert.ok(tools.indexOf(`data-message="${contract.messages[0]}"`) < tools.indexOf(hand), "Read again before it");
   assert.ok(words(hand).includes("report") && !/data-message="[^"]*report/.test(document));
+});
+
+// --- The client states, on the kept read of state 04 (D-143, correction 4) -----------------------------------------------------------
+
+const STATE_04 = (): Answer => answerOf("04-pending.status");
+const FIGURES_04 = (): Answer => answerOf("04-pending.figures");
+const TIMEOUT: Answer = { error: { code: null, killed: true, signal: "SIGTERM" } };
+const tagsOf = (document: string): string[] => partsOf(document).tags;
+const inertControls = (document: string): string[] =>
+  tagsOf(document).filter((tag) => /^<(button|textarea|input)[\s>]/.test(tag) && !/\sdisabled(\s|>)/.test(tag));
+
+test("a read in progress on state 04: the line of a read in flight, main busy, and every control inert", async (t) => {
+  workspace(t, ["bike"]);
+  heldRecorder(t);
+  await runCommand();
+  const document = lastDocument();
+  assert.ok(partsOf(elementOf(document, '<div data-element="notice"')!).between.includes("Reading the Study."));
+  assert.match(tagsOf(document).find((tag) => tag.startsWith("<main"))!, /aria-busy="true"/);
+  assert.deepEqual(inertControls(document), []);
+});
+
+test("a read error on state 04: the failure with the cause of no answer, Read again, and no part of an earlier read", async (t) => {
+  workspace(t, ["bike"]);
+  recorder(t, TIMEOUT);
+  await runCommand();
+  await settle();
+  const document = lastDocument();
+  assert.ok(words(elementOf(document, '<div data-element="failure">')).includes("timeout"));
+  assert.ok(!document.includes('<section data-part="pending">'));
+  assert.ok(document.includes(`data-message="${contract.messages[0]}"`));
+});
+
+test("figures unavailable on state 04: the status read stands whole, and the fold of the charts holds the label of a failed figures call", async (t) => {
+  const { document } = await documentFor(t, STATE_04(), FIGURES_FAILED);
+  const fold = elementOf(elementOf(document, '<section data-part="now"')!, '<details data-element="charts">')!;
+  assert.ok(words(fold).includes("Figures unavailable. Read again."));
+  assert.ok(elementOf(document, '<section data-part="now"')!.includes("<fieldset "), "the choices stand");
+});
+
+test("a write in flight on state 04: the line of a write in flight and the choice sent, and every control inert", async (t) => {
+  workspace(t, ["bike"]);
+  const { answer } = heldRecorder(t);
+  await runCommand();
+  answer(STATE_04());
+  await settle();
+  answer(FIGURES_04());
+  await settle();
+  panelOf().send({ message: contract.messages[1], pending: 0, option: 0, words: "" });
+  const document = lastDocument();
+  assert.ok(partsOf(elementOf(document, '<div data-element="notice"')!).between.includes("Recording the Decision."));
+  assert.deepEqual(inertControls(document), []);
+});
+
+test("no answer, then Send again, on state 04: the words of an unknown outcome and Send again, which sends the held arguments", async (t) => {
+  workspace(t, ["bike"]);
+  const calls = recorder(t, ...withFigures(STATE_04(), TIMEOUT, TIMEOUT));
+  await runCommand();
+  await settle();
+  panelOf().send({ message: contract.messages[1], pending: 0, option: 0, words: "" });
+  await settle();
+  const document = lastDocument();
+  assert.ok(partsOf(elementOf(document, '<div data-element="notice"')!).between.includes(contract.write_no_answer_words));
+  assert.ok(document.includes(`data-message="${contract.messages[2]}"`), "Send again");
+  panelOf().send({ message: contract.messages[2] });
+  await settle();
+  const decides = calls.filter((call) => call.args.includes("decide"));
+  assert.equal(decides.length, 2);
+  assert.deepEqual(decides[1].args, decides[0].args, "the held arguments, the request id included");
 });
