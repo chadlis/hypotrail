@@ -310,6 +310,11 @@ def test_identifiers_in_reads_each_list_to_its_end_and_no_number_past_it(row):
     assert text_facts.identifiers_in(text, CONFIG) == expected
 
 
+def test_a_count_phrase_whose_number_follows_its_copula_gives_that_number_as_its_only_fact():
+    text = LIST_ROWS["a count phrase whose number follows its copula, after a list"][0]
+    assert text_facts.fact_numbers(text, CONFIG) == [2.0]
+
+
 def test_a_number_past_the_end_of_a_list_is_still_read_as_a_fact():
     text = "invoices 34 and 155 for a total of 9.90"
     record = reference(expected_identifiers=[{"kind": "invoice", "value": "34"}, {"kind": "invoice", "value": "155"}], expected_facts=[{"fact_id": "t", "type": "decimal", "value": 9.9, "tolerance": 0.005, "rule": "SELECT 1"}])
