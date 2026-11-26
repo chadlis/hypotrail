@@ -391,19 +391,19 @@ def test_each_frank_review_line_records_the_replaced_text_the_blind_writers_resu
     import subprocess
 
     tracked = set(subprocess.run(["git", "ls-files", BLIND_WRITERS], cwd=EXAMPLES.parent, capture_output=True, text=True, check=True).stdout.split())
-    assert tracked == {f"{BLIND_WRITERS}/{name}" for name in ("brief.md", "writer-a.md", "writer-b.md", "writer-a-q.py", "writer-b-query.py")}
+    assert tracked == {f"{BLIND_WRITERS}/{name}" for name in ("brief.md", "writer-a.md", "writer-b.md")}
     _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
     previous = {"D16": "Who is our best customer?", "D17": "Which customer stands out above all the others?", "D18": "Tell me who our top customer is."}
     for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
         replaced = line["replacement"]
         assert line["case"]["question"] == FRANK_QUESTIONS[line["case_id"]]
         assert replaced["previous_question"] == previous[line["case_id"]]
-        assert [(w["file"], w["script"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
-            (f"{BLIND_WRITERS}/writer-a.md", f"{BLIND_WRITERS}/writer-a-q.py", "2026-11-26", "needs_clarification"),
-            (f"{BLIND_WRITERS}/writer-b.md", f"{BLIND_WRITERS}/writer-b-query.py", "2026-11-26", "needs_clarification"),
+        assert [(w["file"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
+            (f"{BLIND_WRITERS}/writer-a.md", "2026-11-26", "needs_clarification"),
+            (f"{BLIND_WRITERS}/writer-b.md", "2026-11-26", "needs_clarification"),
         ]
         assert replaced["brief"] == f"{BLIND_WRITERS}/brief.md"
-        assert replaced["isolation"].startswith("Deviation:") and "by instruction only" in replaced["isolation"] and "not by tool" in replaced["isolation"]
+        assert replaced["isolation"].startswith("Deviation:") and "by instruction only" in replaced["isolation"] and "not by tool" in replaced["isolation"] and "stay out of the repository" in replaced["isolation"]
         assert replaced["note"].startswith("2026-11-26, D-160") and "before any Attempt" in replaced["note"]
         assert line["case"]["group"] == "ambiguous-customer" and line["history"]["case"]["question"] != line["case"]["question"]
         assert [note[:20] for note in line["dated_notes"]] == ["2026-11-26, D-160 on"]
