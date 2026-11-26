@@ -4158,7 +4158,7 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 17
+    assert len(parser_commands()) == 18
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     assert rows["deviation"]["data-chapter"] == "decisions"
     assert rows["figures"]["data-chapter"] == "decisions"
