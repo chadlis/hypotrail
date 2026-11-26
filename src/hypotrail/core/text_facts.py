@@ -57,9 +57,17 @@ _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _COUNT_BEFORE = re.compile(r"(?i)\b(?:numbers?\s+of|count\s+of|total)\s+\Z")
 _PLURAL_LABEL = re.compile(r"[^\W\d_]+s\b")
 # D-163 on chadlis/hypotrail#75, item 1: "After a kind's label, the scorer reads every identifier in the list that follows it".
-# The next item of a list: a comma, "&", "and", "or" or whitespace, then a number, with "#" before it or not, that is not the
-# start of a date, an amount or a time. Anything else (a word, a full stop, a table bar) ends the list.
-_LIST_NEXT = re.compile(r"(?i)(?:\s*[,&]\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s+)#?([0-9](?:[0-9_]*[0-9])?)\b(?![.,:/-][0-9])")
+# An item is a number, with "#" before it or not, that does not start a date, an amount or a time.
+_ITEM = r"#?(?P<value>[0-9](?:[0-9_]*[0-9])?)\b(?![.,:/-][0-9])"
+# The owner's decision on the round-5 floor (#263): "explicit joiners only". On one line, the next item follows ",", ";", "&",
+# "and" or "or", with optional spaces or tabs, never a bare space or a newline; an item reached through "&", "and" or "or"
+# closes the list. Anything else (a word, a full stop, a newline, a table bar) ends it.
+_JOINED_NEXT = re.compile(r"(?i)(?:[ \t]*[,;][ \t]*(?:(?P<and_after_comma>and|or)[ \t]+)?|[ \t]*(?P<amp>&)[ \t]*|[ \t]+(?P<word>and|or)[ \t]+)" + _ITEM)
+# The owner's decision: "bulleted or numbered lines read one per line" and "a list marker is never an id". A marker opens a
+# line: "-", "*", "+", "N." or "N)", then a space or a tab.
+_MARKER = re.compile(r"(?m)^[ \t]*(?:[-*+]|[0-9]+[.)])(?=[ \t])")
+# After a label that ends its line, the next line holds the next item when it opens with a marker; any other line ends the list.
+_LINE_NEXT = re.compile(r"[ \t]*\r?\n[ \t]*(?:[-*+]|[0-9]+[.)])[ \t]+" + _ITEM)
 _REFERENCE_KEYS = {"case_id", "reference_version", "expected_outcome", "expected_identifiers", "expected_facts", "as_of"}
 _OPTIONAL_REFERENCE_KEYS = {"reference_text", "allowed_identifiers"}
 
@@ -190,21 +198,41 @@ def normalised(kind_config: dict, value: str) -> str:
     return value
 
 
+def _without_markers(text: str) -> str:
+    """The text with every line's list marker blanked to spaces, so that no marker is read as an identifier; spans are kept."""
+    return _MARKER.sub(lambda marker: " " * len(marker.group(0)), text)
+
+
 def identifier_spans(text: str, config: dict) -> list:
     """(kind, normalised value, span) of each identifier: a pattern's one capture group, then each item of the list that follows it.
 
-    A match whose label is a plural word right after a count phrase ("number of invoices: 7") is a count, and gives none.
+    The patterns run on the text with its list markers blanked. A label that ends its line ("Invoices:") is followed by its
+    items one per marker line, and a match whose value sits on a later line with no marker gives none. A match whose label is
+    a plural word right after a count phrase ("number of invoices: 7") is a count, and gives none, nor does the list after it.
     """
+    view = _without_markers(text)
     found = []
     for kind, kind_config in config["identifier_kinds"].items():
-        for match in re.finditer(kind_config["pattern"], text):
-            if _PLURAL_LABEL.match(text, match.start()) and _COUNT_BEFORE.search(text[: match.start()]):
+        for match in re.finditer(kind_config["pattern"], view):
+            if _PLURAL_LABEL.match(view, match.start()) and _COUNT_BEFORE.search(view[: match.start()]):
                 continue
+            by_line = "\n" in view[match.start() : match.start(1)]
+            if by_line and view[: match.start(1)].rsplit("\n", 1)[1].strip() == "":
+                line_start = text.rfind("\n", 0, match.start(1)) + 1
+                if not _MARKER.match(text, line_start):
+                    continue
             found.append((kind, normalised(kind_config, match.group(1)), match.span()))
             end = match.end()
-            while (item := _LIST_NEXT.match(text, end)) is not None:
-                found.append((kind, normalised(kind_config, item.group(1)), item.span()))
+            if by_line:
+                while (item := _LINE_NEXT.match(text, end)) is not None:
+                    found.append((kind, normalised(kind_config, item.group("value")), item.span()))
+                    end = item.end()
+                continue
+            while (item := _JOINED_NEXT.match(text, end)) is not None:
+                found.append((kind, normalised(kind_config, item.group("value")), item.span()))
                 end = item.end()
+                if item.group("and_after_comma") or item.group("amp") or item.group("word"):
+                    break
     return found
 
 

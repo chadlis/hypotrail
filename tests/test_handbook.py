@@ -6537,3 +6537,8 @@ def test_chapter_08_says_how_identifiers_are_read_and_that_a_bare_labelled_numbe
     assert all(phrase in text for phrase in ("number of", "numbers of", "count of", "total"))
     assert '"Invoices: 7" reads as invoice 7' in text
     assert "one-item" in text and "count phrase" in text
+    assert 'only ",", ";", "&", "and" or "or"' in text and "never a bare space or a newline" in text
+    assert 'an item reached through "&", "and" or "or" closes the list' in text
+    assert all(marker in text for marker in ('"-"', '"*"', '"+"', '"N."', '"N)"')) and "a marker is never an id" in text
+    assert "a line with no marker ends the list" in text
+    assert '"the number of invoices 34 and 155 is 2" reads no id' in text

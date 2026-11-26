@@ -243,7 +243,13 @@ COUNT_FORMS = (
 LABELLED_FORMS = (
     ("{Kind}s: 269, 291, 293", {"269", "291", "293"}),
     ("{Kind}s: 16 and 24", {"16", "24"}),
-    ("{kind}s #34 & #155 or\n166", {"34", "155", "166"}),
+    ("{kind}s #34, #155 or #166", {"34", "155", "166"}),
+    ("{kind}s 34; 155; 166", {"34", "155", "166"}),
+    ("{Kind}s:\n- 34\n- 155\n- 166", {"34", "155", "166"}),
+    ("{Kind}s:\n* 34\n* 155\n* 166", {"34", "155", "166"}),
+    ("{Kind}s:\n1. 34\n2. 155\n3. 166", {"34", "155", "166"}),
+    ("{Kind}s:\n+ 34\n+ 155", {"34", "155"}),
+    ("{Kind}s:\n1) 34\n2) 155", {"34", "155"}),
     ("{kind}s 34, 155, and 166", {"34", "155", "166"}),
     ("{kind}s:7", {"7"}),
     ("{kind}s 7", {"7"}),
@@ -284,6 +290,18 @@ LIST_ROWS = {
     "a list before a date": ("invoice 34, 2009-05-23", {("invoice", "34")}),
     "a list before an amount": ("invoice 34, 49.62 in all", {("invoice", "34")}),
     "a table cell": ("| invoice 34 | 2009-05-23 | $0.99 |", {("invoice", "34")}),
+    "a numbered Markdown list": ("1. Invoice 98\n2. Invoice 99", {("invoice", "98"), ("invoice", "99")}),
+    "a blank line ends a list": ("Invoice 34\n\n2 more are pending", {("invoice", "34")}),
+    "a bare space is no joiner": ("Invoice 98 1 track", {("invoice", "98")}),
+    "a newline is no joiner": ("invoices 34\n155", {("invoice", "34")}),
+    "an item reached through and closes the list": ("invoices 34, 155 and 166, 3 in total", {("invoice", v) for v in ("34", "155", "166")}),
+    "an item reached through a comma, then a word": ("invoices 34, 155 for a total of 9.90", {("invoice", "34"), ("invoice", "155")}),
+    "an item reached through & closes the list": ("invoices 34 & 155, 2 in all", {("invoice", "34"), ("invoice", "155")}),
+    "a line with no marker ends a line list": ("Invoices:\n- 34\nSee also\n- 155", {("invoice", "34")}),
+    "marker lines after a label that does not end its line": ("Invoice 34\n- 155", {("invoice", "34")}),
+    "a label line followed by a line with no marker": ("Invoices:\n\n2 more are pending", set()),
+    # A documented limit: a count phrase consumes what follows it, so the list after it is not read.
+    "a count phrase before a list": ("the number of invoices 34 and 155 is 2", set()),
 }
 
 
