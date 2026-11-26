@@ -2,6 +2,10 @@
 
 Each test reads the run of `demonstration_run` (`conftest.py`) for one step and asserts what a person watching the transcript does not
 see: the exit codes and refusals, each expectation, the Write sequence, the records on disk and in the reads, the report's sections.
+
+Stated limit: that every float these tests compare goes through the script's rule (`same`, 12 significant digits) is read from
+`assert_the_step` and the tests of L1.4 and L1.5, the only places that compare a computed float; a float compared elsewhere is not
+listed mechanically (INFERRED).
 """
 
 import csv

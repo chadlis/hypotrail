@@ -70,7 +70,7 @@ class Recorder:
         assert argv[: len(self.prefix)] == self.prefix, f"not a command of the CLI: {argv}"
         args = argv[len(self.prefix):]
         study = study_of(args)
-        call = {"args": args, "env": sorted(env), "cwd": cwd, "study": study, "before": self.sequence(study)}
+        call = {"args": args, "env": sorted(env), "study": study, "before": self.sequence(study)}
         code, out, err = cli_in_process(args)
         call.update(code=code, out=out, err=err, payload=json.loads(out) if "--json" in args and out.strip() else None)
         if study is not None and (study / "study.json").is_file():
