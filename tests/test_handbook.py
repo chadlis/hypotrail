@@ -5796,10 +5796,10 @@ def readme_sentences(text: str) -> list:
 
 
 # The README's status sentence for L2 after the owner's demonstration (D-132 on chadlis/hypotrail#75).
-README_L2_STATUS = "L2 was demonstrated by the owner on 2026-11-25 (D-132)."
+README_L2_STATUS = "L2 was demonstrated on 2026-11-25 (D-132 on chadlis/hypotrail#75)."
 
 
-def test_the_readme_status_says_in_one_sentence_that_l2_was_demonstrated_by_the_owner_on_2026_11_25_and_none_that_it_is_not():
+def test_the_readme_status_says_in_one_sentence_that_l2_was_demonstrated_on_2026_11_25_citing_d_132_with_its_issue_and_none_that_it_is_not():
     sentences = readme_sentences(readme_status())
     assert [sentence for sentence in sentences if re.search(r"\bL2\b", sentence)] == [README_L2_STATUS], sentences
     assert not [sentence for sentence in sentences if "built, not demonstrated" in sentence]
@@ -6016,8 +6016,8 @@ STATUS_SENTENCES = {
     "README.md": (README_L2_STATUS,),
     "docs/product/l2-acceptance.md": (
         "L2 was demonstrated by the owner on 2026-11-25 (D-132 on chadlis/hypotrail#75).",
-        "The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on #75); its owner checks are recorded "
-        "there, not here.",
+        "The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on chadlis/hypotrail#75); its owner checks "
+        "are recorded there, not here.",
     ),
     "docs/handbook/chapters/19-l2-demonstration.html": (
         "L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> "

@@ -8,7 +8,7 @@ L2 was demonstrated by the owner on 2026-11-25 (D-132 on chadlis/hypotrail#75). 
 
 > The owner's demonstration lifts "built, not demonstrated", and the owner lifts it.
 
-The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on #75); its owner checks are recorded there, not here.
+The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on chadlis/hypotrail#75); its owner checks are recorded there, not here.
 
 chadlis/hypotrail#103 also says under "End state":
 
