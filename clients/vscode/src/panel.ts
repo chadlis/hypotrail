@@ -1,15 +1,15 @@
 // The one webview panel of the extension. It holds in memory only, for as long as it is open, the target it was
 // opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
-// call is answered, whether a call is in flight, and the last figures read. It reads the Study through the bridge when it
-// is opened, after each write the CLI answered and on the control "Read again", and at no other time, each status read
-// that succeeds followed by the figures call; it writes only through `recordDecision`, on the control that records and on
+// call is answered, whether a call is in flight, the last figures read and the answer of the last profile read. It reads the Study
+// through the bridge when it is opened, after each write the CLI answered and on the control "Read again", and at no other time,
+// each status read that succeeds followed by the figures call, then the profile call; it writes only through `recordDecision`, on the control that records and on
 // "Send again". On a control that opens, it shows in the editor, read-only, a file of the Study whose path the object held names.
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readFigures, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
+import { checkoutRoot, newRequestId, readFigures, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
 import { bodyOf, usableFigures, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
@@ -28,6 +28,7 @@ let held: Record<string, unknown> | undefined;
 let unanswered: DecisionInput | undefined;
 let inFlight = false;
 let figures: Record<string, unknown> | undefined;
+let profile: Outcome | undefined;
 
 export function openPanel(next: Target): void {
   if (panel && (inFlight || unanswered)) {
@@ -37,6 +38,7 @@ export function openPanel(next: Target): void {
   target = next;
   held = undefined;
   figures = undefined;
+  profile = undefined;
   if (panel) {
     panel.reveal();
   } else {
@@ -47,6 +49,7 @@ export function openPanel(next: Target): void {
       target = undefined;
       held = undefined;
       figures = undefined;
+      profile = undefined;
       unanswered = undefined;
       inFlight = false;
     });
@@ -166,14 +169,14 @@ async function open(message: Message): Promise<void> {
     await vscode.commands.executeCommand(READ_ONLY);
   } catch {
     if (panel !== opened || inFlight || held !== object) return;
-    show({ reading: false, object: held, figures, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study, unopened: true });
+    show({ reading: false, object: held, figures, profile, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study, unopened: true });
   }
 }
 
 async function write(input: DecisionInput): Promise<void> {
   const opened = panel!;
   inFlight = true;
-  show({ reading: false, writing: true, object: held, figures, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
+  show({ reading: false, writing: true, object: held, figures, profile, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
   const outcome = await recordDecision(ROOT, target!.study, input);
   if (panel !== opened) return;
   inFlight = false;
@@ -181,30 +184,34 @@ async function write(input: DecisionInput): Promise<void> {
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
     // A write the bridge refuses keeps its choice and its words in the document, so that the person can correct them.
     const sent = outcome.outcome === "client_refusal" ? input : unanswered;
-    show({ reading: false, object: held, figures, written: outcome, unanswered: unanswered !== undefined, sent, decision: target!.decision, study: target!.study });
+    show({ reading: false, object: held, figures, profile, written: outcome, unanswered: unanswered !== undefined, sent, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
 }
 
 // `written` is the answer of the write this read follows, if any. The panel stays in flight, with no new document, until the
-// figures call that follows a successful status read has answered; only a figures read usable beside that status read is kept.
+// figures call and the profile call that follow a successful status read have answered; only a figures read usable beside that
+// status read is kept, and the profile call's answer is kept whatever it is, for the document to say whether it can stand beside it.
 async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, figures, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: true, object: held, figures, profile, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   const sequence = held?.write_sequence;
   const outcome = await readStudy(ROOT, study, Number.isSafeInteger(sequence) && (sequence as number) >= 0 ? (sequence as number) : 0);
   if (panel !== opened) return;
   const object = outcome.outcome === "success" ? outcome.object : undefined;
   const answer = object === undefined ? undefined : await readFigures(ROOT, study);
   if (panel !== opened) return;
+  const profiled = object === undefined ? undefined : await readProfile(ROOT, study);
+  if (panel !== opened) return;
   inFlight = false;
   held = object;
   figures = answer?.outcome === "success" ? usableFigures(object, answer.object) : undefined;
+  profile = profiled;
   const failure = outcome.outcome === "success" ? undefined : outcome;
-  show({ reading: false, object: held, figures, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: false, object: held, figures, profile, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {
@@ -404,6 +411,26 @@ const STYLE = [
   '[data-element="dot-order"] { font-size: 0.85em; color: var(--chalk2); }',
   '[data-key="control"]::before { background: var(--pen); }',
   '[data-key="candidate"]::before { width: 0.35em; height: 0.45em; vertical-align: 0.1em; background: var(--orange); }',
+  // The figures of the Data profile: each mark takes its colour from its class, and a mark too small for a stroke has none.
+  '[data-figure^="profile-"] rect { stroke: none; }',
+  '[data-figure="profile-target"] svg { height: 6em; background: var(--board2); }',
+  '[data-element="distribution"] svg { height: 3em; border-bottom: 1px solid var(--line2); }',
+  '[data-figure="profile-matrix"] svg { width: 16em; max-width: 100%; height: 16em; background: var(--board2); }',
+  '[data-element="against"] svg { height: 7em; background: var(--board2); }',
+  'details[data-element="distribution"], details[data-element="numbers"] { margin: 0.2em 0; }',
+  '[data-element="profile-numbers"] { border-collapse: collapse; font-size: 0.85em; }',
+  '[data-element="profile-numbers"] th, [data-element="profile-numbers"] td { padding: 0 0.6em 0 0; text-align: left; }',
+  '[data-element="profile-numbers"] th { color: var(--chalk2); font-weight: normal; }',
+  '[data-element="unavailable"], [data-element="differs"], [data-element="profile-failed"] { color: var(--coral); }',
+  '[data-element="band-key"] { display: flex; gap: 1em; font-size: 0.85em; }',
+  '[data-key="band"]::before { background: var(--line2); }',
+  '[data-key="band-read"]::before { background: var(--yellow); }',
+  "rect.day, rect.point { fill: var(--teal); }",
+  "rect.band { fill: var(--line2); }",
+  "rect.band-read { fill: var(--yellow); }",
+  "rect.cell { fill: var(--violet); }",
+  "rect.flagged { fill: var(--pink); }",
+  "rect.no-value { fill: var(--line); }",
   'section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--line2); }',
   "section[data-linked], section[data-recorded] { border-left-color: var(--focus); }",
   "[data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--cardink); background: var(--card); }",

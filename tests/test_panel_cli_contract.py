@@ -426,6 +426,23 @@ def test_the_dated_lines_hold_one_line_for_the_panels_read_with_since_quoting_it
         assert name in line, name
 
 
+# --- the dated line of the panel's third read, `profile` ---------------------------------------------------------------------------
+
+PROFILE_TICKET_SENTENCE = "`contract.json` gains `profile_arguments` `[\"profile\", \"--study={path}\", \"--json\"]` and `profile_key_paths` (the paths the panel draws), and `reads` becomes `[\"status\", \"figures\", \"profile\"]`."
+OPEN_READ_LINE = "A client reads through `status --json` and `figures --json`"
+
+
+def test_the_dated_lines_hold_one_line_for_the_profile_read_that_quotes_its_ticket_and_widens_the_read_line_to_three_reads():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#262" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PROFILE_TICKET_SENTENCE in line
+    assert f"the earlier line it widens: \"{OPEN_READ_LINE}\"" in line
+    assert "`profile --study=DIR --json`" in line and "takes no lock" in line and "writes nothing" in line
+
+
 # --- the dated line of the panel's words box ------------------------------------------------------------------------------------------
 
 PANEL_WORDS_SENTENCE = (
