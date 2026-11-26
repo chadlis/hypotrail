@@ -117,7 +117,8 @@
     "Earlier Decision",
     "Delta of the cited Comparison",
     "Each feature used alone on the same Items",
-    "Your own words, sent with the Decision as typed"
+    "Your own words, sent with the Decision as typed",
+    "Add your words"
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],

@@ -550,7 +550,8 @@ label:has(input:checked) small { color: inherit; }
 label input { grid-row: 1 / span 2; align-self: start; }
 label small { grid-column: 2; font-size: 0.92em; color: var(--chalk2); }
 fieldset button { margin-top: 0.4em; }
-label[data-element="words"] { display: block; margin-top: 0.3em; padding: 0; font-size: 0.9em; color: var(--chalk2); cursor: default; }
+details[data-element="add-words"] { margin-top: 0.3em; font-size: 0.9em; }
+label[data-element="words"] { display: block; margin-top: 0.2em; padding: 0; color: var(--chalk2); cursor: default; }
 label[data-element="words"]:hover { background: transparent; }
 textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 0.15em; font: inherit; color: var(--chalk); background: var(--board2); border: 1px solid var(--chalk2); border-radius: 2px; resize: vertical; }
 [data-chart] { display: grid; grid-template-columns: 6.5em minmax(3em, 1fr) auto; align-items: center; gap: 0.3em 0.5em; margin: 0.4em 0; }

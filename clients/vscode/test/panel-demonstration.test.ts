@@ -352,7 +352,7 @@ async function browserOrFailInCi(t: TestContext, what: string): Promise<string |
   return undefined;
 }
 
-type Keys = { key: (name: "Tab" | "Space" | "Enter") => Promise<void>; evaluate: (expression: string) => Promise<any> };
+type Keys = { key: (name: "Tab" | "Space" | "Enter") => Promise<void>; type: (text: string) => Promise<void>; evaluate: (expression: string) => Promise<any> };
 
 // `document` opened in a page of the browser at 420 by 700 px, the messages its script posts kept in `window.posted`, and its keys.
 async function keyboardPage(t: TestContext, address: string, document: string): Promise<Keys> {
@@ -371,6 +371,9 @@ async function keyboardPage(t: TestContext, address: string, document: string): 
       await page.send("Input.dispatchKeyEvent", { type: "keyDown", ...KEYS[name] });
       await page.send("Input.dispatchKeyEvent", { type: "keyUp", ...KEYS[name], text: undefined });
     },
+    type: async (text) => {
+      for (const character of text) await page.send("Input.insertText", { text: character });
+    },
     evaluate: async (expression) => {
       const answer = await page.send("Runtime.evaluate", { expression, returnByValue: true });
       if (answer.exceptionDetails) throw new Error(`${expression}: ${answer.exceptionDetails.exception?.description ?? answer.exceptionDetails.text}`);
@@ -383,8 +386,9 @@ const RECORD_CONTROL = `document.querySelector('button[data-message="${RECORD}"]
 const FIRST_RADIO = "document.querySelector('input[type=\"radio\"]')";
 
 // The document of after-compare brought by the keyboard alone from its top to a recorded choice: Tab to the first option, Space, Tab
-// past the summary of each option's consequence and the box of words to the control that records, Enter. Gives back the messages the document posted.
-async function recordedByKeyboard(t: TestContext, address: string): Promise<Entry[]> {
+// past the summary of each option's consequence and the fold of the box of words, which it opens to type `words` when given, to the control
+// that records, Enter. Gives back the messages the document posted.
+async function recordedByKeyboard(t: TestContext, address: string, words?: string): Promise<Entry[]> {
   const { document } = await seenAt(t, "after-compare");
   const page = await keyboardPage(t, address, document);
   for (let at = 0; at < 300 && !(await page.evaluate(`document.activeElement === ${FIRST_RADIO}`)); at += 1) await page.key("Tab");
@@ -399,7 +403,14 @@ async function recordedByKeyboard(t: TestContext, address: string): Promise<Entr
     assert.ok(await page.evaluate(`document.activeElement.matches('details[data-element="consequence"] > summary')`), `Tab ${at + 1} brings the focus to the summary of a consequence`);
   }
   await page.key("Tab");
-  assert.ok(await page.evaluate(`document.activeElement.matches('textarea[data-words="0"]')`), "Tab brings the focus to the box of words, beside the control that records");
+  assert.ok(await page.evaluate(`document.activeElement.matches('details[data-element="add-words"] > summary')`), "Tab brings the focus to the closed fold of the box of words, above the control that records");
+  if (words !== undefined) {
+    // Enter opens the fold, Tab reaches the box, and each character is typed into it.
+    await page.key("Enter");
+    await page.key("Tab");
+    assert.ok(await page.evaluate(`document.activeElement.matches('textarea[data-words="0"]')`), "Tab brings the focus to the box of words, once its fold is open");
+    await page.type(words);
+  }
   await page.key("Tab");
   assert.ok(await page.evaluate(`document.activeElement === ${RECORD_CONTROL}`), `Tab brings the focus to the control that records: ${await page.evaluate("document.activeElement.outerHTML.slice(0, 80)")}`);
   await page.key("Enter");
@@ -411,6 +422,13 @@ test("at 420 by 700 px, the keyboard alone brings the document of after-compare 
   if (address === undefined) return;
   const posted = await recordedByKeyboard(t, address);
   assert.deepEqual(posted, [{ message: RECORD, pending: 0, option: 0, words: "" }], "the record message of contract.json with the first Pending decision, its first option and its empty box of words, and no other");
+});
+
+test("at 420 by 700 px, the keyboard alone opens the fold of the box of words, types into it and records, and the record message carries the words typed", { timeout: 60000 }, async (t) => {
+  const address = await browserOrFailInCi(t, "the path to Record with words in a browser");
+  if (address === undefined) return;
+  const posted = await recordedByKeyboard(t, address, "keep it");
+  assert.deepEqual(posted, [{ message: RECORD, pending: 0, option: 0, words: "keep it" }]);
 });
 
 test("the message the document of after-compare posts in a browser is the message the panel is given at task 3, key by key, and given to the panel it starts the decide of task 3", { timeout: 60000 }, async (t) => {

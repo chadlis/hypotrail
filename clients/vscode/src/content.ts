@@ -110,6 +110,7 @@ const LABEL = {
   citedDelta: 76,
   featuresAlone: 77,
   yourWords: 78,
+  addWords: 79,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -361,12 +362,16 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
     const input = `<input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}" aria-labelledby="${OPTION_ID}${place}" aria-describedby="${CONSEQUENCE_ID}${place}"${checked}${inert}>`;
     return `<label>${input} <span id="${OPTION_ID}${place}">${marked(option.text, "strong")}</span> <details data-element="consequence"><summary>${label("consequence")}</summary><span id="${CONSEQUENCE_ID}${place}">${marked(option.consequence, "small")}</span></details></label>`;
   });
-  // The box of the person's own words, beside the control that records, empty but where the write `sent` held words for this decision.
+  // The box of the person's own words, in a fold directly above the control that records, empty but where the write `sent` held words
+  // for this decision.
   const words = asked && Array.isArray(sent.words) ? sent.words.join("") : "";
   const choices = [
     `<fieldset aria-labelledby="${question}" ${anchor("choices", index)}>`,
     ...options,
+    // "2. the words box, as a closed "Add your words" above Record" (D-151, answer 5): open where it holds the words of the write `sent`.
+    `<details data-element="add-words"${words === "" ? "" : " open"}><summary>${label("addWords")}</summary>`,
     `<label data-element="words">${label("yourWords")} <textarea data-words="${index}" rows="2"${inert}>${text(words)}</textarea></label>`,
+    "</details>",
     `<button data-message="${contract.messages[1]}" data-pending="${index}" aria-describedby="${question}" disabled>${label("record")}</button>`,
     "</fieldset>",
   ].join("\n");
