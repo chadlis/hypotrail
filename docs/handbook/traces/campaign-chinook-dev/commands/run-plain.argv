@@ -1,0 +1,1 @@
+uv run python -m hypotrail run agent --study docs/handbook/traces/campaign-chinook-dev/study --mode llm_live --config plain --partition dev --repeats 1 --model anthropic/claude-sonnet-5-5 --episode-cost-limit-usd 0.15 --price-list docs/handbook/traces/campaign-chinook-dev/price-list.json --request-id chinook-dev-plain 

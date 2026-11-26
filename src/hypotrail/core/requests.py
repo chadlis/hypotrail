@@ -2,7 +2,9 @@
 
 A request is identified by its command, Workload, Configuration, Partition, Mode, the digests of
 its input files and the code revision (chadlis/hypotrail#1 amendment); the agent Track adds the
-model, the Repeats and the Cases (chadlis/hypotrail#74), which a native ML request does not hold. The code revision is the one of the
+model, the Repeats and the Cases (chadlis/hypotrail#74), which a native ML request does not hold, and an `llm_live` request
+made with an Episode cost limit adds "the cost limit by value, the price list by the sha256 of its bytes, absent read as
+null" (the drive's answer C5 on chadlis/hypotrail#232, after D-146 on chadlis/hypotrail#75). The code revision is the one of the
 Attempt's `code_environment`: the commit, its dirty state and, for a dirty tree, the fingerprint
 of the local code (#64 Tightened B2).
 
@@ -27,8 +29,12 @@ from hypotrail.core.errors import EXIT_LOCK_OR_CONFLICT, HypotrailError
 
 # `model`, `repeats` and `cases` belong to the agent Track (`model` and `repeats` also to imports, where they
 # are `unknown` unless the file declares them); a native ML request does not hold them, so both sides read
-# them as absent.
-IDENTITY_KEYS = ("command", "workload", "configuration", "partition", "cases", "mode", "model", "repeats", "input_digests")
+# them as absent. `cost_limit_usd` and `price_list_sha256` are held only by a `run agent` request with a cost
+# limit; any other request, and one recorded before they existed, reads them as absent.
+IDENTITY_KEYS = (
+    "command", "workload", "configuration", "partition", "cases", "mode", "model", "repeats", "input_digests",
+    "cost_limit_usd", "price_list_sha256",
+)
 ELEMENTS = IDENTITY_KEYS + ("code_revision",)
 
 

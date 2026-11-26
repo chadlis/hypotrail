@@ -947,6 +947,18 @@ def test_the_request_inspect_would_build_states_the_reasoning_setting(model, thi
     assert agentic_live.reasoning_in_request(agentic_live.live_model(model, FAKE_KEY)) == thinking
 
 
+def test_the_request_inspect_would_build_for_the_anthropic_model_disables_parallel_tool_use():
+    """One tool call per turn, requested from the provider: Inspect's own request building for the tool choice, with no network."""
+    from inspect_ai.model import GenerateConfig
+    from inspect_ai.model._providers import anthropic as anthropic_provider
+
+    model = agentic_live.live_model("anthropic/claude-sonnet-5-5", FAKE_KEY)
+    options = limits_module.eval_options(limits_module.EpisodeLimits())
+    config = GenerateConfig(**{k: v for k, v in options.items() if k in GenerateConfig.model_fields})
+    assert isinstance(model.api, anthropic_provider.AnthropicAPI)
+    assert anthropic_provider.message_tool_choice("auto", config).get("disable_parallel_tool_use") is True
+
+
 @pytest.mark.parametrize("model", ["anthropic/claude-sonnet-4-5", "anthropic/claude-opus-5-5"])
 def test_a_model_whose_request_would_not_state_reasoning_is_refused_and_nothing_is_sent(
     tmp_path, clean_env, model

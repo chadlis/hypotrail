@@ -380,13 +380,18 @@ def run_live(
     return _scanned(out_dir, api_key, work)
 
 
-def record_execution(*, location: str, out_dir: Path, limits: limits_module.EpisodeLimits, database_sha256: dict) -> dict:
+def record_execution(
+    *, location: str, out_dir: Path, limits: limits_module.EpisodeLimits, database_sha256: dict, price_list: dict | None = None
+) -> dict:
     """The run record of an execution made by this process: `run.json` and `projection.json` written in `out_dir`.
 
     The limits are this execution's own request (`request_source` is `this_attempt`); `database_sha256` is what the
-    caller hashed before and after the execution.
+    caller hashed before and after the execution. `price_list` is the checked price list of its cost limit
+    (`hypotrail.agentic.prices.read_price_list`), None without one.
     """
-    return _record(request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256)
+    return _record(
+        request=Request.this_attempt(limits), location=location, out_dir=out_dir, database_sha256=database_sha256, price_list=price_list
+    )
 
 
 def served_models(log) -> list:
@@ -462,7 +467,7 @@ def _summarised_by(database_sha256: dict | None) -> dict:
     }
 
 
-def _record(*, request: Request, location: str, out_dir: Path, database_sha256: dict | None) -> dict:
+def _record(*, request: Request, location: str, out_dir: Path, database_sha256: dict | None, price_list: dict | None = None) -> dict:
     out_dir = Path(out_dir).resolve()
     log = read_eval_log(location)
     planned = _planned(read_eval_log(location, header_only=True))  # a full read fills sample_ids from the samples
@@ -503,6 +508,8 @@ def _record(*, request: Request, location: str, out_dir: Path, database_sha256: 
         "limit_notes": limit_notes(effective),
         "cases": None if planned is None else [{"case_id": c, "repeat": r} for c, r in planned],
         "database_sha256": database_sha256 if by_this_execution else None,
+        # the prices the cost limit was given (content, sha256, URL, date); a kept log does not hold them, so a re-summary has null
+        "price_list": price_list if by_this_execution else None,
         "summarised_by": None if by_this_execution else _summarised_by(database_sha256),
         "inspect_log": str(Path(location).resolve().relative_to(out_dir)),
         "inspect_status": log.status,

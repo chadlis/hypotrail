@@ -8,7 +8,7 @@ from pathlib import Path
 
 from inspect_ai import Task, eval
 from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser, Model, get_model
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser, Model, ModelCost, get_model
 from inspect_ai.solver import generate, use_tools
 
 from hypotrail.agentic.cases import user_message
@@ -90,9 +90,16 @@ def run_episodes(
     limits: EpisodeLimits | None = None,
     query_caps: QueryCaps | None = None,
     metadata: dict | None = None,
+    model_costs: dict | None = None,
     **overrides,
 ) -> str:
-    """Run every Case `repeats` times and return the location of the Inspect log."""
+    """Run every Case `repeats` times and return the location of the Inspect log.
+
+    `model_costs` is the `models` map of a price list ({model: {input, output, input_cache_write, input_cache_read}},
+    USD per million tokens), given to Inspect as its `model_cost_config`; a cost limit needs it.
+    """
+    if model_costs is not None:
+        overrides = {"model_cost_config": {name: ModelCost(**prices) for name, prices in model_costs.items()}, **overrides}
     logs = eval(
         build_task(workload, configuration, cases=cases, scorer=scorer, query_caps=query_caps, metadata=metadata),
         model=model,

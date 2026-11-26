@@ -14,7 +14,8 @@ and `recover`. It has two Modes:
 The order is fixed, and nothing is run before the checks that precede it (chadlis/hypotrail#74, Tightened K):
 
 1. the flag checks (exit 2): the flags of the other Mode, the Configuration, the Partition, the Repeats, the model and
-   the Cases are checked against the Workload's declaration, before the key is read and before Inspect is imported;
+   the Cases are checked against the Workload's declaration, and the Episode cost limit and its price list
+   (`hypotrail.agentic.prices`) against each other and the model, before the key is read and before Inspect is imported;
 2. the writer lock (`STUDY_LOCKED`, exit 6), then `RETRY_OF_UNKNOWN` (exit 2);
 3. the request is identified (`hypotrail.core.requests`): the same `request_id` with the same request returns the
    recorded Attempt here, with no key, no Inspect and no provider call; with another request it is `REQUEST_CONFLICT`
@@ -61,7 +62,14 @@ FIXTURE, LIVE = "scripted_fixture", "llm_live"
 MODES = (FIXTURE, LIVE)
 REPEATS_BOUNDS = (1, 3)
 FIXTURE_MODEL = "mockllm/model"
-FLAGS_OF_LIVE = {"partition": "--partition", "repeats": "--repeats", "model": "--model", "cases": "--cases"}
+FLAGS_OF_LIVE = {
+    "partition": "--partition",
+    "repeats": "--repeats",
+    "model": "--model",
+    "cases": "--cases",
+    "cost_limit": "--episode-cost-limit-usd",
+    "price_list": "--price-list",
+}
 INSPECT_STAGE = "capability"
 LOG_NAME = "inspect"
 POPULATION_NAME = "population.json"
@@ -76,9 +84,28 @@ def _refuse(code, message, **details):
 # --- The flag checks ----------------------------------------------------------------------------------------------------------------
 
 
-def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> dict:
-    """The request as the flags and the Workload's declaration fix it, or a refusal of exit 2. Nothing is read but the declaration."""
-    given = {"partition": partition, "repeats": repeats, "model": model, "cases": cases}
+def _checked_cost_limit(cost_limit, price_list, model) -> tuple:
+    """(the Episode cost limit, the checked price list), both None when neither flag is given; each flag requires the other."""
+    from hypotrail.agentic import prices
+
+    if cost_limit is None and price_list is None:
+        return None, None
+    if price_list is None:
+        raise _refuse("PRICE_LIST_REQUIRED", "--episode-cost-limit-usd needs --price-list: a cost limit needs the model's prices", flag="--price-list")
+    if cost_limit is None:
+        raise _refuse("COST_LIMIT_REQUIRED", "--price-list needs --episode-cost-limit-usd: the prices serve only the cost limit", flag="--episode-cost-limit-usd")
+    limit = prices.require_cost_limit(cost_limit)
+    checked = prices.read_price_list(price_list)
+    prices.require_priced(checked, model)
+    return limit, checked
+
+
+def _checked_flags(workload, mode, config, partition, repeats, model, cases, cost_limit=None, price_list=None) -> dict:
+    """The request as the flags and the Workload's declaration fix it, or a refusal of exit 2.
+
+    Nothing is read but the declaration and, when it is given, the price list.
+    """
+    given = {"partition": partition, "repeats": repeats, "model": model, "cases": cases, "cost_limit": cost_limit, "price_list": price_list}
     if mode == FIXTURE:
         for name, value in given.items():
             if value is not None:
@@ -94,11 +121,16 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
         if repeats is None:
             raise _refuse("REPEATS_REQUIRED", f"--repeats is required with --mode {LIVE}", flag="--repeats")
         core_live.require_model(model)  # MODEL_REQUIRED: explicit, anthropic/<model>, no default
+        if (cost_limit is None) != (price_list is None):
+            _checked_cost_limit(cost_limit, price_list, model)  # PRICE_LIST_REQUIRED or COST_LIMIT_REQUIRED, on the flags alone
     system_text = workload.system_text(config)  # CONFIGURATION_NOT_DECLARED
     configuration = {"id": config, "declared": workload.declaration["configurations"][config], "system_text": system_text}
     if mode == FIXTURE:
         read_json(workload.scenarios_file(), stage="fixture", noun="scenarios file", key="scenarios")
-        return {"configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None}
+        return {
+            "configuration": configuration, "partition": None, "cases": None, "repeats": 1, "model": FIXTURE_MODEL, "cases_file": None,
+            "cost_limit_usd": None, "price_list": None,
+        }
     if partition not in ROLES:
         raise _refuse("PARTITION_NOT_ALLOWED", f"an Attempt takes the Partition dev or public_check, not {partition!r}", partition=partition, allowed=list(ROLES))
     low, high = REPEATS_BOUNDS
@@ -116,6 +148,7 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
                 "CASE_NOT_IN_PARTITION", f"not Cases of the Partition {partition!r}: {', '.join(outside)}", cases=outside, partition=partition
             )
     selected = in_partition if asked is None else [c for c in in_partition if c in set(asked)]  # the Partition's order: one spelling
+    cost_limit_usd, prices = _checked_cost_limit(cost_limit, price_list, model)
     return {
         "configuration": configuration,
         "partition": partition,
@@ -123,6 +156,8 @@ def _checked_flags(workload, mode, config, partition, repeats, model, cases) -> 
         "repeats": repeats,
         "model": model,
         "cases_file": workload.cases_path(partition),
+        "cost_limit_usd": cost_limit_usd,
+        "price_list": prices,
     }
 
 
@@ -162,6 +197,8 @@ def run_agent(
     examples_dir: Path | None = None,
     environ=None,
     read_sequence: int | None = None,
+    episode_cost_limit_usd: float | None = None,
+    price_list: Path | None = None,
 ) -> tuple[dict, bool, list]:
     """Run (or replay) one request under the Study's writer lock: (the Attempt manifest, whether it was recorded already, warnings)."""
     study = Path(study)
@@ -170,7 +207,7 @@ def run_agent(
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)
     workload = load_workload(examples / spec["workload"])
-    plan = _checked_flags(workload, mode, config, partition, repeats, model, cases)
+    plan = _checked_flags(workload, mode, config, partition, repeats, model, cases, episode_cost_limit_usd, price_list)
     with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
         return _run_locked(study, write, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ)
 
@@ -215,6 +252,9 @@ def _run_locked(study, write, examples, workload, mode, plan, request_id, retry_
         "protocol": {"protocol_id": spec["protocol_id"], "protocol_digest": spec["protocol_digest"]},
         "input_digests": input_digests,
     }
+    if plan["price_list"] is not None:
+        # absent from a request made without the flags, and read as null (`hypotrail.core.requests`), so an earlier request still replays
+        effective_config.update(cost_limit_usd=plan["cost_limit_usd"], price_list_sha256=plan["price_list"]["sha256"])
     code_environment = environment.code_environment()
     recorded = attempts.replayed(study, write, request_id, effective_config, code_environment)
     if recorded is not None:
@@ -271,7 +311,7 @@ def _usage(sample) -> dict | None:
 
 def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> attempts.Produced:
     """Run the Episodes and publish what they left."""
-    from hypotrail.agentic import imports, inspect_log, projection, runner
+    from hypotrail.agentic import imports, inspect_log, prices, projection, runner
     from hypotrail.agentic import limits as limits_module
     from hypotrail.agentic import live as agentic_live
 
@@ -281,7 +321,7 @@ def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> att
     declaration_ref = writes.publish(
         f"{folder}/workload.json", (workload.directory / "workload.json").read_bytes(), media_type="application/json", role="workload_declaration"
     )
-    limits = limits_module.EpisodeLimits()
+    limits = limits_module.EpisodeLimits(cost_limit_usd=plan["cost_limit_usd"])
     before = data.sha256_file(workload.database_path)
     with tempfile.TemporaryDirectory(prefix="hypotrail-run-") as scratch:  # Inspect's log stays outside the Study until it is scanned and read
         out = Path(scratch) / "run"
@@ -296,6 +336,7 @@ def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> att
                 log_dir=out / LOG_NAME,
                 limits=limits,
                 reasoning_effort=agentic_live.REASONING_EFFORT,
+                model_costs=None if plan["price_list"] is None else prices.models_of(plan["price_list"]),
             )
             after = data.sha256_file(workload.database_path)
             if before != after:
@@ -305,7 +346,7 @@ def _record(recording: attempts.Recording, workload, plan: dict, api_key) -> att
                 raise leak(leaked, scanned="attempt")
             keys = [(case, repeat) for case in plan["cases"] for repeat in range(plan["repeats"])]
             agentic_live.record_execution(
-                location=location, out_dir=out, limits=limits, database_sha256={"before": before, "after": after}
+                location=location, out_dir=out, limits=limits, database_sha256={"before": before, "after": after}, price_list=plan["price_list"]
             )
             self_check = None
         else:

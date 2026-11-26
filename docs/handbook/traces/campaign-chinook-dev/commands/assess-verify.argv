@@ -1,0 +1,1 @@
+uv run python -m hypotrail assess --study docs/handbook/traces/campaign-chinook-dev/study --observations 8bea836c-909c-49c0-94f0-f6f8f6b3ca6d --scorer chinook_contract_v1 --references references-0d503e9fd3d88362 

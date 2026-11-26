@@ -23,6 +23,9 @@ from hypotrail.agentic.declaration import load_workload
 
 WORKLOAD = load_workload(CHINOOK)
 CASE_IDS = ["D03", "D05"]
+ALL_CASES = [case for partition in ("dev", "public_check") for case in WORKLOAD.cases(partition)]
+# The References file and the review record, as paths and as the name they share: none may reach the model.
+REFERENCE_PATHS = ("references/chinook-references.jsonl", "references/chinook-references-2.review.jsonl", "chinook-references")
 ELEVEN = [
     "Album", "Artist", "Customer", "Employee", "Genre", "Invoice",
     "InvoiceLine", "MediaType", "Playlist", "PlaylistTrack", "Track",
@@ -92,15 +95,28 @@ def test_the_added_instruction_asks_for_scope_joins_units_and_result_before_conc
         assert word in instruction
 
 
+def states(text, value):
+    """Whether `text` holds `value` as a whole token: not inside a longer number or word."""
+    return re.search(rf"(?<![\w.]){re.escape(value)}(?![\w])", text) is not None
+
+
 def test_neither_prompt_text_contains_a_reference_value_of_any_case():
+    """A value the system text itself states, rendered with no Case (a template constant such as the `1` of "table-answer/1"), is exempt.
+
+    The exempt set is computed from that rendering and must be exactly the values listed here; every other value is scanned as before.
+    """
     references = read_jsonl(REFERENCES)
     values = {str(cell) for r in references for row in r["rows"] for cell in row if cell is not None}
     values |= {r["oracle_sql"] for r in references if r["oracle_sql"]}
     assert {"3503", "Iron Maiden", "283910.04"} <= values  # the scan has something to find
-    for configuration in ("plain", "verify"):
-        text = WORKLOAD.system_text(configuration)
-        for value in values:
-            assert not re.search(rf"(?<![\w.]){re.escape(value)}(?![\w])", text), (configuration, value)
+    texts = {configuration: WORKLOAD.system_text(configuration) for configuration in ("plain", "verify")}
+    exempt = {value for value in values if any(states(text, value) for text in texts.values())}
+    assert exempt == {"1"}
+    for configuration, text in texts.items():
+        for value in values - exempt:
+            assert not states(text, value), (configuration, value)
+        for forbidden in (*REFERENCE_PATHS, *{r["reference_version"] for r in references}):
+            assert forbidden not in text, (configuration, forbidden)
 
 
 def test_an_undeclared_configuration_is_refused_before_a_task_is_built():
@@ -137,8 +153,8 @@ def test_the_user_message_renders_the_question_the_columns_and_the_unit():
     )
 
 
-def test_no_other_case_field_can_reach_the_model():
-    case = cases(["D03"])[0]
+@pytest.mark.parametrize("case", ALL_CASES, ids=lambda case: case["case_id"])
+def test_no_other_case_field_can_reach_the_model(case):
     clean = case_module.user_message(case)
     poison = {k: f"POISON-{k}" for k in case if k not in ("question", "answer_columns", "unit")}
     poison["oracle_sql"] = "POISON-oracle_sql"
@@ -148,20 +164,47 @@ def test_no_other_case_field_can_reach_the_model():
     assert "POISON" not in clean
 
 
-def test_the_logged_model_input_holds_no_routing_field_reference_sql_status_or_tolerance(tmp_path):
-    _, location = run("verify", tmp_path)
+class AnswersAtOnce:
+    """A scripted model that sends a final answer to its first call: what it is sent is the whole input of the Episode."""
+
+    def __call__(self, input, tools, tool_choice, config):
+        from inspect_ai.model import ModelOutput
+
+        answer = {"status": "not_answerable", "reason_code": "field_not_available", "columns": [], "rows": [], "unit": None, "evidence": []}
+        return ModelOutput.from_content("mockllm/model", json.dumps(answer))
+
+
+@pytest.mark.parametrize("configuration", ["plain", "verify"])
+def test_the_logged_model_input_holds_no_routing_field_reference_sql_status_or_tolerance(configuration, tmp_path):
+    """Every Case of both Partitions, under each Configuration.
+
+    A Reference row value is forbidden unless the question itself or the system text, rendered with no Case, states it. A family
+    identifier that the Case's own question states as a word is exempt for that Case only: that word leaks no label. The exempt set
+    is computed from the questions and must be exactly the one listed here.
+    """
+    _, location = run(configuration, tmp_path, run_cases=ALL_CASES, script=AnswersAtOnce())
     references = {r["case_id"]: r for r in read_jsonl(REFERENCES)}
-    by_id = {c["case_id"]: c for c in cases()}
-    for episode in projection.project_log(location, expected=[(c, 0) for c in CASE_IDS]):
+    by_id = {c["case_id"]: c for c in ALL_CASES}
+    system_text = WORKLOAD.system_text(configuration)
+    family_in_question = {c["case_id"]: c["family"] for c in ALL_CASES if states(c["question"], c["family"])}
+    assert family_in_question == {"E08": "moyenne"}
+    episodes = projection.project_log(location, expected=[(c, 0) for c in by_id])
+    assert sorted(e["case_id"] for e in episodes) == sorted(by_id)
+    for episode in episodes:
         text = "\n".join(m["content"] for m in episode["input"])
         reference, case = references[episode["case_id"]], by_id[episode["case_id"]]
-        for forbidden in (reference["oracle_sql"] or "-no-oracle-", case["case_id"], case["split"], case["family"],
-                          "numeric_absolute_tolerance", reference["reference_version"]):
-            assert forbidden not in text, forbidden
+        family = () if case["case_id"] in family_in_question else (case["family"],)
+        for forbidden in (reference["oracle_sql"] or "-no-oracle-", case["case_id"], case["split"], *family,
+                          "numeric_absolute_tolerance", reference["reference_version"], *REFERENCE_PATHS):
+            assert forbidden not in text, (case["case_id"], forbidden)
+        assert case["family"] not in system_text, (case["case_id"], case["family"])
         # the statuses are the common format rules of the system text; a Case's own status is not in its message
         assert reference["status"] not in episode["input"][1]["content"]
         for row in reference["rows"]:
             assert json.dumps(row) not in text
+            for cell in row:
+                if cell is not None and not states(case["question"], str(cell)) and not states(system_text, str(cell)):
+                    assert not states(text, str(cell)), (case["case_id"], cell)
 
 
 def test_a_case_with_no_unit_gets_the_same_system_text_and_the_same_rendering(tmp_path):
@@ -287,6 +330,8 @@ def test_describe_schema_returns_the_eleven_tables_with_columns_types_and_foreig
 
 def test_describe_schema_holds_no_reference_value_and_no_oracle_sql():
     text = json.dumps(sql_tool.schema_description(DATABASE))
+    for forbidden in (*REFERENCE_PATHS, *{case["family"] for case in ALL_CASES}):
+        assert forbidden not in text, forbidden
     for reference in read_jsonl(REFERENCES):
         assert not reference["oracle_sql"] or reference["oracle_sql"] not in text
         assert reference["reference_version"] not in text

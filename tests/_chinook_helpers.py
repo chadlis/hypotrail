@@ -8,6 +8,20 @@ from _study_helpers import EXAMPLES, ROOT, run_json
 
 FIXTURE = ROOT / "examples" / "chinook" / "fixtures" / "agent-answers-authored.jsonl"
 FIXTURE_CASES = ["D01", "D03", "D07", "D08"]
+REVISION_ONE = ROOT / "tests" / "fixtures" / "chinook-revision-1"
+REVISION_ONE_FILES = ("cases/chinook-dev.jsonl", "cases/chinook-public-check.jsonl", "references/chinook-references.jsonl", "workload.json")
+
+
+def revision_one_examples(tmp_path, *, name="revision-1"):
+    """A private copy of `examples/` whose Chinook Workload is the frozen revision 1: the files of `REVISION_ONE` over the live database.
+
+    The 8 + 12 Cases and the 20 References of the kit, as at `07197ea`; no second copy of the database is committed.
+    """
+    target = Path(tmp_path) / name
+    shutil.copytree(EXAMPLES, target)
+    for relative in REVISION_ONE_FILES:
+        shutil.copyfile(REVISION_ONE / relative, target / "chinook" / relative)
+    return target
 
 
 def chinook_examples(tmp_path, *, edit=None, name="examples"):

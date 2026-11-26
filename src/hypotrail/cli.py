@@ -177,6 +177,20 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="CASE_ID",
         help="llm_live only: a Case of the Partition (repeatable; default: every Case of the Partition)",
     )
+    run_agent.add_argument(
+        "--episode-cost-limit-usd",
+        type=float,
+        metavar="USD",
+        help="llm_live only, with --price-list: the cost limit of each Episode in USD, enforced by Inspect's per-sample cost_limit "
+        "(an Episode stopped by it is failed with the Reason cost_limit)",
+    )
+    run_agent.add_argument(
+        "--price-list",
+        type=Path,
+        metavar="FILE",
+        help='llm_live only, with --episode-cost-limit-usd: the prices of the model, {"source": {"url": ..., "read_on": "YYYY-MM-DD"}, '
+        '"models": {MODEL: {"input", "output", "input_cache_write", "input_cache_read"}}} in USD per million tokens',
+    )
     run_agent.add_argument("--retry-of", metavar="ATTEMPT_ID", help="the earlier Attempt this new Attempt is made after, on purpose")
     run_agent.add_argument(
         "--examples-dir",
@@ -583,6 +597,8 @@ def _run_agent(args) -> int:
             retry_of=args.retry_of,
             examples_dir=args.examples_dir,
             read_sequence=args.read_sequence,
+            episode_cost_limit_usd=args.episode_cost_limit_usd,
+            price_list=args.price_list,
         )
     except HypotrailError as error:  # a refusal, or an Attempt that failed (then the Study was scanned and `details.warnings` holds what it found)
         _print_warnings(error.details.get("warnings", []))

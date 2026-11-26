@@ -1,7 +1,7 @@
 {
   "schema_version": "scenarios/1",
   "mode": "scripted_fixture",
-  "description": "Technical scenarios for the scripted_fixture Mode. They are not business Cases: none of them is one of the 20 questions of the dev and public_check Partitions. A script is data read by generic code: each entry is one model turn (a tool call, an answer built from the last tool result, or a raw answer). The tools it calls are the real local tools on the Chinook file.",
+  "description": "Technical scenarios for the scripted_fixture Mode. They are not business Cases: none of them is a Case of the dev or public_check Partition. A script is data read by generic code: each entry is one model turn (a tool call, an answer built from the last tool result, or a raw answer). The tools it calls are the real local tools on the Chinook file.",
   "scenarios": [
     {
       "scenario_id": "good_result",

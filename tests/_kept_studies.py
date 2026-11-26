@@ -5,8 +5,9 @@ The Bike Study: `init`, two `run ml` on dev (`seasonal_7`, `ridge_v1`), an `asse
 and the `assess` of the Import. Each id a command takes is read from the Study's files, so that the CLI of `main` `07197ea`, which prints no
 Observation set ID and no References ID, makes the same Studies: the kept files were made there, with `write_kept`.
 
-A file whose bytes are those of a file under `examples/` (a copy of the Workload's data or declaration) is kept as the SHA-256 of its
-bytes, so that no copy of the Workload's data is kept. Every other file is kept as its text once the rules below are applied: a JSON record
+The Chinook Study is made on the frozen revision-1 Workload (`tests/fixtures/chinook-revision-1/`, through `--examples-dir`), the Workload
+those commands read at `07197ea`. A file whose bytes are those of a file under `examples/` or of a frozen revision-1 file (a copy of the
+Workload's data or declaration) is kept as the SHA-256 of its bytes, so that no copy of the Workload's data is kept. Every other file is kept as its text once the rules below are applied: a JSON record
 whole, any other text up to `TEXT_LIMIT` characters, and a longer text (a CSV of one row per Item) as the SHA-256 of that text; a file
 that is not UTF-8 text is kept as the SHA-256 of its bytes. The rules:
 
@@ -31,7 +32,7 @@ import shutil
 from pathlib import Path
 
 from _assess_helpers import observation_set_id, references_id
-from _chinook_helpers import FIXTURE, fixture_population
+from _chinook_helpers import FIXTURE, REVISION_ONE, fixture_population, revision_one_examples
 from _client_helpers import DIGEST, TIMESTAMP, UUID, fixed, numbered
 from _study_helpers import EXAMPLES, ROOT, run_json
 
@@ -72,15 +73,16 @@ def chinook_study(folder) -> Path:
     study = Path(folder) / "chinook"
     inputs = Path(folder) / "chinook-inputs"
     inputs.mkdir(parents=True)
-    ok("init", "--workload", "chinook", "--study", study, "--examples-dir", EXAMPLES)
-    ok("run", "agent", "--study", study, "--mode", "scripted_fixture", "--config", "plain", "--request-id", "kept-fixture", "--examples-dir", EXAMPLES)
+    examples = revision_one_examples(inputs)
+    ok("init", "--workload", "chinook", "--study", study, "--examples-dir", examples)
+    ok("run", "agent", "--study", study, "--mode", "scripted_fixture", "--config", "plain", "--request-id", "kept-fixture", "--examples-dir", examples)
     attempt = ok(
         "import", "agent", "--study", study, "--source", FIXTURE, "--population", fixture_population(inputs), "--request-id", "kept-import",
-        "--examples-dir", EXAMPLES,
+        "--examples-dir", examples,
     )["attempt"]
     ok(
         "assess", "--study", study, "--observations", observation_set_id(study, attempt), "--scorer", "chinook_contract_v1",
-        "--references", references_id(study), "--examples-dir", EXAMPLES,
+        "--references", references_id(study), "--examples-dir", examples,
     )
     return study
 
@@ -126,7 +128,7 @@ def kept_files(study) -> dict:
         assert not unknown, f"{relative} names an id that no journal entry names: {unknown}"
         return numbering(relative)
 
-    workload = {hashlib.sha256(p.read_bytes()).hexdigest() for p in EXAMPLES.rglob("*") if p.is_file()}
+    workload = {hashlib.sha256(p.read_bytes()).hexdigest() for root in (EXAMPLES, REVISION_ONE) for p in root.rglob("*") if p.is_file()}
     measured = {
         manifest.parent / "observations.jsonl"
         for manifest in study.glob("attempts/*/attempt.json")

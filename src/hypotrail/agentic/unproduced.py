@@ -10,7 +10,7 @@ EXECUTION_FAILED = "execution_failed"
 OBSERVATION_MISSING = "observation_missing"
 
 
-AGENT_RESPONSIBLE = ("turn_limit", "token_limit")
+AGENT_RESPONSIBLE = ("turn_limit", "token_limit", "cost_limit")
 STOPPED_BY_US = AGENT_RESPONSIBLE + ("time_limit", "output_cap")
 
 
@@ -25,7 +25,9 @@ def scored_false(reason: str) -> list[dict]:
 def criteria_for_limit_stop(episode: dict) -> list[dict]:
     """The Criteria of an Episode `failed` at one of our limits, by who is responsible for the stop (owner decision D1).
 
-    - `turn_limit`, `token_limit`: the agent's own failure, every Criterion scored false;
+    - `turn_limit`, `token_limit`, `cost_limit`: the agent's own failure, every Criterion scored false. Of `cost_limit`,
+      D-146 on chadlis/hypotrail#75: "It joins `AGENT_RESPONSIBLE` in `unproduced.py:13`: every Criterion scored false,
+      reason kept.";
     - `time_limit` (wall time mixes agent and provider latency), `output_cap` (our setting):
       every Criterion `unscored`, an Instrument failure never held against the system.
     The Reason is kept on every Criterion, so a rescoring can revise the choice.

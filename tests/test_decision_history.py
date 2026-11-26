@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from _assess_helpers import assess, fresh_study, observation_set_id, references_id
-from _chinook_helpers import references_id as chinook_references_id
+from _chinook_helpers import references_id as chinook_references_id, revision_one_examples
 from _revision_helpers import new_revision
 from _study_helpers import examples_copy, init_study, run_cli, run_json
 from test_write_sequence import entries, seq, tree
@@ -336,7 +336,10 @@ def test_a_new_assess_on_a_study_written_before_the_journal_comes_after_a_kept_a
     on_kept = decide(kept, [first_kept], request_id="k-1")
     on_other = decide(kept, [other_kept], request_id="k-2")
     assert entries(kept) and row_of(kept, on_kept["decision_id"])["applies"] is True
-    code, payload, err = run_json("assess", "--study", kept, "--observations", observation_set, "--scorer", "chinook_contract_v1", "--references", chinook_references_id(kept))
+    code, payload, err = run_json(
+        "assess", "--study", kept, "--observations", observation_set, "--scorer", "chinook_contract_v1", "--references", chinook_references_id(kept),
+        "--examples-dir", revision_one_examples(kept.parent),  # the Workload the kept Study was made on
+    )
     assert code == 0, (payload, err)
     new_id = payload["assessment"]["assessment_id"]
     row, other = row_of(kept, on_kept["decision_id"]), row_of(kept, on_other["decision_id"])

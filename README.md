@@ -47,6 +47,8 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
+The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose References two writers wrote apart (the review record is `examples/chinook/references/chinook-references-2.review.jsonl`), and 12 `public_check` Cases. The live Campaign on `dev` (2026-11-26, `plain` and `verify`, one Repeat each, its plan, ceiling, captures, estimated spend and report) is kept whole in `docs/handbook/traces/campaign-chinook-dev/`, its Study in `docs/handbook/traces/campaign-chinook-dev/study/`. The demonstration, in `docs/demo/`, compares and decides again on a copy of that Study, offline. The handbook's chapter on the larger Chinook Workload gives the detail.
+
 ## Use the VS Code panel
 
 The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
@@ -73,7 +75,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the account of the live Campaign (T20).
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - [`docs/product/l2-acceptance.md`](docs/product/l2-acceptance.md): the L2 acceptance grid: each criterion with its tests, its owner checks and its engineer checks.
-- [`docs/demo/demonstration.py`](docs/demo/demonstration.py): the frozen demonstration, a first Bike Study, a second on a Workload copy that records, outdates and refuses Decisions, then Chinook, with no live model call and no network: `uv run python docs/demo/demonstration.py --work DIR`, DIR a new folder outside the checkout; the end-to-end tests run its steps (the handbook's chapter on the demonstration).
+- [`docs/demo/demonstration.py`](docs/demo/demonstration.py): the frozen demonstration, a first Bike Study, a second on a Workload copy that records, outdates and refuses Decisions, then Chinook, then a copy of the kept Chinook Campaign, with no live model call and no network: `uv run python docs/demo/demonstration.py --work DIR`, DIR a new folder outside the checkout; the end-to-end tests run its steps (the handbook's chapter on the demonstration).
 - [`docs/demo/edit_copy.py`](docs/demo/edit_copy.py): the script that makes each edit of task 6 of the L2 demonstration in a Workload copy and rewrites the copy's lock (the handbook's chapter on the L2 demonstration).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools).

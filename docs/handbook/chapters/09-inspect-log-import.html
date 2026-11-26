@@ -21,7 +21,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-key="case_id"><td><code>case_id</code></td><td>The Case (the sample id).</td></tr>
 <tr data-key="repeat"><td><code>repeat</code></td><td>The Repeat (the sample's epoch minus one).</td></tr>
 <tr data-key="status"><td><code>status</code></td><td><code>produced</code>, <code>failed</code> or <code>missing</code>, as the projection decides.</td></tr>
-<tr data-key="reason"><td><code>reason</code></td><td>Why the Episode is <code>failed</code> or <code>missing</code> (<code>execution_failed</code>, <code>turn_limit</code>, <code>output_cap</code>, <code>missing_from_log</code>, ...); null when produced. A JSONL line has no such key, and an Observation without it reads as without a Reason.</td></tr>
+<tr data-key="reason"><td><code>reason</code></td><td>Why the Episode is <code>failed</code> or <code>missing</code> (<code>execution_failed</code>, <code>turn_limit</code>, <code>cost_limit</code>, <code>output_cap</code>, <code>missing_from_log</code>, ...); null when produced. A JSONL line has no such key, and an Observation without it reads as without a Reason.</td></tr>
 <tr data-key="answer_given_as"><td><code>answer_given_as</code></td><td><code>raw_answer</code> for an Episode with a final answer, otherwise null.</td></tr>
 <tr data-key="raw_answer"><td><code>raw_answer</code></td><td>The text of the final answer.</td></tr>
 <tr data-key="final_answer"><td><code>final_answer</code></td><td>Always null: a log gives text, not a parsed object.</td></tr>

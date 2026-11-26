@@ -1,0 +1,413 @@
+{
+  "ticket": "chadlis/hypotrail#235",
+  "model": "anthropic/claude-sonnet-5-5",
+  "repeats": 1,
+  "episode_cost_limit_usd": 0.15,
+  "price_list": "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+  "ceiling_file": "docs/handbook/traces/campaign-chinook-dev/ceiling.json",
+  "study": "docs/handbook/traces/campaign-chinook-dev/study",
+  "captures": "docs/handbook/traces/campaign-chinook-dev/commands",
+  "request_ids": {
+    "plain": "chinook-dev-plain",
+    "verify": "chinook-dev-verify"
+  },
+  "rerun_request_ids": {
+    "plain": "chinook-dev-plain-rerun",
+    "verify": "chinook-dev-verify-rerun"
+  },
+  "decision": {
+    "author": "proxy",
+    "question": "Which Configuration is kept on dev?",
+    "rule": "keep the Configuration with the higher `contract_success` on `dev`; on a tie, keep `plain`",
+    "source": "D-145 on chadlis/hypotrail#75 (comment 7182974525), point 6 and Q2, and ticket chadlis/hypotrail#235: the rule of the plan docs/handbook/traces/campaign-chinook-dev/plan.json, fixed before any call",
+    "options": {
+      "rule": "<RULE_OPTION>: \"Keep the Control\" (plain) or \"Keep the Candidate\" (verify), by the rule",
+      "null_delta": "Choose neither yet"
+    },
+    "null_delta_rule": "If the Comparison's delta is null (`coverage_incomplete`) after the allowed reruns, the Decision is \"Choose neither yet\". It cites the Comparison and states the unscored Episodes. Otherwise the [A12] rule applies. Both options are written in the plan before the run."
+  },
+  "technical_failure": "A technical failure is an Episode `missing`, or `failed` with a reason other than `turn_limit`, `token_limit` or `cost_limit`. It is read from the Attempt's execution statuses before any `assess`.",
+  "rerun_rule": "A line with at least one technical failure is rerun once, whole (all 100 Cases, a new `--request-id`, `--retry-of` the first Attempt). The rerun's Observation set replaces the first for `assess`. Episodes are never mixed between Attempts. The first Attempt stays in the Study.",
+  "budget_rule": "At most four paid invocations: two lines, and at most one rerun per line. A rerun starts only if the spend recorded so far (the logs' cost at the plan's prices; an Attempt with unknown cost counts at its ceiling) plus the rerun's ceiling is at most USD 80. Otherwise there is no rerun.",
+  "paid_steps": [
+    "run-plain",
+    "rerun-plain",
+    "run-verify",
+    "rerun-verify"
+  ],
+  "lines": [
+    {
+      "step": "init",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "init",
+        "--workload",
+        "chinook",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study"
+      ]
+    },
+    {
+      "step": "run-plain",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "run",
+        "agent",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--mode",
+        "llm_live",
+        "--config",
+        "plain",
+        "--partition",
+        "dev",
+        "--repeats",
+        "1",
+        "--model",
+        "anthropic/claude-sonnet-5-5",
+        "--episode-cost-limit-usd",
+        "0.15",
+        "--price-list",
+        "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+        "--request-id",
+        "chinook-dev-plain"
+      ]
+    },
+    {
+      "step": "rerun-plain",
+      "runs": "only when the Attempt of run-plain holds at least one technical failure, read from docs/handbook/traces/campaign-chinook-dev/study/attempts/<FIRST_ATTEMPT_ID_PLAIN>/observations.jsonl before any assess, and when the spend recorded so far plus the rerun ceiling of the ceiling file is at most USD 80",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "run",
+        "agent",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--mode",
+        "llm_live",
+        "--config",
+        "plain",
+        "--partition",
+        "dev",
+        "--repeats",
+        "1",
+        "--model",
+        "anthropic/claude-sonnet-5-5",
+        "--episode-cost-limit-usd",
+        "0.15",
+        "--price-list",
+        "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+        "--request-id",
+        "chinook-dev-plain-rerun",
+        "--retry-of",
+        "<FIRST_ATTEMPT_ID_PLAIN>"
+      ]
+    },
+    {
+      "step": "run-verify",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "run",
+        "agent",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--mode",
+        "llm_live",
+        "--config",
+        "verify",
+        "--partition",
+        "dev",
+        "--repeats",
+        "1",
+        "--model",
+        "anthropic/claude-sonnet-5-5",
+        "--episode-cost-limit-usd",
+        "0.15",
+        "--price-list",
+        "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+        "--request-id",
+        "chinook-dev-verify"
+      ]
+    },
+    {
+      "step": "rerun-verify",
+      "runs": "only when the Attempt of run-verify holds at least one technical failure, read from docs/handbook/traces/campaign-chinook-dev/study/attempts/<FIRST_ATTEMPT_ID_VERIFY>/observations.jsonl before any assess, and when the spend recorded so far plus the rerun ceiling of the ceiling file is at most USD 80",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "run",
+        "agent",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--mode",
+        "llm_live",
+        "--config",
+        "verify",
+        "--partition",
+        "dev",
+        "--repeats",
+        "1",
+        "--model",
+        "anthropic/claude-sonnet-5-5",
+        "--episode-cost-limit-usd",
+        "0.15",
+        "--price-list",
+        "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+        "--request-id",
+        "chinook-dev-verify-rerun",
+        "--retry-of",
+        "<FIRST_ATTEMPT_ID_VERIFY>"
+      ]
+    },
+    {
+      "step": "assess-plain",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "assess",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--observations",
+        "<OBSERVATION_SET_ID_PLAIN>",
+        "--scorer",
+        "chinook_contract_v1",
+        "--references",
+        "<REFERENCES_ID>"
+      ]
+    },
+    {
+      "step": "assess-verify",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "assess",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--observations",
+        "<OBSERVATION_SET_ID_VERIFY>",
+        "--scorer",
+        "chinook_contract_v1",
+        "--references",
+        "<REFERENCES_ID>"
+      ]
+    },
+    {
+      "step": "compare",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "compare",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--control",
+        "<ASSESSMENT_ID_PLAIN>",
+        "--candidate",
+        "<ASSESSMENT_ID_VERIFY>"
+      ]
+    },
+    {
+      "step": "status",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "status",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--json"
+      ]
+    },
+    {
+      "step": "decide-rule",
+      "runs": "when the delta of the compare line has a value",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "decide",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--question",
+        "Which Configuration is kept on dev?",
+        "--option",
+        "<RULE_OPTION>",
+        "--author",
+        "proxy",
+        "--source",
+        "D-145 on chadlis/hypotrail#75 (comment 7182974525), point 6 and Q2, and ticket chadlis/hypotrail#235: the rule of the plan docs/handbook/traces/campaign-chinook-dev/plan.json, fixed before any call",
+        "--artifact",
+        "<COMPARISON_ID>",
+        "--request-id",
+        "chinook-dev-decision",
+        "--read-sequence",
+        "<READ_SEQUENCE>"
+      ]
+    },
+    {
+      "step": "decide-neither",
+      "runs": "when the delta of the compare line is null (coverage_incomplete)",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "decide",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--question",
+        "Which Configuration is kept on dev?",
+        "--option",
+        "Choose neither yet",
+        "--author",
+        "proxy",
+        "--source",
+        "D-145 on chadlis/hypotrail#75 (comment 7182974525), point 6 and Q2, and ticket chadlis/hypotrail#235: the rule of the plan docs/handbook/traces/campaign-chinook-dev/plan.json, fixed before any call; unscored Episodes: <UNSCORED_EPISODES>",
+        "--artifact",
+        "<COMPARISON_ID>",
+        "--request-id",
+        "chinook-dev-decision",
+        "--read-sequence",
+        "<READ_SEQUENCE>"
+      ]
+    },
+    {
+      "step": "report",
+      "runs": "always",
+      "argv": [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "hypotrail",
+        "report",
+        "--study",
+        "docs/handbook/traces/campaign-chinook-dev/study",
+        "--out",
+        "docs/handbook/traces/campaign-chinook-dev/report.html"
+      ]
+    }
+  ],
+  "placeholders": {
+    "<REFERENCES_ID>": {
+      "steps": [
+        "init"
+      ],
+      "read": "stdout",
+      "pattern": "references_id (\\S+)"
+    },
+    "<FIRST_ATTEMPT_ID_PLAIN>": {
+      "steps": [
+        "run-plain"
+      ],
+      "read": "stdout",
+      "pattern": "^Attempt (\\S+) "
+    },
+    "<FIRST_ATTEMPT_ID_VERIFY>": {
+      "steps": [
+        "run-verify"
+      ],
+      "read": "stdout",
+      "pattern": "^Attempt (\\S+) "
+    },
+    "<OBSERVATION_SET_ID_PLAIN>": {
+      "steps": [
+        "rerun-plain",
+        "run-plain"
+      ],
+      "read": "stdout",
+      "pattern": "; Observation set (\\S+)$",
+      "note": "the first of the steps that ran: the rerun's Observation set replaces the first for assess"
+    },
+    "<OBSERVATION_SET_ID_VERIFY>": {
+      "steps": [
+        "rerun-verify",
+        "run-verify"
+      ],
+      "read": "stdout",
+      "pattern": "; Observation set (\\S+)$",
+      "note": "the first of the steps that ran: the rerun's Observation set replaces the first for assess"
+    },
+    "<ASSESSMENT_ID_PLAIN>": {
+      "steps": [
+        "assess-plain"
+      ],
+      "read": "stdout",
+      "pattern": "^Assessment (\\S+):"
+    },
+    "<ASSESSMENT_ID_VERIFY>": {
+      "steps": [
+        "assess-verify"
+      ],
+      "read": "stdout",
+      "pattern": "^Assessment (\\S+):"
+    },
+    "<COMPARISON_ID>": {
+      "steps": [
+        "compare"
+      ],
+      "read": "stdout",
+      "pattern": "^Comparison (\\S+) \\("
+    },
+    "<READ_SEQUENCE>": {
+      "steps": [
+        "status"
+      ],
+      "read": "stdout as JSON",
+      "key": "write_sequence"
+    },
+    "<RULE_OPTION>": {
+      "steps": [
+        "compare"
+      ],
+      "read": "stdout",
+      "pattern": "delta contract_success ([+-][0-9.e+-]+) ",
+      "rule": "the Decision's rule: `plain` is the Control and `verify` the Candidate, and the delta is Share(Candidate) - Share(Control) of contract_success, so a delta above 0 gives \"Keep the Candidate\" and a delta of 0 or below gives \"Keep the Control\""
+    },
+    "<UNSCORED_EPISODES>": {
+      "steps": [
+        "compare"
+      ],
+      "read": "docs/handbook/traces/campaign-chinook-dev/study/comparisons/<COMPARISON_ID>/matrix.json",
+      "rule": "each Episode whose contract_success is not scored, as `<Configuration> <case_id> repeat <n> (<reason>)`, plain first, then by Case and Repeat, joined by \", \""
+    }
+  }
+}
