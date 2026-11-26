@@ -6567,15 +6567,50 @@ def test_the_texts_of_the_interval_claim_no_significance_name_no_p_value_and_say
                 assert "does not say which Configuration is better" in sentence, sentence
 
 
-def test_chapter_08_says_how_identifiers_are_read_and_that_a_bare_labelled_number_is_a_one_item_list(page):
+IDENTIFIER_READING_RULES = (
+    "block by block, and no reading crosses a block boundary",
+    "CommonMark 0.31.2 and GFM pipe tables",
+    'a line that opens with a marker always starting an item, so "-34" is a negative number',
+    "a table cell, of the header or the body, the delimiter row being no text",
+    "Fenced code gives no identifier and no number",
+    '"invoice `34`" is invoice 34',
+    '"Track 1_2" and "invoice_id" keep theirs',
+    'a line made only of "-", "=", "*" or "_" are markup',
+    "Each kind's pattern runs on one block's text with its markup removed",
+    '"and", "or", ", and" or ", or", whose whitespace may hold a line break',
+    "a bare space or a newline never joins, and no joiner closes the list",
+    "never a date, an amount, a time or a percentage",
+    '"invoices 34, 155 and 166, 3 in total" gives 34, 155 and 166',
+    'A lead-in is a block that ends with ":"',
+    "the kind's key occurs, in any case and with an optional \"s\", and the kind's pattern captures nothing",
+    "A lead-in that names exactly one kind, and is no count phrase, labels the list that follows it",
+    '"- 34 ($0.99)" gives invoice 34 and fact 0.99',
+    "a nested list is labelled only by its own parent item when that item is a lead-in",
+    "A marker's number is never an identifier nor a fact number",
+    '"number of", "numbers of", "count of" or "total", then the plural',
+    '"the number of invoices 34 and 155 is 2" gives invoices 34 and 155 with fact 2',
+    'the parts of an ISO date with the time "HH:MM" or "HH:MM:SS" right after it',
+    "Text facts, date facts and the outcome phrases read the raw answer, fenced code included",
+)
+IDENTIFIER_READING_LIMITS = (
+    'a bare "Invoices: 7" reads as invoice 7, a one-item labelled list, and so does "Invoices: 3 in total"',
+    '("May 23, 2009" gives 23 and 2009)',
+    "blockquotes, HTML, setext headings, indented code, links, images and backslash escapes are read as paragraph text",
+    'a table\'s id column, or a list under a heading with no colon such as "### Invoices"',
+    'such as "artist 90", gives a fact number',
+    '("invoices 34, 155 and 166, 3 altogether" reads invoice 3)',
+    "reads invoice 2009 and loses 34",
+    "a text or date fact can be met from inside fenced code",
+    "a labelled item's leading number is an identifier even when it is a quantity",
+    '("invoices 34 and 2 more" reads invoice 2)',
+    '"Inv:" and "Cust:" are no lead-ins',
+    '"Number of invoices 34 and 155", with no copula, reads count 34 and fact 155',
+)
+
+
+def test_chapter_08_states_the_rules_and_the_limits_of_the_block_reader_of_identifiers_and_fact_numbers(page):
     [paragraph] = re.findall(r'<p id="identifier-reading">(.*?)</p>', page, re.S)
     text = html.unescape(re.sub(r"<[^>]+>", "", paragraph))
-    assert "every identifier of the list" in text and "D-163" in text
-    assert all(phrase in text for phrase in ("number of", "numbers of", "count of", "total"))
-    assert '"Invoices: 7" reads as invoice 7' in text
-    assert "one-item" in text and "count phrase" in text
-    assert 'only ",", ";", "&", "and" or "or"' in text and "never a bare space or a newline" in text
-    assert 'an item reached through "&", "and" or "or" closes the list' in text
-    assert all(marker in text for marker in ('"-"', '"*"', '"+"', '"N."', '"N)"')) and "a marker is never an id" in text
-    assert "a line with no marker ends the list" in text
-    assert '"the number of invoices 34 and 155 is 2" reads no id' in text
+    assert [rule for rule in IDENTIFIER_READING_RULES if rule not in text] == []
+    assert [limit for limit in IDENTIFIER_READING_LIMITS if limit not in text] == []
+    assert "D-163 on chadlis/hypotrail#75" in text
