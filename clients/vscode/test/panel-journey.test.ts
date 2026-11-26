@@ -377,7 +377,7 @@ for (const [state, count] of [["17-interrupted", 1], ["19-two-interrupted", 2], 
     const read = readOf(state);
     const { document } = await built(t, state);
     const line = elementOf(document, '<section data-part="tohandle-line">');
-    const list = elementOf(document, '<div data-part="tohandle" id="tohandle-list">');
+    const list = elementOf(document, '<section data-part="tohandle" id="tohandle-list">');
     assert.deepEqual(read.next_step.to_handle.length, count);
     if (count === 0) return assert.ok(line === undefined && list === undefined);
     assert.ok(document.indexOf(line!) < document.indexOf('<section data-part="now"'), "the line above Now");
@@ -388,6 +388,20 @@ for (const [state, count] of [["17-interrupted", 1], ["19-two-interrupted", 2], 
       assert.ok(list!.includes(id), id);
       assert.ok(!now.includes(id), `${id} not inside Now`);
     }
+  });
+}
+
+// The list of To handle stands under its own heading, so that it cannot read as part of the Candidate above it.
+for (const state of ["17-interrupted", "19-two-interrupted"]) {
+  test(`the list of To handle opens on its own heading, the label To handle, and stands outside Now and every part of Now: ${state}`, async (t) => {
+    const { document } = await built(t, state);
+    const list = elementOf(document, '<section data-part="tohandle" id="tohandle-list">');
+    assert.ok(list, "the list is a section of its own");
+    assert.ok(contract.labels.includes("To handle"));
+    const [, first] = /^<section[^>]*>\n(<h[1-6]>[^<]*<\/h[1-6]>)/.exec(list!) ?? [];
+    assert.equal(first, "<h3>To handle</h3>", "its heading first, above the level of the Candidate's");
+    const now = elementOf(document, '<section data-part="now"')!;
+    assert.ok(!now.includes('id="tohandle-list"'), "not inside Now");
   });
 }
 
