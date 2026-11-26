@@ -214,6 +214,19 @@ def test_init_refuses_a_scoring_config_that_does_not_match_the_text_facts_schema
     assert not study.exists()
 
 
+@pytest.mark.parametrize("fault", list(SCORING_CONFIG_FAULTS))
+def test_init_does_not_check_the_scoring_config_against_the_text_facts_schema_when_the_primary_criterion_is_not_of_text_facts_v1(tmp_path, fault):
+    edit, _ = SCORING_CONFIG_FAULTS[fault]
+    examples = scoring_config_copy(tmp_path, edit)
+    path = examples / "chinook_prose" / "workload.json"
+    declaration = json.loads(path.read_text(encoding="utf-8"))
+    declaration["primary_criterion"] = "contract_success"
+    path.write_text(json.dumps(declaration, indent=2), encoding="utf-8")
+    study, code, payload, err = init_prose(tmp_path, examples)
+    assert (code, payload.get("error", {}).get("code")) == (0, None), (payload, err)
+    assert (study / "study.json").exists()
+
+
 def test_the_config_digest_of_a_text_facts_assessment_covers_the_studys_scoring_config(tmp_path):
     study, references = prose_study(tmp_path)
     code, payload, err = assess(study, observation_set(tmp_path, study), "text_facts_v1", references)

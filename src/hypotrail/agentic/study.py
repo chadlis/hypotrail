@@ -10,8 +10,8 @@ declared: its Configurations can change after the Study exists.
 A Workload whose data lives outside the repository declares no `database`: the Study keeps a copy of its
 data manifest instead (role `data_manifest`), the Protocol holds that copy's digest as
 `data_manifest_sha256` in place of `dataset_sha256`, and the answer schema is published only when the
-Workload declares one. A declared scoring config is checked against `text-facts.schema.json`, the one scoring
-config a Scorer reads, and refused `SCORING_CONFIG_INVALID` before anything is written.
+Workload declares one. When the primary Criterion is one of `text_facts_v1`'s, the Scorer that reads it, a declared
+scoring config is checked against `text-facts.schema.json` and refused `SCORING_CONFIG_INVALID` before anything is written.
 
 The Protocol digest (`protocol_digest`) is the canonical digest of what binds every Attempt: the
 Cases of each Partition by their bytes, the memberships, the References, the answer schema and the
@@ -35,7 +35,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import Workload, load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write, text_facts
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -140,8 +140,12 @@ TEXT_FACTS_SCHEMA = "text-facts.schema.json"
 
 
 def check_scoring_config(workload: Workload) -> None:
-    """Refuse a declared scoring config that is not `text-facts-config/1`, the one scoring config a Scorer reads (`text_facts_v1`)."""
-    if "scoring_config" not in workload.declaration:
+    """Refuse a declared scoring config that is not `text-facts-config/1` when the Study's Assessments are `text_facts_v1`'s.
+
+    The primary Criterion names the Scorer: an Assessment is refused unless its Scorer has the Study's primary Criterion,
+    and no Criterion is shared between Scorers. Under any other Scorer the schema is not applied.
+    """
+    if "scoring_config" not in workload.declaration or workload.declaration["primary_criterion"] not in text_facts.CRITERIA:
         return
     file = workload.declaration["scoring_config"]
     config = read_json(scoring_config_path(workload), stage="declaration", noun="scoring config", key="scoring_config")
