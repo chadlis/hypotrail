@@ -1,6 +1,6 @@
 """The frozen demonstration's script (`docs/demo/demonstration.py`): its bounds, its step list, its transcript and its own checks.
 
-The whole step list is run once per session in process (`demonstration_run`, in `conftest.py`); only the tests of the script started as a person
+The whole step list is run once per session in process (`demonstration_recording`, in `conftest.py`); only the tests of the script started as a person
 starts it start it as a process, once.
 """
 
@@ -291,7 +291,7 @@ def checkout_files() -> dict:
 
 
 @pytest.fixture(scope="module")
-def process_run(tmp_path_factory):
+def script_process(tmp_path_factory):
     """The script run as a person runs it, as a process, with a new work folder outside the checkout: the result and the checkout's
     files listed before and after."""
     work = tmp_path_factory.mktemp("demonstration-process") / "work"
@@ -302,14 +302,14 @@ def process_run(tmp_path_factory):
     return result, before, checkout_files()
 
 
-def test_the_script_run_as_a_process_with_a_new_work_folder_outside_the_checkout_exits_0_and_its_last_line_counts_every_step(process_run):
-    result, _, _ = process_run
+def test_the_script_run_as_a_process_with_a_new_work_folder_outside_the_checkout_exits_0_and_its_last_line_counts_every_step(script_process):
+    result, _, _ = script_process
     assert result.returncode == 0, (result.stdout[-4000:], result.stderr[-2000:])
     assert result.stdout.splitlines()[-1] == f"{len(STEPS)} of {len(STEPS)} steps gave what they expect."
 
 
-def test_the_script_that_gives_every_step_leaves_every_file_of_the_checkout_as_it_was(process_run):
-    result, before, after = process_run
+def test_the_script_that_gives_every_step_leaves_every_file_of_the_checkout_as_it_was(script_process):
+    result, before, after = script_process
     assert result.returncode == 0, result.stderr[-2000:]
     for path in sorted(set(before) | set(after)):
         assert before.get(path) == after.get(path), path
@@ -337,9 +337,9 @@ def test_no_command_of_the_step_list_calls_a_live_model_or_fetches_and_run_agent
         assert live_or_network(action["cli"]) is None, (step_id, action["cli"])
 
 
-def test_each_process_the_script_starts_gets_an_environment_without_the_live_key(demonstration_run):
-    assert demonstration_run.key_in_environment and demonstration_run.calls
-    for call in demonstration_run.calls:
+def test_each_process_the_script_starts_gets_an_environment_without_the_live_key(demonstration_recording):
+    assert demonstration_recording.key_in_environment and demonstration_recording.calls
+    for call in demonstration_recording.calls:
         assert (LIVE_KEY in call["env"]) is False, call["args"]
 
 
@@ -448,10 +448,10 @@ def test_s1_is_a_run_ml_of_seasonal_7_on_dev_then_a_decide_built_as_task_3s_with
     assert actions.index(decide_of("S1")) > 0
 
 
-def test_c8_is_a_proxy_decide_whose_source_names_the_rule_whose_option_the_rule_gives_and_whose_read_sequence_is_read_after_s1(demonstration_run):
+def test_c8_is_a_proxy_decide_whose_source_names_the_rule_whose_option_the_rule_gives_and_whose_read_sequence_is_read_after_s1(demonstration_recording):
     options = dict(options_of(decide_of("C8")["cli"]))
     assert (options["--author"], "keep the Configuration with the lowest MAE" in options["--source"]) == ("proxy", True)
-    run = demonstration_run
+    run = demonstration_recording
     comparison = run.outcome.captures["L2_COMPARISON_62"]
     assert options["--artifact"] == "{L2_COMPARISON_62}"
     [status] = [call["payload"] for (_, action), call in zip(processes(STEPS), run.calls) if "L2_READ_AFTER_S1" in action.get("capture", {})]
@@ -550,8 +550,8 @@ def blocks(transcript: str) -> dict:
     return found
 
 
-def test_the_transcript_holds_one_block_per_step_with_its_title_commands_shown_values_what_it_shows_why_and_each_expectation_held(demonstration_run):
-    run, by_block = demonstration_run, blocks(demonstration_run.transcript)
+def test_the_transcript_holds_one_block_per_step_with_its_title_commands_shown_values_what_it_shows_why_and_each_expectation_held(demonstration_recording):
+    run, by_block = demonstration_recording, blocks(demonstration_recording.transcript)
     calls = iter(run.calls)
     ids = [each["id"] for each in STEPS]
     for step_id in [*ids, *(name for name in by_block if name not in ids)]:

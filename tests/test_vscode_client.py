@@ -203,10 +203,10 @@ def kept_demonstration_names() -> list:
     return sorted(Path(name).name for name in tracked("clients/vscode/test/cli/demonstration"))
 
 
-def test_each_kept_file_of_the_demonstration_is_what_its_step_list_wrote_in_the_work_folder_once_its_values_are_replaced(demonstration_run):
+def test_each_kept_file_of_the_demonstration_is_what_its_step_list_wrote_in_the_work_folder_once_its_values_are_replaced(demonstration_recording):
     from _client_helpers import DEMONSTRATION_KEPT, demonstration_outputs, first_difference
 
-    made, names = demonstration_outputs(demonstration_run.work / "kept"), kept_demonstration_names()
+    made, names = demonstration_outputs(demonstration_recording.work / "kept"), kept_demonstration_names()
     assert made and names
     for name in sorted(set(made) | set(names)):
         assert name in made and name in names, name

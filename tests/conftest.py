@@ -79,7 +79,7 @@ def network_guard(monkeypatch):
 
 
 @pytest.fixture(scope="session")
-def demonstration_run(tmp_path_factory):
+def demonstration_recording(tmp_path_factory):
     """The demonstration's whole step list, carried out in process under the same network guard, with a live key planted in the
     environment that each process the script starts must not receive. It is carried out once per session; its tests read what it recorded."""
     from _demonstration_helpers import LIVE_KEY, run_in_process

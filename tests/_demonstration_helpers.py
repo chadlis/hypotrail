@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "docs" / "demo" / "demonstration.py"
 LIVE_KEY = "HYPOTRAIL_ANTHROPIC_API_KEY"
 
-Run = namedtuple("Run", "module work outcome transcript calls key_in_environment examples_before examples_after")
+Recording = namedtuple("Recording", "module work outcome transcript calls key_in_environment examples_before examples_after")
 
 
 def demonstration():
@@ -118,14 +118,14 @@ class Recorder:
         return run_json("status", "--study", study)[1]["write_sequence"]
 
 
-def run_in_process(work: Path, steps=None) -> Run:
+def run_in_process(work: Path, steps=None) -> Recording:
     """The step list (the script's own when `steps` is None) carried out once in the work folder, each process through `Recorder`, with
     the SHA-256 of each tracked file under `examples/` read before and after."""
     module = demonstration()
     recorder, out = Recorder(module), io.StringIO()
     before = tracked_examples()
     outcome = module.run(work, start=recorder, out=out, steps=steps)
-    return Run(module, work, outcome, out.getvalue(), recorder.calls, LIVE_KEY in os.environ, before, tracked_examples())
+    return Recording(module, work, outcome, out.getvalue(), recorder.calls, LIVE_KEY in os.environ, before, tracked_examples())
 
 
 EXPANDED = demonstration().processes

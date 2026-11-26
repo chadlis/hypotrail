@@ -1,6 +1,6 @@
 """The frozen demonstration as end-to-end tests: the script's own step list, run once per session through the CLI in process.
 
-Each test reads what `demonstration_run` (`conftest.py`) recorded for one step and asserts what a person watching the transcript does not
+Each test reads what `demonstration_recording` (`conftest.py`) recorded for one step and asserts what a person watching the transcript does not
 see: the exit codes and refusals, each expectation, the Write sequence, the records on disk and in the reads, the report's sections.
 
 Stated limit: that every float these tests compare goes through the script's rule (`same`, 12 significant digits) is read from
@@ -163,8 +163,8 @@ def listed_process(action, values, module) -> tuple:
     return (Path(action["program"]).name, module.resolved(action["args"], values))
 
 
-def test_the_processes_the_end_to_end_tests_ran_are_the_commands_and_programs_of_the_step_list_in_order_both_ways(demonstration_run):
-    run = demonstration_run
+def test_the_processes_the_end_to_end_tests_ran_are_the_commands_and_programs_of_the_step_list_in_order_both_ways(demonstration_recording):
+    run = demonstration_recording
     values = run.module.folders_of(run.work) | run.outcome.captures
     listed = [listed_process(action, values, run.module) for _, action in processes(run.module.STEPS)]
     ran = [(call["program"], call["args"]) for call in run.calls]
@@ -173,51 +173,51 @@ def test_the_processes_the_end_to_end_tests_ran_are_the_commands_and_programs_of
         assert found == expected, at
 
 
-def test_every_step_of_the_step_list_gives_what_it_expects_and_the_script_returns_0(demonstration_run):
-    steps = demonstration_run.module.STEPS
-    assert (demonstration_run.outcome.code, demonstration_run.outcome.passed) == (0, len(steps)), demonstration_run.transcript[-3000:]
+def test_every_step_of_the_step_list_gives_what_it_expects_and_the_script_returns_0(demonstration_recording):
+    steps = demonstration_recording.module.STEPS
+    assert (demonstration_recording.outcome.code, demonstration_recording.outcome.passed) == (0, len(steps)), demonstration_recording.transcript[-3000:]
 
 
-def test_l1_1_the_help_and_the_two_workloads(demonstration_run):
-    [(action, call)] = assert_the_step(demonstration_run, "L1.1")
+def test_l1_1_the_help_and_the_two_workloads(demonstration_recording):
+    [(action, call)] = assert_the_step(demonstration_recording, "L1.1")
     assert call["args"] == ["--help"] and "decide" in call["out"]
 
 
-def test_l1_2_init_then_the_same_init_refused_with_study_exists(demonstration_run):
-    first, again, status = assert_the_step(demonstration_run, "L1.2")
+def test_l1_2_init_then_the_same_init_refused_with_study_exists(demonstration_recording):
+    first, again, status = assert_the_step(demonstration_recording, "L1.2")
     assert (again[1]["code"], again[1]["payload"]["error"]["code"], again[1]["payload"]["error"]["stage"]) == (2, "STUDY_EXISTS", "study")
-    assert first[1]["payload"]["references_id"] == demonstration_run.outcome.captures["L1_BIKE_REFS"]
+    assert first[1]["payload"]["references_id"] == demonstration_recording.outcome.captures["L1_BIKE_REFS"]
 
 
-def test_l1_3_two_attempts_on_dev_and_the_request_sent_again(demonstration_run):
-    seasonal, ridge, again = assert_the_step(demonstration_run, "L1.3")
+def test_l1_3_two_attempts_on_dev_and_the_request_sent_again(demonstration_recording):
+    seasonal, ridge, again = assert_the_step(demonstration_recording, "L1.3")
     assert again[1]["payload"]["replayed"] is True
     assert again[1]["payload"]["attempt"]["attempt_id"] == seasonal[1]["payload"]["attempt"]["attempt_id"]
     assert again[1]["payload"]["observation_set_id"] == seasonal[1]["payload"]["observation_set_id"]
 
 
-def test_l1_4_the_two_assessments_give_the_maes_of_the_walk(demonstration_run):
-    run = demonstration_run
+def test_l1_4_the_two_assessments_give_the_maes_of_the_walk(demonstration_recording):
+    run = demonstration_recording
     pairs = assert_the_step(run, "L1.4")
     for (action, call), config in zip(pairs, ("seasonal_7", "ridge_v1")):
         assert run.module.same(call["payload"]["assessment"]["metrics"][0]["value"], F3_MAE[config]), config
 
 
-def test_l1_5_the_comparison_gives_the_delta_of_the_walk_with_its_warning(demonstration_run):
-    run = demonstration_run
+def test_l1_5_the_comparison_gives_the_delta_of_the_walk_with_its_warning(demonstration_recording):
+    run = demonstration_recording
     (_, compare), (_, status) = assert_the_step(run, "L1.5")
     assert run.module.same(compare["payload"]["comparison"]["delta"]["value"], F3_DELTA)
     assert run.module.same(status["payload"]["comparisons"][-1]["delta"]["value"], F3_DELTA)
     assert "COMPARISON_SINGLE_FEATURE_BEATS" in compare["err"]
 
 
-def test_l1_6_status_and_the_report_page_with_no_exposure(demonstration_run):
-    (_, status), (_, report) = assert_the_step(demonstration_run, "L1.6")
+def test_l1_6_status_and_the_report_page_with_no_exposure(demonstration_recording):
+    (_, status), (_, report) = assert_the_step(demonstration_recording, "L1.6")
     assert report["payload"]["report"]["exposure"] == {"recorded": False, "entry_id": None, "journal_entries": 0}
 
 
-def test_l1_7_public_check_the_freeze_record_and_the_two_exposures_on_disk(demonstration_run):
-    run = demonstration_run
+def test_l1_7_public_check_the_freeze_record_and_the_two_exposures_on_disk(demonstration_recording):
+    run = demonstration_recording
     pairs = assert_the_step(run, "L1.7")
     (_, attempt), (_, assess), (_, report) = pairs[0], pairs[2], pairs[4]
     assert attempt["payload"]["attempt"]["item_counts"]["produced"] == 184
@@ -241,8 +241,8 @@ PER_CRITERION = {
 }
 
 
-def test_l1_8_chinook_the_scenario_attempt_the_import_its_assessment_and_the_per_criterion_file(demonstration_run):
-    pairs = assert_the_step(demonstration_run, "L1.8")
+def test_l1_8_chinook_the_scenario_attempt_the_import_its_assessment_and_the_per_criterion_file(demonstration_recording):
+    pairs = assert_the_step(demonstration_recording, "L1.8")
     (_, fixture), (_, imported), (_, assess) = pairs[1], pairs[2], pairs[3]
     assert fixture["payload"]["attempt"]["item_counts"] == {"produced": 5, "failed": 1, "missing": 1}
     assert (imported["payload"]["attempt"]["mode"], imported["payload"]["attempt"]["item_counts"]["produced"]) == ("external_unknown", 2)
@@ -267,8 +267,8 @@ def kept_call(run, name):
     return call
 
 
-def test_a4_the_workload_copy_is_in_the_work_folder_and_data_verify_verifies_it(demonstration_run):
-    run = demonstration_run
+def test_a4_the_workload_copy_is_in_the_work_folder_and_data_verify_verifies_it(demonstration_recording):
+    run = demonstration_recording
     [(_, verify)] = assert_the_step(run, "A4")
     copy = run.work / "demo-examples"
     assert copy.resolve() not in ROOT.resolve().parents and ROOT.resolve() not in copy.resolve().parents
@@ -276,8 +276,8 @@ def test_a4_the_workload_copy_is_in_the_work_folder_and_data_verify_verifies_it(
     assert [entry["status"] for entry in verify["payload"]["datasets"]] == ["verified", "verified"]
 
 
-def test_a5_the_second_bike_study_its_two_assessments_give_the_maes_and_its_comparison_the_delta_of_the_walk(demonstration_run):
-    run = demonstration_run
+def test_a5_the_second_bike_study_its_two_assessments_give_the_maes_and_its_comparison_the_delta_of_the_walk(demonstration_recording):
+    run = demonstration_recording
     pairs = assert_the_step(run, "A5")
     for (_, call), config in zip(pairs[3:5], ("seasonal_7", "ridge_v1")):
         assert run.module.same(call["payload"]["assessment"]["metrics"][0]["value"], F3_MAE[config]), config
@@ -285,8 +285,8 @@ def test_a5_the_second_bike_study_its_two_assessments_give_the_maes_and_its_comp
     assert pairs[0][1]["payload"]["references_id"] == captured(run, "L1_BIKE_REFS")
 
 
-def test_task_1_one_pending_decision_on_the_comparison_of_a5_with_its_question_and_three_options_each_with_a_consequence(demonstration_run):
-    run = demonstration_run
+def test_task_1_one_pending_decision_on_the_comparison_of_a5_with_its_question_and_three_options_each_with_a_consequence(demonstration_recording):
+    run = demonstration_recording
     [(_, status)] = assert_the_step(run, "task 1")
     [pending] = status["payload"]["pending_decisions"]
     assert pending["comparison_id"] == captured(run, "L2_COMPARISON")
@@ -296,8 +296,8 @@ def test_task_1_one_pending_decision_on_the_comparison_of_a5_with_its_question_a
         assert isinstance(option["consequence"], str) and option["consequence"].strip(), option["text"]
 
 
-def test_task_2_the_delta_and_the_two_metrics_in_status_and_one_figures_entry_for_that_comparison(demonstration_run):
-    run = demonstration_run
+def test_task_2_the_delta_and_the_two_metrics_in_status_and_one_figures_entry_for_that_comparison(demonstration_recording):
+    run = demonstration_recording
     [(_, status)] = assert_the_step(run, "task 2")
     [comparison] = [each for each in status["payload"]["comparisons"] if each["comparison_id"] == captured(run, "L2_COMPARISON")]
     assert run.module.same(comparison["delta"]["value"], F3_DELTA)
@@ -317,8 +317,8 @@ def the_decision_of_task_3(run, status) -> dict:
     return decision
 
 
-def test_task_3_and_task_4_no_pending_decision_one_human_decision_citing_the_comparison_that_applies_with_no_reason_read_again_the_same(demonstration_run):
-    run = demonstration_run
+def test_task_3_and_task_4_no_pending_decision_one_human_decision_citing_the_comparison_that_applies_with_no_reason_read_again_the_same(demonstration_recording):
+    run = demonstration_recording
     decide, status, _, _ = assert_the_step(run, "task 3")
     [(_, again)] = assert_the_step(run, "task 4")
     assert decide[1]["payload"]["decision"]["decision_id"] == captured(run, "L2_DECISION")
@@ -328,10 +328,10 @@ def test_task_3_and_task_4_no_pending_decision_one_human_decision_citing_the_com
 FRAGMENT = ROOT / "clients" / "claude-code" / "settings-fragment.json"
 
 
-def test_c10_the_hooks_text_names_the_write_sequence_no_pending_decision_and_the_decision_of_task_3_with_its_option_and_its_id(demonstration_run):
+def test_c10_the_hooks_text_names_the_write_sequence_no_pending_decision_and_the_decision_of_task_3_with_its_option_and_its_id(demonstration_recording):
     missing = [name for name in ("uv", "python3") if shutil.which(name) is None]
     assert missing == [], f"C10 starts the hook with python3 and the hook starts the CLI through uv: not on PATH: {missing}"
-    run = demonstration_run
+    run = demonstration_recording
     [(action, hook)] = assert_the_step(run, "C10")
     [entry] = json.loads(FRAGMENT.read_text(encoding="utf-8"))["hooks"]["UserPromptSubmit"]
     words = shlex.split(entry["hooks"][0]["command"])
@@ -344,8 +344,8 @@ def test_c10_the_hooks_text_names_the_write_sequence_no_pending_decision_and_the
     assert decision.startswith(f"- Decision {captured(run, 'L2_DECISION')}: ") and '; option "Keep the Control";' in decision
 
 
-def test_task_5_the_warning_of_the_comparison_and_its_limitations_in_status(demonstration_run):
-    run = demonstration_run
+def test_task_5_the_warning_of_the_comparison_and_its_limitations_in_status(demonstration_recording):
+    run = demonstration_recording
     [(_, status)] = assert_the_step(run, "task 5")
     comparison = status["payload"]["comparisons"][0]
     assert comparison["comparison_id"] == captured(run, "L2_COMPARISON")
@@ -371,12 +371,12 @@ def the_rescored_decision(run, step_id, changed, state, latest):
     assert len(decision["evidence_change"]["lines"]) == 2
 
 
-def test_task_6_1_each_new_assessment_changes_no_item_and_the_decision_is_outdated_with_evidence_rescored(demonstration_run):
-    the_rescored_decision(demonstration_run, "task 6.1", 0, "evidence_rescored", F3_MAE)
+def test_task_6_1_each_new_assessment_changes_no_item_and_the_decision_is_outdated_with_evidence_rescored(demonstration_recording):
+    the_rescored_decision(demonstration_recording, "task 6.1", 0, "evidence_rescored", F3_MAE)
 
 
-def test_task_6_2_each_new_assessment_changes_one_item_and_the_decision_is_outdated_with_result_changed(demonstration_run):
-    the_rescored_decision(demonstration_run, "task 6.2", 1, "result_changed", F3_MAE_62)
+def test_task_6_2_each_new_assessment_changes_one_item_and_the_decision_is_outdated_with_result_changed(demonstration_recording):
+    the_rescored_decision(demonstration_recording, "task 6.2", 1, "result_changed", F3_MAE_62)
 
 
 def transcript_block(run, step_id) -> list:
@@ -395,8 +395,8 @@ C5_KINDS = {
 }
 
 
-def test_c5_check_the_values_the_transcript_prints_are_those_of_the_status_read_kept_at_write_sequence_26(demonstration_run):
-    run = demonstration_run
+def test_c5_check_the_values_the_transcript_prints_are_those_of_the_status_read_kept_at_write_sequence_26(demonstration_recording):
+    run = demonstration_recording
     [(action, _)] = assert_the_step(run, "C5-check")
     read = json.loads((run.work / "kept" / "after-6.2.status.out").read_text(encoding="utf-8"))
     assert read["write_sequence"] == 26
@@ -406,8 +406,8 @@ def test_c5_check_the_values_the_transcript_prints_are_those_of_the_status_read_
         assert [json.loads(printed[path]) for path in paths] == [value_at(read, path) for path in paths], kind
 
 
-def test_compare_one_pending_decision_on_the_new_comparison_its_delta_that_of_a5_and_the_transcript_says_what_result_changed_names(demonstration_run):
-    run = demonstration_run
+def test_compare_one_pending_decision_on_the_new_comparison_its_delta_that_of_a5_and_the_transcript_says_what_result_changed_names(demonstration_recording):
+    run = demonstration_recording
     (_, compare), (_, status), _, _ = assert_the_step(run, "COMPARE")
     [(_, a5)] = [pair for pair in calls_of(run, "A5") if pair[1]["args"][0] == "compare"]
     assert [entry["comparison_id"] for entry in status["payload"]["pending_decisions"]] == [captured(run, "L2_COMPARISON_62")]
@@ -415,8 +415,8 @@ def test_compare_one_pending_decision_on_the_new_comparison_its_delta_that_of_a5
     assert "\"result changed\" at 6.2 names a changed Item, not a changed delta" in " ".join(transcript_block(run, "COMPARE"))
 
 
-def test_s1_the_decide_on_the_older_write_sequence_is_refused_with_study_changed_naming_the_run_ml_and_nothing_is_written(demonstration_run):
-    run = demonstration_run
+def test_s1_the_decide_on_the_older_write_sequence_is_refused_with_study_changed_naming_the_run_ml_and_nothing_is_written(demonstration_recording):
+    run = demonstration_recording
     (_, attempt), _, (_, refused), _, _ = assert_the_step(run, "S1")
     error = refused["payload"]["error"]
     assert (refused["code"], error["code"], error["stage"]) == (6, "STUDY_CHANGED", "sequence")
@@ -428,8 +428,8 @@ def test_s1_the_decide_on_the_older_write_sequence_is_refused_with_study_changed
     assert [entry["comparison_id"] for entry in refused["status"]["pending_decisions"]] == [captured(run, "L2_COMPARISON_62")]
 
 
-def test_c8_a_second_decision_by_proxy_with_its_source_that_applies_and_no_pending_decision(demonstration_run):
-    run = demonstration_run
+def test_c8_a_second_decision_by_proxy_with_its_source_that_applies_and_no_pending_decision(demonstration_recording):
+    run = demonstration_recording
     _, (_, status) = assert_the_step(run, "C8")
     first, second = status["payload"]["decisions"]
     assert first["decision_id"] == captured(run, "L2_DECISION")
@@ -438,8 +438,8 @@ def test_c8_a_second_decision_by_proxy_with_its_source_that_applies_and_no_pendi
     assert status["payload"]["pending_decisions"] == []
 
 
-def test_dev_one_declared_deviation_not_withdrawn_by_human_citing_the_references_id_of_revision_3(demonstration_run):
-    run = demonstration_run
+def test_dev_one_declared_deviation_not_withdrawn_by_human_citing_the_references_id_of_revision_3(demonstration_recording):
+    run = demonstration_recording
     (_, declared), (_, status), _, _ = assert_the_step(run, "DEV")
     [deviation] = status["payload"]["declared_deviations"]
     [references] = [a["artifact_id"] for a in status["payload"]["revisions"][2]["artifacts"] if a["role"] == "references"]
@@ -449,16 +449,16 @@ def test_dev_one_declared_deviation_not_withdrawn_by_human_citing_the_references
     assert deviation["declared_deviation_id"] == declared["payload"]["declared_deviation"]["declared_deviation_id"]
 
 
-def test_report_the_page_of_the_second_bike_study_holds_the_ten_sections_and_records_no_exposure(demonstration_run):
-    [(_, report)] = assert_the_step(demonstration_run, "REPORT")
+def test_report_the_page_of_the_second_bike_study_holds_the_ten_sections_and_records_no_exposure(demonstration_recording):
+    [(_, report)] = assert_the_step(demonstration_recording, "REPORT")
     assert report["payload"]["report"]["exposure"] == {"recorded": False, "entry_id": None, "journal_entries": 0}
 
 
 # --- a Decision is never rewritten, no Reference of the repository changes, and the reads kept for the client ------------------------
 
 
-def test_the_file_of_the_decision_of_task_3_keeps_its_bytes_after_task_6_1_after_task_6_2_and_after_dev(demonstration_run):
-    run = demonstration_run
+def test_the_file_of_the_decision_of_task_3_keeps_its_bytes_after_task_6_1_after_task_6_2_and_after_dev(demonstration_recording):
+    run = demonstration_recording
     [file] = calls_of(run, "task 3")[0][1]["decision_files"]
     recorded = calls_of(run, "task 3")[-1][1]["decision_files"][file]
     for step_id in ("task 6.1", "task 6.2", "DEV"):
@@ -469,8 +469,8 @@ def test_the_file_of_the_decision_of_task_3_keeps_its_bytes_after_task_6_1_after
 EDITED_DAYS = {"6.1": ("2012-12-31", "2390", "2829"), "6.2": ("2012-03-15", "5287", "6292")}
 
 
-def test_no_tracked_file_under_examples_changed_and_both_edits_are_in_the_copys_data(demonstration_run):
-    run = demonstration_run
+def test_no_tracked_file_under_examples_changed_and_both_edits_are_in_the_copys_data(demonstration_recording):
+    run = demonstration_recording
     before, after = run.examples_before, run.examples_after
     assert before and after == tracked_examples()
     for path in sorted(set(before) | set(after)):
@@ -494,8 +494,8 @@ KEPT_STATES = {
 KEPT_DECIDES = ["decide-task-3", "decide-s1"]
 
 
-def test_the_work_folder_holds_the_two_reads_of_each_kept_state_at_its_write_sequence_and_the_two_kept_decide_calls(demonstration_run):
-    run = demonstration_run
+def test_the_work_folder_holds_the_two_reads_of_each_kept_state_at_its_write_sequence_and_the_two_kept_decide_calls(demonstration_recording):
+    run = demonstration_recording
     folder = run.work / "kept"
     written = {path.name.rsplit(".", 1)[0] for path in folder.iterdir()}
     expected = {f"{state}.{read}" for state in KEPT_STATES for read in ("status", "figures")} | set(KEPT_DECIDES)
