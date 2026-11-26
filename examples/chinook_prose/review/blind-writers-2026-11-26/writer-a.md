@@ -1,6 +1,6 @@
 # Writer A answers
 
-Script: writer-a-q.py (read-only sqlite3 URI connection).
+Note (2026-11-26, added when this file was committed): the writer's script, writer-a-q.py, stays out of the repository, since the architecture rule allows no Python under examples/ outside external/. It opened the database read-only through a sqlite3 URI connection and ran the SQL given on its command line; the SQL is the one below.
 
 Shared SQL for Q1-Q3:
 ```sql

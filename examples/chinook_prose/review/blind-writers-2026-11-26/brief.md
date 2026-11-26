@@ -1,5 +1,5 @@
 You answer questions for a data assistant over a music store database (SQLite, read-only):
-/home/user/hypotrail/.claude/worktrees/s1-263/examples/chinook/data/Chinook_Sqlite.sqlite
+examples/chinook/data/Chinook_Sqlite.sqlite
 Open it only with sqlite3.connect("file:<path>?mode=ro", uri=True).
 
 For each question, decide which of these is right:
@@ -16,3 +16,5 @@ Q3. "Tell me which artist our customers like best."
 Q4. "How much has Frank spent with us?"
 Q5. "What is Frank's total spend so far?"
 Q6. "Can you give me Frank's lifetime spend?"
+
+Note (2026-11-26, added when this file was committed): the brief the writers received gave the database as an absolute path into a local worktree of this repository; it is written here relative to the repository root.

@@ -440,3 +440,11 @@ def test_the_review_record_holds_the_fresh_readers_findings_and_keeps_those_on_t
     assert set(reader["superseded"]) == {"d16_d18_reference_text", "d17"}
     assert all(item["superseded_by"].startswith("2026-11-26, D-160") for item in reader["superseded"].values())
     assert "fresh_reader" not in d17 and d17["history"]["fresh_reader"]["finding"] == reader["superseded"]["d17"]["finding"]
+
+
+def test_the_committed_blind_writer_files_name_no_local_path_and_say_their_scripts_stay_out_of_the_repository():
+    folder = EXAMPLES.parent / BLIND_WRITERS
+    texts = {name: (folder / name).read_text(encoding="utf-8") for name in ("brief.md", "writer-a.md", "writer-b.md")}
+    assert not any("/home/" in text or "Script:" in text for text in texts.values())
+    assert "examples/chinook/data/Chinook_Sqlite.sqlite" in texts["brief.md"] and "absolute path into a local worktree" in texts["brief.md"]
+    assert all("stays out of the repository" in texts[name] for name in ("writer-a.md", "writer-b.md"))

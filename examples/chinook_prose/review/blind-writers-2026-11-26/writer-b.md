@@ -1,6 +1,6 @@
 # Writer B answers
 
-Script: writer-b-query.py (same folder). Database opened read-only via URI `mode=ro`.
+Note (2026-11-26, added when this file was committed): the writer's script, writer-b-query.py, stays out of the repository, since the architecture rule allows no Python under examples/ outside external/. It opened the database read-only via URI `mode=ro`; the SQL it ran is the one below.
 
 ## Shared SQL, artist questions (Q1-Q3)
 
