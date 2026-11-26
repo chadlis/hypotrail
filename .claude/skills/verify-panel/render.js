@@ -16,6 +16,8 @@
 //    positions of the first pending question, its first number and its Record control.
 // 4. On the read of status-success at 420 by 700 px, in each theme: Tab up to the first radio, Space, Tab, Enter, then the
 //    pointer over the options, each step shot, with the Tab stops and the messages the document posted.
+// 5. On every kept state of the journey at 420 by 700 px, in each theme: where Now holds a pending decision, Tab up to its first
+//    radio, Space and Tab up to its Record, shot with focus; otherwise the page's Tab stops, once round.
 //
 // The sheet lists every shot under its document, the contrast findings and the keyboard steps. Exit 0 when every document was
 // made and drawn; Chrome missing, a failed build or a failed step exits 1.
@@ -139,8 +141,9 @@ const NOT_FOUND = { error: { code: "ENOENT" } };
 for (const name of H.KEPT_READS) {
   test(name, async (t) => documents.set(name, (await H.documentFor(t, ...keptRead(name))).document));
 }
-// The journey's states that the client's contrast test reads, each with its figures read where one is kept.
-for (const state of ["04-pending", "09-new-compare", "10-proxy", "17-interrupted", "33-chinook-assessed"]) {
+// Every kept state of the journey, each with its figures read where one is kept.
+const JOURNEY_STATES = fs.readdirSync(path.join(KEPT_FOLDER, "journey")).filter((file) => file.endsWith(".status.out")).map((file) => file.slice(0, -".status.out".length)).sort();
+for (const state of JOURNEY_STATES) {
   const name = `journey.${state}`;
   const figures = fs.existsSync(path.join(KEPT_FOLDER, "journey", `${state}.figures.out`)) ? keptAnswer(`${name}.figures`) : H.FIGURES_FAILED;
   test(name, async (t) => documents.set(name, (await H.documentFor(t, keptAnswer(`${name}.status`), figures)).document));
@@ -273,6 +276,37 @@ test("render", async (t) => {
     steps.push({ step: "Enter, then the pointer at (60, 470)", file: await view.shoot(`i-hover--${theme}-420.png`, false) });
     keyboard[theme] = { stops, steps, posted: await view.evaluate("window.__posted") };
   }
+  // On each kept state of the journey, in each theme at 420 by 700 px: where the state has a pending decision in Now, Tab up to its
+  // first radio, Space, then Tab up to its Record, which is shot with focus; otherwise the Tab stops of the whole page, once round.
+  for (const state of JOURNEY_STATES) for (const theme of Object.keys(THEMES)) {
+    const name = `journey.${state}`;
+    const view = await page(t, address, 420, 700);
+    await view.open(name, theme);
+    const stops = [];
+    const at = (selector) => view.evaluate(`document.activeElement === document.querySelector(${JSON.stringify(selector)})`);
+    const stop = () => view.evaluate('(() => { const e = document.activeElement; return e.tagName + ":" + (e.getAttribute("data-option") ?? e.textContent.trim().slice(0, 20)); })()');
+    const radio = 'section[data-part="now"] input[type="radio"]';
+    const record = `section[data-part="now"] button[data-message="${RECORD}"]`;
+    const pending = await view.evaluate(`document.querySelector(${JSON.stringify(radio)}) !== null`);
+    const entry = { pending, stops, steps: [] };
+    if (pending) {
+      for (let n = 0; n < 300 && !(await at(radio)); n += 1) { await view.key("Tab"); stops.push(await stop()); }
+      entry.radio = await at(radio);
+      await view.key("Space");
+      entry.checked = await view.evaluate(`document.querySelector(${JSON.stringify(radio)}).checked`);
+      for (let n = 0; n < 20 && !(await at(record)); n += 1) { await view.key("Tab"); stops.push(await stop()); }
+      entry.record = await at(record);
+      entry.steps.push({ step: `${name}: Tab to the first radio, Space, Tab to Record (focus: ${await view.evaluate("document.activeElement.textContent.trim()")})`, file: await view.shoot(`k-${name}--${theme}-420.png`, false) });
+    } else {
+      for (let n = 0; n < 300; n += 1) {
+        await view.key("Tab");
+        if (await view.evaluate("document.activeElement === document.body")) break;
+        stops.push(await stop());
+        if (n > 0 && stops[n] === stops[0]) break;
+      }
+    }
+    keyboard[`${name}--${theme}`] = entry;
+  }
   writeSheet();
 });
 
@@ -285,12 +319,12 @@ function writeSheet() {
     const figures = list.map((shot) => `<figure><a href="${shot.file}"><img loading="lazy" src="${shot.file}" alt="${escaped(name)} in ${shot.theme} at ${shot.width} px"></a><figcaption>${shot.theme}, ${shot.width} px</figcaption></figure>`);
     return `<section id="${escaped(name)}"><h2>${escaped(name)}</h2>${below.length ? `<p>Under AA at 420 px:</p><ul>${below.join("")}</ul>` : "<p>No text under AA at 420 px.</p>"}<div class="shots">${figures.join("")}</div></section>`;
   });
-  const keys = Object.entries(keyboard).map(([theme, k]) => `<section><h2>Keyboard, ${theme}</h2><p>Tab stops: ${k.stops.map(escaped).join(" → ")}</p><p>Posted: <code>${escaped(JSON.stringify(k.posted))}</code></p><div class="shots">${k.steps.map((s) => `<figure><a href="${s.file}"><img loading="lazy" src="${s.file}" alt="${escaped(s.step)}"></a><figcaption>${escaped(s.step)}</figcaption></figure>`).join("")}</div></section>`);
+  const keys = Object.entries(keyboard).map(([theme, k]) => `<section><h2>Keyboard, ${escaped(theme)}</h2>${"pending" in k ? `<p>${k.pending ? `First radio reached: ${k.radio}; checked by Space: ${k.checked}; Record reached: ${k.record}.` : "No pending decision: the Tab stops of the page."}</p>` : `<p>Posted: <code>${escaped(JSON.stringify(k.posted))}</code></p>`}<p>Tab stops: ${k.stops.map(escaped).join(" → ")}</p><div class="shots">${k.steps.map((s) => `<figure><a href="${s.file}"><img loading="lazy" src="${s.file}" alt="${escaped(s.step)}"></a><figcaption>${escaped(s.step)}</figcaption></figure>`).join("")}</div></section>`);
   const sheet = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Panel sheet ${HEAD}</title>
 <style>body{font-family:system-ui,sans-serif;margin:16px;background:#fff;color:#111}nav a{margin-right:.6em}.shots{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}figure{margin:0;max-width:440px}img{max-width:100%;border:1px solid #999}figcaption{font-size:.85em}</style></head>
 <body><h1>The Study panel at ${HEAD}</h1>
-<p>${documents.size} documents, ${count} shots: each document in VS Code's four default themes (approximated, VS Code not run) at ${WIDTHS.join(" and ")} px, and the keyboard steps on status-success. Drawn by headless Chrome through <code>clients/vscode/test/chrome.ts</code> at ${HEAD}.</p>
+<p>${documents.size} documents, ${count} shots: each document in VS Code's four default themes (approximated, VS Code not run) at ${WIDTHS.join(" and ")} px, the keyboard steps on status-success, and the keyboard path to Record on every kept state of the journey. Drawn by headless Chrome through <code>clients/vscode/test/chrome.ts</code> at ${HEAD}.</p>
 <nav>${[...shots.keys()].map((name) => `<a href="#${escaped(name)}">${escaped(name)}</a>`).join(" ")}</nav>
 ${sections.join("\n")}
 ${keys.join("\n")}
