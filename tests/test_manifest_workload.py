@@ -340,3 +340,12 @@ def test_the_best_customer_reference_texts_state_how_many_customers_each_measure
     for case_id, text in texts.items():
         assert "these give different customers" not in text, case_id
         assert "only the highest total spent singles out one customer" in text and "58 customers tie" in text, case_id
+
+
+def test_d17_asks_for_the_best_customer_without_a_word_that_reads_as_money_and_its_review_line_dates_the_writers_stale_witness():
+    [case] = [c for c in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl") if c["case_id"] == "D17"]
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D17"]
+    [line] = [r for r in jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl") if r.get("case_id") == "D17"]
+    assert not any(word in case["question"].lower() for word in ("valu", "spen", "revenue", "money", "paid", "pay"))
+    assert reference["expected_outcome"] == "needs_clarification"
+    assert any(note.startswith("2026-11-26, D-158") and case["question"] in note and line["case"]["question"] in note for note in line["dated_notes"])

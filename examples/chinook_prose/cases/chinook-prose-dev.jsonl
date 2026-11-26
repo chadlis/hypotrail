@@ -14,7 +14,7 @@
 {"case_id": "D14", "family": "aggregate", "group": "top-three-customers", "question": "Name the top three customers by the sum of their invoice totals, with their customer ids and the sums, from the highest down."}
 {"case_id": "D15", "family": "aggregate", "group": "top-three-customers", "question": "Rank the customers by the total of all their invoices and give me the first three: customer id and total, highest first."}
 {"case_id": "D16", "family": "clarification", "group": "best-customer", "question": "Who is our best customer?"}
-{"case_id": "D17", "family": "clarification", "group": "best-customer", "question": "Which customer is the most valuable one?"}
+{"case_id": "D17", "family": "clarification", "group": "best-customer", "question": "Which customer stands out above all the others?"}
 {"case_id": "D18", "family": "clarification", "group": "best-customer", "question": "Tell me who our top customer is."}
 {"case_id": "D19", "family": "no_data", "group": "invoice-98-refund", "question": "How much was refunded on invoice 98?"}
 {"case_id": "D20", "family": "no_data", "group": "invoice-98-refund", "question": "What refund amount was issued for invoice 98?"}
