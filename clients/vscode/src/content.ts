@@ -328,8 +328,9 @@ function toHandleListOf(object: Entry | undefined): string {
     const attempt = list(object?.attempts).find((each) => each.attempt_id === id);
     return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status)} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
   });
-  // The list opens on its own heading, other than the compact line's and above the level of the Control's and the Candidate's, so that
-  // it cannot read as part of the Candidate drawn above it in Now; the section headings of the page stay the five.
+  // The list opens on its own heading, "Everything to handle", other than the compact line's "To handle", so that no two headings of the
+  // page share a text (D-161 addendum 2, #75 comment 7197719288), and above the level of the Control's and the Candidate's, so that it
+  // cannot read as part of the Candidate drawn above it in Now; the section headings of the page stay the five.
   return ['<section data-part="tohandle" id="tohandle-list">', `<h3>${label("everythingToHandle")}</h3>`, `<ul>\n${rows.join("\n")}\n</ul>`, "</section>"].join("\n");
 }
 
@@ -454,7 +455,8 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   ];
   const produce = attempts.length === 0 ? [] : [attemptsStepOf(attempts, shown)];
   const assess = [...(assessments.length === 0 ? [] : [assessmentsStepOf(shown)]), ...(comparisons.length === 0 ? [] : [comparisonsStepOf(shown)])];
-  // The count of pending decisions stands on Now's heading line, only when n > 0, at no cost of height (D-161).
+  // The count of pending decisions stands on Now's heading line, only when n > 0, at no cost of height, in the singular for one (D-161
+  // addendum 2, #75 comment 7197719288).
   const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label(pending.length === 1 ? "pendingOne" : "pendingCount")}</span>`;
   return { count, now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
     momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),

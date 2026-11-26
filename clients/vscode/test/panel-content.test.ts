@@ -51,7 +51,7 @@ function written(value: number | null): string {
 }
 
 const QUESTION = "Which Configuration do we keep after this Comparison?";
-// Now's sentence under rule 4 (D-161 addendum, #75 comment 7197277304: "No pending decision." goes).
+// Now's sentence under rule 4 (D-161 item 2, #75 comment 7196684358: "No pending decision." goes).
 const NO_PENDING = "No decision waits for you.";
 
 // Each pending decision, its question, and each option with its consequence.
