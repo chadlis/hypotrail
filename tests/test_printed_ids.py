@@ -232,6 +232,16 @@ def test_with_its_new_key_removed_the_json_object_of_each_of_the_six_commands_ho
         assert rest == expected
 
 
+ADDED_LIMITS = re.compile(r'^ *"(cost_limit_usd": null|parallel_tool_calls": false),\n', re.M)
+
+
+def without_the_limits_added_after_the_kept_study(path, text):
+    """The text of a made file without the two limit lines #234 added, in the one Attempt record and run record that hold limits."""
+    if not isinstance(text, str) or not path.endswith(("/attempt.json", "/run.json")) or '"limits"' not in text and '"effective_limits"' not in text:
+        return text
+    return ADDED_LIMITS.sub("", text)
+
+
 @pytest.mark.parametrize("name", STUDIES)
 def test_the_files_of_a_study_made_by_the_commands_that_print_ids_equal_those_kept_from_main_but_by_their_ids_and_timestamps(name, tmp_path):
     """The kept files were made by the same commands at `main` `07197ea`, before the ids were printed (`tests/_kept_studies.py`).
@@ -239,10 +249,12 @@ def test_the_files_of_a_study_made_by_the_commands_that_print_ids_equal_those_ke
     Both sides pass through the same rules. Excluded by name, each with its reason: the `observations.jsonl` of the `scripted_fixture` Attempt,
     which holds the latencies its Episodes measured; the Inspect log, a zip archive that holds its own timestamps and identifiers; and the
     `code_environment` fields that name the checkout that ran, `code_revision` (its commit, dirty mark and fingerprint) and the digest of
-    `uv.lock`. Nothing else is excluded.
+    `uv.lock`. One more exclusion, made after `07197ea`: the two limits #234 added (`cost_limit_usd` null and `parallel_tool_calls`
+    false) are taken out of the limits of the `scripted_fixture` Attempt's `attempt.json` and `run.json`, where they are present. Nothing
+    else is excluded.
     """
     kept = json.loads((KEPT / f"{name}.json").read_text(encoding="utf-8"))
-    made = kept_files(STUDIES[name](tmp_path))
+    made = {path: without_the_limits_added_after_the_kept_study(path, text) for path, text in kept_files(STUDIES[name](tmp_path)).items()}
     union = sorted(set(kept) | set(made))
     differing = [(path, "kept only" if path not in made else "made only" if path not in kept else "differs") for path in union if kept.get(path) != made.get(path)]
     assert differing == []

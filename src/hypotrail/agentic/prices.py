@@ -4,7 +4,7 @@ The file has the shape D-146 on chadlis/hypotrail#75 and the drive's answer C3 o
 price list file is `{"source": {"url": …, "read_on": "YYYY-MM-DD"}, "models": {<Inspect's model_cost_config map>}}`.
 Hypotrail validates both, passes only `models` to Inspect, and `run.json` records the content, its sha256, the URL and
 the date." Each entry of `models` holds Inspect's four `ModelCost` prices, in USD per million tokens. The prices belong
-to the run, not to the Workload, so nothing here is part of the Protocol.
+to the request of an Attempt, not to the Workload, so nothing here is part of the Protocol.
 """
 
 import datetime
