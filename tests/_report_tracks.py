@@ -14,6 +14,7 @@ from _study_helpers import examples_copy, init_study, run_ml
 
 class Bike:
     name = "bike"
+    domain = "regression"
     native_mode = "native_ml"
     dataset = "datasets/day.csv"
     blocked = {"inspect_ai", "sklearn", "numpy", "anthropic"}
@@ -89,6 +90,7 @@ class Bike:
 
 
 class Chinook:
+    domain = "agentic"
     name = "chinook"
     native_mode = "llm_live"
     dataset = "datasets/Chinook_Sqlite.sqlite"

@@ -421,7 +421,8 @@ def build_parser() -> argparse.ArgumentParser:
     recover.set_defaults(handler=_recover)
 
     report = commands.add_parser(
-        "report", help="render one self-contained HTML page for a Study, from its records alone (a page that shows public_check Items is an Exposure)"
+        "report",
+        help="render one self-contained HTML page for a Study, from its records and, for a Bike Study, its data profile (a page that shows public_check Items is an Exposure)",
     )
     report.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to report")
     report.add_argument("--out", required=True, type=Path, metavar="FILE", help="the page to write (an existing file is replaced; not inside the Study)")
@@ -429,7 +430,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--examples-dir",
         type=Path,
         metavar="DIR",
-        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read only when the page shows public_check Items, to freeze the Workload's digests",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); read for a Bike Study's data profile, "
+        "and when the page shows public_check Items, to freeze the Workload's digests",
     )
     _add_read_sequence(report)
     report.add_argument("--json", action="store_true", help="print one JSON object")
@@ -742,6 +744,23 @@ def _live_basis(examples_dir):
     return basis
 
 
+def _profile_read(examples_dir):
+    """What `report` hands the page of a regression Study to draw: the Track's `profile` read, or the code of what stopped it.
+
+    The page never fails because of the profile, so any failure is handed over as its code, a refusal as its own.
+    """
+
+    def read(study) -> dict:
+        try:
+            from hypotrail.ml import profile
+
+            return {"ok": True, **profile.profile(study, examples_dir)}
+        except Exception as error:
+            return {"ok": False, "code": coded_error(error).code}
+
+    return read
+
+
 def _compare(args) -> int:
     from hypotrail.core import agent_comparison, comparison
 
@@ -770,7 +789,9 @@ def _compare(args) -> int:
 def _report_command(args) -> int:
     from hypotrail.report import command
 
-    result = command.report(args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence)
+    result = command.report(
+        args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, profile=_profile_read(args.examples_dir)
+    )
     recorded = result["exposure"]
     human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
     _emit({"ok": True, "report": result}, args.json, human)

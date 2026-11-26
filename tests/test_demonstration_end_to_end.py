@@ -23,11 +23,13 @@ F3_DELTA = 173.93948298447322
 # After edit 6.2, the MAE of each side.
 F3_MAE_62 = {"seasonal_7": 1091.3406593406594, "ridge_v1": 1265.2801423251326}
 
-# The ten sections of a report page, in order, from chadlis/hypotrail#218, "Facts checked at `7b8e550`".
+# The ten sections of a report page, in order, from chadlis/hypotrail#218, "Facts checked at `7b8e550`"; a Bike page holds "Data profile"
+# after "Protocol and Partitions" (chadlis/hypotrail#261), a Chinook page keeps the ten.
 F4_SECTIONS = [
     "Question and Mode", "Data and licences", "Protocol and Partitions", "Configurations compared", "Coverage and statuses",
     "Metrics and differences", "Individual errors", "Limits", "Origin of the artifacts", "Exposure",
 ]
+F4_BIKE_SECTIONS = [*F4_SECTIONS[:3], "Data profile", *F4_SECTIONS[3:]]
 
 # The Write sequence of the Study each process names, after it: a command that writes moves it by two (its `begin` and `end` entries),
 # a read, a refusal, a request sent again and a report that records no Exposure by none. Chinook's is the one the ticket gate measured
@@ -36,6 +38,7 @@ F4_SECTIONS = [
 WRITE_SEQUENCES = {
     "L1.1": [None],
     "L1.2": [2, 2, 2],
+    "PROFILE": [2],
     "L1.3": [4, 6, 6, 6],
     "L1.4": [8, 10],
     "L1.5": [12, 12],
@@ -159,11 +162,12 @@ def assert_the_step(run, step_id) -> list:
             if record["kind"] in LISTED:
                 key, id_key = LISTED[record["kind"]]
                 assert record["id"] in [each[id_key] for each in status[key]], (step_id, record)
-        # a report page lies outside the Study and holds the ten sections, in order
+        # a report page lies outside the Study and holds its sections, in order: a Bike page the eleven, a Chinook page the ten
         if call["args"][0] == "report":
             page = Path(call["args"][call["args"].index("--out") + 1])
             assert study.resolve() not in page.resolve().parents, page
-            for at, (found, heading) in enumerate(zip_longest(call["headings"], F4_SECTIONS)):
+            bike = status["study"]["workload"] == "bike_day"
+            for at, (found, heading) in enumerate(zip_longest(call["headings"], F4_BIKE_SECTIONS if bike else F4_SECTIONS)):
                 assert found == heading, (step_id, at)
     assert len(pairs) == len(sequences), (step_id, [call["args"] for _, call in pairs])
     return pairs

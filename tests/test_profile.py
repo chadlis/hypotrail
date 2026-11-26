@@ -23,7 +23,7 @@ from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.series import read_target_series
 
 FIXTURE = ROOT / "tests" / "fixtures" / "profile" / "bike_day"
-# The Bike columns and their kinds on `train` (the slice's F6).
+# The Bike columns and their kinds on `train`, as chadlis/hypotrail#259 measured them on `day.csv`.
 KINDS = {
     "instant": "numeric", "season": "categorical", "yr": "categorical", "mnth": "categorical", "holiday": "categorical",
     "weekday": "categorical", "workingday": "categorical", "weathersit": "categorical", "temp": "numeric", "atemp": "numeric",

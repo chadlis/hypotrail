@@ -2748,13 +2748,14 @@ def test_the_readme_states_the_supported_install_and_that_any_other_install_pass
 # --- chapter 14: the Study report (#85) ----------------------------------------------------------------------------------------
 
 
-def test_the_report_sections_table_equals_the_sections_the_code_renders_in_order(page):
+def test_the_report_sections_table_equals_the_sections_the_code_renders_in_order_for_each_track(page):
     from hypotrail.report import render
 
     rows = attrs_of(page, "report-sections", "data-section")
     ordered = sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))
     assert [int(row["data-order"]) for _, row in ordered] == list(range(1, len(render.SECTIONS) + 1))
-    assert [(key, row["data-heading"]) for key, row in ordered] == list(render.SECTIONS)
+    assert [(key, row["data-heading"]) for key, row in ordered] == list(render.sections_of("regression"))
+    assert [(key, row["data-heading"]) for key, row in ordered if row.get("data-track") != "regression"] == list(render.sections_of("agentic"))
 
 
 def test_the_report_denial_table_lists_the_one_sentence_the_code_writes_that_names_readiness_safety_and_independence(page):
