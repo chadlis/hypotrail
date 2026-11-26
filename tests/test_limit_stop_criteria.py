@@ -175,7 +175,7 @@ def test_a_limit_stopped_episode_has_a_state_for_every_criterion_and_stays_attem
 
         verdict = verdict_of(run(tmp_path, slow, limits=EpisodeLimits(time_seconds=1)))
     assert [c["name"] for c in verdict["criteria"]] == list(CRITERIA)
-    tally = counts.tally([verdict], workload=WORKLOAD)
+    tally = counts.tally([verdict], criteria=CRITERIA, workload=WORKLOAD)
     assert "awaiting_criteria_decision" not in tally
     for name in CRITERIA:
         c = tally["criteria"][name]
@@ -194,7 +194,7 @@ def test_an_output_budget_stop_counts_every_criterion_incorrect_and_a_time_stop_
 
     time_stop = verdict_of(run(tmp_path / "b", slow, limits=EpisodeLimits(time_seconds=1)))
     assert (token["reason"], time_stop["reason"]) == ("token_limit", "time_limit")
-    tally = counts.tally([token, time_stop], workload=WORKLOAD)["criteria"]
+    tally = counts.tally([token, time_stop], criteria=CRITERIA, workload=WORKLOAD)["criteria"]
     for name in CRITERIA:
         c = tally[name]
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (2, 2, 0)
@@ -204,7 +204,7 @@ def test_an_output_budget_stop_counts_every_criterion_incorrect_and_a_time_stop_
 def test_the_counters_tell_a_scored_false_stop_from_an_unscored_one(tmp_path):
     turn = verdict_of(run(tmp_path / "a", ScriptedModel(CASES, always_call_tool=True)))
     cap = verdict_of(run(tmp_path / "b", cut_answer()))
-    c = counts.tally([turn, cap], workload=WORKLOAD)["criteria"]["exact_table"]
+    c = counts.tally([turn, cap], criteria=CRITERIA, workload=WORKLOAD)["criteria"]["exact_table"]
     assert (c["N_incorrect"], c["N_unscored"], c["N_correct"]) == (1, 1, 0)
 
 
@@ -261,7 +261,7 @@ def test_rescore_log_refuses_a_public_check_item_before_the_log_is_read():
 
 
 def test_tally_refuses_a_public_check_verdict_before_any_computation():
-    error = refused(lambda: counts.tally([{"case_id": "D03"}, {"case_id": PUBLIC}], workload=WORKLOAD))
+    error = refused(lambda: counts.tally([{"case_id": "D03"}, {"case_id": PUBLIC}], criteria=CRITERIA, workload=WORKLOAD))
     assert error.code == "PUBLIC_CHECK_COUNTS_REFUSED"
 
 
@@ -276,7 +276,7 @@ def test_dev_scenario_and_unlisted_items_are_not_refused(tmp_path):
     verdict = verdict_of(run(tmp_path, ScriptedModel(CASES)))
     assert verdict["status"] == "produced"
     for case_id in ("D03", "SCN-01", "NOT-A-CASE"):
-        assert counts.tally([{**verdict, "case_id": case_id}], workload=WORKLOAD)["criteria"]["exact_table"]["N_expected"] == 1
+        assert counts.tally([{**verdict, "case_id": case_id}], criteria=CRITERIA, workload=WORKLOAD)["criteria"]["exact_table"]["N_expected"] == 1
     assert rescore.rescore_episodes([], {}, schema=SCHEMA, workload=WORKLOAD) == []
 
 
@@ -293,7 +293,7 @@ def test_a_workload_with_only_a_dev_partition_refuses_nothing_it_does_not_hold(t
     (target / "workload.json").write_text(json.dumps(declaration))
     dev_only = load_workload(target)
     assert dev_only.partition_of(PUBLIC) is None
-    assert counts.tally([{**verdict, "case_id": PUBLIC}], workload=dev_only)["criteria"]["exact_table"]["N_expected"] == 1
+    assert counts.tally([{**verdict, "case_id": PUBLIC}], criteria=CRITERIA, workload=dev_only)["criteria"]["exact_table"]["N_expected"] == 1
 
 
 def test_scoring_one_answer_against_one_reference_stays_allowed():

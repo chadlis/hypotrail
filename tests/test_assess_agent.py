@@ -256,7 +256,6 @@ def test_a_failed_or_missing_episode_is_unscored_with_a_reason_and_counted_apart
 
 def test_a_scoring_crash_is_errored_for_that_episode_only(tmp_path, monkeypatch):
     """T17 (SPEC §10)."""
-    from hypotrail.agentic import assess as agent_assess
     from hypotrail.core import chinook_contract
 
     real = chinook_contract.score_episode
@@ -267,7 +266,7 @@ def test_a_scoring_crash_is_errored_for_that_episode_only(tmp_path, monkeypatch)
         return real(raw_answer, reference, schema, steps)
 
     study, observation_set = imported(tmp_path)
-    monkeypatch.setattr(agent_assess, "score_episode", crash)
+    monkeypatch.setattr(chinook_contract, "score_episode", crash)  # the registry entry's per-Episode function calls it
     record = assessed(study, observation_set)
     rows = per_item(study, record)
     assert {(rows["D01", 0, k]["state"], rows["D01", 0, k]["reason"]) for k in CRITERIA} == {("errored", "scoring_failed")}

@@ -1,0 +1,486 @@
+"""A Workload whose data lives outside the repository: a data manifest of digests in place of a database (#264).
+
+`chinook_prose` declares the Chinook 1.4.5 bytes by their digest and size and never opens them: `data verify` reports the
+source `declared`, `init` keeps a copy of the manifest in the Study, `run agent` is refused, and `import agent` records an
+Import. No provider is called and no key is set.
+"""
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+from _chinook_helpers import episodes_file, import_agent, spec_of, write_lines
+from _run_agent_helpers import agent, live_args, refuse_provider
+from _study_helpers import EXAMPLES, run_json, sha256
+
+from hypotrail.core import canonical
+from hypotrail.core import data as core_data
+
+PROSE = EXAMPLES / "chinook_prose"
+MANIFEST = PROSE / "data-manifest.json"
+# The Protocol digest of `init --workload chinook` on the Chinook Workload as it is on main at 64b77d4, computed on that commit,
+# without #264's change to `init`. (At 9d443aa, before main's Chinook Workload declared its resampling, it was d6d1d70b….)
+CHINOOK_PROTOCOL_AT_MAIN = "eca303c62ef111f0e516278e53733ffb39fa973e503050b3654b3938e26a66c3"
+
+
+def init_prose(tmp_path, *more, name="prose"):
+    return run_json("init", "--workload", "chinook_prose", "--study", Path(tmp_path) / name, *more)
+
+
+def prose_study(tmp_path, *more):
+    code, payload, err = init_prose(tmp_path, *more)
+    assert code == 0, (payload, err)
+    return Path(tmp_path) / "prose", payload["study"]
+
+
+def protocol_of(study: Path) -> dict:
+    """The Protocol content `init` digested, recomputed from the Workload as `init` reads it."""
+    from hypotrail.agentic.declaration import load_workload
+    from hypotrail.agentic.study import dataset_sha256, protocol_content
+
+    content = protocol_content(load_workload(PROSE), dataset_sha256=dataset_sha256(spec_of(study)))
+    assert canonical.digest(content) == spec_of(study)["protocol_digest"]
+    return content
+
+
+def examples_without_chinook(tmp_path, *, edit_notice=None, remove_notice=False) -> Path:
+    """A copy of `examples/` without the Chinook database file, its notice of `chinook_prose` changed or removed."""
+    target = Path(tmp_path) / "examples"
+    shutil.copytree(EXAMPLES, target)
+    (target / "chinook" / "data" / "Chinook_Sqlite.sqlite").unlink()
+    notice = target / "chinook_prose" / "licenses" / "Chinook-MIT.txt"
+    if edit_notice is not None:
+        notice.write_bytes(notice.read_bytes() + edit_notice)
+    if remove_notice:
+        notice.unlink()
+    return target
+
+
+def verify(examples, *workloads):
+    args = ["data", "verify", "--examples-dir", examples]
+    for workload in workloads:
+        args += ["--workload", workload]
+    return run_json(*args)
+
+
+def twice_declared(tmp_path) -> Path:
+    """A copy of `examples/` whose Chinook Workload, which declares a database and has a lock, also holds a data manifest."""
+    target = Path(tmp_path) / "twice"
+    shutil.copytree(EXAMPLES, target)
+    shutil.copyfile(MANIFEST, target / "chinook" / core_data.MANIFEST_NAME)
+    return target
+
+
+def write_sequence(study) -> int:
+    code, payload, err = run_json("status", "--study", study)
+    assert code == 0, (payload, err)
+    return payload["write_sequence"]
+
+
+# --- criterion 1: the Chinook and Bike digests -------------------------------------------------------------------------------
+
+
+def test_init_of_the_chinook_workload_keeps_the_protocol_digest_it_has_on_main(tmp_path):
+    code, payload, err = run_json("init", "--workload", "chinook", "--study", tmp_path / "chinook")
+    assert code == 0, (payload, err)
+    assert payload["study"]["protocol_digest"] == CHINOOK_PROTOCOL_AT_MAIN
+
+
+# --- criterion 2: `init` of a manifest Workload --------------------------------------------------------------------------------
+
+
+def test_init_of_chinook_prose_keeps_the_manifest_as_role_data_manifest_and_no_dataset(tmp_path):
+    study, spec = prose_study(tmp_path)
+    roles = [ref["role"] for ref in spec["dataset_refs"]]
+    assert "data_manifest" in roles
+    assert "dataset" not in roles
+    [ref] = spec["dataset_refs"]
+    assert ref["sha256"] == sha256(MANIFEST)
+    assert (study / ref["path"]).read_bytes() == MANIFEST.read_bytes()
+
+
+def test_the_protocol_of_chinook_prose_holds_the_manifest_digest_and_no_dataset_or_answer_schema_digest(tmp_path):
+    study, _ = prose_study(tmp_path)
+    content = protocol_of(study)
+    assert content["data_manifest_sha256"] == sha256(MANIFEST)
+    assert "dataset_sha256" not in content
+    assert "answer_schema_sha256" not in content
+
+
+# --- criterion 3: `data verify` of a manifest Workload -----------------------------------------------------------------------
+
+
+def test_data_verify_reports_chinook_prose_declared_with_the_chinook_database_file_absent(tmp_path):
+    code, payload, err = verify(examples_without_chinook(tmp_path), "bike_day", "chinook_prose")
+    assert code == 0, (payload, err)
+    [declared] = [d for d in payload["datasets"] if d["workload"] == "chinook_prose"]
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))["sources"][0]
+    assert declared["status"] == "declared"
+    assert (declared["sha256"], declared["size_bytes"]) == (manifest["sha256"], manifest["size_bytes"])
+
+
+def test_data_verify_of_chinook_prose_opens_no_data_file(tmp_path, monkeypatch):
+    opened = []
+    for name in ("sha256_file", "open_sqlite_readonly", "check_sqlite_tables", "check_daily_series"):
+        original = getattr(core_data, name)
+
+        def spy(path, *args, _original=original, **kwargs):
+            opened.append(Path(path).name)
+            return _original(path, *args, **kwargs)
+
+        monkeypatch.setattr(core_data, name, spy)
+    code, payload, err = verify(examples_without_chinook(tmp_path), "chinook_prose")
+    assert code == 0, (payload, err)
+    assert opened == ["Chinook-MIT.txt"]  # the notice is hashed; no data file is
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [("changed", (3, "LICENCE_NOTICE_CHANGED")), ("missing", (3, "LICENCE_NOTICE_MISSING"))],
+)
+def test_data_verify_of_chinook_prose_refuses_a_changed_or_missing_notice(tmp_path, state, expected):
+    examples = examples_without_chinook(tmp_path, edit_notice=b"x" if state == "changed" else None, remove_notice=state == "missing")
+    code, payload, err = verify(examples, "bike_day", "chinook_prose")
+    assert (code, payload.get("error", {}).get("code")) == expected, (payload, err)
+    assert payload["error"]["details"]["workload"] == "chinook_prose"
+
+
+def test_the_committed_data_manifests_match_their_schema():
+    from importlib import resources
+
+    from jsonschema import Draft202012Validator
+
+    schema = json.loads(resources.files("hypotrail.core").joinpath("data-manifest.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    manifests = sorted(EXAMPLES.glob(f"*/{core_data.MANIFEST_NAME}"))
+    assert manifests == [MANIFEST]
+    for path in manifests:
+        assert list(Draft202012Validator(schema).iter_errors(json.loads(path.read_text(encoding="utf-8")))) == []
+
+
+def test_the_chinook_prose_manifest_declares_the_chinook_bytes_of_the_chinook_lock():
+    lock = json.loads((EXAMPLES / "chinook" / core_data.LOCK_NAME).read_text(encoding="utf-8"))["sources"][0]
+    [source] = json.loads(MANIFEST.read_text(encoding="utf-8"))["sources"]
+    assert (source["dataset_id"], source["sha256"], source["size_bytes"]) == (lock["dataset_id"], lock["sha256"], lock["size_bytes"])
+    assert "url" not in json.dumps(source) and "local_path" not in source
+
+
+# --- criterion 4: DATA_DECLARED_TWICE ------------------------------------------------------------------------------------------
+
+
+def test_data_verify_refuses_a_workload_that_declares_a_database_and_a_manifest(tmp_path):
+    code, payload, err = verify(twice_declared(tmp_path), "chinook")
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_DECLARED_TWICE"), (payload, err)
+
+
+def test_init_refuses_a_workload_that_declares_a_database_and_a_manifest_before_anything_is_written(tmp_path):
+    study = tmp_path / "study"
+    code, payload, err = run_json("init", "--workload", "chinook", "--study", study, "--examples-dir", twice_declared(tmp_path))
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_DECLARED_TWICE"), (payload, err)
+    assert not study.exists()
+
+
+# --- a data manifest that does not match its schema ---------------------------------------------------------------------------
+
+
+MALFORMED_MANIFESTS = {
+    "no sources": (lambda manifest: manifest.pop("sources"), ""),
+    "sources not a list": (lambda manifest: manifest.update(sources={}), "sources"),
+    "a source without its notice": (lambda manifest: manifest["sources"][0].pop("notice"), "sources.0"),
+}
+
+
+def malformed_manifest(tmp_path, edit) -> Path:
+    """A copy of `examples/` whose `chinook_prose` data manifest is changed by `edit`."""
+    target = Path(tmp_path) / "malformed"
+    shutil.copytree(EXAMPLES, target)
+    path = target / "chinook_prose" / core_data.MANIFEST_NAME
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    edit(manifest)
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return target
+
+
+@pytest.mark.parametrize("fault", list(MALFORMED_MANIFESTS))
+def test_data_verify_and_init_refuse_a_data_manifest_that_does_not_match_its_schema_with_data_manifest_invalid(tmp_path, fault):
+    edit, path = MALFORMED_MANIFESTS[fault]
+    examples = malformed_manifest(tmp_path, edit)
+    code, payload, err = verify(examples, "chinook_prose")
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_MANIFEST_INVALID"), (payload, err)
+    assert (payload["error"]["details"]["workload"], payload["error"]["details"]["path"]) == ("chinook_prose", path)
+    study = tmp_path / "study"
+    code, payload, err = init_prose(tmp_path, "--examples-dir", examples, name="study")
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_MANIFEST_INVALID"), (payload, err)
+    assert not study.exists()
+
+
+# --- criterion 5: DATABASE_NOT_DECLARED -----------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "mode_args",
+    [
+        ["--mode", "scripted_fixture", "--config", "external", "--request-id", "r"],
+        live_args("external", "r", cases=["D01"]),
+    ],
+    ids=["scripted_fixture", "llm_live"],
+)
+def test_run_agent_on_a_chinook_prose_study_is_refused_database_not_declared_and_writes_nothing(tmp_path, monkeypatch, mode_args):
+    monkeypatch.delenv("HYPOTRAIL_ANTHROPIC_API_KEY", raising=False)
+    refuse_provider(monkeypatch)
+    study, _ = prose_study(tmp_path)
+    before = write_sequence(study)
+    files = sorted(p.relative_to(study) for p in study.rglob("*"))
+    code, payload, err = agent(study, *mode_args)
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATABASE_NOT_DECLARED"), (payload, err)
+    assert write_sequence(study) == before
+    assert sorted(p.relative_to(study) for p in study.rglob("*")) == files
+
+
+# --- criterion 6: `import agent` onto a manifest Study ---------------------------------------------------------------------------
+
+
+def test_import_agent_onto_a_chinook_prose_study_records_an_import_whose_dataset_digest_is_the_manifest_copys(tmp_path):
+    study, spec = prose_study(tmp_path)
+    line = {"case_id": "D01", "repeat": 0, "observation_status": "produced", "raw_answer": "Customer 12 has seven invoices."}
+    source = write_lines(tmp_path / "answers.jsonl", [line])
+    code, payload, err = import_agent(study, source, episodes_file(tmp_path, [("D01", 0)]), "import-a")
+    assert code == 0, (payload, err)
+    attempt = payload["attempt"]
+    assert attempt["technical_status"] == "completed"
+    [manifest_copy] = spec["dataset_refs"]
+    assert attempt["effective_config"]["input_digests"]["dataset"] == manifest_copy["sha256"] == sha256(study / manifest_copy["path"])
+
+
+# --- the review record of the References (D-131 on chadlis/hypotrail#75, conditions 1 and 4) ----------------------------------
+
+
+def jsonl(path: Path) -> list:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_the_review_record_holds_one_agreed_line_per_case_whose_two_writers_sql_give_one_table_and_whose_reference_rule_is_writer_as():
+    from hypotrail.core.data import open_sqlite_readonly
+
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    assert header["record"] == "header"
+    cases = [case["case_id"] for name in ("chinook-prose-dev.jsonl", "chinook-prose-public-check.jsonl") for case in jsonl(PROSE / "cases" / name)]
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    assert [line["case_id"] for line in lines] == cases == list(references)
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        for line in lines:
+            a, b = line["writer_a"], line["writer_b"]
+            assert a["status"] == b["status"] == references[line["case_id"]]["expected_outcome"], line["case_id"]
+            if a["status"] == "answered":
+                assert connection.execute(a["sql"]).fetchall() == connection.execute(b["sql"]).fetchall(), line["case_id"]
+                assert line["tables_equal"] is True, line["case_id"]
+            assert {fact["rule"] for fact in references[line["case_id"]]["expected_facts"]} <= {a["sql"]}, line["case_id"]
+            assert line["outcome"] == "agreed", line["case_id"]
+    finally:
+        connection.close()
+
+
+# D-158 on chadlis/hypotrail#75, item 1: "the allowed sets are derived from recorded SQL only, never from fixture or agent answers".
+# D-160 on chadlis/hypotrail#75, item 2: "D16–D18 allow customers 16 and 24 (`SELECT CustomerId FROM Customer WHERE FirstName = 'Frank'`), so an answer that names both Franks while asking is not penalised."
+ALLOWED_CASES = ("D16", "D17", "D18", "D25", "D26", "D27", "D28", "D29", "D30", "P04", "P05", "P06")
+
+
+def test_each_allowed_identifier_set_is_exactly_what_the_sql_its_review_line_records_gives_on_the_chinook_bytes():
+    from hypotrail.core.data import open_sqlite_readonly
+
+    _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    review = {line["case_id"]: line for line in lines}
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    assert tuple(case_id for case_id, r in references.items() if "allowed_identifiers" in r) == ALLOWED_CASES
+    assert tuple(case_id for case_id, line in review.items() if "allowed_identifiers" in line) == ALLOWED_CASES
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        for case_id in ALLOWED_CASES:
+            derived = [
+                {"kind": recorded["kind"], "value": str(value)}
+                for recorded in review[case_id]["allowed_identifiers"]
+                for (value,) in connection.execute(recorded["sql"]).fetchall()
+            ]
+            assert derived and references[case_id]["allowed_identifiers"] == derived, case_id
+    finally:
+        connection.close()
+
+
+# Each unexpected-identifier witness of the fixtures, with the customers its Case is about.
+UNEXPECTED_WITNESSES = {("answers-verbose.jsonl", "D16"): {16, 24}, ("answers-verbose.jsonl", "D26"): {12}, ("answers-verbose.jsonl", "D29"): {1}}
+
+
+def test_the_unexpected_identifier_witnesses_listed_are_every_fixture_line_that_fails_no_unexpected_identifier():
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    failing = set()
+    for path in sorted((PROSE / "fixtures").glob("*.jsonl")):
+        for line in jsonl(path):
+            criteria = {c["name"]: c["score"] for c in text_facts.apply(line["raw_answer"], references[line["case_id"]], config, line.get("outcome"))["criteria"]}
+            if criteria["no_unexpected_identifier"] is False:
+                failing.add((path.name, line["case_id"]))
+    assert failing == set(UNEXPECTED_WITNESSES)
+
+
+@pytest.mark.parametrize("witness", sorted(UNEXPECTED_WITNESSES), ids=lambda witness: witness[1])
+def test_each_unexpected_identifier_witness_names_only_invoices_of_customers_foreign_to_its_case(witness):
+    from hypotrail.core import text_facts
+    from hypotrail.core.data import open_sqlite_readonly
+
+    name, case_id = witness
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [line] = [item for item in jsonl(PROSE / "fixtures" / name) if item["case_id"] == case_id]
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
+    assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
+    known = {(i["kind"], i["value"]) for i in reference["expected_identifiers"] + reference.get("allowed_identifiers", [])}
+    unexpected = text_facts.identifiers_in(line["raw_answer"], config) - known
+    assert unexpected and {kind for kind, _ in unexpected} == {"invoice"}
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        owners = {connection.execute("SELECT CustomerId FROM Invoice WHERE InvoiceId = ?", (int(value),)).fetchone()[0] for _, value in unexpected}
+    finally:
+        connection.close()
+    assert not owners & UNEXPECTED_WITNESSES[witness]
+
+
+FRANK_QUESTIONS = {
+    "D16": "How much has Frank spent with us?",
+    "D17": "What is Frank's total spend so far?",
+    "D18": "Can you give me Frank's lifetime spend?",
+}
+
+
+def test_the_clarification_family_asks_for_franks_spend_in_three_wordings_in_the_ambiguous_customer_group_and_keeps_its_ids_partition_and_status():
+    cases = {c["case_id"]: c for c in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl") if c["case_id"] in FRANK_QUESTIONS}
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] in FRANK_QUESTIONS}
+    assert {case_id: case["question"] for case_id, case in cases.items()} == FRANK_QUESTIONS
+    assert {(case["family"], case["group"]) for case in cases.values()} == {("clarification", "ambiguous-customer")}
+    assert {r["expected_outcome"] for r in references.values()} == {"needs_clarification"}
+
+
+def test_the_frank_reference_texts_name_both_customers_called_frank_whose_totals_differ_on_the_chinook_bytes():
+    from hypotrail.core import text_facts
+    from hypotrail.core.data import open_sqlite_readonly
+
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        franks = connection.execute("SELECT CustomerId, LastName FROM Customer WHERE FirstName = 'Frank' ORDER BY CustomerId").fetchall()
+        totals = connection.execute("SELECT ROUND(SUM(Total), 2) FROM Invoice WHERE CustomerId IN (16, 24) GROUP BY CustomerId").fetchall()
+    finally:
+        connection.close()
+    assert franks == [(16, "Harris"), (24, "Ralston")] and len(set(totals)) == 2
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    for reference in jsonl(PROSE / "references" / "chinook-prose-references.jsonl"):
+        if reference["case_id"] in FRANK_QUESTIONS:
+            text = reference["reference_text"]
+            assert all(part in text for part in ("customer 16", "Frank Harris", "customer 24", "Frank Ralston", "differ")), reference["case_id"]
+            assert (reference["expected_identifiers"], reference["expected_facts"]) == ([], []), reference["case_id"]
+            scored = text_facts.apply(text, reference, config, None)["criteria"]
+            assert all(c["score"] is True for c in scored), (reference["case_id"], scored)
+
+
+BLIND_WRITERS = "examples/chinook_prose/review/blind-writers-2026-11-26"
+
+
+def test_each_frank_review_line_records_the_replaced_text_the_blind_writers_results_and_the_rejected_artist_family():
+    import subprocess
+
+    tracked = set(subprocess.run(["git", "ls-files", BLIND_WRITERS], cwd=EXAMPLES.parent, capture_output=True, text=True, check=True).stdout.split())
+    assert tracked == {f"{BLIND_WRITERS}/{name}" for name in ("brief.md", "writer-a.md", "writer-b.md")}
+    _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    previous = {"D16": "Who is our best customer?", "D17": "Which customer stands out above all the others?", "D18": "Tell me who our top customer is."}
+    for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
+        replaced = line["replacement"]
+        assert line["case"]["question"] == FRANK_QUESTIONS[line["case_id"]]
+        assert replaced["previous_question"] == previous[line["case_id"]]
+        assert [(w["file"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
+            (f"{BLIND_WRITERS}/writer-a.md", "2026-11-26", "needs_clarification"),
+            (f"{BLIND_WRITERS}/writer-b.md", "2026-11-26", "needs_clarification"),
+        ]
+        assert replaced["brief"] == f"{BLIND_WRITERS}/brief.md"
+        assert replaced["isolation"].startswith("Deviation:") and "by instruction only" in replaced["isolation"] and "not by tool" in replaced["isolation"] and "stay out of the repository" in replaced["isolation"]
+        assert replaced["note"].startswith("2026-11-26, D-160") and "before any Attempt" in replaced["note"]
+        assert line["case"]["group"] == "ambiguous-customer" and line["history"]["case"]["question"] != line["case"]["question"]
+        assert [note[:20] for note in line["dated_notes"]] == ["2026-11-26, D-160 on"]
+        assert all(note.startswith("2026-11-26, D-158") for note in line["history"]["dated_notes"])
+        assert "Iron Maiden" in replaced["rejected_alternative"]["reason"]
+        assert len(replaced["rejected_alternative"]["questions"]) == 3
+
+
+def test_every_reference_is_of_the_set_chinook_prose_references_3():
+    assert {r["reference_version"] for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")} == {"chinook-prose-references/3"}
+
+
+@pytest.mark.parametrize("case_id", ["P04", "P05", "P06"])
+def test_an_answer_naming_the_germany_2012_invoices_and_their_customers_names_no_unexpected_identifier(case_id):
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
+    answer = (
+        "5 invoices were billed to Germany in 2012: invoice 269 (customer 36), invoice 291 (customer 38), "
+        "invoice 293 (customer 2), invoice 321 (customer 36) and invoice 322 (customer 37)."
+    )
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(answer, reference, config, "answered")["criteria"]}
+    assert criteria["no_unexpected_identifier"] == (True, None)
+
+
+def test_the_review_record_holds_the_fresh_readers_findings_and_keeps_those_on_the_replaced_family_as_superseded_history():
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    [d17] = [line for line in lines if line["case_id"] == "D17"]
+    reader = header["fresh_reader"]
+    assert "a fresh reader checks" not in json.dumps(header).lower()
+    assert (reader["date"], reader["reader"]) == ("2026-11-26", "fresh slice-gate")
+    assert set(reader["findings"]) == {"allowed_invoice_sets", "p04_p06_customers"}
+    assert set(reader["superseded"]) == {"d16_d18_reference_text", "d17"}
+    assert all(item["superseded_by"].startswith("2026-11-26, D-160") for item in reader["superseded"].values())
+    assert d17["history"]["fresh_reader"]["finding"] == reader["superseded"]["d17"]["finding"]
+
+
+def test_the_fresh_reader_of_d160_is_recorded_in_the_header_and_on_each_frank_line_with_the_open_dispute_as_a_known_limit():
+    from hypotrail.core import text_facts
+
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    reader = header["fresh_reader"]["d160"]
+    assert (reader["date"], reader["reader"]) == ("2026-11-26", "fresh slice-gate")
+    assert set(reader["findings"]) == {"frank_family", "allowed_identifiers", "unexpected_identifier_witnesses"}
+    assert all(finding.startswith("Holds.") for finding in reader["findings"].values())
+    for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
+        assert line["fresh_reader"] == {"date": "2026-11-26", "reader": "fresh slice-gate", "finding": reader["findings"]["frank_family"], "known_limit": reader["known_limit"]}
+    # The known limit is what the Scorer does: both totals given without asking read as answered.
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [d16] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D16"]
+    both = "Frank Harris (customer 16) has spent 37.62 and Frank Ralston (customer 24) has spent 43.62."
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(both, d16, config, None)["criteria"]}
+    assert criteria["outcome_matches"] == (False, "outcome_mismatch") and "without asking" in reader["known_limit"]
+
+
+def test_the_committed_blind_writer_files_name_no_local_path_and_say_their_scripts_stay_out_of_the_repository():
+    folder = EXAMPLES.parent / BLIND_WRITERS
+    texts = {name: (folder / name).read_text(encoding="utf-8") for name in ("brief.md", "writer-a.md", "writer-b.md")}
+    assert not any("/home/" in text or "Script:" in text for text in texts.values())
+    assert "examples/chinook/data/Chinook_Sqlite.sqlite" in texts["brief.md"] and "absolute path into a local worktree" in texts["brief.md"]
+    assert all("stays out of the repository" in texts[name] for name in ("writer-a.md", "writer-b.md"))
+
+
+def test_the_verbose_d05_fixture_names_all_but_one_expected_identifier_with_every_fact_right_and_fails_only_identifiers_complete():
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [line] = [item for item in jsonl(PROSE / "fixtures" / "answers-verbose.jsonl") if item["case_id"] == "D05"]
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D05"]
+    expected = {(i["kind"], i["value"]) for i in reference["expected_identifiers"]}
+    assert len(expected) >= 2 and len(expected - text_facts.identifiers_in(line["raw_answer"], config)) == 1
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
+    assert criteria == {
+        "identifiers_complete": (False, "identifier_missing"),
+        "no_unexpected_identifier": (True, None),
+        "facts_present": (True, None),
+        "outcome_matches": (True, None),
+        "text_facts_success": (False, "identifier_missing"),
+    }

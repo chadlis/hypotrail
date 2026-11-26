@@ -14,15 +14,15 @@ AGENT_RESPONSIBLE = ("turn_limit", "token_limit", "cost_limit")
 STOPPED_BY_US = AGENT_RESPONSIBLE + ("time_limit", "output_cap")
 
 
-def all_unscored(reason: str) -> list[dict]:
-    return [{"name": name, "state": "unscored", "score": None, "reason": reason} for name in CRITERIA]
+def all_unscored(reason: str, criteria: tuple = CRITERIA) -> list[dict]:
+    return [{"name": name, "state": "unscored", "score": None, "reason": reason} for name in criteria]
 
 
-def scored_false(reason: str) -> list[dict]:
-    return [{"name": name, "state": "scored", "score": False, "reason": reason} for name in CRITERIA]
+def scored_false(reason: str, criteria: tuple = CRITERIA) -> list[dict]:
+    return [{"name": name, "state": "scored", "score": False, "reason": reason} for name in criteria]
 
 
-def criteria_for_limit_stop(episode: dict) -> list[dict]:
+def criteria_for_limit_stop(episode: dict, criteria: tuple = CRITERIA) -> list[dict]:
     """The Criteria of an Episode `failed` at one of our limits, by who is responsible for the stop (owner decision D1).
 
     - `turn_limit`, `token_limit`, `cost_limit`: the agent's own failure, every Criterion scored false. Of `cost_limit`,
@@ -34,13 +34,14 @@ def criteria_for_limit_stop(episode: dict) -> list[dict]:
     """
     reason = episode["reason"]
     if reason in AGENT_RESPONSIBLE:
-        return scored_false(reason)
-    return all_unscored(reason)
+        return scored_false(reason, criteria)
+    return all_unscored(reason, criteria)
 
 
-def criteria_of_unproduced(episode: dict) -> list[dict]:
+def criteria_of_unproduced(episode: dict, criteria: tuple = CRITERIA) -> list[dict]:
+    """The Criteria, of `chinook_contract_v1` unless the Assessment's Scorer gives its own, of an Episode `failed` or `missing`."""
     if episode["status"] == "missing":
-        return all_unscored(OBSERVATION_MISSING)
+        return all_unscored(OBSERVATION_MISSING, criteria)
     if episode["reason"] in STOPPED_BY_US:
-        return criteria_for_limit_stop(episode)
-    return all_unscored(EXECUTION_FAILED)
+        return criteria_for_limit_stop(episode, criteria)
+    return all_unscored(EXECUTION_FAILED, criteria)

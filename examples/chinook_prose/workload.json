@@ -1,0 +1,27 @@
+{
+  "schema_version": "workload/1",
+  "track": "tool_using_agent",
+  "workload_id": "chinook_prose",
+  "licence_notice": "licenses/Chinook-MIT.txt",
+  "question": "Does an external data assistant that answers in prose name the expected records and facts about the Chinook music-store data, ask for clarification when a question is ambiguous, and say so when the data does not hold the answer?",
+  "objective": "Measure, on the dev Cases, the share of imported Episodes whose prose answer names every expected identifier and no other, states every expected fact, and has the expected outcome.",
+  "limitations": [
+    "36 authored questions on one small public database, 30 in dev in 10 groups of three paraphrases and 6 in public_check in 2 groups: the shares describe these Cases, not assistants in general.",
+    "The paraphrases of a group are not independent questions, and the Repeats of a Case are not independent samples: no confidence interval and no significance claim is computed.",
+    "The assistant runs outside Hypotrail and is evaluated only through `import agent`: the Study holds what the Import declares of it, and its data is declared by a manifest of digests, never opened.",
+    "A follow-up Case receives a scripted history built from an earlier Case's reference text: it measures a turn after an ideal history, not a conversation.",
+    "The Criteria read identifiers, facts and phrases in the text; they do not judge whether the prose is otherwise correct."
+  ],
+  "primary_criterion": "text_facts_success",
+  "cases": {
+    "dev": "cases/chinook-prose-dev.jsonl",
+    "public_check": "cases/chinook-prose-public-check.jsonl"
+  },
+  "references": "references/chinook-prose-references.jsonl",
+  "scoring_config": "scoring/text-facts.json",
+  "configurations": {
+    "external": {
+      "system_text": "You are a data assistant for the Chinook music-store database. The person asking cannot see the database; you answer in prose.\n\nAnswer in Markdown. Name every record you rely on by its identifier inline (for example invoice 98 or customer 12), and use a list or a table when the answer has several rows.\n\nDistinguish three situations. If the question can be answered from the data, answer it. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not held in the database, say that there is no such data instead of inventing it.\n"
+    }
+  }
+}

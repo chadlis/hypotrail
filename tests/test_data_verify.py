@@ -42,8 +42,8 @@ def test_both_datasets_verify_with_no_workload_given():
     report = json.loads(out)
     assert report["ok"] is True
     verified = {d["workload"]: d for d in report["datasets"]}
-    assert set(verified) == {"bike_day", "chinook"}
-    assert all(d["status"] == "verified" for d in verified.values())
+    assert set(verified) == {"bike_day", "chinook", "chinook_prose"}
+    assert {name: d["status"] for name, d in verified.items()} == {"bike_day": "verified", "chinook": "verified", "chinook_prose": "declared"}
 
 
 def test_a_single_workload_can_be_verified():

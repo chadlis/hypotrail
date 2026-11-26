@@ -1616,6 +1616,15 @@ def test_the_agent_assess_refusal_table_equals_the_code_exit_stage_and_details_o
     spec["artifacts"] = [e for e in spec["artifacts"] if e["ref"]["role"] != "answer_schema"]
     (study / "study.json").write_bytes(canonical.dumps(spec))
     record(run_json(*args, "--references", references_id(study)))
+    record(run_json("assess", "--study", study, "--observations", observation_set, "--scorer", "text_facts_v1", "--references", references_id(study)))
+    run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "prose")
+    prose = tmp_path / "prose"
+    line = write_lines(tmp_path / "prose.jsonl", [{"case_id": "D01", "repeat": 0, "observation_status": "missing"}])
+    _, prose_import, _ = import_agent(prose, line, episodes_file(tmp_path, [("D01", 0)], name="prose-population.json"), "prose-imp")
+    prose_spec = spec_of(prose)
+    prose_spec["artifacts"] = [e for e in prose_spec["artifacts"] if e["ref"]["role"] != "scoring_config"]
+    (prose / "study.json").write_bytes(canonical.dumps(prose_spec))
+    record(run_json("assess", "--study", prose, "--observations", prose_import["observation_set_id"], "--scorer", "text_facts_v1", "--references", references_id(prose)))
     rows = attrs_of(page, "agent-assess-codes", "data-code")
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -1681,7 +1690,9 @@ def test_the_unknown_table_equals_the_producer_fields_a_log_does_not_establish(p
     _, attempt, folder = _log_import(tmp_path)
     rows = attrs_of(page, "log-unknown", "data-field")
     producer = attempt["effective_config"]["producer"]
-    assert set(rows) == {field for field, entry in producer.items() if entry["origin"] == "unknown"}
+    provenance = json.loads((folder / "observation_set.json").read_text())["provenance"]
+    assert set(rows) == {field for field, entry in producer.items() if entry["origin"] == "unknown"} | {"settings"}
+    assert provenance["settings"] == {"value": None, "origin": "unknown"}
     assert set(json.loads((folder / "observation_set.json").read_text())["unknown_fields"]) == set(rows)
 
 
@@ -2102,6 +2113,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
 
     from hypotrail.agentic import counts, rescore
     from hypotrail.agentic.declaration import load_workload
+    from hypotrail.core import chinook_contract
     from hypotrail.core.errors import HypotrailError
     from hypotrail.ml import comparison, metrics
 
@@ -2110,7 +2122,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
         "metrics.compute_metrics": lambda: metrics.compute_metrics("p.csv", "r.csv", "m.csv", tmp_path, partition="public_check"),
         "comparison.compare": lambda: comparison.compare("a.csv", "b.csv", "r.csv", "m.csv", tmp_path / "out", tmp_path, partition="public_check"),
         "rescore": lambda: rescore.rescore_episodes([{"case_id": "E01", "repeat": 0}], {}, schema={}, workload=workload),
-        "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], workload=workload),
+        "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], criteria=chinook_contract.CRITERIA, workload=workload),
     }
     rows = attrs_of(page, "exposure-entry-points", "data-entry")
     assert set(rows) == {"assess", "compare", "report", "run ml", *calls}
@@ -2407,7 +2419,7 @@ def run_agent_refusals(tmp_path, monkeypatch):
     from _chinook_helpers import chinook_examples, database_of, init_chinook
     from _exposure_helpers import edit_chinook_references
     from _run_agent_helpers import FAKE_KEY, agent, answering_with, fixture, live, live_args, patch_model
-    from _study_helpers import init_study
+    from _study_helpers import init_study, run_json
     from test_study_lock import held_by_another_process
 
     from hypotrail.agentic import runner
@@ -2431,6 +2443,8 @@ def run_agent_refusals(tmp_path, monkeypatch):
         del args[at : at + 2]
         record(case, agent(study, *args))
     record("configuration-not-declared", live(study, "nonesuch", "r"))
+    run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "prose")
+    record("database-not-declared", fixture(tmp_path / "prose", "external", "r"))
     no_scenarios = chinook_examples(tmp_path, edit=lambda declaration: declaration.pop("scenarios"), name="no-scenarios")
     record("scenarios-not-declared", fixture(study, "plain", "r", "--examples-dir", no_scenarios))
     record("partition-not-allowed", live(study, "plain", "r", partition="train"))
@@ -2842,7 +2856,7 @@ def test_the_report_matrix_cell_table_equals_the_lines_the_code_writes_for_a_cel
 
     rows = attrs_of(page, "report-matrix-cell", "data-line")
     ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
-    assert tuple(ordered) == render_agent.CELL_LINES
+    assert tuple(ordered) == render_agent.cell_lines(CRITERIA)
     assert tuple(key for key in ordered if key in CRITERIA) == CRITERIA
     _, _, lines = _chinook_page(tmp_path)
     rendered = [line.split(":")[0] for line in lines]
@@ -4308,7 +4322,7 @@ def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_
         for code, row in attrs_of(page, table_id, "data-code").items():
             assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
             seen += 1
-    assert seen == 7 + 5 + 17 + 2 + 1
+    assert seen == 9 + 5 + 17 + 2 + 1
 
 
 # --- #109: `decide` and the decision record (chapter 17) ---------------------------------------------------------------------------------
@@ -6441,6 +6455,63 @@ def test_the_readme_sentence_on_the_chinook_workload_counts_the_cases_of_each_pa
     assert int(written[partition]) == cases_by_status(partition)["cases"], partition
 
 
+# --- chapter 08: a prose answer, text Cases, text-reference/1 and text_facts_v1 (#265) --------------------------------------------
+
+
+def test_the_text_facts_criteria_and_reasons_tables_equal_the_scorers_criteria_and_reasons(page):
+    from hypotrail.core import text_facts
+
+    criteria = attrs_of(page, "text-facts-criteria", "data-criterion")
+    assert list(criteria) == list(text_facts.CRITERIA)
+    assert [row["data-reason"] for name, row in criteria.items() if name != text_facts.PRIMARY] == [
+        text_facts.IDENTIFIER_MISSING, text_facts.IDENTIFIER_UNEXPECTED, text_facts.FACT_MISSING, text_facts.OUTCOME_MISMATCH
+    ]
+    assert list(attrs_of(page, "text-facts-reasons", "data-reason")) == list(text_facts.REASONS)
+
+
+def test_the_text_reference_key_table_equals_the_keys_text_reference_1_reads(page):
+    from hypotrail.core import text_facts
+
+    assert set(attrs_of(page, "text-reference-keys", "data-key")) == text_facts._REFERENCE_KEYS | text_facts._OPTIONAL_REFERENCE_KEYS
+
+
+def test_the_text_case_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from test_text_workload import REFUSALS, init_prose, prose_copy
+
+    found = {}
+    for name, (edit, _, _) in REFUSALS.items():
+        _, code, payload, _ = init_prose(tmp_path, prose_copy(tmp_path, edit_cases=edit, name=name.replace(" ", "-")), name=name.replace(" ", "-") + "-study")
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+    rows = attrs_of(page, "text-case-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code
+
+
+def test_the_scoring_config_and_data_manifest_refusal_rows_equal_the_code_exit_stage_and_details_init_gives(page, tmp_path):
+    from test_manifest_workload import MALFORMED_MANIFESTS, malformed_manifest
+    from test_text_workload import SCORING_CONFIG_FAULTS, init_prose, scoring_config_copy
+
+    edit, _ = next(iter(SCORING_CONFIG_FAULTS.values()))
+    _, code, config_refusal, _ = init_prose(tmp_path, scoring_config_copy(tmp_path, edit, name="config"), name="config-study")
+    edit, _ = next(iter(MALFORMED_MANIFESTS.values()))
+    _, manifest_code, manifest_refusal, _ = init_prose(tmp_path, malformed_manifest(tmp_path, edit), name="manifest-study")
+    for table_id, exit_code, payload in (("text-facts-config-codes", code, config_refusal), ("data-verify-codes", manifest_code, manifest_refusal)):
+        error = payload["error"]
+        row = attrs_of(page, table_id, "data-code")[error["code"]]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, error["stage"], set(error["details"])), table_id
+    assert list(attrs_of(page, "text-facts-config-codes", "data-code")) == ["SCORING_CONFIG_INVALID"]
+
+
+def test_the_usage_shape_table_equals_the_keys_of_a_normalized_jsonl_usage(page):
+    from hypotrail.agentic import imports
+
+    usage = imports._usage({"usage": {"m": {"tokens": 1, "latency_seconds": 0.5, "cost_usd": None}}}, 1)
+    assert list(attrs_of(page, "agent-usage-shape", "data-key")) == list(usage)
+
+
 # --- the interval: the coverage tables printed from the kept simulation, and the words around them -----------------------------------
 
 COVERAGE_KEPT = HANDBOOK / "simulations" / "interval-coverage.json"
@@ -6494,3 +6565,54 @@ def test_the_texts_of_the_interval_claim_no_significance_name_no_p_value_and_say
                 assert re.search(r"\bno significance\b|states no significance", sentence), sentence
             if re.search(r"\bis better\b", sentence):
                 assert "does not say which Configuration is better" in sentence, sentence
+
+
+IDENTIFIER_READING_RULES = (
+    "block by block, and no reading crosses a block boundary",
+    "CommonMark 0.31.2 and GFM pipe tables",
+    'a line that opens with a marker always starting an item, so "-34" is a negative number',
+    "a table cell, of the header or the body, the delimiter row being no text",
+    "Fenced code gives no identifier and no number",
+    '"invoice `34`" is invoice 34',
+    '"Track 1_2" and "invoice_id" keep theirs',
+    'a line made only of "-", "=", "*" or "_" are markup',
+    "Each kind's pattern runs on one block's text with its markup removed",
+    '"and", "or", ", and" or ", or", whose whitespace may hold a line break',
+    "a bare space or a newline never joins, and no joiner closes the list",
+    "never a date, an amount, a time or a percentage",
+    '"invoices 34, 155 and 166, 3 in total" gives 34, 155 and 166',
+    'A lead-in is a block that ends with ":"',
+    "the kind's key occurs, in any case and with an optional \"s\", and the kind's pattern captures nothing",
+    "A lead-in that names exactly one kind, and is no count phrase, labels the list that follows it",
+    '"- 34 ($0.99)" gives invoice 34 and fact 0.99',
+    "a nested list is labelled only by its own parent item when that item is a lead-in",
+    "A marker's number is never an identifier nor a fact number",
+    '"number of", "numbers of", "count of" or "total", then the plural',
+    '"the number of invoices 34 and 155 is 2" gives invoices 34 and 155 with fact 2',
+    'the parts of an ISO date with the time "HH:MM" or "HH:MM:SS" right after it',
+    "Text facts, date facts and the outcome phrases read the raw answer, fenced code included",
+)
+IDENTIFIER_READING_LIMITS = (
+    'a bare "Invoices: 7" reads as invoice 7, a one-item labelled list, and so does "Invoices: 3 in total"',
+    '("May 23, 2009" gives 23 and 2009)',
+    "blockquotes, HTML, setext headings, indented code, links, images and backslash escapes are read as paragraph text",
+    'a table\'s id column, or a list under a heading with no colon such as "### Invoices"',
+    'such as "artist 90", gives a fact number',
+    '("invoices 34, 155 and 166, 3 altogether" reads invoice 3)',
+    "reads invoice 2009 and loses 34",
+    "a text or date fact can be met from inside fenced code",
+    "a labelled item's leading number is an identifier even when it is a quantity",
+    '("invoices 34 and 2 more" reads invoice 2)',
+    '"Inv:" and "Cust:" are no lead-ins',
+    '"Number of invoices 34 and 155", with no copula, reads count 34 and fact 155',
+    'list items with different markers form one list, so "Invoices:" over "- 34", "- 155", a blank line and "1. 3 tracks were bought" reads invoice 3',
+    'in "Invoices for customer no. 12:" over "- 34" the last sentence is "12:", which names no kind, and 34 is lost',
+)
+
+
+def test_chapter_08_states_the_rules_and_the_limits_of_the_block_reader_of_identifiers_and_fact_numbers(page):
+    [paragraph] = re.findall(r'<p id="identifier-reading">(.*?)</p>', page, re.S)
+    text = html.unescape(re.sub(r"<[^>]+>", "", paragraph))
+    assert [rule for rule in IDENTIFIER_READING_RULES if rule not in text] == []
+    assert [limit for limit in IDENTIFIER_READING_LIMITS if limit not in text] == []
+    assert "D-163 on chadlis/hypotrail#75" in text and "D-173 on chadlis/hypotrail#75" in text
