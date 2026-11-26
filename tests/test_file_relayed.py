@@ -23,7 +23,7 @@ QUESTION = PENDING_QUESTION["text"]
 CANDIDATE = next(option["text"] for option in PENDING_OPTIONS if option["id"] == "keep_candidate")
 IDS = ("--question-id", "keep_after_comparison", "--option-id", "keep_candidate")
 # The French quotation marks are written as escapes: no file under `tests/` holds them as characters.
-WORDS = 'Keep the candidate, as Zoë wrote « on garde le candidat » : it is "better".\nThat is all.\n'
+WORDS = 'Keep the candidate, as Zo\u00eb wrote \u00ab on garde le candidat \u00bb\u202f: it is "better".\nThat is all.\n'
 JOB = "job:https://github.com/example/kit/actions/runs/123456789;actor=evaluator-bot"
 PULL = "https://github.com/example/kit/pull/12@" + "0123456789abcdef" * 2 + "01234567"
 # A `decision/2` record that `decide` wrote at `3109b8c`, before `file_relayed` existed, on a Bike Study made by `init` there on the Workload
