@@ -778,7 +778,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -5390,6 +5390,7 @@ PANEL_LINK_TABLES = {
     "panel-statuses": lambda contract: contract["statuses"],
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
+    "panel-open-refs": lambda contract: contract["open_refs"],
 }
 
 
@@ -5412,6 +5413,56 @@ def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_
     for table in PANEL_LINK_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# The two sentences of chapter 18 that the controls that open leave as they were: "keeps, word for word, "A link of the panel moves the view
+# to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and
+# writes nothing." and "Every number the panel prints is a link to the part of the record it comes from"" (chadlis/hypotrail#227, T1-10).
+KEPT_LINK_SENTENCES = (
+    "A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing.",
+    "Every number the panel prints is a link to the part of the record it comes from",
+)
+# The sentence of the control beside an output path, and the bridge sentence amended to match ADR 0004's dated line: "the client reads
+# through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names" (chadlis/hypotrail#227, T1-10).
+OPEN_CONTROL_SENTENCES = (
+    "Beside each output path that the part of an Assessment or a Comparison shows stands one control that opens that file",
+    "The message the control posts carries no path: it names the kind of the record's part, the place of that record in its listing of the object read and one of the refs of the table below",
+    "The extension finds the path in the object it holds and opens nothing when the message names nothing there, when the path is absolute or holds a .. segment, when the file's real path lies outside the real path of the Study's folder, or when the file does not exist; otherwise it shows the file in the editor and makes that editor read-only for the session.",
+    "The References, anything of an Attempt and any path the client would compose itself are never opened, and the panel reads no content of the file: the editor shows it.",
+    "It reads what a Study holds only through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names.",
+)
+# The sentence of the control of a record's own file: "chapter 18 gains the sentence of the record's control" (chadlis/hypotrail#228, T2-10).
+RECORD_CONTROL_SENTENCES = (
+    "The part of an Assessment, a Comparison, a recorded Decision and a Declared deviation also gives the path of the record's own file, as the CLI names it in record_files , with one control beside it that opens that file the same way;",
+    "The extension finds that path in the entry of record_files of the record's kind and id, and composes none from an id;",
+)
+
+
+def test_chapter_18_holds_the_sentences_of_the_control_of_a_records_own_file():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in RECORD_CONTROL_SENTENCES:
+        assert sentence in prose, sentence
+
+
+def test_chapter_04_names_record_files_with_its_shape():
+    chapter = chapter_text("04-study-and-attempts.html")
+    [row] = re.findall(r'<tr data-field="record_files">.*?</tr>', chapter, re.S)
+    text = plain_text(row)
+    for word in ("decisions", "declared_deviations", "assessments", "comparisons", "kind", "id", "path", "never stored"):
+        assert re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", text), word
+
+
+def test_chapter_18_keeps_the_two_link_sentences_word_for_word():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in KEPT_LINK_SENTENCES:
+        assert sentence in prose, sentence
+
+
+def test_chapter_18_holds_the_sentences_of_the_control_that_opens_and_the_amended_bridge_sentence():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in OPEN_CONTROL_SENTENCES:
+        assert sentence in prose, sentence
+    assert "It reads what a Study holds only through the bridge. " not in prose
 
 
 def test_each_key_path_the_panel_reads_from_the_figures_read_is_a_row_of_the_key_path_table_of_chapter_17_or_a_prefix_of_its_rows(page):
@@ -6014,11 +6065,11 @@ def test_the_prose_of_the_kept_states_section_restates_no_row_of_its_table(page)
         assert not names(prose, html.unescape(row["data-state"])), row["data-state"]
 
 
-# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion that is expected to
-# fail: "Chapter 19 says that the panel is walked through the kept states by the client's tests, and that one assertion is expected to
-# fail until blocker 11 is fixed." (chadlis/hypotrail#222.)
+# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion of blocker 11:
+# "Chapter 19's sentence that one assertion is expected to fail until blocker 11 is fixed, and the README's "blocker 11 is fixed before
+# L3", are rewritten to say that blocker 11 is fixed by this slice" (chadlis/hypotrail#228, T2-10).
 PANEL_WALK = "clients/vscode/test/panel-demonstration.test.ts"
-BLOCKER_11_SENTENCE = "One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record."
+BLOCKER_11_SENTENCE = "Blocker 11 is fixed (chadlis/hypotrail#226): one assertion checks that every file name and every number the panel shows leads to its record, and it holds on every kept state."
 
 
 def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_kept_states_by_its_tracked_path():
@@ -6026,7 +6077,7 @@ def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_
     assert tracked_files(PANEL_WALK) == [PANEL_WALK]
 
 
-def test_chapter_19_says_that_one_assertion_is_expected_to_fail_until_blocker_11_is_fixed():
+def test_chapter_19_says_that_blocker_11_is_fixed_and_that_its_assertion_holds_on_every_kept_state():
     assert BLOCKER_11_SENTENCE in plain_text(chapter_text(DEMO_CHAPTER))
 
 

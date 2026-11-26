@@ -940,6 +940,7 @@ Study 5d85c1c9-817c-4038-8fc8-7016825a971b (bike_day); a writer is not active
 <tr data-field="assessments"><td><code>assessments</code></td><td>Every Assessment record the Study holds, each entry equal to the stored record, in the order of the later Assessment (chapter 10): its position in the write journal, then its <code>recorded_at</code> and its id. <code>[]</code> when the Study holds none.</td></tr>
 <tr data-field="comparisons"><td><code>comparisons</code></td><td>Every Comparison record the Study holds, each entry equal to the stored record, its <code>roles</code> included when the record holds them, in the order of the first write-journal entry that names each; a Comparison that no entry names comes first, and ties are broken by its id. <code>[]</code> when the Study holds none.</td></tr>
 <tr data-field="pending_decisions"><td><code>pending_decisions</code></td><td>The Comparisons that wait for a decision, in the order of <code>comparisons</code>, each with the question and the options the core supplies (chapter 17). Derived when <code>status</code> reads the Study, never stored; <code>[]</code> when none waits.</td></tr>
+<tr data-field="record_files"><td><code>record_files</code></td><td>The file of the Study that holds each record of <code>decisions</code>, <code>declared_deviations</code>, <code>assessments</code> and <code>comparisons</code>, in that order and in each listing's order: one entry per record, with exactly <code>kind</code> (<code>decision</code>, <code>declared_deviation</code>, <code>assessment</code> or <code>comparison</code>), <code>id</code> (the record's id) and <code>path</code> (relative to the Study's folder, written with <code>/</code>). Derived when <code>status</code> reads the Study, never stored; <code>[]</code> when the Study holds none of these records.</td></tr>
 <tr data-field="writes_since"><td><code>writes_since</code></td><td>Present only with <code>--since N</code>: the write-journal entries after position N, in journal order, each as stored (<code>begin</code> or <code>end</code>). <code>[]</code> when N is the Write sequence.</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="write-sequence-commands"><thead><tr><th>Command</th><th>Advances the sequence by</th><th>Names in <code>written</code></th><th>Takes <code>--read-sequence</code></th></tr></thead><tbody>
@@ -2926,6 +2927,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="read-again"><td><code>read-again</code></td><td>A read, on Read again</td></tr>
 <tr data-entry="record"><td><code>record</code></td><td>The write of the selected choice, sent with the place of its pending decision and of the choice</td></tr>
 <tr data-entry="send-again"><td><code>send-again</code></td><td>The held call again, on Send again</td></tr>
+<tr data-entry="open"><td><code>open</code></td><td>The file a control that opens names, shown in the editor read-only, sent with the kind of its record's part, the place of that record in its listing and the ref</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="panel-author"><thead><tr><th>The kind of decider the panel passes (<code>decide_author</code>)</th></tr></thead><tbody>
 <tr data-entry="human"><td>human</td></tr>
@@ -2934,10 +2936,17 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <p class="sub2" id="panel-links">Links inside the panel</p>
 <div class="prose">
 <p>A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing. Each record the document shows, the Study, a Comparison, an Assessment, a recorded Decision and a Declared deviation, stands in a part of its own with its id; the part of an Assessment or a Comparison also gives the path of each output that record names, as the CLI prints it, and never the path of the References. An Assessment has one part in a document, at the first place that refers to it; every other place gives its id as a link to that part, and an Assessment that nothing shown refers to is not shown. Every number the panel prints is a link to the part of the record it comes from; when the Assessment of a line of a Decision's evidence is not among those the CLI lists, its numbers lead to that Decision's part. The texts the core supplies, such as wordings, messages, units and paths, are shown whole and hold no link.</p>
+<p>Beside each output path that the part of an Assessment or a Comparison shows stands one control that opens that file: a button named by its label and described by the path, so that a person who reaches it by the keyboard is told which file it opens, inert while a call is in flight, as every control is, and active while a write with no answer is held, as Read again is. A ref that is null shows no path and no control. The message the control posts carries no path: it names the kind of the record's part, the place of that record in its listing of the object read and one of <a href="#panel-open-refs">the refs of the table below</a>. The extension finds the path in the object it holds and opens nothing when the message names nothing there, when the path is absolute or holds a <code>..</code> segment, when the file's real path lies outside the real path of the Study's folder, or when the file does not exist; otherwise it shows the file in the editor and makes that editor read-only for the session. A file it does not open, or that the editor does not show, gives a document whose notice holds one fixed sentence. The part of an Assessment, a Comparison, a recorded Decision and a Declared deviation also gives the path of the record's own file, as the CLI names it in <code>record_files</code>, with one control beside it that opens that file the same way; a Decision's part also gives, each with its control, the own file of each Assessment its evidence names that the CLI lists. The extension finds that path in the entry of <code>record_files</code> of the record's kind and id, and composes none from an id; a record that <code>record_files</code> does not name has no such control. The Study's part and a Comparison's summary hold no control that opens. The References, anything of an Attempt and any path the client would compose itself are never opened, and the panel reads no content of the file: the editor shows it.</p>
 <p>Each kind of number leads to the part of <a href="#panel-number-links">the table of the parts numbers lead to</a>.</p>
 <p>The panel shows each of <a href="#panel-statuses">the keys of the table of what is shown beside a value</a> with the value the CLI gives, and computes none of them.</p>
 <p>The document is built from the keys of <a href="#panel-key-paths">the table of what the panel reads</a>, from the keys of the second read in <a href="#panel-figures-key-paths">the table of what it reads of that read</a>, and from no other, so nothing of an Attempt is shown, and no output on the checked partition that no Assessment or Comparison recorded.</p>
 </div>
+<div class="tblwrap"><table class="tbl" id="panel-open-refs"><thead><tr><th>An entry of <code>open_refs</code>: a ref a control that opens names</th><th>The file it opens</th></tr></thead><tbody>
+<tr data-entry="per_item"><td><code>per_item</code></td><td>An Assessment's state per Item, at <code>per_item_ref.path</code></td></tr>
+<tr data-entry="paired_deltas"><td><code>paired_deltas</code></td><td>A Comparison's paired deltas, at <code>paired_deltas_ref.path</code></td></tr>
+<tr data-entry="population"><td><code>population</code></td><td>A Comparison's population identity, at <code>population_ref.path</code></td></tr>
+<tr data-entry="record"><td><code>record</code></td><td>The record's own file, at the <code>path</code> of the entry of <code>record_files</code> of its kind and id</td></tr>
+</tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="panel-number-links"><thead><tr><th>An entry of <code>number_links</code>: a kind of number, then its part</th><th>The number</th><th>The part its link leads to</th></tr></thead><tbody>
 <tr data-entry="write_sequence=study"><td><code>write_sequence=study</code></td><td>The Write sequence</td><td>The Study</td></tr>
 <tr data-entry="value=assessment"><td><code>value=assessment</code></td><td>A Metric's value</td><td>The Assessment that holds the Metric</td></tr>
@@ -3009,6 +3018,9 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="pending_decisions[].options[].consequence"><td><code>pending_decisions[].options[].consequence</code></td></tr>
 <tr data-entry="pending_decisions[].options[].text"><td><code>pending_decisions[].options[].text</code></td></tr>
 <tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
+<tr data-entry="record_files[].id"><td><code>record_files[].id</code></td></tr>
+<tr data-entry="record_files[].kind"><td><code>record_files[].kind</code></td></tr>
+<tr data-entry="record_files[].path"><td><code>record_files[].path</code></td></tr>
 <tr data-entry="study.study_id"><td><code>study.study_id</code></td></tr>
 <tr data-entry="write_sequence"><td><code>write_sequence</code></td></tr>
 </tbody></table></div>
@@ -3123,6 +3135,9 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="Items below"><td>Items below</td></tr>
 <tr data-entry="Cases below"><td>Cases below</td></tr>
 <tr data-entry="Ordered from the Candidate's worst; the bar takes the colour of the better side."><td>Ordered from the Candidate's worst; the bar takes the colour of the better side.</td></tr>
+<tr data-entry="Open the file"><td>Open the file</td></tr>
+<tr data-entry="The file was not opened."><td>The file was not opened.</td></tr>
+<tr data-entry="Open the record"><td>Open the record</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Deep links</p>
@@ -3140,7 +3155,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 
 <p class="sub2">No state of its own</p>
 <div class="prose">
-<p>The client persists nothing and remembers no path: it has no setting, keeps nothing in VS Code's stores or in the webview's state, and writes no file. It reads what a Study holds only through the bridge. The tests of <code>tests/test_vscode_client.py</code> list, over every tracked file of the client's sources, each name that starts a process, keeps state or writes a file, and compare the listing with their own, both ways. The listing is bounded by two conventions: only the bridge imports Node's process module, by one named import of <code>execFile</code>, and <code>vscode</code> is imported only as a namespace. An escape the sources do not use and that only a planted case shows is a stated limit of that listing.</p>
+<p>The client persists nothing and remembers no path: it has no setting, keeps nothing in VS Code's stores or in the webview's state, and writes no file. It reads what a Study holds only through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names. The tests of <code>tests/test_vscode_client.py</code> list, over every tracked file of the client's sources, each name that starts a process, keeps state, writes a file, or reads or opens one, and compare the listing with their own, both ways: the one name that opens a file stands once, in the panel. The listing is bounded by two conventions: only the bridge imports Node's process module, by one named import of <code>execFile</code>, and <code>vscode</code> is imported only as a namespace. An escape the sources do not use and that only a planted case shows is a stated limit of that listing.</p>
 </div>
 
 <p class="sub2" id="claude-code-hook-section">The Claude Code hook</p>
@@ -3280,7 +3295,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <p class="sub2" id="demo-panel-section">The panel on the kept states</p>
 <div class="prose">
 <p>The client's tests walk the panel through the kept states, in <code>clients/vscode/test/panel-demonstration.test.ts</code>. At each one they build the document the panel shows once its two reads answer, and read it against them: the question, the delta, the options with their consequences, each Decision with whether it applies, and the state of its evidence. They record the Decision of task 3 twice: in headless Chrome with the keyboard alone, from the top of the document to the message it posts, and through the panel's bridge, where that message starts the <code>decide</code> the demonstration ran. They also send the write that the Study refuses at S1, and read the refusal and the question asked again. The same reads go through the client's other checks of a read, the drawings of <code>clients/vscode/test/panel-screen.test.ts</code> in the four themes at 420 and 900 px, the contact sheet of verify-panel, and the two Copilot tools in <code>clients/vscode/test/tools-demonstration.test.ts</code>.</p>
-<p>One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record. Two parts of the drawings are expected to fail until the panel is redesigned: Record in the first screen at 420 px, and the latest of two Decisions in it. Each is marked, so that <code>npm test</code> passes while it fails, and an unmarked test fails on the day it holds, until the mark is removed.</p>
+<p>Blocker 11 is fixed (chadlis/hypotrail#226): one assertion checks that every file name and every number the panel shows leads to its record, and it holds on every kept state. Two parts of the drawings are expected to fail until the panel is redesigned: Record in the first screen at 420 px, and the latest of two Decisions in it. Each is marked, so that <code>npm test</code> passes while it fails, and an unmarked test fails on the day it holds, until the mark is removed.</p>
 </div>
 
 <p class="sub2" id="demo-edits-section">The edits of task 6</p>
