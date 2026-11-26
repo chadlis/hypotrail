@@ -40,6 +40,7 @@ independently.
 """
 
 import json
+import math
 from importlib import metadata
 from pathlib import Path
 
@@ -49,7 +50,7 @@ from hypotrail.core import artifacts, attempts, canonical, data, environment, pr
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, InvalidInputError
-from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
+from hypotrail.core.imports import DECLARED, UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
 
 COMMAND = study_write.IMPORT_AGENT
 MODE = "external_unknown"
@@ -87,7 +88,11 @@ LINE_KEYS = {
     "mode": OPTIONAL,
     "producer": OPTIONAL,
     "outcome": OPTIONAL,
+    "usage": OPTIONAL,
+    "metadata": OPTIONAL,
+    "settings": OPTIONAL,
 }
+USAGE_FIELDS = ("tokens", "latency_seconds", "cost_usd")
 # The outcome a line may declare for its answer, kept in the normalized entry and read by `text_facts_v1` (D-155 on chadlis/hypotrail#75, item 2).
 OUTCOMES = ("answered", "needs_clarification", "not_answerable")
 
@@ -236,9 +241,14 @@ def log_entries(episodes: list, usage: dict) -> dict:
             "raw_answer": episode["final_answer"] if answered else None,
             "final_answer": None,
             "trace": episode["steps"] or None,
-            "usage": usage.get((episode["case_id"], episode["repeat"])),
+            "usage": _log_usage(usage.get((episode["case_id"], episode["repeat"]))),
         }
     return entries
+
+
+def _log_usage(usage):
+    """The usage a log states, in the one shape of a normalized entry: a log states no cost and no models apart."""
+    return None if usage is None else {**usage, "cost_usd": None, "by_model": None}
 
 
 def _field(line, number, name, kinds, *, nullable=True):
@@ -259,6 +269,61 @@ def _claims(line, number) -> dict:
     for name in CLAIMED_IN_PRODUCER:
         claims[name] = _field(producer or {}, number, name, str)
     return claims
+
+
+def _measure(value, *, integer: bool) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or (integer and not isinstance(value, int)):
+        return False
+    return math.isfinite(value) and value >= 0
+
+
+def _usage(line, number):
+    """The line's `usage` in the one shape of a normalized entry, or None when the line has none.
+
+    Each total is the sum over the models, or None when a model's is None or no model is given; `by_model` is the
+    line's object as given.
+    """
+    if "usage" not in line:
+        return None
+    usage = line["usage"]
+    valid = isinstance(usage, dict) and all(
+        isinstance(model, str) and model.strip() and isinstance(value, dict) and set(value) == set(USAGE_FIELDS)
+        and all(_measure(value[name], integer=name == "tokens") for name in USAGE_FIELDS)
+        for model, value in usage.items()
+    )
+    if not valid:
+        raise _refuse(
+            "LINE_FIELD_INVALID",
+            f"line {number}: 'usage' must be an object of models, each {{tokens, latency_seconds, cost_usd}}, each a non-negative number or null",
+            line=number,
+            field="usage",
+        )
+
+    def total(name):
+        values = [value[name] for value in usage.values()]
+        return sum(values) if values and None not in values else None
+
+    return {"latency_seconds": total("latency_seconds"), "tokens": total("tokens"), "cost_usd": total("cost_usd"), "by_model": usage}
+
+
+def _settings(line, number):
+    """The line's flat `settings` map, or None when the line has none."""
+    if "settings" not in line:
+        return None
+    settings = line["settings"]
+    flat = isinstance(settings, dict) and all(
+        isinstance(key, str) and key != "" and (value is None or isinstance(value, (str, bool, int, float))) for key, value in settings.items()
+    )
+    if not flat:
+        raise _refuse(
+            "LINE_FIELD_INVALID",
+            f"line {number}: 'settings' must be a flat object of strings, numbers, booleans or null",
+            line=number,
+            field="settings",
+        )
+    return settings
 
 
 def _trace(line, number):
@@ -300,7 +365,7 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
     """(entries by key, claims of every line): the lines of the source, each checked, joined to the population by key."""
     expected = set(keys)
     cases_listed = {case_id for case_id, _ in keys}
-    entries, claims, count = {}, [], 0
+    entries, claims, settings, count = {}, [], [], 0
     for number, text in enumerate(_decoded(raw, source_path).splitlines(), start=1):
         if not text.strip():
             continue
@@ -332,6 +397,10 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
         outcome = line.get("outcome")
         if "outcome" in line and outcome not in OUTCOMES:
             raise _refuse("LINE_FIELD_INVALID", f"line {number}: 'outcome' must be one of {', '.join(OUTCOMES)}", line=number, field="outcome")
+        usage = _usage(line, number)
+        if "metadata" in line and not isinstance(line["metadata"], dict):
+            raise _refuse("LINE_FIELD_INVALID", f"line {number}: 'metadata' must be a JSON object", line=number, field="metadata")
+        settings.append(_settings(line, number))
         claims.append(_claims(line, number))
         if raw_answer is not None and final_answer is not None:
             raise _refuse(
@@ -361,8 +430,13 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             "final_answer": final_answer if produced else None,
             "trace": trace,
         }
-        if "outcome" in line:  # absent from the entry of a line without it, so an earlier import's normalized bytes are unchanged
+        # each optional key is absent from the entry of a line without it, so an earlier import's normalized bytes are unchanged
+        if "outcome" in line:
             entries[key]["outcome"] = outcome
+        if usage is not None:
+            entries[key]["usage"] = usage
+        if "metadata" in line:
+            entries[key]["metadata"] = line["metadata"]
     absent = sorted(expected - set(entries))
     if absent:
         raise _refuse(
@@ -372,7 +446,20 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             repeat=absent[0][1],
             absent=len(absent),
         )
-    return entries, claims, count
+    return entries, claims, count, settings
+
+
+def declared_settings(settings: list) -> dict:
+    """The Observation set's `settings`: the map every line holds, `declared`; `unknown` when a line has none or two lines differ.
+
+    D-155 on chadlis/hypotrail#75, item 1: "in each line, declared only when every line agrees, as `producer` already is
+    (`agentic/imports.py:368-376`). A line set that disagrees has `settings` unknown, and the Comparison shows it as unknown."
+    The map is compared whole, not key by key.
+    """
+    first = settings[0] if settings else None
+    if first is None or any(other != first for other in settings):
+        return {"value": None, "origin": UNKNOWN}
+    return {"value": first, "origin": DECLARED}
 
 
 def _producer(claims: list) -> dict:
@@ -491,9 +578,11 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         episodes, count = inspect_log.checked_episodes(log, keys, partition, partition_of)
         entries = log_entries(episodes, inspect_log.usage_by_key(log))
         producer, declared_log = _log_producer(inspect_log.header_of(log))
+        settings = declared_settings([])
     else:
-        entries, claims, count = _checked_lines(source_bytes, source, partition, keys, partition_of)
+        entries, claims, count, line_settings = _checked_lines(source_bytes, source, partition, keys, partition_of)
         producer = _producer(claims)
+        settings = declared_settings(line_settings)
     effective_config = {**effective_config, "partition": partition, "repeats": max(r for _, r in keys) + 1}
     import_time = now()
     effective_config = {**effective_config, "import_time": import_time, "producer": producer}
@@ -524,9 +613,11 @@ def _import_locked(study, write, source, population_path, request_id, *, example
                 "partition": partition,
                 "import_time": import_time,
                 **producer,
+                "settings": settings,
                 **({} if declared_log is None else {"log": declared_log}),
             },
             unknown_fields=[field for field, entry in producer.items() if entry["origin"] == UNKNOWN]
+            + (["settings"] if settings["origin"] == UNKNOWN else [])
             + [f"log.{name}" for name, entry in (declared_log or {}).items() if entry["origin"] == UNKNOWN],
         )
         return attempts.Produced(inputs=[source_ref, population_ref], outputs=[report_ref], effective_config=effective_config)

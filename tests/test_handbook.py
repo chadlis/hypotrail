@@ -1682,7 +1682,9 @@ def test_the_unknown_table_equals_the_producer_fields_a_log_does_not_establish(p
     _, attempt, folder = _log_import(tmp_path)
     rows = attrs_of(page, "log-unknown", "data-field")
     producer = attempt["effective_config"]["producer"]
-    assert set(rows) == {field for field, entry in producer.items() if entry["origin"] == "unknown"}
+    provenance = json.loads((folder / "observation_set.json").read_text())["provenance"]
+    assert set(rows) == {field for field, entry in producer.items() if entry["origin"] == "unknown"} | {"settings"}
+    assert provenance["settings"] == {"value": None, "origin": "unknown"}
     assert set(json.loads((folder / "observation_set.json").read_text())["unknown_fields"]) == set(rows)
 
 
@@ -6411,3 +6413,10 @@ def test_the_text_case_refusal_table_equals_the_code_exit_stage_and_details_of_e
     for code, row in rows.items():
         exit_code, stage, details = found[code]
         assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code
+
+
+def test_the_usage_shape_table_equals_the_keys_of_a_normalized_jsonl_usage(page):
+    from hypotrail.agentic import imports
+
+    usage = imports._usage({"usage": {"m": {"tokens": 1, "latency_seconds": 0.5, "cost_usd": None}}}, 1)
+    assert list(attrs_of(page, "agent-usage-shape", "data-key")) == list(usage)
