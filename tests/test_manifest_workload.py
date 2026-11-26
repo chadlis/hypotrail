@@ -439,7 +439,25 @@ def test_the_review_record_holds_the_fresh_readers_findings_and_keeps_those_on_t
     assert set(reader["findings"]) == {"allowed_invoice_sets", "p04_p06_customers"}
     assert set(reader["superseded"]) == {"d16_d18_reference_text", "d17"}
     assert all(item["superseded_by"].startswith("2026-11-26, D-160") for item in reader["superseded"].values())
-    assert "fresh_reader" not in d17 and d17["history"]["fresh_reader"]["finding"] == reader["superseded"]["d17"]["finding"]
+    assert d17["history"]["fresh_reader"]["finding"] == reader["superseded"]["d17"]["finding"]
+
+
+def test_the_fresh_reader_of_d160_is_recorded_in_the_header_and_on_each_frank_line_with_the_open_dispute_as_a_known_limit():
+    from hypotrail.core import text_facts
+
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    reader = header["fresh_reader"]["d160"]
+    assert (reader["date"], reader["reader"]) == ("2026-11-26", "fresh slice-gate")
+    assert set(reader["findings"]) == {"frank_family", "allowed_identifiers", "unexpected_identifier_witnesses"}
+    assert all(finding.startswith("Holds.") for finding in reader["findings"].values())
+    for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
+        assert line["fresh_reader"] == {"date": "2026-11-26", "reader": "fresh slice-gate", "finding": reader["findings"]["frank_family"], "known_limit": reader["known_limit"]}
+    # The known limit is what the Scorer does: both totals given without asking read as answered.
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [d16] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D16"]
+    both = "Frank Harris (customer 16) has spent 37.62 and Frank Ralston (customer 24) has spent 43.62."
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(both, d16, config, None)["criteria"]}
+    assert criteria["outcome_matches"] == (False, "outcome_mismatch") and "without asking" in reader["known_limit"]
 
 
 def test_the_committed_blind_writer_files_name_no_local_path_and_say_their_scripts_stay_out_of_the_repository():
