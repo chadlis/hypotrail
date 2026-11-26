@@ -366,3 +366,13 @@ def test_an_answer_naming_the_germany_2012_invoices_and_their_customers_names_no
     )
     criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(answer, reference, config, "answered")["criteria"]}
     assert criteria["no_unexpected_identifier"] == (True, None)
+
+
+def test_the_review_record_holds_the_fresh_readers_findings_in_place_of_a_promise_that_one_will_check():
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    [d17] = [line for line in lines if line["case_id"] == "D17"]
+    for record in (header, d17):
+        assert "a fresh reader checks" not in json.dumps(record).lower()
+        assert record["fresh_reader"]["date"] == "2026-11-26" and record["fresh_reader"]["reader"] == "fresh slice-gate"
+    assert set(header["fresh_reader"]["findings"]) == {"allowed_invoice_sets", "p04_p06_customers", "d16_d18_reference_text", "d17"}
+    assert "pending" in header["fresh_reader"]["findings"]["d17"] and "pending" in d17["fresh_reader"]["finding"]
