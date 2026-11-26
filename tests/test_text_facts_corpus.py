@@ -8,6 +8,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -48,6 +49,21 @@ def test_the_two_writer_files_are_kept_byte_for_byte_as_written():
         "writer-a.jsonl": "863ef2ee8ab2847df611a89831a8cce947d9b415df3208c745cb63b949e5a1e0",
         "writer-b.jsonl": "0c90a03f67c3cfedc1a7f2f6db5215b672aff0cccd08b1512a038c73e800a454",
     }
+
+
+# Every probe the brief lists, on a line that opens with "- R<round>-<n>".
+PROBES = re.findall(r"(?m)^- (R[1-6]-[0-9]+) ", (CORPUS / "brief.md").read_text(encoding="utf-8"))
+WRITER_PROBES = {name: {row["probe"] for row in jsonl(CORPUS / name)} for name in ("writer-a.jsonl", "writer-b.jsonl")}
+
+
+def test_the_brief_lists_the_fifty_one_probes():
+    assert len(PROBES) == len(set(PROBES)) == 51
+
+
+@pytest.mark.parametrize("writer", list(WRITER_PROBES))
+@pytest.mark.parametrize("probe", PROBES)
+def test_each_probe_of_the_brief_is_a_row_of_each_writer_file(probe, writer):
+    assert probe in WRITER_PROBES[writer]
 
 
 @pytest.mark.parametrize("row_id", list(ROWS))
