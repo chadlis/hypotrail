@@ -13,7 +13,8 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from hypotrail.ml.imports import MAPPING_KEYS
+from hypotrail.core.errors import InvalidInputError
+from hypotrail.ml.imports import MAPPING_KEYS, _checked_mapping
 
 CONTRACT = Path(__file__).resolve().parents[1] / "src" / "hypotrail" / "ml" / "contracts" / "ml-scores-1"
 EXAMPLES = CONTRACT / "examples"
@@ -84,12 +85,14 @@ def test_each_refused_case_is_refused_by_the_schemas_exactly_when_it_says_schema
 
 
 def test_the_mapping_schema_agrees_with_mapping_keys_except_settings_and_y_pred_raw():
-    """`y_pred_raw` is a key of the regression Track that the contract leaves out; `settings` waits for M1 (the next test)."""
+    """`y_pred_raw` is a key of the regression Track that the contract leaves out; `settings` is refused until M1 (the next test)."""
     loaded = schema("mapping.schema.json")
     assert set(loaded["required"]) == {key for key, required in MAPPING_KEYS.items() if required}
     assert set(loaded["properties"]) - {"settings"} == set(MAPPING_KEYS) - {"y_pred_raw"}
 
 
-@pytest.mark.xfail(strict=True, reason="`import ml` accepts `settings` in a mapping from M1 on (D-172, C1): the M1 pull request removes this marker")
-def test_import_ml_accepts_settings_in_a_mapping():
-    assert "settings" in MAPPING_KEYS
+def test_import_ml_refuses_the_example_mappings_settings_key_with_mapping_key_unknown_until_m1():
+    """A pinned known difference: the contract has `settings`, `import ml` on `main` refuses it. M1 (chadlis/hypotrail#277) turns it around and changes this test."""
+    with pytest.raises(InvalidInputError) as refused:
+        _checked_mapping((EXAMPLES / "mapping.json").read_bytes(), EXAMPLES / "mapping.json")
+    assert (refused.value.code, refused.value.details["key"]) == ("MAPPING_KEY_UNKNOWN", "settings")

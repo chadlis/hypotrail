@@ -21,7 +21,7 @@ A CSV file is checked as the object `{"columns": <its header>, "rows": [<one obj
 - `item_id` is `<entity_id>@<as_of>`. The Items exist in `items.csv`; the score file only joins to them, by ID, never by position.
 - A higher `score` ranks first. Ties are the Track's to break, by `item_id` ascending. The exporter never rounds or rescales.
 - `dataset_sha256` is the sha256 of the `items.csv` the scores were made for.
-- `settings` is recorded `declared`. The kit writes `kit_commit`, `run_id`, `frame_digest`, `candidates_compared`. Until Hypotrail accepts `settings` in a mapping (M1), a mapping that holds it is refused with `MAPPING_KEY_UNKNOWN`.
+- `settings` is recorded `declared`. The kit writes `kit_commit`, `run_id`, `frame_digest`, `candidates_compared`. Until Hypotrail accepts `settings` in a mapping (M1, chadlis/hypotrail#277), a mapping that holds it is refused with `MAPPING_KEY_UNKNOWN`: a pinned known difference, which `tests/test_contracts_ml_scores.py` asserts on the example mapping and M1 turns around.
 - `mature` is true when `as_of + horizon <= label_cutoff`. An immature Item has an empty `partition` (the schema checks this), is in no References file and in no population.
 - A References file holds one row per mature Item of its Partition. Every dev label window closes before the first held-out `as_of`.
 - `references-held_out.csv` is written and read inside the evaluator job only.
