@@ -365,7 +365,7 @@ def test_each_frank_review_line_records_the_replaced_text_the_blind_writers_resu
             ("writer-a.md", "2026-11-26", "needs_clarification"),
             ("writer-b.md", "2026-11-26", "needs_clarification"),
         ]
-        assert replaced["note"].startswith("2026-11-26, D-158") and "before any run" in replaced["note"]
+        assert replaced["note"].startswith("2026-11-26, D-158") and "before any Attempt" in replaced["note"]
         assert "Iron Maiden" in replaced["rejected_alternative"]["reason"]
         assert len(replaced["rejected_alternative"]["questions"]) == 3
 
