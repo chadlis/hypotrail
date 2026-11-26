@@ -283,7 +283,7 @@ def test_the_review_record_holds_one_agreed_line_per_case_whose_two_writers_sql_
 
 
 # D-158 on chadlis/hypotrail#75, item 1: "the allowed sets are derived from recorded SQL only, never from fixture or agent answers".
-ALLOWED_CASES = ("D25", "D26", "D27", "D28", "D29", "D30", "P04", "P05", "P06")
+ALLOWED_CASES = ("D16", "D17", "D18", "D25", "D26", "D27", "D28", "D29", "D30", "P04", "P05", "P06")
 
 
 def test_each_allowed_identifier_set_is_exactly_what_the_sql_its_review_line_records_gives_on_the_chinook_bytes():
@@ -318,40 +318,60 @@ def test_the_verbose_fixtures_unexpected_identifier_witness_names_an_identifier_
     assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
 
 
-TOP_BY = {
-    "the highest total spent": "SELECT CustomerId, ROUND(SUM(Total), 2) AS v FROM Invoice GROUP BY CustomerId",
-    "the most invoices": "SELECT CustomerId, COUNT(*) AS v FROM Invoice GROUP BY CustomerId",
-    "the most tracks bought": "SELECT i.CustomerId, SUM(l.Quantity) AS v FROM Invoice i JOIN InvoiceLine l USING (InvoiceId) GROUP BY i.CustomerId",
+FRANK_QUESTIONS = {
+    "D16": "How much has Frank spent with us?",
+    "D17": "What is Frank's total spend so far?",
+    "D18": "Can you give me Frank's lifetime spend?",
 }
 
 
-def test_the_best_customer_reference_texts_state_how_many_customers_each_measure_puts_first_as_the_chinook_bytes_give_it():
-    # D-158 on chadlis/hypotrail#75, item 2: "only spend singles out one customer; invoice count and tracks bought tie 58 ways".
+def test_the_clarification_family_asks_for_franks_spend_in_three_wordings_and_keeps_its_ids_group_partition_and_status():
+    cases = {c["case_id"]: c for c in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl") if c["case_id"] in FRANK_QUESTIONS}
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] in FRANK_QUESTIONS}
+    assert {case_id: case["question"] for case_id, case in cases.items()} == FRANK_QUESTIONS
+    assert {(case["family"], case["group"]) for case in cases.values()} == {("clarification", "best-customer")}
+    assert {r["expected_outcome"] for r in references.values()} == {"needs_clarification"}
+
+
+def test_the_frank_reference_texts_name_both_customers_called_frank_whose_totals_differ_on_the_chinook_bytes():
+    from hypotrail.core import text_facts
     from hypotrail.core.data import open_sqlite_readonly
 
     connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
     try:
-        first = {}
-        for measure, sql in TOP_BY.items():
-            rows = connection.execute(sql).fetchall()
-            top = max(value for _, value in rows)
-            first[measure] = sum(value == top for _, value in rows)
+        franks = connection.execute("SELECT CustomerId, LastName FROM Customer WHERE FirstName = 'Frank' ORDER BY CustomerId").fetchall()
+        totals = connection.execute("SELECT ROUND(SUM(Total), 2) FROM Invoice WHERE CustomerId IN (16, 24) GROUP BY CustomerId").fetchall()
     finally:
         connection.close()
-    assert first == {"the highest total spent": 1, "the most invoices": 58, "the most tracks bought": 58}
-    texts = {r["case_id"]: r["reference_text"] for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] in ("D16", "D17", "D18")}
-    for case_id, text in texts.items():
-        assert "these give different customers" not in text, case_id
-        assert "only the highest total spent singles out one customer" in text and "58 customers tie" in text, case_id
+    assert franks == [(16, "Harris"), (24, "Ralston")] and len(set(totals)) == 2
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    for reference in jsonl(PROSE / "references" / "chinook-prose-references.jsonl"):
+        if reference["case_id"] in FRANK_QUESTIONS:
+            text = reference["reference_text"]
+            assert all(part in text for part in ("customer 16", "Frank Harris", "customer 24", "Frank Ralston", "differ")), reference["case_id"]
+            assert (reference["expected_identifiers"], reference["expected_facts"]) == ([], []), reference["case_id"]
+            scored = text_facts.apply(text, reference, config, None)["criteria"]
+            assert all(c["score"] is True for c in scored), (reference["case_id"], scored)
 
 
-def test_d17_asks_for_the_best_customer_without_a_word_that_reads_as_money_and_its_review_line_dates_the_writers_stale_witness():
-    [case] = [c for c in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl") if c["case_id"] == "D17"]
-    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == "D17"]
-    [line] = [r for r in jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl") if r.get("case_id") == "D17"]
-    assert not any(word in case["question"].lower() for word in ("valu", "spen", "revenue", "money", "paid", "pay"))
-    assert reference["expected_outcome"] == "needs_clarification"
-    assert any(note.startswith("2026-11-26, D-158") and case["question"] in note and line["case"]["question"] in note for note in line["dated_notes"])
+def test_each_frank_review_line_records_the_replaced_text_the_blind_writers_results_and_the_rejected_artist_family():
+    _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    previous = {"D16": "Who is our best customer?", "D17": "Which customer stands out above all the others?", "D18": "Tell me who our top customer is."}
+    for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
+        replaced = line["replacement"]
+        assert line["case"]["question"] == FRANK_QUESTIONS[line["case_id"]]
+        assert replaced["previous_question"] == previous[line["case_id"]]
+        assert [(w["file"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
+            ("writer-a.md", "2026-11-26", "needs_clarification"),
+            ("writer-b.md", "2026-11-26", "needs_clarification"),
+        ]
+        assert replaced["note"].startswith("2026-11-26, D-158") and "before any run" in replaced["note"]
+        assert "Iron Maiden" in replaced["rejected_alternative"]["reason"]
+        assert len(replaced["rejected_alternative"]["questions"]) == 3
+
+
+def test_every_reference_is_of_the_set_chinook_prose_references_3():
+    assert {r["reference_version"] for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")} == {"chinook-prose-references/3"}
 
 
 @pytest.mark.parametrize("case_id", ["P04", "P05", "P06"])
