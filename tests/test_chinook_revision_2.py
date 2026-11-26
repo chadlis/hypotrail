@@ -5,6 +5,8 @@ database through the SQL tool's own read-only path (`sql_tool.run_query`). No mo
 """
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -161,7 +163,9 @@ def test_each_review_line_says_whether_the_two_answers_agree_as_both_sql_texts_e
         agree = agree and equal
     else:
         assert line["tables_equal"] is None
-    if agree:
+    if line["outcome"] == "withdrawn":
+        assert line["case_id"] is None and line["withdrawal_reason"]  # an ambiguous candidate is withdrawn with its reason
+    elif agree:
         assert line["outcome"] == "agreed" and line["third_reader"] is None
     else:
         assert line["outcome"] != "agreed" and line["third_reader"] is not None
@@ -207,6 +211,69 @@ def test_each_new_reference_has_the_keys_of_the_kits_and_names_the_two_writers_r
         assert reference["review_required_before_live"] is True, reference["case_id"]
         assert reference["reference_quality"] in NEW_QUALITIES, reference["case_id"]
         assert reference["reference_quality"] != "sql_executed_and_anchor_checked", reference["case_id"]
+
+
+TWO_DECIMALS = re.compile(r"\b2 decimal places\b|\bdeux décimales\b")
+
+
+def all_cases():
+    return {case["case_id"]: case for case in read_jsonl(DEV) + read_jsonl(PUBLIC_CHECK)}
+
+
+def test_every_reference_whose_question_asks_for_two_decimals_carries_half_a_unit_of_the_second_decimal_as_its_tolerance():
+    cases = all_cases()
+    asking = [r for r in read_jsonl(REFERENCES) if TWO_DECIMALS.search(cases[r["case_id"]]["question"])]
+    assert "E08" in {r["case_id"] for r in asking}
+    assert {r["case_id"]: r["numeric_absolute_tolerance"] for r in asking} == {r["case_id"]: 0.005 for r in asking}
+
+
+def folded(text):
+    """`text` compared without case and without accents: casefolded, with its combining marks removed."""
+    return "".join(c for c in unicodedata.normalize("NFD", text.casefold()) if not unicodedata.combining(c))
+
+
+def fold_collation(first, second):
+    return (folded(first) > folded(second)) - (folded(first) < folded(second))
+
+
+def outer_order_by_folded(sql):
+    """`sql` with each term of its last ORDER BY compared without case and accents (a collation applies to text only)."""
+    match = list(re.finditer(r"\bORDER\s+BY\b", sql, re.I))[-1]
+    head, tail = sql[: match.end()], sql[match.end():]
+    limit = re.search(r"\bLIMIT\b", tail, re.I)
+    clause, rest = (tail[: limit.start()], tail[limit.start():]) if limit else (tail, "")
+    terms = []
+    for term in clause.split(","):
+        direction = re.search(r"\s+(ASC|DESC)\s*$", term, re.I)
+        expression = term[: direction.start()] if direction else term.rstrip()
+        terms.append(f"{expression} COLLATE FOLD{direction.group(0) if direction else ''}")
+    return head + ",".join(terms) + " " + rest
+
+
+def rows_with_folded_order(sql):
+    connection = open_sqlite_readonly(DATABASE)
+    try:
+        connection.create_collation("FOLD", fold_collation)
+        return [list(row) for row in connection.execute(outer_order_by_folded(sql)).fetchall()]
+    finally:
+        connection.close()
+
+
+def ordered_by_text(reference):
+    sql = reference["oracle_sql"] or ""
+    return re.search(r"\bORDER\s+BY\b", sql, re.I) is not None and any(isinstance(cell, str) for row in reference["rows"] for cell in row)
+
+
+@pytest.mark.parametrize(
+    "reference", [r for r in new_references() if r["status"] == "answered" and ordered_by_text(r)], ids=lambda reference: reference["case_id"]
+)
+def test_each_new_reference_ordered_with_text_has_the_same_rows_under_binary_and_case_and_accent_insensitive_order(reference):
+    """The scorer compares rows in order, and a question that fixes no text sort rule leaves case and accents open; such a question must
+    have the same rows either way, or state the rule."""
+    question = all_cases()[reference["case_id"]]["question"].lower()
+    if "case-sensitive" in question or "binary order" in question:
+        return
+    assert rows_with_folded_order(reference["oracle_sql"]) == reference["rows"], reference["case_id"]
 
 
 # --- revision 2 for a Study made before -----------------------------------------------------------------------------------------
