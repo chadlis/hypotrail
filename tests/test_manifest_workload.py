@@ -216,3 +216,32 @@ def test_import_agent_onto_a_chinook_prose_study_records_an_import_whose_dataset
     assert attempt["technical_status"] == "completed"
     [manifest_copy] = spec["dataset_refs"]
     assert attempt["effective_config"]["input_digests"]["dataset"] == manifest_copy["sha256"] == sha256(study / manifest_copy["path"])
+
+
+# --- the review record of the References (D-131 on chadlis/hypotrail#75, conditions 1 and 4) ----------------------------------
+
+
+def jsonl(path: Path) -> list:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_the_review_record_holds_one_agreed_line_per_case_whose_two_writers_sql_give_one_table_and_whose_reference_rule_is_writer_as():
+    from hypotrail.core.data import open_sqlite_readonly
+
+    header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    assert header["record"] == "header"
+    cases = [case["case_id"] for name in ("chinook-prose-dev.jsonl", "chinook-prose-public-check.jsonl") for case in jsonl(PROSE / "cases" / name)]
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    assert [line["case_id"] for line in lines] == cases == list(references)
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        for line in lines:
+            a, b = line["writer_a"], line["writer_b"]
+            assert a["status"] == b["status"] == references[line["case_id"]]["expected_outcome"], line["case_id"]
+            if a["status"] == "answered":
+                assert connection.execute(a["sql"]).fetchall() == connection.execute(b["sql"]).fetchall(), line["case_id"]
+                assert line["tables_equal"] is True, line["case_id"]
+            assert {fact["rule"] for fact in references[line["case_id"]]["expected_facts"]} <= {a["sql"]}, line["case_id"]
+            assert line["outcome"] == "agreed", line["case_id"]
+    finally:
+        connection.close()

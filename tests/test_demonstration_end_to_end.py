@@ -289,7 +289,7 @@ def test_a4_the_workload_copy_is_in_the_work_folder_and_data_verify_verifies_it(
     [(_, verify)] = assert_the_step(run, "A4")
     copy = run.work / "demo-examples"
     assert copy.resolve() not in ROOT.resolve().parents and ROOT.resolve() not in copy.resolve().parents
-    assert verify["args"] == ["data", "verify", "--examples-dir", str(copy), "--json"]
+    assert verify["args"] == ["data", "verify", "--examples-dir", str(copy), "--workload", "bike_day", "--workload", "chinook", "--json"]
     assert [entry["status"] for entry in verify["payload"]["datasets"]] == ["verified", "verified"]
 
 
