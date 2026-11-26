@@ -226,7 +226,11 @@ def test_the_cost_limit_and_parallel_tool_calls_read_back_from_the_log_equal_the
 
 # --- a kept log re-summarises with the new keys null, and an earlier request still replays -----------------------
 
-KEPT_LOGS = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "docs" / "handbook" / "traces").rglob("*.eval"))
+# the kept logs made before the two flags existed: the Chinook dev Campaign of #235 was made with them
+MADE_WITH_THE_FLAGS = ROOT / "docs" / "handbook" / "traces" / "campaign-chinook-dev"
+KEPT_LOGS = sorted(
+    p.relative_to(ROOT).as_posix() for p in (ROOT / "docs" / "handbook" / "traces").rglob("*.eval") if MADE_WITH_THE_FLAGS not in p.parents
+)
 
 
 @pytest.mark.parametrize("kept", KEPT_LOGS)

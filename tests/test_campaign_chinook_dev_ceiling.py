@@ -51,13 +51,17 @@ def is_round(value: float) -> bool:
     return abs(value / CENT - round(value / CENT)) < 1e-9
 
 
-def dearest_kept_log_episode() -> tuple:
-    """(USD, run.json, case, repeat) of the kept Episode that costs most with every input token at p_max, over every kept run.json."""
+def dearest_kept_log_episode(before_this_campaign: bool) -> tuple:
+    """(USD, run.json, case, repeat) of the kept Episode that costs most with every input token at p_max, over every kept run.json.
+
+    With `before_this_campaign`, the run.json files this Campaign's own Study keeps are left out: the floor was fixed before them.
+    """
     prices = PRICE_LIST["models"][MODEL]
     p_max = max(prices["input"], prices["input_cache_write"])
     listed = subprocess.run(["git", "ls-files", "docs/handbook/traces"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
     priced = []
-    for path in (p for p in listed if p.endswith("/run.json") or p == "run.json"):
+    own = PLAN["study"] + "/"
+    for path in (p for p in listed if p.endswith("/run.json") and not (before_this_campaign and p.startswith(own))):
         for episode in json.loads((ROOT / path).read_text(encoding="utf-8"))["episodes"]:
             sent = sum(episode.get(k) or 0 for k in ("input_tokens", "input_tokens_cache_read", "input_tokens_cache_write"))
             usd = (sent * p_max + (episode.get("output_tokens") or 0) * prices["output"]) / 1e6
@@ -138,8 +142,9 @@ def test_c_is_the_largest_multiple_of_usd_0_01_whose_ceiling_at_the_plans_repeat
 
 
 def test_c_is_at_least_twice_the_dearest_kept_log_episode_priced_with_every_input_token_at_p_max_and_the_file_names_it():
-    usd, path, case_id, repeat = dearest_kept_log_episode()
+    usd, path, case_id, repeat = dearest_kept_log_episode(before_this_campaign=True)
     assert PLAN["episode_cost_limit_usd"] >= 2 * usd
+    assert PLAN["episode_cost_limit_usd"] >= 2 * dearest_kept_log_episode(before_this_campaign=False)[0]  # the Campaign's own Episodes too
     named = CEILING["dearest_kept_log_episode"]
     assert (named["run_json"], named["case_id"], named["repeat"]) == (path, case_id, repeat)
     assert named["priced_usd"] == pytest.approx(usd, abs=1e-12)
