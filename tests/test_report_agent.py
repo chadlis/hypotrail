@@ -341,7 +341,8 @@ def test_C_when_the_record_withholds_the_main_delta_the_page_shows_only_withheld
     assert table["Coverage rates"] == f"Control {record['coverage']['control_rate']:.6g}, Candidate {record['coverage']['candidate_rate']:.6g}"
     assert {r[1] for r in doc.body("comparison-secondary-0")} == {"withheld"}
     assert "comparison-cases-0" not in doc.tables
-    card = " ".join(" ".join(c["text"] for c in row) for row in doc.tables["comparison-0"])
+    assert table["Interval"] == "withheld"  # the interval's row says "withheld" alone, as the Delta's
+    card = " ".join(" ".join(c["text"] for c in row) for row in doc.tables["comparison-0"] if row[0]["text"] != "Interval")
     assert not re.search(r"bound|interval|confidence|coverage_incomplete", card, re.I)
 
 
@@ -536,3 +537,35 @@ def test_the_attempts_of_the_agent_track_show_their_mode_status_request_id_and_i
     assert report(copy, out)[0] == 0
     shown = {row[0]: row for row in doc_of(out).body("attempts")}
     assert shown[running][1:] == ["llm_live", "running", "still-going", "no", "unknown", "unknown", "unknown", "none"]
+
+
+# --- the interval row of an agent Comparison ------------------------------------------------------------------------------------
+
+KEPT_CAMPAIGN = ROOT / "docs" / "handbook" / "traces" / "campaign-public-check" / "study"
+
+
+def test_the_report_shows_the_bounds_the_level_and_the_cases_of_an_agent_comparison(tmp_path):
+    study, _ = init_chinook(tmp_path)
+    _, control = imported(tmp_path, study, "plain", answer_lines(wrong={("D01", 0), ("D03", 1)}))
+    _, candidate = imported(tmp_path, study, "verify", answer_lines())
+    code, payload, err = compare_agent(study, control, candidate)
+    assert code == 0, (payload, err)
+    interval = payload["comparison"]["interval"]
+    out = tmp_path / "page.html"
+    assert report(study, out)[0] == 0
+    [table] = comparison_tables(doc_of(out), 1)
+    assert table["Interval"] == f"{interval['lower']:.6g} to {interval['upper']:.6g}, level 0.95, over 4 Cases"
+
+
+def test_the_report_of_a_kept_study_says_that_its_comparison_recorded_no_interval(tmp_path):
+    from _chinook_helpers import revision_one_examples
+
+    study = shutil.copytree(KEPT_CAMPAIGN, tmp_path / "kept")
+    examples = revision_one_examples(tmp_path)
+    (study / "datasets").mkdir(exist_ok=True)  # the kept Study keeps no copy of the database: the Workload's file has its bytes
+    shutil.copyfile(examples / "chinook" / "data" / "Chinook_Sqlite.sqlite", study / "datasets" / "Chinook_Sqlite.sqlite")
+    out = tmp_path / "page.html"
+    code, payload, err = report(study, out, "--examples-dir", examples)  # the Workload the kept Study was made on
+    assert code == 0, (payload, err)
+    [table] = comparison_tables(doc_of(out), 1)
+    assert table["Interval"] == "no interval was recorded (a Comparison written before the interval)"

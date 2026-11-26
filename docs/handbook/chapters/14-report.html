@@ -83,6 +83,11 @@ uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report
 <tr data-field="Chinook file SHA-256 after" data-order="7"><td>7</td><td>Chinook file SHA-256 after</td><td>The same, after.</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="report-interval-section">The interval row</p>
+<div class="prose" id="report-interval">
+<p>The Comparison table of both Tracks has one row after "Delta", "Interval", read from the record's <code>interval</code> (chapters <a href="#comparison">7</a> and <a href="#agent-comparison">11</a>): the two bounds, in the page's number format, the level, the unit with its count ("over 182 Items", "over 100 Cases") and, for blocks, the variant and the length ("circular blocks of 7 days"). For a withheld delta the row says "withheld" alone, with no bound. When no interval was computed it says why in words: the Workload of the Study's revision declares no resampling, or the population lists fewer days than its Partition, or fewer than two units; for a Comparison written before the interval, it says that no interval was recorded. The row states no significance and does not say which Configuration is better.</p>
+</div>
+
 <p class="sub2">What the numbers are</p>
 <div class="prose">
 <p>Every value is written into the HTML when the page is rendered. The values the records hold (Metrics, counters, deltas, coverage) are read as recorded. Two tables hold values the records do not: the table by month (the Items of the month and the mean of the Assessment's per-Item absolute errors, with the number scored) and the Reasons per Criterion (the per-Item states, counted). Both are computed from the recorded per-Item file when the page is rendered, never when it is opened. The ten largest errors are ranked by absolute error, the larger first and equal errors by Item ID; the difference column is predicted minus true.</p>

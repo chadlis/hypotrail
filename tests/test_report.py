@@ -744,3 +744,63 @@ def test_the_page_shows_the_warning_a_comparison_recorded_and_nothing_computed_f
     world = bike_world(tmp_path, count=2)
     (tmp_path / "out").mkdir()
     the_report_shows_what_each_comparison_recorded_and_computes_nothing_from_the_declared_deviations(world, tmp_path / "out")
+
+
+# --- the interval row of a regression Comparison --------------------------------------------------------------------------------
+
+
+def interval_rows(study, out) -> list:
+    """The Comparison tables, {field: text}, of the page `report` writes for `study` at `out`."""
+    assert report(study, out)[0] == 0
+    doc = doc_of(out)
+    return [{row[0]: row[1] for row in doc.body(name)} for name in sorted(doc.tables) if re.fullmatch(r"comparison-\d+", name)]
+
+
+def test_the_report_shows_the_bounds_the_level_the_days_and_the_circular_blocks_of_a_regression_comparison(tmp_path):
+    from _report_helpers import dev_world
+
+    study, facts = dev_world(tmp_path, imported=False)
+    interval = facts["comparison"]["interval"]
+    [table] = interval_rows(study, tmp_path / "page.html")
+    assert table["Interval"] == f"{interval['lower']:.6g} to {interval['upper']:.6g}, level 0.95, over 182 Items, circular blocks of 7 days"
+
+
+def test_the_report_shows_withheld_alone_for_a_withheld_delta_and_the_reason_in_words_when_no_interval_is_computed(tmp_path):
+    from _client_helpers import bike_withheld_study
+    from _study_helpers import before_resampling_examples
+
+    [withheld] = interval_rows(bike_withheld_study(tmp_path), tmp_path / "withheld.html")
+    assert withheld["Interval"] == "withheld"
+
+    examples = before_resampling_examples(tmp_path)
+    study, _ = init_study(tmp_path, examples=examples, name="before-study")
+    ids = []
+    for config in ("seasonal_7", "ridge_v1"):
+        code, payload, err = run_ml(study, config, "dev", f"before-{config}", "--examples-dir", examples)
+        assert code == 0, (payload, err)
+        code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
+        assert code == 0, (payload, err)
+        ids.append(payload["assessment"]["assessment_id"])
+    assert compare(study, *ids)[0] == 0
+    [undeclared] = interval_rows(study, tmp_path / "before.html")
+    assert undeclared["Interval"] == "no interval: the Workload of the Study's revision declares no resampling"
+    assert not re.search(r"\d", undeclared["Interval"])  # no bound
+
+
+@pytest.mark.parametrize(
+    ("reason", "words"),
+    [
+        ("resampling_not_declared", "no interval: the Workload of the Study's revision declares no resampling"),
+        ("series_not_contiguous", "no interval: the population lists fewer days than its Partition, so the days are not one series"),
+        ("delta_withheld", "withheld"),
+    ],
+)
+def test_the_interval_cell_says_why_a_comparison_has_no_bounds_in_words(reason, words):
+    import html
+
+    from hypotrail.report.markup import interval
+
+    entry = {"level": 0.95, "lower": None, "upper": None, "method": "percentile_bootstrap", "unit": "item", "units": None}
+    entry.update(variant="circular", block_length=7, resamples=2000, seed=241, reason=reason)
+    assert html.unescape(str(interval({"interval": entry}))) == words
+    assert html.unescape(str(interval({}))) == "no interval was recorded (a Comparison written before the interval)"
