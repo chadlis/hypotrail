@@ -27,6 +27,7 @@ import {
   unescaped,
   workspace,
   FIGURES_FAILED,
+  S2_INTERVAL,
   holdsTheHeadings,
   withFigures,
 } from "./panel-harness";
@@ -94,6 +95,15 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       return { document: (await documentFor(t, ...answers)).document, answers };
     },
   ],
+  ...[true, false].map((bounds): [string, (t: TestContext) => Promise<Built>] => [
+    `status-success with an injected interval${bounds ? "" : " whose bounds are null"}`,
+    async (t) => {
+      const object = keptObject("status-success");
+      object.comparisons[0].interval = bounds ? S2_INTERVAL : { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" };
+      const answers = [success(object)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ]),
   ["a read the CLI refuses", async (t) => ({ document: (await documentFor(t, NOT_FOUND)).document, answers: [NOT_FOUND] })],
   ...NO_ANSWERS.map(([cause, answer]): [string, (t: TestContext) => Promise<Built>] => [`a read with no answer (${cause})`, async (t) => ({ document: (await documentFor(t, answer)).document, answers: [answer] })]),
   [

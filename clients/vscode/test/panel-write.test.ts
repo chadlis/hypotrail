@@ -114,6 +114,24 @@ for (const name of FIXTURE_READS) {
   });
 }
 
+// status-several-pending: the first Pending decision stands in Now, the second under Waiting; the control that records of each carries the
+// place of its decision in pending_decisions, and records that decision.
+{
+  const object = keptObject("status-several-pending");
+  object.pending_decisions.forEach((pending: Entry, p: number) => {
+    test(`on status-several-pending, the control that records of pending decision ${p} stands ${p === 0 ? "in Now" : "under Waiting"} and records that decision`, async (t) => {
+      const { study, calls, made } = await opened(t, object, keptAnswer("decide-success"), success(object));
+      const section = elementOf(lastDocument(), p === 0 ? '<section data-part="now"' : '<section data-part="waiting"')!;
+      assert.ok(partsOf(section).tags.some((tag) => tag.startsWith(`<button data-message="${RECORD}" data-pending="${p}"`)), `the control of ${p}`);
+      record(p, 1);
+      await settle();
+      const decides = decideCalls(calls);
+      assert.equal(decides.length, 1);
+      assert.deepEqual(decides[0].args, expectedArguments(study, pending, pending.options[1], made[0], object.write_sequence));
+    });
+  });
+}
+
 for (const [message, case_] of [
   [{ message: RECORD, pending: 0 }, "a message of the second action with no option index"],
   [{ message: RECORD, pending: 0, option: 3 }, "a message of the second action with an option index the read does not hold"],

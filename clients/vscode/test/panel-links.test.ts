@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
 import { JOURNEY, kept } from "./kept";
-import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -129,6 +129,7 @@ test("status-decided with its Comparison also pending and its Decision not apply
     control_assessment_id: comparison.roles.control_assessment_id,
     candidate_assessment_id: comparison.roles.candidate_assessment_id,
   }));
+  object.next_step = { ...object.next_step, kind: "decide", ids: [comparison.comparison_id], context: [object.decisions[0].decision_id] };
   const { document } = await documentFor(t, success(object));
   assert.equal(partsByKind(document, "comparison").length, 1);
   assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 1);
@@ -177,7 +178,8 @@ const INSTANCES: Record<string, [string, (object: Entry) => [number, string]]> =
 // For each pair whose part is a list of a Comparison's part, one number of that kind of a kept read, and the id of that Comparison.
 const IN_A_COMPARISON: Record<string, [string, (object: Entry) => [number, string]]> = {
   warnings: ["status-success", (o) => [o.comparisons[0].warnings.length, o.comparisons[0].comparison_id]],
-  limitations: ["status-success", (o) => [o.comparisons[0].limitations.length, o.comparisons[0].comparison_id]],
+  // A pending Comparison counts only the limitations that are no warning's message.
+  limitations: ["status-success", (o) => [o.comparisons[0].limitations.filter((each: string) => !o.comparisons[0].warnings.some((warning: Entry) => warning.message === each)).length, o.comparisons[0].comparison_id]],
 };
 
 // For each pair whose number a figure prints, one number of that kind of a kept figures read, and the id of the Comparison of its entry.
@@ -193,9 +195,24 @@ const IN_THE_BAND: Record<string, [string, (object: Entry) => number]> = {
   writes_since: [`${JOURNEY}04-pending.status`, (o) => o.writes_since.length],
 };
 
+// For each pair whose number the delta line prints from the Comparison's `interval`, the kept read the interval is injected into.
+const IN_AN_INTERVAL: Record<string, string> = { interval: "status-success" };
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL)].sort());
 });
+
+for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
+  test(`a number of the kind ${kind} links to the part of its Comparison, and the document keeps every rule of its links: ${name} with an injected interval`, async (t) => {
+    const object = keptObject(name);
+    object.comparisons[0].interval = S2_INTERVAL;
+    const { document } = await documentFor(t, success(object));
+    const links = linksOf(document).filter((link) => link.kind === kind);
+    assert.deepEqual(links.map((link) => link.text), [S2_INTERVAL.level, S2_INTERVAL.lower, S2_INTERVAL.upper].map(written));
+    for (const link of links) assert.ok(partKind(link.target) === "comparison" && firstId(link.target) === object.comparisons[0].comparison_id, link.href);
+    assertLinksAndIds(document, object, `${name} with an injected interval`);
+  });
+}
 
 for (const [kind, [name, instance]] of Object.entries(IN_THE_BAND)) {
   test(`a number of the kind ${kind} stands in the band and links to its one part there: ${name}`, async (t) => {
@@ -440,9 +457,17 @@ for (const name of KEPT_READS) {
   });
 }
 
-test("the key paths the function reads over every kept read are the entries of key_paths, both ways", () => {
+// status-success with an `interval` injected into its pending Comparison, its bounds given, then null with their reason: no kept read
+// holds the key yet.
+function withInterval(bounds: boolean): Entry {
+  const object = keptObject("status-success");
+  object.comparisons[0].interval = bounds ? S2_INTERVAL : { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" };
+  return object;
+}
+
+test("the key paths the function reads over every kept read, and over status-success with an injected interval, are the entries of key_paths, both ways", () => {
   const read = new Set<string>();
-  for (const name of KEPT_READS) for (const path of pathsRead(keptObject(name))) read.add(path);
+  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false)]) for (const path of pathsRead(object)) read.add(path);
   assert.deepEqual(leaves(read), [...contract.key_paths].sort());
 });
 

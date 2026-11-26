@@ -57,6 +57,8 @@ function written(value: number | null): string {
 const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
 // The part of a document between two of the headings of the Study so far.
 const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h3>${label(heading)}</h3>`), document.indexOf(`<h3>${label(next)}</h3>`));
+// Now, where the Pending decision the core names stands.
+const nowPart = (document: string): string => elementOf(document, '<section data-part="now"') ?? "";
 const questionsOf = (html: string): string[] => [...html.matchAll(/<h3 data-text>([^<]*)<\/h3>/g)].map((match) => unescaped(match[1]));
 const linkTexts = (html: string, kind: string): string[] => [...html.matchAll(new RegExp(`<a [^>]*data-kind="${kind}"[^>]*>([^<]*)</a>`, "g"))].map((match) => match[1]);
 const decisionParts = (document: string): string[] => elementsOf(document, '<section data-part="decision"');
@@ -78,10 +80,10 @@ function assertNoPending({ document }: Seen): void {
   assert.equal(words(under(document, "Pending decisions", "Decisions")), `${label("Pending decisions")} ${label("No pending decision.")}`);
 }
 
-// The one Pending decision under its heading: its question, its options with their consequences, the delta of its Comparison, the
+// The one Pending decision, in Now: its question, its options with their consequences, the delta of its Comparison, the
 // Metric of the Control and of the Candidate, the Comparison's warning and limitations, and its figures.
 function assertPending({ document, read, figures }: Seen): Entry {
-  const part = under(document, "Pending decisions", "Decisions");
+  const part = nowPart(document);
   const [pending] = read.pending_decisions;
   assert.equal(read.pending_decisions.length, 1);
   assert.deepEqual(questionsOf(part), [pending.question.text], "one question, the read's");
@@ -104,7 +106,9 @@ function assertPending({ document, read, figures }: Seen): Entry {
   assert.ok(elementsOf(warnings, "<li>").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
   const limitations = elementOf(part, '<div data-part="limitations"')!;
   assert.ok(limitations.includes(`<h4>${label("Limitations of the Comparison")}</h4>`));
-  assert.deepEqual(markedTexts(limitations), comparison.limitations, "each limitation");
+  // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
+  const messages = comparison.warnings.map((each: Entry) => each.message);
+  assert.deepEqual(markedTexts(limitations), comparison.limitations.filter((each: string) => !messages.includes(each)), "each limitation that is no warning's message");
   const entry = figures.comparisons.find((each: Entry) => each.comparison_id === comparison.comparison_id);
   const shownFigures = elementOf(part, "<div data-figures>") ?? "";
   assert.deepEqual(linkTexts(shownFigures, "bin_count"), entry.histogram.map((bin: Entry) => written(bin.count)), "the counts of the figures");
@@ -147,7 +151,7 @@ function assertAskedAgain(seen: Seen): void {
   const latest = earlier.evidence_change.lines.map((line: Entry) => line.latest_assessment_id);
   const [pending] = read.pending_decisions;
   assert.deepEqual([pending.control_assessment_id, pending.candidate_assessment_id], latest, "the Comparison of the two latest Assessments");
-  const part = under(document, "Pending decisions", "Decisions");
+  const part = nowPart(document);
   assert.equal(words(elementOf(part, '<div data-part="comparison"')).split(" ").slice(0, 2).join(" "), `${label("Comparison")} ${pending.comparison_id}`);
   assert.equal(decisionParts(document).length, 1, "the earlier Decision alone");
   assertDecision(decisionParts(document)[0], earlier, false, "human");
@@ -327,7 +331,7 @@ test("on before-the-refused-write the record message starts one decide with the 
   const after = keptJson(readOf("after-the-terminal-wrote"));
   assert.equal(decisionParts(document).length, keptJson(readOf("before-the-refused-write")).decisions.length, "no Decision added");
   const seen: Seen = { document, read: after, figures: keptJson(figuresOf("after-the-terminal-wrote")) };
-  assert.deepEqual(questionsOf(under(document, "Pending decisions", "Decisions")), [after.pending_decisions[0].question.text], "the question shown again");
+  assert.deepEqual(questionsOf(nowPart(document)), [after.pending_decisions[0].question.text], "the question shown again");
   assert.equal(after.write_sequence, 30);
   assertStudy(seen);
   for (let turn = 0; turn < 3; turn += 1) await settle();
@@ -378,7 +382,7 @@ const RECORD_CONTROL = `document.querySelector('button[data-message="${RECORD}"]
 const FIRST_RADIO = "document.querySelector('input[type=\"radio\"]')";
 
 // The document of after-compare brought by the keyboard alone from its top to a recorded choice: Tab to the first option, Space, Tab
-// to the control that records, Enter. Gives back the messages the document posted.
+// past the summary of each option's consequence to the control that records, Enter. Gives back the messages the document posted.
 async function recordedByKeyboard(t: TestContext, address: string): Promise<Entry[]> {
   const { document } = await seenAt(t, "after-compare");
   const page = await keyboardPage(t, address, document);
@@ -387,6 +391,12 @@ async function recordedByKeyboard(t: TestContext, address: string): Promise<Entr
   assert.equal(await page.evaluate(`${RECORD_CONTROL}.disabled`), true, "before Space, the control that records is disabled");
   await page.key("Space");
   assert.equal(await page.evaluate(`${FIRST_RADIO}.checked`), true, "Space selects the first option");
+  // Each option's consequence stands in a closed fold whose summary is a stop of Tab (D-151, answer 5, step 1).
+  const summaries = await page.evaluate(`${RECORD_CONTROL}.closest("fieldset").querySelectorAll('details[data-element="consequence"] > summary').length`);
+  for (let at = 0; at < summaries; at += 1) {
+    await page.key("Tab");
+    assert.ok(await page.evaluate(`document.activeElement.matches('details[data-element="consequence"] > summary')`), `Tab ${at + 1} brings the focus to the summary of a consequence`);
+  }
   await page.key("Tab");
   assert.ok(await page.evaluate(`document.activeElement === ${RECORD_CONTROL}`), `Tab brings the focus to the control that records: ${await page.evaluate("document.activeElement.outerHTML.slice(0, 80)")}`);
   await page.key("Enter");

@@ -55,6 +55,9 @@ const FINDING_IDS = [
   "record_files[].id",
   "next_step.kind",
   "next_step.ids",
+  "next_step.context",
+  "assessments[].single_feature_check.computed[].metric.id",
+  "assessments[].metrics[].id",
 ];
 // The kept reads that together hold a text at every other path of `key_paths` that holds one.
 const PLANTED_READS = ["status-success", "status-chinook-pending", "status-deviation", "status-result-changed"];

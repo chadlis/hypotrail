@@ -123,20 +123,25 @@ for (const name of PENDING_READS) {
         assert.match(label, new RegExp(`<strong data-text>[^<]*</strong>`));
         assert.deepEqual(markedTexts(label), [option.text, option.consequence]);
       });
-      assert.ok(!/<li>[^]*?<input/.test(parts[index]), "no option is a list item");
+      assert.ok(!/<li>[^]*?<input/.test(fieldset), "no option is a list item");
     });
   });
 
-  test(`the delta's element, the coverage element, the roles' element, chart 1, the fieldset, then the Comparison's status, paths and limits: ${name}`, async (t) => {
+  test(`D-148's order: the delta's element, the coverage element, the frame line, the warnings, the line of the limits, the fieldset, then the closed fold of the charts, then the Comparison's paths and its limitations: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
     for (const part of elementsOf(document, '<section data-part="pending">')) {
       const comparison = elementOf(part, '<div data-part="comparison"')!;
       const at = (opening: string) => comparison.indexOf(opening);
-      const order = [at('<p data-element="delta">'), at('<p data-element="coverage">'), at('<p data-element="roles">'), at('<div data-chart="delta">'), at("<fieldset ")].filter((place) => place >= 0);
-      const rest = Math.min(...[at("comparability.status"), at("Output path"), at("<h4>Warnings"), at("<h4>Limitations")].filter((place) => place >= 0));
-      assert.ok(order.length >= 3 && at("<fieldset ") >= 0, "the delta, the coverage and the fieldset");
+      // A withheld delta draws no chart and no figure, and has no fold.
+      const withheld = object.comparisons.find((each: Entry) => comparison.includes(each.comparison_id)).delta.value === null;
+      const order = [at('<p data-element="delta">'), at('<p data-element="coverage">'), at('<p data-element="frame">'), at('<div data-part="warnings"'), at('<p data-element="limits">'), at("<fieldset "), ...(withheld ? [] : [at('<details data-element="charts">')])];
+      const rest = Math.min(...[at("Output path"), at('<div data-part="limitations"')].filter((place) => place >= 0));
+      assert.ok(order.every((place) => place >= 0), `${order}`);
+      assert.equal(at('<details data-element="charts">') >= 0, !withheld, "a fold of the charts unless the delta is withheld");
       assert.deepEqual([...order, rest], [...order, rest].sort((a, b) => a - b), `${order} then ${rest}`);
+      assert.ok(!/<details data-element="charts" open/.test(comparison), "the fold of the charts is closed");
+      for (const chart of ['<div data-chart="delta">', "<div data-figures>"]) if (at(chart) >= 0) assert.ok(at(chart) > at('<details data-element="charts">'), `${chart} in the fold`);
     }
   });
 }
@@ -212,6 +217,7 @@ const SKIP = "To the choices";
 const NONE = "None.";
 const WARNINGS = "Warnings of the Comparison";
 const LIMITATIONS = "Limitations of the Comparison";
+const RULE = "Not counted again: an entry that repeats a message above.";
 const linkTo = (html: string): [string, string][] => [...html.matchAll(/<a href="#([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((match) => [match[1], match[2]]);
 
 for (const name of PENDING_READS) {
@@ -236,17 +242,20 @@ for (const name of PENDING_READS) {
     assert.equal(elementWithId(document, skip[0][0]), fieldset);
   });
 
-  test(`directly above each fieldset, a line names how many warnings and limitations its Comparison holds, each count a link to its list: ${name}`, async (t) => {
+  test(`directly above each fieldset, a line names how many warnings and how many limitations that are no warning's message its Comparison holds, each count a link to its list, and states that rule: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
     elementsOf(document, '<section data-part="pending">').forEach((part, index) => {
       const comparison = object.comparisons.find((each: Entry) => each.comparison_id === object.pending_decisions[index].comparison_id);
       const before = part.slice(0, part.indexOf("<fieldset ")).trimEnd();
       const line = before.slice(before.lastIndexOf("<p "));
-      assert.equal(words(line), `${WARNINGS} ${comparison.warnings.length} ${LIMITATIONS} ${comparison.limitations.length}`, line);
+      // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
+      const messages = comparison.warnings.map((warning: Entry) => warning.message);
+      const counted = comparison.limitations.filter((limitation: string) => !messages.includes(limitation));
+      assert.equal(words(line), `${WARNINGS} ${comparison.warnings.length} ${LIMITATIONS} ${counted.length} ${RULE}`, line);
       const [warnings, limitations] = linkTo(line).map(([target]) => elementWithId(document, target) ?? "");
       assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li>").length === comparison.warnings.length, warnings);
-      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text>").length === comparison.limitations.length, limitations);
+      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text>").length === counted.length, limitations);
     });
   });
 
@@ -295,7 +304,7 @@ const DEMONSTRATION_READS = KEPT_READS.filter((name) => name.startsWith(DEMONSTR
 const SCREEN = { width: 420, height: 700 };
 const BOUNDS = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.split("=")[0], Number(entry.split("=")[1])]));
 // The mark of Record out of the first screen on a state with a Pending decision: it follows the evidence and the figures.
-const RECORD_OUT_OF_SCREEN: string | undefined = "the panel redesign: Record stands below the first screen at 420 px, after the evidence and the figures";
+const RECORD_OUT_OF_SCREEN: string | undefined = undefined;
 // The mark of the latest Decision out of the first screen on final: the proxy Decision follows the whole part of the first.
 const LATEST_OUT_OF_SCREEN: string | undefined = "the panel redesign: on final the latest Decision follows the whole part of the first Decision";
 
@@ -306,8 +315,21 @@ const drawnAt = (box: Box): boolean => box !== null && box.width > 0 && box.heig
 const inScreen = (box: Box): boolean => drawnAt(box) && box!.top >= 0 && box!.bottom <= SCREEN.height;
 
 async function demonstrationDocument(t: TestContext, name: string): Promise<string> {
+  if (name.startsWith(JOURNEY)) {
+    const state = name.slice(JOURNEY.length, -".status".length);
+    const figures = fs.existsSync(path.join(KEPT, "journey", `${state}.figures.out`)) ? [success(keptObject(`${JOURNEY}${state}.figures`))] : [];
+    return (await documentFor(t, success(keptObject(name)), ...figures)).document;
+  }
   return (await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])))).document;
 }
+
+// The kept pending states whose first screen is checked: the demonstration's, and the journey's 04, 09 and 11 and status-several-pending
+// (chadlis/hypotrail#253).
+const FIRST_SCREEN_READS = [
+  ...DEMONSTRATION_READS.filter((read) => keptObject(read).pending_decisions.length > 0),
+  ...["04-pending", "09-new-compare", "11-study-changed"].map((state) => `${JOURNEY}${state}.status`),
+  "status-several-pending",
+];
 
 // The browser, or a skip when it is missing or does not start.
 async function chromeOrSkip(t: TestContext, what: string): Promise<string | undefined> {
@@ -327,8 +349,9 @@ async function firstScreen(t: TestContext, address: string, document: string, th
 // "`guard_bounds` guards that the question a person must answer sits near the top; in the redesign, Now's question line is that question"
 // (the drive's answer on chadlis/hypotrail#252, D-133).
 const QUESTION_DRAWN = '[data-element="now-question"]';
-const EVIDENCE_DRAWN = 'section[data-part="pending"] [data-element="delta"] a[data-kind="delta"]';
-const RECORD_DRAWN = `section[data-part="pending"] button[data-message="${RECORD}"]`;
+const EVIDENCE_DRAWN = 'section[data-part="now"] [data-element="delta"] a[data-kind="delta"]';
+const RECORD_DRAWN = `section[data-part="now"] button[data-message="${RECORD}"]`;
+const CHOICES_DRAWN = 'section[data-part="now"] fieldset';
 // The heading of the latest Decision, which holds its option and the phrase of its applies.
 const latestHeading = (object: Entry): string => {
   const at = object.decisions.reduce((best: number, each: Entry, index: number) => (each.write_sequence > object.decisions[best].write_sequence ? index : best), 0);
@@ -373,7 +396,7 @@ for (const state of JOURNEY_CONTRAST) {
   });
 }
 
-for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending_decisions.length > 0)) {
+for (const name of FIRST_SCREEN_READS) {
   test(`in the first screen at 420 px in each theme, the question and the first evidence number of the kept state stand within the bounds of guard_bounds: ${name}`, { timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
@@ -386,12 +409,14 @@ for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending
     }
   });
 
-  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, Record of the kept state is drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`in the first screen at 420 px in each theme, the choices' fieldset and Record of the kept state are drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
     const document = await demonstrationDocument(t, name);
     for (const theme of Object.keys(THEMES)) {
-      const record: Box = await (await firstScreen(t, address, document, theme))(BOX(RECORD_DRAWN));
+      const evaluate = await firstScreen(t, address, document, theme);
+      const [choices, record]: Box[] = [await evaluate(BOX(CHOICES_DRAWN)), await evaluate(BOX(RECORD_DRAWN))];
+      assert.ok(inScreen(choices), `${theme}: the choices at ${JSON.stringify(choices)}, the first screen ${SCREEN.height} px high`);
       assert.ok(inScreen(record), `${theme}: Record at ${JSON.stringify(record)}, the first screen ${SCREEN.height} px high`);
     }
   });

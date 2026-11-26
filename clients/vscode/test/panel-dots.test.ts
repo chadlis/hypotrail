@@ -226,10 +226,10 @@ for (const name of DRAWN) {
   });
 }
 
-// Where the dots stand: from ten pairs, at the end of the Comparison's part, after its limitations, with a link to them under the box
-// plot that prints no number; under ten, first among the figures, before the histogram.
+// Where the dots stand: from ten pairs, at the end of the Comparison's part, after its limitations, or last in the fold of the charts of
+// a pending part, with a link to them under the box plot that prints no number; under ten, first among the figures, before the histogram.
 for (const name of DRAWN) {
-  test(`each Comparison's dots stand after its limitations, linked from under its box plot by one link that prints no number, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
+  test(`each Comparison's dots stand after its limitations, or last in the fold of the charts of a pending part, linked from under its box plot by one link that prints no number, from ten pairs, and before its histogram under ten: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
@@ -241,7 +241,10 @@ for (const name of DRAWN) {
         assert.ok(at < histogram && !part.includes('data-element="to-dots"'), `${entry.comparison_id}: ${entry.paired_deltas.length} pairs`);
         continue;
       }
-      assert.ok(at > part.indexOf('<div data-part="limitations"') && at > box, `${entry.comparison_id}: ${entry.paired_deltas.length} pairs`);
+      // In a pending part they stand last in the fold of the charts, after the choices; elsewhere at the end of the part.
+      const after = part.includes("<fieldset ") ? part.indexOf("</fieldset>") : part.indexOf('<div data-part="limitations"');
+      assert.ok(at > after && at > box, `${entry.comparison_id}: ${entry.paired_deltas.length} pairs`);
+      if (part.includes("<fieldset ")) assert.ok((elementOf(part, '<details data-element="charts">') ?? "").includes('<div data-figure="dots"'), "in the fold of the charts");
       const index = object.comparisons.findIndex((each: Entry) => each.comparison_id === entry.comparison_id);
       const link = elementOf(part, '<p data-element="to-dots">')!;
       assert.ok(part.indexOf(link) > box && part.indexOf(link) < at, link);

@@ -110,8 +110,8 @@ function comparisonParts(document: string): { part: string; withheld: boolean }[
   }));
 }
 
-// The label stands once in each part whose delta is not withheld, under the heading of its paired deltas, after its delta and before
-// its limits, its choices and its warnings, and in no part whose delta is.
+// The label stands once in each part whose delta is not withheld, under the heading of its paired deltas, after its delta: in a pending
+// part, in the fold of the charts after its choices; in another part, before its warnings. It stands in no part whose delta is withheld.
 function labelPlaces(document: string): void {
   const parts = comparisonParts(document);
   assert.ok(parts.length > 0);
@@ -122,15 +122,16 @@ function labelPlaces(document: string): void {
     }
     assert.equal(count(part, FAILED), 1, part);
     const at = part.indexOf(FAILED);
-    assert.ok(at > part.indexOf('<p data-element="delta">') && at < part.indexOf('<div data-part="warnings"'), part);
-    for (const after of ['<p data-element="limits">', "<fieldset "]) assert.ok(!part.includes(after) || at < part.indexOf(after), after);
+    assert.ok(at > part.indexOf('<p data-element="delta">'), part);
+    if (part.includes("<fieldset ")) assert.ok(at > part.indexOf("</fieldset>") && (elementOf(part, '<details data-element="charts">') ?? "").includes(FAILED), "in the fold of the charts, after the choices");
+    else assert.ok(at < part.indexOf('<div data-part="warnings"'), "before the warnings");
     assert.ok(part.lastIndexOf(`<h4>${PAIRED}`, at) > part.indexOf('<p data-element="delta">'), "the heading of the paired deltas stands above the label");
   }
   assert.equal(count(document, FAILED), parts.filter((each) => !each.withheld).length);
 }
 
 for (const name of ["status-success", "status-several-pending", "status-bike-withheld", "status-chinook-withheld"]) {
-  test(`with a failed figures call, the label stands once in each Comparison part whose delta is not withheld, under the heading of its paired deltas, before its choices: ${name}`, async (t) => {
+  test(`with a failed figures call, the label stands once in each Comparison part whose delta is not withheld, under the heading of its paired deltas, in the fold of the charts after the choices of a pending part: ${name}`, async (t) => {
     const { document } = await opened(t, status(name), REFUSED);
     labelPlaces(document);
   });

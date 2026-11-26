@@ -260,7 +260,7 @@ for (const name of ["status-bike-withheld", "status-chinook-withheld"]) {
 }
 
 for (const reason of OTHER_REASONS) {
-  test(`an entry whose unavailable is ${reason} draws no figure, and its Comparison's part shows the label once with the reason after it, before its choices: status-success`, async (t) => {
+  test(`an entry whose unavailable is ${reason} draws no figure, and its Comparison's part shows the label once with the reason after it, in the fold of the charts after its choices: status-success`, async (t) => {
     const object = keptObject("status-success");
     const figures = keptObject("figures-success");
     Object.assign(figures.comparisons[0], { unavailable: reason, paired_deltas: null, histogram: null, quartiles: null });
@@ -269,7 +269,7 @@ for (const reason of OTHER_REASONS) {
     assert.equal(count(part, UNAVAILABLE), 1);
     assert.equal(count(part, FAILED), 0);
     assert.ok(part.includes(`<p data-element="figures-unavailable">${UNAVAILABLE} <span>${reason}</span></p>`), part);
-    assert.ok(part.indexOf(UNAVAILABLE) < part.indexOf("<fieldset "), part);
+    assert.ok(part.indexOf(UNAVAILABLE) > part.indexOf("</fieldset>") && (elementOf(part, '<details data-element="charts">') ?? "").includes(UNAVAILABLE), part);
   });
 }
 
@@ -315,7 +315,7 @@ test("the delta's mark and its swatch in the key take --mint, which no other mar
 
 // Where the figures stand: in a pending decision, between the evidence and the choices.
 for (const name of DRAWN) {
-  test(`each Comparison's histogram and box plot stand after chart 1 and before the line of its limits, its choices and its warnings: ${name}`, async (t) => {
+  test(`each Comparison's histogram and box plot stand after chart 1, in a pending decision in the fold of the charts after its choices, elsewhere before its warnings: ${name}`, async (t) => {
     const object = keptObject(name);
     const figures = keptObject(KEPT_FIGURES[name]);
     for (const { part, entry } of comparisonsOf(await drawn(t, object, figures), object, figures)) {
@@ -323,10 +323,11 @@ for (const name of DRAWN) {
       const at = part.indexOf("<div data-figures>");
       const histogram = part.indexOf('<div data-figure="histogram">');
       assert.ok(at >= 0 && at > part.indexOf('<div data-chart="delta">') && at < histogram && histogram < part.indexOf('<div data-figure="box">'), entry.comparison_id);
-      for (const after of ['<p data-element="limits">', "<fieldset ", '<div data-part="warnings"']) assert.ok(!part.includes(after) || part.indexOf('<div data-figure="box">') < part.indexOf(after), `${entry.comparison_id}: before ${after}`);
+      if (part.includes("<fieldset ")) assert.ok(at > part.indexOf("</fieldset>") && (elementOf(part, '<details data-element="charts">') ?? "").includes("<div data-figures>"), `${entry.comparison_id}: in the fold after the choices`);
+      else assert.ok(part.indexOf('<div data-figure="box">') < part.indexOf('<div data-part="warnings"'), `${entry.comparison_id}: before the warnings`);
     }
     const pending = elementsOf(await drawn(t, object, figures), '<section data-part="pending">');
-    assert.equal(pending.some((part) => part.indexOf("<div data-figures>") < part.indexOf("<fieldset ")), object.pending_decisions.length > 0, "in a pending decision, above its choices");
+    assert.equal(pending.some((part) => part.indexOf("<div data-figures>") > part.indexOf("</fieldset>")), object.pending_decisions.length > 0, "in a pending decision, after its choices");
   });
 }
 

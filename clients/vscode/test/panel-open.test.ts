@@ -564,6 +564,11 @@ rect.scored-candidate { fill: var(--orange); }
 rect.rest { fill: transparent; stroke: var(--line2); stroke-dasharray: 2 2; }
 rect.cited { fill: var(--line2); }
 rect.latest { fill: var(--chalk2); }
+rect.feature { fill: var(--faint); }
+details[data-element="charts"] { margin: 0.4em 0; }
+summary { cursor: pointer; color: var(--teal); }
+details[data-element="consequence"] > summary { font-size: 0.85em; }
+[data-element="interval"], [data-element="context"], [data-element="cited-delta"], [data-element="frame"] { font-size: 0.9em; color: var(--chalk2); }
 [data-figures] { margin: 0.6em 0 0.9em; }
 [data-figure] svg { display: block; width: 100%; }
 [data-figure="dots"] { margin-bottom: 0.5em; }

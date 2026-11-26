@@ -9,7 +9,7 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { written } from "../src/content";
 import { JOURNEY, KEPT, kept } from "./kept";
-import { LITERALS, attributeValues, cspProblems, documentFor, elementOf, geometryValues, holdsTheHeadings, markedTexts, unescaped } from "./panel-harness";
+import { LITERALS, S2_INTERVAL, assertNowOrder, attributeValues, cspProblems, documentFor, elementOf, elementsOf, geometryValues, holdsTheHeadings, markedTexts, partsOf, success, unescaped } from "./panel-harness";
 import { exit, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
@@ -120,3 +120,90 @@ for (const state of ["04-pending", "09-new-compare"]) {
     assert.match(document, new RegExp(`<div data-part="since" id="${link![1]}">`));
   });
 }
+
+// The journey's states with a Pending decision, and the read of each.
+const PENDING_STATES = STATES.filter((state) => {
+  const read = JSON.parse(kept(`${JOURNEY}${state}.status.out`));
+  return read.ok === true && read.pending_decisions.length > 0;
+});
+const readOf = (state: string): Record<string, any> => JSON.parse(kept(`${JOURNEY}${state}.status.out`));
+const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
+
+for (const state of ["04-pending", "09-new-compare", "11-study-changed"]) {
+  test(`Now's first Pending decision holds, in D-148's order, its question, the delta line, the coverage, the frame line, each warning, the limitations line, the choices with each consequence in a closed fold, Record, then the closed fold of the charts with the single-feature chart: ${state}`, async (t) => {
+    const { document } = await built(t, state);
+    assertNowOrder(document, readOf(state));
+  });
+}
+
+// "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
+const RULE = "Not counted again: an entry that repeats a message above.";
+for (const state of PENDING_STATES) {
+  test(`the limitations line of Now counts and lists only the limitations that are no warning's message and states that rule, and each warning's message stands once in Now: ${state}`, async (t) => {
+    assert.ok(contract.labels.includes(RULE));
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const now = elementOf(document, '<section data-part="now"')!;
+    const comparison = read.comparisons.find((each: Record<string, any>) => each.comparison_id === read.next_step.ids[0]);
+    const messages = comparison.warnings.map((warning: Record<string, any>) => warning.message);
+    const counted = comparison.limitations.filter((each: string) => !messages.includes(each));
+    assert.ok(comparison.limitations.some((each: string) => messages.includes(each)), "the read repeats a warning's message among its limitations");
+    assert.match(words(elementOf(now, '<p data-element="limits">')), new RegExp(`Limitations of the Comparison ${counted.length} ${RULE.replace(/[.']/g, "\\$&")}$`));
+    assert.deepEqual(markedTexts(elementOf(now, '<div data-part="limitations"')!), counted);
+    for (const message of messages) assert.equal(markedTexts(now).filter((text) => text === message).length, 1, message);
+  });
+}
+
+// "the delta line: the delta, its Metric and unit, and, when the read holds `interval`, its level, bounds and resampling unit" (#253).
+for (const [name, interval, expected] of [
+  ["an S2-shaped interval", S2_INTERVAL, `Interval ${S2_INTERVAL.level} ${S2_INTERVAL.lower} ${S2_INTERVAL.upper} resampling unit ${S2_INTERVAL.unit}`],
+  ["an interval whose bounds are null", { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" }, "Interval too_few_units"],
+  ["no interval key", undefined, undefined],
+] as const) {
+  test(`with ${name} injected into state 04, the delta line of Now shows ${expected === undefined ? "no interval" : "it"}`, async (t) => {
+    const read = readOf("04-pending");
+    if (interval !== undefined) read.comparisons[0].interval = interval;
+    const { document } = await documentFor(t, success(read));
+    const line = elementOf(elementOf(document, '<section data-part="now"')!, '<p data-element="delta">')!;
+    const slot = elementOf(line, '<span data-element="interval">');
+    if (expected === undefined) return assert.equal(slot, undefined);
+    assert.equal(words(slot), expected);
+    const links = [...slot!.matchAll(/<a href="#comparison-(\d+)" data-kind="interval">/g)];
+    assert.equal(links.length, interval.lower === null ? 0 : 3);
+    for (const link of links) assert.equal(Number(link[1]), 0);
+  });
+}
+
+// "The reserved places are absent until their key exists." (D-151, answer 4)
+for (const state of STATES) {
+  test(`no element stands in the places of the rule line and of "Candidate better / worse / tied": ${state}`, async (t) => {
+    const { document } = await built(t, state);
+    // The two places stand under the delta of Now: the delta line holds the delta and its interval only, and nothing stands between it
+    // and the coverage but the context Now shows.
+    const now = elementOf(document, '<section data-part="now"') ?? "";
+    for (const word of ["better", "worse", "tied", "rule"]) assert.ok(!` ${words(elementOf(now, '<p data-element="delta">'))} `.toLowerCase().includes(` ${word} `), word);
+    const between = now.slice(now.indexOf("</p>", now.indexOf('<p data-element="delta">')) + 4, now.indexOf('<p data-element="coverage">'));
+    if (now.includes('<p data-element="delta">')) assert.deepEqual(partsOf(between).tags.filter((tag) => tag.startsWith("<") && !tag.startsWith("</") && !/data-element="(context|cited-delta)"|^<a |^<span|^<strong/.test(tag)), []);
+    assert.deepEqual(partsOf(document).tags.filter((tag) => /data-element="(rule|verdict|plan)/.test(tag)), []);
+  });
+}
+
+test("on state 09 the cited Comparison's delta and the new delta both stand in Now, each as its read's number, and no number of the document is their difference", async (t) => {
+  const read = readOf("09-new-compare");
+  const { document } = await built(t, "09-new-compare");
+  const now = elementOf(document, '<section data-part="now"')!;
+  const [context] = read.next_step.context;
+  const earlier = read.decisions.find((each: Record<string, any>) => each.decision_id === context);
+  const cited = read.comparisons.find((each: Record<string, any>) => earlier.cited_ids.includes(each.comparison_id)).delta.value;
+  const fresh = read.comparisons.find((each: Record<string, any>) => each.comparison_id === read.next_step.ids[0]).delta.value;
+  const deltas = [...now.matchAll(/<a href="#comparison-\d+" data-kind="delta">([^<]*)<\/a>/g)].map((match) => match[1]);
+  assert.deepEqual(deltas.slice(0, 2), [written(fresh), written(cited)], "the new delta in the delta line, then the cited one beside it");
+  assert.ok(words(elementOf(now, '<p data-element="cited-delta">')).includes(written(cited)), "the cited delta in its line");
+  assert.ok(words(elementOf(now, '<p data-element="context">')).includes(earlier.option), "the earlier Decision's option");
+  // The two lines hold the two deltas as read, and no number of their own: no difference is printed, whatever its value.
+  for (const line of ['<p data-element="delta">', '<p data-element="cited-delta">']) {
+    const numbers = words(elementOf(now, line)).match(/-?\d+(\.\d+)?/g) ?? [];
+    assert.deepEqual(numbers, [line.includes("cited") ? written(cited) : written(fresh)], line);
+  }
+  if (cited !== fresh) assert.ok(!words(now).split(" ").includes(written(fresh - cited)), "the difference");
+});
