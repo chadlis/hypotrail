@@ -1,0 +1,122 @@
+"""The blind corpus of the block reader of `text_facts_v1` (#271): each row read directly, then every row through the real commands.
+
+The rows are `tests/fixtures/text_facts_corpus/corpus.jsonl`, written blind to the code; a row with a ruling in `rulings.jsonl`
+holds the ruling's expectation instead of its own.
+"""
+
+import csv
+import hashlib
+import io
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+from _chinook_helpers import episodes_file, import_agent, write_lines
+from _study_helpers import EXAMPLES, run_json
+
+from hypotrail.core import text_facts
+
+ROOT = Path(__file__).resolve().parent.parent
+CORPUS = ROOT / "tests" / "fixtures" / "text_facts_corpus"
+CONFIG = json.loads((EXAMPLES / "chinook_prose" / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+KINDS = tuple(CONFIG["identifier_kinds"])
+
+
+def jsonl(path: Path) -> list:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+ROWS = {row["row_id"]: row for row in jsonl(CORPUS / "corpus.jsonl")}
+RULINGS = {ruling["row"]: ruling for ruling in jsonl(CORPUS / "rulings.jsonl")}
+
+
+def expectation(row_id: str) -> tuple:
+    """({kind: identifier set}, fact number set) the row must give, from its ruling when it has one."""
+    source = ROWS[row_id]
+    if row_id in RULINGS:
+        ruling = RULINGS[row_id]
+        assert {"identifiers", "fact_numbers"} <= set(ruling), f"the ruling of {row_id} states no expectation the reader can be held to"
+        source = ruling
+    identifiers = {kind: set(source["identifiers"].get(kind, [])) for kind in KINDS}
+    return identifiers, {float(number) for number in source["fact_numbers"]}
+
+
+def test_the_corpus_files_are_the_ones_the_writers_reconciliation_gave_byte_for_byte():
+    digests = {name: hashlib.sha256((CORPUS / name).read_bytes()).hexdigest() for name in ("corpus.jsonl", "rulings.jsonl")}
+    assert digests == {
+        "corpus.jsonl": "d18a2c8aa1e3571bb0a8b8b37c098e19a194d1dc12fa78cc6b0a7074b1f3fe2f",
+        "rulings.jsonl": "657ec541b2df8186efe3267ebc132420ab43410bb5eaa62b002898acc2c4f9a9",
+    }
+
+
+@pytest.mark.parametrize("row_id", list(ROWS))
+def test_each_corpus_row_gives_exactly_its_identifiers_per_kind_and_its_fact_numbers(row_id):
+    answer = ROWS[row_id]["answer"]
+    identifiers, numbers = expectation(row_id)
+    found = text_facts.identifiers_in(answer, CONFIG)
+    assert {kind: {value for k, value in found if k == kind} for kind in KINDS} == identifiers
+    assert set(text_facts.fact_numbers(answer, CONFIG)) == numbers
+
+
+# --- the corpus through init, import agent, assess and compare (D-170 on chadlis/hypotrail#75: "Test E2E fait foi") -------------
+
+
+def corpus_reference(row_id: str) -> dict:
+    """The test Reference of a row, derived from the row or its ruling and never edited by hand."""
+    identifiers, numbers = expectation(row_id)
+    facts = []
+    for index, number in enumerate(sorted(numbers)):
+        whole = number.is_integer()
+        facts.append({"fact_id": f"n{index}", "type": "integer" if whole else "decimal", "value": int(number) if whole else number, "tolerance": 0, "rule": "corpus row"})
+    return {
+        "case_id": row_id,
+        "reference_version": "text-facts-corpus/1",
+        "expected_outcome": "answered",
+        "expected_identifiers": [{"kind": kind, "value": value} for kind in KINDS for value in sorted(identifiers[kind])],
+        "expected_facts": facts,
+        "as_of": "2026-11-26",
+    }
+
+
+def corpus_workload(tmp_path) -> Path:
+    """An examples folder whose `chinook_prose` holds one Case and one test Reference per corpus row, with its data manifest and scoring config."""
+    examples = Path(tmp_path) / "examples"
+    shutil.copytree(EXAMPLES, examples)
+    prose = examples / "chinook_prose"
+    declaration = json.loads((prose / "workload.json").read_text(encoding="utf-8"))
+    declaration["cases"] = {"dev": "cases/corpus-dev.jsonl"}
+    declaration["references"] = "references/corpus-references.jsonl"
+    (prose / "workload.json").write_text(json.dumps(declaration, indent=2), encoding="utf-8")
+    write_lines(prose / "cases" / "corpus-dev.jsonl", [{"case_id": r, "family": "corpus", "group": r, "question": ROWS[r]["question"]} for r in ROWS])
+    write_lines(prose / "references" / "corpus-references.jsonl", [corpus_reference(r) for r in ROWS])
+    return examples
+
+
+def assessed(tmp_path, examples, study, references, name):
+    lines = [{"case_id": r, "repeat": 0, "observation_status": "produced", "raw_answer": ROWS[r]["answer"], "outcome": "answered"} for r in ROWS]
+    source = write_lines(Path(tmp_path) / f"{name}.jsonl", lines)
+    population = episodes_file(tmp_path, [(r, 0) for r in ROWS], name=f"{name}-population.json")
+    code, payload, err = import_agent(study, source, population, name, "--examples-dir", examples)
+    assert code == 0, (payload, err)
+    code, payload, err = run_json("assess", "--study", study, "--observations", payload["observation_set_id"], "--scorer", "text_facts_v1", "--references", references)
+    assert code == 0, (payload, err)
+    return payload["assessment"]
+
+
+def test_every_corpus_row_through_init_import_agent_assess_and_compare_finds_its_identifiers_and_facts(tmp_path):
+    study = Path(tmp_path) / "corpus"
+    examples = corpus_workload(tmp_path)
+    code, payload, err = run_json("init", "--workload", "chinook_prose", "--study", study, "--examples-dir", examples)
+    assert code == 0, (payload, err)
+    references = payload["references_id"]
+    control = assessed(tmp_path, examples, study, references, "control")
+    candidate = assessed(tmp_path, examples, study, references, "candidate")
+    rows = {}
+    for row in csv.DictReader(io.StringIO((study / control["per_item_ref"]["path"]).read_text(encoding="utf-8"))):
+        rows.setdefault(row["case_id"], {})[row["criterion"]] = row["score"]
+    held = ("identifiers_complete", "no_unexpected_identifier", "facts_present")
+    failing = {r: {name: rows[r][name] for name in held if rows[r][name] != "true"} for r in ROWS if any(rows[r][name] != "true" for name in held)}
+    assert failing == {}
+    code, payload, err = run_json("compare", "--study", study, "--control", control["assessment_id"], "--candidate", candidate["assessment_id"])
+    assert code == 0, (payload, err)

@@ -258,6 +258,11 @@ def without_identifiers_and_dates(text: str, config: dict) -> str:
     return "".join(chars)
 
 
+def fact_numbers(text: str, config: dict) -> list:
+    """The numbers of the text that `facts_present` reads: every number outside an identifier match and an ISO date."""
+    return numbers_in(without_identifiers_and_dates(text, config))
+
+
 def fact_found(fact: Fact, text: str, numbers: list) -> bool:
     if fact.type in ("integer", "decimal"):
         return any(abs(number - fact.value) <= fact.tolerance for number in numbers)
@@ -316,7 +321,7 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
     expected = {(kind, normalised(kinds[kind], value)) for kind, value in reference.identifiers}
     allowed = {(kind, normalised(kinds[kind], value)) for kind, value in reference.allowed}
     found = identifiers_in(raw_answer, config)
-    numbers = numbers_in(without_identifiers_and_dates(raw_answer, config))
+    numbers = fact_numbers(raw_answer, config)
     outcome = declared_outcome if declared_outcome is not None else recognised_outcome(raw_answer, config)
     if outcome is None:
         outcome_matches = _criterion("outcome_matches", "unscored", None, OUTCOME_NOT_DECLARED)
