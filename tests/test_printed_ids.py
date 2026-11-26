@@ -14,6 +14,7 @@ import pytest
 from _assess_helpers import references_id
 from _chinook_helpers import FIXTURE, fixture_population, init_chinook
 from _import_helpers import ready
+from _kept_studies import KEPT, STUDIES, kept_files
 from _revision_helpers import corrected_chinook_references, entry_of, error_of, spec_of
 from _run_agent_helpers import live_args, patch_model
 from _study_helpers import examples_copy, init_study, run_cli, run_json
@@ -229,6 +230,22 @@ def test_with_its_new_key_removed_the_json_object_of_each_of_the_six_commands_ho
         if command == "run agent":
             expected["warnings"] = []
         assert rest == expected
+
+
+@pytest.mark.parametrize("name", STUDIES)
+def test_the_files_of_a_study_made_by_the_commands_that_print_ids_equal_those_kept_from_main_but_by_their_ids_and_timestamps(name, tmp_path):
+    """The kept files were made by the same commands at `main` `07197ea`, before the ids were printed (`tests/_kept_studies.py`).
+
+    Both sides pass through the same rules. Excluded by name, each with its reason: the `observations.jsonl` of the `scripted_fixture` Attempt,
+    which holds the latencies its Episodes measured; the Inspect log, a zip archive that holds its own timestamps and identifiers; and the
+    `code_environment` fields that name the checkout that ran, `code_revision` (its commit, dirty mark and fingerprint) and the digest of
+    `uv.lock`. Nothing else is excluded.
+    """
+    kept = json.loads((KEPT / f"{name}.json").read_text(encoding="utf-8"))
+    made = kept_files(STUDIES[name](tmp_path))
+    union = sorted(set(kept) | set(made))
+    differing = [(path, "kept only" if path not in made else "made only" if path not in kept else "differs") for path in union if kept.get(path) != made.get(path)]
+    assert differing == []
 
 
 # --- the two edge cases: a refused `init --new-revision`, and `recover` ---------------------------------------------------------------------
