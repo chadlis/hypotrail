@@ -273,17 +273,28 @@ test("on state 09 the cited Comparison's delta and the new delta both stand in N
 
 // --- The Study so far, in form 2 -----------------------------------------------------------------------------------------------------
 
-// The steps the read's records give, in the order of the write journal: the Study, its Attempts, its Assessments and its Comparisons where
-// it holds any, its Decisions and its Declared deviations.
+// The steps of the kinds of record the read holds, in the fixed order of kinds (D-161): the Study, its Attempts, its Assessments, its
+// Comparisons, its Decisions and its Declared deviations; no step for a kind with no record.
+const KIND_OF_STEP: Record<string, string> = { revision: "study", attempt: "attempts", assessment: "assessments", comparison: "comparisons", decision: "decisions", declared_deviation: "deviations" };
 function stepsOf(read: Record<string, any>): string[] {
   return [
     "study",
     ...(read.attempts.length > 0 ? ["attempts"] : []),
     ...(read.assessments.length > 0 ? ["assessments"] : []),
     ...(read.comparisons.length > 0 ? ["comparisons"] : []),
-    "decisions",
-    "deviations",
+    ...(read.decisions.length > 0 ? ["decisions"] : []),
+    ...(read.declared_deviations.length > 0 ? ["deviations"] : []),
   ];
+}
+
+// The kinds of step in the order each first appears in the write journal of a read that holds the whole journal.
+function journalOrderOf(read: Record<string, any>): string[] {
+  const order: string[] = [];
+  for (const entry of read.writes_since) for (const each of entry.written ?? []) {
+    const step = KIND_OF_STEP[each.kind];
+    if (step !== undefined && !order.includes(step)) order.push(step);
+  }
+  return order;
 }
 
 for (const state of STATES.filter((each) => readOf(each).ok === true)) {
@@ -292,7 +303,11 @@ for (const state of STATES.filter((each) => readOf(each).ok === true)) {
     const { document } = await built(t, state);
     const path = elementOf(document, '<section data-part="path">')!;
     const steps = elementsOf(path, "<details data-step=");
-    assert.deepEqual(steps.map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]), stepsOf(read));
+    const drawn = steps.map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
+    assert.deepEqual(drawn, stepsOf(read), "exactly the kinds present");
+    // The journey's reads are made with --since=0: each holds the whole journal, whose first appearances the drawn order agrees with.
+    assert.equal(read.writes_since.filter((entry: Record<string, any>) => entry.phase === "end").length > 0 || read.write_sequence === 0, true);
+    assert.deepEqual(journalOrderOf(read).filter((step) => drawn.includes(step)), drawn.filter((step) => journalOrderOf(read).includes(step)), "the order of first appearance in the journal");
     for (const step of steps) {
       assert.ok(!/^<details[^>]*\sopen/.test(step), "closed");
       assert.match(step, /^<details data-step="[a-z]+">\n<summary>/, "one line first");
@@ -402,6 +417,24 @@ for (const state of ["17-interrupted", "19-two-interrupted"]) {
     assert.equal(first, "<h3>To handle</h3>", "its heading first, above the level of the Candidate's");
     const now = elementOf(document, '<section data-part="now"')!;
     assert.ok(!now.includes('id="tohandle-list"'), "not inside Now");
+  });
+}
+
+// The count of pending decisions stands on Now's heading line, "Now \u00b7 n pending decisions", only when n > 0, at no cost of height;
+// "No pending decision." stands nowhere (D-161).
+for (const state of STATES.filter((each) => readOf(each).ok === true)) {
+  test(`Now's heading line holds the count of pending decisions only when there is one, and the document never says no pending decision: ${state}`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const now = elementOf(document, '<section data-part="now"')!;
+    const line = elementOf(now, '<div data-element="now-heading">');
+    assert.ok(line, "Now's heading line");
+    assert.ok(contract.labels.includes("pending decisions"));
+    const n = read.pending_decisions.length;
+    assert.equal(words(line), n === 0 ? "Now" : `Now \u00b7 ${n} pending decisions`);
+    if (n > 0) assert.match(line!, new RegExp(`<a href="#study-0" data-kind="pending_decisions">${n}</a>`));
+    assert.equal(elementsOf(document, '<span data-element="count">').length, n === 0 ? 0 : 1, "one count only");
+    assert.ok(!partsOf(document).between.includes("No pending decision."));
   });
 }
 

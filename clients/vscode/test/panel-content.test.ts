@@ -51,7 +51,8 @@ function written(value: number | null): string {
 }
 
 const QUESTION = "Which Configuration do we keep after this Comparison?";
-const NO_PENDING = "No pending decision.";
+// Now's sentence under rule 4 (D-161: "No pending decision." goes).
+const NO_PENDING = "No decision waits for you.";
 
 // Each pending decision, its question, and each option with its consequence.
 for (const name of KEPT_READS) {

@@ -86,8 +86,11 @@ function assertStudy({ document, read }: Seen): void {
   assert.equal(words(elementOf(document, '<div data-part="study"')), `${read.study.study_id} ${label("Write sequence")} ${written(read.write_sequence)}`);
 }
 
+// No pending decision: Now holds no count of pending decisions and states that no decision waits (D-161).
 function assertNoPending({ document }: Seen): void {
-  assert.equal(words(under(document, "Pending decisions", "Decisions")), `${label("Pending decisions")} ${label("No pending decision.")}`);
+  const now = elementOf(document, '<section data-part="now"')!;
+  assert.equal(elementOf(now, '<p data-element="count">'), undefined, "no count of pending decisions");
+  assert.equal(words(elementOf(now, '<p data-element="now-question">')), label("No decision waits for you."));
 }
 
 // The one Pending decision, in Now: its question, its options with their consequences, the delta of its Comparison, the
@@ -203,7 +206,7 @@ function valueAt(object: unknown, keyPath: string): unknown {
 const SEES: Record<string, (seen: Seen) => void> = {
   "after-compare": (seen) => {
     assertPending(seen);
-    assert.ok(seen.document.slice(seen.document.indexOf(`<h4>${label("Decisions")}</h4>`)).includes(`<h4>Decisions</h4>\n<p>${label("None.")}</p>`), "under Decisions, None.");
+    assert.equal(elementOf(seen.document, '<details data-step="decisions">'), undefined, "no step of the Decisions, no Decision being recorded");
   },
   "after-decide": (seen) => {
     assertNoPending(seen);

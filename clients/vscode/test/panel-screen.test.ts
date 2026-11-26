@@ -212,7 +212,7 @@ for (const name of DECIDED_READS) {
 
 // The way to the choices: how many decisions are pending, a link that jumps to the first choices, what bears on the choice above it,
 // and each option's radio named by the option alone.
-const COUNT = "Number of pending decisions:";
+const COUNT = "pending decisions";
 const SKIP = "To the choices";
 const NONE = "None.";
 const WARNINGS = "Warnings of the Comparison";
@@ -221,13 +221,12 @@ const RULE = "Not counted again: an entry that repeats a message above.";
 const linkTo = (html: string): [string, string][] => [...html.matchAll(/<a href="#([^"]*)"[^>]*>([^<]*)<\/a>/g)].map((match) => [match[1], match[2]]);
 
 for (const name of PENDING_READS) {
-  test(`in the step of the Decisions, the heading of the pending decisions is followed by their count, in a link to the Study's part: ${name}`, async (t) => {
+  // The count of pending decisions stands on Now's heading line (D-161).
+  test(`Now's heading line holds the count of pending decisions, in a link to the Study's part: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
-    const after = document.slice(document.indexOf("<h4>Pending decisions</h4>") + "<h4>Pending decisions</h4>".length).trimStart();
-    const line = elementOf(after, "<p")!;
-    assert.ok(after.startsWith(line), after.slice(0, 80));
-    assert.equal(words(line), `${COUNT} ${object.pending_decisions.length}`);
+    const line = elementOf(elementOf(document, '<section data-part="now"')!, '<div data-element="now-heading">')!;
+    assert.equal(words(line), `Now \u00b7 ${object.pending_decisions.length} ${COUNT}`);
     const [[target, count]] = linkTo(line);
     assert.equal(count, String(object.pending_decisions.length));
     assert.match(elementWithId(document, target) ?? "", /^<div data-part="study"/);
@@ -276,14 +275,14 @@ for (const name of PENDING_READS) {
   });
 }
 
-test("with no Decision and no Declared deviation, the heading Decisions in its step and the form of the step of the Declared deviations are each followed by None.: status-success", async (t) => {
+// "Draw no step for a kind with no record" (D-161).
+test("with no Decision and no Declared deviation, the Study so far holds no step of the Decisions and none of the Declared deviations, and no None.: status-success", async (t) => {
   const object = keptObject("status-success");
   assert.equal(object.decisions.length + object.declared_deviations.length, 0);
   const { document } = await documentFor(t, success(object));
-  const decisions = document.slice(document.indexOf("<h4>Decisions</h4>") + "<h4>Decisions</h4>".length).trimStart();
-  assert.ok(decisions.startsWith(`<p>${NONE}</p>`), `Decisions: ${decisions.slice(0, 60)}`);
-  const form = elementOf(elementOf(document, '<details data-step="deviations">')!, '<div data-element="form">')!;
-  assert.ok(form.replace('<div data-element="form">', "").trimStart().startsWith(`<p>${NONE}</p>`), `Declared deviations: ${form.slice(0, 80)}`);
+  assert.equal(elementOf(document, '<details data-step="decisions">'), undefined, "no step of the Decisions");
+  assert.equal(elementOf(document, '<details data-step="deviations">'), undefined, "no step of the Declared deviations");
+  assert.ok(!document.includes(`<p>${NONE}</p>`));
 });
 
 test("with a Decision and a Declared deviation, neither heading is followed by None.: status-deviation with status-decided's Decision", async (t) => {

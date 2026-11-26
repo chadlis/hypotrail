@@ -35,106 +35,103 @@ const LABEL = {
   readAgain: 1,
   study: 2,
   writeSequence: 3,
-  pending: 4,
-  noPending: 5,
-  comparison: 6,
-  delta: 7,
-  coverage: 8,
-  control: 9,
-  candidate: 10,
-  assessment: 11,
-  metric: 12,
-  status: 13,
-  warnings: 14,
-  limitations: 15,
-  decisions: 16,
-  deviations: 17,
-  withdrawn: 18,
-  noAnswer: 19,
-  author: 20,
-  citedIds: 21,
-  applies: 22,
-  reasons: 23,
-  changedItems: 24,
-  citedValue: 25,
-  latestValue: 26,
-  linked: 27,
-  noDecision: 28,
-  sendAgain: 29,
-  record: 30,
-  writing: 31,
-  missing: 32,
-  recordedId: 33,
-  outputPath: 34,
-  comparabilityStatus: 35,
-  recorded: 36,
-  mayHaveBeenRecorded: 37,
-  notWrittenTwice: 38,
-  readAgainChoose: 39,
-  pendingCount: 40,
-  toChoices: 41,
-  sent: 42,
-  failed: 43,
-  none: 44,
-  figuresUnavailable: 45,
-  noFigure: 46,
-  pairedDeltas: 47,
-  itemsPerBin: 48,
-  minimum: 49,
-  firstQuartile: 50,
-  median: 51,
-  thirdQuartile: 52,
-  maximum: 53,
-  shares: 54,
-  casesPerBin: 55,
-  itemErrors: 56,
-  zero: 57,
-  itemsBelow: 58,
-  casesBelow: 59,
-  dotOrder: 60,
-  openFile: 61,
-  notOpened: 62,
-  openRecord: 63,
-  now: 64,
-  studySoFar: 65,
-  tools: 66,
-  since: 67,
-  waiting: 68,
-  consequence: 69,
-  charts: 70,
-  scorer: 71,
-  interval: 72,
-  resamplingUnit: 73,
-  limitationsRule: 74,
-  earlierDecision: 75,
-  citedDelta: 76,
-  featuresAlone: 77,
-  yourWords: 78,
-  addWords: 79,
-  frame: 80,
-  produce: 81,
-  assessAndCompare: 82,
-  decideAndFollow: 83,
-  attempts: 84,
-  attempt: 85,
-  assessments: 86,
-  comparisons: 87,
-  countsOnceCited: 88,
-  byRule: 89,
-  recoverable: 90,
-  declared: 91,
-  source: 92,
-  toHandle: 93,
-  interrupted: 94,
-  recoverByTerminal: 95,
-  handOver: 96,
-  reportByTerminal: 97,
-  protocolRevision: 98,
-  noEnd: 99,
-  latestDecision: 100,
-  seeDecision: 101,
-  observationSet: 102,
-  noDecisionWaits: 103,
+  comparison: 4,
+  delta: 5,
+  coverage: 6,
+  control: 7,
+  candidate: 8,
+  assessment: 9,
+  metric: 10,
+  status: 11,
+  warnings: 12,
+  limitations: 13,
+  decisions: 14,
+  deviations: 15,
+  withdrawn: 16,
+  noAnswer: 17,
+  author: 18,
+  citedIds: 19,
+  applies: 20,
+  reasons: 21,
+  changedItems: 22,
+  citedValue: 23,
+  latestValue: 24,
+  linked: 25,
+  noDecision: 26,
+  sendAgain: 27,
+  record: 28,
+  writing: 29,
+  missing: 30,
+  recordedId: 31,
+  outputPath: 32,
+  comparabilityStatus: 33,
+  recorded: 34,
+  mayHaveBeenRecorded: 35,
+  notWrittenTwice: 36,
+  readAgainChoose: 37,
+  pendingCount: 38,
+  toChoices: 39,
+  sent: 40,
+  failed: 41,
+  figuresUnavailable: 42,
+  noFigure: 43,
+  pairedDeltas: 44,
+  itemsPerBin: 45,
+  minimum: 46,
+  firstQuartile: 47,
+  median: 48,
+  thirdQuartile: 49,
+  maximum: 50,
+  shares: 51,
+  casesPerBin: 52,
+  itemErrors: 53,
+  zero: 54,
+  itemsBelow: 55,
+  casesBelow: 56,
+  dotOrder: 57,
+  openFile: 58,
+  notOpened: 59,
+  openRecord: 60,
+  now: 61,
+  studySoFar: 62,
+  tools: 63,
+  since: 64,
+  waiting: 65,
+  consequence: 66,
+  charts: 67,
+  scorer: 68,
+  interval: 69,
+  resamplingUnit: 70,
+  limitationsRule: 71,
+  earlierDecision: 72,
+  citedDelta: 73,
+  featuresAlone: 74,
+  yourWords: 75,
+  addWords: 76,
+  frame: 77,
+  produce: 78,
+  assessAndCompare: 79,
+  decideAndFollow: 80,
+  attempts: 81,
+  attempt: 82,
+  assessments: 83,
+  comparisons: 84,
+  countsOnceCited: 85,
+  byRule: 86,
+  recoverable: 87,
+  declared: 88,
+  source: 89,
+  toHandle: 90,
+  interrupted: 91,
+  recoverByTerminal: 92,
+  handOver: 93,
+  reportByTerminal: 94,
+  protocolRevision: 95,
+  noEnd: 96,
+  latestDecision: 97,
+  seeDecision: 98,
+  observationSet: 99,
+  noDecisionWaits: 100,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -267,7 +264,7 @@ export function bodyOf(view: View): string {
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
   const figures = view.object ? usableFigures(view.object, view.figures) : undefined;
   const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)) : undefined;
-  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
+  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
   if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
   parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []));
   parts.push("</section>", toolsOf(inert));
@@ -366,8 +363,8 @@ function latestOf(object: Entry): string[] {
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
 // id names, whose question is Now's line; with `look_again`, its text; with no kind, the label that no decision waits for the person.
 // Without an object read, Now holds nothing.
-function nowOf(object: Entry | undefined, pending: string): string {
-  const lines = [`<section data-part="now" id="now">`, `<h2>${label("now")}</h2>`];
+function nowOf(object: Entry | undefined, pending: string, count = ""): string {
+  const lines = [`<section data-part="now" id="now">`, `<div data-element="now-heading"><h2>${label("now")}</h2>${count === "" ? "" : ` ${count}`}</div>`];
   if (object) {
     const step = record(object.next_step);
     if (step.kind === "decide" && pending !== "") lines.push(pending);
@@ -422,7 +419,7 @@ function failureOf(failure: Outcome): string {
 // document follows recorded, `sent` the write in flight or held.
 // The parts of the object read under three headings: `now`, the first pending decision when `next_step` says one is Now; `waiting`, each
 // other one in a closed fold whose summary is its question; and `path`, the Study so far.
-function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): { now: string; waiting: string; path: string } {
+function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): { count: string; now: string; waiting: string; path: string } {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const locked = busy || held;
@@ -436,21 +433,26 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const order = step.kind === "decide" && pending.length > 0 ? [first, ...pending.keys()].filter((at, place, all) => all.indexOf(at) === place) : [];
   const parts = order.map((at, place) => pendingOf(pending[at], at, locked, shown, sent, place === 0 ? context : undefined));
   const waiting = order.slice(1).map((at, place) => ['<details data-element="waiting">', `<summary>${marked(record(pending[at].question).text)}</summary>`, parts[place + 1], "</details>"].join("\n"));
-  const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
   const studyPart = [`<div data-part="study"${anchor("study", 0)}>`, `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`, "</div>"].join("\n");
   const attempts = list(object.attempts);
   const assessments = shown.assessments;
   const comparisons = shown.comparisons;
   const decisions = list(object.decisions);
   const deviations = list(object.declared_deviations);
-  // The steps of each moment, in the order of the write journal: the Study, its Attempts, its Assessments and Comparisons, its Decisions
-  // and Declared deviations. A step stands when the read holds its records; the Study's, the Decisions' and the Declared deviations' always.
+  // The steps of each moment, in the fixed order of kinds, which the Study's own citations make the order in which each kind first appears
+  // in the write journal (D-161): the Study, its Attempts, its Assessments and Comparisons, its Decisions and Declared deviations. A step
+  // stands only when the read holds a record of its kind; the Study's always.
   // The Decisions are built before the Assessments and the Comparisons, so that a record a Decision cites keeps its part in that Decision
   // and the steps of Assess and compare show its summary or a link to it.
-  const decideAndFollow = [decisionsStepOf(decisions, [`<h4>${label("pending")}</h4>`, pending.length === 0 ? `<p>${label("noPending")}</p>` : count, `<h4>${label("decisions")}</h4>`, decisionsOf(decisions, linked, recorded, shown)].join("\n")), deviationsStepOf(deviations, shown)];
+  const decideAndFollow = [
+    ...(decisions.length === 0 ? [] : [decisionsStepOf(decisions, [`<h4>${label("decisions")}</h4>`, decisionsOf(decisions, linked, recorded, shown)].join("\n"))]),
+    ...(deviations.length === 0 ? [] : [deviationsStepOf(deviations, shown)]),
+  ];
   const produce = attempts.length === 0 ? [] : [attemptsStepOf(attempts, shown)];
   const assess = [...(assessments.length === 0 ? [] : [assessmentsStepOf(shown)]), ...(comparisons.length === 0 ? [] : [comparisonsStepOf(shown)])];
-  return { now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
+  // The count of pending decisions stands on Now's heading line, only when n > 0, at no cost of height (D-161).
+  const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label("pendingCount")}</span>`;
+  return { count, now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
     momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),
     momentOf("produce", produce),
     momentOf("assessAndCompare", assess),
@@ -858,7 +860,7 @@ function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, sh
 function decisionsOf(decisions: Entry[], linked: string | undefined, recorded: unknown, shown: Shown): string {
   const parts = decisions.map((decision, index) => decisionOf(decision, index, decision.decision_id === linked, decision.decision_id === recorded, shown));
   if (linked !== undefined && !decisions.some((decision) => decision.decision_id === linked)) parts.unshift(`<p>${label("noDecision")} ${value(linked)}</p>`);
-  return parts.length === 0 ? `<p>${label("none")}</p>` : parts.join("\n");
+  return parts.join("\n");
 }
 
 // A recorded Decision: what was chosen and whether it applies, its id, its question, the state of its evidence with each line of
@@ -950,5 +952,5 @@ function deviationsOf(deviations: Entry[], shown: Shown): string {
     const mark = deviation.withdrawn === false ? `${markOf("\u2016", "declared")} ` : "";
     return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${marked(deviation.text)} ${mark}${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
   });
-  return lines.length === 0 ? `<p>${label("none")}</p>` : `<ul>\n${lines.join("\n")}\n</ul>`;
+  return `<ul>\n${lines.join("\n")}\n</ul>`;
 }
