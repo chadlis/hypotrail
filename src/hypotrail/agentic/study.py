@@ -104,15 +104,19 @@ def check_histories(workload: Workload) -> None:
     D-154 on chadlis/hypotrail#75, item 1: "A later turn may receive a scripted history built from earlier turns' Reference
     texts, as frozen Case input that the Protocol declares. Its own Reference is never shown." A turn naming the Case itself
     in `from_case`, or holding the Case's own `reference_text`, is HISTORY_SHOWS_OWN_REFERENCE; a turn whose `from_case`
-    names no Case of the Workload, or whose text differs from that Case's `reference_text`, is HISTORY_SOURCE_MISMATCH.
+    names no Case of the Workload, a Case of another Partition, a Case after this one in its Cases file, or whose text
+    differs from that Case's `reference_text`, is HISTORY_SOURCE_MISMATCH.
     """
-    cases = [case for role in ROLES if role in workload.declaration["cases"] for case in workload.cases(role)]
+    by_role = {role: workload.cases(role) for role in ROLES if role in workload.declaration["cases"]}
+    cases = [case for role_cases in by_role.values() for case in role_cases]
     if not any("history" in case for case in cases):
         return
     texts = _reference_texts(workload)
-    known = {case["case_id"] for case in cases}
+    # (Partition, position in its Cases file) of every Case: a source must be in the same Partition and come before.
+    place = {case["case_id"]: (role, position) for role, role_cases in by_role.items() for position, case in enumerate(role_cases)}
     for case in cases:
         case_id = case["case_id"]
+        role, position = place[case_id]
         for turn_number, turn in enumerate(case.get("history", [])):
             source = turn.get("from_case")
             if source == case_id or (case_id in texts and turn["content"] == texts[case_id]):
@@ -121,10 +125,11 @@ def check_histories(workload: Workload) -> None:
                 )
             if source is None:
                 continue
-            if source not in known or turn["content"] != texts.get(source):
+            earlier = source in place and place[source][0] == role and place[source][1] < position
+            if not earlier or turn["content"] != texts.get(source):
                 raise _history_refusal(
                     "HISTORY_SOURCE_MISMATCH",
-                    f"turn {turn_number} of the history of Case {case_id} is not the reference_text of the Case {source!r} it names",
+                    f"turn {turn_number} of the history of Case {case_id} is not the reference_text of an earlier Case {source!r} of its Partition",
                     case_id,
                     turn_number,
                     from_case=source,

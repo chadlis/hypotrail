@@ -91,6 +91,16 @@ REFUSALS = {
         "HISTORY_SOURCE_MISMATCH",
         {"case_id": "D25", "from_case": "D99"},
     ),
+    "HISTORY_SOURCE_MISMATCH by a later Case": (
+        lambda cases: _assistant(cases["D25"], from_case="D28", content=reference_text("D28")),
+        "HISTORY_SOURCE_MISMATCH",
+        {"case_id": "D25", "from_case": "D28"},
+    ),
+    "HISTORY_SOURCE_MISMATCH by a Case of another Partition": (
+        lambda cases: _assistant(cases["D25"], from_case="P01", content=reference_text("P01")),
+        "HISTORY_SOURCE_MISMATCH",
+        {"case_id": "D25", "from_case": "P01"},
+    ),
 }
 
 
