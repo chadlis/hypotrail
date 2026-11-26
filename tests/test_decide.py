@@ -423,11 +423,11 @@ def test_an_id_given_twice_and_ids_out_of_order_are_recorded_once_and_sorted(stu
     assert record["cited_ids"] == sorted({ids["comparison"], ids["attempt"], ids["assessment"]})
 
 
-def test_status_json_with_a_decision_recorded_has_the_fourteen_top_level_keys_with_the_listings_and_the_pending_decisions_and_no_list_of_observation_sets(study):
+def test_status_json_with_a_decision_recorded_has_the_fifteen_top_level_keys_with_the_listings_the_pending_decisions_and_the_record_files_and_no_list_of_observation_sets(study):
     made(study)
     code, payload, err = run_json("status", "--study", study)
     assert code == 0, err
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
     assert "observation_sets" not in payload
 
 

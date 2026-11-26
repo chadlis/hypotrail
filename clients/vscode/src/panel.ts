@@ -3,9 +3,10 @@
 // call is answered, whether a call is in flight, and the last figures read. It reads the Study through the bridge when it
 // is opened, after each write the CLI answered and on the control "Read again", and at no other time, each status read
 // that succeeds followed by the figures call; it writes only through `recordDecision`, on the control that records and on
-// "Send again".
+// "Send again". On a control that opens, it shows in the editor, read-only, a file of the Study whose path the object held names.
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { checkoutRoot, newRequestId, readFigures, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
@@ -14,8 +15,9 @@ import { bodyOf, usableFigures, type View } from "./content";
 export type Target = { study: string; decision?: string };
 
 // What the document's script posts: the name of a message and, for the control that records, the indexes of the
-// pending decision and of the option selected.
-type Message = { message?: unknown; pending?: unknown; option?: unknown };
+// pending decision and of the option selected; for a control that opens, the kind of the record's part, its index in its listing and
+// the ref.
+type Message = { message?: unknown; pending?: unknown; option?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -59,6 +61,7 @@ export const HANDLERS: Record<string, (message: Message) => void> = {
   [contract.messages[2]]: () => {
     if (unanswered) void write(unanswered);
   },
+  [contract.messages[3]]: (message) => void open(message),
 };
 
 function receive(message: unknown): void {
@@ -84,6 +87,67 @@ function record(message: Message): void {
     request_id: newRequestId(),
     read_sequence: held.write_sequence as number,
   });
+}
+
+// Each kind of part a control that opens names: the listing of the object read that holds its records, the key of a record's id, and the
+// kind of the entry of `record_files` that names a record's own file.
+const LISTINGS: Record<string, [string, string, string]> = {
+  assessment: ["assessments", "assessment_id", "assessment"],
+  comparison: ["comparisons", "comparison_id", "comparison"],
+  decision: ["decisions", "decision_id", "decision"],
+  deviation: ["declared_deviations", "declared_deviation_id", "declared_deviation"],
+};
+// The ref of a record's own file, which `record_files` names; every other ref is a key of the record.
+const RECORD_FILE = contract.open_refs[3];
+// "then runs the command `workbench.action.files.setActiveEditorReadonlyInSession` on that editor, so that the file is shown read-only"
+// (chadlis/hypotrail#227, T1-4).
+const READ_ONLY = "workbench.action.files.setActiveEditorReadonlyInSession";
+
+// The path relative to the Study folder that the object held gives at the message's kind, index and ref, if any: for a record's own file,
+// the path of the entry of `record_files` of that kind whose id is the record's.
+function namedPath(message: Message): string | undefined {
+  if (!held || typeof message.kind !== "string" || !Object.hasOwn(LISTINGS, message.kind)) return undefined;
+  if (typeof message.ref !== "string" || !contract.open_refs.includes(message.ref)) return undefined;
+  const [listing, key, kind] = LISTINGS[message.kind];
+  const entry = at(entries(held[listing]), message.index);
+  if (entry === undefined) return undefined;
+  const found =
+    message.ref === RECORD_FILE
+      ? entries(held.record_files).find((each) => each.kind === kind && each.id === entry[key])?.path
+      : (entry[`${message.ref}_ref`] as { path?: unknown } | null | undefined)?.path;
+  return typeof found === "string" ? found : undefined;
+}
+
+// The Study folder joined to `relative`, when `relative` is not absolute, has no `..` segment, and names a file whose real path lies
+// inside the Study folder's real path; the real paths are resolved and no content is read.
+async function insideStudy(study: string, relative: string): Promise<string | undefined> {
+  if (path.isAbsolute(relative) || relative.split(/[\\/]/).includes("..")) return undefined;
+  const joined = path.join(study, relative);
+  try {
+    const [root, real] = await Promise.all([fs.promises.realpath(study), fs.promises.realpath(joined)]);
+    const within = path.relative(root, real);
+    return within !== "" && !path.isAbsolute(within) && within.split(path.sep)[0] !== ".." ? joined : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// A control that opens: the file the object held names, shown in the editor and made read-only there. A file the panel does not open, or
+// that VS Code does not show, gives a document built from the object held with one fixed line in its notice, unless a call has started
+// or the panel has read again meanwhile.
+async function open(message: Message): Promise<void> {
+  const opened = panel!;
+  const object = held;
+  const relative = namedPath(message);
+  const file = relative === undefined ? undefined : await insideStudy(target!.study, relative);
+  try {
+    if (file === undefined) throw new Error("not opened");
+    await vscode.window.showTextDocument(vscode.Uri.file(file), { preview: true, viewColumn: vscode.ViewColumn.Beside });
+    await vscode.commands.executeCommand(READ_ONLY);
+  } catch {
+    if (panel !== opened || inFlight || held !== object) return;
+    show({ reading: false, object: held, figures, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study, unopened: true });
+  }
 }
 
 async function write(input: DecisionInput): Promise<void> {
@@ -140,8 +204,8 @@ function newNonce(): string {
 }
 
 // The document's script: each control sends the message its attribute names, and the control that records sends with
-// it the indexes of its pending decision and of the option selected there; selecting an option makes that control
-// active. The notice of a write the CLI recorded takes the focus, which keeps the view at the top; otherwise the view scrolls to the
+// it the indexes of its pending decision and of the option selected there, a control that opens the kind, the index and the ref its
+// attributes name; selecting an option makes that control active. The notice of a write the CLI recorded takes the focus, which keeps the view at the top; otherwise the view scrolls to the
 // Decision a link names.
 const SCRIPT = [
   '"use strict";',
@@ -155,6 +219,12 @@ const SCRIPT = [
   "      if (chosen === null) return;",
   "      message.pending = Number(pending);",
   '      message.option = Number(chosen.getAttribute("data-option"));',
+  "    }",
+  '    const ref = control.getAttribute("data-ref");',
+  "    if (ref !== null) {",
+  '      message.kind = control.getAttribute("data-part-kind");',
+  '      message.index = Number(control.getAttribute("data-index"));',
+  "      message.ref = ref;",
   "    }",
   "    api.postMessage(message);",
   "  });",
@@ -187,6 +257,9 @@ const STYLE = [
   "button:hover:not(:disabled) { background: var(--vscode-button-hoverBackground); }",
   "button:disabled { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); border-style: dashed; cursor: default; }",
   ":focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }",
+  // A control that opens stands beside a path, in the theme's secondary button colours, so that it does not read as the control that records.
+  "button.open { padding: 0 0.5em; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); }",
+  "button.open:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-secondaryBackground)); }",
   'input[type="radio"] { accent-color: var(--vscode-button-background); margin: 0.2em 0 0; }',
   '[data-element="notice"], [data-element="failure"], [data-element="figures-failed"], [data-element="figures-unavailable"] { margin: 0.3em 0; padding: 0.3em 0.6em; border-left: 3px solid var(--vscode-focusBorder); background: var(--vscode-textBlockQuote-background); }',
   '[data-element="failure"], [data-element="figures-failed"] { border-left-color: var(--vscode-inputValidation-errorBorder); }',

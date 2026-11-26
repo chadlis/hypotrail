@@ -10,7 +10,7 @@ import * as stub from "./vscode-stub";
 
 type Entry = Record<string, any>;
 
-const [READ_AGAIN, RECORD, SEND_AGAIN] = contract.messages;
+const [READ_AGAIN, RECORD, SEND_AGAIN, OPEN] = contract.messages;
 const RECORDED = "The Decision was recorded.";
 const RECORDING = "Recording the Decision.";
 const MISSING = "Nothing was sent. Missing:";
@@ -312,7 +312,7 @@ for (const [cause, answer] of NO_ANSWERS) {
     assert.match(notice(document), new RegExp(`No answer from the CLI:\\s+${cause}(\\s|$)`));
     assert.ok(notice(document).includes(contract.write_no_answer_words));
     for (const sentence of [MAY_HAVE, SEND_AGAIN_SENTENCE]) assert.ok(notice(document).includes(sentence), sentence);
-    assert.deepEqual(controls(document).filter((name) => name !== RECORD), [READ_AGAIN, SEND_AGAIN]);
+    assert.deepEqual(controls(document).filter((name) => name !== RECORD && name !== OPEN), [READ_AGAIN, SEND_AGAIN]);
     const radios = partsOf(document).tags.filter((tag) => tag.startsWith("<input "));
     assert.ok(radios.length > 0 && radios.every((tag) => /\sdisabled(\s|>)/.test(tag)), "no option can be selected while an id is held");
     assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
