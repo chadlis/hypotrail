@@ -70,8 +70,8 @@ def keys_of(repeats=REPEATS, cases=FIXTURE_CASES):
     return [(case, repeat) for case in cases for repeat in range(repeats)]
 
 
-def assess(study, observation_set):
-    code, payload, err = run_json("assess", "--study", study, "--observations", observation_set, "--scorer", SCORER, "--references", references_id(study))
+def assess(study, observation_set, *more):
+    code, payload, err = run_json("assess", "--study", study, "--observations", observation_set, "--scorer", SCORER, "--references", references_id(study), *more)
     assert code == 0, (payload, err)
     return payload["assessment"]
 
@@ -81,13 +81,13 @@ def observation_set_of(study, attempt):
     return json.loads((folder / "observation_set.json").read_text())["observation_set_id"]
 
 
-def imported(tmp_path, study, name, lines, *, repeats=REPEATS):
-    """(Attempt, Assessment) of an import of `lines` into `study`."""
+def imported(tmp_path, study, name, lines, *, repeats=REPEATS, more=()):
+    """(Attempt, Assessment) of an import of `lines` into `study`; `more` is given to `import agent` and to `assess`."""
     source = write_lines(Path(tmp_path) / f"{name}.jsonl", lines)
     population = episodes_file(tmp_path, keys_of(repeats), name=f"{name}-population.json")
-    code, payload, err = import_agent(study, source, population, name)
+    code, payload, err = import_agent(study, source, population, name, *more)
     assert code == 0, (payload, err)
-    return payload["attempt"], assess(study, observation_set_of(study, payload["attempt"]))
+    return payload["attempt"], assess(study, observation_set_of(study, payload["attempt"]), *more)
 
 
 def case_digests_of(case_ids) -> dict:

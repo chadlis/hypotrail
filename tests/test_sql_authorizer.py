@@ -26,8 +26,9 @@ def sha(path):
 # --- valid reads return the exact result ------------------------------------------------------
 
 
-def test_the_references_with_an_oracle_sql_are_the_sixteen_of_the_kit():
-    assert len(ORACLES) == 16
+def test_the_references_with_an_oracle_sql_are_exactly_the_answered_ones_of_the_file():
+    answered = [r["case_id"] for r in read_jsonl(REFERENCES) if r["status"] == "answered"]
+    assert [r["case_id"] for r in ORACLES] == answered
 
 
 @pytest.mark.parametrize("reference", ORACLES, ids=lambda r: r["case_id"])

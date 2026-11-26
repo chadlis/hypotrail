@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from _agent_helpers import CHINOOK, WORKLOAD, read_jsonl
+from _agent_helpers import CASES, CHINOOK, WORKLOAD, read_jsonl
 from _chinook_helpers import chinook_examples, database_of, init_chinook
 from _exposure_helpers import PUBLIC_CASES, assess_agent, import_public
 from _run_agent_helpers import (
@@ -418,13 +418,14 @@ def test_the_effective_parameters_are_the_request_parameters_the_log_records_and
     assert agentic_live.effective_parameters(SimpleNamespace(samples=[])) == {"reasoning": None, "output_cap": None}
 
 
-def test_the_largest_allowed_request_every_dev_case_for_three_repeats_records_24_episodes(tmp_path, monkeypatch):
+def test_the_largest_allowed_request_every_dev_case_for_three_repeats_records_three_episodes_per_dev_case(tmp_path, monkeypatch):
     study = study_of(tmp_path)
     patch_model(monkeypatch)
     attempt = ok(live(study, "plain", "big", cases=None, repeats=3))
-    assert len(DEV) * 3 == 24 and attempt["item_counts"] == {"produced": 24, "failed": 0, "missing": 0}
+    episodes = len(read_jsonl(CASES)) * 3
+    assert len(DEV) * 3 == episodes and attempt["item_counts"] == {"produced": episodes, "failed": 0, "missing": 0}
     population = json.loads((study / read(study, attempt, "observation_set.json")["population_ref"]["path"]).read_text())
-    assert len(population["episodes"]) == 24
+    assert len(population["episodes"]) == episodes
 
 
 # --- No Reference reaches the model ---------------------------------------------------------------------------------------------

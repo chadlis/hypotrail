@@ -225,6 +225,13 @@ def test_the_spike_report_no_longer_lists_the_token_budget_as_shown_enforced(pag
 CHAPTER_03 = HANDBOOK / "chapters" / "03-agentic-track.html"
 
 
+def test_the_references_row_of_the_declaration_table_says_what_reference_version_means_and_names_both_versions(page):
+    [row] = [row for row in parse(page).tables["agentic-declaration"] if row["cells"][0]["text"] == "references"]
+    text = " ".join(cell["text"] for cell in row["cells"])
+    assert "the set version in which this record was written" in text
+    assert "chinook-references/1" in text and "chinook-references/2" in text
+
+
 def table_rows(page, table_id, attribute):
     """The rows of one table keyed by a data attribute of the row, each with its cells' data attributes."""
     rows = {}

@@ -3,13 +3,14 @@
 Each pin goes through the command line, as a user does: what `PROTOCOL_CHANGED` says on each of its five paths (`run ml`, `import ml`, `run agent`,
 `import agent`, and the Exposure path that `assess` reaches), where the check comes in each writer's order, and which database digest each agent path takes.
 No provider is called: `run agent` runs in `scripted_fixture` mode, and every refusal here comes before an Episode would run.
+The Chinook digests pinned here are those of the kit's Workload, so the Chinook pins run on the frozen revision-1 Workload (`--examples-dir`).
 """
 
 import json
 import sys
 from pathlib import Path
 
-from _chinook_helpers import FIXTURE, chinook_examples, database_of, episodes_file, fixture_population, import_agent, init_chinook, spec_of, write_lines
+from _chinook_helpers import FIXTURE, database_of, episodes_file, fixture_population, import_agent, init_chinook, revision_one_examples, spec_of, write_lines
 from _exposure_helpers import PUBLIC_CASES, REPEATS, assess_agent, correct_e01, edit_chinook_references, freezes, public_lines
 from _import_helpers import import_ml, ready
 from _run_agent_helpers import fixture
@@ -81,9 +82,20 @@ def test_import_ml_refuses_a_changed_protocol_with_its_code_message_stage_and_de
     assert error["details"] == bike_details()
 
 
+def kit_study(tmp_path):
+    """A Chinook Study made by `init` on the frozen revision-1 Workload, and that Workload's folder."""
+    examples = revision_one_examples(tmp_path)
+    study, _ = init_chinook(tmp_path, examples=examples)
+    return study, examples
+
+
+def kit_corrected(tmp_path, examples):
+    return edit_chinook_references(tmp_path, correct_e01, base=examples)
+
+
 def test_run_agent_refuses_a_changed_protocol_with_its_code_message_stage_and_details(tmp_path):
-    study, _ = init_chinook(tmp_path)
-    error = refusal(fixture(study, "plain", "r", "--examples-dir", edit_chinook_references(tmp_path, correct_e01)))
+    study, examples = kit_study(tmp_path)
+    error = refusal(fixture(study, "plain", "r", "--examples-dir", kit_corrected(tmp_path, examples)))
     assert error["code"] == "PROTOCOL_CHANGED"
     assert error["message"] == AGENT_MESSAGE
     assert error["stage"] == "request"
@@ -91,8 +103,8 @@ def test_run_agent_refuses_a_changed_protocol_with_its_code_message_stage_and_de
 
 
 def test_import_agent_refuses_a_changed_protocol_with_its_code_message_stage_and_details(tmp_path):
-    study, _ = init_chinook(tmp_path)
-    corrected = edit_chinook_references(tmp_path, correct_e01)
+    study, examples = kit_study(tmp_path)
+    corrected = kit_corrected(tmp_path, examples)
     error = refusal(import_agent(study, FIXTURE, fixture_population(tmp_path), "i", "--examples-dir", corrected))
     assert error["code"] == "PROTOCOL_CHANGED"
     assert error["message"] == AGENT_MESSAGE
@@ -110,9 +122,9 @@ def import_public(tmp_path, study, name, *more) -> dict:
 
 
 def test_the_exposure_path_refuses_a_changed_protocol_with_its_code_message_stage_and_details(tmp_path):
-    study, _ = init_chinook(tmp_path)
-    attempt = import_public(tmp_path, study, "imp")
-    error = refusal(assess_agent(study, attempt, "--examples-dir", edit_chinook_references(tmp_path, correct_e01)))
+    study, examples = kit_study(tmp_path)
+    attempt = import_public(tmp_path, study, "imp", "--examples-dir", examples)
+    error = refusal(assess_agent(study, attempt, "--examples-dir", kit_corrected(tmp_path, examples)))
     assert error["code"] == "PROTOCOL_CHANGED"
     assert error["message"] == EXPOSURE_MESSAGE
     assert error["stage"] == "exposure"
@@ -158,8 +170,9 @@ def test_run_ml_refused_for_a_changed_protocol_writes_no_running_manifest_and_no
 
 
 def with_changed_database(tmp_path) -> Path:
-    """A copy of `examples/` whose live Chinook database has one more byte, with its lock entry rewritten so that the data verification passes."""
-    examples = chinook_examples(tmp_path, name="changed-database")
+    """A copy of the frozen revision-1 Workload whose Chinook database has one more byte, with its lock entry rewritten so that the data
+    verification passes."""
+    examples = revision_one_examples(tmp_path, name="changed-database")
     database = database_of(examples)
     database.write_bytes(database.read_bytes() + b"x")
     lock_path = examples / "chinook" / "data-sources.lock.json"
@@ -172,18 +185,18 @@ def with_changed_database(tmp_path) -> Path:
 
 
 def test_run_agent_hashes_the_live_database_and_refuses_a_changed_one_with_protocol_changed(tmp_path):
-    study, _ = init_chinook(tmp_path)
+    study, _ = kit_study(tmp_path)
     assert code_of(fixture(study, "plain", "r", "--examples-dir", with_changed_database(tmp_path))) == "PROTOCOL_CHANGED"
 
 
 def test_import_agent_takes_the_studys_copy_of_the_database_and_is_not_refused_for_a_changed_live_one(tmp_path):
-    study, _ = init_chinook(tmp_path)
+    study, _ = kit_study(tmp_path)
     code, payload, err = import_agent(study, FIXTURE, fixture_population(tmp_path), "i", "--examples-dir", with_changed_database(tmp_path))
     assert (code, payload["ok"]) == (0, True), (payload, err)
 
 
 def test_the_freeze_basis_records_the_protocol_digest_of_the_studys_copy_of_the_database_with_dataset_source_study_copy(tmp_path):
-    study, _ = init_chinook(tmp_path)
+    study, _ = kit_study(tmp_path)
     changed = with_changed_database(tmp_path)
     attempt = import_public(tmp_path, study, "imp", "--examples-dir", changed)
     code, payload, err = assess_agent(study, attempt, "--examples-dir", changed)
