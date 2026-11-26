@@ -5274,6 +5274,32 @@ def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
 
 
+# Sentences of the client chapter that the panel's redesign made false (D-161, and the uncited Attempt's ids as plain text).
+CLIENT_CHAPTER_FALSE = (
+    "otherwise the label of no pending decision",
+    "its Decisions, with the count of pending decisions",
+    "the last two always",
+    "When nothing is pending, a fixed sentence stands under the count of pending decisions.",
+    "a fixed word stands under either heading when the Study holds none",
+    "its id and its counts show once an Assessment holds",
+    "The count of pending decisions, under their heading",
+)
+# What the chapter now says in their place.
+CLIENT_CHAPTER_TRUE = (
+    "the count of pending decisions stands on the line of the heading of \"Now\"",
+    "a kind with no record has no step",
+    "a fixed sentence that no decision waits for the reviewer",
+    "as plain text, never links",
+    "under a heading of its own, of level three, other than the compact line's",
+)
+
+
+def test_the_client_chapter_says_none_of_the_sentences_the_redesign_made_false_and_says_what_holds_now():
+    chapter = html.unescape(chapter_text(CLIENT_CHAPTER))
+    assert [sentence for sentence in CLIENT_CHAPTER_FALSE if sentence in chapter] == []
+    assert [sentence for sentence in CLIENT_CHAPTER_TRUE if sentence not in chapter] == []
+
+
 # The option of `decide` that the bridge does not pass: it holds no file write, so it cannot make a file for it, and passes the texts with `--words`.
 NOT_PASSED_BY_THE_BRIDGE = {"--words-file"}
 
