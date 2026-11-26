@@ -26,7 +26,9 @@ data = json.load(open(path))
 print(json.dumps([data] if "--slurp" in args else data))
 """
 
-BODY = "Slice R9 (#50).\n\nB1-P-02 is carried: the PR body gives the red runs.\n"
+HEAD = "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d"
+SUITE = f"Full suite at `{HEAD[:7]}` (run by the drive): 412 passed, 3 skipped in 61.20s\n"
+BODY = f"Slice R9 (#50).\n\nB1-P-02 is carried: the PR body gives the red runs.\n{SUITE}"
 
 
 def comment(first: str, rest: str = "", n: int = 0) -> dict:
@@ -50,22 +52,27 @@ CHECKED = "````\nThis is a review fix. B1-S-01: rename the function.\n````\n\nFi
 ROW5 = "| B5-S-01 | 5 | Standards | a docstring | 1 (documentation) | open | z |\n| B5-P-01 | 5 | Spec | a limit | 1 (documentation) | open | z |"
 
 
+# A ticket-gate heading in the form the check reads: here the one-line pointer to a report posted under another heading.
+GATE = "## R9: ticket gate, #61 and #62 (slice-gate, Fable), its report word for word: comment 9300"
+
+
 def complete_record() -> list:
     return [
-        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Pull request:** #7.\n"),
         comment("## R9, round 1: Standards axis (review of record, `x`)"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, ROW1),
         comment(FIX_PROMPT_1, CHECKED),
         comment("## R9, round 2: Standards axis (review of record, `x`)"),
         routing(2, "| B2-S-01 | 2 | Standards | another name | 1 | open | y |"),
+        comment(GATE),
         comment("## R9: closing register", "B1-P-02 carried. B1-S-01 fixed. B2-S-01 fixed.\n"),
     ]
 
 
 def documentation_record() -> list:
     """Five reviewed rounds, the documentation path in round 5 with its fix prompt, both verifications and a register that lists every ID."""
-    record = [comment("## R9: state (updated in place)", "- **Review rounds used:** 5 of 5.\n")]
+    record = [comment("## R9: state (updated in place)", "- **Review rounds used:** 5 of 5.\n- **Pull request:** #7.\n")]
     for number in range(1, 6):
         record.append(comment(f"## R9, round {number}: Standards axis (review of record, `x`)"))
         rows = ROW5 if number == 5 else f"| B{number}-S-01 | {number} | Standards | the name of round {number} | 1 | open | y |"
@@ -73,12 +80,13 @@ def documentation_record() -> list:
         record.append(comment(f"## R9, round {number}: fix prompt (to slice-builder), word for word", CHECKED))
     record.append(comment("## R9, round 5: Standards verification of the documentation fixes"))
     record.append(comment("## R9, round 5: Spec verification of the documentation fixes"))
+    record.append(comment(GATE))
     record.append(comment("## R9: closing register", "B1-S-01 B2-S-01 B3-S-01 B4-S-01 B5-S-01 B5-P-01\n"))
     return record
 
 
 def problems(comments, body=BODY, slice_number=50):
-    return load("check_record").problems(body, comments, slice_number)
+    return load("check_record").problems(body, comments, slice_number, pull=(7, HEAD))
 
 
 def test_a_complete_record_has_no_problem():
@@ -204,12 +212,12 @@ def test_slice_exits_2_when_github_cannot_be_read(gh_dir):
 
 def test_a_state_comment_whose_round_count_is_not_the_number_of_reviewed_rounds_is_refused():
     record = complete_record()
-    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 0 of 5.\n")
+    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 0 of 5.\n- **Pull request:** #7.\n")
     assert problems(record) == ["the state comment says 0 of 5 review rounds, and 2 have a review of record"]
 
 
 def test_a_missing_state_comment_is_refused():
-    assert problems(complete_record()[1:]) == ["the state comment has no line 'Review rounds used: N of 5'"]
+    assert problems(complete_record()[1:]) == ["the state comment has no line 'Review rounds used: N of 5'", "no state comment holds '#7', the number of the pull request being merged"]
 
 
 def test_a_round_with_a_review_of_record_and_no_routing_comment_is_refused():
@@ -233,12 +241,13 @@ def test_a_slice_without_a_documentation_path_needs_no_verification():
 def two_round_record(first: str, second_rows: str, round_1_text: str = "", round_2_text: str = "") -> list:
     """Two reviewed rounds of one Spec reader: round 1 routes B1-P-01 on `first` to row 1, round 2 routes `second_rows`."""
     return [
-        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Pull request:** #7.\n"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(1, f"| B1-P-01 | 1 | Spec | {first} | 1 | open | x |")["body"] + round_1_text},
         comment(FIX_PROMPT_1, CHECKED),
         comment("## R9, round 2: Spec axis (review of record, `x`)"),
         {"id": 0, "body": routing(2, second_rows)["body"] + round_2_text},
+        comment(GATE),
         comment("## R9: closing register", "B1-P-01 fixed. B2-P-01 fixed.\n"),
     ]
 
@@ -298,11 +307,11 @@ def stated_limit_record() -> list:
 
 
 def test_a_row_with_the_status_stated_limit_counts_as_settled():
-    assert problems(stated_limit_record(), body="Slice R9 (#50).\n\nB1-P-01: a stated limit.\n") == []
+    assert problems(stated_limit_record(), body=f"Slice R9 (#50).\n{SUITE}\nB1-P-01: a stated limit.\n") == []
 
 
 def test_a_stated_limit_row_whose_id_the_pr_body_does_not_name_is_refused():
-    assert problems(stated_limit_record(), body="Slice R9 (#50).\n") == ["B1-P-01 promises a line in the PR body, and the PR body does not name it"]
+    assert problems(stated_limit_record(), body=f"Slice R9 (#50).\n{SUITE}") == ["B1-P-01 promises a line in the PR body, and the PR body does not name it"]
 
 
 def test_a_wording_row_in_round_2_with_no_verification_comment_is_refused():
@@ -313,13 +322,14 @@ def test_a_wording_row_in_round_2_with_no_verification_comment_is_refused():
 
 def test_a_wording_row_carried_into_a_later_table_owes_the_verification_of_its_own_round():
     record = [
-        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n"),
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Pull request:** #7.\n"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, "| B1-P-01 | 1 | Spec | a test name | 1 (wording: test name) | open | x |"),
         comment(FIX_PROMPT_1, CHECKED),
         comment("## R9, round 1: Spec verification of the wording fixes"),
         comment("## R9, round 2: Spec axis (review of record, `x`)"),
         routing(2, "| B1-P-01 | 1 | Spec | a test name | 1 (wording: test name) | fixed-verified | v |\n| B2-P-01 | 2 | Spec | a limit | 1 | open | y |"),
+        comment(GATE),
         comment("## R9: closing register", "B1-P-01 fixed-verified. B2-P-01 fixed.\n"),
     ]
     assert problems(record) == []
@@ -327,10 +337,11 @@ def test_a_wording_row_carried_into_a_later_table_owes_the_verification_of_its_o
 
 def test_a_ux_wording_row_owes_a_ux_verification_of_its_round():
     record = [
-        comment("## R9: state (updated in place)", "- **Review rounds used:** 1 of 5.\n"),
+        comment("## R9: state (updated in place)", "- **Review rounds used:** 1 of 5.\n- **Pull request:** #7.\n"),
         comment("## R9, round 1: Spec axis (review of record, `x`)"),
         routing(1, "| B1-U-01 | 1 | UX | the confirmation | 1 (wording) | open | x |"),
         comment(FIX_PROMPT_1, CHECKED),
+        comment(GATE),
         comment("## R9: closing register", "B1-U-01 fixed.\n"),
     ]
     assert problems(record) == ["round 1, documentation path (B1-U-01): no 'round 1: UX verification' comment"]
@@ -344,7 +355,7 @@ def test_a_pr_body_row_carried_open_in_two_rounds_does_not_count_as_a_repeat():
     record[2] = routing(1, row.format(number=1))
     record[5] = routing(2, row.format(number=1))
     record[-1] = comment("## R9: closing register", "B1-P-01 open, stated in the PR body.\n")
-    assert problems(record, body="Slice R9 (#50).\n\nB1-P-01: a stated limit.\n") == []
+    assert problems(record, body=f"Slice R9 (#50).\n{SUITE}\nB1-P-01: a stated limit.\n") == []
 
 
 @pytest.mark.parametrize(
@@ -415,6 +426,7 @@ def test_the_hook_reads_the_round_lines_of_the_slice_issue_it_finds(gh_dir):
     result = hook(gh_dir, merge_tool())
     assert result.returncode == 2 and "no line 'Models: <value>'" in result.stderr
     put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "Part of #121.\nB1-P-02 is carried."})
+    put(gh_dir, "repos/chadlis/hypotrail/issues/121", {"number": 121, "labels": []})
     put(gh_dir, "repos/chadlis/hypotrail/issues/121/comments", record_with_lines(""))
     assert hook(gh_dir, merge_tool()).returncode == 0
 
@@ -430,9 +442,10 @@ TIGHTENED_61 = "## Acceptance criteria\n\n- A1. The key is `x`.\n\n## Tightened 
 def delegated_record(gh_dir, slice_number=50, listed=(9101, 9201), linked=True, label="## R9: drive decision (delegated)"):
     """A complete record of the slice, a drive comment on the slice issue (9101) and on its ticket #61 (9201), a ticket-gate comment on #61 (9202), and the slice's entry on #75 (9000), which lists `listed`."""
     record = complete_record()
-    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Decisions:** " + (f"the delegated choices, {ENTRY}." if linked else "none."))
+    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n- **Pull request:** #7.\n- **Decisions:** " + (f"the delegated choices, {ENTRY}." if linked else "none."))
     record.insert(1, comment("## R9 A: the drive's delegated answers to the builder", "1. The key is `x`.", n=9101))
-    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"Part of #{slice_number}.\nB1-P-02 is carried."})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"Part of #{slice_number}.\nB1-P-02 is carried.\n{SUITE}", "head": {"sha": HEAD}})
+    put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}", {"number": slice_number, "labels": []})
     put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/comments", record)
     put(gh_dir, f"repos/chadlis/hypotrail/issues/{slice_number}/sub_issues", [{"number": 61, "body": TIGHTENED_61}])
     put(gh_dir, "repos/chadlis/hypotrail/issues/61/comments", [comment("## R9 A: the drive's answer on TA5", n=9201), comment("## R9: ticket gate, A, reading 1", n=9202)])
@@ -499,23 +512,23 @@ def test_a_behaviour_no_line_row_that_the_closing_register_leaves_unsettled_is_r
 
 
 def test_a_promised_line_that_the_pr_body_does_not_name_is_refused_unless_the_finding_is_settled():
-    assert problems(complete_record(), body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
+    assert problems(complete_record(), body=f"Slice R9 (#50).\n{SUITE}") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
     record = complete_record()
     record[-1] = comment("## R9: closing register", "B1-P-02 refuted. B1-S-01 fixed. B2-S-01 fixed.\n")
-    assert problems(record, body="Slice R9 (#50).\n") == []
+    assert problems(record, body=f"Slice R9 (#50).\n{SUITE}") == []
 
 
 def test_a_row_the_closing_register_settles_is_no_longer_promised_to_the_pr_body():
     record = complete_record()
     assert record[3]["body"].count("| open |") == 2
     record[-1] = comment("## R9: closing register", "B1-P-02 fixed. B1-S-01 fixed. B2-S-01 fixed.\n")
-    assert problems(record, body="Slice R9 (#50).\n") == []
+    assert problems(record, body=f"Slice R9 (#50).\n{SUITE}") == []
 
 
 def test_a_row_the_closing_register_leaves_open_is_still_promised_to_the_pr_body_even_if_the_routing_row_said_fixed():
     record = complete_record()
     record[3] = routing(1, ROW1.replace("| open | x |", "| fixed | x |"))
-    assert problems(record, body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
+    assert problems(record, body=f"Slice R9 (#50).\n{SUITE}") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
 
 
 def test_the_skill_names_the_comment_forms_the_check_reads():
@@ -575,7 +588,8 @@ def gh_dir(tmp_path):
     gh = tmp_path / "bin" / "gh"
     gh.write_text(FAKE_GH)
     gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
-    put(directory, "repos/chadlis/hypotrail/pulls/7", {"body": BODY})
+    put(directory, "repos/chadlis/hypotrail/pulls/7", {"body": BODY, "head": {"sha": HEAD}})
+    put(directory, "repos/chadlis/hypotrail/issues/50", {"number": 50, "labels": []})
     put(directory, "repos/chadlis/hypotrail/pulls/7/files", [{"filename": "src/hypotrail/cli.py"}])
     put(directory, "repos/chadlis/hypotrail/issues/50/comments", complete_record())
     put(directory, "repos/chadlis/hypotrail/issues/50/sub_issues", [])
@@ -660,7 +674,7 @@ def test_a_pull_request_that_names_no_slice_issue_is_blocked(gh_dir):
 
 
 def test_the_squash_subject_names_the_slice_when_the_body_does_not(gh_dir):
-    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "B1-P-02: the red runs"})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"B1-P-02: the red runs\n{SUITE}", "head": {"sha": HEAD}})
     assert hook(gh_dir, merge_tool(commit_title="feat: a slice (#50)")).returncode == 0
 
 
@@ -709,7 +723,7 @@ def test_a_merge_is_found_wherever_the_flags_and_prefixes_sit(gh_dir, command):
 
 
 def test_a_quoted_semicolon_or_ampersand_in_the_subject_does_not_hide_the_merge_or_its_subject(gh_dir):
-    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": "B1-P-02: the red runs"})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": f"B1-P-02: the red runs\n{SUITE}", "head": {"sha": HEAD}})
     command = "gh pr merge 7 --squash --subject 'feat: a; b & c | d (#50)'"
     assert hook(gh_dir, bash(command)).returncode == 0
     put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", complete_record()[:-1])
@@ -776,6 +790,7 @@ def test_a_merge_without_a_number_in_another_repository_is_not_checked(gh_dir):
 def test_every_merge_of_a_command_is_checked(gh_dir):
     put(gh_dir, "repos/chadlis/hypotrail/pulls/8", {"body": "Part of #51."})
     put(gh_dir, "repos/chadlis/hypotrail/pulls/8/files", [{"filename": "src/hypotrail/cli.py"}])
+    put(gh_dir, "repos/chadlis/hypotrail/issues/51", {"number": 51, "labels": []})
     put(gh_dir, "repos/chadlis/hypotrail/issues/51/comments", [])
     put(gh_dir, "repos/chadlis/hypotrail/issues/51/sub_issues", [])
     result = hook(gh_dir, bash("gh pr merge 7 --squash && gh pr merge 8 --squash"))
@@ -794,21 +809,22 @@ def test_a_timeout_or_a_failure_of_the_record_check_blocks_the_merge():
 
 
 def calls_of_a_merge(tickets: int) -> int:
-    """The `gh` calls of the record check of one merge: the pull request, its files, the slice issue's comments, its sub-issues, each ticket's comments and the decision log's."""
-    return 5 + tickets
+    """The `gh` calls of the record check of one merge: the pull request, its files, the slice issue's labels, its comments, its sub-issues, each ticket's comments and the decision log's."""
+    return 6 + tickets
 
 
-def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_ten_tickets(monkeypatch):
+def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_hook_timeout_holds_the_calls_of_a_merge_of_a_slice_with_at_most_nine_tickets(monkeypatch):
     module = load("check_record")
     seen = []
 
     def fake_run(command, **options):
         seen.append(options.get("timeout"))
         path = command[2]
-        data = {"body": "Part of #50."} if path.endswith("/pulls/7") else [[{"number": 60 + n} for n in range(tickets)]] if path.endswith("/sub_issues") else [[]]
+        data = {"body": "Part of #50."} if path.endswith("/pulls/7") else {"labels": labels} if path.endswith("/issues/50") else [[{"number": 60 + n} for n in range(tickets)]] if path.endswith("/sub_issues") else [[]]
         return type("Done", (), {"returncode": 0, "stdout": json.dumps(data), "stderr": ""})()
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
+    labels = []
     for tickets in range(7):
         seen.clear()
         with pytest.raises(module.Refusal):
@@ -816,9 +832,14 @@ def test_every_gh_call_of_the_record_check_is_capped_at_twenty_seconds_and_the_h
         assert seen == [20] * calls_of_a_merge(tickets)
     timeouts = {e["timeout"] for e in check_record_entries()}
     covered = max(t for t in range(20) if calls_of_a_merge(t) * module.GH_TIMEOUT <= min(timeouts))
-    assert timeouts == {300} and covered == 10
+    assert timeouts == {300} and covered == 9
+    labels, tickets = [{"name": "fast-lane"}], 3
+    seen.clear()
+    with pytest.raises(module.Refusal):
+        module.check(module.REPOSITORY, 7, None)
+    assert seen == [20] * 4
     doc = " ".join(module.__doc__.split())
-    assert "the hook's 300 s timeout" in doc and "covers a slice of at most 10 tickets" in doc and "fails closed" in doc
+    assert "the hook's 300 s timeout" in doc and "covers a slice of at most 9 tickets" in doc and "fails closed" in doc
 
 
 @pytest.mark.parametrize(
@@ -840,13 +861,14 @@ def test_a_later_comment_that_is_neither_a_routing_nor_the_closing_register_sett
         comment("## R9, round 2: fix prompt", "B1-P-02 fixed. B1-S-01 fixed.\n"),
         comment("## R9, round 2: Spec axis report", "| B1-P-02 | 1 | Spec | x | 1 | fixed | y |\n"),
     ]
-    assert problems(record, body="Slice R9 (#50).\n") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
+    assert problems(record, body=f"Slice R9 (#50).\n{SUITE}") == ["B1-P-02 promises a line in the PR body, and the PR body does not name it"]
 
 
 def test_a_drive_titled_pull_request_with_tests_and_docs_only_and_a_part_of_line_is_checked_against_its_slice_issue(gh_dir):
     files = [{"filename": "tests/test_x.py"}, {"filename": "docs/agents/x.md"}]
     put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"title": "drive: tests and docs", "body": "Part of #120.\n"})
     put(gh_dir, "repos/chadlis/hypotrail/pulls/7/files", files)
+    put(gh_dir, "repos/chadlis/hypotrail/issues/120", {"number": 120, "labels": []})
     put(gh_dir, "repos/chadlis/hypotrail/issues/120/comments", [])
     result = hook(gh_dir, merge_tool())
     assert result.returncode == 2 and "slice #120" in result.stderr
@@ -933,3 +955,187 @@ def test_the_history_rule_skips_l2_7_and_each_issue_merged_before_it_and_only_th
     module = load("check_record")
     assert module.MERGED_BEFORE_HISTORY_RULE == module.MERGED_BEFORE_WORDING_PATH | {200, 204}
     assert all(module.problems(BODY, complete_record(), n, {205: []}, [], {205: BODY_205}) == [] for n in sorted(module.MERGED_BEFORE_HISTORY_RULE))
+
+
+# --- the pull request a merge names: the state comment holds its number, and the PR body the drive's full suite at its head
+
+NO_PR = "no state comment holds '#7', the number of the pull request being merged"
+NO_SUITE = (
+    "the PR body has no line 'Full suite at `<sha>` (run by the drive): <final line>' whose <sha> starts the head "
+    f"{HEAD} and whose <final line> says '<n> passed ... in <t>s' and holds neither 'failed' nor 'error'"
+)
+NO_GATE = (
+    "no comment of the slice issue has a first line '## <slice>: ticket gate, <tickets> (slice-gate, <model>), "
+    "its report word for word' whose <tickets> name a '#<n>'"
+)
+
+
+def with_state(state_text: str) -> list:
+    record = complete_record()
+    record[0] = comment("## R9: state (updated in place)", "- **Review rounds used:** 2 of 5.\n" + state_text)
+    return record
+
+
+@pytest.mark.parametrize("state_text", ["", "- **Pull request:** to be opened.\n", "- **Pull request:** #70.\n", "- **Closing register:** comment 7.\n"])
+def test_a_state_comment_that_does_not_hold_the_number_of_the_pull_request_being_merged_is_refused(state_text):
+    assert problems(with_state(state_text)) == [NO_PR]
+
+
+def test_a_state_comment_that_holds_the_number_of_the_pull_request_being_merged_passes():
+    assert problems(with_state("- **Pull request:** #7, opened from `claude/r9`.\n")) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "",
+        f"Full suite at `{HEAD[:7]}`: 412 passed in 61.20s",
+        f"Full suite at `{HEAD[:7]}` (run by the builder): 412 passed in 61.20s",
+        f"After (`{HEAD[:7]}`, clean tree, run by the drive): 412 passed in 61.20s",
+        "Full suite at `a8354c9` (run by the drive): 412 passed in 61.20s",
+        f"Full suite at `{HEAD[:7]}` (run by the drive): 2 failed, 410 passed in 61.20s",
+        f"Full suite at `{HEAD[:7]}` (run by the drive): 412 passed, 1 error in 61.20s",
+        f"Full suite at `{HEAD[:7]}` (run by the drive): 412 passed",
+        f"Full suite at `{HEAD[:7]}` (run by the drive): all green",
+    ],
+    ids=["none", "no runner", "the builder", "another form", "another head", "failed", "error", "no duration", "no count"],
+)
+def test_a_pr_body_without_the_drives_full_suite_line_at_the_head_of_the_pull_request_is_refused(line):
+    assert problems(complete_record(), body=f"Slice R9 (#50).\n\nB1-P-02 is carried.\n{line}\n") == [NO_SUITE]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"Full suite at `{HEAD[:7]}` (run by the drive): 412 passed, 3 skipped in 61.20s",
+        f"Full suite at `{HEAD}` (run by the drive): ======= 1 passed in 3s =======",
+    ],
+    ids=["a short head", "the whole head"],
+)
+def test_a_pr_body_with_the_drives_full_suite_line_at_a_prefix_of_the_head_passes(line):
+    assert problems(complete_record(), body=f"Slice R9 (#50).\n\nB1-P-02 is carried.\n{line}\n") == []
+
+
+def test_the_pr_lines_rule_skips_r2a_and_each_slice_merged_before_it_and_only_those():
+    module = load("check_record")
+    assert module.MERGED_BEFORE_PR_LINES_RULE == module.MERGED_BEFORE_HISTORY_RULE | {212}
+    bare = "Slice R9 (#50).\n\nB1-P-02 is carried.\n"
+    assert all(module.problems(bare, with_state(""), n, {}, [], {}, pull=(7, HEAD)) == [] for n in sorted(module.MERGED_BEFORE_PR_LINES_RULE))
+    assert module.problems(bare, with_state(""), 218, {}, [], {}, pull=(7, HEAD)) == [NO_PR, NO_SUITE]
+
+
+def test_the_hook_reads_the_number_and_the_head_of_the_pull_request_it_merges(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": BODY, "head": {"sha": "a8354c9" + HEAD[7:]}})
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and NO_SUITE.replace(HEAD, "a8354c9" + HEAD[7:]) in result.stderr
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/8", {"body": BODY, "head": {"sha": HEAD}})
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/8/files", [{"filename": "src/hypotrail/cli.py"}])
+    result = hook(gh_dir, merge_tool(8))
+    assert result.returncode == 2 and NO_PR.replace("#7", "#8") in result.stderr
+
+
+def test_slice_skips_the_pr_lines_rule_before_any_pull_request_exists(gh_dir):
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", with_state(""))
+    result = slice_check(gh_dir)
+    assert (result.returncode, result.stdout) == (0, "Record check of slice #50: no reason.\n")
+
+
+# --- the ticket-gate heading
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "## L2.7, ticket gate",
+        "## R2a, ticket gate (slice-gate on Fable), its report word for word",
+        "## R9: ticket gate, A and B (slice-gate, Fable), its report word for word",
+        "## R9: ticket gate, #61 (slice-gate), its report word for word",
+        "## R9: ticket gate, #61 (A) (slice-gate, Fable), its report word for word",
+        "## R9: ticket gate, #61 (slice-gate, Fable), its report",
+        "R9: ticket gate, #61 (slice-gate, Fable), its report word for word",
+    ],
+    ids=["no tickets or model", "no tickets", "no ticket number", "no model", "a parenthesis in the tickets", "not word for word", "not a heading"],
+)
+def test_a_slice_whose_ticket_gate_heading_is_not_in_the_form_is_refused(heading):
+    record = [comment(heading) if c["body"].startswith(GATE) else c for c in complete_record()]
+    assert problems(record) == [NO_GATE]
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "## R9: ticket gate, #61 (slice-gate, Fable), its report word for word",
+        "## R2a: ticket gate, #216 to #219 (slice-gate, claude-fable-5-2), its report word for word (1 of 2)",
+        GATE,
+    ],
+    ids=["one ticket", "a range, split", "a pointer"],
+)
+def test_a_ticket_gate_heading_in_the_form_or_a_one_line_pointer_in_that_form_passes_beside_a_report_that_is_not(heading):
+    record = [comment(heading) if c["body"].startswith(GATE) else c for c in complete_record()]
+    assert problems(record) == []
+    record.insert(1, comment("## R9, ticket gate (slice-gate on Fable), its report word for word"))
+    assert problems(record) == []
+
+
+def test_the_gate_heading_rule_skips_r2a_and_each_slice_merged_before_it_and_only_those_and_runs_under_slice(gh_dir):
+    module = load("check_record")
+    assert module.MERGED_BEFORE_GATE_HEADING_RULE == module.MERGED_BEFORE_PR_LINES_RULE
+    ungated = [c for c in complete_record() if not c["body"].startswith(GATE)]
+    assert all(module.problems(BODY, ungated, n, {}, [], {}, pull=(7, HEAD)) == [] for n in sorted(module.MERGED_BEFORE_GATE_HEADING_RULE))
+    assert module.problems(BODY, ungated, 218, {}, [], {}, pull=(7, HEAD)) == [NO_GATE]
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", ungated)
+    assert slice_check(gh_dir).stdout.splitlines() == ["Record check of slice #50: 1 reason(s).", f"- {NO_GATE}"]
+
+
+# --- the fast lane
+
+FAST_LANE = "fast lane (D-144)"
+DEBT_LINE = "Debt: the Standards axis reads 1a2b3c4..5f6a7b8 at hardening.\n"
+NO_DEBT = "the PR body has no 'Debt:' section: a line that starts 'Debt:' or a heading '## Debt'"
+
+
+def fast_lane(gh_dir, state="- **Pull request:** #7.\n", body=f"Part of #50.\n{SUITE}{DEBT_LINE}", labels=({"name": "fast-lane"},)):
+    """Slice issue #50 with `labels`, whose record is its state comment alone: every rule but the fast lane's three refuses it."""
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50", {"number": 50, "labels": list(labels)})
+    put(gh_dir, "repos/chadlis/hypotrail/issues/50/comments", [comment("## R9: state (updated in place)", "- **Review rounds used:** 0 of 5.\n" + state)])
+    put(gh_dir, "repos/chadlis/hypotrail/pulls/7", {"body": body, "head": {"sha": HEAD}})
+
+
+@pytest.mark.parametrize("debt", [DEBT_LINE, "## Debt\n\n- the Standards axis reads 1a2b3c4..5f6a7b8 at hardening.\n"], ids=["a line", "a heading"])
+def test_a_fast_lane_slice_with_the_pull_request_in_its_state_comment_its_suite_line_and_a_debt_section_is_merged_with_a_note_that_says_fast_lane(gh_dir, debt):
+    fast_lane(gh_dir, body=f"Part of #50.\n{SUITE}\n{debt}")
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 0, result.stderr
+    note = json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert FAST_LANE in note and "slice #50" in note
+
+
+@pytest.mark.parametrize(
+    "change, reason",
+    [
+        ({"state": "- **Pull request:** to be opened.\n"}, NO_PR),
+        ({"body": f"Part of #50.\n{DEBT_LINE}"}, NO_SUITE),
+        ({"body": f"Part of #50.\n{SUITE.replace('(run by the drive)', '(run by the builder)')}{DEBT_LINE}"}, NO_SUITE),
+        ({"body": f"Part of #50.\n{SUITE}"}, NO_DEBT),
+        ({"body": f"Part of #50.\n{SUITE}The Debt: none.\n### Debt\n"}, NO_DEBT),
+    ],
+    ids=["no pull request in the state comment", "no suite line", "the builder's suite line", "no debt", "debt mid-line or under another heading"],
+)
+def test_a_fast_lane_slice_missing_one_of_its_three_lines_is_refused_on_that_line_alone(gh_dir, change, reason):
+    fast_lane(gh_dir, **change)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and reason in result.stderr and FAST_LANE in result.stderr
+    assert result.stderr.count("\n- ") == 1
+
+
+@pytest.mark.parametrize("labels", [(), ({"name": "needs-triage"},)], ids=["no label", "another label"])
+def test_an_unlabelled_slice_keeps_every_rule(gh_dir, labels):
+    fast_lane(gh_dir, labels=labels)
+    result = hook(gh_dir, merge_tool())
+    assert result.returncode == 2 and "no review of record is posted" in result.stderr and "fast lane" not in result.stderr
+
+
+def test_slice_says_fast_lane_for_a_labelled_slice_and_reads_none_of_the_other_rules(gh_dir):
+    fast_lane(gh_dir)
+    result = slice_check(gh_dir)
+    assert (result.returncode, result.stdout) == (0, f"Record check of slice #50, {FAST_LANE}: no reason.\n")

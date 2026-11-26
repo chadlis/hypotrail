@@ -42,6 +42,28 @@ def test_the_skill_states_its_word_ceiling_in_step_10_and_stays_at_or_under_it()
     assert c_locale_word_count(SKILL) <= WORD_CEILING
 
 
+# D-141 on chadlis/hypotrail#75 (comment 7179871680) gives the sentence that replaces the premise check's last one.
+QUOTED_LINES = (
+    '"What stays as it is" quotes each criterion that a comment on the changed lines cites; the prompt quotes each live '
+    '"What to build" sentence, criterion or Tightened line of the slice\'s tickets that names a file or function it changes '
+    "(by `grep -n`); a requirement cell quotes every requirement its finding quotes."
+)
+FAST_LANE = (
+    "Until the complete demonstration, a slice labelled `fast-lane` follows D-144 on chadlis/hypotrail#75 (comment 7182815339) "
+    "instead of the rules it suspends."
+)
+
+
+def test_the_premise_check_ends_with_the_sentence_of_d_141_on_what_a_fix_prompt_quotes():
+    paragraph = next(line for line in SKILL.splitlines() if line.startswith("**Check the premise before you route.**"))
+    assert paragraph.endswith(" " + QUOTED_LINES)
+    assert SKILL.count('"What stays as it is" quotes each criterion') == 1
+
+
+def test_the_skill_points_a_fast_lane_slice_to_d_144_in_a_paragraph_of_its_own():
+    assert f"\n\n{FAST_LANE}\n\n" in SKILL
+
+
 RENDER = (ROOT / ".claude/skills/verify-panel/render.js").read_text()
 HARNESS = (ROOT / "clients/vscode/test/panel-harness.ts").read_text()
 

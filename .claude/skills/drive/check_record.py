@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PreToolUse hook before a merge (D-055 on chadlis/hypotrail#75, item 3). It fails closed: any error exits 2.
+r"""PreToolUse hook before a merge (D-055 on chadlis/hypotrail#75, item 3). It fails closed: any error exits 2.
 
 It acts on the tool `mcp__github__merge_pull_request`, and on a Bash command that runs `gh pr merge` or
 `gh api -X PUT .../pulls/<n>/merge` (a GET of that path is no merge). The whole command string is searched: quoted text and heredoc
@@ -85,9 +85,25 @@ for the slice issue of the pull request:
    `MERGED_BEFORE_HISTORY_RULE` lists, L2.7's (chadlis/hypotrail#204) the last of them. Its limits: it reads the words, so
    it does not check that the history comment holds the replaced lines, that each replaced line is marked, or that a
    ticket rewritten in place under another wording than a routing marker has one.
+13. a state comment holds `#<pr>` for the pull request being merged, and the PR body has a line
+   ``Full suite at `<sha>` (run by the drive): <final line>``, where `<sha>` is a prefix of the PR's `head.sha` and
+   `<final line>` matches `\d+ passed\b.* in \d+(\.\d+)?s` and holds neither "failed" nor "error" (D-141 on
+   chadlis/hypotrail#75, S2). The rule skips the slices `MERGED_BEFORE_PR_LINES_RULE` lists, R2a's (chadlis/hypotrail#212)
+   the last of them. Its limit: the line proves the head, not who ran the suite;
+14. a comment of the slice issue has a first line that matches
+   `^## [^\n]*?: ticket gate, [^()\n]*#\d+[^()\n]* \(slice-gate, [^)\n]+\), its report word for word` (D-141 on
+   chadlis/hypotrail#75, S4): the ticket-gate report's heading, or the one-line pointer to a report posted under another
+   heading, which ends ": comment <id>". The rule skips the slices `MERGED_BEFORE_GATE_HEADING_RULE` lists, R2a's the last
+   of them. Its limit: one such line passes the slice, whatever other ticket-gate headings it has.
+
+A slice issue labelled `fast-lane` is checked only for rule 13 and a `Debt:` section in the PR body, a line that starts
+`Debt:` or a heading `## Debt`; every other rule is skipped, and the note or the refusal says "fast lane (D-144)" (D-144 on
+chadlis/hypotrail#75, F1: "A slice labelled `fast-lane` is checked only for three things"). Removing the label brings the
+other rules back.
 
 `check_record.py --slice <n>` runs the same rules on the comments of slice issue <n> before any pull request exists: it
-skips rule 5 and the missing closing register, prints each reason, and exits 0; a failed `gh` call exits 2.
+skips rules 5 and 13 and the missing closing register, prints each reason, and exits 0; a failed `gh` call exits 2. For a
+`fast-lane` slice it reads no comment and says "fast lane (D-144)".
 
 The slice issue is the one the squash subject ends with ("(#<n>)"), or the one the PR body names ("Part of #<n>",
 "Slice ... (#<n>)"). A pull request is an apparatus pull request when its title starts with "drive:", it changes no file under
@@ -97,8 +113,8 @@ record check applies, whatever the title.
 Stated limits: the merge detection reads the text of the command, so it does not see a merge whose pull request number is passed
 through `xargs`, or whose command words are built in a variable or in a script it does not open. A gap found only by planting a
 command built to evade it is a stated limit. A gap that the drive actually uses is a defect.
-The record check of one merge makes five `gh` calls plus one per ticket of the slice (three for a slice that rule 9 skips),
-each capped at `GH_TIMEOUT` seconds, so the hook's 300 s timeout in `.claude/settings.json` covers a slice of at most 10 tickets
+The record check of one merge makes six `gh` calls plus one per ticket of the slice (four for a slice that rule 9 skips or
+that is labelled `fast-lane`), each capped at `GH_TIMEOUT` seconds, so the hook's 300 s timeout in `.claude/settings.json` covers a slice of at most 9 tickets
 when every call takes its full cap. Past that, the hook can time out, and a timed-out hook blocks the merge: it fails closed.
 """
 
@@ -218,6 +234,13 @@ MERGED_BEFORE_MARKER_RULE = MERGED_BEFORE_FIX_PROMPT_RULE | {166, 176, 186}
 MERGED_BEFORE_ID_RULE = MERGED_BEFORE_MARKER_RULE
 MERGED_BEFORE_WORDING_PATH = MERGED_BEFORE_MARKER_RULE | {194}
 MERGED_BEFORE_HISTORY_RULE = MERGED_BEFORE_WORDING_PATH | {200, 204}
+MERGED_BEFORE_PR_LINES_RULE = MERGED_BEFORE_HISTORY_RULE | {212}
+MERGED_BEFORE_GATE_HEADING_RULE = MERGED_BEFORE_PR_LINES_RULE
+SUITE_LINE = re.compile(r"^Full suite at `([0-9a-f]+)` \(run by the drive\): (.+)$", re.MULTILINE)
+FINAL_LINE = re.compile(r"\d+ passed\b.* in \d+(\.\d+)?s")
+GATE_HEADING = re.compile(r"^## [^\n]*?: ticket gate, [^()\n]*#\d+[^()\n]* \(slice-gate, [^)\n]+\), its report word for word")
+FAST_LANE = "fast-lane"
+DEBT = re.compile(r"^(?:Debt:|## Debt\b)", re.MULTILINE)
 TIGHTENED = re.compile(r"^## Tightened\b.*?(?=^## |\Z)", re.MULTILINE | re.DOTALL)
 ROUTING_MARKER = re.compile(r"\(round \d+, routing")
 TRIGGER = "This is a review fix"
@@ -328,11 +351,47 @@ def unrecorded_histories(tickets: dict, bodies: dict) -> list:
     return found
 
 
-def problems(pr_body: str | None, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None, bodies: dict | None = None) -> list:
+def pr_line_problems(pr_body: str, comments: list, pull: tuple | None) -> list:
+    """The reasons that no state comment holds `#<pr>` for the pull request being merged, or that the PR body has no full-suite line of the drive at a prefix of its head."""
+    number, head = pull or (None, "")
+    found = []
+    if not any(re.search(rf"#{number}(?!\d)", c["body"] or "") for c in state_comments(comments)):
+        found.append(f"no state comment holds '#{number}', the number of the pull request being merged")
+    lines = SUITE_LINE.findall(pr_body)
+    if not any(head.startswith(sha) and FINAL_LINE.search(final) and "failed" not in final and "error" not in final for sha, final in lines):
+        found.append(
+            "the PR body has no line 'Full suite at `<sha>` (run by the drive): <final line>' whose <sha> starts the head "
+            f"{head} and whose <final line> says '<n> passed ... in <t>s' and holds neither 'failed' nor 'error'"
+        )
+    return found
+
+
+def ungated(comments: list) -> list:
+    """The reason that no comment of the slice issue has a first line in the ticket-gate heading form, if none has."""
+    if any(GATE_HEADING.match(first_line(c)) for c in comments):
+        return []
+    return [
+        "no comment of the slice issue has a first line '## <slice>: ticket gate, <tickets> (slice-gate, <model>), "
+        "its report word for word' whose <tickets> name a '#<n>'"
+    ]
+
+
+def fast_lane_problems(pr_body: str | None, comments: list, pull: tuple | None) -> list:
+    """The reasons the record of a slice labelled `fast-lane` is incomplete: the pull request lines of the state comment and the PR body, and a `Debt:` section."""
+    if pr_body is None:
+        return []
+    found = pr_line_problems(pr_body, comments, pull)
+    if not DEBT.search(pr_body):
+        found.append("the PR body has no 'Debt:' section: a line that starts 'Debt:' or a heading '## Debt'")
+    return found
+
+
+def problems(pr_body: str | None, comments: list, slice_number: int | None = None, tickets: dict | None = None, log: list | None = None, bodies: dict | None = None, pull: tuple | None = None) -> list:
     """The reasons the record of a slice is incomplete: one string each; empty when it is complete.
 
-    `tickets` maps each sub-issue of the slice issue to its comments, `bodies` maps it to its body, and `log` holds the comments of the decision log.
-    A `pr_body` of None is the record of a slice with no pull request yet (`--slice`): rule 5 is skipped, and so is the
+    `tickets` maps each sub-issue of the slice issue to its comments, `bodies` maps it to its body, `log` holds the comments of the decision log,
+    and `pull` is (the number, the head SHA) of the pull request being merged.
+    A `pr_body` of None is the record of a slice with no pull request yet (`--slice`): rules 5 and 13 are skipped, and so is the
     missing closing register."""
     reviewed = {int(m.group(1)) for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? [^\n]*?\baxis \(review of record", first_line(c))] if m}
     routed = {int(m.group(1)): c for c in comments for m in [re.search(r"\bround (\d+)\b[:,]? routing", first_line(c))] if m}
@@ -386,6 +445,10 @@ def problems(pr_body: str | None, comments: list, slice_number: int | None = Non
         found += unread_ids(comments, routed)
     if slice_number not in MERGED_BEFORE_HISTORY_RULE:
         found += unrecorded_histories(tickets or {}, bodies or {})
+    if pr_body is not None and slice_number not in MERGED_BEFORE_PR_LINES_RULE:
+        found += pr_line_problems(pr_body, comments, pull)
+    if slice_number not in MERGED_BEFORE_GATE_HEADING_RULE:
+        found += ungated(comments)
 
     registers = [c for c in comments if re.search(r"closing register", first_line(c), re.IGNORECASE)]
     if not registers:
@@ -673,10 +736,27 @@ def check(repo: str, number: int, subject: str | None) -> str | None:
             "End the squash subject with '(#<slice>)' or write 'Part of #<slice>' in the PR body."
         )
     slice_number = candidates.pop()
-    reasons = problems(pull.get("body") or "", *slice_record(repo, slice_number))
+    merged = (number, (pull.get("head") or {}).get("sha") or "")
+    if is_fast_lane(repo, slice_number):
+        reasons = fast_lane_problems(pull.get("body") or "", gh_pages(f"repos/{repo}/issues/{slice_number}/comments"), merged)
+        if reasons:
+            raise Refusal(f"the record of slice #{slice_number}, {FAST_LANE_NOTE}, is incomplete, so pull request #{number} is not merged:\n" + "\n".join(f"- {r}" for r in reasons))
+        return (
+            f"Record check: slice #{slice_number} is labelled `{FAST_LANE}`, so only its state comment's '#{number}', the PR body's "
+            f"full-suite line and its 'Debt:' section were checked: {FAST_LANE_NOTE}."
+        )
+    reasons = problems(pull.get("body") or "", *slice_record(repo, slice_number), pull=merged)
     if reasons:
         raise Refusal(f"the record of slice #{slice_number} is incomplete, so pull request #{number} is not merged:\n" + "\n".join(f"- {r}" for r in reasons))
     return None
+
+
+FAST_LANE_NOTE = "fast lane (D-144)"
+
+
+def is_fast_lane(repo: str, slice_number: int) -> bool:
+    labels = gh([f"repos/{repo}/issues/{slice_number}"]).get("labels") or []
+    return FAST_LANE in [label.get("name") if isinstance(label, dict) else label for label in labels]
 
 
 def slice_record(repo: str, slice_number: int) -> tuple:
@@ -696,11 +776,13 @@ def slice_check(argv: list) -> int:
         print("usage: check_record.py --slice <slice issue number>", file=sys.stderr)
         return 2
     try:
-        reasons = problems(None, *slice_record(REPOSITORY, int(argv[0])))
-    except (Refusal, subprocess.SubprocessError, ValueError) as error:
+        fast = is_fast_lane(REPOSITORY, int(argv[0]))
+        reasons = fast_lane_problems(None, [], None) if fast else problems(None, *slice_record(REPOSITORY, int(argv[0])))
+    except (Refusal, subprocess.SubprocessError, ValueError, AttributeError) as error:
         print(f"check_record failed ({type(error).__name__}: {error})", file=sys.stderr)
         return 2
-    print(f"Record check of slice #{argv[0]}: {f'{len(reasons)} reason(s).' if reasons else 'no reason.'}")
+    lane = f", {FAST_LANE_NOTE}" if fast else ""
+    print(f"Record check of slice #{argv[0]}{lane}: {f'{len(reasons)} reason(s).' if reasons else 'no reason.'}")
     for reason in reasons:
         print(f"- {reason}")
     return 0

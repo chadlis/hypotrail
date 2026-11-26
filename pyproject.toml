@@ -28,6 +28,7 @@ ml = [
 [dependency-groups]
 dev = [
     "pytest==9.2.0",
+    "pytest-xdist==3.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
