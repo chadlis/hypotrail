@@ -134,6 +134,7 @@ const LABEL = {
   latestDecision: 100,
   seeDecision: 101,
   observationSet: 102,
+  noDecisionWaits: 103,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -347,8 +348,9 @@ function lookAgainOf(object: Entry, step: Entry): string[] {
   });
 }
 
-// Under rule 4, after the label of no pending decision: the latest Decision as one line, its option, its author with the mark of a rule's
-// Decision, the phrase of whether it applies, and a link to its part in the step of the Decisions, which opens that fold.
+// Under rule 4, after the sentence that no decision waits for the person: the latest Decision as one line (D-159), its option, its author
+// with the mark of a rule's Decision, the phrase of whether it applies, and a link to its part in the step of the Decisions, which opens
+// that fold.
 function latestOf(object: Entry): string[] {
   const decisions = list(object.decisions);
   const index = decisions.length - 1;
@@ -362,15 +364,16 @@ function latestOf(object: Entry): string[] {
 }
 
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
-// id names, whose question is Now's line; with `look_again`, its text; with no kind, the label of no pending decision. Without an object
-// read, Now holds nothing.
+// id names, whose question is Now's line; with `look_again`, its text; with no kind, the label that no decision waits for the person.
+// Without an object read, Now holds nothing.
 function nowOf(object: Entry | undefined, pending: string): string {
   const lines = [`<section data-part="now" id="now">`, `<h2>${label("now")}</h2>`];
   if (object) {
     const step = record(object.next_step);
     if (step.kind === "decide" && pending !== "") lines.push(pending);
     else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
-    else lines.push(`<p data-element="now-question">${label("noPending")}</p>`, ...latestOf(object));
+    // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists, then the latest Decision (D-159).
+    else lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`, ...latestOf(object));
   }
   lines.push("</section>");
   return lines.join("\n");
@@ -763,7 +766,8 @@ function summaryOf(comparison: Entry, shown: Shown, roles: unknown[]): string {
 
 // The delta's element: its value as a link, or the word of a withheld delta, with its Metric and unit; then, given the Comparison's
 // `interval` when the read holds one, its level and its two bounds as links to the Comparison, and its resampling unit, or, when a bound
-// is null, its reason. A withheld delta holds no interval, not even its reason: the interval would show what the withheld delta hides.
+// is null, its reason. A withheld delta holds no interval, not even its reason: the interval would show what the withheld delta hides
+// (D-159).
 function deltaOf(delta: Entry, index: number, given?: unknown): string {
   const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
   let slot = "";

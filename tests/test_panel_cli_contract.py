@@ -505,3 +505,18 @@ def test_the_dated_lines_hold_one_line_that_names_comparisons_interval_drawn_by_
     assert INTERVAL_TICKET_SENTENCE in line and "the earlier line it overrides: none" in line
     above = adr().split("## Dated lines", 1)[0]
     assert "interval" not in above
+
+
+# --- the dated line of the three answers logged as D-159 ------------------------------------------------------------------------------
+
+
+def test_the_dated_lines_hold_one_line_citing_d_159_for_the_import_identity_the_latest_decision_under_rule_4_and_no_interval_under_a_withheld_delta():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "D-159" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    for name in ("Attempt's own id", "an Import is only ever the same as itself", "Latest Decision:", "rule 4", "withheld", "`comparisons[].interval`"):
+        assert name in line, name
+    assert "the earlier line it overrides: none" in line, line
+

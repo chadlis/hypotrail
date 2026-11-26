@@ -19,8 +19,8 @@ in the order `decide` recorded them, that applies and cites a Comparison of the 
 cites), each in the order of `decisions`. A Decision that cites no Comparison is never answered.
 
 "The same two Configurations" is the unordered pair of the identities of a Comparison's two sides. The drive's answer, refining D-151
-answer 2: "A side's identity is `configuration_digest_of(manifest)` when it is not None (a declared Configuration), and otherwise the
-Attempt's own id (an Import is only ever the same as itself)." A side is found from its Assessment, through its Observation set, to the
+answer 2 and logged as D-159: "A side's identity is `configuration_digest_of(manifest)` when it is not None (a declared Configuration),
+and otherwise the Attempt's own id (an Import is only ever the same as itself)." A side is found from its Assessment, through its Observation set, to the
 manifest of the Attempt that recorded it; a side the Study does not hold has no identity, and its Comparison is of no pair. So the same
 declared Configuration is the same one on every Partition, and two Imports never match by both declaring none; a changed Workload
 already stops a Decision through `revision_changed`.

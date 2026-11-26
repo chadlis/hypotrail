@@ -405,6 +405,23 @@ for (const state of ["17-interrupted", "19-two-interrupted"]) {
   });
 }
 
+// Rule 4: a sentence of its own, which stays true when To handle lists Attempts, then the latest Decision (D-159).
+const NO_DECISION_WAITS = "No decision waits for you.";
+for (const handle of [false, true]) {
+  test(`under rule 4 Now's sentence is the label that no decision waits for the person, then the latest Decision's line${handle ? ", with To handle listing an Attempt" : ""}`, async (t) => {
+    assert.ok(contract.labels.includes(NO_DECISION_WAITS));
+    const read = readOf("05-decided");
+    assert.equal(read.next_step.kind, null);
+    if (handle) read.next_step.to_handle = [read.attempts[0].attempt_id];
+    const { document } = await documentFor(t, success(read));
+    const now = elementOf(document, '<section data-part="now"')!;
+    assert.equal(words(elementOf(now, '<p data-element="now-question">')), NO_DECISION_WAITS);
+    const latest = now.indexOf('<p data-element="latest-decision">');
+    assert.ok(latest > now.indexOf('<p data-element="now-question">'), "the latest Decision after the sentence");
+    assert.equal(elementOf(document, '<section data-part="tohandle-line">') !== undefined, handle, "To handle has its own line");
+  });
+}
+
 // "Any "Next" or "to look again" is the core's text, or absent" (#256).
 for (const name of [`${JOURNEY}07-rescored.status`, `${JOURNEY}08-result-changed.status`, "status-repeated"]) {
   test(`under rule 3, Now holds the core's text and the Decision next_step names, with whether it applies and the state of its evidence: ${name}`, async (t) => {
@@ -413,7 +430,7 @@ for (const name of [`${JOURNEY}07-rescored.status`, `${JOURNEY}08-result-changed
     const now = elementOf(document, '<section data-part="now"')!;
     if (read.next_step.kind !== "look_again") {
       assert.equal(read.next_step.kind, null, "status-repeated: its Decision still applies");
-      return assert.ok(words(now).includes("No pending decision."));
+      return assert.equal(words(elementOf(now, '<p data-element="now-question">')), NO_DECISION_WAITS);
     }
     assert.ok(markedTexts(now).includes(read.next_step.text));
     for (const id of read.next_step.ids) {
