@@ -1,0 +1,1 @@
+uv run python -m hypotrail compare --study docs/handbook/traces/campaign-chinook-dev/study --control 9034b193-2c02-468d-930f-05f074eb5683 --candidate f3fcd6a5-06a0-4fa5-84e8-9091d123c24b 

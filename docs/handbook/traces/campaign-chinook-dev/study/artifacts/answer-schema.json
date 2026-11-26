@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "enum": [
+        "answered",
+        "needs_clarification",
+        "not_answerable"
+      ]
+    },
+    "reason_code": {
+      "enum": [
+        null,
+        "criterion_undefined",
+        "field_not_available"
+      ]
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "status",
+    "reason_code",
+    "columns",
+    "rows",
+    "unit",
+    "evidence"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "table-answer/1",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "answered"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason_code": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "needs_clarification"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason_code": {
+            "const": "criterion_undefined"
+          },
+          "columns": {
+            "maxItems": 0
+          },
+          "rows": {
+            "maxItems": 0
+          },
+          "unit": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "not_answerable"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason_code": {
+            "const": "field_not_available"
+          },
+          "columns": {
+            "maxItems": 0
+          },
+          "rows": {
+            "maxItems": 0
+          },
+          "unit": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
