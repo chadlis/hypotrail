@@ -12,7 +12,7 @@ from _chinook_helpers import init_chinook
 from _compare_helpers import assessed, compare
 from _lesson_helpers import LESSON, demonstration_until, lesson, resolved
 from _review_helpers import decide
-from _study_helpers import ROOT, run_cli
+from _study_helpers import ROOT, init_study, run_cli
 
 KEPT = ROOT / "clients" / "vscode" / "test" / "cli" / "demonstration"
 DATA = ROOT / "src" / "hypotrail" / "ml" / "lesson.json"
@@ -97,3 +97,17 @@ def test_the_read_writes_nothing(tmp_path):
     assert run_cli(LESSON, f"--study={study}")[0] == 0
     assert every_file(study) == before
     assert run_cli("status", f"--study={study}", "--json")[1] == sequence
+
+
+def test_a_bike_study_with_no_comparison_gets_no_card_and_its_line_says_none_applies(tmp_path):
+    study, _ = init_study(tmp_path)
+    code, read, err = lesson(study)
+    assert (code, read["ok"], read["cards"]) == (0, True, []), err
+    code, out, err = run_cli(LESSON, f"--study={study}")
+    assert (code, out.strip()) == (0, "no card applies to this Study yet"), err
+
+
+def test_the_decisions_card_names_each_reason_a_decision_stops_applying():
+    text = next(card["text"] for card in json.loads(DATA.read_text(encoding="utf-8"))["cards"] if card["kind"] == "decisions")
+    for words in ("superseded", "no longer holds", "revision"):
+        assert words in text, words

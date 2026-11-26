@@ -20,7 +20,7 @@
     {
       "kind": "decisions",
       "title": "Decisions",
-      "text": "A Decision records the option chosen for a question, with its author, its source and the ids of the records it cites. It is written once by decide and never changed. It applies while the evidence it cites stays as it was; once a record it cites is superseded, it no longer applies, and its reasons say why. Read whether each Decision still applies, and its reasons when it does not.",
+      "text": "A Decision records the option chosen for a question, with its author, its source and the ids of the records it cites. It is written once by decide and never changed. It stops applying when the Study no longer holds an id it cites, when the Study's revision is no longer the one it was recorded in, or when an Assessment it cites, or one that a cited Comparison compares, is superseded by a later one; its reasons then say which. Read whether each Decision still applies, and its reasons when it does not.",
       "key_paths": [
         {"read": "status", "path": "decisions[].question"},
         {"read": "status", "path": "decisions[].option"},
