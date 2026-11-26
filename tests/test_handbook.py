@@ -5371,6 +5371,7 @@ PANEL_LINK_TABLES = {
     "panel-statuses": lambda contract: contract["statuses"],
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
+    "panel-open-refs": lambda contract: contract["open_refs"],
 }
 
 
@@ -5393,6 +5394,37 @@ def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_
     for table in PANEL_LINK_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# The two sentences of chapter 18 that the controls that open leave as they were: "keeps, word for word, "A link of the panel moves the view
+# to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and
+# writes nothing." and "Every number the panel prints is a link to the part of the record it comes from"" (chadlis/hypotrail#227, T1-10).
+KEPT_LINK_SENTENCES = (
+    "A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing.",
+    "Every number the panel prints is a link to the part of the record it comes from",
+)
+# The sentence of the control beside an output path, and the bridge sentence amended to match ADR 0004's dated line: "the client reads
+# through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names" (chadlis/hypotrail#227, T1-10).
+OPEN_CONTROL_SENTENCES = (
+    "Beside each output path that the part of an Assessment or a Comparison shows stands one control that opens that file",
+    "The message the control posts carries no path: it names the kind of the record's part, the place of that record in its listing of the object read and one of the refs of the table below",
+    "The extension finds the path in the object it holds and opens nothing when the message names nothing there, when the path is absolute or holds a .. segment, when the file's real path lies outside the real path of the Study's folder, or when the file does not exist; otherwise it shows the file in the editor and makes that editor read-only for the session.",
+    "The References, anything of an Attempt and any path the client would compose itself are never opened, and the panel reads no content of the file: the editor shows it.",
+    "It reads what a Study holds only through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names.",
+)
+
+
+def test_chapter_18_keeps_the_two_link_sentences_word_for_word():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in KEPT_LINK_SENTENCES:
+        assert sentence in prose, sentence
+
+
+def test_chapter_18_holds_the_sentences_of_the_control_that_opens_and_the_amended_bridge_sentence():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in OPEN_CONTROL_SENTENCES:
+        assert sentence in prose, sentence
+    assert "It reads what a Study holds only through the bridge. " not in prose
 
 
 def test_each_key_path_the_panel_reads_from_the_figures_read_is_a_row_of_the_key_path_table_of_chapter_17_or_a_prefix_of_its_rows(page):

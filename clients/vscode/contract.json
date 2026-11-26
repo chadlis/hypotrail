@@ -98,13 +98,16 @@
     "Zero",
     "Items below",
     "Cases below",
-    "Ordered from the Candidate's worst; the bar takes the colour of the better side."
+    "Ordered from the Candidate's worst; the bar takes the colour of the better side.",
+    "Open the file",
+    "The file was not opened."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
   "no_value": "no value",
   "withheld": "withheld",
-  "messages": ["read-again", "record", "send-again"],
+  "messages": ["read-again", "record", "send-again", "open"],
+  "open_refs": ["per_item", "paired_deltas", "population"],
   "decide_author": "human",
   "guard_bounds": ["width=420", "question=200", "evidence=350"],
   "colour_forms": ["hexadecimal", "rgb()", "rgba()", "hsl()", "hsla()", "hwb()", "lab()", "lch()", "oklab()", "oklch()", "color()", "color-mix()", "named"],

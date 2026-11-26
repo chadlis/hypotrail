@@ -290,3 +290,31 @@ def test_the_dated_lines_hold_one_line_that_names_the_two_printed_id_keys_and_ov
     assert "`observation_set_id`" in line
     assert "`references_id`" in line
     assert "the earlier line it overrides: none" in line
+
+
+# --- the dated line of the file a client opens in the editor ------------------------------------------------------------------------
+
+OPEN_TICKET_SENTENCE = (
+    "Given the `open` message for each output path of a read, the panel asks VS Code once to show one file, whose path is the Study folder"
+    " joined to the path the object held gives at that kind, index and ref, then runs the command"
+    " `workbench.action.files.setActiveEditorReadonlyInSession` on that editor, so that the file is shown read-only; it reads no content of"
+    " the file, starts no process, makes no read through the bridge, and assigns no new document"
+)
+# "narrowed to "A client reads through `status --json` and `figures --json`, and may open in the editor, read-only, a file of the Study
+# whose path a read names; it writes only through the documented CLI commands"" (chadlis/hypotrail#227, T1-10).
+NARROWED_READ_SENTENCE = (
+    "A client reads through `status --json` and `figures --json`, and may open in the editor, read-only, a file of the Study whose path a"
+    " read names; it writes only through the documented CLI commands"
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_open_message_that_quotes_its_ticket_and_the_read_line_it_overrides_and_narrows():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#227" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`open`" in line
+    assert OPEN_TICKET_SENTENCE in line
+    assert f"the earlier line it overrides: \"{READ_THROUGH_STATUS_SENTENCE}\"" in line
+    assert NARROWED_READ_SENTENCE in line
+    assert "records no Exposure" in line and "writes nothing" in line

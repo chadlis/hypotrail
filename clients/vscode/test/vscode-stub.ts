@@ -34,6 +34,8 @@ export const state = {
   uriHandlers: [] as { handleUri(uri: unknown): unknown }[],
   panels: [] as StubPanel[],
   tools: [] as RegisteredTool[],
+  // What `window.showTextDocument` answers: an editor, or a rejection a test sets.
+  shown: (): Promise<unknown> => Promise.resolve({}),
 };
 
 export function reset(): void {
@@ -44,6 +46,7 @@ export function reset(): void {
   state.uriHandlers.length = 0;
   state.panels.length = 0;
   state.tools.length = 0;
+  state.shown = () => Promise.resolve({});
 }
 
 export function callsOf(name: string): Call[] {
@@ -56,7 +59,11 @@ function record(name: string, args: unknown[]): void {
 
 const disposable = { dispose(): void {} };
 
-export const ViewColumn = { Active: -1, One: 1 };
+export const ViewColumn = { Active: -1, Beside: -2, One: 1 };
+
+export const Uri = {
+  file: (fsPath: string) => ({ scheme: "file", fsPath }),
+};
 
 export const workspace = {
   get workspaceFolders() {
@@ -142,6 +149,10 @@ export const window = {
     state.panels.push(panel);
     return panel;
   },
+  showTextDocument(...args: unknown[]) {
+    record("showTextDocument", args);
+    return state.shown();
+  },
   registerUriHandler(handler: { handleUri(uri: unknown): unknown }) {
     record("registerUriHandler", [handler]);
     state.uriHandlers.push(handler);
@@ -154,6 +165,10 @@ export const commands = {
     record("registerCommand", [id]);
     state.commands.set(id, callback);
     return disposable;
+  },
+  executeCommand(id: string, ...args: unknown[]) {
+    record("executeCommand", [id, ...args]);
+    return Promise.resolve(undefined);
   },
 };
 

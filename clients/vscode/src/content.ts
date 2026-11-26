@@ -10,7 +10,8 @@ import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
 // the outcome of a read that failed, `written` the answer of the
 // write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option and cited
-// ids of the write in flight or held; `decision` is the id a link of the second form names.
+// ids of the write in flight or held; `decision` is the id a link of the second form names; `unopened` says that the document follows a
+// message of a control that opens whose file the panel did not open.
 export type View = {
   study?: string;
   reading: boolean;
@@ -22,6 +23,7 @@ export type View = {
   unanswered?: boolean;
   sent?: { question: unknown; option: unknown; cited_ids: unknown };
   decision?: string;
+  unopened?: boolean;
 };
 
 // An object of the read, whatever its keys.
@@ -90,6 +92,8 @@ const LABEL = {
   itemsBelow: 58,
   casesBelow: 59,
   dotOrder: 60,
+  openFile: 61,
+  notOpened: 62,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -120,6 +124,12 @@ const QUESTION_ID = "question-";
 // The `id` of an option's text and of its consequence, before the place of that option among all the options of the document.
 const OPTION_ID = "option-";
 const CONSEQUENCE_ID = "consequence-";
+// The `id` of the element around a path that a control that opens is described by, before the place of that path among the paths of the
+// document.
+const PATH_ID = "path-";
+// The message of a control that opens, and the ref of each output path a record names.
+const OPEN = contract.messages[3];
+const [PER_ITEM, PAIRED_DELTAS, POPULATION] = contract.open_refs;
 // "It is shown beside the label." (D-077 on chadlis/hypotrail#75, Q5, of `revision_changed`)
 const BESIDE_THE_STATE = "revision_changed";
 
@@ -181,8 +191,9 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 
 // The lists of the object read that a document's parts are found in, the records that already have a part in it (an Assessment
 // or a Comparison has one part that links name, at the first place that shows it) and how many options the document shows.
-// `figures` holds the entries of the figures read, none when it cannot stand beside the status read.
-type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined };
+// `figures` holds the entries of the figures read, none when it cannot stand beside the status read; `inert` is the attribute of a
+// control that is inert while a call is in flight, and `paths` how many paths beside a control the document shows.
+type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number };
 
 // The object of the figures read when it is usable beside the status read: the same Write sequence, and one entry with its five keys
 // for each Comparison the status read lists. Otherwise there is none, and the figures call counts as failed.
@@ -211,7 +222,7 @@ export function bodyOf(view: View): string {
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
   if (view.object) {
     const figures = usableFigures(view.object, view.figures);
-    parts.push(studyOf(view.object, view.decision, busy || view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)));
+    parts.push(studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)));
   }
   return parts.join("\n");
 }
@@ -219,6 +230,7 @@ export function bodyOf(view: View): string {
 // What the panel says of a call in flight and of its last write.
 function noticeOf(view: View): string[] {
   const lines: string[] = [];
+  if (view.unopened) lines.push(`<p>${label("notOpened")}</p>`);
   if (view.reading) lines.push(`<p>${label("reading")}</p>`);
   if (view.writing) lines.push(`<p>${label("writing")}</p>`);
   const written = view.written;
@@ -254,11 +266,13 @@ function failureOf(failure: Outcome): string {
   return "";
 }
 
-// `recorded` is the id of the Decision the write this document follows recorded, `sent` the write in flight or held.
-function studyOf(object: Entry, linked: string | undefined, locked: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): string {
+// `busy` says that a call is in flight and `held` that a write with no answer is held; `recorded` is the id of the Decision the write this
+// document follows recorded, `sent` the write in flight or held.
+function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): string {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
-  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures };
+  const locked = busy || held;
+  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0 };
   const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
   return [
     `<h2>${label("study")}</h2>`,
@@ -335,9 +349,9 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     }
     lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index));
     lines.push(`<p>${label("comparabilityStatus")} ${value(record(comparison.comparability).status)}</p>`);
-    for (const output of [comparison.paired_deltas_ref, comparison.population_ref]) {
+    for (const [ref, output] of [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]] as const) {
       const path = record(output).path;
-      if (typeof path === "string") lines.push(`<p>${label("outputPath")} ${marked(path)}</p>`);
+      if (typeof path === "string") lines.push(`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref, path, shown)}</p>`);
     }
     for (const [kind, items] of [["warnings", warnings], ["limitations", limitations]] as const) {
       lines.push(`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>");
@@ -489,6 +503,14 @@ function coverageChartOf(coverage: [string, unknown][], index: number): string {
   return ['<div data-chart="coverage">', ...rows, "</div>"].join("\n");
 }
 
+// A path as a marked text, and beside it the control that opens the file it names: its message names the kind of the record's part, the
+// place of the record in its listing and the ref, and the control is described by the path.
+function opening(kind: string, index: number, ref: string, path: unknown, shown: Shown): string {
+  const id = `${PATH_ID}${shown.paths++}`;
+  const control = `<button class="open" data-message="${OPEN}" data-part-kind="${kind}" data-index="${index}" data-ref="${ref}" aria-describedby="${id}"${shown.inert}>${label("openFile")}</button>`;
+  return `<span id="${id}">${marked(path)}</span> ${control}`;
+}
+
 // An Assessment, under its role where it has one: its part at the first place that shows it, its id as a link to that part after.
 function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, shown: Shown): string {
   const index = shown.assessments.findIndex((each) => each.assessment_id === id);
@@ -501,8 +523,9 @@ function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, sh
     const metrics = list(assessment.metrics).map(
       (metric) => `<li>${label("metric")} ${value(metric.id)} ${link("value", index, metric.value)} ${marked(metric.unit)} ${label("status")} ${value(metric.status)}</li>`,
     );
-    const path = `<p>${label("outputPath")} ${marked(record(assessment.per_item_ref).path)}</p>`;
-    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, path, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].join("\n");
+    const output = record(assessment.per_item_ref).path;
+    const path = typeof output === "string" ? `<p data-element="output">${label("outputPath")} ${opening("assessment", index, PER_ITEM, output, shown)}</p>` : "";
+    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, path, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].filter((line) => line !== "").join("\n");
   }
   return role === undefined ? body : [`<div data-role="${role}">`, `<h4>${label(role)}</h4>`, body, "</div>"].join("\n");
 }

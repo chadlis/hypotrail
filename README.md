@@ -49,7 +49,7 @@ The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whol
 
 ## Use the VS Code panel
 
-The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. From a checkout:
+The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. A control beside each output path it shows opens that file in the editor, read-only. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.
