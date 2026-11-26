@@ -203,7 +203,7 @@ const SEES: Record<string, (seen: Seen) => void> = {
     // C5-check.
     const [studyId, sequence, pending, ids, values] = C5_PATHS.map((keyPath) => valueAt(seen.read, keyPath)) as [string, number, string[], string[], boolean[]];
     assert.equal(words(elementOf(seen.document, '<div data-part="study"')), `${studyId} ${label("Write sequence")} ${written(sequence)}`, "the study id and the Write sequence of C5-check");
-    assert.ok(words(elementOf(seen.document, '<p data-element="band">')).startsWith(`${label("Write sequence")} ${written(sequence)} `), "the Write sequence of C5-check in the band");
+    assert.equal(words(elementOf(seen.document, '<p data-element="band">')), `${label("Write sequence")} ${written(sequence)}`, "the Write sequence of C5-check in the band");
     assert.ok(elementOf(seen.document, '<section data-part="path">')!.includes('<div data-part="study"'), "the Study id of C5-check under The Study so far");
     assert.deepEqual(elementsOf(seen.document, '<section data-part="pending">').map((each) => /<p>Comparison <span>([^<]*)<\/span><\/p>/.exec(each)?.[1]), pending, "the pending ids of C5-check");
     assert.deepEqual(decisionParts(seen.document).map((each) => [/<p><span>([^<]*)<\/span><\/p>/.exec(each)?.[1], words(elementOf(each, "<h3>")).endsWith(applies(true)) && !words(elementOf(each, "<h3>")).endsWith(applies(false))]), ids.map((id, at) => [id, values[at]]), "each Decision of C5-check with applies or does not apply");

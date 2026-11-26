@@ -60,6 +60,7 @@ const FINDING_IDS = [
   "assessments[].metrics[].id",
   "assessments[].observation_set_id",
   "attempts[].observation_set_id",
+  "revisions[].revision",
 ];
 // The kept reads that together hold a text at every other path of `key_paths` that holds one.
 const PLANTED_READS = ["status-success", "status-chinook-pending", "status-deviation", "status-result-changed", "demonstration.final.status"];

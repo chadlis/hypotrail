@@ -62,7 +62,8 @@ const send = (message: string): void => panelOf().send({ message });
 const notice = (document: string): string => partsOf(elementOf(document, NOTICE) ?? "").between;
 // A document with the parts of its recorded Decisions removed, which show each Decision's own question.
 const withoutDecisions = (document: string): string => document.replace(/<section data-part="decision"[\s\S]*?<\/section>/g, "");
-const controls = (document: string): string[] => [...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]);
+// The messages of the controls of a document, its Tools apart, which repeat Read again last on the page.
+const controls = (document: string): string[] => [...document.replace(/<section data-part="tools">[\s\S]*?<\/section>/, "").matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]);
 
 // The list of arguments the panel passes to `decide` for one option of one pending decision.
 function expectedArguments(study: string, pending: Entry, option: Entry, requestId: string, sequence: number): string[] {

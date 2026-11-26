@@ -807,7 +807,8 @@ def test_a_planted_file_that_holds_an_option_text_is_found():
 
 # The two headings that name the keys `warnings` and `limitations` of a Comparison; the _Avoid_ entry that lists "limitation" and
 # "warning" is about naming a Declared deviation, not these keys.
-AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison")
+# "Revision" is shown as "Protocol revision N", and that exact label is exempted by name (D-136).
+AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison", "Protocol revision")
 
 
 def avoided_words(glossary: str) -> list:
@@ -821,7 +822,7 @@ def avoided_in(entries: list, words: list) -> list:
     return [(entry, word) for entry in entries if entry not in AVOID_EXEMPT for word in words if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", entry, re.I)]
 
 
-def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
+def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_labels_exempted_by_name():
     words = avoided_words((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
     assert {"run", "label", "limitation", "warning", "case"} <= set(words)
     contract = read_json(CLIENT / "contract.json")

@@ -198,6 +198,21 @@ const IN_THE_BAND: Record<string, [string, (object: Entry) => number]> = {
 
 // For each pair whose number the delta line prints from the Comparison's `interval`, the kept read the interval is injected into.
 const IN_AN_INTERVAL: Record<string, string> = { interval: "status-success" };
+// For each pair whose number a link prints toward a part of its own, the kept read of the journey that holds it and that part.
+const IN_THEIR_PART: Record<string, [string, string]> = {
+  to_handle: [`${JOURNEY}19-two-interrupted.status`, "tohandle"],
+  revision_number: [`${JOURNEY}08-result-changed.status`, "study"],
+};
+
+for (const [kind, [name, part]] of Object.entries(IN_THEIR_PART)) {
+  test(`each number of the kind ${kind} links to the one part ${part}: ${name}`, async (t) => {
+    const { document } = await documentFor(t, success(keptObject(name)));
+    const links = linksOf(document).filter((link) => link.kind === kind);
+    assert.ok(links.length > 0, `a link of ${kind}`);
+    for (const link of links) assert.equal(partKind(link.target), part, link.href);
+  });
+}
+
 // For each pair whose number an Attempt's line prints, the kept read whose Attempts an Assessment cites.
 const IN_AN_ATTEMPT: Record<string, string> = { item_counts: "status-success" };
 
@@ -217,7 +232,7 @@ for (const [kind, name] of Object.entries(IN_AN_ATTEMPT)) {
 }
 
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART)].sort());
 });
 
 for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
@@ -485,9 +500,11 @@ function withInterval(bounds: boolean): Entry {
   return object;
 }
 
-test("the key paths the function reads over every kept read, and over status-success with an injected interval, are the entries of key_paths, both ways", () => {
+test("the key paths the function reads over every kept read, over status-success with an injected interval and over two reads of the journey, are the entries of key_paths, both ways", () => {
   const read = new Set<string>();
-  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false)]) for (const path of pathsRead(object)) read.add(path);
+  // And two reads of the journey made with `--since 0`, as the panel reads: state 08, under rule 3, and state 19, with two Attempts to handle.
+  const journey = [`${JOURNEY}08-result-changed.status`, `${JOURNEY}19-two-interrupted.status`].map(keptObject);
+  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false), ...journey]) for (const path of pathsRead(object)) read.add(path);
   assert.deepEqual(leaves(read), [...contract.key_paths].sort());
 });
 

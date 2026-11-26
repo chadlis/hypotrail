@@ -110,14 +110,14 @@ for (const state of ["04-pending", "09-new-compare"]) {
   test(`the band of the journey's state ${state} holds the label of the panel's read since its last, with the count of writes_since as a link to the one place of their lines`, async (t) => {
     const { document, answers } = await built(t, state);
     const read = JSON.parse(answers[0].stdout ?? "");
-    const band = elementOf(document, '<p data-element="band">')!;
+    const band = elementOf(elementOf(document, '<div data-part="band">')!, "<summary>")!;
     const label = "Since this panel's last read";
     assert.ok(contract.labels.includes(label));
     const link = new RegExp(`${label} <a href="#([^"]*)" data-kind="writes_since">([^<]*)</a>`).exec(unescaped(band));
     assert.ok(read.writes_since.length > 0 && link, band);
     assert.equal(link![2], String(read.writes_since.length));
     assert.equal([...document.matchAll(new RegExp(` id="${link![1]}"`, "g"))].length, 1);
-    assert.match(document, new RegExp(`<div data-part="since" id="${link![1]}">`));
+    assert.match(document, new RegExp(`<details data-part="since" id="${link![1]}">`));
   });
 }
 
@@ -299,3 +299,74 @@ for (const [state, mark, word, present] of [
     }
   });
 }
+
+// --- To handle, Now under rules 3 and 4, the Since lines, Tools ------------------------------------------------------------------------
+
+for (const [state, count] of [["17-interrupted", 1], ["19-two-interrupted", 2], ["18-recovered", 0]] as const) {
+  test(`the compact line of To handle holds ${count} and the list after Now each Attempt to handle, none inside Now: ${state}`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const line = elementOf(document, '<section data-part="tohandle-line">');
+    const list = elementOf(document, '<div data-part="tohandle" id="tohandle-list">');
+    assert.deepEqual(read.next_step.to_handle.length, count);
+    if (count === 0) return assert.ok(line === undefined && list === undefined);
+    assert.ok(document.indexOf(line!) < document.indexOf('<section data-part="now"'), "the line above Now");
+    assert.equal(/<a href="#tohandle-list" data-kind="to_handle">([^<]*)<\/a>/.exec(line!)?.[1], String(count));
+    const now = elementOf(document, '<section data-part="now"')!;
+    assert.ok(document.indexOf(list!) > document.indexOf(now) + now.length - 1, "the list after Now, its sibling");
+    for (const id of read.next_step.to_handle) {
+      assert.ok(list!.includes(id), id);
+      assert.ok(!now.includes(id), `${id} not inside Now`);
+    }
+  });
+}
+
+// "Any "Next" or "to look again" is the core's text, or absent" (#256).
+for (const name of [`${JOURNEY}07-rescored.status`, `${JOURNEY}08-result-changed.status`, "status-repeated"]) {
+  test(`under rule 3, Now holds the core's text and the Decision next_step names, with whether it applies and the state of its evidence: ${name}`, async (t) => {
+    const read = JSON.parse(kept(`${name}.out`));
+    const { document } = await documentFor(t, success(read));
+    const now = elementOf(document, '<section data-part="now"')!;
+    if (read.next_step.kind !== "look_again") {
+      assert.equal(read.next_step.kind, null, "status-repeated: its Decision still applies");
+      return assert.ok(words(now).includes("No pending decision."));
+    }
+    assert.ok(markedTexts(now).includes(read.next_step.text));
+    for (const id of read.next_step.ids) {
+      const decision = read.decisions.find((each: Record<string, any>) => each.decision_id === id);
+      assert.ok(markedTexts(elementOf(now, '<p data-element="look-again">')!).includes(decision.option), id);
+    }
+    assert.ok(!/\bNext\b/.test(partsOf(document).between), "no Next of the client");
+  });
+}
+
+for (const state of STATES.filter((each) => readOf(each).ok === true)) {
+  test(`each line of the panel's read since its last names the command and what it wrote, and a revision as Protocol revision and its number, never revision and a digest: ${state}`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    const lines = elementsOf(document, '<li data-element="since-line">');
+    assert.equal(lines.length, read.writes_since.length);
+    lines.forEach((line, at) => {
+      const entry = read.writes_since[at];
+      assert.ok(words(line).startsWith(`${entry.command} ${entry.phase}`), words(line));
+      assert.doesNotMatch(words(line), /revision\s+[0-9a-f]{64}/, "no bare revision and digest");
+      for (const each of entry.written ?? []) {
+        if (each.kind === "revision") assert.ok(words(line).includes(`Protocol revision ${read.revisions.find((spec: Record<string, any>) => spec.revision === each.id).revision_number}`));
+        else assert.ok(words(line).includes(`${each.kind} ${each.id}`));
+      }
+    });
+    if (state === "12-public-check-run") {
+      const [check] = read.attempts.filter((attempt: Record<string, any>) => attempt.request_id === "check");
+      for (const line of lines) assert.ok(![...line.matchAll(/<a [^>]*>([^<]*)<\/a>/g)].some((match) => match[1].includes(check.attempt_id) || match[1].includes(check.observation_set_id)), "no link to the uncited Attempt");
+    }
+  });
+}
+
+test("Tools holds Read again, then Hand over last, the command report as fixed text, and no control names report", async (t) => {
+  const { document } = await built(t, "04-pending");
+  const tools = elementOf(document, '<section data-part="tools">')!;
+  const hand = elementOf(tools, '<div data-element="hand-over">')!;
+  assert.ok(tools.trimEnd().endsWith(`${hand}\n</section>`), "Hand over last");
+  assert.ok(tools.indexOf(`data-message="${contract.messages[0]}"`) < tools.indexOf(hand), "Read again before it");
+  assert.ok(words(hand).includes("report") && !/data-message="[^"]*report/.test(document));
+});

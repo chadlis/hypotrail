@@ -124,6 +124,13 @@ const LABEL = {
   recoverable: 90,
   declared: 91,
   source: 92,
+  toHandle: 93,
+  interrupted: 94,
+  recoverByTerminal: 95,
+  handOver: 96,
+  reportByTerminal: 97,
+  protocolRevision: 98,
+  noEnd: 99,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -256,21 +263,83 @@ export function bodyOf(view: View): string {
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
   const figures = view.object ? usableFigures(view.object, view.figures) : undefined;
   const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)) : undefined;
-  parts.push(nowOf(view.object, study?.now ?? ""));
+  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
   if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
   parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []));
-  parts.push("</section>", '<section data-part="tools">', `<h2>${label("tools")}</h2>`, "</section>");
+  parts.push("</section>", toolsOf(inert));
   return parts.join("\n");
+}
+
+// Tools, last on the page: Read again, then "Hand over" last: the `report` command as fixed text, which the panel never starts.
+function toolsOf(inert: string): string {
+  return [
+    '<section data-part="tools">',
+    `<h2>${label("tools")}</h2>`,
+    `<p><button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button></p>`,
+    `<div data-element="hand-over">`,
+    `<h3>${label("handOver")}</h3>`,
+    `<p>${label("reportByTerminal")}</p>`,
+    "</div>",
+    "</section>",
+  ].join("\n");
 }
 
 // The band under the path: the Write sequence of the read, and how many write-journal entries the panel's read gives after the
 // Write sequence of the object it held, as a link to the place of their lines.
 function bandOf(object: Entry): string[] {
-  const since = Array.isArray(object.writes_since) ? object.writes_since.length : 0;
+  const entries = list(object.writes_since);
+  const revisions = list(object.revisions);
   return [
-    `<p data-element="band">${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)} ${label("since")} ${link("writes_since", 0, since)}</p>`,
-    `<div data-part="since"${anchor("since", 0)}></div>`,
+    `<p data-element="band">${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
+    // The lines of the entries stand in a closed fold, so that Now keeps its place in the first screen.
+    [`<details data-part="since"${anchor("since", 0)}>`, `<summary>${label("since")} ${link("writes_since", 0, entries.length)}</summary>`, ...(entries.length === 0 ? [] : [`<ul>\n${entries.map((entry) => sinceLineOf(entry, entries, revisions)).join("\n")}\n</ul>`]), "</details>"].join("\n"),
   ];
+}
+
+// One line of `writes_since`: the command, the phase of the entry, the outcome of an end and what it wrote, each record by its kind and
+// its id as plain text; a revision as "Protocol revision" and its number, never as the word revision before a digest; a begin that no
+// end follows says so.
+function sinceLineOf(entry: Entry, entries: Entry[], revisions: Entry[]): string {
+  const written = list(entry.written).map((each) => {
+    if (each.kind !== "revision") return `${value(each.kind)} ${value(each.id)}`;
+    const revision = revisions.find((spec) => spec.revision === each.id);
+    return `${label("protocolRevision")} ${revision === undefined ? escaped(contract.no_value) : link("revision_number", 0, revision.revision_number)}`;
+  });
+  const ended = entry.phase === "end" || entries.some((other) => other.phase === "end" && other.command === entry.command && other.request_id === entry.request_id);
+  const parts = [value(entry.command), value(entry.phase), ...(entry.phase === "end" ? [value(entry.outcome)] : []), ...written, ...(ended ? [] : [`<span>${label("noEnd")}</span>`])];
+  return `<li data-element="since-line">${parts.join(" ")}</li>`;
+}
+
+// "To handle": one compact line above Now when `next_step` lists Attempts to handle, with their count, as a link to the full list, which
+// stands after Now with the id `tohandle-list`; each entry names the Attempt and the command that handles it, as fixed text.
+function toHandleLineOf(object: Entry | undefined): string {
+  const ids = Array.isArray(record(object?.next_step).to_handle) ? (record(object?.next_step).to_handle as unknown[]) : [];
+  if (ids.length === 0) return "";
+  return ['<section data-part="tohandle-line">', `<h2>${label("toHandle")}</h2>`, `<p>${label("interrupted")} <a href="#tohandle-list" data-kind="to_handle">${written(ids.length)}</a></p>`, "</section>"].join("\n");
+}
+
+function toHandleListOf(object: Entry | undefined): string {
+  const ids = Array.isArray(record(object?.next_step).to_handle) ? (record(object?.next_step).to_handle as unknown[]) : [];
+  if (ids.length === 0) return "";
+  const rows = ids.map((id) => {
+    const attempt = list(object?.attempts).find((each) => each.attempt_id === id);
+    return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status)} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
+  });
+  return ['<div data-part="tohandle" id="tohandle-list">', `<ul>\n${rows.join("\n")}\n</ul>`, "</div>"].join("\n");
+}
+
+// Under rule 3, after the core's text: each Decision `next_step` names, its option as a link to its part, the phrase of whether it applies
+// and the state of its evidence.
+function lookAgainOf(object: Entry, step: Entry): string[] {
+  const decisions = list(object.decisions);
+  return (Array.isArray(step.ids) ? step.ids : []).flatMap((id) => {
+    const index = decisions.findIndex((each) => each.decision_id === id);
+    if (index < 0) return [];
+    const decision = decisions[index];
+    const change = record(decision.evidence_change);
+    const state = "state" in change ? ` <span>${phrase(change.state)}</span>` : "";
+    return [`<p data-element="look-again"><a href="${HREF.decision}${index}">${marked(decision.option, "strong")}</a> <span>${text(APPLIES.get(String(decision.applies)) ?? "")}</span>${state}</p>`];
+  });
 }
 
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
@@ -281,7 +350,7 @@ function nowOf(object: Entry | undefined, pending: string): string {
   if (object) {
     const step = record(object.next_step);
     if (step.kind === "decide" && pending !== "") lines.push(pending);
-    else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`);
+    else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
     else lines.push(`<p data-element="now-question">${label("noPending")}</p>`);
   }
   lines.push("</section>");

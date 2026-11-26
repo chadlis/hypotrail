@@ -531,7 +531,7 @@ details[data-step] > summary { color: var(--chalk); }
 [data-mark] { font-weight: 700; color: var(--coral); }
 div[data-part="study"] { font-size: 0.85em; }
 h1 { font-size: 0.9em; font-weight: normal; margin: 0.4em 0; color: var(--chalk2); overflow-wrap: anywhere; }
-h2 { font-size: 0.8em; letter-spacing: 0.06em; text-transform: uppercase; color: var(--chalk2); margin: 0.5em 0 0.2em; padding-bottom: 0.1em; border-bottom: 1px solid var(--line2); }
+h2 { font-size: 0.9em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--chalk2); margin: 0.5em 0 0.2em; padding-bottom: 0.1em; border-bottom: 1px solid var(--line2); }
 h3 { font-size: 1.08em; margin: 0.3em 0 0.2em; }
 h4 { font-size: 0.85em; color: var(--chalk2); margin: 0.5em 0 0.1em; }
 p, ul { margin: 0.2em 0; }
