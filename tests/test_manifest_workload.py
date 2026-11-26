@@ -280,3 +280,36 @@ def test_the_review_record_holds_one_agreed_line_per_case_whose_two_writers_sql_
             assert line["outcome"] == "agreed", line["case_id"]
     finally:
         connection.close()
+
+
+# D-158 on chadlis/hypotrail#75, item 1: "the allowed sets are derived from recorded SQL only, never from fixture or agent answers".
+ALLOWED_CASES = ("D25", "D26", "D27", "D28", "D29", "D30", "P04", "P05", "P06")
+
+
+def test_each_allowed_identifier_set_is_exactly_what_the_sql_its_review_line_records_gives_on_the_chinook_bytes():
+    from hypotrail.core.data import open_sqlite_readonly
+
+    _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
+    review = {line["case_id"]: line for line in lines}
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    assert tuple(case_id for case_id, r in references.items() if "allowed_identifiers" in r) == ALLOWED_CASES
+    assert tuple(case_id for case_id, line in review.items() if "allowed_identifiers" in line) == ALLOWED_CASES
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        for case_id in ALLOWED_CASES:
+            recorded = review[case_id]["allowed_identifiers"]
+            derived = [{"kind": recorded["kind"], "value": str(value)} for (value,) in connection.execute(recorded["sql"]).fetchall()]
+            assert derived and references[case_id]["allowed_identifiers"] == derived, case_id
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize("case_id", ["D26", "D29"])
+def test_the_verbose_fixtures_unexpected_identifier_witness_names_an_identifier_neither_expected_nor_allowed(case_id):
+    from hypotrail.core import text_facts
+
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [line] = [item for item in jsonl(PROSE / "fixtures" / "answers-verbose.jsonl") if item["case_id"] == case_id]
+    [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
+    criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
+    assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
