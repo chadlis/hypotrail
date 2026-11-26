@@ -36,7 +36,7 @@ F4_SECTIONS = [
 WRITE_SEQUENCES = {
     "L1.1": [None],
     "L1.2": [2, 2, 2],
-    "L1.3": [4, 6, 6],
+    "L1.3": [4, 6, 6, 6],
     "L1.4": [8, 10],
     "L1.5": [12, 12],
     "L1.6": [12, 12],
@@ -94,12 +94,17 @@ def ids_on_disk(study: Path, kind: str) -> set:
     return {json.loads(path.read_text(encoding="utf-8"))[key] for pattern in patterns for path in study.glob(pattern)}
 
 
+# What the line of a request sent again holds, when the command prints its line rather than its `--json` object.
+REPLAYED_LINE = "(recorded earlier: nothing was"
+
+
 def wrote(call) -> bool:
     if call["code"] != 0:
         return False
     if call["args"][0] == "report":
         return call["payload"]["report"]["exposure"]["recorded"]
-    return call["args"][0] in WRITERS and not (call["payload"] or {}).get("replayed", False)
+    replayed = REPLAYED_LINE in call["out"] if call["payload"] is None else call["payload"].get("replayed", False)
+    return call["args"][0] in WRITERS and not replayed
 
 
 def journal_command(args) -> str:
@@ -126,6 +131,11 @@ def assert_the_step(run, step_id) -> list:
             assert run.module.same(found, run.module.resolved(expected, values)), (step_id, path, found, expected)
         for line in expect.get("lines", []):
             assert run.module.resolved(line, values) in call["out"].splitlines(), (step_id, line)
+        for ending in expect.get("endings", []):
+            assert any(line.endswith(run.module.resolved(ending, values)) for line in call["out"].splitlines()), (step_id, ending)
+        for path, named in expect.get("present", {}).items():
+            for entry in named:
+                assert run.module.resolved(entry, values) in value_at(payload, path), (step_id, path, entry)
         study = call["study"]
         if sequence is None:
             assert study is None, step_id
@@ -189,11 +199,15 @@ def test_l1_2_init_then_the_same_init_refused_with_study_exists(demonstration_re
     assert first[1]["payload"]["references_id"] == demonstration_recording.outcome.captures["L1_BIKE_REFS"]
 
 
-def test_l1_3_two_attempts_on_dev_and_the_request_sent_again(demonstration_recording):
-    seasonal, ridge, again = assert_the_step(demonstration_recording, "L1.3")
+def test_l1_3_two_attempts_on_dev_and_the_request_sent_again_then_its_line_ending_with_the_observation_set_id_and_no_write(demonstration_recording):
+    seasonal, ridge, again, line = assert_the_step(demonstration_recording, "L1.3")
     assert again[1]["payload"]["replayed"] is True
     assert again[1]["payload"]["attempt"]["attempt_id"] == seasonal[1]["payload"]["attempt"]["attempt_id"]
     assert again[1]["payload"]["observation_set_id"] == seasonal[1]["payload"]["observation_set_id"]
+    [printed] = line[1]["out"].splitlines()
+    assert printed.startswith(f"Attempt {seasonal[1]['payload']['attempt']['attempt_id']} ") and REPLAYED_LINE in printed, printed
+    assert printed.endswith(f"; Observation set {seasonal[1]['payload']['observation_set_id']}"), printed
+    assert line[1]["journal"] == again[1]["journal"] and line[1]["status"]["write_sequence"] == again[1]["status"]["write_sequence"] == 6
 
 
 def test_l1_4_the_two_assessments_give_the_maes_of_the_walk(demonstration_recording):
@@ -510,3 +524,29 @@ def test_the_work_folder_holds_the_two_reads_of_each_kept_state_at_its_write_seq
         assert json.loads((folder / f"{name}.args").read_text(encoding="utf-8")) == {"arguments": call["args"]}, name
         printed = tuple((folder / f"{name}.{part}").read_text(encoding="utf-8") for part in ("exit", "out", "err"))
         assert printed == (f"{call['code']}\n", call["out"], call["err"]), name
+
+
+# --- what the Why of a step says, read against what its commands gave --------------------------------------------------------------
+
+# The lag feature task 3 and C8 name, as the warning of the Comparison prints it.
+MEAN_PREVIOUS_7 = "mean_previous_7 (823.878 rentals per day)"
+
+
+def test_the_figures_the_why_of_task_3_and_of_c8_names_are_the_warnings_and_the_two_maes_and_the_lag_feature_beats_both(demonstration_recording):
+    run = demonstration_recording
+    _, (_, status), _, _ = assert_the_step(run, "task 3")
+    [warning] = status["payload"]["comparisons"][0]["warnings"]
+    assert MEAN_PREVIOUS_7 in warning["message"], warning["message"]
+    why = run.module.STEPS[[each["id"] for each in run.module.STEPS].index("task 3")]["why"]
+    assert MEAN_PREVIOUS_7 in why and f"({F3_MAE['seasonal_7']:.6g} and {F3_MAE['ridge_v1']:.6g})" in why, why
+    assert 823.878 < min(F3_MAE.values())
+
+
+def test_after_task_6_1_nothing_is_pending_because_the_comparison_of_task_3_compares_assessments_of_revision_1(demonstration_recording):
+    run = demonstration_recording
+    status = assert_the_step(run, "task 6.1")[5][1]["payload"]
+    [comparison] = [each for each in status["comparisons"] if each["comparison_id"] == captured(run, "L2_COMPARISON")]
+    revisions = {each["assessment_id"]: each["study_revision"]["number"] for each in status["assessments"]}
+    assert status["pending_decisions"] == [] and status["revisions"][-1]["revision_number"] == 2
+    assert [revisions[comparison["roles"][side]] for side in ("control_assessment_id", "candidate_assessment_id")] == [1, 1]
+    assert [each["comparison_id"] for each in status["comparisons"]] == [captured(run, "L2_COMPARISON")]

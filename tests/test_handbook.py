@@ -5930,6 +5930,25 @@ def test_the_steps_table_of_chapter_19_has_one_row_per_step_of_the_script_with_i
     assert order == [step["id"] for step in demonstration_steps()]
 
 
+# Where section 18 is: its page, the page's repository and the commit it was read at.
+TEACHING_PAGE = (
+    "section 18 of the teaching page, <code>pages/de-zero-a-la-demo.html</code> in chadlis/hypotrail-learning (in French; read at "
+    "commit <code>164aa3a</code>)"
+)
+NOT_RUN_INSTRUCTIONS = "The instructions for these steps are in that section."
+
+
+def test_chapter_19_names_section_18_by_the_teaching_pages_path_its_repository_and_its_commit_where_it_first_names_it():
+    section = " ".join(chapter_text(DEMO_CHAPTER).split(STEPS_SECTION, 1)[1].split('<p class="sub2"', 1)[0].split())
+    assert section.find(TEACHING_PAGE) == section.index("section 18"), section[:600]
+
+
+def test_directly_above_the_not_run_table_chapter_19_says_that_the_instructions_for_its_steps_are_in_that_section():
+    after_the_steps = chapter_text(DEMO_CHAPTER).split(f'id="{STEPS_TABLE}"', 1)[1].split("</table></div>", 1)[1]
+    between = after_the_steps.split(f'<div class="tblwrap"><table class="tbl" id="{NOT_RUN_TABLE}">', 1)[0]
+    assert plain_text(between) == NOT_RUN_INSTRUCTIONS, between
+
+
 def test_the_not_run_table_of_chapter_19_names_each_item_the_demonstration_does_not_run_with_a_reason(page):
     rows = {attrs["data-item"]: attrs for attrs in client_rows(page, NOT_RUN_TABLE)}
     for item in sorted(set(rows) | NOT_RUN):

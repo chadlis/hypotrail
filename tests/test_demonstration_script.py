@@ -6,6 +6,7 @@ starts it start it as a process, once.
 
 import ast
 import copy
+import io
 import json
 import math
 import os
@@ -45,7 +46,9 @@ DEMO_IDS = [
 # bridge starts it, "each option joined to its value by `=`" (chadlis/hypotrail#221, "Acceptance criteria"); the page's request id at task
 # 3 is a new UUID of the walk, the script's a fixed text. Section 18 has neither COMPARE nor DEV, and leaves the hook of C10 to Claude Code
 # and the `decide` of S1 and of C8 to the panel and to Claude Code: those commands are written here from chadlis/hypotrail#221,
-# "Acceptance criteria", with the `status` read after COMPARE, C8 and DEV that shows what each wrote.
+# "Acceptance criteria", with the `status` read after COMPARE, C8 and DEV that shows what each wrote. L1.3 sends its first request a third
+# time, without `--json`, which section 18 does not: D-142 on chadlis/hypotrail#75, "L1.3 adds the resent `run ml … --request-id
+# l1-seasonal` without `--json`".
 KEPT_LOG = "docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval"
 POPULATION = '{"episodes": [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]}'
 QUESTION = "Which Configuration do we keep after this Comparison?"
@@ -83,6 +86,7 @@ SECTION_18 = {
     "L1.3": [
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"),
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "ridge_v1", "--partition", "dev", "--request-id", "l1-ridge"),
+        ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"),
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"),
     ],
     "L1.4": [
@@ -369,11 +373,23 @@ def test_l1_2_holds_the_second_init_and_expects_its_refusal_study_exists_with_ex
 
 
 def test_l1_3_holds_the_request_sent_again_and_expects_the_first_attempts_id_and_replayed_true():
-    first, _, again = cli_actions("L1.3")
+    first, _, again, _ = cli_actions("L1.3")
     assert args_of(first) == args_of(again)
     [(name, path)] = [(name, path) for name, path in first["capture"].items() if path == "attempt.attempt_id"]
     assert again["expect"]["values"]["attempt.attempt_id"] == "{" + name + "}"
     assert again["expect"]["values"]["replayed"] is True
+
+
+def test_l1_3_sends_the_first_request_a_third_time_without_json_and_expects_its_line_to_end_with_the_observation_set_id():
+    first, _, _, shown = cli_actions("L1.3")
+    assert "--json" not in shown["cli"] and shown["cli"] == args_of(first)
+    [(name, path)] = [(name, path) for name, path in first["capture"].items() if path == "observation_set_id"]
+    assert shown["expect"] == {"exit": 0, "endings": ["; Observation set {" + name + "}"]}
+
+
+def test_l1_8_prints_the_observation_set_id_of_the_scripted_fixture_attempt():
+    [fixture] = [action for action in cli_actions("L1.8") if action["cli"][:2] == ["run", "agent"]]
+    assert "observation_set_id" in fixture["print"]
 
 
 def test_l1_7_expects_no_exposure_after_the_attempt_one_freeze_record_and_one_exposure_after_its_assessment_and_a_second_after_the_report():
@@ -550,6 +566,10 @@ def blocks(transcript: str) -> dict:
     return found
 
 
+# A held expectation's line ends with one of these: the second when the float found differs from the one expected.
+HELD = (": held", ": held (equal to 12 significant digits)")
+
+
 def test_the_transcript_holds_one_block_per_step_with_its_title_commands_shown_values_what_it_shows_why_and_each_expectation_held(demonstration_recording):
     run, by_block = demonstration_recording, blocks(demonstration_recording.transcript)
     calls = iter(run.calls)
@@ -562,18 +582,18 @@ def test_the_transcript_holds_one_block_per_step_with_its_title_commands_shown_v
         at = 0
         for action in each["actions"]:
             if "cli" not in action and "program" not in action:
-                at = lines.index(f"$ {run.module.shown_action(action, run.module.folders_of(run.work))}", at)
+                at = lines.index(f"script: {run.module.shown_action(action, run.module.folders_of(run.work))}", at)
             for started in run.module.processes(action):
                 call = next(calls)
                 if "program" in started:
                     at = lines.index(run.module.shown_program(started, run.module.folders_of(run.work) | run.outcome.captures), at)
                 else:
-                    at = lines.index(f"$ python -m hypotrail {run.module.shlex.join(call['args'])}", at)
+                    at = lines.index(run.module.shown_command(call["args"], run.module.folders_of(run.work)), at)
                 for path in started.get("print", []):
                     value = value_at(call["payload"], path)
                     assert f"  {path} = {json.dumps(value)}" in lines[at:], (step_id, path)
                 for key in run.module.expectation_keys(started["expect"]):
-                    assert any(line.startswith(f"  expected {key} ") and line.endswith(": held") for line in lines[at:]), (step_id, key)
+                    assert any(line.startswith(f"  expected {key} ") and line.endswith(HELD) for line in lines[at:]), (step_id, key)
     assert run.transcript.splitlines()[-1] == f"{len(STEPS)} of {len(STEPS)} steps gave what they expect."
 
 
@@ -630,3 +650,158 @@ SAME_OR_NOT = {
 def test_the_rule_that_compares_a_value_found_with_a_value_expected_holds_floats_equal_to_12_significant_digits(pair):
     found, expected, same = SAME_OR_NOT[pair]
     assert MODULE.same(found, expected) is same
+
+
+def one_step(work: Path, expect: dict, payload) -> tuple:
+    """(outcome, transcript lines) of a step list of one step, one `status --json` whose process prints `payload`."""
+    step = {"id": "X", "title": "one step", "shows": "a value", "why": "a test", "actions": [{"cli": ["status", "--json"], "expect": expect}]}
+    out = io.StringIO()
+    outcome = MODULE.run(work, start=lambda argv, env, cwd, text=None: (0, json.dumps(payload), ""), out=out, steps=[step])
+    return outcome, out.getvalue().splitlines()
+
+
+# A float that equals RIDGE_MAE to 12 significant digits and differs from it at the 15th, as it was found on another machine.
+RIDGE_MAE_AT_THE_15TH_DIGIT = 1264.730691775692
+
+
+def test_a_float_that_holds_to_12_significant_digits_but_differs_ends_its_line_with_the_rule_and_an_equal_one_does_not(tmp_path):
+    assert RIDGE_MAE_AT_THE_15TH_DIGIT != RIDGE_MAE and MODULE.same(RIDGE_MAE_AT_THE_15TH_DIGIT, RIDGE_MAE)
+    expect = {"exit": 0, "values": {"x": RIDGE_MAE}}
+    _, differs = one_step(tmp_path / "differs", expect, {"x": RIDGE_MAE_AT_THE_15TH_DIGIT})
+    _, equal = one_step(tmp_path / "equal", expect, {"x": RIDGE_MAE})
+    held = f"  expected x {json.dumps(RIDGE_MAE)}: found "
+    assert f"{held}{json.dumps(RIDGE_MAE_AT_THE_15TH_DIGIT)}: held (equal to 12 significant digits)" in differs, differs
+    assert f"{held}{json.dumps(RIDGE_MAE)}: held" in equal, equal
+
+
+def test_the_first_line_of_the_transcript_says_that_a_float_is_compared_to_12_significant_digits(tmp_path):
+    _, lines = one_step(tmp_path / "work", {"exit": 0}, {})
+    assert lines[0].endswith(" A float is compared to 12 significant digits, so a last digit may differ from one machine to another."), lines[0]
+
+
+def test_the_first_line_of_the_transcript_states_the_values_of_work_and_checkout(tmp_path):
+    _, lines = one_step(tmp_path / "work", {"exit": 0}, {})
+    assert f" $WORK is {tmp_path / 'work'} and $CHECKOUT is {ROOT}." in lines[0], lines[0]
+
+
+# --- the limitations of a Comparison: each named one, never their count ------------------------------------------------------------------
+
+
+def test_no_expectation_of_the_step_list_counts_the_limitations_of_a_comparison():
+    counted = [(step_id, path) for step_id, action in processes(STEPS) for path in action["expect"].get("values", {}) if path.startswith("len(") and "limitations" in path]
+    assert counted == []
+
+
+@pytest.mark.parametrize("step_id", ["L1.5", "task 5"])
+def test_a_step_that_reads_the_limitations_expects_each_named_limitation_present(step_id):
+    [status] = [action for action in cli_actions(step_id) if action["cli"][0] == "status" and "limitations" in " ".join(action["print"])]
+    [(path, named)] = status["expect"]["present"].items()
+    assert path.endswith(".limitations") and named == MODULE.LIMITATIONS
+    assert not [key for key in status["expect"].get("values", {}) if "limitations" in key], status["expect"]["values"]
+
+
+def test_an_expectation_of_named_entries_holds_whatever_the_other_entries_and_their_order_and_fails_on_a_missing_one(tmp_path):
+    named = MODULE.LIMITATIONS
+    expect = {"exit": 0, "present": {"limitations": named}}
+    others, _ = one_step(tmp_path / "others", expect, {"limitations": [named[1], "a third limitation", named[0]]})
+    missing, lines = one_step(tmp_path / "missing", expect, {"limitations": [named[0], "a third limitation"]})
+    assert others.code == 0
+    assert missing.code == 1 and f"FAILED: step X, key an entry of limitations: expected {json.dumps(named[1])}, found <missing>" in lines, lines
+
+
+# --- the lines a person reads: what each step says, and the commands as a person types them ------------------------------------------
+
+# Each sentence D-142 on chadlis/hypotrail#75 adds to the Why of a step, quoted from its list "Adopted".
+WHY_SENTENCES = {
+    "task 3": (
+        "It is recorded to show how a Decision is written, not as the answer the evidence supports: the warning below shows one lag "
+        "feature alone, mean_previous_7 (823.878 rentals per day), below both Configurations (1090.79 and 1264.73).",
+    ),
+    "task 5": (
+        "The limitations say what the delta does not show: the days are dependent, which rules out the naive interval that treats them "
+        "as independent, not every interval; none is computed here.",
+    ),
+    "task 6.1": (
+        "After this step nothing is pending: the Comparison of task 3 compares Assessments of revision 1. What a person does next is "
+        "compare the two latest Assessments, as COMPARE does below.",
+    ),
+    "task 6.2": (
+        "Both rise by the same amount, so their difference does not move: \"result changed\" names a changed Item, not a changed delta, "
+        "and not a changed conclusion.",
+    ),
+    "C8": (
+        "The rule compares the two Configurations only: it does not read the warning, by which mean_previous_7 alone beats both. A proxy "
+        "Decision records what the rule gave, not that the rule is right.",
+    ),
+}
+
+
+@pytest.mark.parametrize("step_id", sorted(WHY_SENTENCES))
+def test_the_why_of_the_step_holds_each_sentence_d_142_adds(step_id):
+    for sentence in WHY_SENTENCES[step_id]:
+        assert sentence in step(step_id)["why"], (step_id, sentence)
+
+
+def test_the_why_of_task_5_no_longer_says_that_one_day_resembles_the_next():
+    assert "one day resembles the next" not in step("task 5")["why"]
+
+
+# The section 18 the script follows: its page, the page's repository and the commit it was read at.
+TEACHING_PAGE = (
+    "section 18 of the teaching page, `pages/de-zero-a-la-demo.html` in chadlis/hypotrail-learning (in French; read at commit `164aa3a`)"
+)
+
+
+def test_the_scripts_docstring_names_section_18_by_the_teaching_pages_path_its_repository_and_its_commit():
+    assert TEACHING_PAGE in " ".join(MODULE.__doc__.split())
+
+
+def dollar_lines(transcript: str) -> list:
+    return [line for line in transcript.splitlines() if line.startswith("$ ")]
+
+
+def test_every_dollar_line_splits_into_an_argv_that_starts_with_uv_run_python_or_with_python3_i(demonstration_recording):
+    lines = dollar_lines(demonstration_recording.transcript)
+    assert len(lines) == len(demonstration_recording.calls)
+    for line in lines:
+        argv = shlex.split(line[2:])
+        assert argv[:3] == ["uv", "run", "python"] or argv[:2] == ["python3", "-I"], line
+
+
+def expanded(word: str, folders: dict) -> str:
+    """A word of a `$` line with `$WORK` and `$CHECKOUT` replaced by the values the transcript's first line states."""
+    return word.replace("$WORK", folders["work"]).replace("$CHECKOUT", folders["checkout"])
+
+
+def test_each_dollar_line_writes_the_work_folder_as_work_and_the_checkout_as_checkout_and_gives_the_arguments_its_process_got(demonstration_recording):
+    recording = demonstration_recording
+    folders = recording.module.folders_of(recording.work)
+    for line, call in zip(dollar_lines(recording.transcript), recording.calls):
+        assert folders["work"] not in line and folders["checkout"] not in line, line
+        argv = [expanded(word, folders) for word in shlex.split(line[2:])]
+        if call["program"] is None:
+            assert argv[:5] == ["uv", "run", "python", "-m", "hypotrail"] and argv[5:] == call["args"], line
+        else:
+            at = 3 if argv[:3] == ["uv", "run", "python"] else 2
+            assert (Path(argv[at]).name, argv[at + 1:]) == (call["program"], call["args"]), line
+    assert any("$WORK/" in line for line in dollar_lines(recording.transcript))
+    assert any("$CHECKOUT/" in line for line in dollar_lines(recording.transcript))
+
+
+def test_the_hook_keeps_python3_i_and_the_task_6_script_is_shown_through_uv_run_python(demonstration_recording):
+    lines = dollar_lines(demonstration_recording.transcript)
+    assert [line for line in lines if MODULE.HOOK in shlex.split(line[2:])] == [f"$ python3 -I {MODULE.HOOK} --study $WORK/bike"]
+    assert [line for line in lines if MODULE.EDIT_COPY in shlex.split(line[2:])] == [
+        f"$ uv run python {MODULE.EDIT_COPY} --copy $WORK/demo-examples --edit {edit}" for edit in ("6.1", "6.2")
+    ]
+
+
+def test_an_action_that_is_not_a_command_is_printed_as_script_and_never_as_a_dollar_line(demonstration_recording):
+    recording = demonstration_recording
+    lines = recording.transcript.splitlines()
+    folders = recording.module.folders_of(recording.work)
+    actions = [action for each in STEPS for action in each["actions"] if "cli" not in action and "program" not in action]
+    assert {kind for action in actions for kind in ("show", "copy", "write", "keep") if kind in action} == {"show", "copy", "write", "keep"}
+    for action in actions:
+        assert f"script: {recording.module.shown_action(action, folders)}" in lines, action
+    assert not [line for line in dollar_lines(recording.transcript) if line.split()[1] in ("show", "copy", "write", "keep")]

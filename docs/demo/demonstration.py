@@ -6,8 +6,9 @@ checkout:
     uv run python docs/demo/demonstration.py --work DIR
 
 DIR is a new or empty folder outside the checkout: it receives the Studies, the Workload copy, the report pages, the population
-file and the reads kept for the client's tests (`kept/`). The steps are those of section 18 of the teaching page that need no
-person: a first Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. For each step the script prints what
+file and the reads kept for the client's tests (`kept/`). The steps are those of section 18 of the teaching page,
+`pages/de-zero-a-la-demo.html` in chadlis/hypotrail-learning (in French; read at commit `164aa3a`), that need no person: a first
+Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. For each step the script prints what
 it shows and why, starts each command as a process of its own, as a person would, prints what the command gave, and checks what
 the step expects of it. It stops at the first expectation that does not hold. Exit 0 when every step gave what it expects, 1
 when one did not, 2 when DIR is refused.
@@ -17,6 +18,11 @@ started without the live key `HYPOTRAIL_ANTHROPIC_API_KEY` in its environment. A
 `python -B -m hypotrail`, with the Python that runs this script, and the task-6 script as `python -B`; `-B` keeps Python from
 writing its bytecode cache into the checkout, so that the script writes only inside DIR. The Claude Code hook is started as
 its settings fragment starts it, `python3 -I`, and starts the CLI through `uv` itself: it gets `PYTHONDONTWRITEBYTECODE=1`.
+
+The transcript writes each process on a `$` line as a person types it at the root of the checkout: a command of the CLI as
+`uv run python -m hypotrail`, the task-6 script as `uv run python`, the hook with its fragment's `python3 -I`, and the work folder
+and the checkout as `$WORK` and `$CHECKOUT`, whose values its first line states. An action that starts no process is a `script:`
+line.
 """
 
 import argparse
@@ -38,6 +44,10 @@ LIVE_KEY = "HYPOTRAIL_ANTHROPIC_API_KEY"
 KEPT_LOG = "docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval"
 POPULATION = '{"episodes": [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]}'
 SIGNIFICANT_DIGITS = 12
+# A `$` line of the transcript: how a person starts a command of the CLI and the task-6 script, and the name of each folder.
+TYPED_CLI = ["uv", "run", "python", "-m", "hypotrail"]
+TYPED_PYTHON = ["uv", "run", "python"]
+FOLDER_NAMES = {"work": "$WORK", "checkout": "$CHECKOUT"}
 # A template names a folder as `{work}` or `{checkout}`, and a value captured from an earlier command by the capture's name.
 PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 FOLDERS = ("work", "checkout")
@@ -95,7 +105,8 @@ def status_l2() -> list:
 # The step list. Each step has its id in section 18, its title, what it shows and why, and its actions. An action is a command
 # of the CLI (`cli`, its argument list), a file of the work folder written (`write`), or files shown, read only (`show`). A
 # command may capture values of its `--json` object for the commands after it (`capture`: name -> key path), print values of
-# it (`print`), and expects its exit code, a refusal's code and stage, and the values at named key paths (`expect`).
+# it (`print`), and expects its exit code, a refusal's code and stage, the values at named key paths, the entries a list at a
+# key path holds among others (`present`), and the lines or the ends of lines its output holds (`expect`).
 STEPS = [
     {
         "id": "L1.1",
@@ -173,7 +184,8 @@ STEPS = [
         "title": "Run two Configurations on dev, then send the first request again",
         "shows": (
             "Two Attempts on the 182 Items of dev, each with 182 produced, 0 failed and 0 missing, and the Observation set ID each "
-            "recorded; then the first request sent again, which gives the first Attempt's id and Observation set ID with replayed true."
+            "recorded; then the first request sent again, which gives the first Attempt's id and Observation set ID with replayed true; "
+            "then the same request a third time without --json, whose line ends with that Observation set ID and which writes nothing."
         ),
         "why": (
             "A Configuration is the whole forecasting recipe: seasonal_7 takes the value of seven days before; ridge_v1 is a ridge "
@@ -202,6 +214,10 @@ STEPS = [
                     "exit": 0,
                     "values": {"replayed": True, "attempt.attempt_id": "{L1_ATTEMPT_SEASONAL}", "observation_set_id": "{L1_OBS_SEASONAL}"},
                 },
+            },
+            {
+                "cli": ["run", "ml", "--study", BIKE, "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"],
+                "expect": {"exit": 0, "endings": ["; Observation set {L1_OBS_SEASONAL}"]},
             },
         ],
     },
@@ -251,8 +267,9 @@ STEPS = [
         "title": "Compare the two Assessments, with the warning and the limitations",
         "shows": (
             "The Comparison, compatible, with the warning COMPARISON_SINGLE_FEATURE_BEATS: a delta of +173.939 rentals per day over "
-            "182 of 182 paired Items; then the Comparison read back from the Study, with its exact delta, the warning and three "
-            "limitations; then the first lines of paired_deltas.csv."
+            "182 of 182 paired Items; then the Comparison read back from the Study, with its exact delta, the warning and its "
+            "limitations, among them the dependence of daily observations and the one code environment of the two Attempts; then the "
+            "first lines of paired_deltas.csv."
         ),
         "why": (
             "A Comparison sets two Assessments side by side: the Control (seasonal_7), against which one measures, and the Candidate "
@@ -287,8 +304,8 @@ STEPS = [
                     "values": {
                         "comparisons[-1].comparison_id": "{L1_COMPARISON}",
                         "comparisons[-1].delta.value": 173.93948298447322,
-                        "len(comparisons[-1].limitations)": 3,
                     },
+                    "present": {"comparisons[-1].limitations": LIMITATIONS},
                 },
             },
             {"show": "head", "lines": 3, "path": BIKE + "/comparisons/*/paired_deltas.csv"},
@@ -538,7 +555,9 @@ STEPS = [
             "A Decision is a file of the Study, written by decide alone and never rewritten. It holds the question, the option, its "
             "author, what it cites and the Write sequence its author read: had the Study been written to since, decide would have "
             "refused it (STUDY_CHANGED). The Write sequence goes from 12 to 14 because a write adds two entries to the Study's write "
-            "journal, its begin and its end. The option is the one the owner chose when he walked the demonstration on 2026-11-25."
+            "journal, its begin and its end. The option is the one the owner chose when he walked the demonstration on 2026-11-25. It is "
+            "recorded to show how a Decision is written, not as the answer the evidence supports: the warning below shows one lag "
+            "feature alone, mean_previous_7 (823.878 rentals per day), below both Configurations (1090.79 and 1264.73)."
         ),
         "actions": [
             {
@@ -641,8 +660,9 @@ STEPS = [
         ),
         "why": (
             "This limitation comes from the data, not from a made-up example: ridge_v1 is beaten by each of its own lag features used "
-            "alone as the forecast. The limitations say what the delta does not show: one day resembles the next, so no confidence "
-            "interval is given. The panel shows them beside the delta they limit."
+            "alone as the forecast. The limitations say what the delta does not show: the days are dependent, which rules out the "
+            "naive interval that treats them as independent, not every interval; none is computed here. The panel shows them beside "
+            "the delta they limit."
         ),
         "actions": [
             {
@@ -652,9 +672,8 @@ STEPS = [
                     "exit": 0,
                     "values": {
                         "comparisons[0].warnings[0].code": "COMPARISON_SINGLE_FEATURE_BEATS",
-                        "comparisons[0].limitations[0]": LIMITATIONS[0],
-                        "comparisons[0].limitations[1]": LIMITATIONS[1],
                     },
+                    "present": {"comparisons[0].limitations": LIMITATIONS},
                 },
             },
         ],
@@ -673,7 +692,8 @@ STEPS = [
             "Task 6 shows what becomes of a Decision when its evidence changes. A change of a Reference is a new revision of the "
             "Protocol, then a new Assessment of each kept Observation set, with no model run again. The Decision no longer applies, "
             "because the revision changed, but the Study says \"evidence rescored\": no assessed Item changed, and each cited Metric "
-            "equals the latest. The Decision's file is not touched."
+            "equals the latest. The Decision's file is not touched. After this step nothing is pending: the Comparison of task 3 compares "
+            "Assessments of revision 1. What a person does next is compare the two latest Assessments, as COMPARE does below."
         ),
         "actions": [
             {
@@ -756,8 +776,9 @@ STEPS = [
         ),
         "why": (
             "This time the edited day is one the Comparison scores: one Item changes on each side, and each MAE rises by 100/182. "
-            "The Study says \"result changed\" and shows the value the Decision cited beside the latest. No delta is computed again "
-            "behind a person's back: deciding again, on a new Comparison, is a person's choice."
+            "Both rise by the same amount, so their difference does not move: \"result changed\" names a changed Item, not a changed "
+            "delta, and not a changed conclusion. The Study says \"result changed\" and shows the value the Decision cited beside the "
+            "latest. No delta is computed again behind a person's back: deciding again, on a new Comparison, is a person's choice."
         ),
         "actions": [
             {
@@ -947,7 +968,8 @@ STEPS = [
         "why": (
             "A Decision made by an agent that applies a rule is not a human Decision. It is written by decide too, with the author "
             "proxy and a source that names the rule, so that who or what decided is always known. The rule is the one the owner gave "
-            "Claude Code on 2026-11-25; no model is asked here."
+            "Claude Code on 2026-11-25; no model is asked here. The rule compares the two Configurations only: it does not read the "
+            "warning, by which mean_previous_7 alone beats both. A proxy Decision records what the rule gave, not that the rule is right."
         ),
         "actions": [
             {
@@ -1050,7 +1072,7 @@ STEPS = [
             },
             {
                 "cli": ["run", "agent", "--study", CHINOOK, "--mode", "scripted_fixture", "--config", "plain", "--request-id", "l1-fixture", "--json"],
-                "print": ["attempt.attempt_id", "attempt.mode", "attempt.item_counts"],
+                "print": ["attempt.attempt_id", "attempt.mode", "attempt.item_counts", "observation_set_id"],
                 "expect": {"exit": 0, "values": {"attempt.mode": "scripted_fixture", "attempt.item_counts": {"produced": 5, "failed": 1, "missing": 1}}},
             },
             {"write": "{work}/l1-population.json", "text": POPULATION},
@@ -1173,11 +1195,13 @@ def processes(action: dict) -> list:
 
 def expectation_keys(expect: dict) -> list:
     """The key of each expectation, in the order the script checks them: the exit code, a refusal's code and stage, the key paths,
-    then each line the output holds."""
+    each entry a list holds, then each line and each end of a line the output holds."""
     keys = ["exit code"]
     if "refusal" in expect:
         keys += ["error.code", "error.stage"]
-    return keys + list(expect.get("values", {})) + ["stdout line"] * len(expect.get("lines", []))
+    keys += list(expect.get("values", {}))
+    keys += [f"an entry of {path}" for path, entries in expect.get("present", {}).items() for _ in entries]
+    return keys + ["stdout line"] * len(expect.get("lines", [])) + ["stdout line ending"] * len(expect.get("endings", []))
 
 
 def expectations(expect: dict, code: int, payload, values: dict, out: str = "") -> list:
@@ -1188,10 +1212,17 @@ def expectations(expect: dict, code: int, payload, values: dict, out: str = "") 
         found += [("error.stage", expect["refusal"]["stage"], value_at(payload, "error.stage"))]
     for path, expected in expect.get("values", {}).items():
         found.append((path, resolved(expected, values), value_at(payload, path)))
+    for path, entries in expect.get("present", {}).items():
+        listed = value_at(payload, path)
+        for entry in resolved(entries, values):
+            found.append((f"an entry of {path}", entry, entry if isinstance(listed, list) and entry in listed else MISSING))
     lines = out.splitlines()
     for line in expect.get("lines", []):
         line = resolved(line, values)
         found.append(("stdout line", line, line if line in lines else MISSING))
+    for ending in expect.get("endings", []):
+        ending = resolved(ending, values)
+        found.append(("stdout line ending", ending, ending if any(line.endswith(ending) for line in lines) else MISSING))
     return found
 
 
@@ -1228,10 +1259,28 @@ def shown_action(action: dict, values: dict) -> str:
     return f"show {resolved(action['path'], values)}"
 
 
+def typed_word(word: str, values: dict) -> str:
+    """A word of a `$` line, quoted for a POSIX shell, with the work folder written `$WORK` and the checkout `$CHECKOUT` where the
+    quoting allows it: the folder's path and the rest of the word each need no quotes, so that the shell expands the name alone."""
+    for name, typed in FOLDER_NAMES.items():
+        folder = values[name]
+        parts = word.split(folder)
+        if len(parts) > 1 and shlex.quote(folder) == folder and all(part[:1] in ("", "/") for part in parts[1:]):
+            if all(shlex.quote(part) == part for part in parts if part):
+                return typed.join(parts)
+    return shlex.quote(word)
+
+
+def shown_command(args: list, values: dict) -> str:
+    """The `$` line of a command of the CLI, as a person types it at the root of the checkout."""
+    return "$ " + " ".join([*TYPED_CLI, *(typed_word(word, values) for word in args)])
+
+
 def shown_program(action: dict, values: dict) -> str:
-    """The line that names a program the script starts, by its path in the checkout and with its interpreter."""
-    interpreter = action.get("interpreter", ["python"])
-    return "$ " + shlex.join([*interpreter, action["program"], *resolved(action["args"], values)])
+    """The `$` line of a program the script starts, by its path in the checkout and with its interpreter: the hook's own, any other
+    through `uv run python`."""
+    interpreter = action.get("interpreter", TYPED_PYTHON)
+    return "$ " + " ".join([*interpreter, action["program"], *(typed_word(word, values) for word in resolved(action["args"], values))])
 
 
 def program_argv(action: dict, values: dict) -> list:
@@ -1291,7 +1340,7 @@ def process(action: dict, values: dict, work: Path, start, say) -> None:
     first that does not hold."""
     if "cli" in action:
         args = [resolved(part, values) for part in action["cli"]]
-        say(f"$ python -m hypotrail {shlex.join(args)}")
+        say(shown_command(args, values))
         argv, env, text = [*CLI, *args], without_live_key(), None
     else:
         args = resolved(action["args"], values)
@@ -1322,7 +1371,9 @@ def process(action: dict, values: dict, work: Path, start, say) -> None:
         say(f"  stderr | {line}")
     for key, expected, found in expectations(action["expect"], code, payload, values, out):
         held = same(found, expected) and found is not MISSING
-        say(f"  expected {key} {shown(expected)}: found {shown(found)}: {'held' if held else 'did not hold'}")
+        # `same` holds two values that differ only when a float differs past its 12th significant digit: the line names that rule.
+        verdict = (f"held (equal to {SIGNIFICANT_DIGITS} significant digits)" if found != expected else "held") if held else "did not hold"
+        say(f"  expected {key} {shown(expected)}: found {shown(found)}: {verdict}")
         if not held:
             raise Failed(f"key {key}: expected {shown(expected)}, found {shown(found)}")
     for name, path in action.get("capture", {}).items():
@@ -1344,7 +1395,8 @@ def run(work, *, start=start_process, out=None, steps=None) -> Outcome:
     values, passed = folders_of(work), 0
     say(
         f"The demonstration of Hypotrail in {work}: {len(steps)} steps, a first Bike Study, a second on a copy of the Workloads, then "
-        "Chinook, with no live model call and no network."
+        f"Chinook, with no live model call and no network. On each $ line, $WORK is {work} and $CHECKOUT is {CHECKOUT}. A float is "
+        "compared to 12 significant digits, so a last digit may differ from one machine to another."
     )
     for step in steps:
         say("")
@@ -1355,7 +1407,7 @@ def run(work, *, start=start_process, out=None, steps=None) -> Outcome:
             for action in step["actions"]:
                 started = processes(action)
                 if "cli" not in action and "program" not in action:
-                    say(f"$ {shown_action(action, values)}")
+                    say(f"script: {shown_action(action, values)}")
                     if not started:
                         show(action, values, work, say)
                 for each in started:
