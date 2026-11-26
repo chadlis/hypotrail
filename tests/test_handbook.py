@@ -5279,6 +5279,7 @@ CLIENT_CHAPTER_FALSE = (
     "otherwise the label of no pending decision",
     "its Decisions, with the count of pending decisions",
     "the last two always",
+    "make the order in which each kind first appears in the write journal",
     "When nothing is pending, a fixed sentence stands under the count of pending decisions.",
     "a fixed word stands under either heading when the Study holds none",
     "its id and its counts show once an Assessment holds",
@@ -5288,6 +5289,8 @@ CLIENT_CHAPTER_FALSE = (
 CLIENT_CHAPTER_TRUE = (
     "the count of pending decisions stands on the line of the heading of \"Now\"",
     "a kind with no record has no step",
+    "the order in which each of these kinds first appears in the write journal",
+    "last whenever there are any, its Declared deviations, which nothing in the core orders against the others",
     "a fixed sentence that no decision waits for the reviewer",
     "as plain text, never links",
     "under a heading of its own, of level three, other than the compact line's",

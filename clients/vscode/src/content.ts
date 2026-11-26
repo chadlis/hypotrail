@@ -442,9 +442,10 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const comparisons = shown.comparisons;
   const decisions = list(object.decisions);
   const deviations = list(object.declared_deviations);
-  // The steps of each moment, in the fixed order of kinds, which the Study's own citations make the order in which each kind first appears
-  // in the write journal (D-161): the Study, its Attempts, its Assessments and Comparisons, its Decisions and Declared deviations. A step
-  // stands only when the read holds a record of its kind; the Study's always.
+  // The steps of each moment, in a fixed order of kinds: the Study, its Attempts, its Assessments and Comparisons and its Decisions, which
+  // the Study's own citations make the order in which each of these kinds first appears in the write journal (D-161); then, last whenever
+  // present, its Declared deviations, which nothing in the core orders against the others (D-161 addendum 2, #75 comment 7197719288). A
+  // step stands only when the read holds a record of its kind; the Study's always.
   // The Decisions are built before the Assessments and the Comparisons, so that a record a Decision cites keeps its part in that Decision
   // and the steps of Assess and compare show its summary or a link to it.
   const decideAndFollow = [

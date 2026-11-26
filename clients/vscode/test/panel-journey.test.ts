@@ -297,6 +297,33 @@ function journalOrderOf(read: Record<string, any>): string[] {
   return order;
 }
 
+// A read holds the whole journal when it lists one entry per write. Over the Study, its Attempts, its Assessments, its Comparisons and its
+// Decisions, the steps drawn are then the kinds in the order of their first appearance in it; the Declared deviations, which nothing in
+// the core orders against the others, are drawn last whenever present (D-161 addendum 2, #75 comment 7197719288).
+function assertStepOrder(read: Record<string, any>, drawn: (string | undefined)[]): void {
+  assert.equal(read.writes_since.length, read.write_sequence, "a read of the whole journal");
+  const ordered = drawn.filter((step) => step !== "deviations");
+  assert.deepEqual(ordered, journalOrderOf(read).filter((step) => step !== "deviations"), "the order of first appearance in the journal");
+  if (drawn.includes("deviations")) assert.equal(drawn[drawn.length - 1], "deviations", "the Declared deviations last");
+}
+
+test("a Declared deviation the journal holds before any Comparison is still drawn last, in a copy of state 15 whose journal declares it first", async (t) => {
+  const read = readOf("15-deviation");
+  const at = (kind: string) => read.writes_since.findIndex((entry: Record<string, any>) => (entry.written ?? []).some((each: Record<string, any>) => each.kind === kind));
+  const deviation = at("declared_deviation");
+  // Its begin and end entries move before the first Comparison's begin.
+  const begin = read.writes_since.findIndex((entry: Record<string, any>, index: number) => index < deviation && entry.command === read.writes_since[deviation].command && entry.request_id === read.writes_since[deviation].request_id);
+  const moved = [read.writes_since[begin], read.writes_since[deviation]];
+  const rest = read.writes_since.filter((_: unknown, index: number) => index !== begin && index !== deviation);
+  const comparison = rest.findIndex((entry: Record<string, any>) => entry.command === "compare");
+  read.writes_since = [...rest.slice(0, comparison), ...moved, ...rest.slice(comparison)];
+  assert.ok(journalOrderOf(read).indexOf("deviations") < journalOrderOf(read).indexOf("comparisons"), "the copy declares the deviation before any Comparison");
+  const { document } = await documentFor(t, success(read));
+  const drawn = elementsOf(elementOf(document, '<section data-part="path">')!, "<details data-step=").map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
+  assert.ok(drawn.includes("deviations"));
+  assertStepOrder(read, drawn);
+});
+
 for (const state of STATES.filter((each) => readOf(each).ok === true)) {
   test(`the Study so far holds one closed step per kind of record present, in the order of the write journal, each running its review form, its chart and its limitation: ${state}`, async (t) => {
     const read = readOf(state);
@@ -305,10 +332,7 @@ for (const state of STATES.filter((each) => readOf(each).ok === true)) {
     const steps = elementsOf(path, "<details data-step=");
     const drawn = steps.map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
     assert.deepEqual(drawn, stepsOf(read), "exactly the kinds present");
-    // A read holds the whole journal when it lists one entry per write: the steps drawn are then the kinds in the order of their first
-    // appearance in it, the whole ordered list.
-    assert.equal(read.writes_since.length, read.write_sequence, "a read of the whole journal");
-    assert.deepEqual(drawn, journalOrderOf(read), "the order of first appearance in the journal");
+    assertStepOrder(read, drawn);
     for (const step of steps) {
       assert.ok(!/^<details[^>]*\sopen/.test(step), "closed");
       assert.match(step, /^<details data-step="[a-z]+">\n<summary>/, "one line first");
