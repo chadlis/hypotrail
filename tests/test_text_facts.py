@@ -224,8 +224,21 @@ def test_the_committed_scoring_config_matches_its_schema():
 
 
 KINDS = ("invoice", "customer", "track", "album")
-# "number of", "count of" or "total" before the plural makes a count phrase, whose number is no identifier.
-COUNT_FORMS = ("Number of {kind}s: 7", "number of {kind}s : 7.", "Count of {kind}s: 7", "Total {kind}s: 7", "Total number of {kind}s: 7", "We hold 7 {kind}s.")
+# "number(s) of", "count of" or "total", then the plural, with any whitespace between, makes a count phrase, whose number is no identifier.
+COUNT_FORMS = (
+    "Number of {kind}s: 7",
+    "number of {kind}s : 7.",
+    "Count of {kind}s: 7",
+    "Total {kind}s: 7",
+    "Total number of {kind}s: 7",
+    "We hold 7 {kind}s.",
+    "Number of  {kind}s: 7",
+    "Number of\n{kind}s: 7",
+    "Numbers of {kind}s: 7",
+    "number\nof {kind}s: 7",
+    "count  of {kind}s: 7",
+    "Total\n{kind}s: 7",
+)
 # A labelled form names identifiers, and every one of a list that follows its label; a bare "Invoices: 7" is a one-item list.
 LABELLED_FORMS = (
     ("{Kind}s: 269, 291, 293", {"269", "291", "293"}),

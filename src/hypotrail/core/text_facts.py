@@ -52,6 +52,10 @@ CURRENCY_SIGNS = "$€£"
 # optional `,` thousands groups; one followed by `%` is skipped.
 _NUMBER = re.compile(r"(?<![\w.\-])(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?![\d.,]*\d)(?!\s*%)")
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# D-163 on chadlis/hypotrail#75, item 2, verbatim: "number(s) of", "count of" or "total", followed by the plural, with any
+# whitespace between them, makes the number a count and not an id.
+_COUNT_BEFORE = re.compile(r"(?i)\b(?:numbers?\s+of|count\s+of|total)\s+\Z")
+_PLURAL_LABEL = re.compile(r"[^\W\d_]+s\b")
 # D-163 on chadlis/hypotrail#75, item 1: "After a kind's label, the scorer reads every identifier in the list that follows it".
 # The next item of a list: a comma, "&", "and", "or" or whitespace, then a number, with "#" before it or not, that is not the
 # start of a date, an amount or a time. Anything else (a word, a full stop, a table bar) ends the list.
@@ -187,10 +191,15 @@ def normalised(kind_config: dict, value: str) -> str:
 
 
 def identifier_spans(text: str, config: dict) -> list:
-    """(kind, normalised value, span) of each identifier: a pattern's one capture group, then each item of the list that follows it."""
+    """(kind, normalised value, span) of each identifier: a pattern's one capture group, then each item of the list that follows it.
+
+    A match whose label is a plural word right after a count phrase ("number of invoices: 7") is a count, and gives none.
+    """
     found = []
     for kind, kind_config in config["identifier_kinds"].items():
         for match in re.finditer(kind_config["pattern"], text):
+            if _PLURAL_LABEL.match(text, match.start()) and _COUNT_BEFORE.search(text[: match.start()]):
+                continue
             found.append((kind, normalised(kind_config, match.group(1)), match.span()))
             end = match.end()
             while (item := _LIST_NEXT.match(text, end)) is not None:
