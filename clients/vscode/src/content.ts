@@ -611,7 +611,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
       lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index), ...paths);
       lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("limitations", limitations));
     } else {
-      lines.push(deltaOf(delta, index), coverageLine, rolesLine, deltaChartOf(delta, index, roles, shown), featuresChartOf(roles, delta, shown), figures);
+      lines.push(deltaOf(delta, index, comparison.interval), coverageLine, rolesLine, deltaChartOf(delta, index, roles, shown), featuresChartOf(roles, delta, shown), figures);
       lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index), `<p>${status}</p>`, ...paths);
       lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("warnings", warnings), listOf("limitations", limitations), rest);
     }
@@ -756,11 +756,11 @@ function summaryOf(comparison: Entry, shown: Shown, roles: unknown[]): string {
 
 // The delta's element: its value as a link, or the word of a withheld delta, with its Metric and unit; then, given the Comparison's
 // `interval` when the read holds one, its level and its two bounds as links to the Comparison, and its resampling unit, or, when a bound
-// is null, its reason.
+// is null, its reason. A withheld delta holds no interval, not even its reason: the interval would show what the withheld delta hides.
 function deltaOf(delta: Entry, index: number, given?: unknown): string {
   const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
   let slot = "";
-  if (typeof given === "object" && given !== null) {
+  if (delta.value !== null && typeof given === "object" && given !== null) {
     const interval = given as Entry;
     slot =
       interval.lower === null || interval.upper === null

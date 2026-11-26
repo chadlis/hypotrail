@@ -37,6 +37,16 @@ const keptAnswer = (name: string): Answer => exit(Number(kept(`${name}.exit`)), 
 const keptJson = (name: string): Entry => JSON.parse(kept(`${name}.out`));
 
 // A label of the panel, read from contract.json: the test fails on a text that is not one of its labels.
+// The words of a Comparison's delta element as read: the delta with its Metric and unit, then, where the read holds an interval for a
+// delta that is not withheld, its level, its two bounds and its resampling unit, or its reason where a bound is null.
+function deltaWords(comparison: Entry): string {
+  const { delta, interval } = comparison;
+  const line = `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`;
+  if (delta.value === null || interval === undefined || interval === null) return line;
+  if (interval.lower === null || interval.upper === null) return `${line} ${label("Interval")} ${interval.reason}`;
+  return `${line} ${label("Interval")} ${written(interval.level)} ${written(interval.lower)} ${written(interval.upper)} ${label("resampling unit")} ${interval.unit}`;
+}
+
 function label(text: string): string {
   assert.ok(contract.labels.includes(text), `${text} is a label of contract.json`);
   return text;
@@ -91,7 +101,7 @@ function assertPending({ document, read, figures }: Seen): Entry {
   assert.equal(partsOf(part).tags.filter((tag) => tag.startsWith('<input type="radio"')).length, pending.options.length, "one radio input per option");
   const comparison = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
   const { delta } = comparison;
-  assert.equal(words(elementOf(part, '<p data-element="delta">')), `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`, "the delta of the Comparison");
+  assert.equal(words(elementOf(part, '<p data-element="delta">')), deltaWords(comparison), "the delta of the Comparison");
   for (const [role, name] of [["control", "Control"], ["candidate", "Candidate"]]) {
     const assessment = read.assessments.find((each: Entry) => each.assessment_id === pending[`${role}_assessment_id`]);
     const metric = assessment.metrics.find((each: Entry) => each.id === delta.metric);
@@ -159,19 +169,20 @@ function assertAskedAgain(seen: Seen): void {
   assertDecision(decisionParts(document)[0], earlier, false, "human");
 }
 
-// The one Pending decision of the copy of the kept Chinook Campaign: its question, the delta of its Comparison, its options with their
+// The one Pending decision of the copy of the kept Chinook Campaign, in Now: its question, the delta of its Comparison, its options with their
 // consequences, and the path to Record, a radio input per option and the control that records the first Pending decision. "With a
 // null delta, ticket 3 shows the two per-side matrices and the unscored Episodes with their reasons, states that no delta was
 // computable, and shows no delta or share figure" (D-146 on chadlis/hypotrail#75, B2): the kept Comparison has a delta, so the
 // document shows it.
 function assertCampaignPending({ document, read }: Seen): void {
-  const part = under(document, "Pending decisions", "Decisions");
+  const part = nowPart(document);
   assert.equal(read.pending_decisions.length, 1);
   const [pending] = read.pending_decisions;
   assert.deepEqual(questionsOf(part), [pending.question.text], "one question, the read's");
-  const { delta } = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
+  const comparison = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
+  const { delta } = comparison;
   assert.notEqual(delta.value, null, "the Comparison has a delta");
-  assert.equal(words(elementOf(part, '<p data-element="delta">')), `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`, "the delta of the Comparison");
+  assert.equal(words(elementOf(part, '<p data-element="delta">')), deltaWords(comparison), "the delta of the Comparison");
   assert.deepEqual(elementsOf(part, "<label>").map(markedTexts), pending.options.map((option: Entry) => [option.text, option.consequence]), "each option with its consequence");
   const tags = partsOf(part).tags;
   assert.equal(tags.filter((tag) => tag.startsWith('<input type="radio"')).length, pending.options.length, "one radio input per option");
@@ -209,8 +220,13 @@ const SEES: Record<string, (seen: Seen) => void> = {
     const { cited, latest } = assertEvidence(parts[0], decision, "evidence_rescored", 0);
     assert.deepEqual(cited, latest, "a cited value equal to the latest value");
     const recorded = seen.read.comparisons.find((each: Entry) => decision.cited_ids.includes(each.comparison_id));
+    // A summary of the Comparison holds its delta without the interval, which stands in the Comparison's part.
+    const summaries = elementsOf(seen.document, '<div data-summary="comparison">').map((summary) => words(elementOf(summary, '<p data-element="delta">')));
     const deltas = elementsOf(seen.document, '<p data-element="delta">').map(words);
-    assert.ok(deltas.length > 0 && deltas.every((each) => each === `${label("Delta")} ${written(recorded.delta.value)} ${recorded.delta.metric} ${recorded.delta.unit}`), `no delta but the recorded Comparison's: ${deltas.join(" | ")}`);
+    const inParts = [...deltas];
+    for (const each of summaries) inParts.splice(inParts.indexOf(each), 1);
+    assert.ok(summaries.every((each) => each === `${label("Delta")} ${written(recorded.delta.value)} ${recorded.delta.metric} ${recorded.delta.unit}`), `no summary delta but the recorded Comparison's: ${summaries.join(" | ")}`);
+    assert.ok(inParts.length > 0 && inParts.every((each) => each === deltaWords(recorded)), `no delta but the recorded Comparison's: ${deltas.join(" | ")}`);
     assert.ok(linkTexts(seen.document, "delta").every((each) => each === written(recorded.delta.value)), linkTexts(seen.document, "delta").join(" | "));
   },
   "after-6.2": (seen) => {

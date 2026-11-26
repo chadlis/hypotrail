@@ -185,7 +185,9 @@ for (const [name, interval, expected] of [
 ] as const) {
   test(`with ${name} injected into state 04, the delta line of Now shows ${expected === undefined ? "no interval" : "it"}`, async (t) => {
     const read = readOf("04-pending");
-    if (interval !== undefined) read.comparisons[0].interval = interval;
+    // State 04's read holds the interval the core computed: the case without one deletes the key from this copy of the read.
+    if (interval === undefined) delete read.comparisons[0].interval;
+    else read.comparisons[0].interval = interval;
     const { document } = await documentFor(t, success(read));
     const line = elementOf(elementOf(document, '<section data-part="now"')!, '<p data-element="delta">')!;
     const slot = elementOf(line, '<span data-element="interval">');
@@ -196,6 +198,39 @@ for (const [name, interval, expected] of [
     for (const link of links) assert.equal(Number(link[1]), 0);
   });
 }
+
+// The interval line a Comparison's delta element holds where the read holds `interval`: its level, its two bounds and its unit as read,
+// or its reason where a bound is null; none where the delta is withheld, whose interval would show what the withheld delta hides.
+const intervalWords = (comparison: Record<string, any>): string | undefined => {
+  const interval = comparison.interval;
+  if (comparison.delta.value === null || interval === undefined || interval === null) return undefined;
+  if (interval.lower === null || interval.upper === null) return `Interval ${interval.reason}`;
+  return `Interval ${written(interval.level)} ${written(interval.lower)} ${written(interval.upper)} resampling unit ${interval.unit}`;
+};
+
+for (const state of STATES) {
+  test(`each Comparison's part, in Now or in the Study so far, holds in its delta element the interval line its read gives: ${state}`, async (t) => {
+    const read = readOf(state);
+    const { document } = await built(t, state);
+    (read.comparisons ?? []).forEach((comparison: Record<string, any>, index: number) => {
+      const part = elementOf(document, `<div data-part="comparison" id="comparison-${index}"`);
+      if (part === undefined) return;
+      const slot = elementOf(elementOf(part, '<p data-element="delta">')!, '<span data-element="interval">');
+      assert.equal(slot === undefined ? undefined : words(slot), intervalWords(comparison), comparison.comparison_id);
+    });
+  });
+}
+
+test("a Comparison whose delta is withheld holds no interval line in Now, not even its reason, whatever interval its read holds", async (t) => {
+  for (const interval of [S2_INTERVAL, { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" }]) {
+    const read = readOf("04-pending");
+    read.comparisons[0].delta.value = null;
+    read.comparisons[0].interval = interval;
+    const { document } = await documentFor(t, success(read));
+    const line = elementOf(elementOf(document, '<section data-part="now"')!, '<p data-element="delta">')!;
+    assert.equal(elementOf(line, '<span data-element="interval">'), undefined, String(interval.reason));
+  }
+});
 
 // "The reserved places are absent until their key exists." (D-151, answer 4)
 for (const state of STATES) {
@@ -218,7 +253,12 @@ test("on state 09 the cited Comparison's delta and the new delta both stand in N
   const [context] = read.next_step.context;
   const earlier = read.decisions.find((each: Record<string, any>) => each.decision_id === context);
   const cited = read.comparisons.find((each: Record<string, any>) => earlier.cited_ids.includes(each.comparison_id)).delta.value;
-  const fresh = read.comparisons.find((each: Record<string, any>) => each.comparison_id === read.next_step.ids[0]).delta.value;
+  const freshComparison = read.comparisons.find((each: Record<string, any>) => each.comparison_id === read.next_step.ids[0]);
+  const fresh = freshComparison.delta.value;
+  // The delta line also holds the new Comparison's interval as read: its level and its two bounds.
+  const interval = freshComparison.interval;
+  assert.ok(interval.lower !== null && interval.upper !== null, "state 09's read holds an interval with bounds");
+  const intervalNumbers = [interval.level, interval.lower, interval.upper].map(written);
   const deltas = [...now.matchAll(/<a href="#comparison-\d+" data-kind="delta">([^<]*)<\/a>/g)].map((match) => match[1]);
   assert.deepEqual(deltas.slice(0, 2), [written(fresh), written(cited)], "the new delta in the delta line, then the cited one beside it");
   assert.ok(words(elementOf(now, '<p data-element="cited-delta">')).includes(written(cited)), "the cited delta in its line");
@@ -226,7 +266,7 @@ test("on state 09 the cited Comparison's delta and the new delta both stand in N
   // The two lines hold the two deltas as read, and no number of their own: no difference is printed, whatever its value.
   for (const line of ['<p data-element="delta">', '<p data-element="cited-delta">']) {
     const numbers = words(elementOf(now, line)).match(/-?\d+(\.\d+)?/g) ?? [];
-    assert.deepEqual(numbers, [line.includes("cited") ? written(cited) : written(fresh)], line);
+    assert.deepEqual(numbers, line.includes("cited") ? [written(cited)] : [written(fresh), ...intervalNumbers], line);
   }
   if (cited !== fresh) assert.ok(!words(now).split(" ").includes(written(fresh - cited)), "the difference");
 });

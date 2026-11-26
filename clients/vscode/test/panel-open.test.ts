@@ -583,6 +583,7 @@ details[data-element="charts"] { margin: 0.4em 0; }
 summary { cursor: pointer; color: var(--teal); }
 details[data-element="consequence"] > summary { font-size: 0.85em; }
 [data-element="interval"], [data-element="context"], [data-element="cited-delta"], [data-element="frame"] { font-size: 0.9em; color: var(--chalk2); }
+[data-element="interval"] { display: block; }
 [data-figures] { margin: 0.6em 0 0.9em; }
 [data-figure] svg { display: block; width: 100%; }
 [data-figure="dots"] { margin-bottom: 0.5em; }
