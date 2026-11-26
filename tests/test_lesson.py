@@ -9,7 +9,9 @@ from pathlib import Path
 import jsonschema
 import pytest
 from _chinook_helpers import init_chinook
+from _compare_helpers import assessed, compare
 from _lesson_helpers import LESSON, demonstration_until, lesson, resolved
+from _review_helpers import decide
 from _study_helpers import ROOT, run_cli
 
 KEPT = ROOT / "clients" / "vscode" / "test" / "cli" / "demonstration"
@@ -76,18 +78,22 @@ def test_a_track_with_no_cards_refuses(tmp_path):
     code, refused, _ = lesson(study)
     profile_code, profile_out, _ = run_cli("profile", f"--study={study}", "--json")
     expected = json.loads(profile_out.replace("`profile`", f"`{LESSON}`").replace('"command": "profile"', f'"command": "{LESSON}"'))
-    assert (code, refused["error"]["code"]) == (profile_code, "UNSUPPORTED_CAPABILITY")
+    assert (code, refused.get("error", {}).get("code")) == (profile_code, "UNSUPPORTED_CAPABILITY")
     assert refused == expected
 
 
-def test_the_read_writes_nothing(walked):
-    _, study = walked
+def test_the_read_writes_nothing(tmp_path):
+    study, _, assessments = assessed(tmp_path, "seasonal_7", "ridge_v1")
+    code, payload, err = compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"])
+    assert code == 0, (payload, err)
+    decide(study, [payload["comparison"]["comparison_id"]], request_id="lesson-writes-nothing")
 
     def every_file(folder: Path) -> dict:
         return {path.relative_to(folder).as_posix(): path.read_bytes() for path in sorted(folder.rglob("*")) if path.is_file()}
 
     before, sequence = every_file(study), run_cli("status", f"--study={study}", "--json")[1]
-    assert lesson(study)[0] == 0
+    code, read, err = lesson(study)
+    assert code == 0 and [card["kind"] for card in read["cards"]] == ["comparisons", "decisions"], err
     assert run_cli(LESSON, f"--study={study}")[0] == 0
     assert every_file(study) == before
     assert run_cli("status", f"--study={study}", "--json")[1] == sequence
