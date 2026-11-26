@@ -1,7 +1,8 @@
 """Consumer conformance of `agent-answers/1` (C3 of D-172 on chadlis/hypotrail#75).
 
-The examples are accepted by the schemas and each refused case is refused by them. The agreement of the schema with `LINE_KEYS`,
-`USAGE_FIELDS` and `OUTCOMES` waits for S1 on `main`. No model is called.
+The examples are accepted by the schemas and each refused case is refused by them. The line schema agrees with `LINE_KEYS`,
+`USAGE_FIELDS` and `OUTCOMES`, and `import agent` reads the examples as `expected.json` says, the one known difference
+included: an unknown key, which the schema refuses and the import ignores (chadlis/hypotrail#278). No model is called.
 """
 
 import json
@@ -9,6 +10,8 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from _chinook_helpers import import_agent
+from _study_helpers import run_json
 
 from hypotrail.agentic import imports
 
@@ -57,7 +60,6 @@ def test_each_refused_case_is_refused_by_the_line_schema(case):
     assert population_problems(case / "population.json") == []
 
 
-@pytest.mark.xfail(strict=True, reason="the import that reads `outcome`, `usage`, `metadata` and `settings` is on claude/s1-263: the pull request that brings S1 to main removes this marker")
 def test_the_line_schema_agrees_with_line_keys_usage_fields_and_outcomes():
     loaded = schema("line.schema.json")
     assert set(loaded["properties"]) == set(imports.LINE_KEYS)
@@ -65,3 +67,38 @@ def test_the_line_schema_agrees_with_line_keys_usage_fields_and_outcomes():
     assert {key for key, when in imports.LINE_KEYS.items() if when == imports.WHEN_PRODUCED} == {"raw_answer", "final_answer"}
     assert tuple(loaded["properties"]["usage"]["additionalProperties"]["required"]) == imports.USAGE_FIELDS
     assert tuple(loaded["properties"]["outcome"]["enum"]) == imports.OUTCOMES
+
+
+def chinook_prose_study(tmp_path):
+    study = Path(tmp_path) / "study"
+    code, payload, err = run_json("init", "--workload", "chinook_prose", "--study", study)
+    assert code == 0, (payload, err)
+    return study
+
+
+def test_import_agent_accepts_the_example_lines_and_population(tmp_path):
+    code, payload, err = import_agent(chinook_prose_study(tmp_path), EXAMPLES / "answers.jsonl", EXAMPLES / "population.json", "examples")
+    assert code == 0, (payload, err)
+
+
+@pytest.mark.parametrize("case", REFUSED, ids=[path.name for path in REFUSED])
+def test_import_agent_refuses_each_refused_case_with_the_code_expected_json_names_or_accepts_it_when_that_code_is_null(tmp_path, case):
+    """A null `code` is the known difference of chadlis/hypotrail#278: the schema refuses the case and the import accepts it."""
+    expected = json.loads((case / "expected.json").read_text(encoding="utf-8"))
+    study = chinook_prose_study(tmp_path)
+    code, payload, err = import_agent(study, case / "answers.jsonl", case / "population.json", "refused")
+    if expected["code"] is None:
+        assert code == 0, (payload, err)
+        [observations] = study.glob("attempts/*/observations.jsonl")
+        lines = [json.loads(text) for text in (case / "answers.jsonl").read_text(encoding="utf-8").splitlines() if text.strip()]
+        unknown = {key for line in lines for key in line} - set(imports.LINE_KEYS)
+        entries = [json.loads(text) for text in observations.read_text(encoding="utf-8").splitlines() if text.strip()]
+        assert unknown and not any(unknown & set(entry) for entry in entries), (unknown, entries)
+    else:
+        assert (code, payload.get("error", {}).get("code")) == (expected["exit"], expected["code"]), (payload, err)
+
+
+def test_the_unknown_key_case_is_the_only_refused_case_the_import_accepts():
+    """The disagreement chadlis/hypotrail#278 settles stays pinned: a second case the import accepts is a second difference."""
+    accepted = [path.name for path in REFUSED if json.loads((path / "expected.json").read_text(encoding="utf-8"))["code"] is None]
+    assert accepted == ["unknown-key"]

@@ -4,7 +4,7 @@ Owner: chadlis/hypotrail. Copy: chadlis/agentkit, `contracts/agent-answers-1/`, 
 
 A kit writes `answers.jsonl` and `population.json`; `hypotrail import agent` reads them. Until now the contract was `LINE_KEYS` in `agentic/imports.py` and section 2.1 of agentkit's design; this directory writes it down.
 
-**Status.** The consumer that accepts `outcome`, `usage`, `metadata` and `settings` is on `claude/s1-263` (`941ffd8`), not on `main`. The test that compares this schema with `LINE_KEYS`, `USAGE_FIELDS` and `OUTCOMES` is a strict expected failure until S1 reaches `main`: the pull request that merges S1 removes the marker. Version 1 is frozen at that merge (SP1 of D-172).
+**Status.** The consumer that accepts `outcome`, `usage`, `metadata` and `settings` is on `main` since S1 (`04b5806`). `tests/test_contracts_agent_answers.py` compares this schema with `LINE_KEYS`, `USAGE_FIELDS` and `OUTCOMES` on `main`, and runs `import agent` on the examples. One known difference is kept and pinned by a test: an unknown key, which the schema refuses and `import agent` ignores (chadlis/hypotrail#278 decides which side moves, before the SP1 freeze of D-172). The copies in chadlis/agentkit and chadlis/mlkit pin `owner_commit` to a commit of `claude/contracts`; the final pin, to the merge commit, comes when chadlis/hypotrail#274 merges.
 
 ## Files
 
@@ -24,9 +24,9 @@ JSON Schema 2020-12. Each line is checked on its own.
 
 ## Examples
 
-`examples/answers.jsonl` and `examples/population.json`: one `produced` line and one `failed` line, shortened from `examples/chinook_prose/fixtures/answers-concise.jsonl` on `claude/s1-263`.
+`examples/answers.jsonl` and `examples/population.json`: one `produced` line and one `failed` line, shortened from `examples/chinook_prose/fixtures/answers-concise.jsonl`.
 
-`examples/refused/<case>/` holds one refused case each, with `expected.json`: the contract, the refusal `code` of `import agent` at `941ffd8` (null when that import does not refuse it), the `exit`, and `caught_by`. All four are refused by the schema. An unknown key is ignored by the import at `941ffd8`; the schema refuses it. Which side moves is open until version 1 is frozen at the S1 merge.
+`examples/refused/<case>/` holds one refused case each, with `expected.json`: the contract, the refusal `code` of `import agent` on `main` (null when that import does not refuse it), the `exit`, and `caught_by`. All four are refused by the schema. `unknown-key` is the one the import accepts: it ignores the key. Which side moves is open in chadlis/hypotrail#278.
 
 ## Tests
 

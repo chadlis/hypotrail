@@ -3,5 +3,5 @@
   "code": null,
   "exit": 2,
   "caught_by": "schema",
-  "why": "line 1 holds the key 'reference', which is not a key of a line. The import at 941ffd8 ignores an unknown key; the schema refuses it"
+  "why": "line 1 holds the key 'reference', which is not a key of a line. `import agent` ignores an unknown key (chadlis/hypotrail#278); the schema refuses it"
 }

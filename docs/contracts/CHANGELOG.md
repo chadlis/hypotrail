@@ -5,4 +5,4 @@ The contracts this repository owns, under `src/hypotrail/*/contracts/`. One line
 | Date | Contract | Version | Change | Pull request |
 |---|---|---|---|---|
 | 2026-11-26 | `ml-scores/1`, `ranking-items/1`, `ranking-reference/1` | 1, draft | First written, from C1 and C2 of D-172; draft until M0 accepts it | chadlis/hypotrail#274 |
-| 2026-11-26 | `agent-answers/1` | 1 | First written, from C3 of D-172; frozen when S1 reaches `main` | chadlis/hypotrail#274 |
+| 2026-11-26 | `agent-answers/1` | 1 | First written, from C3 of D-172; checked against `import agent` on `main` after S1, with the unknown-key difference open in chadlis/hypotrail#278 | chadlis/hypotrail#274 |
