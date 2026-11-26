@@ -57,12 +57,13 @@ function madeIds(t: TestContext): string[] {
 const decideCalls = (calls: RecordedCall[]): RecordedCall[] => calls.filter((call) => call.args.includes("decide"));
 const commandsOf = (calls: RecordedCall[]): string[] => calls.map((call) => call.args[contract.first_arguments.length]);
 const valueOf = (call: RecordedCall, option: string): string | undefined => call.args.find((argument) => argument.startsWith(`${option}=`))?.slice(option.length + 1);
-const record = (pending: number, option: number): void => panelOf().send({ message: RECORD, pending, option });
+const record = (pending: number, option: number, words?: string): void => panelOf().send({ message: RECORD, pending, option, ...(words === undefined ? {} : { words }) });
 const send = (message: string): void => panelOf().send({ message });
 const notice = (document: string): string => partsOf(elementOf(document, NOTICE) ?? "").between;
 // A document with the parts of its recorded Decisions removed, which show each Decision's own question.
 const withoutDecisions = (document: string): string => document.replace(/<section data-part="decision"[\s\S]*?<\/section>/g, "");
-const controls = (document: string): string[] => [...document.matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]);
+// The messages of the controls of a document, its Tools apart, which repeat Read again last on the page.
+const controls = (document: string): string[] => [...document.replace(/<section data-part="tools">[\s\S]*?<\/section>/, "").matchAll(/data-message="([^"]*)"/g)].map((match) => match[1]);
 
 // The list of arguments the panel passes to `decide` for one option of one pending decision.
 function expectedArguments(study: string, pending: Entry, option: Entry, requestId: string, sequence: number): string[] {
@@ -73,6 +74,8 @@ function expectedArguments(study: string, pending: Entry, option: Entry, request
     `--question=${pending.question.text}`,
     `--option=${option.text}`,
     `--author=${contract.decide_author}`,
+    `--question-id=${pending.question.id}`,
+    `--option-id=${option.id}`,
     `--artifact=${pending.comparison_id}`,
     `--request-id=${requestId}`,
     `--read-sequence=${sequence}`,
@@ -110,6 +113,24 @@ for (const name of FIXTURE_READS) {
         assert.equal(decides[0].args.filter((argument) => argument.startsWith("--artifact=")).length, 1);
         assert.equal(decides[0].args.filter((argument) => argument.startsWith("--source=")).length, 0);
       });
+    });
+  });
+}
+
+// status-several-pending: the first Pending decision stands in Now, the second under Waiting; the control that records of each carries the
+// place of its decision in pending_decisions, and records that decision.
+{
+  const object = keptObject("status-several-pending");
+  object.pending_decisions.forEach((pending: Entry, p: number) => {
+    test(`on status-several-pending, the control that records of pending decision ${p} stands ${p === 0 ? "in Now" : "under Waiting"} and records that decision`, async (t) => {
+      const { study, calls, made } = await opened(t, object, keptAnswer("decide-success"), success(object));
+      const section = elementOf(lastDocument(), p === 0 ? '<section data-part="now"' : '<section data-part="waiting"')!;
+      assert.ok(partsOf(section).tags.some((tag) => tag.startsWith(`<button data-message="${RECORD}" data-pending="${p}"`)), `the control of ${p}`);
+      record(p, 1);
+      await settle();
+      const decides = decideCalls(calls);
+      assert.equal(decides.length, 1);
+      assert.deepEqual(decides[0].args, expectedArguments(study, pending, pending.options[1], made[0], object.write_sequence));
     });
   });
 }
@@ -496,4 +517,53 @@ test("while a second sending is in flight the request id is still held: the docu
   assert.ok(notice(document).includes(RECORDING));
   assert.ok(notice(document).includes(contract.write_no_answer_words));
   assert.ok(controls(document).includes(SEND_AGAIN));
+});
+
+// --- The box of the person's words -------------------------------------------------------------------------------------------------
+
+// The kept writes of the panel's Record through the real CLI (tests/test_panel_words.py): each argument list, with the value of
+// --study= made `<study>` and the request id set apart, and the box text it carries.
+const keptArguments = (name: string): string[] => JSON.parse(kept(`${name}.args`)).arguments.map((argument: string) => argument.replace(/^--request-id=.*$/s, "--request-id="));
+const boxOf = (name: string): string => keptArguments(name).find((argument) => argument.startsWith("--words="))?.slice("--words=".length) ?? "";
+const apart = (call: RecordedCall): string[] =>
+  call.args.slice(contract.first_arguments.length).map((argument) => argument.replace(/^--study=.*$/s, "--study=<study>").replace(/^--request-id=.*$/s, "--request-id="));
+
+for (const name of ["panel-words", "panel-no-words"]) {
+  test(`Record on the first option of status-success with ${name === "panel-words" ? "the kept words in the box" : "the box empty"} starts decide with the argument list the real CLI recorded: ${name}`, async (t) => {
+    const { calls } = await opened(t, keptObject("status-success"), keptAnswer(name), success(keptObject("status-success")));
+    record(0, 0, boxOf(name));
+    await settle();
+    const decides = decideCalls(calls);
+    assert.equal(decides.length, 1);
+    assert.deepEqual(apart(decides[0]), keptArguments(name));
+    assert.equal(decides[0].args.filter((argument) => argument.startsWith("--by")).length, 0, "no --by");
+    const decision = JSON.parse(kept(`${name}.out`)).decision;
+    if (name === "panel-words") assert.deepEqual(decision.words, { texts: [boxOf(name)], channel: "panel", by: null, authenticated: false });
+    else assert.equal(decision.words, null);
+  });
+}
+
+test("Record with words over the limit of contract.json starts no process, its notice names words, and the box keeps the text", async (t) => {
+  const words = `${"zq ".repeat(Math.ceil(contract.words_limit_characters / 3))}over`;
+  assert.ok([...words].length > contract.words_limit_characters);
+  const { calls } = await opened(t, keptObject("status-success"), keptAnswer("decide-success"));
+  record(0, 0, words);
+  await settle();
+  assert.deepEqual(commandsOf(calls), ["status", "figures"], "no decide started");
+  const document = lastDocument();
+  assert.match(notice(document), new RegExp(`${MISSING}\\s+words(\\s|$)`));
+  const box = /<textarea data-words="0"[^>]*>([^<]*)<\/textarea>/.exec(document)?.[1];
+  assert.equal(box, words, "the box keeps the text");
+});
+
+test("Send again after a write with no answer sends the same words, channel and ids", async (t) => {
+  const { calls } = await opened(t, keptObject("status-success"), NO_ANSWERS[1][1], keptAnswer("panel-words"), success(keptObject("status-success")));
+  record(0, 0, boxOf("panel-words"));
+  await settle();
+  send(SEND_AGAIN);
+  await settle();
+  const decides = decideCalls(calls);
+  assert.equal(decides.length, 2);
+  assert.deepEqual(decides[1].args, decides[0].args);
+  assert.deepEqual(apart(decides[1]), keptArguments("panel-words"));
 });

@@ -94,6 +94,21 @@ def demonstration_recording(tmp_path_factory):
     return run
 
 
+@pytest.fixture(scope="session")
+def journey_reads(tmp_path_factory):
+    """The reads of each state of the journey the panel mockups show (`tests/_journey_states.py`), made once per session under the same
+    network guard, as `journey_outputs` keeps them."""
+    from _journey_states import journey_outputs
+
+    guard = NetworkGuard()
+    with pytest.MonkeyPatch.context() as patch:
+        block_network(patch, guard)
+        made = journey_outputs(tmp_path_factory.mktemp("journey"))
+    if guard.attempts:
+        pytest.fail(f"network access attempted by the journey: {guard.attempts}")
+    return made
+
+
 @pytest.fixture
 def kept_all_token_log(tmp_path):
     """The Inspect log of the kept `live-l12-plain` Attempt, copied (the kept trace is not touched)."""

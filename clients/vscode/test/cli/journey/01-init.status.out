@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "study": {
+    "study_id": "00000000-0000-4000-8000-000000000001",
+    "workload": "bike_day",
+    "protocol_id": "bike_day:protocol",
+    "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+    "revision_number": 1
+  },
+  "writer_alive": false,
+  "revisions": [
+    {
+      "revision_number": 1,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+      "previous_revision": null,
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-204bf1f9317286f8",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        },
+        {
+          "artifact_id": "references-7520d791bfe31924",
+          "role": "references",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
+        }
+      ]
+    }
+  ],
+  "attempts": [],
+  "freeze_records": [],
+  "exposures": {
+    "recorded_in_this_study": 0,
+    "earlier_exposure": "unknown",
+    "statement": "This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.",
+    "entries": []
+  },
+  "check_informed": [],
+  "write_sequence": 2,
+  "decisions": [],
+  "declared_deviations": [],
+  "assessments": [],
+  "comparisons": [],
+  "pending_decisions": [],
+  "record_files": [],
+  "next_step": {
+    "kind": null,
+    "text": null,
+    "ids": [],
+    "context": [],
+    "to_handle": [],
+    "flagged": [],
+    "answered": []
+  },
+  "writes_since": [
+    {
+      "command": "init",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "init",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "0000000000000000000000000000000000000000000000000000000000000002",
+          "kind": "revision"
+        }
+      ]
+    }
+  ]
+}

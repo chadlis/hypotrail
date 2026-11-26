@@ -778,7 +778,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files", "next_step"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -791,6 +791,14 @@ def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_name
     assert set(listing) - {"ok"} == set(since) - {"ok", "writes_since"}  # `writes_since` is there with `--since` only
     assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
     assert "decisions" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#110: the decision history
+
+
+def test_the_next_step_row_of_the_status_keys_table_names_its_four_rules_in_order_and_its_seven_keys(page):
+    row = " ".join(table_rows(page, "status-keys", "data-field")["next_step"]["text"].split())
+    rules = ["1. an interrupted Attempt goes to", "2. a Pending decision is Now", "3. with no Pending decision and a Decision that no longer applies", "4. otherwise nothing waits"]
+    assert all(rule in row for rule in rules), row
+    assert [row.index(rule) for rule in rules] == sorted(row.index(rule) for rule in rules)
+    assert "Always present, with exactly kind, text, ids, context, to_handle, flagged and answered" in row
 
 
 def test_the_write_sequence_table_equals_the_commands_that_write_and_what_each_names(page, tmp_path):
@@ -5278,6 +5286,35 @@ def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
     assert {"uv", "30000", "no_json", "^1.95.0", "npm test", "decide", "--source", "read_sequence", "outcome unknown", "hypotrail.openPanel", "enableForms=false", "base-uri 'none'", "This Hypotrail link is not valid."} <= values  # the collection reads the tables
     prose = html.unescape(plain_text(prose_of(chapter)))
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
+
+
+# Sentences of the client chapter that the panel's redesign made false (D-161, and the uncited Attempt's ids as plain text).
+CLIENT_CHAPTER_FALSE = (
+    "otherwise the label of no pending decision",
+    "its Decisions, with the count of pending decisions",
+    "the last two always",
+    "make the order in which each kind first appears in the write journal",
+    "When nothing is pending, a fixed sentence stands under the count of pending decisions.",
+    "a fixed word stands under either heading when the Study holds none",
+    "its id and its counts show once an Assessment holds",
+    "The count of pending decisions, under their heading",
+)
+# What the chapter now says in their place.
+CLIENT_CHAPTER_TRUE = (
+    "the count of pending decisions stands on the line of the heading of \"Now\"",
+    "a kind with no record has no step",
+    "the order in which each of these kinds first appears in the write journal",
+    "last whenever there are any, its Declared deviations, which nothing in the core orders against the others",
+    "a fixed sentence that no decision waits for the reviewer",
+    "as plain text, never links",
+    "under a heading of its own, of level three, other than the compact line's",
+)
+
+
+def test_the_client_chapter_says_none_of_the_sentences_the_redesign_made_false_and_says_what_holds_now():
+    chapter = html.unescape(chapter_text(CLIENT_CHAPTER))
+    assert [sentence for sentence in CLIENT_CHAPTER_FALSE if sentence in chapter] == []
+    assert [sentence for sentence in CLIENT_CHAPTER_TRUE if sentence not in chapter] == []
 
 
 # The option of `decide` that the bridge does not pass: it holds no file write, so it cannot make a file for it, and passes the texts with `--words`.

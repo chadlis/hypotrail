@@ -72,16 +72,18 @@ for (const [name, documentOfName] of SVG_DOCUMENTS) {
 }
 
 for (const name of KEPT_READS) {
-  test(`each chart holds, for each bar, its name, one svg and one link or the word of no_value: ${name}`, async (t) => {
+  test(`each chart holds, for each bar, its name, a label, a coverage key or a feature of a single-feature check, one svg and one link or the word of no_value: ${name}`, async (t) => {
     const object = keptObject(name);
     const document = await documentOf(t, object);
     const coverageKeys = object.comparisons.flatMap((comparison: Entry) => Object.keys(comparison.coverage));
+    // The single-feature chart names each feature as the Candidate's single-feature check records it.
+    const features = object.assessments.flatMap((assessment: Entry) => (assessment.single_feature_check?.computed ?? []).map((entry: Entry) => entry.feature));
     for (const chart of elementsOf(document, "<div data-chart=").concat(elementsOf(document, "<li data-chart="))) {
       const bars = elementsOf(chart, "<div data-bar>");
       assert.ok(bars.length > 0, chart);
       for (const bar of bars) {
         const name = partsOf(elementOf(bar, "<span>")!).between.trim();
-        assert.ok(contract.labels.includes(name) || coverageKeys.includes(name), name);
+        assert.ok(contract.labels.includes(name) || coverageKeys.includes(name) || features.includes(name), name);
         const svgs = elementsOf(bar, "<svg ").length;
         const links = (bar.match(/<a /g) ?? []).length;
         assert.ok(links >= 1, bar);
@@ -168,8 +170,8 @@ test("chart 2 on status-chinook-withheld: the Candidate's scored part is half th
   assert.match(words(bars[1]), /candidate_scored 2 expected 4/);
   const { style } = partsOf(document);
   const rest = classOf(candidate[1])!;
-  assert.match(style, new RegExp(`rect\\.${rest}\\s*\\{[^}]*fill:\\s*transparent;[^}]*stroke:\\s*var\\(--vscode-[a-zA-Z0-9-]+\\)`));
-  assert.match(style, new RegExp(`rect\\.${classOf(candidate[0])}\\s*\\{[^}]*fill:\\s*var\\(--vscode-[a-zA-Z0-9-]+\\)`));
+  assert.match(style, new RegExp(`rect\\.${rest}\\s*\\{[^}]*fill:\\s*transparent;[^}]*stroke:\\s*var\\(--(?!vscode-)[a-z0-9-]+\\)`));
+  assert.match(style, new RegExp(`rect\\.${classOf(candidate[0])}\\s*\\{[^}]*fill:\\s*var\\(--(?!vscode-)[a-z0-9-]+\\)`));
 });
 
 test("chart 2 is not drawn on a read whose coverage holds no expected", async (t) => {

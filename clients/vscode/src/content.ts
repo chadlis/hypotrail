@@ -9,7 +9,7 @@ import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five 
 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
 // the outcome of a read that failed, `written` the answer of the
-// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option and cited
+// write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option, words and cited
 // ids of the write in flight or held; `decision` is the id a link of the second form names; `unopened` says that the document follows a
 // message of a control that opens whose file the panel did not open.
 export type View = {
@@ -21,7 +21,7 @@ export type View = {
   failure?: Outcome;
   written?: Outcome;
   unanswered?: boolean;
-  sent?: { question: unknown; option: unknown; cited_ids: unknown };
+  sent?: { question: unknown; option: unknown; cited_ids: unknown; words?: unknown };
   decision?: string;
   unopened?: boolean;
 };
@@ -35,66 +35,105 @@ const LABEL = {
   readAgain: 1,
   study: 2,
   writeSequence: 3,
-  pending: 4,
-  noPending: 5,
-  comparison: 6,
-  delta: 7,
-  coverage: 8,
-  control: 9,
-  candidate: 10,
-  assessment: 11,
-  metric: 12,
-  status: 13,
-  warnings: 14,
-  limitations: 15,
-  decisions: 16,
-  deviations: 17,
-  withdrawn: 18,
-  noAnswer: 19,
-  author: 20,
-  citedIds: 21,
-  applies: 22,
-  reasons: 23,
-  changedItems: 24,
-  citedValue: 25,
-  latestValue: 26,
-  linked: 27,
-  noDecision: 28,
-  sendAgain: 29,
-  record: 30,
-  writing: 31,
-  missing: 32,
-  recordedId: 33,
-  outputPath: 34,
-  comparabilityStatus: 35,
-  recorded: 36,
-  mayHaveBeenRecorded: 37,
-  notWrittenTwice: 38,
-  readAgainChoose: 39,
-  pendingCount: 40,
-  toChoices: 41,
-  sent: 42,
-  failed: 43,
-  none: 44,
-  figuresUnavailable: 45,
-  noFigure: 46,
-  pairedDeltas: 47,
-  itemsPerBin: 48,
-  minimum: 49,
-  firstQuartile: 50,
-  median: 51,
-  thirdQuartile: 52,
-  maximum: 53,
-  shares: 54,
-  casesPerBin: 55,
-  itemErrors: 56,
-  zero: 57,
-  itemsBelow: 58,
-  casesBelow: 59,
-  dotOrder: 60,
-  openFile: 61,
-  notOpened: 62,
-  openRecord: 63,
+  comparison: 4,
+  delta: 5,
+  coverage: 6,
+  control: 7,
+  candidate: 8,
+  assessment: 9,
+  metric: 10,
+  status: 11,
+  warnings: 12,
+  limitations: 13,
+  decisions: 14,
+  deviations: 15,
+  withdrawn: 16,
+  noAnswer: 17,
+  author: 18,
+  citedIds: 19,
+  applies: 20,
+  reasons: 21,
+  changedItems: 22,
+  citedValue: 23,
+  latestValue: 24,
+  linked: 25,
+  noDecision: 26,
+  sendAgain: 27,
+  record: 28,
+  writing: 29,
+  missing: 30,
+  recordedId: 31,
+  outputPath: 32,
+  comparabilityStatus: 33,
+  recorded: 34,
+  mayHaveBeenRecorded: 35,
+  notWrittenTwice: 36,
+  readAgainChoose: 37,
+  pendingCount: 38,
+  toChoices: 39,
+  sent: 40,
+  failed: 41,
+  figuresUnavailable: 42,
+  noFigure: 43,
+  pairedDeltas: 44,
+  itemsPerBin: 45,
+  minimum: 46,
+  firstQuartile: 47,
+  median: 48,
+  thirdQuartile: 49,
+  maximum: 50,
+  shares: 51,
+  casesPerBin: 52,
+  itemErrors: 53,
+  zero: 54,
+  itemsBelow: 55,
+  casesBelow: 56,
+  dotOrder: 57,
+  openFile: 58,
+  notOpened: 59,
+  openRecord: 60,
+  now: 61,
+  studySoFar: 62,
+  tools: 63,
+  since: 64,
+  waiting: 65,
+  consequence: 66,
+  charts: 67,
+  scorer: 68,
+  interval: 69,
+  resamplingUnit: 70,
+  limitationsRule: 71,
+  earlierDecision: 72,
+  citedDelta: 73,
+  featuresAlone: 74,
+  yourWords: 75,
+  addWords: 76,
+  frame: 77,
+  produce: 78,
+  assessAndCompare: 79,
+  decideAndFollow: 80,
+  attempts: 81,
+  attempt: 82,
+  assessments: 83,
+  comparisons: 84,
+  countsOnceCited: 85,
+  byRule: 86,
+  recoverable: 87,
+  declared: 88,
+  source: 89,
+  toHandle: 90,
+  interrupted: 91,
+  recoverByTerminal: 92,
+  handOver: 93,
+  reportByTerminal: 94,
+  protocolRevision: 95,
+  noEnd: 96,
+  latestDecision: 97,
+  seeDecision: 98,
+  observationSet: 99,
+  noDecisionWaits: 100,
+  pendingOne: 101,
+  everythingToHandle: 102,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -117,6 +156,7 @@ const HREF: Record<string, string> = {
   limitations: "#limitations-",
   choices: "#choices-",
   dots: "#dots-",
+  since: "#since-",
 };
 // The `href` of the document's top, where Read again stands: the `id` of its `main` element.
 const TOP = "#study";
@@ -197,7 +237,7 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 // `figures` holds the entries of the figures read, none when it cannot stand beside the status read; `inert` is the attribute of a
 // control that is inert while a call is in flight, `paths` how many paths beside a control the document shows, and `files` the entries
 // of `record_files`.
-type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number; files: Entry[] };
+type Shown = { comparisons: Entry[]; assessments: Entry[]; decisions: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number; files: Entry[] };
 
 // The object of the figures read when it is usable beside the status read: the same Write sequence, and one entry with its five keys
 // for each Comparison the status read lists. Otherwise there is none, and the figures call counts as failed.
@@ -221,14 +261,123 @@ export function bodyOf(view: View): string {
   const controls = [`<button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button>`];
   if (view.unanswered) controls.push(`<button data-message="${contract.messages[2]}"${inert}>${label("sendAgain")}</button>`);
   if (list(view.object?.pending_decisions).length > 0) controls.push(`<a href="${HREF.choices}0">${label("toChoices")}</a>`);
-  parts.push(`<div data-element="controls">${controls.join(" ")}</div>`);
+  parts.push(['<div data-part="band">', `<div data-element="controls">${controls.join(" ")}</div>`, ...(view.object ? bandOf(view.object) : []), "</div>"].join("\n"));
   // The controls that record are inert while a call is in flight or a write that got no answer is held.
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
-  if (view.object) {
-    const figures = usableFigures(view.object, view.figures);
-    parts.push(studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)));
-  }
+  const figures = view.object ? usableFigures(view.object, view.figures) : undefined;
+  const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)) : undefined;
+  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
+  if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
+  parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []));
+  parts.push("</section>", toolsOf(inert));
   return parts.join("\n");
+}
+
+// Tools, last on the page: Read again, then "Hand over" last: the `report` command as fixed text, which the panel never starts.
+function toolsOf(inert: string): string {
+  return [
+    '<section data-part="tools">',
+    `<h2>${label("tools")}</h2>`,
+    `<p><button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button></p>`,
+    `<div data-element="hand-over">`,
+    `<h3>${label("handOver")}</h3>`,
+    `<p>${label("reportByTerminal")}</p>`,
+    "</div>",
+    "</section>",
+  ].join("\n");
+}
+
+// The band under the path: the Write sequence of the read, and how many write-journal entries the panel's read gives after the
+// Write sequence of the object it held, as a link to the place of their lines.
+function bandOf(object: Entry): string[] {
+  const entries = list(object.writes_since);
+  const revisions = list(object.revisions);
+  return [
+    `<p data-element="band">${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
+    // The lines of the entries stand in a closed fold, so that Now keeps its place in the first screen.
+    [`<details data-part="since"${anchor("since", 0)}>`, `<summary>${label("since")} ${link("writes_since", 0, entries.length)}</summary>`, ...(entries.length === 0 ? [] : [`<ul>\n${entries.map((entry) => sinceLineOf(entry, entries, revisions)).join("\n")}\n</ul>`]), "</details>"].join("\n"),
+  ];
+}
+
+// One line of `writes_since`: the command, the phase of the entry, the outcome of an end and what it wrote, each record by its kind and
+// its id as plain text; a revision as "Protocol revision" and its number, never as the word revision before a digest; a begin that no
+// end follows says so.
+function sinceLineOf(entry: Entry, entries: Entry[], revisions: Entry[]): string {
+  const written = list(entry.written).map((each) => {
+    if (each.kind !== "revision") return `${value(each.kind)} ${value(each.id)}`;
+    const revision = revisions.find((spec) => spec.revision === each.id);
+    return `${label("protocolRevision")} ${revision === undefined ? escaped(contract.no_value) : link("revision_number", 0, revision.revision_number)}`;
+  });
+  const ended = entry.phase === "end" || entries.some((other) => other.phase === "end" && other.command === entry.command && other.request_id === entry.request_id);
+  const parts = [value(entry.command), value(entry.phase), ...(entry.phase === "end" ? [value(entry.outcome)] : []), ...written, ...(ended ? [] : [`<span>${label("noEnd")}</span>`])];
+  return `<li data-element="since-line">${parts.join(" ")}</li>`;
+}
+
+// "To handle": one compact line above Now when `next_step` lists Attempts to handle, with their count, as a link to the full list, which
+// stands after Now with the id `tohandle-list`; each entry names the Attempt and the command that handles it, as fixed text.
+function toHandleLineOf(object: Entry | undefined): string {
+  const ids = Array.isArray(record(object?.next_step).to_handle) ? (record(object?.next_step).to_handle as unknown[]) : [];
+  if (ids.length === 0) return "";
+  return ['<section data-part="tohandle-line">', `<h2>${label("toHandle")}</h2>`, `<p>${label("interrupted")} <a href="#tohandle-list" data-kind="to_handle">${written(ids.length)}</a></p>`, "</section>"].join("\n");
+}
+
+function toHandleListOf(object: Entry | undefined): string {
+  const ids = Array.isArray(record(object?.next_step).to_handle) ? (record(object?.next_step).to_handle as unknown[]) : [];
+  if (ids.length === 0) return "";
+  const rows = ids.map((id) => {
+    const attempt = list(object?.attempts).find((each) => each.attempt_id === id);
+    return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status)} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
+  });
+  // The list opens on its own heading, "Everything to handle", other than the compact line's "To handle", so that no two headings of the
+  // page share a text (D-161 addendum 2, #75 comment 7197719288), and above the level of the Control's and the Candidate's, so that it
+  // cannot read as part of the Candidate drawn above it in Now; the section headings of the page stay the five.
+  return ['<section data-part="tohandle" id="tohandle-list">', `<h3>${label("everythingToHandle")}</h3>`, `<ul>\n${rows.join("\n")}\n</ul>`, "</section>"].join("\n");
+}
+
+// Under rule 3, after the core's text: each Decision `next_step` names, its option as a link to its part, the phrase of whether it applies
+// and the state of its evidence.
+function lookAgainOf(object: Entry, step: Entry): string[] {
+  const decisions = list(object.decisions);
+  return (Array.isArray(step.ids) ? step.ids : []).flatMap((id) => {
+    const index = decisions.findIndex((each) => each.decision_id === id);
+    if (index < 0) return [];
+    const decision = decisions[index];
+    const change = record(decision.evidence_change);
+    const state = "state" in change ? ` <span>${phrase(change.state)}</span>` : "";
+    return [`<p data-element="look-again"><a href="${HREF.decision}${index}">${marked(decision.option, "strong")}</a> <span>${text(APPLIES.get(String(decision.applies)) ?? "")}</span>${state}</p>`];
+  });
+}
+
+// Under rule 4, after the sentence that no decision waits for the person: the latest Decision as one line (D-159), its option, its author
+// with the mark of a rule's Decision, the phrase of whether it applies, and a link to its part in the step of the Decisions, which opens
+// that fold.
+function latestOf(object: Entry): string[] {
+  const decisions = list(object.decisions);
+  const index = decisions.length - 1;
+  if (index < 0) return [];
+  const decision = decisions[index];
+  const rule = decision.author === "proxy" ? ` ${markOf("\u25c7", "byRule")}` : "";
+  const applies = APPLIES.get(String(decision.applies));
+  return [
+    `<p data-element="latest-decision">${label("latestDecision")} ${marked(decision.option, "strong")} ${label("author")} ${value(decision.author)}${rule}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`} <a href="${HREF.decision}${index}">${label("seeDecision")}</a></p>`,
+  ];
+}
+
+// Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
+// id names, whose question is Now's line; with `look_again`, its text; with no kind, the label that no decision waits for the person.
+// Without an object read, Now holds nothing.
+function nowOf(object: Entry | undefined, pending: string, count = ""): string {
+  const lines = [`<section data-part="now" id="now">`, `<div data-element="now-heading"><h2>${label("now")}</h2>${count === "" ? "" : ` ${count}`}</div>`];
+  if (object) {
+    const step = record(object.next_step);
+    if (step.kind === "decide" && pending !== "") lines.push(pending);
+    else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
+    // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists (D-161 addendum, #75 comment
+    // 7197277304), then the latest Decision (D-159).
+    else lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`, ...latestOf(object));
+  }
+  lines.push("</section>");
+  return lines.join("\n");
 }
 
 // What the panel says of a call in flight and of its last write.
@@ -272,30 +421,136 @@ function failureOf(failure: Outcome): string {
 
 // `busy` says that a call is in flight and `held` that a write with no answer is held; `recorded` is the id of the Decision the write this
 // document follows recorded, `sent` the write in flight or held.
-function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): string {
+// The parts of the object read under three headings: `now`, the first pending decision when `next_step` says one is Now; `waiting`, each
+// other one in a closed fold whose summary is its question; and `path`, the Study so far.
+function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): { count: string; now: string; waiting: string; path: string } {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const locked = busy || held;
-  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
-  const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
+  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), decisions: list(object.decisions), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
+  const step = record(object.next_step);
+  const context = Array.isArray(step.context) ? step.context : [];
+  // The pending decision the first id of `next_step` names is Now, the others wait in their order; each keeps its place in
+  // `pending_decisions`, which the control that records sends.
+  const ids = Array.isArray(step.ids) ? step.ids : [];
+  const first = Math.max(0, pending.findIndex((each) => each.comparison_id === ids[0]));
+  const order = step.kind === "decide" && pending.length > 0 ? [first, ...pending.keys()].filter((at, place, all) => all.indexOf(at) === place) : [];
+  const parts = order.map((at, place) => pendingOf(pending[at], at, locked, shown, sent, place === 0 ? context : undefined));
+  const waiting = order.slice(1).map((at, place) => ['<details data-element="waiting">', `<summary>${marked(record(pending[at].question).text)}</summary>`, parts[place + 1], "</details>"].join("\n"));
+  const studyPart = [`<div data-part="study"${anchor("study", 0)}>`, `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`, "</div>"].join("\n");
+  const attempts = list(object.attempts);
+  const assessments = shown.assessments;
+  const comparisons = shown.comparisons;
+  const decisions = list(object.decisions);
+  const deviations = list(object.declared_deviations);
+  // The steps of each moment, in a fixed order of kinds: the Study, its Attempts, its Assessments and Comparisons and its Decisions, which
+  // the Study's own citations make the order in which each of these kinds first appears in the write journal (D-161); then, last whenever
+  // present, its Declared deviations, which nothing in the core orders against the others (D-161 addendum 2, #75 comment 7197719288). A
+  // step stands only when the read holds a record of its kind; the Study's always.
+  // The Decisions are built before the Assessments and the Comparisons, so that a record a Decision cites keeps its part in that Decision
+  // and the steps of Assess and compare show its summary or a link to it.
+  const decideAndFollow = [
+    ...(decisions.length === 0 ? [] : [decisionsStepOf(decisions, [`<h4>${label("decisions")}</h4>`, decisionsOf(decisions, linked, recorded, shown)].join("\n"))]),
+    ...(deviations.length === 0 ? [] : [deviationsStepOf(deviations, shown)]),
+  ];
+  const produce = attempts.length === 0 ? [] : [attemptsStepOf(attempts, shown)];
+  const assess = [...(assessments.length === 0 ? [] : [assessmentsStepOf(shown)]), ...(comparisons.length === 0 ? [] : [comparisonsStepOf(shown)])];
+  // The count of pending decisions stands on Now's heading line, only when n > 0, at no cost of height, in the singular for one (D-161
+  // addendum 2, #75 comment 7197719288).
+  const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label(pending.length === 1 ? "pendingOne" : "pendingCount")}</span>`;
+  return { count, now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
+    momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),
+    momentOf("produce", produce),
+    momentOf("assessAndCompare", assess),
+    momentOf("decideAndFollow", decideAndFollow),
+  ].filter((part) => part !== "").join("\n") };
+}
+
+// A moment of the Study so far: a plain heading, then its steps; nothing when it holds none.
+const momentOf = (name: keyof typeof LABEL, steps: string[]): string => (steps.length === 0 ? "" : [`<h3>${label(name)}</h3>`, ...steps].join("\n"));
+
+// A mark that restates one read fact, hidden from assistive technology, with the word it stands for after it.
+const markOf = (mark: string, word: keyof typeof LABEL): string => `<span data-mark aria-hidden="true">${mark}</span> <span>${label(word)}</span>`;
+
+// A done step: one line, its mark first when it has one, then its name and its values, which folds open to its review form, then its chart,
+// and closes on its limitation; each part stands only when the step has one.
+function stepOf(name: keyof typeof LABEL, values: string, form: string, chart = "", limitation = "", mark = ""): string {
   return [
-    `<h2>${label("study")}</h2>`,
-    `<div data-part="study"${anchor("study", 0)}>`,
-    `<p>${value(study.study_id)} ${label("writeSequence")} ${link("write_sequence", 0, object.write_sequence)}</p>`,
-    "</div>",
-    `<h2>${label("pending")}</h2>`,
-    pending.length === 0 ? `<p>${label("noPending")}</p>` : [count, ...pending.map((each, index) => pendingOf(each, index, locked, shown, sent))].join("\n"),
-    `<h2>${label("decisions")}</h2>`,
-    decisionsOf(list(object.decisions), linked, recorded, shown),
-    `<h2>${label("deviations")}</h2>`,
-    deviationsOf(list(object.declared_deviations), shown),
+    `<details data-step="${name}">`,
+    `<summary>${mark === "" ? "" : `${mark} `}<span data-element="step">${label(name)}</span>${values === "" ? "" : ` ${values}`}</summary>`,
+    `<div data-element="form">\n${form}\n</div>`,
+    ...(chart === "" ? [] : [`<div data-element="chart">\n${chart}\n</div>`]),
+    ...(limitation === "" ? [] : [`<div data-element="limitation">\n${limitation}\n</div>`]),
+    "</details>",
   ].join("\n");
 }
 
+// The Attempts: each with its id, its Mode, its technical status and the mark of a recoverable one. "Its `item_counts`, and anything
+// derived from its outputs, show only once an Assessment cites it" (D-136, question 1): an Attempt is cited when an Assessment holds the
+// `observation_set_id` the read gives the Attempt; its counts then show, each count a link to the part of that Assessment.
+function attemptsStepOf(attempts: Entry[], shown: Shown): string {
+  const rows = attempts.map((attempt) => {
+    const cited = attempt.observation_set_id === null || attempt.observation_set_id === undefined ? -1 : shown.assessments.findIndex((each) => each.observation_set_id === attempt.observation_set_id);
+    const mark = attempt.recoverable === true ? ` ${markOf("!", "recoverable")}` : "";
+    if (cited < 0) {
+      // "its id and its Observation set's id are plain text, never links" (D-143, correction 1).
+      const set = attempt.observation_set_id === null || attempt.observation_set_id === undefined ? "" : ` ${label("observationSet")} ${value(attempt.observation_set_id)}`;
+      return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)}${set} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark} <span>${label("countsOnceCited")}</span></li>`;
+    }
+    const counts = Object.entries(record(attempt.item_counts)).map(([key, number]) => `${value(key)} ${link("item_counts", cited, number)}`);
+    return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark}${counts.length === 0 ? "" : ` ${counts.join(" ")}`}</li>`;
+  });
+  const modes = [...new Set(attempts.map((attempt) => attempt.mode))].map(value).join(" ");
+  const recoverable = attempts.some((attempt) => attempt.recoverable === true) ? markOf("!", "recoverable") : "";
+  return stepOf("attempts", modes, `<ul>\n${rows.join("\n")}\n</ul>`, "", "", recoverable);
+}
+
+// The Assessments: the line holds the first Metric of the latest one; each has its part where the document shows none yet, and the step
+// closes on the latest one's limitations.
+function assessmentsStepOf(shown: Shown): string {
+  const latest = shown.assessments.length - 1;
+  const metric = record(list(shown.assessments[latest].metrics)[0]);
+  const line = `${value(metric.id)} ${link("value", latest, metric.value)} ${marked(metric.unit)}`;
+  const form = shown.assessments.map((assessment) => assessmentOf(undefined, assessment.assessment_id, shown)).join("\n");
+  const limitations = Array.isArray(shown.assessments[latest].limitations) ? shown.assessments[latest].limitations : [];
+  return stepOf("assessments", line, form, "", limitations.length === 0 ? "" : `<ul>\n${limitations.map((each) => marked(each, "li")).join("\n")}\n</ul>`);
+}
+
+// The Comparisons: the line holds the delta of the latest one; each has its part, or its summary where the document shows its part already.
+function comparisonsStepOf(shown: Shown): string {
+  const latest = shown.comparisons.length - 1;
+  const delta = record(shown.comparisons[latest].delta);
+  const line = `${delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", latest, delta.value)} ${value(delta.metric)} ${marked(delta.unit)}`;
+  const form = shown.comparisons
+    .map((comparison) => {
+      const roles = record(comparison.roles);
+      const ids = "roles" in comparison ? [roles.control_assessment_id, roles.candidate_assessment_id] : [];
+      return shown.parts.has(comparison) ? summaryOf(comparison, shown, ids) : comparisonOf(comparison.comparison_id, shown, ids);
+    })
+    .join("\n");
+  return stepOf("comparisons", line, form);
+}
+
+// The Decisions: the line holds the latest one's option and whether it applies, with the mark of a Decision made by a rule.
+function decisionsStepOf(decisions: Entry[], form: string): string {
+  const latest = decisions[decisions.length - 1];
+  if (latest === undefined) return stepOf("decisions", "", form);
+  const applies = APPLIES.get(String(latest.applies));
+  const line = `${marked(latest.option, "strong")}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`}`;
+  return stepOf("decisions", line, form, "", "", latest.author === "proxy" ? markOf("\u25c7", "byRule") : "");
+}
+
+// The Declared deviations, with the mark of a declared one where one is not withdrawn.
+function deviationsStepOf(deviations: Entry[], shown: Shown): string {
+  const declared = deviations.some((deviation) => deviation.withdrawn === false) ? markOf("\u2016", "declared") : "";
+  return stepOf("deviations", "", deviationsOf(deviations, shown), "", "", declared);
+}
+
 // The question, then the Comparison it names with the choices under its evidence: the first action selects an option's radio
-// input, named by the option's text and described by its consequence; the second is the control that records, disabled until
-// then. The option of the write `sent` is checked where its question is this one and its cited ids hold this Comparison's id.
-function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown, sent: View["sent"]): string {
+// input, named by the option's text and described by its consequence, which stands in a closed fold; the second is the control that
+// records, disabled until then. The option of the write `sent` is checked where its question is this one and its cited ids hold this
+// Comparison's id. `context`, given to the decision that is Now, holds the ids of the earlier Decisions that no longer apply.
+function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown, sent: View["sent"], context?: unknown[]): string {
   const inert = locked ? " disabled" : "";
   const question = `${QUESTION_ID}${index}`;
   const asked =
@@ -304,30 +559,39 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
     const place = shown.options++;
     const checked = asked && sent.option === option.text ? " checked" : "";
     const input = `<input type="radio" name="pending-${index}" data-pending="${index}" data-option="${at}" aria-labelledby="${OPTION_ID}${place}" aria-describedby="${CONSEQUENCE_ID}${place}"${checked}${inert}>`;
-    return `<label>${input} <span id="${OPTION_ID}${place}">${marked(option.text, "strong")}</span> <span id="${CONSEQUENCE_ID}${place}">${marked(option.consequence, "small")}</span></label>`;
+    return `<label>${input} <span id="${OPTION_ID}${place}">${marked(option.text, "strong")}</span> <details data-element="consequence"><summary>${label("consequence")}</summary><span id="${CONSEQUENCE_ID}${place}">${marked(option.consequence, "small")}</span></details></label>`;
   });
+  // The box of the person's own words, in a fold directly above the control that records, empty but where the write `sent` held words
+  // for this decision.
+  const words = asked && Array.isArray(sent.words) ? sent.words.join("") : "";
   const choices = [
     `<fieldset aria-labelledby="${question}" ${anchor("choices", index)}>`,
     ...options,
+    // "2. the words box, as a closed "Add your words" above Record" (D-151, answer 5): open where it holds the words of the write `sent`.
+    `<details data-element="add-words"${words === "" ? "" : " open"}><summary>${label("addWords")}</summary>`,
+    `<label data-element="words">${label("yourWords")} <textarea data-words="${index}" rows="2"${inert}>${text(words)}</textarea></label>`,
+    "</details>",
     `<button data-message="${contract.messages[1]}" data-pending="${index}" aria-describedby="${question}" disabled>${label("record")}</button>`,
     "</fieldset>",
   ].join("\n");
   return [
     '<section data-part="pending">',
     ...(index > 0 ? ["<hr>"] : []),
-    `<div id="${question}">${marked(record(pending.question).text, "h3")}</div>`,
-    comparisonOf(pending.comparison_id, shown, [pending.control_assessment_id, pending.candidate_assessment_id], choices),
+    `<div id="${question}"${context ? ' data-element="now-question"' : ""}>${marked(record(pending.question).text, "h3")}</div>`,
+    comparisonOf(pending.comparison_id, shown, [pending.control_assessment_id, pending.candidate_assessment_id], choices, context),
     assessmentOf("control", pending.control_assessment_id, shown),
     assessmentOf("candidate", pending.candidate_assessment_id, shown),
     "</section>",
   ].join("\n");
 }
 
-// A Comparison: its delta, its coverage, its roles, chart 1 and the figures of its paired deltas, then, where it is pending, a line of
-// how many warnings and limitations it holds and `choices`, then the rest, and last its dots when they do not stand with the figures.
-// `roles` are the ids of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where
-// the delta record carries no value of its own.
-function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = ""): string {
+// A Comparison. Where it is pending (`choices` given), in D-148's order: its delta with its interval, the context of Now, its coverage,
+// its frame line, its warnings word for word, the line that counts its warnings and the limitations that are no warning's message, the
+// choices, then one closed fold of its charts and figures, then the rest of its part. Elsewhere: its delta, its coverage, its roles, chart
+// 1, the single-feature chart and the figures of its paired deltas, then the rest, and last its dots when they do not stand with the figures. `roles` are the ids
+// of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta record
+// carries no value of its own; `context`, the ids of the Decisions that no longer apply that Now shows.
+function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "", context?: unknown[]): string {
   const index = shown.comparisons.findIndex((each) => each.comparison_id === id);
   const comparison = shown.comparisons[index];
   const first = comparison !== undefined && !shown.parts.has(comparison);
@@ -337,36 +601,80 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
     const delta = record(comparison.delta);
     // The coverage is read once, as a list of its keys and values.
     const coverage = Object.entries(record(comparison.coverage));
-    lines.push(deltaOf(delta, index));
-    lines.push(`<p data-element="coverage">${label("coverage")} ${coverage.map(([key, number]) => `${value(key)} ${link("coverage", index, number)}`).join(" ")}</p>`);
+    const coverageLine = `<p data-element="coverage">${label("coverage")} ${coverage.map(([key, number]) => `${value(key)} ${link("coverage", index, number)}`).join(" ")}</p>`;
     // "when the delta's `value` is null the Comparison's part holds no roles' element" (chadlis/hypotrail#177).
-    if (delta.value !== null && ("control" in delta || "candidate" in delta)) {
-      lines.push(`<p data-element="roles">${label("control")} ${link("control", index, delta.control)} ${label("candidate")} ${link("candidate", index, delta.candidate)}</p>`);
-    }
+    const rolesLine =
+      delta.value !== null && ("control" in delta || "candidate" in delta)
+        ? `<p data-element="roles">${label("control")} ${link("control", index, delta.control)} ${label("candidate")} ${link("candidate", index, delta.candidate)}</p>`
+        : "";
+    const messages = list(comparison.warnings).map((warning) => warning.message);
     const warnings = list(comparison.warnings).map((warning) => `<li>${value(warning.code)} ${marked(warning.message)}</li>`);
-    const limitations = (Array.isArray(comparison.limitations) ? comparison.limitations : []).map((limitation) => marked(limitation, "li"));
-    lines.push(deltaChartOf(delta, index, roles, shown));
+    const all = Array.isArray(comparison.limitations) ? comparison.limitations : [];
+    // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
+    const limitations = (choices === "" ? all : all.filter((limitation) => !messages.includes(limitation))).map((limitation) => marked(limitation, "li"));
+    const listOf = (kind: "warnings" | "limitations", items: string[]): string =>
+      [`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>"].join("\n");
+    const status = `${label("comparabilityStatus")} ${value(record(comparison.comparability).status)}`;
     const [figures, rest] = figuresOf(shown.figures, id, index, delta, first);
-    lines.push(figures);
-    if (choices !== "") {
-      lines.push(`<p data-element="limits">${label("warnings")} ${link("warnings", index, warnings.length)} ${label("limitations")} ${link("limitations", index, limitations.length)}</p>`, choices);
-    }
-    lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index));
-    lines.push(`<p>${label("comparabilityStatus")} ${value(record(comparison.comparability).status)}</p>`);
-    for (const [ref, output] of [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]] as const) {
+    const paths = [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]].flatMap(([ref, output]) => {
       const path = record(output).path;
-      if (typeof path === "string") lines.push(`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref, path, shown)}</p>`);
+      return typeof path === "string" ? [`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref as string, path, shown)}</p>`] : [];
+    });
+    if (choices !== "") {
+      lines.push(deltaOf(delta, index, comparison.interval), contextOf(context ?? [], shown), coverageLine);
+      lines.push(`<p data-element="frame">${label("scorer")} ${value(scorerOf(roles[0], shown))} ${status}</p>`, listOf("warnings", warnings));
+      lines.push(`<p data-element="limits">${label("warnings")} ${link("warnings", index, warnings.length)} ${label("limitations")} ${link("limitations", index, limitations.length)} <span>${label("limitationsRule")}</span></p>`, choices);
+      const fold = [featuresChartOf(roles, delta, shown), rolesLine, deltaChartOf(delta, index, roles, shown), figures, rest].filter((line) => line !== "");
+      if (fold.length > 0) lines.push(['<details data-element="charts">', `<summary>${label("charts")}</summary>`, ...fold, "</details>"].join("\n"));
+      lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index), ...paths);
+      lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("limitations", limitations));
+    } else {
+      lines.push(deltaOf(delta, index, comparison.interval), coverageLine, rolesLine, deltaChartOf(delta, index, roles, shown), featuresChartOf(roles, delta, shown), figures);
+      lines.push(`<p data-element="definition">${marked(delta.definition)}</p>`, coverageChartOf(coverage, index), `<p>${status}</p>`, ...paths);
+      lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("warnings", warnings), listOf("limitations", limitations), rest);
     }
-    lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown));
-    for (const [kind, items] of [["warnings", warnings], ["limitations", limitations]] as const) {
-      lines.push(`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>");
-    }
-    lines.push(rest);
   } else {
     lines.push(choices);
   }
   lines.push("</div>");
   return lines.filter((line) => line !== "").join("\n");
+}
+
+// The id of the Scorer of the Assessment of `id`, as the read lists it; undefined when the read lists none.
+const scorerOf = (id: unknown, shown: Shown): unknown => record(shown.assessments.find((each) => each.assessment_id === id)?.scorer).id;
+
+// The Decisions that no longer apply that `next_step` gives Now as context: each as one line with its option, as a link to its part, and
+// the phrase of its `applies`, then the delta of the Comparison it cites, read as the read holds it, beside the delta of Now.
+function contextOf(ids: unknown[], shown: Shown): string {
+  return ids
+    .flatMap((id) => {
+      const index = shown.decisions.findIndex((each) => each.decision_id === id);
+      if (index < 0) return [];
+      const decision = shown.decisions[index];
+      const lines = [`<p data-element="context">${label("earlierDecision")} <a href="${HREF.decision}${index}">${marked(decision.option, "strong")}</a> <span>${text(APPLIES.get(String(decision.applies)) ?? "")}</span></p>`];
+      const cited = shown.comparisons.findIndex((each) => Array.isArray(decision.cited_ids) && decision.cited_ids.includes(each.comparison_id));
+      const delta = record(shown.comparisons[cited]?.delta);
+      if (cited >= 0) lines.push(`<p data-element="cited-delta">${label("citedDelta")} ${delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", cited, delta.value)} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
+      return lines;
+    })
+    .join("\n");
+}
+
+// The single-feature chart: the Control's and the Candidate's values of the Metric the Candidate's single-feature check computed, and
+// beside them the value of each feature used alone on the same Items, as that check records it; none when it computed none.
+function featuresChartOf(roles: unknown[], delta: Entry, shown: Shown): string {
+  const [control, candidate] = [roles[0], roles[1]].map((id) => shown.assessments.findIndex((each) => each.assessment_id === id));
+  const computed = candidate < 0 ? [] : list(record(shown.assessments[candidate].single_feature_check).computed);
+  if (computed.length === 0 || control < 0) return "";
+  const metric = record(computed[0].metric).id;
+  const sideOf = (at: number, name: keyof typeof LABEL, kind: string): Bar | undefined => {
+    const found = list(shown.assessments[at].metrics).find((each) => each.id === metric);
+    return found === undefined ? undefined : { name: label(name), shown: link("value", at, found.value), value: number(found.value), kind };
+  };
+  const sides = [sideOf(control, "control", "control"), sideOf(candidate, "candidate", "candidate")];
+  if (sides.includes(undefined)) return "";
+  const features = computed.map((entry): Bar => ({ name: marked(entry.feature), shown: link("value", candidate, record(entry.metric).value), value: number(record(entry.metric).value), kind: "feature" }));
+  return ['<div data-chart="features">', `<p>${label("featuresAlone")} ${value(metric)} ${marked(delta.unit)}</p>`, bars([...(sides as Bar[]), ...features]), "</div>"].join("\n");
 }
 
 // The figures of a Comparison's paired deltas from its entry of the figures read, as two texts: the first stands under chart 1, the
@@ -464,10 +772,21 @@ function summaryOf(comparison: Entry, shown: Shown, roles: unknown[]): string {
     .join("\n");
 }
 
-// The delta's element: its value as a link, or the word of a withheld delta, with its Metric and unit.
-function deltaOf(delta: Entry, index: number): string {
+// The delta's element: its value as a link, or the word of a withheld delta, with its Metric and unit; then, given the Comparison's
+// `interval` when the read holds one, its level and its two bounds as links to the Comparison, and its resampling unit, or, when a bound
+// is null, its reason. A withheld delta holds no interval, not even its reason: the interval would show what the withheld delta hides
+// (D-159).
+function deltaOf(delta: Entry, index: number, given?: unknown): string {
   const shownDelta = delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", index, delta.value);
-  return `<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}</p>`;
+  let slot = "";
+  if (delta.value !== null && typeof given === "object" && given !== null) {
+    const interval = given as Entry;
+    slot =
+      interval.lower === null || interval.upper === null
+        ? ` <span data-element="interval">${label("interval")} ${marked(interval.reason)}</span>`
+        : ` <span data-element="interval">${label("interval")} ${link("interval", index, interval.level)} ${link("interval", index, interval.lower)} ${link("interval", index, interval.upper)} ${label("resamplingUnit")} ${marked(interval.unit)}</span>`;
+  }
+  return `<p data-element="delta">${label("delta")} ${shownDelta} ${value(delta.metric)} ${marked(delta.unit)}${slot}</p>`;
 }
 
 // Chart 1: the Control's and the Candidate's values of the Metric the delta names, from the delta record where it carries them,
@@ -538,7 +857,8 @@ function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, sh
     const output = record(assessment.per_item_ref).path;
     const path = typeof output === "string" ? `<p data-element="output">${label("outputPath")} ${opening("assessment", index, PER_ITEM, output, shown)}</p>` : "";
     const own = recordFileOf("assessment", index, id, shown);
-    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, path, own, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].filter((line) => line !== "").join("\n");
+    const scorer = `<p>${label("scorer")} ${value(record(assessment.scorer).id)}</p>`;
+    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, scorer, path, own, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].filter((line) => line !== "").join("\n");
   }
   return role === undefined ? body : [`<div data-role="${role}">`, `<h4>${label(role)}</h4>`, body, "</div>"].join("\n");
 }
@@ -546,7 +866,7 @@ function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, sh
 function decisionsOf(decisions: Entry[], linked: string | undefined, recorded: unknown, shown: Shown): string {
   const parts = decisions.map((decision, index) => decisionOf(decision, index, decision.decision_id === linked, decision.decision_id === recorded, shown));
   if (linked !== undefined && !decisions.some((decision) => decision.decision_id === linked)) parts.unshift(`<p>${label("noDecision")} ${value(linked)}</p>`);
-  return parts.length === 0 ? `<p>${label("none")}</p>` : parts.join("\n");
+  return parts.join("\n");
 }
 
 // A recorded Decision: what was chosen and whether it applies, its id, its question, the state of its evidence with each line of
@@ -567,7 +887,8 @@ function decisionOf(decision: Entry, index: number, linked: boolean, recorded: b
     ...(change ? [stateOf(change, list(decision.reasons)), linesOf(change, index, shown)] : []),
     ...(reasons.length > 0 ? [`<h4>${label("reasons")}</h4>`] : []),
     `<ul data-element="reasons">\n${reasons.join("\n")}\n</ul>`,
-    `<p>${label("author")} ${value(decision.author)}</p>`,
+    `<p>${label("author")} ${value(decision.author)}${decision.source === null || decision.source === undefined ? "" : ` ${label("source")} ${marked(decision.source)}`}</p>`,
+    ...(decision.author === "proxy" ? [`<p data-element="proxy">${markOf("\u25c7", "byRule")}</p>`] : []),
     `<h4>${label("citedIds")}</h4>`,
     `<ul data-element="cited">\n${cited.map((id) => `<li>${value(id)}</li>`).join("\n")}\n</ul>`,
   ];
@@ -634,7 +955,8 @@ function linesOf(change: Entry, decision: number, shown: Shown): string {
 function deviationsOf(deviations: Entry[], shown: Shown): string {
   const lines = deviations.map((deviation, index) => {
     const file = recordFileOf("deviation", index, deviation.declared_deviation_id, shown, "span");
-    return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
+    const mark = deviation.withdrawn === false ? `${markOf("\u2016", "declared")} ` : "";
+    return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${marked(deviation.text)} ${mark}${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
   });
-  return lines.length === 0 ? `<p>${label("none")}</p>` : `<ul>\n${lines.join("\n")}\n</ul>`;
+  return `<ul>\n${lines.join("\n")}\n</ul>`;
 }

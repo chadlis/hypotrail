@@ -27,6 +27,8 @@ import {
   unescaped,
   workspace,
   FIGURES_FAILED,
+  S2_INTERVAL,
+  holdsTheHeadings,
   withFigures,
 } from "./panel-harness";
 import { exit, recorder, type Answer } from "./recorder";
@@ -90,6 +92,22 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       const entry = figures.comparisons[0];
       entry.paired_deltas = Array.from({ length: 10 }, (_, at) => ({ ...entry.paired_deltas[at % 4], case_id: `D${10 + at}` }));
       const answers = [read("status-chinook-spread"), success(figures)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
+  ...[true, false].map((bounds): [string, (t: TestContext) => Promise<Built>] => [
+    `status-success with an injected interval${bounds ? "" : " whose bounds are null"}`,
+    async (t) => {
+      const object = keptObject("status-success");
+      object.comparisons[0].interval = bounds ? S2_INTERVAL : { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" };
+      const answers = [success(object)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ]),
+  [
+    "journey.17-interrupted.status, with a recoverable Attempt",
+    async (t) => {
+      const answers = [read("journey.17-interrupted.status")];
       return { document: (await documentFor(t, ...answers)).document, answers };
     },
   ],
@@ -174,44 +192,67 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
 // The section headings of a document, as text.
 const headingsOf = (document: string): string[] => [...document.matchAll(/<h2>([^<]*)<\/h2>/g)].map((match) => unescaped(match[1]));
 
-// The words of a document that would make a stage: a `hidden` attribute or a `details` element in its tags, and in the text of
-// its script the words that hide, show or rewrite an element.
+// The words of a document that would make a stage: a `hidden` attribute in its tags, in the text of its script the words that hide,
+// show or rewrite an element, and a fold that a setting hides: a `details` element whose tag holds a `style`, or a rule of the style
+// that hides a `details` element. A native `details` and its `summary` make none ("No stages" redefined: no feature level, and nothing
+// that a setting hides; D-136).
 const SCRIPT_WORDS = ["hidden", "display", "classList", "className", "innerHTML", "insertAdjacent"];
 
 function stagesOf(document: string): string[] {
-  const { script, tags } = partsOf(document);
+  const { script, style, tags } = partsOf(document);
   const found = SCRIPT_WORDS.filter((word) => script.includes(word)).map((word) => `the script holds ${word}`);
   if (tags.some((tag) => /^<[a-z0-9]+\s(?:[^>]*\s)?hidden(?:[\s=>/])/i.test(tag))) found.push("a hidden attribute");
-  if (tags.some((tag) => /^<details[\s>]/i.test(tag))) found.push("a details element");
+  const hidingRule = [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].some(([, selector, body]) => /(^|[\s,>+~(])details\b/.test(selector) && /(^|;)\s*(display\s*:\s*none|visibility\s*:\s*hidden|content-visibility\s*:\s*hidden)/.test(body));
+  if (tags.some((tag) => /^<details\s(?:[^>]*\s)?style=/i.test(tag)) || hidingRule) found.push("a fold that a setting hides");
   return found;
 }
 
 const okReads = KEPT_READS.filter((name) => keptObject(name).ok === true);
 
-for (const name of okReads) {
-  test(`the section headings are those of status-success, each an entry of labels: ${name}`, async (t) => {
-    const headings = headingsOf((await documentFor(t, read(name))).document);
-    assert.deepEqual(headings, headingsOf((await documentFor(t, read("status-success"))).document));
+for (const name of [...KEPT_READS, "status-not-found"]) {
+  test(`the section headings are an in-order subset of the five, with Now, The Study so far and Tools present, each an entry of labels: ${name}`, async (t) => {
+    const headings = headingsOf((await documentFor(t, name === "status-not-found" ? NOT_FOUND : read(name))).document);
+    assert.ok(holdsTheHeadings(headings), headings.join(" | "));
     for (const heading of headings) assert.ok(contract.labels.includes(heading), heading);
   });
+}
 
-  test(`no tag holds a hidden attribute or opens a details element, and the script holds none of the words of a stage: ${name}`, async (t) => {
+for (const name of okReads) {
+  test(`no tag holds a hidden attribute, no fold is one that a setting hides, and the script holds none of the words of a stage: ${name}`, async (t) => {
     assert.deepEqual(stagesOf((await documentFor(t, read(name))).document), []);
   });
 }
 
+test("a heading out of order, a heading that is not one of the five, and a missing Tools are each found", () => {
+  assert.equal(holdsTheHeadings(["The Study so far", "Now", "Tools"]), false);
+  assert.equal(holdsTheHeadings(["Now", "Study", "The Study so far", "Tools"]), false);
+  assert.equal(holdsTheHeadings(["Now", "The Study so far"]), false);
+  assert.equal(holdsTheHeadings(["To handle", "Now", "Waiting", "The Study so far", "Tools"]), true);
+  assert.equal(holdsTheHeadings(["Now", "The Study so far", "Tools"]), true);
+});
+
 for (const [plant, expected] of [
   ['<p hidden>planted</p>', "a hidden attribute"],
   ['<p data-x="1" hidden="">planted</p>', "a hidden attribute"],
-  ["<details><summary>planted</summary></details>", "a details element"],
+  ['<details style="display: none"><summary>planted</summary></details>', "a fold that a setting hides"],
+  ["<style-rule>details[data-x] { display: none; }", "a fold that a setting hides"],
   ...SCRIPT_WORDS.map((word) => [`<script nonce="n">document.body.${word};</script>`, `the script holds ${word}`]),
 ] as const) {
   test(`a planted document is found to make a stage: ${expected}, by ${plant}`, async (t) => {
     const { document } = await documentFor(t, read("status-success"));
-    const planted = plant.startsWith("<script") ? document.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, plant) : document.replace("</main>", `${plant}</main>`);
+    const planted = plant.startsWith("<script")
+      ? document.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, plant)
+      : plant.startsWith("<style-rule>")
+        ? document.replace(/(<style[^>]*>)/, `$1${plant.slice("<style-rule>".length)}\n`)
+        : document.replace("</main>", `${plant}</main>`);
     assert.ok(stagesOf(planted).includes(expected), stagesOf(planted).join("; "));
   });
 }
+
+test("a planted native details element with its summary makes no stage", async (t) => {
+  const { document } = await documentFor(t, read("status-success"));
+  assert.deepEqual(stagesOf(document.replace("</main>", "<details><summary>planted</summary><p>planted</p></details></main>")), []);
+});
 
 // Each value of an answer as the panel writes it: the leaves of the object its output holds, and the keys of a map the panel
 // shows whole.
@@ -221,7 +262,7 @@ function valuesOf(answers: Answer[]): string[] {
     if (Array.isArray(value)) value.forEach((each) => walk(each, key));
     else if (value !== null && typeof value === "object") {
       for (const [name, each] of Object.entries(value)) {
-        if (key === "coverage") values.push(name);
+        if (key === "coverage" || key === "item_counts") values.push(name);
         walk(each, name);
       }
     } else values.push(unescaped(written(value)));

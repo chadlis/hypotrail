@@ -388,6 +388,109 @@ def test_the_dated_lines_hold_one_line_for_the_tools_words_and_one_for_the_fifth
     assert "the 2026-11-24 line on the rule for Claude Code" in rule
 
 
+# --- the dated line of `next_step` in `status --json` ----------------------------------------------------------------------------
+
+NEXT_STEP_SENTENCE = (
+    "A new function of the core, computed when the Study is read and never stored, gives the top-level key `next_step` of `status` (and of"
+    " `status --since N`)."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_next_step_quoting_its_ticket_naming_its_keys_and_the_configuration_identity_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#251" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert NEXT_STEP_SENTENCE in line and "the earlier line it overrides: none" in line
+    for name in ("`kind`", "`text`", "`ids`", "`context`", "`to_handle`", "`flagged`", "`answered`", "`configuration_digest_of`", "Attempt's own id"):
+        assert name in line, name
+
+
+# --- the dated line of the panel's own read with `--since` ------------------------------------------------------------------------
+
+PANEL_SINCE_SENTENCE = (
+    "The panel's read becomes `status --study={path} --since={n} --json` with `n` the `write_sequence` of the object held, else 0 (D-136;"
+    " assumption 9)."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_panels_read_with_since_quoting_its_ticket_and_narrowing_the_line_on_figures():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#252" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PANEL_SINCE_SENTENCE in line and "the earlier line it narrows: the 2026-11-24 line on `figures`" in line
+    for name in ("`status --study=DIR --since=N --json`", "`status --study=DIR --json`", "Since this panel's last read"):
+        assert name in line, name
+
+
+# --- the dated line of the panel's words box ------------------------------------------------------------------------------------------
+
+PANEL_WORDS_SENTENCE = (
+    "The extension builds the bridge's `DecisionInput` with today's fields plus `question_id` and `option_id` (the ids the held object gives"
+    " for the indexes, F3) and, when the text is not empty, `words` with that one text and `channel` \"panel\", and no `by`"
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_panels_words_quoting_its_ticket_and_naming_the_channel_and_no_by():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#254" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PANEL_WORDS_SENTENCE in line and "the earlier line it narrows" in line
+    for name in ("`--question-id`", "`--option-id`", "`--words`", "`--channel=panel`", "never `--by`", "`client_refusal`"):
+        assert name in line, name
+
+
+# --- the dated line of `attempts[].observation_set_id` (D-157) ---------------------------------------------------------------------------
+
+OBSERVATION_SET_SENTENCE = (
+    "`attempts[]` in `status --json` gains an additive key, `observation_set_id`: the id of the Observation set the Attempt produced, or null if it"
+    " produced none."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_observation_set_id_of_attempts_quoting_d_157_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "D-157" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert OBSERVATION_SET_SENTENCE in line and "the earlier line it overrides: none" in line
+
+
+# --- the dated line of the panel's refusal under an uncited Attempt's folder --------------------------------------------------------------
+
+UNCITED_SENTENCE = "`open` refuses any path under that Attempt's folder."
+
+
+def test_the_dated_lines_hold_one_line_for_the_refusal_under_an_uncited_attempts_folder_that_narrows_the_open_line():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#255" in line and "opens no file" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert f'"{UNCITED_SENTENCE}"' in line and "the earlier line it narrows: the 2026-11-26 line on the `open` message" in line
+
+
+# --- the dated line that corrects what the panel shows of an uncited Attempt ----------------------------------------------------------
+
+UNCITED_IDS_SENTENCE = "its id and its Observation set's id are plain text, never links"
+
+
+def test_the_line_after_the_refusal_under_an_uncited_attempts_folder_corrects_it_the_ids_shown_as_plain_text_quoting_its_ticket():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    [refusal] = [at for at, line in enumerate(lines) if "chadlis/hypotrail#255" in line and "opens no file" in line]
+    line = lines[refusal + 1]
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert "chadlis/hypotrail#255" in line and f'"{UNCITED_IDS_SENTENCE}"' in line, line
+    assert "the earlier line it corrects: the 2026-11-26 line on the panel's refusal under an uncited Attempt's folder" in line, line
+    assert "item_counts" in line and "no link" in line, line
+
+
 # --- the dated line of the key `interval` of each Comparison of `status --json` -----------------------------------------------------
 
 INTERVAL_TICKET_SENTENCE = "`status --json` lists each Comparison with its `interval` equal to the stored one, and its top-level keys are unchanged"
@@ -402,3 +505,18 @@ def test_the_dated_lines_hold_one_line_that_names_comparisons_interval_drawn_by_
     assert INTERVAL_TICKET_SENTENCE in line and "the earlier line it overrides: none" in line
     above = adr().split("## Dated lines", 1)[0]
     assert "interval" not in above
+
+
+# --- the dated line of the three answers logged as D-159 ------------------------------------------------------------------------------
+
+
+def test_the_dated_lines_hold_one_line_citing_d_159_for_the_import_identity_the_latest_decision_under_rule_4_and_no_interval_under_a_withheld_delta():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "D-159" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    for name in ("Attempt's own id", "an Import is only ever the same as itself", "Latest Decision:", "rule 4", "withheld", "`comparisons[].interval`"):
+        assert name in line, name
+    assert "the earlier line it overrides: none" in line, line
+

@@ -50,12 +50,14 @@ export const THEMES: Record<string, { kind: string; variables: Record<string, st
 };
 
 // The theme's variables and the part of VS Code's default webview style that sets the text's colour and font, then the body's class;
-// the style added carries the nonce of the document's own, which the policy allows.
+// the style added carries the nonce of the document's own, which the policy allows. VS Code puts its default style first in the head,
+// inside the cascade layer `vscode-default` (src/vs/workbench/contrib/webview/browser/pre/index.html of microsoft/vscode: `@layer
+// vscode-default` and `newDocument.head.prepend(defaultStyles.cloneNode(true))`), so that every rule of the panel's own style wins over it.
 export function themed(name: string): string {
   const theme = THEMES[name];
   const variables = Object.entries(theme.variables).map(([key, value]) => `--vscode-${key}:${value};`).join("");
-  const css = `:root{${variables}--vscode-font-family:sans-serif;--vscode-font-size:13px;}html{background:var(--vscode-editor-background)}body{background-color:transparent;color:var(--vscode-editor-foreground);font-size:var(--vscode-font-size);margin:0;padding:0 20px;}a{color:var(--vscode-textLink-foreground);}`;
-  return `(() => { const style = document.createElement("style"); style.nonce = document.querySelector("style").nonce; style.textContent = ${JSON.stringify(css)}; document.head.append(style); document.body.className = ${JSON.stringify(theme.kind)}; return true; })()`;
+  const css = `:root{${variables}--vscode-font-family:sans-serif;--vscode-font-size:13px;}@layer vscode-default{html{background:var(--vscode-editor-background)}body{background-color:transparent;color:var(--vscode-editor-foreground);font-size:var(--vscode-font-size);margin:0;padding:0 20px;}a{color:var(--vscode-textLink-foreground);}}`;
+  return `(() => { const style = document.createElement("style"); style.nonce = document.querySelector("style").nonce; style.textContent = ${JSON.stringify(css)}; document.head.prepend(style); document.body.className = ${JSON.stringify(theme.kind)}; return true; })()`;
 }
 
 // Each text of the page whose contrast with the colour it stands on, every opacity and every background under it composited, is

@@ -4,6 +4,7 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { checkoutRoot, readStudy, type Outcome } from "../src/bridge";
 import { kept } from "./kept";
+import { panelOf, runCommand, settle, withFigures, workspace } from "./panel-harness";
 import { PATHS } from "./paths";
 import { exit, recorder, type Answer } from "./recorder";
 
@@ -24,6 +25,27 @@ test("a read starts uv with the eight arguments, in the checkout root, with 30 s
   assert.equal("shell" in calls[0].options, false);
 });
 
+test("a read given a Write sequence starts status with --study=, --since= that sequence and --json, and one given none leaves --since= out", async (t) => {
+  const calls = recorder(t, exit(0, STATUS), exit(0, STATUS));
+  await readStudy(ROOT, STUDY, 12);
+  await readStudy(ROOT, STUDY);
+  assert.deepEqual(calls[0].args, ["run", "--no-sync", "python", "-m", "hypotrail", "status", `--study=${STUDY}`, "--since=12", "--json"]);
+  assert.deepEqual(calls[1].args, ["run", "--no-sync", "python", "-m", "hypotrail", "status", `--study=${STUDY}`, "--json"]);
+});
+
+test("the panel reads with --since=0 when it holds no object, then with the write_sequence of the object it holds", async (t) => {
+  const held = { ...status, write_sequence: 14 };
+  workspace(t, ["bike"]);
+  const calls = recorder(t, ...withFigures(exit(0, JSON.stringify(held)), exit(0, JSON.stringify(held))));
+  await runCommand();
+  await settle();
+  panelOf().send({ message: contract.messages[0] });
+  await settle();
+  const reads = calls.filter((call) => call.args.includes("status"));
+  assert.equal(reads.length, 2);
+  assert.deepEqual(reads.map((call) => call.args.filter((argument) => argument.startsWith("--since="))), [["--since=0"], ["--since=14"]]);
+});
+
 test("the checkout root is two folders above the extension's folder", () => {
   const extension = "/home/owner/hypotrail/clients/vscode";
   assert.equal(checkoutRoot(extension), path.resolve(extension, "..", ".."));
@@ -31,9 +53,9 @@ test("the checkout root is two folders above the extension's folder", () => {
 
 test("the program, the arguments and the limits of a read are those of contract.json", async (t) => {
   const calls = recorder(t, exit(0, STATUS));
-  await readStudy(ROOT, STUDY);
+  await readStudy(ROOT, STUDY, 12);
   assert.equal(calls[0].program, contract.program);
-  const read = contract.read_arguments.map((argument) => argument.replace("{path}", STUDY));
+  const read = contract.read_arguments.map((argument) => argument.replace("{path}", STUDY).replace("{n}", "12"));
   assert.deepEqual(calls[0].args, [...contract.first_arguments, ...read]);
   assert.equal(calls[0].options.timeout, contract.read_timeout_ms);
   assert.equal(calls[0].options.maxBuffer, contract.max_buffer_bytes);

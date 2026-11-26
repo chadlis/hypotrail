@@ -2,8 +2,9 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
-import { kept } from "./kept";
-import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { JOURNEY, kept } from "./kept";
+import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -119,7 +120,7 @@ for (const name of Object.keys(KEPT_FIGURES)) {
   });
 }
 
-test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once and its summary in the Decision, each id once, and the same links", async (t) => {
+test("status-decided with its Comparison also pending and its Decision not applying: the Comparison's part shown once, its summary in the Decision and in the step of the Comparisons, each id once, and the same links", async (t) => {
   const object = keptObject("status-decided");
   const comparison = object.comparisons[0];
   object.decisions[0].applies = false;
@@ -129,9 +130,11 @@ test("status-decided with its Comparison also pending and its Decision not apply
     control_assessment_id: comparison.roles.control_assessment_id,
     candidate_assessment_id: comparison.roles.candidate_assessment_id,
   }));
+  object.next_step = { ...object.next_step, kind: "decide", ids: [comparison.comparison_id], context: [object.decisions[0].decision_id] };
   const { document } = await documentFor(t, success(object));
   assert.equal(partsByKind(document, "comparison").length, 1);
-  assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 1);
+  // Its summary in the Decision, and in the step of the Comparisons.
+  assert.equal(elementsOf(document, '<div data-summary="comparison">').length, 2);
   assertLinksAndIds(document, object, "status-decided changed");
 });
 
@@ -177,7 +180,8 @@ const INSTANCES: Record<string, [string, (object: Entry) => [number, string]]> =
 // For each pair whose part is a list of a Comparison's part, one number of that kind of a kept read, and the id of that Comparison.
 const IN_A_COMPARISON: Record<string, [string, (object: Entry) => [number, string]]> = {
   warnings: ["status-success", (o) => [o.comparisons[0].warnings.length, o.comparisons[0].comparison_id]],
-  limitations: ["status-success", (o) => [o.comparisons[0].limitations.length, o.comparisons[0].comparison_id]],
+  // A pending Comparison counts only the limitations that are no warning's message.
+  limitations: ["status-success", (o) => [o.comparisons[0].limitations.filter((each: string) => !o.comparisons[0].warnings.some((warning: Entry) => warning.message === each)).length, o.comparisons[0].comparison_id]],
 };
 
 // For each pair whose number a figure prints, one number of that kind of a kept figures read, and the id of the Comparison of its entry.
@@ -188,9 +192,72 @@ const IN_A_FIGURE: Record<string, [string, (figures: Entry) => [number, string]]
   dot_end: ["status-success", (f) => [Math.max(...f.comparisons[0].paired_deltas.flatMap((each: Entry) => [each.control_abs_error, each.candidate_abs_error])), f.comparisons[0].comparison_id]],
 };
 
+// For each pair whose number the band prints, a kept read of the journey and the number of that kind it holds.
+const IN_THE_BAND: Record<string, [string, (object: Entry) => number]> = {
+  writes_since: [`${JOURNEY}04-pending.status`, (o) => o.writes_since.length],
+};
+
+// For each pair whose number the delta line prints from the Comparison's `interval`, the kept read the interval is injected into.
+const IN_AN_INTERVAL: Record<string, string> = { interval: "status-success" };
+// For each pair whose number a link prints toward a part of its own, the kept read of the journey that holds it and that part.
+const IN_THEIR_PART: Record<string, [string, string]> = {
+  to_handle: [`${JOURNEY}19-two-interrupted.status`, "tohandle"],
+  revision_number: [`${JOURNEY}08-result-changed.status`, "study"],
+};
+
+for (const [kind, [name, part]] of Object.entries(IN_THEIR_PART)) {
+  test(`each number of the kind ${kind} links to the one part ${part}: ${name}`, async (t) => {
+    const { document } = await documentFor(t, success(keptObject(name)));
+    const links = linksOf(document).filter((link) => link.kind === kind);
+    assert.ok(links.length > 0, `a link of ${kind}`);
+    for (const link of links) assert.equal(partKind(link.target), part, link.href);
+  });
+}
+
+// For each pair whose number an Attempt's line prints, the kept read whose Attempts an Assessment cites.
+const IN_AN_ATTEMPT: Record<string, string> = { item_counts: "status-success" };
+
+for (const [kind, name] of Object.entries(IN_AN_ATTEMPT)) {
+  test(`each number of the kind ${kind} of an Attempt's line links to the part of the Assessment that cites the Attempt: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    const rows = partsByKind(document, "attempt");
+    assert.equal(rows.length, object.attempts.length);
+    object.attempts.forEach((attempt: Entry, at: number) => {
+      const citing = object.assessments.find((each: Entry) => each.observation_set_id === attempt.observation_set_id);
+      const links = linksOf(rows[at], document).filter((link) => link.kind === kind);
+      assert.deepEqual(links.map((link) => link.text), Object.values(attempt.item_counts).map((each) => written(each as number)), `the counts of ${attempt.request_id}`);
+      for (const link of links) assert.equal(firstId(link.target), citing.assessment_id, link.href);
+    });
+  });
+}
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART)].sort());
 });
+
+for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
+  test(`a number of the kind ${kind} links to the part of its Comparison, and the document keeps every rule of its links: ${name} with an injected interval`, async (t) => {
+    const object = keptObject(name);
+    object.comparisons[0].interval = S2_INTERVAL;
+    const { document } = await documentFor(t, success(object));
+    const links = linksOf(document).filter((link) => link.kind === kind);
+    assert.deepEqual(links.map((link) => link.text), [S2_INTERVAL.level, S2_INTERVAL.lower, S2_INTERVAL.upper].map(written));
+    for (const link of links) assert.ok(partKind(link.target) === "comparison" && firstId(link.target) === object.comparisons[0].comparison_id, link.href);
+    assertLinksAndIds(document, object, `${name} with an injected interval`);
+  });
+}
+
+for (const [kind, [name, instance]] of Object.entries(IN_THE_BAND)) {
+  test(`a number of the kind ${kind} stands in the band and links to its one part there: ${name}`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object));
+    const links = linksOf(elementOf(document, '<div data-part="band">')!, document).filter((link) => link.kind === kind);
+    assert.deepEqual(links.map((link) => link.text), [written(instance(object))]);
+    assert.equal(partKind(links[0].target), PAIRS.get(kind));
+    assert.equal(partsByKind(document, PAIRS.get(kind)!).length, 1);
+  });
+}
 
 for (const [kind, [name, instance]] of Object.entries(IN_A_FIGURE)) {
   test(`a number of the kind ${kind} links to the part of the Comparison its figure is drawn for: ${name} with ${KEPT_FIGURES[name]}`, async (t) => {
@@ -266,7 +333,7 @@ for (const name of KEPT_READS) {
 
 // Which Assessments have a part.
 for (const name of ["status-result-changed", "status-several-pending"]) {
-  test(`each Assessment named by a shown pending decision, a cited Comparison's roles, a line or cited_ids has one part, and no other has one: ${name}`, async (t) => {
+  test(`each Assessment has one part: where a shown pending decision, a cited Comparison's roles, a line or cited_ids names it, there; any other in the step of the Assessments: ${name}`, async (t) => {
     const object = keptObject(name);
     const named = new Set<string>();
     for (const pending of object.pending_decisions) named.add(pending.control_assessment_id).add(pending.candidate_assessment_id);
@@ -277,10 +344,12 @@ for (const name of ["status-result-changed", "status-several-pending"]) {
       }
       for (const line of decision.evidence_change?.lines ?? []) named.add(line.assessment_id).add(line.latest_assessment_id);
     }
-    const parts = partsByKind((await documentFor(t, success(object))).document, "assessment");
+    const document = (await documentFor(t, success(object))).document;
+    const parts = partsByKind(document, "assessment");
+    const step = partsByKind(elementOf(document, '<details data-step="assessments">')!, "assessment");
     for (const assessment of object.assessments) {
-      const count = parts.filter((part) => firstId(part) === assessment.assessment_id).length;
-      assert.equal(count, named.has(assessment.assessment_id) ? 1 : 0, assessment.assessment_id);
+      assert.equal(parts.filter((part) => firstId(part) === assessment.assessment_id).length, 1, assessment.assessment_id);
+      assert.equal(step.filter((part) => firstId(part) === assessment.assessment_id).length, named.has(assessment.assessment_id) ? 0 : 1, `${assessment.assessment_id} in the step`);
     }
   });
 }
@@ -424,9 +493,19 @@ for (const name of KEPT_READS) {
   });
 }
 
-test("the key paths the function reads over every kept read are the entries of key_paths, both ways", () => {
+// status-success with an `interval` injected into its pending Comparison, its bounds given, then null with their reason: no kept read
+// holds the key yet.
+function withInterval(bounds: boolean): Entry {
+  const object = keptObject("status-success");
+  object.comparisons[0].interval = bounds ? S2_INTERVAL : { ...S2_INTERVAL, lower: null, upper: null, reason: "too_few_units" };
+  return object;
+}
+
+test("the key paths the function reads over every kept read, over status-success with an injected interval and over two reads of the journey, are the entries of key_paths, both ways", () => {
   const read = new Set<string>();
-  for (const name of KEPT_READS) for (const path of pathsRead(keptObject(name))) read.add(path);
+  // And two reads of the journey made with `--since 0`, as the panel reads: state 08, under rule 3, and state 19, with two Attempts to handle.
+  const journey = [`${JOURNEY}08-result-changed.status`, `${JOURNEY}19-two-interrupted.status`].map(keptObject);
+  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false), ...journey]) for (const path of pathsRead(object)) read.add(path);
   assert.deepEqual(leaves(read), [...contract.key_paths].sort());
 });
 
@@ -443,9 +522,31 @@ test("the key paths the function reads from the figures read over every kept fig
   assert.deepEqual(leaves(read), [...contract.figures_key_paths].sort());
 });
 
-test("status-public-check: the document holds none of the attempt_id, the request_id and the artifact paths of the Attempt no Assessment assessed", async (t) => {
+// "its id and its Observation set's id are plain text, never links" (D-143, correction 1): the Attempt's id stands as text only.
+test("status-public-check: the document holds the attempt_id of the Attempt no Assessment assessed as plain text only, and none of its request_id and artifact paths", async (t) => {
   const object = keptObject("status-public-check");
   const [attempt] = object.attempts.filter((each: Entry) => each.request_id === "ml-public_check-seasonal_7");
   const { document } = await documentFor(t, success(object));
-  for (const value of [attempt.attempt_id, attempt.request_id, ...attempt.artifacts.map((artifact: Entry) => artifact.path)]) assert.ok(!document.includes(value), value);
+  for (const value of [attempt.request_id, ...attempt.artifacts.map((artifact: Entry) => artifact.path)]) assert.ok(!document.includes(value), value);
+  assert.ok(partsOf(document).between.split(/\s+/).includes(attempt.attempt_id), "the attempt_id as text");
+  assert.ok(!partsOf(document).tags.some((tag) => tag.includes(attempt.attempt_id)), "the attempt_id in no tag");
+  assert.ok(![...document.matchAll(/<a [^>]*>([^<]*)<\/a>/g)].some((match) => match[1].includes(attempt.attempt_id)), "the attempt_id in no link");
+});
+
+// "a deep link builds the document with the target's folds open" (D-136, I3), in headless Chrome: state 16, its first Decision.
+test("a link of the second form on state 16 opens the fold of the Decision it names and moves the view to it", { timeout: 60000 }, async (t) => {
+  if (!hasChrome(t, "the deep link into a fold")) return;
+  const address = await startChrome(t);
+  if (address === undefined) return t.skip(`Chrome at ${CHROME} did not start within ${START_MS} ms`);
+  const object = keptObject(`${JOURNEY}16-deviation-withdrawn.status`);
+  const [study] = workspace(t, ["bike"]);
+  recorder(t, ...withFigures(success(object)));
+  await followLink(1, study, object.decisions[0].decision_id);
+  await settle();
+  const evaluate = await opened(t, address, lastDocument(), 420, 700);
+  const linked = `document.querySelector("[data-linked]")`;
+  assert.equal(await evaluate(`${linked}.closest("details").open`), true, "the fold of the Decision is open");
+  assert.equal(await evaluate(`${linked}.checkVisibility()`), true, "the Decision is drawn");
+  const top: number = await evaluate(`${linked}.getBoundingClientRect().top`);
+  assert.ok(top > -1 && top < 700, `the view moved to the Decision, now at ${top} px`);
 });

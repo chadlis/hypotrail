@@ -16,8 +16,8 @@
     "revision": "0000000000000000000000000000000000000000000000000000000000000002",
     "read_sequence": 12,
     "write_sequence": 13,
-    "question_id": null,
-    "option_id": null,
+    "question_id": "keep_after_comparison",
+    "option_id": "keep_control",
     "words": null
   }
 }

@@ -51,7 +51,9 @@ function written(value: number | null): string {
 }
 
 const QUESTION = "Which Configuration do we keep after this Comparison?";
-const NO_PENDING = "No pending decision.";
+// Now's sentence under rule 4: "No pending decision." goes (D-161 item 2, #75 comment 7196684358), and Now says "No decision waits for
+// you." (the first addendum to D-161, #75 comment 7197277304).
+const NO_PENDING = "No decision waits for you.";
 
 // Each pending decision, its question, and each option with its consequence.
 for (const name of KEPT_READS) {
@@ -121,11 +123,15 @@ for (const [name, make] of NOTHING_PENDING) {
   });
 }
 
-test("a Comparison that is not pending and that no Decision cites is not shown", async (t) => {
+test("a Comparison that is not pending and that no Decision cites has its part in the step of the Comparisons of the Study so far, and nowhere else", async (t) => {
   const object = keptObject("status-success");
   object.pending_decisions = [];
   const { document } = await documentFor(t, success(object));
-  for (const comparison of object.comparisons) assert.ok(!document.includes(comparison.comparison_id), comparison.comparison_id);
+  const step = elementOf(document, '<details data-step="comparisons">')!;
+  for (const comparison of object.comparisons) {
+    assert.ok(step.includes(comparison.comparison_id), comparison.comparison_id);
+    assert.equal(document.split(comparison.comparison_id).length - 1, step.split(comparison.comparison_id).length - 1, "nowhere else");
+  }
 });
 
 // The Comparison, its delta, and the two Assessments under their roles.
@@ -195,7 +201,7 @@ test("a null Metric value is shown as no value, with that Metric's id, unit and 
   for (const text of ["no value", assessment.metrics[0].id, assessment.metrics[0].unit, assessment.metrics[0].status]) assert.ok(metric.includes(text), `${text} in ${metric}`);
 });
 
-test("status-chinook-pending: control and candidate stand under their roles in the roles' element, directly after the coverage element", async (t) => {
+test("status-chinook-pending: control and candidate stand under their roles in the roles' element, first in the fold of the charts after the coverage element", async (t) => {
   const object = keptObject("status-chinook-pending");
   const { document } = await documentFor(t, success(object));
   const parts = elementsOf(document, '<section data-part="pending">');
@@ -204,7 +210,8 @@ test("status-chinook-pending: control and candidate stand under their roles in t
     const coverage = elementOf(parts[index], '<p data-element="coverage">')!;
     const roles = elementOf(parts[index], '<p data-element="roles">')!;
     assert.ok(coverage && roles);
-    assert.ok(parts[index].includes(`${coverage}\n${roles}`), "the roles' element directly follows the coverage element");
+    const fold = elementOf(parts[index], '<details data-element="charts">')!;
+    assert.ok(parts[index].indexOf(coverage) < parts[index].indexOf(fold) && fold.includes(roles), "the roles' element stands in the fold of the charts, after the coverage element");
     const between = partsOf(roles).between;
     assert.match(between, new RegExp(`Control\\s+${written(delta.control).replace(".", "\\.")}(\\s|$)`));
     assert.match(between, new RegExp(`Candidate\\s+${written(delta.candidate).replace(".", "\\.")}(\\s|$)`));
@@ -224,7 +231,7 @@ const WARNINGS = "Warnings of the Comparison";
 const LIMITATIONS = "Limitations of the Comparison";
 
 for (const name of KEPT_READS) {
-  test(`each Comparison shown holds both headings, each warning's code and message and each limitation, marked: ${name}`, async (t) => {
+  test(`each Comparison shown holds both headings, each warning's code and message and each limitation, marked, a pending one only those that are no warning's message: ${name}`, async (t) => {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
     const parts = elementsOf(document, '<div data-part="comparison"');
@@ -235,21 +242,26 @@ for (const name of KEPT_READS) {
       const comparison = object.comparisons.find((each: Record<string, string>) => part.includes(each.comparison_id));
       const { between } = partsOf(part);
       assert.ok(between.includes(WARNINGS) && between.includes(LIMITATIONS));
-      const [, warnings, limitations] = part.split(/<h4>(?:Warnings|Limitations) of the Comparison<\/h4>/);
+      const warnings = elementOf(part, '<div data-part="warnings"')!;
+      const limitations = elementOf(part, '<div data-part="limitations"')!;
       for (const warning of comparison.warnings) {
         assert.ok(partsOf(warnings).between.includes(warning.code), warning.code);
         assert.ok(markedTexts(warnings).includes(warning.message), warning.message);
       }
-      for (const limitation of comparison.limitations) assert.ok(markedTexts(limitations).includes(limitation), limitation);
+      // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
+      const messages = comparison.warnings.map((warning: Record<string, string>) => warning.message);
+      const pending = part.includes("<fieldset ");
+      assert.deepEqual(markedTexts(limitations), pending ? comparison.limitations.filter((each: string) => !messages.includes(each)) : comparison.limitations);
     }
   });
 }
 
-test("status-deviation: each Declared deviation shows its id and, beside it, withdrawn with the value the object holds", async (t) => {
+test("status-deviation: each Declared deviation shows its id, its text, the mark of a declared one while it is not withdrawn, and withdrawn with the value the object holds", async (t) => {
   const object = keptObject("status-deviation");
   const { document } = await documentFor(t, success(object));
   for (const deviation of object.declared_deviations) {
     const line = partsOf(elementsOf(document, "<li data-part=\"deviation\">").find((each) => each.includes(deviation.declared_deviation_id))!).between;
-    assert.match(line, new RegExp(`${deviation.declared_deviation_id}\\s+withdrawn\\s+${deviation.withdrawn}(\\s|$)`));
+    const mark = deviation.withdrawn ? "" : "\u2016\\s+declared\\s+";
+    assert.match(line, new RegExp(`${deviation.declared_deviation_id}\\s+${deviation.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+${mark}withdrawn\\s+${deviation.withdrawn}(\\s|$)`));
   }
 });

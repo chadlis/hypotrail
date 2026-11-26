@@ -571,6 +571,19 @@ def test_where_to_look_names_the_client_directory_which_holds_the_manifest():
     assert (CLIENT / "package.json").is_file()
 
 
+def test_the_readme_says_the_first_pending_decision_is_in_now_the_others_under_waiting_and_the_study_so_far_in_moments_and_steps():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    panel = readme.split("## Use the VS Code panel\n", 1)[1].split("\n## ", 1)[0]
+    paragraph = panel.strip().split("\n\n", 1)[0]
+    assert "the first pending decision, whole, with its evidence" in paragraph, paragraph
+    assert '"Waiting"' in paragraph and "each other pending decision" in paragraph, paragraph
+    labels = json.loads((CLIENT / "contract.json").read_text(encoding="utf-8"))["labels"]
+    for moment in ("Frame", "Produce", "Assess and compare", "Decide and follow"):
+        assert moment in labels and f'"{moment}"' in paragraph, moment
+    assert "one line per step" in paragraph and "review form, then its chart, then its limitation" in paragraph, paragraph
+    assert "with the pending decisions and their evidence" not in paragraph, paragraph
+
+
 # --- the bridge's writes ----------------------------------------------------------------------------------------------------------
 
 
@@ -754,6 +767,16 @@ def test_the_files_of_the_client_sources_that_name_decide_author_are_the_panel_a
     assert sorted(path for path, text in sources().items() if "decide_author" in text) == ["clients/vscode/src/panel.ts"]
 
 
+def test_the_files_of_the_client_sources_that_name_the_channel_panel_are_the_panel_alone_and_the_copilot_tool_never_sends_it():
+    # "an agent never declares `panel`" (D-149, words S1): the channel is written once, by the panel, for the words of its own box.
+    named = sorted(path for path, text in sources().items() if re.search(r"""["'`]panel["'`]""", text))
+    assert named == ["clients/vscode/src/panel.ts"]
+    tools = (ROOT / "clients" / "vscode" / "src" / "tools.ts").read_text(encoding="utf-8")
+    assert 'const CHANNEL = "chat_relayed";' in tools
+    # Each channel the tool passes is the constant above, or none.
+    assert {value.strip() for value in re.findall(r"channel: ([^,\n})]*)", tools)} == {"undefined", "input.words === undefined ? undefined : CHANNEL"}
+
+
 def test_the_authority_of_both_link_forms_is_the_manifests_publisher_and_name():
     manifest = read_json(CLIENT / "package.json")
     forms = read_json(CLIENT / "contract.json").get("link_forms", [])
@@ -797,7 +820,8 @@ def test_a_planted_file_that_holds_an_option_text_is_found():
 
 # The two headings that name the keys `warnings` and `limitations` of a Comparison; the _Avoid_ entry that lists "limitation" and
 # "warning" is about naming a Declared deviation, not these keys.
-AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison")
+# "Revision" is shown as "Protocol revision N", and that exact label is exempted by name (D-136).
+AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison", "Protocol revision")
 
 
 def avoided_words(glossary: str) -> list:
@@ -811,7 +835,7 @@ def avoided_in(entries: list, words: list) -> list:
     return [(entry, word) for entry in entries if entry not in AVOID_EXEMPT for word in words if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", entry, re.I)]
 
 
-def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_two_named_headings():
+def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under_avoid_in_the_glossary_but_the_labels_exempted_by_name():
     words = avoided_words((ROOT / "GLOSSARY.md").read_text(encoding="utf-8"))
     assert {"run", "label", "limitation", "warning", "case"} <= set(words)
     contract = read_json(CLIENT / "contract.json")

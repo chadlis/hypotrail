@@ -5,6 +5,7 @@ import {
   documentFor,
   elementOf,
   elementsOf,
+  assertNowOrder,
   followLink,
   keptObject,
   lastDocument,
@@ -301,6 +302,8 @@ function citedAndPending(): Entry {
     control_assessment_id: comparison.roles.control_assessment_id,
     candidate_assessment_id: comparison.roles.candidate_assessment_id,
   }));
+  // The read's `next_step` as the core gives it with a Pending decision: Now holds it.
+  object.next_step = { ...object.next_step, kind: "decide", ids: [comparison.comparison_id] };
   return object;
 }
 
@@ -424,3 +427,37 @@ for (const name of CHANGED) {
     });
   });
 }
+
+// Several Pending decisions: "The first whole; each other one under "Waiting" as a closed fold whose summary is its question" (#253).
+test("status-several-pending: Now holds the first Pending decision whole in D-148's order, and the second stands under Waiting in a closed fold whose summary is its question", async (t) => {
+  const object = keptObject("status-several-pending");
+  const document = (await documentFor(t, success(object))).document;
+  assertNowOrder(document, object);
+  const waiting = elementOf(document, '<section data-part="waiting">')!;
+  assert.ok(waiting.startsWith('<section data-part="waiting">\n<h2>Waiting</h2>'), waiting.slice(0, 80));
+  const folds = elementsOf(waiting, '<details data-element="waiting">');
+  assert.equal(folds.length, object.pending_decisions.length - 1);
+  folds.forEach((fold, at) => {
+    assert.ok(!/^<details[^>]*\sopen/.test(fold), "closed");
+    assert.deepEqual(markedTexts(elementOf(fold, "<summary>")!), [object.pending_decisions[at + 1].question.text]);
+    assert.ok(fold.includes('<section data-part="pending">'), "the whole decision inside");
+  });
+  assert.equal(elementsOf(elementOf(document, '<section data-part="now"')!, '<section data-part="pending">').length, 1, "one decision in Now");
+});
+
+// "#224 is built in the redesign (a Decision's `source`, a Declared deviation's text)" (D-151, answer 7).
+test("a Decision's source stands beside its author and a Declared deviation's text beside its id, each a marked text, escaped", async (t) => {
+  const object = keptObject("status-deviation");
+  object.decisions = keptObject("status-decided").decisions;
+  const source = `rule: <b onclick="go()">keep</b> the "lowest" & best`;
+  object.decisions[0].source = source;
+  object.declared_deviations[0].text = `<script>alert(1)</script> owner's review`;
+  const document = (await documentFor(t, success(object))).document;
+  const author = elementsOf(decisionParts(document)[0], "<p>").find((each) => each.startsWith("<p>Author "))!;
+  assert.deepEqual(markedTexts(author), [source]);
+  assert.ok(!document.includes("<b onclick") && !document.includes("<script>alert"));
+  object.declared_deviations.forEach((deviation: Entry, at: number) => {
+    const row = elementsOf(document, '<li data-part="deviation">')[at];
+    assert.deepEqual(markedTexts(row).slice(0, 1), [deviation.text], deviation.declared_deviation_id);
+  });
+});
