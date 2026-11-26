@@ -22,6 +22,11 @@ def chinook_examples(tmp_path, *, edit=None, name="examples"):
     return target
 
 
+def undeclared_examples(tmp_path, *, name="undeclared"):
+    """A private copy of `examples/` whose Chinook Workload declares no `resampling`: the Protocol of every Chinook Study made before the key."""
+    return chinook_examples(tmp_path, edit=lambda declaration: declaration.pop("resampling"), name=name)
+
+
 def init_chinook(tmp_path, *, name="study", examples=None):
     study = tmp_path / name
     args = ["init", "--workload", "chinook", "--study", study]

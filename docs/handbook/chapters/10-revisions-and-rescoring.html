@@ -31,6 +31,7 @@ uv run python -m hypotrail status --study runs/chinook --json</pre>
 <tr data-field="revision_number" data-where="study"><td><code>revision_number</code></td><td>StudySpec</td><td>1 for the first revision, then one more each time <code>init --new-revision</code> adds one.</td></tr>
 <tr data-field="previous_revision" data-where="study"><td><code>previous_revision</code></td><td>StudySpec</td><td>The <code>revision</code> digest of the revision before; absent from revision 1.</td></tr>
 <tr data-field="check_informed" data-where="study"><td><code>check_informed</code></td><td>StudySpec</td><td>True when the revision was created after the Study's first Exposure; absent otherwise (<a href="#freeze-exposure">chapter 12</a>).</td></tr>
+<tr data-field="resampling" data-where="study"><td><code>resampling</code></td><td>StudySpec</td><td>The resampling unit and seed the Workload declares for the interval on a Comparison's delta, copied by <code>init</code> and by each <code>init --new-revision</code> and part of the Protocol digest; absent when the Workload declares none.</td></tr>
 <tr data-field="version" data-where="artifact"><td><code>version</code></td><td>each entry of <code>artifacts</code></td><td>How many different contents the Study has held under this role: 1 at <code>init</code>, one more each time a revision publishes changed bytes for it.</td></tr>
 </tbody></table></div>
 <p class="prose"><code>status</code> shows every revision under <code>revisions</code>, read only, and the current one under <code>study</code>:</p>

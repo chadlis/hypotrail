@@ -151,6 +151,25 @@
         },
         "check_informed": {
           "type": "boolean"
+        },
+        "resampling": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "enum": [
+                "case"
+              ]
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "unit",
+            "seed"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -995,6 +1014,80 @@
         },
         "matrix_ref": {
           "$ref": "#/$defs/ArtifactRef"
+        },
+        "interval": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "number"
+            },
+            "lower": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "upper": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "method": {
+              "const": "percentile_bootstrap"
+            },
+            "unit": {
+              "enum": [
+                "case",
+                null
+              ]
+            },
+            "units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "variant": {
+              "type": "null"
+            },
+            "block_length": {
+              "type": "null"
+            },
+            "resamples": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "seed": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "reason": {
+              "enum": [
+                null,
+                "resampling_not_declared",
+                "delta_withheld",
+                "too_few_units"
+              ]
+            }
+          },
+          "required": [
+            "level",
+            "lower",
+            "upper",
+            "method",
+            "unit",
+            "units",
+            "variant",
+            "block_length",
+            "resamples",
+            "seed",
+            "reason"
+          ],
+          "additionalProperties": false
         },
         "rates": {
           "type": "object",

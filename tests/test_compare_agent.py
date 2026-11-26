@@ -2,15 +2,16 @@
 weighs every Case equally under full coverage, and refuses what makes the two sides incomparable."""
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 from _agent_compare_helpers import REPEATS, answer_lines, compare, comparison_files, imported, keys_of, native
 from _assess_helpers import rows_of, snapshot
-from _chinook_helpers import FIXTURE_CASES, init_chinook
+from _chinook_helpers import FIXTURE_CASES, chinook_examples, init_chinook
 from _study_helpers import run_cli, run_json
 
-from hypotrail.core import canonical, contracts
+from hypotrail.core import canonical, contracts, intervals
 from hypotrail.core.chinook_contract import CRITERIA
 
 PRIMARY = "contract_success"
@@ -73,18 +74,100 @@ def test_no_binomial_interval_is_computed_over_episodes(plain_and_verify):
     study, plain, verify = plain_and_verify
     record = compare(study, plain, verify)[1]["comparison"]
     text = " ".join(record["limitations"])
-    assert "no confidence interval" in text and "Repeats of a Case" in text
+    assert "no binomial interval over Episodes" in text and "Repeats of a Case" in text
 
-    def keys(value):
+    def paths(value, path=()):
         if isinstance(value, dict):
             for key, inner in value.items():
-                yield key
-                yield from keys(inner)
+                yield (*path, key)
+                yield from paths(inner, (*path, key))
         elif isinstance(value, list):
             for inner in value:
-                yield from keys(inner)
+                yield from paths(inner, path)
 
-    assert not [key for key in keys(record) if "interval" in key or "p_value" in key or "significance" in key]
+    found = list(paths(record))
+    assert not [p for p in found if "p_value" in p[-1] or "significance" in p[-1]]
+    assert [p for p in found if "interval" in p[-1]] == [("interval",)]
+
+
+# --- the interval over Cases ------------------------------------------------------------------------------------------------
+
+
+def declared_seed(study) -> int:
+    return json.loads((Path(study) / "study.json").read_text())["resampling"]["seed"]
+
+
+def delta_shares(study, record) -> list:
+    return [float(row["delta_share"]) for row in rows_of(Path(study) / record["paired_deltas_ref"]["path"])]
+
+
+def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_delta_share_column_of_its_own_paired_deltas(plain_and_verify):
+    study, plain, verify = plain_and_verify
+    record = compare(study, plain, verify)[1]["comparison"]
+    stored = json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
+    interval = stored["interval"]
+    shares = delta_shares(study, stored)
+    assert len(shares) == len(FIXTURE_CASES)
+    bounds = intervals.percentile_interval(shares, seed=declared_seed(study))
+    assert interval == {
+        "unit": "case",
+        "units": len(FIXTURE_CASES),
+        "resamples": 2000,
+        "level": 0.95,
+        "method": "percentile_bootstrap",
+        "seed": declared_seed(study),
+        "variant": None,
+        "block_length": None,
+        "reason": None,
+        "lower": bounds["lower"],
+        "upper": bounds["upper"],
+    }
+    assert interval["lower"] < interval["upper"]
+
+
+def test_the_same_compare_on_a_copy_gives_the_same_bounds_and_another_declared_seed_the_bounds_of_that_seed_and_the_same_delta(tmp_path, plain_and_verify):
+    study, plain, verify = plain_and_verify
+    first = compare(study, plain, verify)[1]["comparison"]
+    copy = Path(tmp_path) / "copy"
+    shutil.copytree(study, copy)
+    again = compare(copy, plain, verify)[1]["comparison"]
+    assert (again["interval"]["lower"], again["interval"]["upper"]) == (first["interval"]["lower"], first["interval"]["upper"])
+
+    def reseeded(declaration):
+        declaration["resampling"]["seed"] += 1
+
+    examples = chinook_examples(tmp_path, edit=reseeded, name="reseeded")
+    more = ("--examples-dir", examples)
+    other, _ = init_chinook(tmp_path, name="reseeded-study", examples=examples)
+    _, other_plain = imported(tmp_path, other, "plain-2", answer_lines(wrong={("D01", 0), ("D01", 1)}), more=more)
+    _, other_verify = imported(tmp_path, other, "verify-2", answer_lines(), more=more)
+    reseeded_record = compare(other, other_plain, other_verify)[1]["comparison"]
+    # Four Cases give a bootstrap distribution of a few atoms, so two seeds can land on the same bounds: the record follows its own seed.
+    bounds = intervals.percentile_interval(delta_shares(other, reseeded_record), seed=first["interval"]["seed"] + 1)
+    assert reseeded_record["interval"]["seed"] == first["interval"]["seed"] + 1
+    assert (reseeded_record["interval"]["lower"], reseeded_record["interval"]["upper"]) == (bounds["lower"], bounds["upper"])
+    assert reseeded_record["delta"]["value"] == first["delta"]["value"]
+
+
+def test_a_withheld_delta_holds_an_interval_with_null_bounds_and_reason_delta_withheld_and_compare_prints_no_bounds(tmp_path, study):
+    _, plain = imported(tmp_path, study, "plain", answer_lines(failed={("D03", 2)}))
+    _, verify = imported(tmp_path, study, "verify", answer_lines())
+    record = compare(study, plain, verify)[1]["comparison"]
+    assert record["delta"]["reason"] == "coverage_incomplete"
+    stored = json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
+    assert (stored["interval"]["lower"], stored["interval"]["upper"], stored["interval"]["reason"]) == (None, None, "delta_withheld")
+    code, out, _ = run_cli("compare", "--study", study, "--control", plain["assessment_id"], "--candidate", verify["assessment_id"])
+    assert code == 0 and "interval" not in out and "[" not in out
+
+
+def test_the_human_line_gives_after_the_delta_the_two_bounds_the_level_and_the_count_of_cases_and_no_significance_word(plain_and_verify):
+    study, plain, verify = plain_and_verify
+    code, out, _ = run_cli("compare", "--study", study, "--control", plain["assessment_id"], "--candidate", verify["assessment_id"])
+    record = json.loads(next((Path(study) / "comparisons").glob("*/comparison.json")).read_text())
+    interval = record["interval"]
+    shown = f"{record['delta']['value']:+.6g} {record['delta']['unit']}, 0.95 interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over 4 Cases"
+    assert code == 0 and f"delta {PRIMARY} {shown} (Candidate minus Control" in out
+    assert "significan" not in out.lower() and "p-value" not in out.lower()
 
 
 def test_each_side_keeps_its_full_case_by_repeat_matrix_with_every_criterion_state(plain_and_verify):

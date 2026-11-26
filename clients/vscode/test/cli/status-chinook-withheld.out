@@ -471,6 +471,19 @@
           "tool_calls": 2
         }
       },
+      "interval": {
+        "block_length": null,
+        "level": 0.95,
+        "lower": null,
+        "method": "percentile_bootstrap",
+        "reason": "delta_withheld",
+        "resamples": 2000,
+        "seed": 240,
+        "unit": "case",
+        "units": null,
+        "upper": null,
+        "variant": null
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-000000000004",
       "limitations": [

@@ -9,16 +9,29 @@ import json
 import sys
 from pathlib import Path
 
-from _chinook_helpers import FIXTURE, chinook_examples, database_of, episodes_file, fixture_population, import_agent, init_chinook, spec_of, write_lines
+from _chinook_helpers import (
+    FIXTURE,
+    chinook_examples,
+    database_of,
+    episodes_file,
+    fixture_population,
+    import_agent,
+    init_chinook,
+    spec_of,
+    undeclared_examples,
+    write_lines,
+)
 from _exposure_helpers import PUBLIC_CASES, REPEATS, assess_agent, correct_e01, edit_chinook_references, freezes, public_lines
 from _import_helpers import import_ml, ready
 from _run_agent_helpers import fixture
-from _study_helpers import examples_copy, init_study, run_ml, sha256
+from _study_helpers import EXAMPLES, examples_copy, init_study, run_ml, sha256
 
 BIKE_PROTOCOL = "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0"
 BIKE_PROTOCOL_SHIFTED = "e55bb4c2c2ee510802ed59dfb5a226ea43b09dd53e1a290335b9f6b0c54c3e75"
-CHINOOK_PROTOCOL = "aaea8fd070708b5952c408228467b5bfcb3ed77f3eef582d15cd88a9223c3f61"
-CHINOOK_PROTOCOL_E01_CORRECTED = "f5915c74b47e2e21dfbfbc469cc4e14a6b1b6f12c3c9e664a370c2d33301227d"
+CHINOOK_PROTOCOL = "d876a0f6ada371cc8fd965a79fac4c5d74fe3ab123f85a8c48c01c5ba0d99196"
+CHINOOK_PROTOCOL_E01_CORRECTED = "fd3d6b71dd7ec32e65c8a7a6a4bd0c0a673765073a821dd6b505dd5aef9ea181"
+# The digest of the Chinook Workload before it declared `resampling`: every Study made on it keeps it.
+CHINOOK_PROTOCOL_UNDECLARED = "aaea8fd070708b5952c408228467b5bfcb3ed77f3eef582d15cd88a9223c3f61"
 
 ML_MESSAGE = "the Workload's Protocol is no longer the one of this Study (Partitions, population, References or rules)"
 AGENT_MESSAGE = "the Workload's Protocol is no longer the one of this Study (Cases, References, answer schema, database or primary Criterion)"
@@ -191,3 +204,19 @@ def test_the_freeze_basis_records_the_protocol_digest_of_the_studys_copy_of_the_
     [freeze] = freezes(study)
     assert (freeze["protocol_digest"], freeze["dataset_source"]) == (CHINOOK_PROTOCOL, "study_copy")
     assert spec_of(study)["protocol_digest"] == CHINOOK_PROTOCOL
+
+
+# --- the declared resampling and the Protocol digest ---------------------------------------------------------------------------
+
+
+def test_a_chinook_workload_that_declares_no_resampling_keeps_its_earlier_protocol_digest_and_the_live_one_gives_another(tmp_path):
+    from hypotrail.agentic.declaration import load_workload
+    from hypotrail.agentic.study import protocol_content
+
+    examples = undeclared_examples(tmp_path)
+    undeclared, _ = init_chinook(tmp_path, name="undeclared-study", examples=examples)
+    assert spec_of(undeclared)["protocol_digest"] == CHINOOK_PROTOCOL_UNDECLARED and "resampling" not in spec_of(undeclared)
+    assert "resampling" not in protocol_content(load_workload(examples / "chinook"), dataset_sha256=sha256(database_of(examples)))
+    live, _ = init_chinook(tmp_path, name="live-study")
+    assert spec_of(live)["protocol_digest"] == CHINOOK_PROTOCOL != CHINOOK_PROTOCOL_UNDECLARED
+    assert spec_of(live)["resampling"] == load_workload(EXAMPLES / "chinook").declaration["resampling"]

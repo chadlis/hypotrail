@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from _assess_helpers import assess, fresh_study, observation_set_id, references_id
-from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, write_lines
+from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, undeclared_examples, write_lines
 from _compare_helpers import compare
 from _import_helpers import import_ml, ready
 from _report_helpers import report
@@ -340,7 +340,8 @@ def test_a_study_written_before_this_slice_shows_zero_until_its_first_write_and_
     attempt = run_json("status", "--study", copy)[1]["attempts"][0]
     observations = json.loads((copy / "attempts" / attempt["attempt_id"] / "observation_set.json").read_text())["observation_set_id"]
     code, payload, err = run_json(
-        "assess", "--study", copy, "--observations", observations, "--scorer", "chinook_contract_v1", "--references", references_id(copy)
+        "assess", "--study", copy, "--observations", observations, "--scorer", "chinook_contract_v1", "--references", references_id(copy),
+        "--examples-dir", undeclared_examples(tmp_path),  # the Protocol the kept Study was made on
     )
     assert code == 0, (payload, err)  # a write on a copy of it
     assert seq(copy) == 2

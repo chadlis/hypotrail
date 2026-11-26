@@ -230,3 +230,37 @@ def test_status_lists_every_revision_with_its_protocol_and_its_artifacts(tmp_pat
         assert {a["artifact_id"]: (a["version"], a["sha256"]) for a in listed["artifacts"]} == {
             e["artifact_id"]: (e["version"], e["ref"]["sha256"]) for e in spec["artifacts"]
         }
+
+
+# --- the declared resampling, across two revisions of one Chinook Study --------------------------------------------------------
+
+# The first limitation of an agent Comparison that computes no interval, as before the interval existed.
+NO_INTERVAL_LIMITATION = (
+    "The Repeats of a Case are not independent samples: the Comparison carries no binomial interval over Episodes, no confidence interval "
+    "and no significance claim; every Case weighs the same."
+)
+
+
+def test_a_study_made_before_resampling_gets_no_interval_until_a_new_revision_and_its_earlier_comparison_is_never_rewritten(tmp_path):
+    from _agent_compare_helpers import answer_lines, assess, imported, observation_set_of
+    from _chinook_helpers import undeclared_examples
+    from _review_helpers import compare, comparison_file
+
+    examples = undeclared_examples(tmp_path)
+    more = ("--examples-dir", examples)
+    study, _ = init_chinook(tmp_path, examples=examples)
+    plain_attempt, plain = imported(tmp_path, study, "plain", answer_lines(wrong={("D01", 0), ("D03", 1)}), more=more)
+    verify_attempt, verify = imported(tmp_path, study, "verify", answer_lines(), more=more)
+    before = compare(study, plain["assessment_id"], verify["assessment_id"])
+    interval = before["interval"]
+    assert (interval["lower"], interval["upper"], interval["reason"]) == (None, None, "resampling_not_declared")
+    assert before["limitations"][0] == NO_INTERVAL_LIMITATION
+    earlier = comparison_file(study, before["comparison_id"]).read_bytes()
+
+    code, payload, err = new_revision(study)  # the live Workload, which declares `resampling`
+    assert code == 0, (payload, err)
+    again = [assess(study, observation_set_of(study, attempt))["assessment_id"] for attempt in (plain_attempt, verify_attempt)]
+    after = compare(study, *again)
+    assert after["interval"]["reason"] is None and after["interval"]["lower"] is not None and after["interval"]["upper"] is not None
+    assert after["interval"]["seed"] == spec_of(study)["resampling"]["seed"]
+    assert comparison_file(study, before["comparison_id"]).read_bytes() == earlier

@@ -47,7 +47,7 @@ import io
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, study_write
+from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, intervals, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -454,6 +454,7 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         "paired_deltas_ref": paired_ref,
         "coverage": coverage,
         "delta": {"metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"], "definition": DELTA_DEFINITION},
+        "interval": intervals.record(None, None),  # the regression Track declares no resampling unit yet
         **exposure.marks(study, [control["manifest"], candidate["manifest"]], [ca, da]),
         "code_environment": environment,
         "warnings": warnings,
