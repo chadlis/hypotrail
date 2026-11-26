@@ -36,7 +36,7 @@ def test_a_corrected_references_set_is_added_as_a_new_artifact_with_its_own_vers
     assert code == 0, (payload, err)
     spec = spec_of(study)
     contracts.validate(spec)
-    assert payload == {"ok": True, "study": spec}
+    assert payload == {"ok": True, "study": spec, "references_id": entry_of(spec, "references")["artifact_id"]}
     old, new = entry_of(first, "references"), entry_of(spec, "references")
     assert (old["version"], new["version"]) == (1, 2)
     assert new["ref"]["sha256"] != old["ref"]["sha256"] and new["artifact_id"] != old["artifact_id"]

@@ -155,7 +155,7 @@ def test_with_json_stdout_holds_exactly_one_object_and_the_diagnostics_go_to_std
     code, out, err = run_cli("run", "agent", "--study", study, *live_args("plain", "j1"), "--json")
     assert code == 0
     payload = json.loads(out)  # the whole of stdout is one object
-    assert set(payload) == {"ok", "replayed", "attempt", "warnings"}
+    assert set(payload) == {"ok", "replayed", "attempt", "observation_set_id", "warnings"}
     assert payload["ok"] is True and payload["replayed"] is False and payload["warnings"] == []
     assert payload["attempt"]["technical_status"] == "completed"
     code, out, err = run_cli("run", "agent", "--study", study, *live_args("plain", "j2", repeats=9), "--json")

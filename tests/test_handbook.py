@@ -5799,38 +5799,86 @@ def test_the_readme_status_says_in_a_sentence_that_names_l2_that_it_is_built_not
     assert sentences and all(re.search(r"\bL2\b", sentence) for sentence in sentences), sentences
 
 
-def test_one_sentence_after_the_readmes_first_code_block_gives_the_route_of_the_observation_set_id_and_of_the_references_id():
+# For each placeholder of the README's path: the command that prints its id, and the key of the `--json` object that holds it.
+PRINTED_IDS = {
+    "`OBSERVATION_SET_ID`": ("`run ml`", "`observation_set_id`"),
+    "`REFERENCES_ID`": ("`init`", "`references_id`"),
+}
+
+
+def test_one_sentence_after_the_readmes_first_code_block_names_for_each_placeholder_of_assess_the_command_that_prints_its_id_and_no_status_read():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     after = readme.split("```", 2)[2]
-    route = ("`status --since 0 --json`", "`writes_since`", "`written`", "`observation_set`", "`status --json`")
-    found = [sentence for sentence in readme_sentences(after) if all(name in sentence for name in route)]
+    found = [sentence for sentence in readme_sentences(after) if all(placeholder in sentence for placeholder in PRINTED_IDS)]
     assert len(found) == 1, found
     [sentence] = found
-    for name in route:
-        assert name in sentence, name
-    assert sentence.index("`status --json`") > sentence.index("`observation_set`") and "References ID" in sentence[sentence.index("`observation_set`"):]
+    for placeholder, (command, key) in PRINTED_IDS.items():
+        assert command in sentence and key in sentence, placeholder
+    assert "status" not in sentence and "writes_since" not in sentence, sentence
 
 
-def test_the_ids_found_by_the_readmes_route_are_accepted_by_assess(tmp_path):
-    from _study_helpers import run_json
+def test_the_ids_that_the_readmes_init_and_run_ml_print_at_the_end_of_their_lines_are_accepted_by_assess(tmp_path):
+    from _study_helpers import run_cli, run_json
 
     study = tmp_path / "study"
-    assert run_json("init", "--workload", "bike_day", "--study", study)[0] == 0
-    code, payload, err = run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
-    assert code == 0, (payload, err)
-    _, since, _ = run_json("status", "--study", study, "--since", "0")
-    [observations] = [
-        written["id"]
-        for entry in since["writes_since"]
-        if entry["command"] == "run ml" and entry["phase"] == "end"
-        for written in entry["written"]
-        if written["kind"] == "observation_set"
-    ] or [None]
-    _, status, _ = run_json("status", "--study", study)
-    [references] = [entry["artifact_id"] for entry in status["revisions"][-1]["artifacts"] if entry["role"] == "references"]
+    code, out, err = run_cli("init", "--workload", "bike_day", "--study", study)
+    assert code == 0, err
+    found = re.findall(r", references_id (\S+)$", out.strip())
+    assert len(found) == 1, out  # `REFERENCES_ID`, after `references_id` at the end of the line of `init`
+    [references] = found
+    code, out, err = run_cli("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
+    assert code == 0, err
+    found = re.findall(r"; Observation set ([0-9a-f-]{36})$", out.strip())
+    assert len(found) == 1, out  # `OBSERVATION_SET_ID`, after `Observation set` at the end of the line of `run ml`
+    [observations] = found
     code, payload, err = run_json("assess", "--study", study, "--observations", observations, "--scorer", "regression_mae_v1", "--references", references)
     assert code == 0, (payload, err)
     assert payload["assessment"]["observation_set_id"] == observations
+    spec = json.loads((study / "study.json").read_text(encoding="utf-8"))
+    assert [entry["ref"] for entry in spec["artifacts"] if entry["artifact_id"] == references] == [payload["assessment"]["references_ref"]]
+
+
+# The chapters that show the id line of one of the six commands that print an id as the current output. Chapter 16 keeps the lines the
+# paid Campaign of 2026-11-21 printed: "Dated outputs of past runs (chapter 16's kept lines of the paid run of 2026-11-21, the kept walk and
+# the kept traces) are not rewritten." (#219, A5).
+ID_LINE_CHAPTERS = ["19-l2-demonstration.html"]
+DATED_ID_LINE_CHAPTER = "16-acceptance-grid.html"
+AN_ID = r"(?:[0-9a-f]{8}-[0-9a-f-]{27}|[A-Z_]+_ID)"
+ID_LINE = re.compile(rf"(?:Attempt|Import) {AN_ID} (?:completed|failed)[^<\n]*|Study created in [^<\n]*|Study \S+ is at revision [^<\n]*")
+ENDS_WITH_ITS_ID = re.compile(rf"(?:; Observation set {AN_ID}|; no Observation set|, references_id \S+)$")
+
+
+def test_each_chapter_that_shows_an_id_line_as_the_current_output_is_named_and_shows_the_line_that_ends_with_its_id():
+    shown = {}
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        lines = ID_LINE.findall(path.read_text(encoding="utf-8"))
+        if lines and path.name != DATED_ID_LINE_CHAPTER:
+            shown[path.name] = lines
+    assert sorted(shown) == ID_LINE_CHAPTERS
+    for name in ID_LINE_CHAPTERS:
+        for line in shown[name]:
+            assert ENDS_WITH_ITS_ID.search(line), (name, line)
+    dated = ID_LINE.findall(chapter_text(DATED_ID_LINE_CHAPTER))
+    assert dated and not any(ENDS_WITH_ITS_ID.search(line) for line in dated), dated
+
+
+# Where each chapter states the shape of the `--json` object of a command that prints an id: (the start of that object, as the chapter
+# writes it, and the new key it holds).
+SHAPE_SENTENCES = {
+    "04-study-and-attempts.html": ('{"ok": true, "replayed": false, "attempt": MANIFEST', "observation_set_id"),
+    "06-import.html": ('{"ok": true, "replayed": BOOL, "attempt": MANIFEST', "observation_set_id"),
+    "08-agent-answers.html": ('{"ok": true, "replayed": BOOL, "attempt": MANIFEST', "observation_set_id"),
+    "10-revisions-and-rescoring.html": ('{"ok": true, "study": SPEC', "references_id"),
+    "13-run-agent.html": ('{"ok": true, "replayed": ..., "attempt": MANIFEST', "observation_set_id"),
+}
+
+
+@pytest.mark.parametrize("chapter", SHAPE_SENTENCES)
+def test_each_chapter_that_states_the_json_shape_of_a_command_that_prints_an_id_names_its_new_key_in_that_shape(chapter):
+    start, key = SHAPE_SENTENCES[chapter]
+    shapes = [shape for shape in re.findall(r"<code>(\{[^<]*\})</code>", chapter_text(chapter)) if shape.startswith(start)]
+    assert len(shapes) == 1, (chapter, shapes)
+    assert f'"{key}"' in shapes[0], shapes[0]
 
 
 def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_tracked_path(page):
