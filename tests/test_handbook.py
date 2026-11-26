@@ -5795,9 +5795,14 @@ def readme_sentences(text: str) -> list:
     return [sentence for sentence in re.split(r"(?<=\.)\s+", " ".join(text.split())) if sentence]
 
 
-def test_the_readme_status_says_in_a_sentence_that_names_l2_that_it_is_built_not_demonstrated():
-    sentences = [sentence for sentence in readme_sentences(readme_status()) if "built, not demonstrated" in sentence]
-    assert sentences and all(re.search(r"\bL2\b", sentence) for sentence in sentences), sentences
+# The README's status sentence for L2 after the owner's demonstration (D-132 on chadlis/hypotrail#75).
+README_L2_STATUS = "L2 was demonstrated by the owner on 2026-11-25 (D-132)."
+
+
+def test_the_readme_status_says_in_one_sentence_that_l2_was_demonstrated_by_the_owner_on_2026_11_25_and_none_that_it_is_not():
+    sentences = readme_sentences(readme_status())
+    assert [sentence for sentence in sentences if re.search(r"\bL2\b", sentence)] == [README_L2_STATUS], sentences
+    assert not [sentence for sentence in sentences if "built, not demonstrated" in sentence]
 
 
 # For each placeholder of the README's path: the command that prints its id, and the key of the `--json` object that holds it.
@@ -5950,24 +5955,30 @@ def test_where_to_look_names_the_demonstration_script_by_its_tracked_path(page):
 
 # --- L2's status sentences after the owner's demonstration (D-132 on chadlis/hypotrail#75) ----------------------------------------------
 
-# Each place whose status sentence is rewritten, and its new sentence.
+# Each place whose status sentences are rewritten, and its new sentences.
 STATUS_SENTENCES = {
+    "README.md": (README_L2_STATUS,),
     "docs/product/l2-acceptance.md": (
+        "L2 was demonstrated by the owner on 2026-11-25 (D-132 on chadlis/hypotrail#75).",
         "The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on #75); its owner checks are recorded "
-        "there, not here."
+        "there, not here.",
     ),
     "docs/handbook/chapters/19-l2-demonstration.html": (
         "L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> "
-        "(D-132 on chadlis/hypotrail#75)."
+        "(D-132 on chadlis/hypotrail#75).",
     ),
 }
 
 
-def test_each_place_holds_its_new_status_sentence_and_no_status_sentence_says_l2_is_built_not_demonstrated():
-    for place, sentence in STATUS_SENTENCES.items():
-        text = " ".join((ROOT / place).read_text(encoding="utf-8").split())
-        assert sentence in text, place
-        assert "is <b>built, not demonstrated</b>" not in text and "This grid holds no result of that demonstration" not in text, place
+def test_each_place_holds_its_new_status_sentences_and_no_status_sentence_says_l2_is_built_not_demonstrated():
+    """A Markdown block quotation is a recorded quotation, not a status sentence: the grid's quotation of chadlis/hypotrail#103 keeps the
+    words "built, not demonstrated"."""
+    for place, sentences in STATUS_SENTENCES.items():
+        lines = (ROOT / place).read_text(encoding="utf-8").splitlines()
+        text = " ".join(" ".join(line for line in lines if not line.startswith("> ")).split())
+        for sentence in sentences:
+            assert sentence in text, (place, sentence)
+        assert "built, not demonstrated" not in text, place
 
 
 # The horizons table of ROADMAP.md and its line 26, as they stood before the dated lines of D-132 on chadlis/hypotrail#75, each kept as the

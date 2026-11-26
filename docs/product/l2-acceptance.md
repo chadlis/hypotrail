@@ -4,7 +4,7 @@ L2 is the review decision of chadlis/hypotrail#103: a Study's pending decision, 
 
 ## Status
 
-L2 is "built, not demonstrated". Who lifts that status is in chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9:
+L2 was demonstrated by the owner on 2026-11-25 (D-132 on chadlis/hypotrail#75). Who lifts that status is in chadlis/hypotrail#103, "End state", from D-077 on chadlis/hypotrail#75, Q9:
 
 > The owner's demonstration lifts "built, not demonstrated", and the owner lifts it.
 
