@@ -2,7 +2,7 @@
   "schema_version": "text-facts-config/1",
   "identifier_kinds": {
     "invoice": {
-      "pattern": "(?i)\\b(?:invoice|inv|invoices(?!\\s*:))(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "pattern": "(?i)\\b(?:invoice|inv|(?<!number of )(?<!count of )(?<!total )invoices)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
       "strip_leading_zeros": true,
       "separators": [
         "_"
@@ -10,7 +10,7 @@
       "casefold": true
     },
     "customer": {
-      "pattern": "(?i)\\b(?:customer|cust|customers(?!\\s*:))(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "pattern": "(?i)\\b(?:customer|cust|(?<!number of )(?<!count of )(?<!total )customers)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
       "strip_leading_zeros": true,
       "separators": [
         "_"
@@ -18,7 +18,7 @@
       "casefold": true
     },
     "track": {
-      "pattern": "(?i)\\b(?:track|tracks(?!\\s*:))(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "pattern": "(?i)\\b(?:track|(?<!number of )(?<!count of )(?<!total )tracks)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
       "strip_leading_zeros": true,
       "separators": [
         "_"
@@ -26,7 +26,7 @@
       "casefold": true
     },
     "album": {
-      "pattern": "(?i)\\b(?:album|albums(?!\\s*:))(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "pattern": "(?i)\\b(?:album|(?<!number of )(?<!count of )(?<!total )albums)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
       "strip_leading_zeros": true,
       "separators": [
         "_"

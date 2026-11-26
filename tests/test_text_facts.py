@@ -223,22 +223,35 @@ def test_the_committed_scoring_config_matches_its_schema():
     assert list(Draft202012Validator(schema).iter_errors(CONFIG)) == []
 
 
-COUNT_PHRASES = (
-    "Customer 1. Number of invoices: 7",
-    "Customer 1. Invoices: 7",
-    "Customer 1 has 7 invoices.",
-    "Customer 1. Number of invoices : 7.",
-    "Customer 1 - invoices:7",
-)
+KINDS = ("invoice", "customer", "track", "album")
+# "number of", "count of" or "total" before the plural makes a count phrase, whose number is no identifier.
+COUNT_FORMS = ("Number of {kind}s: 7", "number of {kind}s : 7.", "Count of {kind}s: 7", "Total {kind}s: 7", "Total number of {kind}s: 7", "We hold 7 {kind}s.")
+# A labelled form names identifiers; a labelled list reads its first identifier only.
+LABELLED_FORMS = (("{Kind}s: 269, 291, 293", {"269"}), ("{Kind}s: 16 and 24", {"16"}), ("{kind}s:7", {"7"}), ("{kind}s 7", {"7"}))
+ID_FORMS = ("See {kind} 7.", "See {kind} #7.", "See {Kind}: 7.", "See {kind} no. 7.")
 
 
-@pytest.mark.parametrize("text", COUNT_PHRASES)
-def test_a_count_of_invoices_is_read_as_the_count_fact_and_not_as_invoice_7(text):
+def values_of(kind, text):
+    return {value for found, value in text_facts.identifiers_in(text, CONFIG) if found == kind}
+
+
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("form", COUNT_FORMS)
+def test_a_count_phrase_is_read_as_the_count_fact_and_names_no_identifier(form, kind):
+    text = form.format(kind=kind)
     result = {c["name"]: (c["state"], c["score"], c["reason"]) for c in text_facts.score_text(text, count_fact(7), CONFIG, None)["criteria"]}
     assert result["facts_present"] == ("scored", True, None)
-    assert ("invoice", "7") not in text_facts.identifiers_in(text, CONFIG)
+    assert text_facts.identifiers_in(text, CONFIG) == set()
 
 
-@pytest.mark.parametrize("text", ["See invoice 7.", "See invoice #7.", "See Invoice: 7.", "See invoice no. 7.", "See inv 7."])
-def test_an_invoice_named_by_its_number_is_still_read_as_that_invoice(text):
-    assert ("invoice", "7") in text_facts.identifiers_in(text, CONFIG)
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("form", LABELLED_FORMS, ids=lambda form: form[0])
+def test_a_labelled_form_reads_its_first_identifier_only(form, kind):
+    text, first = form
+    assert values_of(kind, text.format(kind=kind, Kind=kind.capitalize())) == first
+
+
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("form", ID_FORMS)
+def test_a_record_named_by_its_number_is_read_as_that_identifier(form, kind):
+    assert values_of(kind, form.format(kind=kind, Kind=kind.capitalize())) == {"7"}
