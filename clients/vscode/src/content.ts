@@ -371,7 +371,8 @@ function nowOf(object: Entry | undefined, pending: string, count = ""): string {
     const step = record(object.next_step);
     if (step.kind === "decide" && pending !== "") lines.push(pending);
     else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
-    // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists, then the latest Decision (D-159).
+    // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists (D-161 addendum, #75 comment
+    // 7197277304), then the latest Decision (D-159).
     else lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`, ...latestOf(object));
   }
   lines.push("</section>");
