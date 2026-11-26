@@ -18,7 +18,14 @@ type DecideInput = {
   source?: unknown;
   read_sequence?: unknown;
   study?: unknown;
+  words?: unknown;
+  question_id?: unknown;
+  option_id?: unknown;
+  by?: unknown;
 };
+
+// The channel the tool declares for the words it is given: Copilot relays them from the chat. The tool has no input for it.
+const CHANNEL = "chat_relayed";
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -101,10 +108,15 @@ function sourceOf(input: DecideInput): unknown {
   return typeof input.source === "string" && input.source.trim() === "" ? undefined : input.source;
 }
 
-// A Decision whose author is proxy names the rule it was chosen by; the CLI itself does not require a source.
+// A Decision whose author is proxy names the rule it was chosen by; the CLI itself does not require a source. It holds no
+// words either: the words are the user's, on a Decision whose author is human.
 function proxyRefusal(input: DecideInput): string | undefined {
-  if (input.author !== "proxy" || sourceOf(input) !== undefined) return undefined;
-  return `Nothing was sent to the CLI: a Decision whose author is proxy needs a source, which names the rule it was chosen by. Call ${DECIDE} again with source set to that rule.`;
+  if (input.author !== "proxy") return undefined;
+  if (sourceOf(input) === undefined) {
+    return `Nothing was sent to the CLI: a Decision whose author is proxy needs a source, which names the rule it was chosen by. Call ${DECIDE} again with source set to that rule.`;
+  }
+  if (input.words === undefined) return undefined;
+  return `Nothing was sent to the CLI: words are the user's own messages, recorded on a Decision whose author is human; a Decision whose author is proxy holds none. Call ${DECIDE} again without words, and put your own wording in source.`;
 }
 
 // What the write refuses before any start, in its confirmation and in its invocation alike, in this order: an absent
@@ -112,7 +124,7 @@ function proxyRefusal(input: DecideInput): string | undefined {
 // proxy Decision with no source, and a `study` that the walk does not find. Otherwise the Study it would write to.
 async function checked(input: DecideInput): Promise<{ study: string } | { refusal: string }> {
   if (typeof input.study !== "string" || input.study === "") return { refusal: await noStudyGiven() };
-  const missing = missingInputs({ ...input, source: sourceOf(input) }).filter((field) => field !== "request_id");
+  const missing = missingInputs({ ...input, source: sourceOf(input), channel: undefined }).filter((field) => field !== "request_id");
   if (missing.length > 0) return { refusal: notSent(DECIDE, missing) };
   const refusal = proxyRefusal(input);
   return refusal === undefined ? studyOf(input.study, DECIDE) : { refusal };
@@ -123,6 +135,18 @@ const DECIDER: Record<string, string> = {
   human: "the record names you, the user, as the one who made this choice",
   proxy: "the record names Copilot as the one who made this choice, by applying a stated rule",
 };
+
+// The lines of the words, when they are given: each text as a JSON string on its own line, in order, the label when given,
+// and what the record says of them.
+function wordsLines(input: DecideInput): string[] {
+  if (input.words === undefined) return [];
+  return [
+    "Words, each as Copilot relays it:",
+    ...(input.words as string[]).map(json),
+    ...(input.by === undefined ? [] : [`By: ${json(input.by)}`]),
+    "These words are recorded as relayed by Copilot (channel chat_relayed); they are not checked against the chat.",
+  ];
+}
 
 // The confirmation's text: what will be recorded and where, each text as a JSON string so that a quote or a line
 // break stays on its line, then what each button does. The Write sequence read is not shown.
@@ -137,6 +161,7 @@ function confirmation(study: string, input: DecideInput): string {
     `Author: ${json(input.author)}${decider}`,
     `Source: ${source === undefined ? "none" : json(source)}`,
     `Cited ids: ${cited}`,
+    ...wordsLines(input),
     "",
     "Continue: the Decision is recorded in the Study, and it is not withdrawn. It can still be refused if the Study was written to since Copilot read it.",
     "Cancel: nothing is recorded.",
@@ -171,6 +196,11 @@ export const decideTool: vscode.LanguageModelTool<DecideInput> = {
       option: input.option as string,
       author: input.author as string,
       source: source as string | undefined,
+      question_id: input.question_id as string | undefined,
+      option_id: input.option_id as string | undefined,
+      words: input.words as string[] | undefined,
+      channel: input.words === undefined ? undefined : CHANNEL,
+      by: input.by as string | undefined,
       cited_ids: input.cited_ids as string[],
       request_id: newRequestId(),
       read_sequence: input.read_sequence as number,

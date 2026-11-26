@@ -31,6 +31,14 @@ class _ArgumentParser(argparse.ArgumentParser):
         )
 
 
+class _InOrder(argparse.Action):
+    """`--words` and `--words-file` append `("text", TEXT)` and `("file", FILE)` to one list, so the texts keep the order they were given in."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        kind = "file" if option_string == "--words-file" else "text"
+        setattr(namespace, self.dest, [*getattr(namespace, self.dest), (kind, values)])
+
+
 def _read_sequence_value(text: str) -> int:
     """The value of `--read-sequence`: an integer when the text is one, which the rule of the write journal then judges (the library's rule)."""
     from hypotrail.core import write_journal  # imported when a value is given: `--help` loads no more than the standard library
@@ -332,6 +340,28 @@ def build_parser() -> argparse.ArgumentParser:
         "with another decision it is refused (REQUEST_CONFLICT)",
     )
     _add_read_sequence(decide, required=True)
+    decide.add_argument(
+        "--question-id", metavar="ID", help="the id of the pending question answered (`status --json`, `pending_decisions`); given with --option-id"
+    )
+    decide.add_argument("--option-id", metavar="ID", help="the id of the option chosen among the pending question's options; given with --question-id")
+    decide.add_argument(
+        "--words-file",
+        dest="words",
+        action=_InOrder,
+        default=[],
+        metavar="FILE",
+        help="a file that holds one text of the person's own words, whole and as typed (repeatable, kept in the order given); needs --author human",
+    )
+    decide.add_argument(
+        "--words", dest="words", action=_InOrder, default=[], metavar="TEXT", help="one text of the person's own words (repeatable, kept in the order given)"
+    )
+    decide.add_argument(
+        "--channel",
+        choices=["panel", "choice", "chat_relayed"],
+        help="how the words reached the caller, as the caller declares it: chat_relayed when words are given without it; "
+        "choice records the text of --option-id and takes no text",
+    )
+    decide.add_argument("--by", metavar="LABEL", help="a declared label of who gave the words, recorded as given")
     decide.add_argument("--json", action="store_true", help="print one JSON object")
     decide.set_defaults(handler=_decide)
 
@@ -786,10 +816,17 @@ def _decide(args) -> int:
         cited_ids=args.artifact,
         request_id=args.request_id,
         read_sequence=args.read_sequence,
+        question_id=args.question_id,
+        option_id=args.option_id,
+        words=args.words,
+        channel=args.channel,
+        by=args.by,
     )
+    words = record.get("words")  # a replayed `decision/1` record holds no `words`
     human = (
         f"Decision {record['decision_id']} by {record['author']}: {record['option']} "
         f"(cites {len(record['cited_ids'])} ids, write sequence {record['write_sequence']})"
+        + ("" if words is None else f" (words: {len(words['texts'])} text{'' if len(words['texts']) == 1 else 's'}, channel {words['channel']})")
         + (" (recorded earlier: nothing was written)" if replayed else "")
     )
     _emit({"ok": True, "replayed": replayed, "decision": record}, args.json, human)

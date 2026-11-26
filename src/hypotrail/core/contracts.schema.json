@@ -1494,6 +1494,138 @@
       ],
       "additionalProperties": false
     },
+    "DecisionRecordV2": {
+      "type": "object",
+      "description": "One decision of a Study recorded by `decide` since `decision/2`, kept as a `decision/1` record is (chadlis/hypotrail#244): the twelve keys of `DecisionRecord` and three more, always present. `question_id` and `option_id` are the ids of the core's pending question and of one of its options, both null when not given. `words` is null, or the person's words, stored whole and never read by a check: `texts` in the order given, the `channel` its caller declared, a declared `by` label or null, and `authenticated`, always false.",
+      "properties": {
+        "kind": {
+          "const": "decision"
+        },
+        "schema_version": {
+          "const": "decision/2"
+        },
+        "decision_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "option": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "enum": [
+            "human",
+            "proxy"
+          ]
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cited_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "write_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "option_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "words": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "texts": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "channel": {
+              "enum": [
+                "panel",
+                "choice",
+                "chat_relayed"
+              ]
+            },
+            "by": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "authenticated": {
+              "const": false
+            }
+          },
+          "required": [
+            "texts",
+            "channel",
+            "by",
+            "authenticated"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "kind",
+        "schema_version",
+        "decision_id",
+        "request_id",
+        "question",
+        "option",
+        "author",
+        "source",
+        "cited_ids",
+        "revision",
+        "read_sequence",
+        "write_sequence",
+        "question_id",
+        "option_id",
+        "words"
+      ],
+      "additionalProperties": false
+    },
     "DeclaredDeviationRecord": {
       "type": "object",
       "description": "One Declared deviation of a Study, kept in declared_deviations/<seq>-<declared_deviation_id>.json and never rewritten (chadlis/hypotrail#155). A declaration cites Attempts and References sets; a withdrawal cites exactly one earlier Declared deviation, the one it withdraws. `cited_ids`, `revision`, `read_sequence` and `write_sequence` are those of a decision record. Whether a Declared deviation is withdrawn, and by which one, is computed when the Study is read and is not stored.",
@@ -1596,6 +1728,9 @@
     },
     {
       "$ref": "#/$defs/DecisionRecord"
+    },
+    {
+      "$ref": "#/$defs/DecisionRecordV2"
     },
     {
       "$ref": "#/$defs/DeclaredDeviationRecord"

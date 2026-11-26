@@ -339,3 +339,50 @@ def test_the_dated_lines_hold_one_line_that_names_record_files_and_its_shape_quo
     assert "computed when the Study is read and never stored" in line
     assert RECORD_FILES_TICKET_SENTENCE in line
     assert "the earlier line it overrides: none" in line
+
+
+# --- the dated line of `decision/2` and the options of `decide` that carry the ids and the words ------------------------------------
+
+WORDS_TICKET_SENTENCE = (
+    "`decide` gains `--question-id ID`, `--option-id ID`, `--words-file FILE` (repeatable, one text per file, in order), `--words TEXT`"
+    " (repeatable, S3; no limit on length in the CLI or the record), `--channel` (S1, `chat_relayed` when words are given without it) and"
+    " `--by LABEL`."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_decision_2_that_quotes_its_ticket_and_narrows_the_line_on_what_decide_requires():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#244" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert f'"{WORDS_TICKET_SENTENCE}"' in line
+    assert 'the earlier line it narrows: "`decide` requires `--read-sequence N` and `--request-id`"' in line
+    assert "`decision/2`" in line and "`authenticated` always false" in line
+    assert "`decide` requires `--read-sequence N` and `--request-id`" in section(adr(), "The contract")
+
+
+# --- the dated lines of the Copilot write tool's words and of the rule's fifth requirement ---------------------------------------
+
+TOOL_WORDS_TICKET_SENTENCE = (
+    "`hypotrail_decide` gains the optional inputs `words` (an array of strings: the user's own messages that state the choice, each whole"
+    " and as typed), `question_id`, `option_id` and `by`."
+)
+FIFTH_REQUIREMENT_TICKET_SENTENCE = (
+    "when the person states the choice, record their own words, whole and unchanged, with the Decision (`--words-file`, one file per"
+    " message; `words` for the tool), pass the ids of the pending decision's question and option, and put your own wording in the source."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_tools_words_and_one_for_the_fifth_requirement_each_quoting_its_ticket():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#245" in line]
+    assert len(found) == 2, lines
+    tool, rule = found
+    assert f'"{TOOL_WORDS_TICKET_SENTENCE}"' in tool
+    assert "`--channel=chat_relayed`" in tool and "16,000" in tool and "`client_refusal`" in tool
+    assert "the earlier line it overrides: none" in tool
+    assert "fifth requirement" in rule and f'"{FIFTH_REQUIREMENT_TICKET_SENTENCE}"' in rule
+    assert all(f"`{name}`" in rule for name in ("--words-file", "--question-id", "--option-id", "words", "question_id", "option_id", "panel"))
+    assert 'the earlier lines it widens: "The template states the four requirements of the rule written for Claude Code"' in rule
+    assert "The template states the four requirements of the rule written for Claude Code" in adr()
+    assert "the 2026-11-24 line on the rule for Claude Code" in rule

@@ -57,6 +57,7 @@ WRITE_SEQUENCES = {
     "C8": [32, 32],
     "DEV": [34, 34, 34, 34],
     "REPORT": [34],
+    "WORDS": [34, 36, 36],
     "L1.8": [2, 4, 6, 8, 8],
     # the copy of the kept Campaign's Study, at 14 when copied: its compare and its decide each move it by two
     "CAMPAIGN": [14, 16, 16, 16, 16, 18, 18, 18, 18, 18],
@@ -452,6 +453,24 @@ def test_c8_a_second_decision_by_proxy_with_its_source_that_applies_and_no_pendi
     assert (second["author"], second["source"], second["applies"]) == ("proxy", run.module.PROXY_SOURCE, True)
     assert second["cited_ids"] == [captured(run, "L2_COMPARISON_62")]
     assert status["payload"]["pending_decisions"] == []
+
+
+def test_words_the_decision_holds_the_bytes_of_the_words_file_as_chat_relayed_and_the_read_after_it_prints_the_text_the_channel_and_by(demonstration_recording):
+    run = demonstration_recording
+    _, (decide_action, decide), (_, status) = assert_the_step(run, "WORDS")
+    assert "--words-file" in decide_action["cli"] and "--words" not in decide_action["cli"]
+    written = (run.work / "words.txt").read_bytes()
+    words = decide["payload"]["decision"]["words"]
+    assert [text.encode("utf-8") for text in words["texts"]] == [written]
+    assert (words["channel"], words["by"], words["authenticated"]) == ("chat_relayed", run.module.WORDS_BY, False)
+    assert status["payload"]["decisions"][-1]["words"] == words
+    for line in (
+        f"decisions[-1].words.texts = {json.dumps([written.decode('utf-8')])}",
+        'decisions[-1].words.channel = "chat_relayed"',
+        f"decisions[-1].words.by = {json.dumps(run.module.WORDS_BY)}",
+        "decisions[-1].words.authenticated = false",
+    ):
+        assert f"  {line}" in run.transcript.splitlines(), line
 
 
 def test_dev_one_declared_deviation_not_withdrawn_by_human_citing_the_references_id_of_revision_3(demonstration_recording):
