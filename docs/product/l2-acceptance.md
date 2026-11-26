@@ -18,7 +18,7 @@ The owner's demonstration does not make L2 usable.
 
 P2A is not in this grid: it is deferred (chadlis/hypotrail#103, "Acceptance"; D-077 on chadlis/hypotrail#75, Q8).
 
-No picture of the panel was made on a live Study of the demonstration: the tool that draws the panel outside VS Code draws it only from the saved outputs of `status --json` that the client's tests use, so no picture of a task stands in for the owner's view in VS Code (the drive's answers on chadlis/hypotrail#204, comment 7159599569, Q3). Those outputs hold the seven states the demonstration keeps, `after-compare`, `after-decide`, `after-6.1`, `after-6.2`, `before-the-refused-write`, `after-the-terminal-wrote` and `final`, so the tool draws each of them, and the client's tests walk the panel through them.
+No picture of the panel was made on a live Study of the demonstration: the tool that draws the panel outside VS Code draws it only from the saved outputs of `status --json` that the client's tests use, so no picture of a task stands in for the owner's view in VS Code (the drive's answers on chadlis/hypotrail#204, comment 7159599569, Q3). Those outputs hold the nine states the demonstration keeps, the seven of the second Bike Study, `after-compare`, `after-decide`, `after-6.1`, `after-6.2`, `before-the-refused-write`, `after-the-terminal-wrote` and `final`, and the two of the copy of the kept Chinook Campaign, `chinook-campaign-pending` and `chinook-campaign-decided`, so the tool draws each of them, and the client's tests walk the panel through them.
 
 ## Criteria
 

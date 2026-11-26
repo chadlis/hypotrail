@@ -8,7 +8,12 @@ checkout:
 DIR is a new or empty folder outside the checkout: it receives the Studies, the Workload copy, the report pages, the population
 file and the reads kept for the client's tests (`kept/`). The steps are those of section 18 of the teaching page,
 `pages/de-zero-a-la-demo.html` in chadlis/hypotrail-learning (in French; read at commit `164aa3a`), that need no person: a first
-Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. For each step the script prints what
+Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. The step PROFILE, after L1.2 and before the first
+`run ml` of L1.3, is not in section 18: it reads the first Bike Study's data profile (chadlis/hypotrail#261). A last step, CAMPAIGN, is not in section 18 either: it is the
+step of the larger Chinook Workload (chadlis/hypotrail#232, ticket chadlis/hypotrail#236). It copies the Study the Campaign of
+2026-11-26 kept, `docs/handbook/traces/campaign-chinook-dev/study/`, into DIR, and compares and decides on the copy alone; the step
+after it, INTERVAL, gives the copy a new revision whose Workload declares its resampling, and compares again with an interval over
+Cases. For each step the script prints what
 it shows and why, starts each command as a process of its own, as a person would, prints what the command gave, and checks what
 the step expects of it. It stops at the first expectation that does not hold. Exit 0 when every step gave what it expects, 1
 when one did not, 2 when DIR is refused.
@@ -69,6 +74,34 @@ QUESTION = "Which Configuration do we keep after this Comparison?"
 QUESTION_ID = "keep_after_comparison"
 KEEP_THE_CONTROL = "keep_control"
 PROXY_SOURCE = "rule: keep the Configuration with the lowest MAE"
+# The Study the Chinook Campaign kept in the repository, copied into the work folder by CAMPAIGN; the copy alone is written.
+CAMPAIGN_KEPT = "docs/handbook/traces/campaign-chinook-dev/study"
+CAMPAIGN = "{work}/chinook-campaign"
+# The ids of the kept Study's two Assessments, plain and verify, and of its Comparison and Decision, as its captures name them
+# (docs/handbook/traces/campaign-chinook-dev/commands/compare.argv and decide-rule.argv): the kept Study is never rewritten, so they
+# do not change.
+CAMPAIGN_PLAIN = "9034b193-2c02-468d-930f-05f074eb5683"
+CAMPAIGN_VERIFY = "f3fcd6a5-06a0-4fa5-84e8-9091d123c24b"
+CAMPAIGN_COMPARISON = "24dd6a10-215b-4ed3-a145-2d14529404f3"
+CAMPAIGN_DECISION = "ca807ded-4d12-4c77-8454-eacb9e5e54f1"
+# The Observation sets of the kept Study's two Assessments, plain and verify, which INTERVAL assesses again under the new revision.
+CAMPAIGN_PLAIN_OBSERVATIONS = "643dcee7-206b-4de5-87fb-0705140c6951"
+CAMPAIGN_VERIFY_OBSERVATIONS = "8bea836c-909c-49c0-94f0-f6f8f6b3ca6d"
+# The warning compare gives on the two kept Assessments, as the kept capture of compare printed it on stderr.
+ORDER_WARNING = (
+    "The control ran before the candidate: its Attempt finished at 2026-11-26T08:59:18.975964+00:00 and the candidate's started at "
+    "2026-11-26T08:59:43.598457+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time "
+    "effect (a drift between the two blocks loads on the difference between the sides)."
+)
+NO_INTERVAL = (
+    "The Repeats of a Case are not independent samples: the Comparison carries no binomial interval over Episodes, no confidence "
+    "interval and no significance claim; every Case weighs the same."
+)
+# The first limitation of an agent Comparison with an interval (`hypotrail.core.agent_comparison.LIMITATION_INTERVAL`).
+CASE_INTERVAL = (
+    "The interval is a percentile bootstrap over Cases and every Case weighs the same: the Repeats of a Case are not resampled, and the "
+    "Comparison carries no binomial interval over Episodes and no significance claim."
+)
 # The person's words of the step WORDS, as a file of the work folder: an apostrophe, an accented name, a narrow no-break space, a
 # double quote and the two French quotation marks around a French phrase, which a shell or a re-encoding damages. The marks are
 # written as escapes, as every file under `tests/` writes them.
@@ -88,21 +121,26 @@ HOOK_INPUT = json.dumps(
     {"session_id": "demonstration", "hook_event_name": "UserPromptSubmit", "prompt": "Which Decision did the Study record last?", "cwd": "{checkout}"}
 )
 LIMITATIONS = [
-    "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+    "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days "
+    "is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
     "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
 ]
 
 
-def keep(state: str, sequence: int) -> dict:
-    """The action that writes the two reads of a kept state of the second Bike Study: `status --json` and `figures --json`."""
-    return {"keep": state, "study": L2_BIKE, "sequence": sequence}
+def keep(state: str, sequence: int, study: str = L2_BIKE) -> dict:
+    """The action that writes the two reads of a kept state of a Study, the second Bike Study by default: `status --json` and
+    `figures --json`."""
+    return {"keep": state, "study": study, "sequence": sequence}
 
 
-def decide(option: str, artifact: str, request_id: str, read_sequence, author: str = "human", source: str | None = None, option_id: str | None = None) -> list:
+def decide(
+    option: str, artifact: str, request_id: str, read_sequence, author: str = "human", source: str | None = None, study: str = L2_BIKE,
+    option_id: str | None = None,
+) -> list:
     """A decide as the panel's bridge starts it: each option joined to its value by `=`, in the order of `decide_options`. Given
     `option_id`, it also passes the id of the pending question and that option's id, as the panel's Record does."""
     return [
-        "decide", f"--study={L2_BIKE}", f"--question={QUESTION}", f"--option={option}", f"--author={author}",
+        "decide", f"--study={study}", f"--question={QUESTION}", f"--option={option}", f"--author={author}",
         *([] if source is None else [f"--source={source}"]),
         *([] if option_id is None else [f"--question-id={QUESTION_ID}", f"--option-id={option_id}"]),
         f"--artifact={artifact}", f"--request-id={request_id}", f"--read-sequence={read_sequence}", "--json",
@@ -156,7 +194,7 @@ STEPS = [
                     "exit": 0,
                     "values": {
                         "study.revision_number": 1,
-                        "study.protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+                        "study.protocol_digest": "8c814f87519549fd33f1ccbbe342530d11e207e2ac5493c5a8b2f09f3fe13243",
                         "references_id": "references-7520d791bfe31924",
                     },
                 },
@@ -186,6 +224,26 @@ STEPS = [
                         "write_sequence": 2,
                     },
                 },
+            },
+        ],
+    },
+    {
+        "id": "PROFILE",
+        "title": "Read the data profile of train before any Configuration runs",
+        "shows": (
+            "The data profile of the first Bike Study: its 358 train Items, the Partition band, the target over train, one "
+            "distribution per column of the data, the association matrix of the columns and the target against each allowed feature."
+        ),
+        "why": (
+            "Before a Configuration is chosen, the data it will learn from is looked at: how the target moves over the year, which "
+            "columns carry nearly the same information, and which allowed features follow the target. profile reads only the train "
+            "days of the Study's own data, takes no lock and writes nothing; no value of dev or public_check is read."
+        ),
+        "actions": [
+            {
+                "cli": ["profile", "--study", BIKE, "--json"],
+                "print": ["items", "workload_protocol", "associations.order"],
+                "expect": {"exit": 0, "values": {"items": 358, "workload_protocol": "same", "partition": "train", "write_sequence": 2}},
             },
         ],
     },
@@ -279,21 +337,27 @@ STEPS = [
             "The Comparison, compatible, with the warning COMPARISON_SINGLE_FEATURE_BEATS: a delta of +173.939 rentals per day over "
             "182 of 182 paired Items; then the Comparison read back from the Study, with its exact delta, the warning and its "
             "limitations, among them the dependence of daily observations and the one code environment of the two Attempts; then the "
-            "first lines of paired_deltas.csv."
+            "first lines of paired_deltas.csv. The Comparison holds its interval: two bounds at level 0.95 over the 182 days, from "
+            "circular blocks of 7 days."
         ),
         "why": (
             "A Comparison sets two Assessments side by side: the Control (seasonal_7), against which one measures, and the Candidate "
             "(ridge_v1), which one measures. It first checks that they can be compared (the same days, the same References, the same "
             "Scorer), then pairs the days one by one: paired_deltas.csv keeps, for each day, the error of each side and their "
-            "difference. The delta is the Candidate's MAE minus the Control's: positive, so ridge_v1 errs more. The first limitation "
-            "says no interval is given: the days are dependent, which rules out the naive interval that treats them as independent, "
-            "not every interval. The warning says that ridge_v1 is beaten by each of its own lag features used alone as the forecast."
+            "difference. The delta is the Candidate's MAE minus the Control's: positive, so ridge_v1 errs more. The days are dependent, "
+            "which rules out the naive interval that treats them as independent, not every interval: the interval resamples blocks of "
+            "7 consecutive days, as the Workload declares, and the first limitation says what that assumes. The warning says that ridge_v1 is beaten by each of its own lag features used alone as the forecast."
         ),
         "actions": [
             {
                 "cli": ["compare", "--study", BIKE, "--control", "{L1_A_SEASONAL}", "--candidate", "{L1_A_RIDGE}", "--json"],
                 "capture": {"L1_COMPARISON": "comparison.comparison_id"},
-                "print": ["comparison.comparison_id", "comparison.comparability.status", "comparison.delta.value", "comparison.delta.unit", "comparison.delta.definition", "comparison.coverage.paired", "comparison.warnings[0].code"],
+                "print": [
+                    "comparison.comparison_id", "comparison.comparability.status", "comparison.delta.value", "comparison.delta.unit",
+                    "comparison.delta.definition", "comparison.coverage.paired", "comparison.warnings[0].code", "comparison.interval.lower",
+                    "comparison.interval.upper", "comparison.interval.level", "comparison.interval.units", "comparison.interval.variant",
+                    "comparison.interval.block_length",
+                ],
                 "expect": {
                     "exit": 0,
                     "values": {
@@ -303,6 +367,11 @@ STEPS = [
                         "comparison.delta.value": 173.93948298447322,
                         "comparison.coverage.paired": 182,
                         "comparison.warnings[0].code": "COMPARISON_SINGLE_FEATURE_BEATS",
+                        "comparison.interval.unit": "item",
+                        "comparison.interval.units": 182,
+                        "comparison.interval.variant": "circular",
+                        "comparison.interval.block_length": 7,
+                        "comparison.interval.reason": None,
                     },
                 },
             },
@@ -330,7 +399,7 @@ STEPS = [
         ),
         "why": (
             "status reads the Study and writes nothing: its Attempts and the count of its Exposures, the recorded looks at the days "
-            "of the final check (L1.7). report writes one self-contained HTML page from the Study's records alone, with no network; "
+            "of the final check (L1.7). report writes one self-contained HTML page from the Study's records and its data profile, with no network; "
             "open it in a browser to see it. While nothing has touched public_check, the page says so and no Exposure is counted."
         ),
         "actions": [
@@ -338,7 +407,7 @@ STEPS = [
             {
                 "cli": ["report", "--study", BIKE, "--out", "{work}/l1-bike-report.html", "--json"],
                 "print": ["report.out", "report.sections", "report.exposure.recorded"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 11}},
             },
         ],
     },
@@ -385,7 +454,7 @@ STEPS = [
             {
                 "cli": ["report", "--study", BIKE, "--out", "{work}/l1-bike-report.html", "--json"],
                 "print": ["report.out", "report.exposure.recorded", "report.exposure.entry_id"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": True, "report.exposure.journal_entries": 2, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": True, "report.exposure.journal_entries": 2, "len(report.sections)": 11}},
             },
             {
                 "cli": ["status", "--study", BIKE, "--json"],
@@ -447,7 +516,7 @@ STEPS = [
                     "exit": 0,
                     "values": {
                         "study.revision_number": 1,
-                        "study.protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+                        "study.protocol_digest": "8c814f87519549fd33f1ccbbe342530d11e207e2ac5493c5a8b2f09f3fe13243",
                         "references_id": "references-7520d791bfe31924",
                     },
                 },
@@ -671,7 +740,7 @@ STEPS = [
         "why": (
             "This limitation comes from the data, not from a made-up example: ridge_v1 is beaten by each of its own lag features used "
             "alone as the forecast. The limitations say what the delta does not show: the days are dependent, which rules out the "
-            "naive interval that treats them as independent, not every interval; none is computed here. The panel shows them beside "
+            "naive interval that treats them as independent, not every interval; the interval resamples blocks of 7 days instead. The panel shows them beside "
             "the delta they limit."
         ),
         "actions": [
@@ -1040,16 +1109,16 @@ STEPS = [
     {
         "id": "REPORT",
         "title": "Render the report page of the second Bike Study",
-        "shows": "The report page, written outside the Study, with its ten sections and no Exposure recorded: nothing touched public_check here.",
+        "shows": "The report page, written outside the Study, with its eleven sections and no Exposure recorded: nothing touched public_check here.",
         "why": (
-            "The page is made from the Study's records alone, with no network. It shows neither the Decisions nor the Declared "
+            "The page is made from the Study's records and its data profile, with no network. It shows neither the Decisions nor the Declared "
             "deviation today; the panel and status --json do."
         ),
         "actions": [
             {
                 "cli": ["report", "--study", L2_BIKE, "--out", "{work}/bike-report.html", "--json"],
                 "print": ["report.out", "report.sections", "report.exposure.recorded"],
-                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 11}},
             },
         ],
     },
@@ -1170,6 +1239,197 @@ STEPS = [
                 "cli": ["report", "--study", CHINOOK, "--out", "{work}/l1-chinook-report.html", "--json"],
                 "print": ["report.out", "report.exposure.recorded"],
                 "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "len(report.sections)": 10}},
+            },
+        ],
+    },
+    {
+        "id": "CAMPAIGN",
+        "title": "Compare and decide on a copy of the kept Chinook Campaign",
+        "shows": (
+            "The Study of the Chinook Campaign kept in the repository, copied into the work folder; status --json of the copy: the two "
+            "llm_live Attempts, plain and verify, 100 Episodes each, their two Assessments, the Comparison and the proxy Decision that "
+            "applies, and no Pending decision; then compare of the same two Assessments, plain as the Control: a second Comparison, "
+            "compatible, whose delta and two shares are the kept Comparison's, with the warning COMPARISON_ORDER_NOT_ALTERNATED; "
+            "status --json: that Comparison is the one Pending decision; the two reads of the state chinook-campaign-pending; decide "
+            "by human on the Write sequence read after compare; status --json: no Pending decision and two Decisions; the two reads "
+            "of the state chinook-campaign-decided; then the report page of the copy."
+        ),
+        "why": (
+            "The Campaign of 2026-11-26 ran plain and verify live on the 100 dev Cases of Chinook, one Repeat each, and the "
+            "repository keeps its Study. No model is called here: the Attempts are read from the copy, never run again, and the "
+            "kept folder is never written. The delta is over 100 Cases, every Case weighted equally: the mean over Cases of each "
+            "Case's share of Repeats scored true by contract_success, verify's minus plain's, -0.35 (0.38 against 0.73). The "
+            "Comparison carries no interval and no significance claim. The two sides ran one after the other, plain first, and "
+            f"compare says so in its warning, word for word: \"{ORDER_WARNING}\" The first Decision was made by a rule, the plan's: "
+            "keep the Configuration with the higher contract_success on dev, and plain on a tie; it is recorded by proxy, with that "
+            "rule as its source. The second is recorded here by human, as a person would record it from the panel, on the "
+            "Comparison this step makes; it rewrites neither the first Decision nor the first Comparison."
+        ),
+        "actions": [
+            {"copy": "{checkout}/" + CAMPAIGN_KEPT, "to": CAMPAIGN},
+            {
+                "cli": ["status", "--study", CAMPAIGN, "--json"],
+                "print": [
+                    "write_sequence", "attempts[*].request_id", "attempts[*].mode", "attempts[*].item_counts", "assessments[*].assessment_id",
+                    "comparisons[*].comparison_id", "comparisons[*].delta.value", "decisions[*].option", "decisions[*].author",
+                    "len(pending_decisions)",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 14,
+                        "attempts[*].mode": ["llm_live", "llm_live"],
+                        "attempts[*].item_counts": [{"produced": 100, "failed": 0, "missing": 0}] * 2,
+                        "len(assessments)": 2,
+                        "comparisons[*].comparison_id": [CAMPAIGN_COMPARISON],
+                        "decisions[*].decision_id": [CAMPAIGN_DECISION],
+                        "decisions[*].author": ["proxy"],
+                        "decisions[*].option": ["Keep the Control"],
+                        "decisions[*].applies": [True],
+                        "len(pending_decisions)": 0,
+                    },
+                    "present": {
+                        "attempts[*].request_id": ["chinook-dev-plain", "chinook-dev-verify"],
+                        "assessments[*].assessment_id": [CAMPAIGN_PLAIN, CAMPAIGN_VERIFY],
+                    },
+                },
+            },
+            {
+                "cli": ["compare", "--study", CAMPAIGN, "--control", CAMPAIGN_PLAIN, "--candidate", CAMPAIGN_VERIFY, "--json"],
+                "capture": {"CAMPAIGN_COMPARISON_2": "comparison.comparison_id"},
+                "print": [
+                    "comparison.comparison_id", "comparison.comparability.status", "comparison.delta.metric", "comparison.delta.value",
+                    "comparison.delta.control", "comparison.delta.candidate", "comparison.delta.unit", "comparison.coverage.paired",
+                    "comparison.warnings[0].code", "comparison.warnings[0].message",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "comparison.comparability.status": "compatible",
+                        "comparison.delta.metric": "contract_success",
+                        "comparison.delta.value": -0.35,
+                        "comparison.delta.control": 0.73,
+                        "comparison.delta.candidate": 0.38,
+                        "comparison.delta.unit": "share of Repeats per Case, every Case weighted equally",
+                        "comparison.coverage.paired": 100,
+                        "comparison.warnings[*].code": ["COMPARISON_ORDER_NOT_ALTERNATED"],
+                        "comparison.warnings[0].message": ORDER_WARNING,
+                    },
+                    "present": {"comparison.limitations": [NO_INTERVAL, ORDER_WARNING]},
+                },
+            },
+            {
+                "cli": ["status", "--study", CAMPAIGN, "--json"],
+                "capture": {"CAMPAIGN_READ_AFTER_COMPARE": "write_sequence"},
+                "print": ["write_sequence", "pending_decisions[*].comparison_id", "pending_decisions[*].question.text", "pending_decisions[*].options[*].text"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 16,
+                        "pending_decisions[*].comparison_id": ["{CAMPAIGN_COMPARISON_2}"],
+                        "pending_decisions[*].question.text": [QUESTION],
+                        "comparisons[*].comparison_id": [CAMPAIGN_COMPARISON, "{CAMPAIGN_COMPARISON_2}"],
+                    },
+                },
+            },
+            keep("chinook-campaign-pending", 16, CAMPAIGN),
+            {
+                "cli": decide("Keep the Control", "{CAMPAIGN_COMPARISON_2}", "demo-campaign-decide", "{CAMPAIGN_READ_AFTER_COMPARE}", study=CAMPAIGN),
+                "print": ["decision.decision_id", "decision.option", "decision.author", "decision.cited_ids", "decision.read_sequence"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "replayed": False,
+                        "decision.author": "human",
+                        "decision.option": "Keep the Control",
+                        "decision.cited_ids": ["{CAMPAIGN_COMPARISON_2}"],
+                        "decision.read_sequence": 16,
+                        "decision.schema_version": "decision/2",
+                        "decision.question_id": None,
+                        "decision.option_id": None,
+                        "decision.words": None,
+                    },
+                },
+            },
+            {
+                "cli": ["status", "--study", CAMPAIGN, "--json"],
+                "print": ["write_sequence", "len(pending_decisions)", "decisions[*].author", "decisions[*].option", "decisions[*].applies", "decisions[*].cited_ids"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 18,
+                        "len(pending_decisions)": 0,
+                        "decisions[*].author": ["proxy", "human"],
+                        "decisions[*].applies": [True, True],
+                        "decisions[*].cited_ids": [[CAMPAIGN_COMPARISON], ["{CAMPAIGN_COMPARISON_2}"]],
+                        "decisions[*].schema_version": ["decision/1", "decision/2"],
+                    },
+                },
+            },
+            keep("chinook-campaign-decided", 18, CAMPAIGN),
+            {
+                "cli": ["report", "--study", CAMPAIGN, "--out", "{work}/chinook-campaign-report.html", "--json"],
+                "print": ["report.out", "report.exposure.recorded"],
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+            },
+        ],
+    },
+    {
+        "id": "INTERVAL",
+        "title": "Give the copy of the Campaign a new revision, and compare with an interval over Cases",
+        "shows": (
+            "init --new-revision on the copy: revision 2, whose Workload declares its resampling (the unit case and a seed); the two "
+            "kept Observation sets, plain and verify, assessed again under it; then compare of the two new Assessments, plain as the "
+            "Control: the same delta, -0.35, and its interval at level 0.95 over the 100 Cases, with the declared seed."
+        ),
+        "why": (
+            "The kept Study was made before the Workload declared how its Comparisons are resampled, so its Comparisons carry no "
+            "interval, and they keep none: a record is never rewritten. A new revision freezes the Protocol the Workload declares "
+            "now, the resampling included, and a Comparison of Assessments of that revision computes the interval: the 100 Cases are "
+            "drawn with replacement 2,000 times, every Case weighing the same, and the mean of each draw gives the two bounds. The "
+            "Repeats of a Case are not resampled, and the interval makes no significance claim."
+        ),
+        "actions": [
+            {
+                "cli": ["init", "--study", CAMPAIGN, "--new-revision", "--json"],
+                "capture": {"CAMPAIGN_REFS_2": "references_id"},
+                "print": ["study.revision_number", "study.protocol_digest", "study.resampling", "references_id"],
+                "expect": {"exit": 0, "values": {"study.revision_number": 2, "study.resampling": {"unit": "case", "seed": 240}}},
+            },
+            {
+                "cli": ["assess", "--study", CAMPAIGN, "--observations", CAMPAIGN_PLAIN_OBSERVATIONS, "--scorer", "chinook_contract_v1", "--references", "{CAMPAIGN_REFS_2}", "--json"],
+                "capture": {"CAMPAIGN_PLAIN_2": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.study_revision"],
+                "expect": {"exit": 0},
+            },
+            {
+                "cli": ["assess", "--study", CAMPAIGN, "--observations", CAMPAIGN_VERIFY_OBSERVATIONS, "--scorer", "chinook_contract_v1", "--references", "{CAMPAIGN_REFS_2}", "--json"],
+                "capture": {"CAMPAIGN_VERIFY_2": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.study_revision"],
+                "expect": {"exit": 0},
+            },
+            {
+                "cli": ["compare", "--study", CAMPAIGN, "--control", "{CAMPAIGN_PLAIN_2}", "--candidate", "{CAMPAIGN_VERIFY_2}", "--json"],
+                "capture": {"CAMPAIGN_COMPARISON_3": "comparison.comparison_id"},
+                "print": [
+                    "comparison.comparison_id", "comparison.delta.value", "comparison.interval.lower", "comparison.interval.upper",
+                    "comparison.interval.level", "comparison.interval.unit", "comparison.interval.units", "comparison.interval.seed",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "comparison.comparability.status": "compatible",
+                        "comparison.delta.value": -0.35,
+                        "comparison.interval.lower": -0.46,
+                        "comparison.interval.upper": -0.24,
+                        "comparison.interval.level": 0.95,
+                        "comparison.interval.unit": "case",
+                        "comparison.interval.units": 100,
+                        "comparison.interval.seed": 240,
+                        "comparison.interval.reason": None,
+                    },
+                    "present": {"comparison.limitations": [CASE_INTERVAL, ORDER_WARNING]},
+                },
             },
         ],
     },

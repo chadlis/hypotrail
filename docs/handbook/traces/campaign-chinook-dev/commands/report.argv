@@ -1,0 +1,1 @@
+uv run python -m hypotrail report --study docs/handbook/traces/campaign-chinook-dev/study --out docs/handbook/traces/campaign-chinook-dev/report.html 

@@ -17,13 +17,13 @@
       "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
       "artifacts": [
         {
-          "artifact_id": "memberships-b31055db64b41efa",
+          "artifact_id": "memberships-580cd77bff2a04f5",
           "role": "memberships",
           "version": 1,
           "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
         },
         {
-          "artifact_id": "references-7a47fd1bc0547255",
+          "artifact_id": "references-0d503e9fd3d88362",
           "role": "references",
           "version": 1,
           "sha256": "0000000000000000000000000000000000000000000000000000000000000004"

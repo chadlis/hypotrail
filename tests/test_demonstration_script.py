@@ -23,13 +23,17 @@ MODULE = demonstration()
 STEPS = MODULE.STEPS
 
 # The steps of the demonstration, in the order of chadlis/hypotrail#218, "The demonstration, as this slice freezes it": L1.1 to L1.7 on
-# the first Bike Study, then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
-# on the Chinook Study.
+# the first Bike Study, with PROFILE before L1.3 (chadlis/hypotrail#261, "What to build", item 5), then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
+# on the Chinook Study; then the step of chadlis/hypotrail#236, "What to build", item 1, "placed after L1.8", on a copy of the kept
+# Chinook Campaign; then the step of chadlis/hypotrail#242, "What to build", item 2: "the copy of the kept Study takes
+# `init --new-revision`, two Assessments and a `compare` whose line shows the Case interval".
 DEMO_IDS = [
-    "L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
+    "L1.1", "L1.2", "PROFILE", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
     "A4", "A5", "task 1", "task 2", "task 3", "C10", "task 4", "task 5", "task 6.1", "task 6.2", "C5-check", "COMPARE", "S1", "C8",
     "DEV", "REPORT", "WORDS",
     "L1.8",
+    "CAMPAIGN",
+    "INTERVAL",
 ]
 
 # Section 18 of `pages/de-zero-a-la-demo.html`, chadlis/hypotrail-learning at commit 164aa3a, steps L1.1 to L1.8: each step's commands
@@ -53,6 +57,7 @@ KEPT_LOG = "docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-5
 POPULATION = '{"episodes": [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]}'
 QUESTION = "Which Configuration do we keep after this Comparison?"
 STATUS_BIKE = ("hypotrail", "status", "--study", "runs/bike", "--json")
+STATUS_CAMPAIGN = ("hypotrail", "status", "--study", "runs/chinook-campaign", "--json")
 
 
 def decide_18(option, artifact, request_id, read_sequence, *source, author="human", option_id=None):
@@ -84,6 +89,9 @@ SECTION_18 = {
         ("hypotrail", "init", "--workload", "bike_day", "--study", "runs/l1-bike"),
         ("hypotrail", "status", "--study", "runs/l1-bike", "--json"),
     ],
+    # Section 18 has no PROFILE: its one command is written here from chadlis/hypotrail#261, "What to build", item 5, "A `profile` step
+    # on the first Bike Study comes before step L1.3".
+    "PROFILE": [("hypotrail", "profile", "--study", "runs/l1-bike", "--json")],
     "L1.3": [
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "l1-seasonal"),
         ("hypotrail", "run", "ml", "--study", "runs/l1-bike", "--config", "ridge_v1", "--partition", "dev", "--request-id", "l1-ridge"),
@@ -170,6 +178,33 @@ SECTION_18 = {
             "--words-file", "runs/words.txt", "--by", MODULE.WORDS_BY, "--request-id", "demo-words", "--read-sequence", "$L2_READ_BEFORE_WORDS",
         ),
         STATUS_BIKE,
+    ],
+    # Section 18 has no CAMPAIGN either: its commands are written here from chadlis/hypotrail#236, "What to build", item 1, "On the
+    # copy, in order: `status --json` [...]; `compare` of the two kept Assessments, `plain` as Control [...]; `status --json` [...];
+    # `decide` on it with author `human` [...]; `status --json` [...]; `report`", with the kept Study's folder copied first.
+    "CAMPAIGN": [
+        ("cp", "-r", "docs/handbook/traces/campaign-chinook-dev/study", "runs/chinook-campaign"),
+        STATUS_CAMPAIGN,
+        ("hypotrail", "compare", "--study", "runs/chinook-campaign", "--control", MODULE.CAMPAIGN_PLAIN, "--candidate", MODULE.CAMPAIGN_VERIFY),
+        STATUS_CAMPAIGN,
+        (
+            "hypotrail", "decide", "--study=runs/chinook-campaign", f"--question={QUESTION}", "--option=Keep the Control", "--author=human",
+            "--artifact=$CAMPAIGN_COMPARISON_2", "--request-id=demo-campaign-decide", "--read-sequence=$CAMPAIGN_READ_AFTER_COMPARE",
+        ),
+        STATUS_CAMPAIGN,
+        ("hypotrail", "report", "--study", "runs/chinook-campaign", "--out", "runs/chinook-campaign-report.html"),
+    ],
+    # Nor INTERVAL: its commands are written from chadlis/hypotrail#242, "What to build", item 2, quoted above DEMO_IDS.
+    "INTERVAL": [
+        ("hypotrail", "init", "--study", "runs/chinook-campaign", "--new-revision"),
+        *(
+            (
+                "hypotrail", "assess", "--study", "runs/chinook-campaign", "--observations", observations, "--scorer", "chinook_contract_v1",
+                "--references", "$CAMPAIGN_REFS_2",
+            )
+            for observations in (MODULE.CAMPAIGN_PLAIN_OBSERVATIONS, MODULE.CAMPAIGN_VERIFY_OBSERVATIONS)
+        ),
+        ("hypotrail", "compare", "--study", "runs/chinook-campaign", "--control", "$CAMPAIGN_PLAIN_2", "--candidate", "$CAMPAIGN_VERIFY_2"),
     ],
 }
 
@@ -737,9 +772,11 @@ WHY_SENTENCES = {
         "It is recorded to show how a Decision is written, not as the answer the evidence supports: the warning below shows one lag "
         "feature alone, mean_previous_7 (823.878 rentals per day), below both Configurations (1090.79 and 1264.73).",
     ),
+    # D-142's sentence with its last clause replaced, as chadlis/hypotrail#242, "What to build", item 2, asks: "its texts at `:83`,
+    # `:279-280` and `:664` are rewritten to what the record now says".
     "task 5": (
         "The limitations say what the delta does not show: the days are dependent, which rules out the naive interval that treats them "
-        "as independent, not every interval; none is computed here.",
+        "as independent, not every interval; the interval resamples blocks of 7 days instead.",
     ),
     "task 6.1": (
         "After this step nothing is pending: the Comparison of task 3 compares Assessments of revision 1. What a person does next is "
@@ -825,3 +862,78 @@ def test_an_action_that_is_not_a_command_is_printed_as_script_and_never_as_a_dol
     for action in actions:
         assert f"script: {recording.module.shown_action(action, folders)}" in lines, action
     assert not [line for line in dollar_lines(recording.transcript) if line.split()[1] in ("show", "copy", "write", "keep")]
+
+
+# --- CAMPAIGN: the step on a copy of the kept Chinook Campaign ------------------------------------------------------------------------
+
+CAMPAIGN_FOLDER = ROOT / "docs" / "handbook" / "traces" / "campaign-chinook-dev"
+
+
+def kept_argv(name: str) -> list:
+    """The argument list of a kept capture of the Campaign, its `printf '%q '` form split as a shell splits it."""
+    return shlex.split((CAMPAIGN_FOLDER / "commands" / f"{name}.argv").read_text(encoding="utf-8"))
+
+
+def option_of(argv: list, flag: str) -> str:
+    return argv[argv.index(flag) + 1]
+
+
+def test_campaign_names_the_kept_assessments_comparison_and_decision_by_the_ids_the_kept_captures_give():
+    compare, decide = kept_argv("compare"), kept_argv("decide-rule")
+    assert (option_of(compare, "--control"), option_of(compare, "--candidate")) == (MODULE.CAMPAIGN_PLAIN, MODULE.CAMPAIGN_VERIFY)
+    assert option_of(decide, "--artifact") == MODULE.CAMPAIGN_COMPARISON
+    assert (CAMPAIGN_FOLDER / "commands" / "decide-rule.out").read_text(encoding="utf-8").startswith(f"Decision {MODULE.CAMPAIGN_DECISION} by proxy: ")
+
+
+def test_campaign_copies_the_kept_study_into_the_work_folder_and_names_no_other_study():
+    [copy] = [action for action in step("CAMPAIGN")["actions"] if "copy" in action]
+    assert (copy["copy"], copy["to"]) == ("{checkout}/" + MODULE.CAMPAIGN_KEPT, MODULE.CAMPAIGN)
+    assert (ROOT / MODULE.CAMPAIGN_KEPT).resolve() == (CAMPAIGN_FOLDER / "study").resolve() and MODULE.CAMPAIGN.startswith("{work}/")
+    from _demonstration_helpers import study_of
+
+    assert {str(study_of(action["cli"])) for _, action in processes([step("CAMPAIGN")])} == {MODULE.CAMPAIGN}
+
+
+def test_campaign_expects_the_warning_compare_printed_on_the_kept_assessments_word_for_word():
+    [line] = [line for line in (CAMPAIGN_FOLDER / "commands" / "compare.err").read_text(encoding="utf-8").splitlines() if line.startswith("COMPARISON_")]
+    assert line == f"COMPARISON_ORDER_NOT_ALTERNATED: {MODULE.ORDER_WARNING}"
+    [compare] = [action for action in cli_actions("CAMPAIGN") if action["cli"][0] == "compare"]
+    assert compare["expect"]["values"]["comparison.warnings[0].message"] == MODULE.ORDER_WARNING
+
+
+# Each statement chadlis/hypotrail#236, "What to build", item 1, asks the step to print, as its Why states it.
+CAMPAIGN_STATEMENTS = {
+    "the delta is over 100 Cases with every Case weighted equally": "The delta is over 100 Cases, every Case weighted equally",
+    "the Comparison carries no interval": "Comparison carries no interval and no significance claim",
+    "the two sides ran one after the other": "The two sides ran one after the other",
+    "the warning word for word": "compare says so in its warning, word for word",
+    "the first Decision was made by a rule": "The first Decision was made by a rule",
+    "the second is recorded here as a person would": "The second is recorded here by human, as a person would record it",
+}
+
+
+@pytest.mark.parametrize("statement", sorted(CAMPAIGN_STATEMENTS))
+def test_the_why_of_campaign_states_what_the_ticket_asks_it_to_print(statement):
+    why = " ".join(step("CAMPAIGN")["why"].split())
+    assert CAMPAIGN_STATEMENTS[statement] in why, statement
+    if statement == "the warning word for word":
+        assert f'word for word: "{MODULE.ORDER_WARNING}"' in why
+
+
+def test_campaign_expects_the_delta_and_the_two_shares_of_the_kept_comparison_to_12_significant_digits():
+    kept = json.loads((CAMPAIGN_FOLDER / "study" / "comparisons" / MODULE.CAMPAIGN_COMPARISON / "comparison.json").read_text(encoding="utf-8"))
+    [compare] = [action for action in cli_actions("CAMPAIGN") if action["cli"][0] == "compare"]
+    for key in ("value", "control", "candidate"):
+        assert MODULE.same(compare["expect"]["values"][f"comparison.delta.{key}"], kept["delta"][key]), key
+
+
+def test_when_the_decide_of_campaign_is_given_the_write_sequence_read_before_compare_it_is_refused_and_the_script_exits_1_naming_the_step(tmp_path):
+    changed = copy.deepcopy(step("CAMPAIGN"))
+    first_status = next(action for action in changed["actions"] if action.get("cli", [""])[0] == "status")
+    first_status["capture"] = {"CAMPAIGN_READ_BEFORE_COMPARE": "write_sequence"}
+    decide = next(action for action in changed["actions"] if action.get("cli", [""])[0] == "decide")
+    decide["cli"] = [part.replace("{CAMPAIGN_READ_AFTER_COMPARE}", "{CAMPAIGN_READ_BEFORE_COMPARE}") for part in decide["cli"]]
+    run = run_in_process(tmp_path / "work", steps=[changed])
+    [refused] = [call for call in run.calls if call["args"][0] == "decide"]
+    assert (refused["code"], refused["payload"]["error"]["code"]) == (6, "STUDY_CHANGED")
+    assert run.outcome.code == 1 and "FAILED: step CAMPAIGN, key exit code: expected 0, found 6" in run.transcript.splitlines(), run.transcript[-3000:]

@@ -1,6 +1,8 @@
 """Ticket #64: the repository's contract schema, the single validator of every record (Tightened A2)."""
 
 import copy
+import json
+from pathlib import Path
 
 import pytest
 
@@ -21,7 +23,7 @@ SPEC_FIELDS = {
 
 # What the Tightened lines and acceptance criteria of #64 to #73 name, one entry each (A2).
 TICKET_FIELDS = {
-    "StudySpec": "workload artifacts check_informed",  # #64: the Workload by name and the Study artifacts, each with an ID; #73: a revision created after the first Exposure
+    "StudySpec": "workload artifacts check_informed resampling",  # #64: the Workload by name and the Study artifacts, each with an ID; #73: a revision created after the first Exposure
     "AttemptManifest": "item_counts output_refs reason check_informed",  # #64 C; #65 B; #73
     "Assessment": "rescoring check_informed primary_criterion unknowns operational_errors detailed_metrics_ref",  # #70: the earlier Assessment, the cause, the changed Items; #73; #68 K2, CMP-04, G: the primary Criterion, the unknowns beside the rates, failed and missing Episodes apart, the secondary Criteria
     "Comparison": "roles declared_factor descriptive check_informed delta code_environment warnings secondary_deltas primary_criterion matrix_ref rates",  # #71 Control and Candidate, the delta, ID-03, the scope warning; #72 factor; CMP-06; #72 the matrix, the rates, the secondary deltas
@@ -144,8 +146,8 @@ RECORD_DEFINITIONS_AT_7DB697F = {
         "kind schema_version assessment_id observation_set_id references_ref scorer counts per_item_ref metrics limitations",
     ),
     "Comparison": (
-        "check_informed code_environment comparability comparison_id coverage declared_factor delta descriptive kind left_assessment_id limitations matrix_ref "
-        "paired_deltas_ref population_ref primary_criterion rates right_assessment_id roles schema_version secondary_deltas warnings",
+        "check_informed code_environment comparability comparison_id coverage declared_factor delta descriptive interval kind left_assessment_id limitations "
+        "matrix_ref paired_deltas_ref population_ref primary_criterion rates right_assessment_id roles schema_version secondary_deltas warnings",
         "kind schema_version comparison_id left_assessment_id right_assessment_id comparability population_ref paired_deltas_ref coverage limitations",
     ),
     "DecisionRecord": (
@@ -167,3 +169,11 @@ def test_the_assessment_comparison_decision_and_write_journal_definitions_keep_t
     properties, required = RECORD_DEFINITIONS_AT_7DB697F[name]
     assert sorted(definition["properties"]) == properties.split()
     assert definition["required"] == required.split()
+
+
+def test_a_comparison_record_written_before_the_interval_still_validates_without_the_key():
+    kept = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "campaign-public-check" / "study" / "comparisons"
+    [path] = kept.glob("*/comparison.json")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert "interval" not in record
+    contracts.validate(record)

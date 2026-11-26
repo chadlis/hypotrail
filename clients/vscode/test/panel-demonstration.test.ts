@@ -159,6 +159,25 @@ function assertAskedAgain(seen: Seen): void {
   assertDecision(decisionParts(document)[0], earlier, false, "human");
 }
 
+// The one Pending decision of the copy of the kept Chinook Campaign: its question, the delta of its Comparison, its options with their
+// consequences, and the path to Record, a radio input per option and the control that records the first Pending decision. "With a
+// null delta, ticket 3 shows the two per-side matrices and the unscored Episodes with their reasons, states that no delta was
+// computable, and shows no delta or share figure" (D-146 on chadlis/hypotrail#75, B2): the kept Comparison has a delta, so the
+// document shows it.
+function assertCampaignPending({ document, read }: Seen): void {
+  const part = under(document, "Pending decisions", "Decisions");
+  assert.equal(read.pending_decisions.length, 1);
+  const [pending] = read.pending_decisions;
+  assert.deepEqual(questionsOf(part), [pending.question.text], "one question, the read's");
+  const { delta } = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
+  assert.notEqual(delta.value, null, "the Comparison has a delta");
+  assert.equal(words(elementOf(part, '<p data-element="delta">')), `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`, "the delta of the Comparison");
+  assert.deepEqual(elementsOf(part, "<label>").map(markedTexts), pending.options.map((option: Entry) => [option.text, option.consequence]), "each option with its consequence");
+  const tags = partsOf(part).tags;
+  assert.equal(tags.filter((tag) => tag.startsWith('<input type="radio"')).length, pending.options.length, "one radio input per option");
+  assert.equal(tags.filter((tag) => tag.startsWith("<button") && tag.includes(`data-message="${RECORD}"`) && tag.includes('data-pending="0"')).length, 1, "the control that records");
+}
+
 // The values C5-check prints, at the key paths it prints them at (tests/test_demonstration_end_to_end.py ties them to the transcript).
 const C5_PATHS = ["study.study_id", "write_sequence", "pending_decisions[*].comparison_id", "decisions[*].decision_id", "decisions[*].applies"];
 function valueAt(object: unknown, keyPath: string): unknown {
@@ -219,6 +238,19 @@ const SEES: Record<string, (seen: Seen) => void> = {
     const deviations = elementsOf(seen.document, '<li data-part="deviation">');
     assert.equal(deviations.length, 1, "one Declared deviation");
     assert.ok(words(deviations[0]).startsWith(seen.read.declared_deviations[0].declared_deviation_id), "with its id");
+  },
+  "chinook-campaign-pending": (seen) => {
+    assertCampaignPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 1, "the proxy Decision of the Campaign");
+    assertDecision(parts[0], seen.read.decisions[0], true, "proxy");
+  },
+  "chinook-campaign-decided": (seen) => {
+    assertNoPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 2, "two Decisions");
+    assertDecision(parts[0], seen.read.decisions[0], true, "proxy");
+    assertDecision(parts[1], seen.read.decisions[1], true, "human");
   },
 };
 

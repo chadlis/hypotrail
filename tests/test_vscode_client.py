@@ -226,7 +226,7 @@ def test_the_names_of_the_kept_files_of_the_demonstration_are_the_two_reads_of_e
     decides = [name for name in kept_names_of_the_demonstration() if name.startswith("decide-")]
     expected |= {f"{name}.{part}" for name in decides for part in ("args", "exit", "out", "err")}
     names = set(kept_demonstration_names())
-    assert len(states) == 7 and len(decides) == 2
+    assert len(states) == 9 and len(decides) == 2
     for name in sorted(names | expected):
         assert name in names and name in expected, name
 

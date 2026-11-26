@@ -1,0 +1,41 @@
+{
+  "estimate": "An estimate: the logs' cost at the plan's prices; an Attempt with unknown cost counts at its ceiling (D-146, B2). A price list can differ from what is billed (a long-context tier, a 1h cache TTL, a served model priced differently; D-146, B1, \"What would make it wrong\").",
+  "price_list": {
+    "path": "docs/handbook/traces/campaign-chinook-dev/price-list.json",
+    "sha256": "e3c0fdd12a8126b0c93e850c9b2a063d755a8f956e61ef53a6fe9801f84782f0"
+  },
+  "episode_bound_usd": 0.3967325,
+  "invocations": [
+    {
+      "step": "run-plain",
+      "attempt_id": "6ffc3d7f-2a60-4b81-972e-64ca6bd37725",
+      "episodes": 100,
+      "tokens": {
+        "input": 810,
+        "input_cache_read": 642459,
+        "input_cache_write": 379516,
+        "output": 29837
+      },
+      "cost_unknown": false,
+      "cost_usd": 1.3130259,
+      "ceiling_usd": 39.673249999999996
+    },
+    {
+      "step": "run-verify",
+      "attempt_id": "11893fff-b273-41fa-a99e-fbba0c28ad65",
+      "episodes": 100,
+      "tokens": {
+        "input": 836,
+        "input_cache_read": 718176,
+        "input_cache_write": 386429,
+        "output": 35222
+      },
+      "cost_unknown": false,
+      "cost_usd": 1.3917821,
+      "ceiling_usd": 39.673249999999996
+    }
+  ],
+  "total_usd": 2.704808,
+  "budget_usd": 80,
+  "remaining_usd": 77.295192
+}

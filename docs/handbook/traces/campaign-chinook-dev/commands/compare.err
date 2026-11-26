@@ -1,0 +1,2 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+COMPARISON_ORDER_NOT_ALTERNATED: The control ran before the candidate: its Attempt finished at 2026-11-26T08:59:18.975964+00:00 and the candidate's started at 2026-11-26T08:59:43.598457+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect (a drift between the two blocks loads on the difference between the sides).

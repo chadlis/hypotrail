@@ -151,6 +151,45 @@
         },
         "check_informed": {
           "type": "boolean"
+        },
+        "resampling": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "enum": [
+                "case",
+                "item"
+              ]
+            },
+            "block": {
+              "type": "object",
+              "properties": {
+                "variant": {
+                  "enum": [
+                    "circular"
+                  ]
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 2
+                }
+              },
+              "required": [
+                "variant",
+                "length"
+              ],
+              "additionalProperties": false
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "unit",
+            "seed"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -995,6 +1034,89 @@
         },
         "matrix_ref": {
           "$ref": "#/$defs/ArtifactRef"
+        },
+        "interval": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "number"
+            },
+            "lower": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "upper": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "method": {
+              "const": "percentile_bootstrap"
+            },
+            "unit": {
+              "enum": [
+                "case",
+                "item",
+                null
+              ]
+            },
+            "units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "variant": {
+              "enum": [
+                "circular",
+                null
+              ]
+            },
+            "block_length": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 2
+            },
+            "resamples": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "seed": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "reason": {
+              "enum": [
+                null,
+                "resampling_not_declared",
+                "delta_withheld",
+                "too_few_units",
+                "series_not_contiguous"
+              ]
+            }
+          },
+          "required": [
+            "level",
+            "lower",
+            "upper",
+            "method",
+            "unit",
+            "units",
+            "variant",
+            "block_length",
+            "resamples",
+            "seed",
+            "reason"
+          ],
+          "additionalProperties": false
         },
         "rates": {
           "type": "object",

@@ -474,3 +474,19 @@ def test_the_dated_lines_hold_one_line_for_the_refusal_under_an_uncited_attempts
     [line] = found
     assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
     assert f'"{UNCITED_SENTENCE}"' in line and "the earlier line it narrows: the 2026-11-26 line on the `open` message" in line
+
+
+# --- the dated line of the key `interval` of each Comparison of `status --json` -----------------------------------------------------
+
+INTERVAL_TICKET_SENTENCE = "`status --json` lists each Comparison with its `interval` equal to the stored one, and its top-level keys are unchanged"
+
+
+def test_the_dated_lines_hold_one_line_that_names_comparisons_interval_drawn_by_no_client_until_the_redesign_quoting_its_ticket_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#240" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`comparisons[].interval`" in line and "No client draws it until the panel's redesign" in line
+    assert INTERVAL_TICKET_SENTENCE in line and "the earlier line it overrides: none" in line
+    above = adr().split("## Dated lines", 1)[0]
+    assert "interval" not in above

@@ -2,15 +2,27 @@
 weighs every Case equally under full coverage, and refuses what makes the two sides incomparable."""
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
-from _agent_compare_helpers import REPEATS, answer_lines, compare, comparison_files, imported, keys_of, native
+from _agent_compare_helpers import (
+    REPEATS,
+    answer_lines,
+    assess,
+    compare,
+    comparison_files,
+    imported,
+    keys_of,
+    native,
+    observation_set_of,
+    reference_answer_lines,
+)
 from _assess_helpers import rows_of, snapshot
-from _chinook_helpers import FIXTURE_CASES, init_chinook
+from _chinook_helpers import FIXTURE_CASES, chinook_examples, episodes_file, import_agent, init_chinook, write_lines
 from _study_helpers import run_cli, run_json
 
-from hypotrail.core import canonical, contracts
+from hypotrail.core import canonical, contracts, intervals
 from hypotrail.core.chinook_contract import CRITERIA
 
 PRIMARY = "contract_success"
@@ -73,18 +85,117 @@ def test_no_binomial_interval_is_computed_over_episodes(plain_and_verify):
     study, plain, verify = plain_and_verify
     record = compare(study, plain, verify)[1]["comparison"]
     text = " ".join(record["limitations"])
-    assert "no confidence interval" in text and "Repeats of a Case" in text
+    assert "no binomial interval over Episodes" in text and "Repeats of a Case" in text
 
-    def keys(value):
+    def paths(value, path=()):
         if isinstance(value, dict):
             for key, inner in value.items():
-                yield key
-                yield from keys(inner)
+                yield (*path, key)
+                yield from paths(inner, (*path, key))
         elif isinstance(value, list):
             for inner in value:
-                yield from keys(inner)
+                yield from paths(inner, path)
 
-    assert not [key for key in keys(record) if "interval" in key or "p_value" in key or "significance" in key]
+    found = list(paths(record))
+    assert not [p for p in found if "p_value" in p[-1] or "significance" in p[-1]]
+    assert [p for p in found if "interval" in p[-1]] == [("interval",)]
+
+
+# --- the interval over Cases ------------------------------------------------------------------------------------------------
+
+
+def declared_seed(study) -> int:
+    return json.loads((Path(study) / "study.json").read_text())["resampling"]["seed"]
+
+
+def delta_shares(study, record) -> list:
+    return [float(row["delta_share"]) for row in rows_of(Path(study) / record["paired_deltas_ref"]["path"])]
+
+
+DEV_CASES = [f"D{n:02d}" for n in range(1, 101)]
+# The Control answers a Case wrongly on as many of its three Repeats as its number modulo 4 gives, up to three: per-Case shares that differ.
+PLAIN_WRONG = {(case_id, repeat) for number, case_id in enumerate(DEV_CASES, 1) for repeat in range(min(number % 4, 3))}
+
+
+def hundred_cases(tmp_path, *, examples=None, name="hundred"):
+    """(Study, Control Assessment, Candidate Assessment): two imports of answers over the 100 `dev` Cases by 3 Repeats, each assessed."""
+    more = () if examples is None else ("--examples-dir", examples)
+    study, _ = init_chinook(Path(tmp_path), name=name, examples=examples)
+    population = episodes_file(tmp_path, keys_of(REPEATS, DEV_CASES), name=f"{name}-population.json")
+    sides = []
+    for side, wrong in (("plain", PLAIN_WRONG), ("verify", set())):
+        source = write_lines(Path(tmp_path) / f"{name}-{side}.jsonl", reference_answer_lines(DEV_CASES, wrong=wrong))
+        code, payload, err = import_agent(study, source, population, f"{name}-{side}", *more)
+        assert code == 0, (payload, err)
+        sides.append(assess(study, observation_set_of(study, payload["attempt"]), *more))
+    return study, sides[0], sides[1]
+
+
+@pytest.fixture(scope="module")
+def hundred(tmp_path_factory):
+    return hundred_cases(tmp_path_factory.mktemp("hundred"))
+
+
+def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_delta_share_column_of_its_own_paired_deltas(hundred, tmp_path):
+    base, plain, verify = hundred
+    study = shutil.copytree(base, Path(tmp_path) / "study")
+    record = compare(study, plain, verify)[1]["comparison"]
+    stored = json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
+    interval = stored["interval"]
+    shares = delta_shares(study, stored)
+    assert len(shares) == len(DEV_CASES) == 100
+    bounds = intervals.percentile_interval(shares, seed=declared_seed(study))
+    assert interval == {
+        "unit": "case",
+        "units": 100,
+        "resamples": 2000,
+        "level": 0.95,
+        "method": "percentile_bootstrap",
+        "seed": declared_seed(study),
+        "variant": None,
+        "block_length": None,
+        "reason": None,
+        "lower": bounds["lower"],
+        "upper": bounds["upper"],
+    }
+    assert interval["lower"] < stored["delta"]["value"] < interval["upper"]
+
+
+def test_the_same_compare_on_a_copy_gives_the_same_bounds_and_another_declared_seed_other_bounds_and_the_same_delta(hundred, tmp_path):
+    base, plain, verify = hundred
+    first = compare(shutil.copytree(base, Path(tmp_path) / "first"), plain, verify)[1]["comparison"]
+    again = compare(shutil.copytree(base, Path(tmp_path) / "copy"), plain, verify)[1]["comparison"]
+    assert (again["interval"]["lower"], again["interval"]["upper"]) == (first["interval"]["lower"], first["interval"]["upper"])
+
+    def reseeded(declaration):
+        declaration["resampling"]["seed"] += 1
+
+    other, other_plain, other_verify = hundred_cases(tmp_path, examples=chinook_examples(tmp_path, edit=reseeded, name="reseeded"), name="reseeded")
+    reseeded_record = compare(other, other_plain, other_verify)[1]["comparison"]
+    assert reseeded_record["interval"]["seed"] == first["interval"]["seed"] + 1
+    assert (reseeded_record["interval"]["lower"], reseeded_record["interval"]["upper"]) != (first["interval"]["lower"], first["interval"]["upper"])
+    assert reseeded_record["delta"]["value"] == first["delta"]["value"]
+
+
+def test_a_withheld_delta_holds_an_interval_with_null_bounds_and_reason_delta_withheld_and_compare_prints_no_bounds(tmp_path, study):
+    _, plain = imported(tmp_path, study, "plain", answer_lines(failed={("D03", 2)}))
+    _, verify = imported(tmp_path, study, "verify", answer_lines())
+    record = compare(study, plain, verify)[1]["comparison"]
+    assert record["delta"]["reason"] == "coverage_incomplete"
+    stored = json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
+    assert (stored["interval"]["lower"], stored["interval"]["upper"], stored["interval"]["reason"]) == (None, None, "delta_withheld")
+    code, out, _ = run_cli("compare", "--study", study, "--control", plain["assessment_id"], "--candidate", verify["assessment_id"])
+    assert code == 0 and "interval" not in out and "[" not in out
+
+
+def test_the_human_line_gives_after_the_delta_the_two_bounds_the_level_and_the_count_of_cases_and_no_significance_word(plain_and_verify):
+    study, plain, verify = plain_and_verify
+    code, out, _ = run_cli("compare", "--study", study, "--control", plain["assessment_id"], "--candidate", verify["assessment_id"])
+    record = json.loads(next((Path(study) / "comparisons").glob("*/comparison.json")).read_text())
+    interval = record["interval"]
+    shown = f"{record['delta']['value']:+.6g} {record['delta']['unit']}, 0.95 interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over 4 Cases"
+    assert code == 0 and f"delta {PRIMARY} {shown} (Candidate minus Control" in out
+    assert "significan" not in out.lower() and "p-value" not in out.lower()
 
 
 def test_each_side_keeps_its_full_case_by_repeat_matrix_with_every_criterion_state(plain_and_verify):

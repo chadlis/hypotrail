@@ -1210,10 +1210,23 @@
         "unit": "rentals per day",
         "value": 173.93948298447322
       },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-000000000006",
       "limitations": [
-        "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
         "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
         "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-000000000007, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
       ],
@@ -1326,10 +1339,23 @@
         "unit": "rentals per day",
         "value": 173.93948298447322
       },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-00000000000c",
       "limitations": [
-        "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
         "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
         "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
       ],
@@ -1442,10 +1468,23 @@
         "unit": "rentals per day",
         "value": 173.93948298447322
       },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-00000000000c",
       "limitations": [
-        "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
         "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
         "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
       ],

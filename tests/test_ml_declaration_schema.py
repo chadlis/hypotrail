@@ -442,3 +442,24 @@ def test_a_declaration_that_is_not_json_names_the_file_as_key_and_the_whole_docu
     assert (error.code, error.stage) == ("FILE_NOT_JSON", "declaration")
     assert error.details["key"] == "workload.json" and error.details["path"] == ""
     assert error.details["file"] == str(tmp_path / "workload.json")
+
+
+@pytest.mark.parametrize(
+    "edit, code, key, path",
+    [
+        (lambda d: d["resampling"].pop("block"), "DECLARATION_INCOMPLETE", "block", "resampling"),
+        (lambda d: d["resampling"]["block"].__setitem__("length", 1), "DECLARATION_VALUE_NOT_ALLOWED", "length", "resampling.block.length"),
+        (lambda d: d["resampling"]["block"].__setitem__("variant", "moving"), "DECLARATION_VALUE_NOT_ALLOWED", "variant", "resampling.block.variant"),
+        (lambda d: d["resampling"].__setitem__("unit", "case"), "DECLARATION_VALUE_NOT_ALLOWED", "unit", "resampling.unit"),
+    ],
+    ids=["no block", "a length below 2", "a variant other than circular", "the unit case"],
+)
+def test_init_refuses_a_resampling_without_a_circular_block_of_at_least_2_days_or_with_another_unit_and_writes_nothing(tmp_path, edit, code, key, path):
+    from _study_helpers import examples_copy, run_json
+
+    study = tmp_path / "study"
+    exit_code, payload, _ = run_json("init", "--workload", "bike_day", "--study", study, "--examples-dir", examples_copy(tmp_path, edit=edit))
+    error = payload.get("error") or {}
+    details = error.get("details") or {}
+    assert (exit_code, error.get("code"), error.get("stage"), details.get("key"), details.get("path")) == (2, code, "declaration", key, path)
+    assert not study.exists()

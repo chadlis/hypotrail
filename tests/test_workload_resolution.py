@@ -137,6 +137,11 @@ def _report(root):
     return ["report", "--study", study, "--out", root / "page.html"], None
 
 
+def _profile(root):
+    study, _ = fresh_study(root, "seasonal_7")
+    return ["profile", "--study", study], None
+
+
 def _spike_live(root):
     return ["spike", "live", "--config", "nonesuch", "--model", "anthropic/m", "--out", root / "out"], UNDECLARED
 
@@ -155,6 +160,7 @@ ROWS = {
     "compare (ml)": ("compare", _compare_ml),
     "compare (agent)": ("compare", _compare_agent),
     "report": ("report", _report),
+    "profile": ("profile", _profile),
     "spike live": ("spike live", _spike_live),
 }
 
@@ -230,8 +236,9 @@ def test_an_editable_checkout_finds_its_examples_without_a_flag_and_the_flag_tak
     assert named != default and named[0] != 0
 
 
-def test_a_report_of_dev_items_reads_no_workload_so_it_needs_no_flag_where_none_is_found(installs, tmp_path):
-    """D-016 on chadlis/hypotrail#75 and #85 Tightened H: `report` reads the Workload only to record an Exposure, so a page of `dev` Items works from any install."""
+def test_a_report_of_dev_items_needs_no_flag_where_no_workload_is_found_and_its_data_profile_holds_the_refusal_code(installs, tmp_path):
+    """D-016 on chadlis/hypotrail#75 and #85 Tightened H: a page of `dev` Items works from any install. Its data profile reads the Workload,
+    and "the report never fails because of the profile" (D-153 on chadlis/hypotrail#75): the section holds the resolver's code."""
     root = tmp_path / "work"
     (root / "cwd").mkdir(parents=True)
     study, _ = fresh_study(root, "seasonal_7")
@@ -239,6 +246,7 @@ def test_a_report_of_dev_items_reads_no_workload_so_it_needs_no_flag_where_none_
     code, payload = _run(installs["outside"], argv, cwd=root / "cwd")
     assert (code, payload.get("ok")) == (0, True), payload
     assert payload["report"]["exposure"]["recorded"] is False and (root / "page.html").is_file()
+    assert "The data profile could not be read: <code>EXAMPLES_DIR_NOT_FOUND</code>." in (root / "page.html").read_text(encoding="utf-8")
 
 
 # --- the parser and the list --------------------------------------------------------------------------------------------

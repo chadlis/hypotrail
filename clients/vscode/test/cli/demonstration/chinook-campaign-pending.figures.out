@@ -1,0 +1,1516 @@
+{
+  "ok": true,
+  "write_sequence": 16,
+  "comparisons": [
+    {
+      "comparison_id": "00000000-0000-4000-8000-000000000018",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "case_id": "D01",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D02",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D03",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D04",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D05",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D06",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D07",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D08",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D09",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D10",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D100",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D11",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D12",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D13",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D14",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D15",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D16",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D17",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D18",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D19",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D20",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D21",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D22",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D23",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D24",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D25",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D26",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D27",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D28",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D29",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D30",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D31",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D32",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D33",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D34",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D35",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D36",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D37",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D38",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D39",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D40",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D41",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D42",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D43",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D44",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D45",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D46",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D47",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D48",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D49",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D50",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D51",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D52",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D53",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D54",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D55",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D56",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D57",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D58",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D59",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D60",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D61",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D62",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D63",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D64",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D65",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D66",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D67",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D68",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D69",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D70",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D71",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D72",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D73",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D74",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D75",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D76",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D77",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D78",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D79",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D80",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D81",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D82",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D83",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D84",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D85",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D86",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D87",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D88",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D89",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D90",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D91",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D92",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D93",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D94",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D95",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D96",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D97",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D98",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D99",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        }
+      ],
+      "histogram": [
+        {
+          "low": -1.0,
+          "high": -0.75,
+          "count": 38
+        },
+        {
+          "low": -0.75,
+          "high": -0.5,
+          "count": 0
+        },
+        {
+          "low": -0.5,
+          "high": -0.25,
+          "count": 0
+        },
+        {
+          "low": -0.25,
+          "high": 0.0,
+          "count": 0
+        },
+        {
+          "low": 0.0,
+          "high": 0.25,
+          "count": 59
+        },
+        {
+          "low": 0.25,
+          "high": 0.5,
+          "count": 0
+        },
+        {
+          "low": 0.5,
+          "high": 0.75,
+          "count": 0
+        },
+        {
+          "low": 0.75,
+          "high": 1.0,
+          "count": 3
+        }
+      ],
+      "quartiles": {
+        "min": -1.0,
+        "q1": -1.0,
+        "median": 0.0,
+        "q3": 0.0,
+        "max": 1.0
+      }
+    },
+    {
+      "comparison_id": "00000000-0000-4000-8000-00000000001c",
+      "unavailable": null,
+      "paired_deltas": [
+        {
+          "case_id": "D01",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D02",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D03",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D04",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D05",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D06",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D07",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D08",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D09",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D10",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D100",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D11",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D12",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D13",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D14",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D15",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D16",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D17",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D18",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D19",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D20",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D21",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D22",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D23",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D24",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D25",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D26",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D27",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D28",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D29",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D30",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D31",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D32",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D33",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D34",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D35",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D36",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D37",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D38",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D39",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D40",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D41",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D42",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D43",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D44",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D45",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D46",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D47",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D48",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D49",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D50",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D51",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D52",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D53",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D54",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D55",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D56",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D57",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D58",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D59",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D60",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D61",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D62",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D63",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D64",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D65",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D66",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D67",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D68",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 1.0,
+          "delta_share": 1.0
+        },
+        {
+          "case_id": "D69",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D70",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D71",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D72",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D73",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D74",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D75",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D76",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D77",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D78",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D79",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D80",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D81",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D82",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D83",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D84",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D85",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D86",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D87",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D88",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D89",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D90",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D91",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D92",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D93",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D94",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D95",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D96",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 1.0,
+          "delta_share": 0.0
+        },
+        {
+          "case_id": "D97",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D98",
+          "repeats": 1,
+          "control_share": 1.0,
+          "candidate_share": 0.0,
+          "delta_share": -1.0
+        },
+        {
+          "case_id": "D99",
+          "repeats": 1,
+          "control_share": 0.0,
+          "candidate_share": 0.0,
+          "delta_share": 0.0
+        }
+      ],
+      "histogram": [
+        {
+          "low": -1.0,
+          "high": -0.75,
+          "count": 38
+        },
+        {
+          "low": -0.75,
+          "high": -0.5,
+          "count": 0
+        },
+        {
+          "low": -0.5,
+          "high": -0.25,
+          "count": 0
+        },
+        {
+          "low": -0.25,
+          "high": 0.0,
+          "count": 0
+        },
+        {
+          "low": 0.0,
+          "high": 0.25,
+          "count": 59
+        },
+        {
+          "low": 0.25,
+          "high": 0.5,
+          "count": 0
+        },
+        {
+          "low": 0.5,
+          "high": 0.75,
+          "count": 0
+        },
+        {
+          "low": 0.75,
+          "high": 1.0,
+          "count": 3
+        }
+      ],
+      "quartiles": {
+        "min": -1.0,
+        "q1": -1.0,
+        "median": 0.0,
+        "q3": 0.0,
+        "max": 1.0
+      }
+    }
+  ]
+}

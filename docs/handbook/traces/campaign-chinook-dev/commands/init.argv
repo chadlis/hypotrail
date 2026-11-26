@@ -1,0 +1,1 @@
+uv run python -m hypotrail init --workload chinook --study docs/handbook/traces/campaign-chinook-dev/study 

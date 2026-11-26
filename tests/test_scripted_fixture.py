@@ -7,7 +7,7 @@ writes). Inspect's mock model only: no network, no provider key.
 
 import pytest
 
-from _agent_helpers import WORKLOAD, ScriptedModel
+from _agent_helpers import CHINOOK, WORKLOAD, ScriptedModel, read_jsonl
 
 from hypotrail.agentic import projection, runner
 from hypotrail.agentic.limits import EpisodeLimits
@@ -323,10 +323,11 @@ def test_the_recorded_model_is_inspects_mock_model_and_no_record_names_a_provide
         assert provider not in text, provider
 
 
-def test_the_scenario_episodes_are_never_outputs_of_the_twenty_business_cases(fixture_execution):
+def test_the_scenario_episodes_are_never_outputs_of_the_business_cases(fixture_execution):
     out, record = fixture_execution
     business = {c["case_id"] for partition in ("dev", "public_check") for c in WORKLOAD.cases(partition)}
-    assert len(business) == 20
+    declared = WORKLOAD.declaration["cases"].values()
+    assert len(business) == sum(len(read_jsonl(CHINOOK / path)) for path in declared)
     run_ids = {e["case_id"] for e in episodes_of(out)}
     assert run_ids and run_ids.isdisjoint(business)
     assert record["business_case_outputs"] == 0
