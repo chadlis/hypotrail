@@ -14,7 +14,6 @@ The shares of CMP-04 and CMP-05 and the Assessment contract belong to #9.
 
 from collections import Counter
 
-from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.agentic.partitions import refuse_public_check
 
 
@@ -39,8 +38,8 @@ def counters(verdicts: list[dict], name: str) -> dict:
     }
 
 
-def tally(verdicts: list[dict], criteria: tuple[str, ...] = CRITERIA, *, workload) -> dict:
-    """The counters over verdicts. Refuses a `public_check` Item, by the Partition the Workload declares for it."""
+def tally(verdicts: list[dict], *, criteria: tuple[str, ...], workload) -> dict:
+    """The counters over verdicts, for each of `criteria`, the Criteria of the Scorer that gave them. Refuses a `public_check` Item, by the Partition the Workload declares for it."""
     refuse_public_check(
         workload, [v["case_id"] for v in verdicts], code="PUBLIC_CHECK_COUNTS_REFUSED", what="counts", stage="counts"
     )

@@ -22,8 +22,6 @@ QUALITY = "Quality among the scored (N_correct / N_scored)"
 CONFIRMED = "Share of the planned Episodes with a confirmed success (N_correct / N_expected)"
 CRITERIA_COLUMNS = ("Criterion", *[f"N_{key}" for key in COUNT_KEYS], QUALITY, CONFIRMED, "Unknowns")
 WRAPPED = {"raw_answer": "raw_answer", "embedded_object": "embedded_object (Wrapped answer)", "": "nothing read"}
-# What one cell of the matrix holds, in order (the handbook lists them; one line per Criterion between the answer and the trace).
-CELL_LINES = ("Case and Repeat", "Execution", "Answer read from", *CRITERIA, "Trace")
 TRACE_LABELS = {"log": "Trace", "source": "Trace in the import source"}
 ABSENT = "trace absent"
 # What an `llm_live` Attempt shows beside its Configuration, as the handbook lists it.
@@ -41,6 +39,11 @@ SELF_CHECK_SENTENCE = (
     "The Mode scripted_fixture runs technical scenarios to test the harness. Its statuses and counts are a self-check: "
     "they are not an Assessment, they are never compared, and they measure no system."
 )
+
+
+def cell_lines(criteria: tuple) -> tuple:
+    """What one cell of the matrix holds, in order (the handbook lists them for Chinook): one line per Criterion of the Assessment's Scorer between the answer and the trace."""
+    return ("Case and Repeat", "Execution", "Answer read from", *criteria, "Trace")
 
 
 def _text(value) -> str:
@@ -276,13 +279,12 @@ def _execution(status: str, entry) -> str:
     return "produced" if status == "produced" else f"{status} (Reason: {(entry or {}).get('reason') or UNKNOWN})"
 
 
-def _cell(case_id: str, repeat: int, episode: dict, entry, trace, links: Links) -> Safe:
+def _cell(case_id: str, repeat: int, episode: dict, entry, trace, links: Links, criteria: tuple) -> Safe:
     lines = [f"Case {case_id}, Repeat {repeat}", f"Execution: {_execution(episode['status'], entry)}"]
     if episode["status"] == "produced" and episode["answer_given_as"]:
         read = episode["answer_read_from"]
         lines.append(f"Answer read from: {WRAPPED.get(read, read)}")
-    names = CRITERIA if set(episode["criteria"]) <= set(CRITERIA) else tuple(episode["criteria"])  # another Scorer's Criteria, as recorded
-    for name in names:
+    for name in criteria:
         row = episode["criteria"].get(name)
         if row is None:
             lines.append(f"{name}: not recorded")
@@ -305,8 +307,9 @@ def _matrix(assessment: dict, links: Links) -> Safe:
     entries, trace = (attempt["entries"], attempt["trace"]) if attempt is not None else ({}, None)
     cases = sorted({case for case, _ in episodes})
     repeats = sorted({repeat for _, repeat in episodes})
+    criteria = criteria_of(assessment["record"])
     rows = [
-        [case, *[_cell(case, r, episodes[(case, r)], entries.get((case, r)), trace, links) if (case, r) in episodes else "not planned" for r in repeats]]
+        [case, *[_cell(case, r, episodes[(case, r)], entries.get((case, r)), trace, links, criteria) if (case, r) in episodes else "not planned" for r in repeats]]
         for case in cases
     ]
     return table(f"matrix-{assessment['record']['assessment_id']}", ["Case", *[f"Repeat {r}" for r in repeats]], rows)

@@ -314,3 +314,37 @@ def test_the_glossary_keeps_the_reference_and_case_definitions_and_dates_the_tex
     case = lines.index("**Case**:")
     assert lines[case + 1] == "One question of an agentic Track, with its requested columns and unit; it carries no expected answer."
     assert lines[case + 2].startswith("Clarification, 2026-11-26: ") and "`history`" in lines[case + 2]
+
+
+# --- the report of a chinook_prose Study ----------------------------------------------------------------------------------------
+
+
+def test_report_of_a_chinook_prose_study_shows_the_criteria_of_text_facts_v1_in_its_counters_and_in_every_matrix_cell(tmp_path):
+    from _report_helpers import doc_of, lines_of, report
+
+    study, references = prose_study(tmp_path)
+    code, payload, err = assess(study, observation_set(tmp_path, study), "text_facts_v1", references)
+    assert code == 0, (payload, err)
+    assessment_id = payload["assessment"]["assessment_id"]
+    out = tmp_path / "page.html"
+    code, payload, err = report(study, out)
+    assert code == 0, (payload, err)
+    doc = doc_of(out)
+    assert [row[0] for row in doc.body(f"criteria-{assessment_id}")] == list(text_facts.CRITERIA)
+    cells = {row[0]["text"]: row[1] for row in doc.cells(f"matrix-{assessment_id}")}
+    assert set(cells) == {"D01", "D02", "D03"}
+    for case_id, cell in cells.items():
+        names = [line.split(":")[0] for line in lines_of(cell)]
+        assert [name for name in names if name not in ("Execution", "Answer read from", "Trace") and not name.startswith("Case ")] == list(text_facts.CRITERIA), case_id
+
+
+def test_tally_counts_the_criteria_it_is_given_and_has_no_default_set_of_criteria():
+    import inspect
+
+    from hypotrail.agentic import counts
+    from hypotrail.agentic.declaration import load_workload
+
+    assert inspect.signature(counts.tally).parameters["criteria"].default is inspect.Parameter.empty
+    verdict = {"case_id": "D01", "status": "produced", "tool_error_codes": [], "criteria": text_facts.apply("", None, {})["criteria"]}
+    tallied = counts.tally([verdict], criteria=text_facts.CRITERIA, workload=load_workload(PROSE))["criteria"]
+    assert list(tallied) == list(text_facts.CRITERIA) and tallied["text_facts_success"]["N_unscored"] == 1

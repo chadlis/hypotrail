@@ -109,7 +109,7 @@ def test_an_episode_absent_from_the_log_is_expected_but_not_attempted(tmp_path):
     )
     # D03 produced, D05 failed by a model error, D07 absent from the log
     for name in CRITERIA:
-        c = counts.tally(verdicts, workload=WORKLOAD)["criteria"][name]
+        c = counts.tally(verdicts, criteria=CRITERIA, workload=WORKLOAD)["criteria"][name]
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (3, 2, 1)
         assert c["N_attempted"] != c["N_expected"]
         # every expected Episode is in exactly one state
@@ -125,7 +125,7 @@ def test_a_limit_stopped_episode_stays_in_expected_and_attempted_and_out_of_prod
     )
     assert verdicts[0]["status"] == "failed"
     for name in CRITERIA:
-        c = counts.tally(verdicts, workload=WORKLOAD)["criteria"][name]
+        c = counts.tally(verdicts, criteria=CRITERIA, workload=WORKLOAD)["criteria"][name]
         assert (c["N_expected"], c["N_attempted"], c["N_produced"]) == (1, 1, 0)
 
 
@@ -283,7 +283,7 @@ def test_each_criterion_has_distinct_denominators_and_every_scenario_moves_a_dif
     assert len({combos[s] for s in others}) == len(others)
     # the counters over every scenario: budget_exhausted (turn limit) is scored false on every Criterion
     settled = json.loads((out / "verdicts.json").read_text())["verdicts"]
-    t = counts.tally(settled, workload=WORKLOAD)
+    t = counts.tally(settled, criteria=CRITERIA, workload=WORKLOAD)
     exact = t["criteria"]["exact_table"]
     # good_result and recovered_tool_error correct; wrong_result and invalid_format incorrect;
     # missing_reference (reference_missing) and absent_from_log (observation_missing) unscored

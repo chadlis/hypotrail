@@ -2105,6 +2105,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
 
     from hypotrail.agentic import counts, rescore
     from hypotrail.agentic.declaration import load_workload
+    from hypotrail.core import chinook_contract
     from hypotrail.core.errors import HypotrailError
     from hypotrail.ml import comparison, metrics
 
@@ -2113,7 +2114,7 @@ def test_the_entry_point_table_equals_where_public_check_is_allowed_and_the_code
         "metrics.compute_metrics": lambda: metrics.compute_metrics("p.csv", "r.csv", "m.csv", tmp_path, partition="public_check"),
         "comparison.compare": lambda: comparison.compare("a.csv", "b.csv", "r.csv", "m.csv", tmp_path / "out", tmp_path, partition="public_check"),
         "rescore": lambda: rescore.rescore_episodes([{"case_id": "E01", "repeat": 0}], {}, schema={}, workload=workload),
-        "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], workload=workload),
+        "counts.tally": lambda: counts.tally([{"case_id": "E01", "tool_error_codes": []}], criteria=chinook_contract.CRITERIA, workload=workload),
     }
     rows = attrs_of(page, "exposure-entry-points", "data-entry")
     assert set(rows) == {"assess", "compare", "report", "run ml", *calls}
@@ -2847,7 +2848,7 @@ def test_the_report_matrix_cell_table_equals_the_lines_the_code_writes_for_a_cel
 
     rows = attrs_of(page, "report-matrix-cell", "data-line")
     ordered = [key for key, row in sorted(rows.items(), key=lambda item: int(item[1]["data-order"]))]
-    assert tuple(ordered) == render_agent.CELL_LINES
+    assert tuple(ordered) == render_agent.cell_lines(CRITERIA)
     assert tuple(key for key in ordered if key in CRITERIA) == CRITERIA
     _, _, lines = _chinook_page(tmp_path)
     rendered = [line.split(":")[0] for line in lines]
