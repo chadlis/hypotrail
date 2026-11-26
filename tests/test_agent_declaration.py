@@ -52,7 +52,7 @@ def test_the_declaration_holds_no_python():
     assert json.loads((CHINOOK / "workload.json").read_text()) == DECLARATION
 
 
-@pytest.mark.parametrize("key", ["track", "database", "licence_notice", "cases", "references", "configurations"])
+@pytest.mark.parametrize("key", ["track", "licence_notice", "cases", "references", "configurations"])
 def test_a_missing_required_key_is_refused_with_a_code(tmp_path, key):
     error = refusal(workload_with(tmp_path, lambda d: d.pop(key)))
     assert error.code == "DECLARATION_INCOMPLETE"
@@ -119,7 +119,7 @@ def test_a_declaration_that_is_not_json_or_absent_is_refused(tmp_path):
 
 
 def test_a_refusal_comes_before_inspect_is_imported(tmp_path):
-    bad = workload_with(tmp_path, lambda d: d.pop("database"))
+    bad = workload_with(tmp_path, lambda d: d.pop("references"))
     program = (
         "import sys\n"
         "from hypotrail.agentic.declaration import load_workload\n"

@@ -1,0 +1,60 @@
+{
+  "schema_version": "text-facts-config/1",
+  "identifier_kinds": {
+    "invoice": {
+      "pattern": "(?i)\\b(?:invoices?|inv)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "strip_leading_zeros": true,
+      "separators": [
+        "_"
+      ],
+      "casefold": true
+    },
+    "customer": {
+      "pattern": "(?i)\\b(?:customers?|cust)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "strip_leading_zeros": true,
+      "separators": [
+        "_"
+      ],
+      "casefold": true
+    },
+    "track": {
+      "pattern": "(?i)\\b(?:tracks?)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "strip_leading_zeros": true,
+      "separators": [
+        "_"
+      ],
+      "casefold": true
+    },
+    "album": {
+      "pattern": "(?i)\\b(?:albums?)(?:\\s+(?:id|no\\.?|number))?[\\s#:-]*([0-9](?:[0-9_]*[0-9])?)\\b",
+      "strip_leading_zeros": true,
+      "separators": [
+        "_"
+      ],
+      "casefold": true
+    }
+  },
+  "outcome_phrases": {
+    "needs_clarification": [
+      "could you clarify",
+      "can you clarify",
+      "please clarify",
+      "do you mean",
+      "which do you mean",
+      "could you specify",
+      "can you specify"
+    ],
+    "not_answerable": [
+      "there is no data",
+      "no data on",
+      "does not hold",
+      "doesn't hold",
+      "does not record",
+      "doesn't record",
+      "is not recorded",
+      "isn't recorded",
+      "does not store",
+      "doesn't store"
+    ]
+  }
+}

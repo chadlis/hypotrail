@@ -28,7 +28,7 @@ from _study_helpers import examples_copy, init_study, run_json, run_ml
 
 from hypotrail.agentic import counts, rescore
 from hypotrail.agentic.declaration import load_workload
-from hypotrail.core import artifacts, canonical, contracts, lock
+from hypotrail.core import artifacts, canonical, chinook_contract, contracts, lock
 from hypotrail.core.errors import HypotrailError
 from hypotrail.ml import comparison as ml_comparison
 from hypotrail.ml import metrics
@@ -223,7 +223,7 @@ def test_the_entry_points_that_have_no_study_keep_their_refusal(tmp_path):
         rescore.rescore_log("no-log.eval", {}, schema={}, expected=[(public, 0)], workload=workload)
     assert refusal.value.code == "PUBLIC_CHECK_RESCORING_REFUSED"
     with pytest.raises(HypotrailError) as refusal:
-        counts.tally([{"case_id": public, "tool_error_codes": []}], workload=workload)
+        counts.tally([{"case_id": public, "tool_error_codes": []}], criteria=chinook_contract.CRITERIA, workload=workload)
     assert refusal.value.code == "PUBLIC_CHECK_COUNTS_REFUSED"
     with pytest.raises(HypotrailError) as refusal:
         metrics.compute_metrics("p.csv", "r.csv", "m.csv", tmp_path, partition="public_check")

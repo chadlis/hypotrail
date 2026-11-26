@@ -11,6 +11,7 @@ import json
 
 from hypotrail.core.agent_comparison import DEVIATIONS
 from hypotrail.core.attempts import SCENARIO_MODE
+from hypotrail.core import scorers
 from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.report import gather_agent
 from hypotrail.report.markup import UNKNOWN, Links, Safe, esc, interval, join, json_text, number, paragraph, rescoring_note, scoped, sub, table, tag
@@ -21,8 +22,6 @@ QUALITY = "Quality among the scored (N_correct / N_scored)"
 CONFIRMED = "Share of the planned Episodes with a confirmed success (N_correct / N_expected)"
 CRITERIA_COLUMNS = ("Criterion", *[f"N_{key}" for key in COUNT_KEYS], QUALITY, CONFIRMED, "Unknowns")
 WRAPPED = {"raw_answer": "raw_answer", "embedded_object": "embedded_object (Wrapped answer)", "": "nothing read"}
-# What one cell of the matrix holds, in order (the handbook lists them; one line per Criterion between the answer and the trace).
-CELL_LINES = ("Case and Repeat", "Execution", "Answer read from", *CRITERIA, "Trace")
 TRACE_LABELS = {"log": "Trace", "source": "Trace in the import source"}
 ABSENT = "trace absent"
 # What an `llm_live` Attempt shows beside its Configuration, as the handbook lists it.
@@ -40,6 +39,11 @@ SELF_CHECK_SENTENCE = (
     "The Mode scripted_fixture runs technical scenarios to test the harness. Its statuses and counts are a self-check: "
     "they are not an Assessment, they are never compared, and they measure no system."
 )
+
+
+def cell_lines(criteria: tuple) -> tuple:
+    """What one cell of the matrix holds, in order (the handbook lists them for Chinook): one line per Criterion of the Assessment's Scorer between the answer and the trace."""
+    return ("Case and Repeat", "Execution", "Answer read from", *criteria, "Trace")
 
 
 def _text(value) -> str:
@@ -161,11 +165,17 @@ def self_checks(model) -> list:
 # --- Metrics and differences ------------------------------------------------------------------------------------------
 
 
+def criteria_of(record: dict) -> tuple:
+    """The Criteria of the Assessment's Scorer, by its registry entry; those of `chinook_contract_v1` for a Scorer the registry no longer holds."""
+    scorer = scorers.REGISTRY.get(record["scorer"]["id"])
+    return scorer.criteria if scorer is not None and scorer.criteria else CRITERIA
+
+
 def _criteria_table(assessment: dict) -> Safe:
     record = assessment["record"]
     primary = record["primary_criterion"]
     rows = []
-    for name in CRITERIA:
+    for name in criteria_of(record):
         source = {"counts": record["counts"], "metrics": record["metrics"]} if name == primary else assessment["detailed"]["criteria"].get(name)
         if source is None:
             rows.append([name, *[UNKNOWN] * 11])
@@ -269,12 +279,12 @@ def _execution(status: str, entry) -> str:
     return "produced" if status == "produced" else f"{status} (Reason: {(entry or {}).get('reason') or UNKNOWN})"
 
 
-def _cell(case_id: str, repeat: int, episode: dict, entry, trace, links: Links) -> Safe:
+def _cell(case_id: str, repeat: int, episode: dict, entry, trace, links: Links, criteria: tuple) -> Safe:
     lines = [f"Case {case_id}, Repeat {repeat}", f"Execution: {_execution(episode['status'], entry)}"]
     if episode["status"] == "produced" and episode["answer_given_as"]:
         read = episode["answer_read_from"]
         lines.append(f"Answer read from: {WRAPPED.get(read, read)}")
-    for name in CRITERIA:
+    for name in criteria:
         row = episode["criteria"].get(name)
         if row is None:
             lines.append(f"{name}: not recorded")
@@ -297,8 +307,9 @@ def _matrix(assessment: dict, links: Links) -> Safe:
     entries, trace = (attempt["entries"], attempt["trace"]) if attempt is not None else ({}, None)
     cases = sorted({case for case, _ in episodes})
     repeats = sorted({repeat for _, repeat in episodes})
+    criteria = criteria_of(assessment["record"])
     rows = [
-        [case, *[_cell(case, r, episodes[(case, r)], entries.get((case, r)), trace, links) if (case, r) in episodes else "not planned" for r in repeats]]
+        [case, *[_cell(case, r, episodes[(case, r)], entries.get((case, r)), trace, links, criteria) if (case, r) in episodes else "not planned" for r in repeats]]
         for case in cases
     ]
     return table(f"matrix-{assessment['record']['assessment_id']}", ["Case", *[f"Repeat {r}" for r in repeats]], rows)

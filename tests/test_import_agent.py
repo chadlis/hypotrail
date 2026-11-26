@@ -211,7 +211,7 @@ def test_import_time_is_apart_from_generation_time_and_every_field_has_an_origin
     }
     observation_set = observation_set_of(study, attempt)
     assert observation_set["provenance"]["import_time"] == config["import_time"]
-    assert set(observation_set["unknown_fields"]) == {"model", "generation_time", "historical_protocol", "tool_use", "saw_public_check"}
+    assert set(observation_set["unknown_fields"]) == {"model", "generation_time", "historical_protocol", "tool_use", "saw_public_check", "settings"}
 
 
 def test_what_the_file_establishes_is_declared_and_never_verified_and_conflicting_lines_stay_unknown(tmp_path, study):

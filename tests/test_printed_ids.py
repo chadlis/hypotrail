@@ -242,6 +242,18 @@ def without_the_limits_added_after_the_kept_study(path, text):
     return ADDED_LIMITS.sub("", text)
 
 
+def without_the_settings_added_after_the_kept_study(path, text):
+    """The text of a made Import's `observation_set.json` without the `settings` #266 added to its provenance and its unknown fields."""
+    if not isinstance(text, str) or not path.endswith("/observation_set.json"):
+        return text
+    record = json.loads(text)
+    if record.get("origin") != "imported" or record["provenance"].get("settings") != {"origin": "unknown", "value": None}:
+        return text
+    del record["provenance"]["settings"]
+    record["unknown_fields"] = [field for field in record["unknown_fields"] if field != "settings"]
+    return json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+
+
 @pytest.mark.parametrize("name", STUDIES)
 def test_the_files_of_a_study_made_by_the_commands_that_print_ids_equal_those_kept_from_main_but_by_their_ids_and_timestamps(name, tmp_path):
     """The kept files were made by the same commands at `main` `07197ea`, before the ids were printed (`tests/_kept_studies.py`).
@@ -250,11 +262,15 @@ def test_the_files_of_a_study_made_by_the_commands_that_print_ids_equal_those_ke
     which holds the latencies its Episodes measured; the Inspect log, a zip archive that holds its own timestamps and identifiers; and the
     `code_environment` fields that name the checkout that ran, `code_revision` (its commit, dirty mark and fingerprint) and the digest of
     `uv.lock`. One more exclusion, made after `07197ea`: the two limits #234 added (`cost_limit_usd` null and `parallel_tool_calls`
-    false) are taken out of the limits of the `scripted_fixture` Attempt's `attempt.json` and `run.json`, where they are present. Nothing
-    else is excluded.
+    false) are taken out of the limits of the `scripted_fixture` Attempt's `attempt.json` and `run.json`, where they are present. One more,
+    made after #266: an Import's `settings`, unknown when its lines declare none, is taken out of its `observation_set.json` provenance and
+    unknown fields. Nothing else is excluded.
     """
     kept = json.loads((KEPT / f"{name}.json").read_text(encoding="utf-8"))
-    made = {path: without_the_limits_added_after_the_kept_study(path, text) for path, text in kept_files(STUDIES[name](tmp_path)).items()}
+    made = {
+        path: without_the_settings_added_after_the_kept_study(path, without_the_limits_added_after_the_kept_study(path, text))
+        for path, text in kept_files(STUDIES[name](tmp_path)).items()
+    }
     union = sorted(set(kept) | set(made))
     differing = [(path, "kept only" if path not in made else "made only" if path not in kept else "differs") for path in union if kept.get(path) != made.get(path)]
     assert differing == []

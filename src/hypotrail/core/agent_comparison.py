@@ -17,7 +17,7 @@ passed (SPEC CMP-01, CMP-02, T12). `AGENT_CHECKS` lists them:
 4. `references`, `scorer`, `unit`: as for the bike (`comparison.check_assessments`);
 5. `repeats`: the same planned Repeats for each Case;
 6. `tools`, `model`, `budgets`: the same tools, model and budgets, each where both sides establish it. A native
-   Attempt's manifest records them; an Import's header or lines declare them or leave them `unknown`;
+   Attempt's manifest records them; an Inspect log's header or a JSONL Import's lines declare them or leave them `unknown`;
 7. `mode`: a `scripted_fixture` side against an `llm_live` side is refused, an Import counting as the Mode it
    declares. A side whose Mode is not declared is not refused.
 
@@ -295,8 +295,8 @@ def _matrix(side: dict, assessment: dict) -> dict:
 def _measures(study: Path, side: dict) -> dict:
     """The descriptive measures of a side, each None unless it is known for every Episode that ran (never a partial sum, never 0).
 
-    Counts need a trace; latency and tokens need the `usage` an Inspect log import keeps (a JSONL import has none); no
-    Observation set holds a cost.
+    Counts need a trace; latency, tokens and cost need the `usage` an import keeps: an Inspect log states latency and
+    tokens and no cost (`cost_usd` null), a JSONL line states all three per model. A native Observation set holds none.
     """
     entries = [canonical.loads(line) for line in artifacts.read_verified(study, side["observation_set"]["normalized_ref"]).decode("utf-8").splitlines() if line.strip()]
     ran = [entry for entry in entries if entry["status"] != "missing"]
@@ -309,7 +309,13 @@ def _measures(study: Path, side: dict) -> dict:
         values = [(entry.get("usage") or {}).get(name) for entry in ran]
         return sum(values) if ran and all(isinstance(v, (int, float)) for v in values) else None
 
-    return {"latency_seconds": usage("latency_seconds"), "model_calls": count("model_turn"), "tool_calls": count("tool_call"), "tokens": usage("tokens"), "cost": None}
+    return {
+        "latency_seconds": usage("latency_seconds"),
+        "model_calls": count("model_turn"),
+        "tool_calls": count("tool_call"),
+        "tokens": usage("tokens"),
+        "cost": usage("cost_usd"),
+    }
 
 
 def _rate(scored: int, expected: int):

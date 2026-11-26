@@ -65,4 +65,4 @@ def test_import_agent_records_its_lists_in_the_order_pinned(tmp_path):
     assert lists["input_refs"] == ["dataset", "memberships", "references", "answer_schema", "import_source", "import_population"]
     assert lists["output_refs"] == ["validation_report", "observations", "observation_set"]
     assert lists["raw_refs"] == ["import_source"]
-    assert lists["unknown_fields"] == PRODUCER_FIELDS
+    assert lists["unknown_fields"] == [*PRODUCER_FIELDS, "settings"]  # #266: the fixture's lines declare no `settings`

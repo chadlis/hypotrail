@@ -234,7 +234,7 @@ def test_what_the_header_states_is_declared_never_verified_and_import_time_is_ap
     }
     observation_set = observation_set_of(study, attempt)
     assert observation_set["provenance"]["log"] == declared and observation_set["provenance"]["import_time"] == config["import_time"]
-    assert set(observation_set["unknown_fields"]) == {"historical_protocol", "tool_use", "saw_public_check", "file_origin"}
+    assert set(observation_set["unknown_fields"]) == {"historical_protocol", "tool_use", "saw_public_check", "file_origin", "settings"}
     assert "verified" not in json.dumps(attempt)
 
 
