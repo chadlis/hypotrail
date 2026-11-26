@@ -25,13 +25,15 @@ STEPS = MODULE.STEPS
 # The steps of the demonstration, in the order of chadlis/hypotrail#218, "The demonstration, as this slice freezes it": L1.1 to L1.7 on
 # the first Bike Study, with PROFILE before L1.3 (chadlis/hypotrail#261, "What to build", item 5), then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
 # on the Chinook Study; then the step of chadlis/hypotrail#236, "What to build", item 1, "placed after L1.8", on a copy of the kept
-# Chinook Campaign.
+# Chinook Campaign; then the step of chadlis/hypotrail#242, "What to build", item 2: "the copy of the kept Study takes
+# `init --new-revision`, two Assessments and a `compare` whose line shows the Case interval".
 DEMO_IDS = [
     "L1.1", "L1.2", "PROFILE", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
     "A4", "A5", "task 1", "task 2", "task 3", "C10", "task 4", "task 5", "task 6.1", "task 6.2", "C5-check", "COMPARE", "S1", "C8",
     "DEV", "REPORT", "WORDS",
     "L1.8",
     "CAMPAIGN",
+    "INTERVAL",
 ]
 
 # Section 18 of `pages/de-zero-a-la-demo.html`, chadlis/hypotrail-learning at commit 164aa3a, steps L1.1 to L1.8: each step's commands
@@ -190,6 +192,18 @@ SECTION_18 = {
         ),
         STATUS_CAMPAIGN,
         ("hypotrail", "report", "--study", "runs/chinook-campaign", "--out", "runs/chinook-campaign-report.html"),
+    ],
+    # Nor INTERVAL: its commands are written from chadlis/hypotrail#242, "What to build", item 2, quoted above DEMO_IDS.
+    "INTERVAL": [
+        ("hypotrail", "init", "--study", "runs/chinook-campaign", "--new-revision"),
+        *(
+            (
+                "hypotrail", "assess", "--study", "runs/chinook-campaign", "--observations", observations, "--scorer", "chinook_contract_v1",
+                "--references", "$CAMPAIGN_REFS_2",
+            )
+            for observations in (MODULE.CAMPAIGN_PLAIN_OBSERVATIONS, MODULE.CAMPAIGN_VERIFY_OBSERVATIONS)
+        ),
+        ("hypotrail", "compare", "--study", "runs/chinook-campaign", "--control", "$CAMPAIGN_PLAIN_2", "--candidate", "$CAMPAIGN_VERIFY_2"),
     ],
 }
 
@@ -754,9 +768,11 @@ WHY_SENTENCES = {
         "It is recorded to show how a Decision is written, not as the answer the evidence supports: the warning below shows one lag "
         "feature alone, mean_previous_7 (823.878 rentals per day), below both Configurations (1090.79 and 1264.73).",
     ),
+    # D-142's sentence with its last clause replaced, as chadlis/hypotrail#242, "What to build", item 2, asks: "its texts at `:83`,
+    # `:279-280` and `:664` are rewritten to what the record now says".
     "task 5": (
         "The limitations say what the delta does not show: the days are dependent, which rules out the naive interval that treats them "
-        "as independent, not every interval; none is computed here.",
+        "as independent, not every interval; the interval resamples blocks of 7 days instead.",
     ),
     "task 6.1": (
         "After this step nothing is pending: the Comparison of task 3 compares Assessments of revision 1. What a person does next is "

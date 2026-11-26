@@ -16,6 +16,7 @@
   "target_column": "cnt",
   "target_unit": "rentals per day",
   "period_k": 7,
+  "resampling": {"unit": "item", "block": {"variant": "circular", "length": 7}, "seed": 241},
   "forbidden_features": ["casual", "registered", "cnt", "temp", "atemp", "hum", "windspeed", "weathersit"],
   "allowed_target_features": [
     {"name": "lag_1", "kind": "lag", "period": 1},

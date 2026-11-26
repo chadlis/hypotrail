@@ -386,3 +386,19 @@ def test_the_dated_lines_hold_one_line_for_the_tools_words_and_one_for_the_fifth
     assert 'the earlier lines it widens: "The template states the four requirements of the rule written for Claude Code"' in rule
     assert "The template states the four requirements of the rule written for Claude Code" in adr()
     assert "the 2026-11-24 line on the rule for Claude Code" in rule
+
+
+# --- the dated line of the key `interval` of each Comparison of `status --json` -----------------------------------------------------
+
+INTERVAL_TICKET_SENTENCE = "`status --json` lists each Comparison with its `interval` equal to the stored one, and its top-level keys are unchanged"
+
+
+def test_the_dated_lines_hold_one_line_that_names_comparisons_interval_drawn_by_no_client_until_the_redesign_quoting_its_ticket_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#240" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`comparisons[].interval`" in line and "No client draws it until the panel's redesign" in line
+    assert INTERVAL_TICKET_SENTENCE in line and "the earlier line it overrides: none" in line
+    above = adr().split("## Dated lines", 1)[0]
+    assert "interval" not in above

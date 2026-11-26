@@ -38,8 +38,8 @@ a side, is shown in the coverage and never dropped. The matrix of each side keep
 Episode. With full coverage (every Episode scored on both sides), each Criterion is aggregated per Case first
 (its share of Repeats scored true) and every Case weighs the same; the main delta is that of the primary Criterion
 (owner decision 1A on chadlis/hypotrail#9), the others are secondary. Without full coverage the value is null with a
-Reason, and the rates of coverage and the two named rates of each side (CMP-04) stand beside it. No interval is
-computed over Episodes. Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
+Reason, and the rates of coverage and the two named rates of each side (CMP-04) stand beside it. No interval is computed over Episodes:
+the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`). Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
 """
 
 import csv
@@ -49,7 +49,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, study_write
+from hypotrail.core import artifacts, canonical, contracts, exposure, intervals, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.comparison import (
     EXTERNAL_MODE,
@@ -94,6 +94,11 @@ LIMITATIONS = [
     "Latency and the numbers of model and tool calls are descriptive only, and no Criterion rests on them; tokens and cost are null where they are not observable, never 0, and no cost is compared.",
     "The shares describe the Cases of this Workload, not agents in general.",
 ]
+# The first limitation once an interval is computed (`hypotrail.core.intervals`).
+LIMITATION_INTERVAL = (
+    "The interval is a percentile bootstrap over Cases and every Case weighs the same: the Repeats of a Case are not resampled, and the "
+    "Comparison carries no binomial interval over Episodes and no significance claim."
+)
 
 
 def _population(study: Path, side: dict) -> dict:
@@ -372,8 +377,9 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
     delta, cases = _delta(primary, side_episodes["control"], side_episodes["candidate"], keys)
     secondary = [_delta(name, side_episodes["control"], side_episodes["candidate"], keys)[0] for name in dict.fromkeys(row["criterion"] for row in control["per_item"]) if name != primary]
 
+    interval = intervals.record(layout.read_spec(study).get("resampling"), None if cases is None else [d - c for _, c, d in cases.values()])
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
-    limitations = [*LIMITATIONS, environment_sentence]
+    limitations = [LIMITATION_INTERVAL if interval["reason"] is None else LIMITATIONS[0], *LIMITATIONS[1:], environment_sentence]
     warnings = []
     if imports:
         warnings.append(import_scope_warning(imports))
@@ -426,6 +432,7 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
         "primary_criterion": primary,
         "delta": delta,
         "secondary_deltas": secondary,
+        "interval": interval,
         "rates": {
             side["role"]: {"metrics": side["assessment"]["metrics"], "unknowns": side["assessment"]["unknowns"], "operational_errors": side["assessment"]["operational_errors"]}
             for side in (control, candidate)

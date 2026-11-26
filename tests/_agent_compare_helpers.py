@@ -66,6 +66,38 @@ def answer_lines(*, wrong=(), failed=(), skip=(), repeats=REPEATS, traced=True, 
     return lines
 
 
+def reference_answer_lines(cases, *, wrong=(), repeats=REPEATS) -> list:
+    """One line per Case and Repeat whose answer is the Case's Reference, cited by the one tool call of its trace; `wrong` is a set of
+    (case_id, repeat) whose answer is changed so that it no longer matches."""
+    references = {r["case_id"]: r for r in (json.loads(line) for line in (WORKLOAD.directory / WORKLOAD.declaration["references"]).read_text(encoding="utf-8").splitlines() if line.strip())}
+    lines = []
+    for case_id in cases:
+        reference = references[case_id]
+        for repeat in range(repeats):
+            answered = reference["status"] == "answered"
+            answer = {key: reference[key] for key in ("status", "reason_code", "columns", "rows", "unit")}
+            answer["evidence"] = ["c1"] if answered else []
+            if (case_id, repeat) in wrong:
+                if answered:
+                    answer["rows"] = [[0]]
+                else:
+                    answer["reason_code"] = "criterion_undefined" if answer["reason_code"] == "field_not_available" else "field_not_available"
+            trace = trace_of() if answered else [{"kind": "model_turn", "turn": 1, "stop_reason": "stop"}, {"kind": "final_answer", "text": "done"}]
+            lines.append(
+                {
+                    "case_id": case_id,
+                    "repeat": repeat,
+                    "origin": "agent_output",
+                    "producer": {"model": "model-a", "tool_use": TOOLS},
+                    "mode": "llm_live",
+                    "observation_status": "produced",
+                    "final_answer": answer,
+                    "trace": trace,
+                }
+            )
+    return lines
+
+
 def keys_of(repeats=REPEATS, cases=FIXTURE_CASES):
     return [(case, repeat) for case in cases for repeat in range(repeats)]
 

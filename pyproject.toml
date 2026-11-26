@@ -30,6 +30,7 @@ ml = [
 dev = [
     "pytest==9.2.0",
     "pytest-xdist==3.8.0",
+    "arch==9.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]

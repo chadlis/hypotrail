@@ -40,6 +40,7 @@
 <tr data-step="WORDS" data-title="A human Decision with the person&#x27;s own words, read back" data-study="bike"><td>WORDS</td><td>A human Decision with the person&#x27;s own words, read back</td><td><code>bike</code></td></tr>
 <tr data-step="L1.8" data-title="Evaluate an agent on Chinook, without calling a model" data-study="l1-chinook"><td>L1.8</td><td>Evaluate an agent on Chinook, without calling a model</td><td><code>l1-chinook</code></td></tr>
 <tr data-step="CAMPAIGN" data-title="Compare and decide on a copy of the kept Chinook Campaign" data-study="chinook-campaign"><td>CAMPAIGN</td><td>Compare and decide on a copy of the kept Chinook Campaign</td><td><code>chinook-campaign</code></td></tr>
+<tr data-step="INTERVAL" data-title="Give the copy of the Campaign a new revision, and compare with an interval over Cases" data-study="chinook-campaign"><td>INTERVAL</td><td>Give the copy of the Campaign a new revision, and compare with an interval over Cases</td><td><code>chinook-campaign</code></td></tr>
 </tbody></table></div>
 <div class="prose">
 <p>The instructions for these steps are in that section.</p>
@@ -55,6 +56,10 @@
 <tr data-item="llm_live" data-reason="It calls a paid model with a key, and no live model call is made by the demonstration."><td><code>run agent --mode llm_live</code></td><td>It calls a paid model with a key, and no live model call is made by the demonstration.</td></tr>
 <tr data-item="spike-live" data-reason="It calls a paid model with a key, and no live model call is made by the demonstration."><td><code>spike live</code></td><td>It calls a paid model with a key, and no live model call is made by the demonstration.</td></tr>
 </tbody></table></div>
+
+<div class="prose">
+<p id="demo-intervals">Two steps show an interval where they show a delta. L1.5 prints the Bike Comparison's interval: two bounds at level 0.95 over the 182 days of <code>dev</code>, from circular blocks of 7 days. INTERVAL, after CAMPAIGN, gives the copy of the kept Campaign Study a new revision, whose Workload declares its resampling, assesses its two kept Observation sets again under it and compares them: the delta is the kept one, -0.35, and its interval over the 100 Cases is printed with its level and its seed. The kept Study's own Comparisons never get one, and the kept folder is never written.</p>
+</div>
 
 <p class="sub2" id="demo-kept-states-section">The reads kept for the client</p>
 <div class="prose">

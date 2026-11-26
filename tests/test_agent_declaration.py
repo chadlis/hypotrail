@@ -403,3 +403,24 @@ def test_dev_only_workload_reads_only_its_declared_file(tmp_path):
     (target / "cases" / "chinook-public-check.jsonl").unlink()
     workload = load_workload(target)
     assert workload.partition_of(workload.cases("dev")[0]["case_id"]) == "dev"
+
+
+@pytest.mark.parametrize(
+    "edit, code, key, path",
+    [
+        (lambda d: d["resampling"].__setitem__("unit", "item"), "DECLARATION_VALUE_NOT_ALLOWED", "unit", "resampling.unit"),
+        (lambda d: d["resampling"].pop("seed"), "DECLARATION_INCOMPLETE", "seed", "resampling"),
+    ],
+    ids=["a unit other than case", "no seed"],
+)
+def test_init_refuses_a_resampling_whose_unit_is_not_case_or_that_lacks_its_seed_as_a_malformed_declaration_and_writes_nothing(tmp_path, edit, code, key, path):
+    from _chinook_helpers import chinook_examples
+    from _study_helpers import run_json
+
+    examples = chinook_examples(tmp_path, edit=edit)
+    study = tmp_path / "study"
+    exit_code, payload, _ = run_json("init", "--workload", "chinook", "--study", study, "--examples-dir", examples)
+    error = payload.get("error") or {}
+    details = error.get("details") or {}
+    assert (exit_code, error.get("code"), error.get("stage"), details.get("key"), details.get("path")) == (2, code, "declaration", key, path)
+    assert not study.exists()

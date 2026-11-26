@@ -8,7 +8,7 @@ loads nothing and computes nothing when it is opened.
 
 from hypotrail.report import gather
 from hypotrail.report import render_agent, render_profile
-from hypotrail.report.markup import Links, Row, Safe, UNKNOWN, cell, esc, join, json_block, number, paragraph, rescoring_note, scoped, sub, table, tag
+from hypotrail.report.markup import Links, Row, Safe, UNKNOWN, cell, esc, interval, join, json_block, number, paragraph, rescoring_note, scoped, sub, table, tag
 from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 from hypotrail.core.comparison import DEVIATIONS
 
@@ -272,6 +272,7 @@ def _metrics(model) -> list:
             ["Comparability", comparability["status"] + (" (descriptive)" if c.get("descriptive") or comparability["status"] == "descriptive_only" else "") + (f", with warning {', '.join(codes)}" if codes else "")],
             ["Coverage", f"expected {c['coverage']['expected']}, Control scored {coverage['control_scored']}, Candidate scored {coverage['candidate_scored']}, paired {coverage['paired']}"],
             ["Delta", join([delta["metric"], " ", number(delta["value"]), f" {delta['unit']}" if delta["value"] is not None else "", f" ({delta['reason']})" if delta.get("reason") else ""])],
+            ["Interval", interval(c)],
         ]
         body = [tag("p", join([tag("b", "Comparison "), c["comparison_id"]])), table(f"comparison-{index}", ["Field", "Value"], rows)]
         for warning in c.get("warnings", []):
