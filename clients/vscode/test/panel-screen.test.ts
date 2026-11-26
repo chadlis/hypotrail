@@ -359,19 +359,28 @@ for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending
     }
   });
 
-  test(`the panel redesign, expected to fail: in the first screen at 420 px, Record of the kept state is drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, Record of the kept state is drawn: ${name}`, { todo: RECORD_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
-    const record: Box = await (await firstScreen(t, address, await demonstrationDocument(t, name), "light"))(BOX(RECORD_DRAWN));
-    assert.ok(inScreen(record), `Record at ${JSON.stringify(record)}, the first screen ${SCREEN.height} px high`);
+    const document = await demonstrationDocument(t, name);
+    for (const theme of Object.keys(THEMES)) {
+      const record: Box = await (await firstScreen(t, address, document, theme))(BOX(RECORD_DRAWN));
+      assert.ok(inScreen(record), `${theme}: Record at ${JSON.stringify(record)}, the first screen ${SCREEN.height} px high`);
+    }
   });
 
-  test(`the mark of Record below the first screen stands only while Record of the kept state is out of it: ${name}`, { timeout: 120000 }, async (t) => {
+  test(`the mark of Record below the first screen stands only while, in one theme at least, Record of the kept state is drawn out of it: ${name}`, { timeout: 120000 }, async (t) => {
     if (RECORD_OUT_OF_SCREEN === undefined) return;
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
-    const record: Box = await (await firstScreen(t, address, await demonstrationDocument(t, name), "light"))(BOX(RECORD_DRAWN));
-    assert.ok(drawnAt(record) && !inScreen(record), `Record is in the first screen at ${JSON.stringify(record)}: remove the mark RECORD_OUT_OF_SCREEN, so that its test is no longer expected to fail`);
+    const document = await demonstrationDocument(t, name);
+    const out: string[] = [];
+    for (const theme of Object.keys(THEMES)) {
+      const record: Box = await (await firstScreen(t, address, document, theme))(BOX(RECORD_DRAWN));
+      assert.ok(drawnAt(record), `${theme}: Record is not drawn`);
+      if (!inScreen(record)) out.push(theme);
+    }
+    assert.ok(out.length > 0, `Record is in the first screen in each of the four themes: remove the mark RECORD_OUT_OF_SCREEN, so that its test is no longer expected to fail`);
   });
 }
 
@@ -391,19 +400,28 @@ for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending
 }
 
 for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).decisions.length > 1)) {
-  test(`the panel redesign, expected to fail: in the first screen at 420 px, the latest Decision of the kept state is drawn: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, the latest Decision of the kept state is drawn: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
-    const heading: Box = await (await firstScreen(t, address, await demonstrationDocument(t, name), "light"))(BOX(latestHeading(keptObject(name))));
-    assert.ok(inScreen(heading), `the latest Decision at ${JSON.stringify(heading)}, the first screen ${SCREEN.height} px high`);
+    const document = await demonstrationDocument(t, name);
+    for (const theme of Object.keys(THEMES)) {
+      const heading: Box = await (await firstScreen(t, address, document, theme))(BOX(latestHeading(keptObject(name))));
+      assert.ok(inScreen(heading), `${theme}: the latest Decision at ${JSON.stringify(heading)}, the first screen ${SCREEN.height} px high`);
+    }
   });
 }
 
-test("the mark of the latest Decision below the first screen stands only while the latest Decision of final is out of it", { timeout: 120000 }, async (t) => {
+test("the mark of the latest Decision below the first screen stands only while, in one theme at least, the latest Decision of final is drawn out of it", { timeout: 120000 }, async (t) => {
   if (LATEST_OUT_OF_SCREEN === undefined) return;
   const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
   if (address === undefined) return;
   const name = `${DEMONSTRATION}final.status`;
-  const heading: Box = await (await firstScreen(t, address, await demonstrationDocument(t, name), "light"))(BOX(latestHeading(keptObject(name))));
-  assert.ok(drawnAt(heading) && !inScreen(heading), `the latest Decision of final is in the first screen at ${JSON.stringify(heading)}: remove the mark LATEST_OUT_OF_SCREEN, so that its test is no longer expected to fail`);
+  const document = await demonstrationDocument(t, name);
+  const out: string[] = [];
+  for (const theme of Object.keys(THEMES)) {
+    const heading: Box = await (await firstScreen(t, address, document, theme))(BOX(latestHeading(keptObject(name))));
+    assert.ok(drawnAt(heading), `${theme}: the latest Decision of final is not drawn`);
+    if (!inScreen(heading)) out.push(theme);
+  }
+  assert.ok(out.length > 0, `the latest Decision of final is in the first screen in each of the four themes: remove the mark LATEST_OUT_OF_SCREEN, so that its test is no longer expected to fail`);
 });
