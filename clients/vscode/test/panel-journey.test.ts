@@ -307,22 +307,26 @@ function assertStepOrder(read: Record<string, any>, drawn: (string | undefined)[
   if (drawn.includes("deviations")) assert.equal(drawn[drawn.length - 1], "deviations", "the Declared deviations last");
 }
 
-test("a Declared deviation the journal holds before any Comparison is still drawn last, in a copy of state 15 whose journal declares it first", async (t) => {
-  const read = readOf("15-deviation");
-  const at = (kind: string) => read.writes_since.findIndex((entry: Record<string, any>) => (entry.written ?? []).some((each: Record<string, any>) => each.kind === kind));
-  const deviation = at("declared_deviation");
-  // Its begin and end entries move before the first Comparison's begin.
-  const begin = read.writes_since.findIndex((entry: Record<string, any>, index: number) => index < deviation && entry.command === read.writes_since[deviation].command && entry.request_id === read.writes_since[deviation].request_id);
-  const moved = [read.writes_since[begin], read.writes_since[deviation]];
-  const rest = read.writes_since.filter((_: unknown, index: number) => index !== begin && index !== deviation);
-  const comparison = rest.findIndex((entry: Record<string, any>) => entry.command === "compare");
-  read.writes_since = [...rest.slice(0, comparison), ...moved, ...rest.slice(comparison)];
-  assert.ok(journalOrderOf(read).indexOf("deviations") < journalOrderOf(read).indexOf("comparisons"), "the copy declares the deviation before any Comparison");
-  const { document } = await documentFor(t, success(read));
-  const drawn = elementsOf(elementOf(document, '<section data-part="path">')!, "<details data-step=").map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
-  assert.ok(drawn.includes("deviations"));
-  assertStepOrder(read, drawn);
-});
+// A copy of state 15 whose journal declares the deviation before the first write of a kind: its begin and end entries move before the
+// begin of that write. The steps drawn keep their order, the Declared deviations last.
+for (const [place, kind, command] of [["the Attempts", "attempts", "run ml"], ["the Assessments", "assessments", "assess"], ["the first Comparison", "comparisons", "compare"]] as const) {
+  test(`with the Declared deviation's journal entries moved before ${place}, in a copy of state 15, the Declared deviations are still drawn last`, async (t) => {
+    const read = readOf("15-deviation");
+    const entries = read.writes_since;
+    const end = entries.findIndex((entry: Record<string, any>) => (entry.written ?? []).some((each: Record<string, any>) => each.kind === "declared_deviation"));
+    const begin = entries.findIndex((entry: Record<string, any>, index: number) => index < end && entry.command === entries[end].command && entry.request_id === entries[end].request_id);
+    const moved = [entries[begin], entries[end]];
+    const rest = entries.filter((_: unknown, index: number) => index !== begin && index !== end);
+    const first = rest.findIndex((entry: Record<string, any>) => entry.command === command);
+    read.writes_since = [...rest.slice(0, first), ...moved, ...rest.slice(first)];
+    const order = journalOrderOf(read);
+    assert.ok(order.indexOf("deviations") >= 0 && order.indexOf("deviations") < order.indexOf(kind), `the copy declares the deviation before ${place}`);
+    const { document } = await documentFor(t, success(read));
+    const drawn = elementsOf(elementOf(document, '<section data-part="path">')!, "<details data-step=").map((step) => /^<details data-step="([a-z]+)"/.exec(step)?.[1]);
+    assert.ok(drawn.includes("deviations"));
+    assertStepOrder(read, drawn);
+  });
+}
 
 for (const state of STATES.filter((each) => readOf(each).ok === true)) {
   test(`the Study so far holds one closed step per kind of record present, in the order of the write journal, each running its review form, its chart and its limitation: ${state}`, async (t) => {

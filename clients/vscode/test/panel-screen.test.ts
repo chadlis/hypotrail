@@ -425,6 +425,26 @@ for (const name of FIRST_SCREEN_READS) {
     }
   });
 
+  // The count of pending decisions reads with "Now" as one phrase: its left edge stands within 1em of the right edge of the heading's text.
+  test(`in each theme at 420 px, the count of pending decisions of the kept state stands right after the text of Now's heading, within 1em: ${name}`, { timeout: 120000 }, async (t) => {
+    const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
+    if (address === undefined) return;
+    const document = await demonstrationDocument(t, name);
+    for (const theme of Object.keys(THEMES)) {
+      const evaluate = await firstScreen(t, address, document, theme);
+      const gap: { text: number; count: number; em: number } | null = await evaluate(`(() => {
+        const heading = document.querySelector('section[data-part="now"] h2');
+        const count = document.querySelector('section[data-part="now"] [data-element="count"]');
+        if (!heading || !count) return null;
+        const range = document.createRange();
+        range.selectNodeContents(heading);
+        return { text: range.getBoundingClientRect().right, count: count.getBoundingClientRect().left, em: parseFloat(getComputedStyle(heading).fontSize) };
+      })()`);
+      assert.ok(gap !== null, `${theme}: the heading and the count`);
+      assert.ok(gap!.count >= gap!.text && gap!.count - gap!.text <= gap!.em, `${theme}: the text of the heading ends at ${gap!.text}, the count starts at ${gap!.count}, 1em is ${gap!.em}`);
+    }
+  });
+
   test(`the mark of Record below the first screen stands only while, in one theme at least, Record of the kept state is drawn out of it: ${name}`, { timeout: 120000 }, async (t) => {
     if (RECORD_OUT_OF_SCREEN === undefined) return;
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
