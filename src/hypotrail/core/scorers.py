@@ -84,7 +84,6 @@ TEXT_FACTS_LIMITATIONS = (
     "The Repeats of a Case are not independent samples, nor are the paraphrases of a group: the shares carry no confidence interval and no significance claim.",
     "The Criteria read identifiers, numbers, dates, texts and phrases in the answer; they do not judge whether the rest of the prose is right.",
     "The shares describe the Cases of this Workload, not assistants in general.",
-    "A labelled list of identifiers, such as \"Invoices: 269, 291, 293\", is read as its first identifier only: the others are neither found nor checked.",
 )
 
 

@@ -227,11 +227,11 @@ def test_init_does_not_check_the_scoring_config_against_the_text_facts_schema_wh
     assert (study / "study.json").exists()
 
 
-def test_a_text_facts_assessment_states_that_a_labelled_list_of_identifiers_is_read_as_its_first_identifier_only(tmp_path):
+def test_a_text_facts_assessment_no_longer_states_a_first_identifier_only_limit_since_lists_are_read_in_full(tmp_path):
     study, references = prose_study(tmp_path)
     code, payload, err = assess(study, observation_set(tmp_path, study), "text_facts_v1", references)
     assert code == 0, (payload, err)
-    assert any("labelled list" in text and "first identifier only" in text for text in payload["assessment"]["limitations"])
+    assert payload["assessment"]["limitations"] and not any("first identifier only" in text for text in payload["assessment"]["limitations"])
 
 
 def test_the_config_digest_of_a_text_facts_assessment_covers_the_studys_scoring_config(tmp_path):
