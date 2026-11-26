@@ -209,10 +209,16 @@ def _membership_rows(raw: bytes) -> list:
     return list(csv.DictReader(io.StringIO(raw.decode("utf-8"), newline="")))
 
 
-def lag_series(series: dict, memberships: list) -> dict:
-    """The part of the target series that the lags of the `train` Items are computed from: no day of `dev` or `public_check`."""
+def lag_series(table: dict, memberships: list, declaration) -> dict:
+    """The target series that the lags of the `train` Items are computed from, parsed by the Track's reader (`series.target_series`)
+    from the rows of no `dev` or `public_check` day only: a cell of those days is never parsed."""
     left_out = {row["date"] for row in memberships if row["partition"] in (DEV, PUBLIC_CHECK)}
-    return {day: value for day, value in series.items() if day.isoformat() not in left_out}
+    kept = [row for day, row in table.items() if day.isoformat() not in left_out]
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=list(kept[0]) if kept else [declaration.date_column, declaration.target_column], lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(kept)
+    return target_series(out.getvalue().encode("utf-8"), declaration)
 
 
 def _against_target(name: str, kind: str, values: list, row_ids: list, target: list) -> dict:
@@ -241,8 +247,10 @@ def profile(study, examples_dir=None) -> dict:
 
     dataset = artifacts.read_verified(study, layout.dataset_ref(spec))
     memberships = _membership_rows(artifacts.read_verified(study, _memberships_ref(spec)))
-    table = table_of(dataset, declaration, [declaration.target_column])
-    history = lag_series(target_series(dataset, declaration), memberships)
+    # Every column the Workload names must be in the Study's copy: the target, which the target features are computed from, and
+    # each forbidden feature; a missing one is refused with COLUMN_MISSING, naming it.
+    table = table_of(dataset, declaration, [declaration.target_column, *declaration.forbidden_features])
+    history = lag_series(table, memberships, declaration)
     items = [(row["row_id"], day) for row in memberships if row["partition"] == TRAIN and not row["exclusion_reason"] for day in [datetime.date.fromisoformat(row["date"])]]
     row_ids = [row_id for row_id, _ in items]
     target = [history[day] for _, day in items]

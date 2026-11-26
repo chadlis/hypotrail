@@ -810,6 +810,8 @@ def test_each_number_of_the_data_profile_equals_the_read_at_its_key_path_and_the
         value = value_at(read, path)
         expected = value if isinstance(value, str) else str(markup.number(value))
         assert html.unescape(text) == expected, path
+    numeric_cells = re.findall(r'<td class="num">(.*?)</td>', section, re.S)
+    assert numeric_cells and [c for c in numeric_cells if not re.fullmatch(r'<span data-path="[^"]+">[^<]*</span>', c)] == []
     days = re.findall(r'<rect\b[^>]*data-date="([^"]+)"', section)
     assert len(days) == 358 and max(days) <= "2011-12-31"
     shown = re.findall(r"\b20\d\d-\d\d-\d\d\b", re.sub(r'<table[^>]*id="profile-band".*?</table>', "", section, flags=re.S))
@@ -819,7 +821,7 @@ def test_each_number_of_the_data_profile_equals_the_read_at_its_key_path_and_the
 def test_each_forbidden_column_of_the_matrix_says_not_available_at_prediction_time_and_no_available_column_does(profiled):
     _, read, _, section = profiled
     doc = Doc(section)
-    rows = {row[1]: row[2] for row in doc.body("profile-order")}
+    rows = {row[0]: row[1] for row in doc.body("profile-order")}
     available = {column["name"]: column["available"] for column in read["columns"]}
     assert set(rows) == set(available)
     assert {name: text == "not available at prediction time" for name, text in rows.items()} == {name: not ok for name, ok in available.items()}

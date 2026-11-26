@@ -98,7 +98,7 @@ def _target(read) -> list:
         )), tag("div", table(
             "profile-target-figures",
             ["Days", *quartiles],
-            [[number(len(series)), *(_at(f"target.figures.quartiles.{name}", value) for name, value in quartiles.items())]],
+            [[_at("items", read["items"]), *(_at(f"target.figures.quartiles.{name}", value) for name, value in quartiles.items())]],
             numeric=tuple(range(len(quartiles) + 1)),
         ))]), class_="pfrow"),
     ]
@@ -169,7 +169,7 @@ def _matrix(read) -> list:
         rects.append(_rect(col * size, row * size, size - 1, size - 1, class_=_shade(pair["value"])))
     side = size * len(order)
     rows = [
-        [number(i + 1), _text_at(f"associations.order[{i}]", name), "" if available[name] else NOT_AVAILABLE]
+        [_text_at(f"associations.order[{i}]", name), "" if available[name] else NOT_AVAILABLE]
         for i, name in enumerate(order)
     ]
     pairs = [
@@ -186,11 +186,12 @@ def _matrix(read) -> list:
     ]
     return [
         sub("The association matrix of the columns, without the target"),
-        paragraph(
+        paragraph(join([
             "One cell per pair above the diagonal, the columns in the clustering order of the table beside; the darker the "
-            f"cell, the larger the absolute value, and a pair with no value is pale grey. A pair whose absolute value reaches {number(level)} is flagged."
-        ),
-        _beside(_svg(rects, width=side, height=side, class_="matrix", id="profile-matrix"), table("profile-order", ["Position", "Column", "Availability"], rows, numeric=(0,))),
+            "cell, the larger the absolute value, and a pair with no value is pale grey. A pair whose absolute value reaches ",
+            _at("associations.level", level), " is flagged.",
+        ])),
+        _beside(_svg(rects, width=side, height=side, class_="matrix", id="profile-matrix"), table("profile-order", ["Column, in clustering order", "Availability"], rows)),
         table("profile-pairs", ["A", "B", "Measure", "Value", "Rows", "Flagged", "Reason"], pairs, numeric=(3, 4)),
         table(
             "profile-measures",

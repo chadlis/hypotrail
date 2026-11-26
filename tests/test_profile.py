@@ -21,6 +21,7 @@ from hypotrail.ml import profile as module
 from hypotrail.ml.declaration import load_declaration
 from hypotrail.ml.lags import compute_lags
 from hypotrail.ml.series import read_target_series
+from hypotrail.ml.table import read_table
 
 FIXTURE = ROOT / "tests" / "fixtures" / "profile" / "bike_day"
 # The Bike columns and their kinds on `train`, as chadlis/hypotrail#259 measured them on `day.csv`.
@@ -104,11 +105,12 @@ def test_the_order_is_scipys_average_linkage_leaf_order_on_one_minus_the_absolut
     assert module.clustering_order(names, values) == expected
 
 
-def test_the_lag_series_holds_no_dev_or_public_check_day():
+def test_the_lag_series_holds_no_dev_or_public_check_day_and_reads_none_of_their_cells():
     declaration = load_declaration(EXAMPLES / "bike_day")
-    series = read_target_series(EXAMPLES / "bike_day", declaration)
-    memberships = [{"date": day.isoformat(), "partition": next((p.name for p in declaration.partitions if p.first <= day <= p.last), "")} for day in series]
-    kept = module.lag_series(series, memberships)
+    table = read_table(EXAMPLES / "bike_day", declaration, ["cnt"])
+    memberships = [{"date": day.isoformat(), "partition": next((p.name for p in declaration.partitions if p.first <= day <= p.last), "")} for day in table]
+    table[datetime.date(2012, 3, 1)] = {**table[datetime.date(2012, 3, 1)], "cnt": "not a number"}  # a dev day
+    kept = module.lag_series(table, memberships, declaration)
     assert all(row["partition"] in ("", "train") for row in memberships if row["date"] in {day.isoformat() for day in kept})
     assert max(kept).isoformat() == "2011-12-31" and len(kept) == 365
 
@@ -177,6 +179,23 @@ def test_two_studies_whose_data_differ_only_on_dev_and_public_check_days_give_th
     assert canonical.dumps(payload) == canonical.dumps(bike_read)
 
 
+def test_a_non_number_in_a_dev_cell_of_the_target_is_never_read_and_the_profile_equals_the_one_without_it(tmp_path):
+    def planted(rows):
+        [row] = [row for row in rows if row["dteday"] == "2012-03-01"]  # a dev day
+        row["temp"] = "not a number"
+
+    # `temp` is a column no data check reads, so a Study can keep the planted cell; the read is then given `temp` as its target.
+    target_temp = examples_copy(tmp_path, edit=lambda d: d.update(target_column="temp"), name="target-temp")
+    reads = []
+    for name, rows in (("clean", None), ("planted", planted)):
+        examples = examples_copy(tmp_path, rows=rows, name=f"examples-{name}")
+        study, _ = init_study(tmp_path, examples=examples, name=f"study-{name}")
+        code, payload, err = read(study, f"--examples-dir={target_temp}")
+        assert code == 0, (name, payload, err)
+        reads.append(payload)
+    assert canonical.dumps(reads[1]) == canonical.dumps(reads[0])
+
+
 def test_a_chinook_study_is_refused_with_unsupported_capability_and_nothing_is_written(tmp_path):
     study, _ = init_chinook(tmp_path)
     before = files(study)
@@ -195,6 +214,13 @@ def test_a_changed_forbidden_list_gives_differs_and_the_same_values_and_a_missin
     missing = examples_copy(tmp_path, edit=lambda d: d.update(target_column="nonesuch"), name="missing")
     code, payload, err = read(bike, f"--examples-dir={missing}")
     assert (code, payload.get("error", {}).get("code")) == (2, "COLUMN_MISSING"), payload
+
+
+def test_a_forbidden_feature_the_studys_data_does_not_hold_is_refused_with_column_missing_naming_it(bike, tmp_path):
+    missing = examples_copy(tmp_path, edit=lambda d: d["forbidden_features"].append("nonesuch"), name="forbidden-missing")
+    code, payload, err = read(bike, f"--examples-dir={missing}")
+    error = payload.get("error", {})
+    assert (code, error.get("code"), error.get("details", {}).get("column")) == (2, "COLUMN_MISSING", "nonesuch"), payload
 
 
 def test_no_key_of_the_object_names_a_p_value_or_significance_and_the_text_says_neither(bike, bike_read):
