@@ -131,6 +131,8 @@ const LABEL = {
   reportByTerminal: 97,
   protocolRevision: 98,
   noEnd: 99,
+  latestDecision: 100,
+  seeDecision: 101,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -342,6 +344,20 @@ function lookAgainOf(object: Entry, step: Entry): string[] {
   });
 }
 
+// Under rule 4, after the label of no pending decision: the latest Decision as one line, its option, its author with the mark of a rule's
+// Decision, the phrase of whether it applies, and a link to its part in the step of the Decisions, which opens that fold.
+function latestOf(object: Entry): string[] {
+  const decisions = list(object.decisions);
+  const index = decisions.length - 1;
+  if (index < 0) return [];
+  const decision = decisions[index];
+  const rule = decision.author === "proxy" ? ` ${markOf("\u25c7", "byRule")}` : "";
+  const applies = APPLIES.get(String(decision.applies));
+  return [
+    `<p data-element="latest-decision">${label("latestDecision")} ${marked(decision.option, "strong")} ${label("author")} ${value(decision.author)}${rule}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`} <a href="${HREF.decision}${index}">${label("seeDecision")}</a></p>`,
+  ];
+}
+
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
 // id names, whose question is Now's line; with `look_again`, its text; with no kind, the label of no pending decision. Without an object
 // read, Now holds nothing.
@@ -351,7 +367,7 @@ function nowOf(object: Entry | undefined, pending: string): string {
     const step = record(object.next_step);
     if (step.kind === "decide" && pending !== "") lines.push(pending);
     else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
-    else lines.push(`<p data-element="now-question">${label("noPending")}</p>`);
+    else lines.push(`<p data-element="now-question">${label("noPending")}</p>`, ...latestOf(object));
   }
   lines.push("</section>");
   return lines.join("\n");

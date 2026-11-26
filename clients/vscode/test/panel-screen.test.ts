@@ -306,9 +306,8 @@ const BOUNDS = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.sp
 // The mark of Record out of the first screen on a state with a Pending decision: it follows the evidence and the figures.
 const RECORD_OUT_OF_SCREEN: string | undefined = undefined;
 // The mark of the latest Decision out of the first screen on final: the proxy Decision follows the whole part of the first.
-// Since the Study so far draws each done step as a closed fold, the latest Decision stands in the closed step of the Decisions on every
-// state that holds one; Now does not draw it under rule 4.
-const LATEST_OUT_OF_SCREEN: string | undefined = "the panel redesign: the latest Decision stands in the closed fold of the step of the Decisions";
+// Now draws the latest Decision in its first screen, under rule 4 as under rule 3: no state is expected to fail.
+const LATEST_OUT_OF_SCREEN: string | undefined = undefined;
 
 type Box = { top: number; bottom: number; width: number; height: number; visible: boolean } | null;
 const BOX = (selector: string): string =>
@@ -358,11 +357,10 @@ const CHOICES_DRAWN = 'section[data-part="now"] fieldset';
 // "2. the words box, as a closed "Add your words" above Record" (D-151, answer 5): its summary is drawn, the box itself is folded.
 const WORDS_DRAWN = 'section[data-part="now"] details[data-element="add-words"] > summary';
 const WORDS_FOLDED = 'section[data-part="now"] details[data-element="add-words"]:not([open])';
-// The heading of the latest Decision, which holds its option and the phrase of its applies.
-const latestHeading = (object: Entry): string => {
-  const at = object.decisions.reduce((best: number, each: Entry, index: number) => (each.write_sequence > object.decisions[best].write_sequence ? index : best), 0);
-  return `section[data-part="decision"]#decision-${at} > h3`;
-};
+// The line of Now that holds the latest Decision, its option and the phrase of its applies: under rule 4 the line of the latest Decision,
+// under rule 3 the line of the Decision next_step names.
+const latestHeading = (object: Entry): string =>
+  `section[data-part="now"] ${object.next_step.kind === "look_again" ? '[data-element="look-again"]' : '[data-element="latest-decision"]'}`;
 
 for (const name of DEMONSTRATION_READS) {
   test(`in each of the four themes at 420 and 900 px, every text of the kept state stands at AA contrast against what it is drawn on: ${name}`, { timeout: 120000 }, async (t) => {
@@ -444,7 +442,7 @@ for (const name of FIRST_SCREEN_READS) {
 }
 
 for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending_decisions.length === 0 && keptObject(read).decisions.length === 1)) {
-  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, the latest Decision of the kept state is drawn with the phrase of its applies: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`in the first screen at 420 px in each theme, Now draws the latest Decision of the kept state with the phrase of its applies: ${name}`, { timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
     const object = keptObject(name);
@@ -453,13 +451,14 @@ for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).pending
       const evaluate = await firstScreen(t, address, document, theme);
       const heading: Box = await evaluate(BOX(latestHeading(object)));
       assert.ok(inScreen(heading), `${theme}: the latest Decision at ${JSON.stringify(heading)}`);
-      assert.equal(await evaluate(`document.querySelector(${JSON.stringify(`${latestHeading(object)} [data-applies]`)}).textContent`), PHRASES.get(String(object.decisions[0].applies)));
+      const line: string = await evaluate(`document.querySelector(${JSON.stringify(latestHeading(object))}).textContent`);
+      assert.ok(line.includes(object.decisions[0].option) && line.includes(PHRASES.get(String(object.decisions[0].applies))!), line);
     }
   });
 }
 
 for (const name of DEMONSTRATION_READS.filter((read) => keptObject(read).decisions.length > 1)) {
-  test(`the panel redesign, expected to fail: in the first screen at 420 px in each theme, the latest Decision of the kept state is drawn: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
+  test(`in the first screen at 420 px in each theme, Now draws the latest Decision of the kept state: ${name}`, { todo: LATEST_OUT_OF_SCREEN, timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the first screen of the demonstration's kept states");
     if (address === undefined) return;
     const document = await demonstrationDocument(t, name);

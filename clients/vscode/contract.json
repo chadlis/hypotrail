@@ -138,7 +138,9 @@
     "Hand over",
     "The page for others is written by the command report, from the terminal, on the Study named at the top; the panel never starts it.",
     "Protocol revision",
-    "begun, never ended"
+    "begun, never ended",
+    "Latest Decision:",
+    "See it in the Study so far"
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
