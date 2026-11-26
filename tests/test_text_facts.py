@@ -51,7 +51,8 @@ def count_fact(value, tolerance=0, kind="integer"):
 
 
 def raising_config():
-    return {**CONFIG, "identifier_kinds": {"invoice": {**CONFIG["identifier_kinds"]["invoice"], "pattern": "("}}}
+    kinds = CONFIG["identifier_kinds"]
+    return {**CONFIG, "identifier_kinds": {**kinds, "invoice": {**kinds["invoice"], "pattern": "("}}}
 
 
 ROWS = {
@@ -153,6 +154,13 @@ ROWS = {
     "Reference invalid": (
         ALL,
         reference(expected_outcome="maybe"),
+        CONFIG,
+        None,
+        {name: ("unscored", None, "reference_invalid") for name in text_facts.CRITERIA},
+    ),
+    "Reference naming an identifier kind the config lacks": (
+        ALL,
+        reference(expected_identifiers=[{"kind": "playlist", "value": "1"}]),
         CONFIG,
         None,
         {name: ("unscored", None, "reference_invalid") for name in text_facts.CRITERIA},

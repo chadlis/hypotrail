@@ -236,7 +236,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-reason="outcome_mismatch" data-state="scored"><td><code>outcome_mismatch</code></td><td>scored, false</td><td>The outcome is not the expected one.</td></tr>
 <tr data-reason="outcome_not_declared" data-state="unscored"><td><code>outcome_not_declared</code></td><td>unscored</td><td>The line declares no <code>outcome</code> and the scoring config declares no phrase rule.</td></tr>
 <tr data-reason="reference_missing" data-state="unscored"><td><code>reference_missing</code></td><td>unscored, every Criterion</td><td>The Case has no Reference.</td></tr>
-<tr data-reason="reference_invalid" data-state="unscored"><td><code>reference_invalid</code></td><td>unscored, every Criterion</td><td>The Reference does not read as <code>text-reference/1</code>.</td></tr>
+<tr data-reason="reference_invalid" data-state="unscored"><td><code>reference_invalid</code></td><td>unscored, every Criterion</td><td>The Reference does not read as <code>text-reference/1</code>, or names an identifier kind the scoring config does not declare.</td></tr>
 <tr data-reason="scoring_failed" data-state="errored"><td><code>scoring_failed</code></td><td>errored, every Criterion</td><td>The scoring raised; only the exception's type is kept.</td></tr>
 </tbody></table></div>
 

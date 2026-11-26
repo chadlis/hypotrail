@@ -15,7 +15,7 @@ gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Rea
   first that is not scored, as `contract_success` of `chinook_contract_v1` is.
 
 A Reference that is absent makes every Criterion `unscored` with `reference_missing`, one that does not read as
-`text-reference/1` with `reference_invalid`; a raise inside the scoring makes every Criterion `errored` with
+`text-reference/1`, or names an identifier kind the config does not declare, with `reference_invalid`; a raise inside the scoring makes every Criterion `errored` with
 `scoring_failed` (`apply`). The raw answer is never altered. The identifier kinds, their patterns and normalisation, and
 the phrase rules are data the Workload declares (`scoring/text-facts.json`, ADR 0002). Standard library only; Inspect's
 scorers are not used (they are `async` functions of a `TaskState`, and this one must run where Inspect is absent).
@@ -250,6 +250,8 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
         return {"criteria": _all("unscored", problem)}
     reference = read_reference(reference_record)
     kinds = config["identifier_kinds"]
+    if any(kind not in kinds for kind, _ in reference.identifiers):
+        return {"criteria": _all("unscored", REFERENCE_INVALID)}
     expected = {(kind, normalised(kinds[kind], value)) for kind, value in reference.identifiers}
     found = identifiers_in(raw_answer, config)
     numbers = numbers_in(without_identifiers_and_dates(raw_answer, config))
