@@ -4,7 +4,8 @@ One pure function, `score_text`, takes the raw answer text, the Reference record
 gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Reason for every non-score and every false:
 
 - `identifiers_complete`: every expected identifier, normalised, is among those found in the text (`identifier_missing`);
-- `no_unexpected_identifier`: every identifier found, normalised, is expected (`identifier_unexpected`);
+- `no_unexpected_identifier`: every identifier found, normalised, is expected or allowed (`identifier_unexpected`); the
+  optional `allowed_identifiers` of a Reference lists the records an answer may name beside the expected ones;
 - `facts_present`: every expected fact is found in the text (`fact_missing`). A number counts within its absolute
   tolerance, ignoring the currency signs `$ € £` and `,` thousands separators, and never through a `%`, nor from inside an
   identifier match or an ISO date; a date counts in ISO form; a text counts as a casefolded substring;
@@ -15,7 +16,7 @@ gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Rea
   first that is not scored, as `contract_success` of `chinook_contract_v1` is.
 
 A Reference that is absent makes every Criterion `unscored` with `reference_missing`, one that does not read as
-`text-reference/1`, or names an identifier kind the config does not declare, with `reference_invalid`; a raise inside the scoring makes every Criterion `errored` with
+`text-reference/1`, or names (as expected or allowed) an identifier kind the config does not declare, with `reference_invalid`; a raise inside the scoring makes every Criterion `errored` with
 `scoring_failed` (`apply`). The raw answer is never altered. The identifier kinds, their patterns and normalisation, and
 the phrase rules are data the Workload declares (`scoring/text-facts.json`, ADR 0002). Standard library only; Inspect's
 scorers are not used (they are `async` functions of a `TaskState`, and this one must run where Inspect is absent).
@@ -51,7 +52,7 @@ CURRENCY_SIGNS = "$€£"
 _NUMBER = re.compile(r"(?<![\w.\-])(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?![\d.,]*\d)(?!\s*%)")
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _REFERENCE_KEYS = {"case_id", "reference_version", "expected_outcome", "expected_identifiers", "expected_facts", "as_of"}
-_OPTIONAL_REFERENCE_KEYS = {"reference_text"}
+_OPTIONAL_REFERENCE_KEYS = {"reference_text", "allowed_identifiers"}
 
 
 class ReferenceInvalid(ValueError):
@@ -73,6 +74,7 @@ class TextReference:
     identifiers: tuple  # (kind, value) pairs as the Reference writes them
     facts: tuple
     reference_text: str | None
+    allowed: tuple = ()  # (kind, value) pairs an answer may name without their being expected
 
 
 def _text(value) -> bool:
@@ -116,6 +118,12 @@ def _fact(entry) -> Fact:
     return Fact(entry["fact_id"], kind, value, float(tolerance))
 
 
+def _identifier_list(value) -> bool:
+    return isinstance(value, list) and all(
+        isinstance(i, dict) and set(i) == {"kind", "value"} and _text(i["kind"]) and _text(i["value"]) for i in value
+    )
+
+
 def read_reference(record) -> TextReference:
     """The typed `text-reference/1` value of one Reference record; `ReferenceInvalid` when it does not read as one."""
     if not isinstance(record, dict):
@@ -128,10 +136,11 @@ def read_reference(record) -> TextReference:
     if record["expected_outcome"] not in OUTCOMES:
         raise ReferenceInvalid("expected_outcome is one of the three outcomes")
     identifiers = record["expected_identifiers"]
-    if not isinstance(identifiers, list) or not all(
-        isinstance(i, dict) and set(i) == {"kind", "value"} and _text(i["kind"]) and _text(i["value"]) for i in identifiers
-    ):
+    if not _identifier_list(identifiers):
         raise ReferenceInvalid("expected_identifiers is a list of {kind, value}")
+    allowed = record.get("allowed_identifiers", [])
+    if not _identifier_list(allowed):
+        raise ReferenceInvalid("allowed_identifiers, when present, is a list of {kind, value}")
     if not isinstance(record["expected_facts"], list):
         raise ReferenceInvalid("expected_facts is a list")
     reference_text = record.get("reference_text")
@@ -143,6 +152,7 @@ def read_reference(record) -> TextReference:
         tuple((i["kind"], i["value"]) for i in identifiers),
         tuple(_fact(entry) for entry in record["expected_facts"]),
         reference_text,
+        tuple((i["kind"], i["value"]) for i in allowed),
     )
 
 
@@ -250,9 +260,10 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
         return {"criteria": _all("unscored", problem)}
     reference = read_reference(reference_record)
     kinds = config["identifier_kinds"]
-    if any(kind not in kinds for kind, _ in reference.identifiers):
+    if any(kind not in kinds for kind, _ in reference.identifiers + reference.allowed):
         return {"criteria": _all("unscored", REFERENCE_INVALID)}
     expected = {(kind, normalised(kinds[kind], value)) for kind, value in reference.identifiers}
+    allowed = {(kind, normalised(kinds[kind], value)) for kind, value in reference.allowed}
     found = identifiers_in(raw_answer, config)
     numbers = numbers_in(without_identifiers_and_dates(raw_answer, config))
     outcome = declared_outcome if declared_outcome is not None else recognised_outcome(raw_answer, config)
@@ -262,7 +273,7 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
         outcome_matches = _boolean("outcome_matches", outcome == reference.expected_outcome, OUTCOME_MISMATCH)
     parts = [
         _boolean("identifiers_complete", expected <= found, IDENTIFIER_MISSING),
-        _boolean("no_unexpected_identifier", found <= expected, IDENTIFIER_UNEXPECTED),
+        _boolean("no_unexpected_identifier", found <= expected | allowed, IDENTIFIER_UNEXPECTED),
         _boolean("facts_present", all(fact_found(fact, raw_answer, numbers) for fact in reference.facts), FACT_MISSING),
         outcome_matches,
     ]

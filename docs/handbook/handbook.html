@@ -1710,6 +1710,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-key="reference_version"><td><code>reference_version</code></td><td>The version of the set, for example <code>chinook-prose-references/1</code>.</td></tr>
 <tr data-key="expected_outcome"><td><code>expected_outcome</code></td><td><code>answered</code>, <code>needs_clarification</code> or <code>not_answerable</code>.</td></tr>
 <tr data-key="expected_identifiers"><td><code>expected_identifiers</code></td><td>A list of <code>{kind, value}</code>, each kind one the scoring config declares.</td></tr>
+<tr data-key="allowed_identifiers"><td><code>allowed_identifiers</code></td><td>Optional: a list of <code>{kind, value}</code> an answer may name beside the expected ones without failing <code>no_unexpected_identifier</code>, for example the records it relies on, as the system text asks. Each set is derived from SQL recorded in the review record, never from an answer (D-158 on chadlis/hypotrail#75, item 1).</td></tr>
 <tr data-key="expected_facts"><td><code>expected_facts</code></td><td>A list of <code>{fact_id, type, value, tolerance, rule}</code>: <code>type</code> <code>integer</code>, <code>decimal</code>, <code>date</code> (ISO) or <code>text</code>; <code>tolerance</code> an absolute number for the two numeric types (default 0); <code>rule</code> the computation, here the SQL, never read by the Scorer.</td></tr>
 <tr data-key="reference_text"><td><code>reference_text</code></td><td>Optional: an answer written from the settled facts, the text a later Case's history may copy.</td></tr>
 <tr data-key="as_of"><td><code>as_of</code></td><td>A date.</td></tr>
@@ -1725,7 +1726,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 </div>
 <div class="tblwrap"><table class="tbl" id="text-facts-criteria"><thead><tr><th>Criterion</th><th>Holds when</th><th>Reason when false</th></tr></thead><tbody>
 <tr data-criterion="identifiers_complete" data-reason="identifier_missing"><td><code>identifiers_complete</code></td><td>Every expected identifier, normalised, is among those found in the text.</td><td><code>identifier_missing</code></td></tr>
-<tr data-criterion="no_unexpected_identifier" data-reason="identifier_unexpected"><td><code>no_unexpected_identifier</code></td><td>Every identifier found, normalised, is expected.</td><td><code>identifier_unexpected</code></td></tr>
+<tr data-criterion="no_unexpected_identifier" data-reason="identifier_unexpected"><td><code>no_unexpected_identifier</code></td><td>Every identifier found, normalised, is expected or allowed.</td><td><code>identifier_unexpected</code></td></tr>
 <tr data-criterion="facts_present" data-reason="fact_missing"><td><code>facts_present</code></td><td>Every expected fact is found in the text.</td><td><code>fact_missing</code></td></tr>
 <tr data-criterion="outcome_matches" data-reason="outcome_mismatch"><td><code>outcome_matches</code></td><td>The answer's outcome is the Reference's <code>expected_outcome</code>.</td><td><code>outcome_mismatch</code></td></tr>
 <tr data-criterion="text_facts_success" data-reason="the first false one's"><td><code>text_facts_success</code></td><td>The primary Criterion: the conjunction of the four, false as soon as one is false, otherwise the state and Reason of the first not scored.</td><td>the first false Criterion's</td></tr>
@@ -1737,7 +1738,7 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <tr data-reason="outcome_mismatch" data-state="scored"><td><code>outcome_mismatch</code></td><td>scored, false</td><td>The outcome is not the expected one.</td></tr>
 <tr data-reason="outcome_not_declared" data-state="unscored"><td><code>outcome_not_declared</code></td><td>unscored</td><td>The line declares no <code>outcome</code> and the scoring config declares no phrase rule.</td></tr>
 <tr data-reason="reference_missing" data-state="unscored"><td><code>reference_missing</code></td><td>unscored, every Criterion</td><td>The Case has no Reference.</td></tr>
-<tr data-reason="reference_invalid" data-state="unscored"><td><code>reference_invalid</code></td><td>unscored, every Criterion</td><td>The Reference does not read as <code>text-reference/1</code>, or names an identifier kind the scoring config does not declare.</td></tr>
+<tr data-reason="reference_invalid" data-state="unscored"><td><code>reference_invalid</code></td><td>unscored, every Criterion</td><td>The Reference does not read as <code>text-reference/1</code>, or names, as expected or allowed, an identifier kind the scoring config does not declare.</td></tr>
 <tr data-reason="scoring_failed" data-state="errored"><td><code>scoring_failed</code></td><td>errored, every Criterion</td><td>The scoring raised; only the exception's type is kept.</td></tr>
 </tbody></table></div>
 
