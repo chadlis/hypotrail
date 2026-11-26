@@ -334,8 +334,8 @@ test("on before-the-refused-write the record message starts one decide with the 
 
 // --- The path to Record in a browser ------------------------------------------------------------------------------------------------
 
-// "With `CI` set in the environment, the test of D3 fails when Chrome is missing or does not start, and is skipped only when `CI` is
-// not set" (chadlis/hypotrail#222).
+// The browser for the path to Record. With `CI` set in the environment, a test that needs it fails when Chrome is missing or does not
+// start; without `CI`, it is skipped, as the other tests of the client that use Chrome are.
 async function browserOrFailInCi(t: TestContext, what: string): Promise<string | undefined> {
   const address = fs.existsSync(CHROME) ? await startChrome(t) : undefined;
   if (address !== undefined) return address;
