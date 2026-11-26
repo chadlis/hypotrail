@@ -1,6 +1,6 @@
 """The frozen demonstration as end-to-end tests: the script's own step list, run once per session through the CLI in process.
 
-Each test reads the run of `demonstration_run` (`conftest.py`) for one step and asserts what a person watching the transcript does not
+Each test reads what `demonstration_run` (`conftest.py`) recorded for one step and asserts what a person watching the transcript does not
 see: the exit codes and refusals, each expectation, the Write sequence, the records on disk and in the reads, the report's sections.
 
 Stated limit: that every float these tests compare goes through the script's rule (`same`, 12 significant digits) is read from
@@ -133,7 +133,7 @@ def test_the_commands_the_end_to_end_tests_ran_are_the_commands_of_the_step_list
         assert found == expected, at
 
 
-def test_the_whole_run_of_the_step_list_exits_0_with_every_step_giving_what_it_expects(demonstration_run):
+def test_every_step_of_the_step_list_gives_what_it_expects_and_the_script_returns_0(demonstration_run):
     steps = demonstration_run.module.STEPS
     assert (demonstration_run.outcome.code, demonstration_run.outcome.passed) == (0, len(steps)), demonstration_run.transcript[-3000:]
 

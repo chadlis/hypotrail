@@ -91,7 +91,7 @@ class Recorder:
 
 
 def run_in_process(work: Path, steps=None) -> Run:
-    """One run of the step list (the script's own when `steps` is None) in the work folder, each command through `Recorder`."""
+    """The step list (the script's own when `steps` is None) carried out once in the work folder, each command through `Recorder`."""
     module = demonstration()
     recorder, out = Recorder(module), io.StringIO()
     outcome = module.run(work, start=recorder, out=out, steps=steps)

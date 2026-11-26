@@ -1,7 +1,7 @@
 """The frozen demonstration's script (`docs/demo/demonstration.py`): its bounds, its step list, its transcript and its own checks.
 
-The whole step list is run once per session in process (`demonstration_run`, in `conftest.py`); only the tests of the run as a person
-makes it start the script as a process, once.
+The whole step list is run once per session in process (`demonstration_run`, in `conftest.py`); only the tests of the script started as a person
+starts it start it as a process, once.
 """
 
 import ast
@@ -223,7 +223,7 @@ def test_the_script_run_as_a_process_with_a_new_work_folder_outside_the_checkout
     assert result.stdout.splitlines()[-1] == f"{len(STEPS)} of {len(STEPS)} steps gave what they expect."
 
 
-def test_a_successful_run_of_the_script_leaves_every_file_of_the_checkout_as_it_was(process_run):
+def test_the_script_that_gives_every_step_leaves_every_file_of_the_checkout_as_it_was(process_run):
     result, before, after = process_run
     assert result.returncode == 0, result.stderr[-2000:]
     for path in sorted(set(before) | set(after)):
@@ -415,7 +415,7 @@ CHANGED_EXPECTATIONS = {"an exit code": _exit_code, "a refusal's code": _refusal
 
 
 @pytest.mark.parametrize("kind", sorted(CHANGED_EXPECTATIONS))
-def test_a_run_where_one_expectation_does_not_hold_exits_1_after_a_line_naming_the_step_key_expected_and_found_and_runs_no_later_step(kind, tmp_path):
+def test_when_one_expectation_does_not_hold_the_script_exits_1_after_a_line_naming_the_step_key_expected_and_found_and_runs_no_later_step(kind, tmp_path):
     steps = copy.deepcopy(STEPS)
     key, expected, found = CHANGED_EXPECTATIONS[kind](steps)
     assert steps[1]["id"] == "L1.2"

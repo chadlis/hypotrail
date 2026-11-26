@@ -391,7 +391,7 @@ MISSING = object()
 
 
 class Failed(Exception):
-    """An expectation that does not hold, or a capture that cannot be read: the run stops."""
+    """An expectation that does not hold, or a capture that cannot be read: the script stops."""
 
 
 def same(found, expected) -> bool:
