@@ -8,7 +8,7 @@ L2 is "built, not demonstrated". Who lifts that status is in chadlis/hypotrail#1
 
 > The owner's demonstration lifts "built, not demonstrated", and the owner lifts it.
 
-This grid holds no result of that demonstration: its owner checks are listed, none of them is marked here.
+The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on #75); its owner checks are recorded there, not here.
 
 chadlis/hypotrail#103 also says under "End state":
 

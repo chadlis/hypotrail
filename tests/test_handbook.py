@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import hashlib
 import html
 import importlib.util
 import json
@@ -5885,3 +5886,103 @@ def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_track
     for path in ("docs/product/l2-acceptance.md", demo_rows(page).get("script", {}).get("data-path", "<no row>")):
         assert path in where, path
         assert tracked_files(path) == [path], path
+
+
+# --- the frozen demonstration (chapter 19): the table of its steps, what it does not run, and where to look ---------------------------
+
+STEPS_TABLE = "demo-steps"
+NOT_RUN_TABLE = "demo-not-run"
+STEPS_SECTION = '<p class="sub2" id="demo-steps-section">'
+# chadlis/hypotrail#218, "The demonstration, as this slice freezes it", the paragraph "Not run": each item it names.
+NOT_RUN = {"A1-A3", "A6", "task-4-window", "claude-code-answers", "copilot-answers", "C2-C4", "R1-R3", "llm_live", "spike-live"}
+
+
+def demonstration_steps() -> list:
+    from _demonstration_helpers import demonstration
+
+    return demonstration().STEPS
+
+
+def study_of_step(step) -> str:
+    """The folder name, in the work folder, of the Study a step's commands name; empty for a step that names none."""
+    studies = {part.rsplit("/", 1)[1] for action in step["actions"] if "cli" in action for flag, part in zip(action["cli"], action["cli"][1:]) if flag == "--study"}
+    assert len(studies) <= 1, (step["id"], studies)
+    return next(iter(studies), "")
+
+
+def test_the_steps_table_of_chapter_19_has_one_row_per_step_of_the_script_with_its_title_and_study_both_ways(page):
+    rows = {attrs["data-step"]: attrs for attrs in client_rows(page, STEPS_TABLE) if "data-step" in attrs}
+    steps = {step["id"]: step for step in demonstration_steps()}
+    assert rows and steps
+    for step_id in sorted(set(rows) | set(steps)):
+        assert step_id in rows and step_id in steps, step_id
+        assert (rows[step_id]["data-title"], rows[step_id]["data-study"]) == (steps[step_id]["title"], study_of_step(steps[step_id])), step_id
+    order = [attrs["data-step"] for attrs in client_rows(page, STEPS_TABLE) if "data-step" in attrs]
+    assert order == [step["id"] for step in demonstration_steps()]
+
+
+def test_the_not_run_table_of_chapter_19_names_each_item_the_demonstration_does_not_run_with_a_reason(page):
+    rows = {attrs["data-item"]: attrs for attrs in client_rows(page, NOT_RUN_TABLE)}
+    for item in sorted(set(rows) | NOT_RUN):
+        assert item in rows and item in NOT_RUN, item
+        assert rows[item].get("data-reason"), item
+
+
+def test_the_prose_of_the_steps_section_restates_no_value_of_its_tables(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{STEPS_TABLE}"') == 1 and chapter.count(STEPS_SECTION) == 1
+    section = chapter.split(STEPS_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    values = {value for table in (STEPS_TABLE, NOT_RUN_TABLE) for row in client_rows(page, table) for name, value in row.items() if name in ("data-title", "data-reason")}
+    assert f'id="{STEPS_TABLE}"' in section and prose and len(values) >= 8
+    for value in sorted(values):
+        assert html.unescape(value) not in prose, value
+
+
+def test_where_to_look_names_the_demonstration_script_by_its_tracked_path(page):
+    from _demonstration_helpers import SCRIPT
+
+    [path] = [attrs["data-path"] for attrs in client_rows(page, STEPS_TABLE) if attrs.get("data-row") == "script"] or ["<no row>"]
+    assert tracked_files(path) == [path] and (ROOT / path).resolve() == SCRIPT, path
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    assert path in where
+
+
+# --- L2's status sentences after the owner's demonstration (D-132 on chadlis/hypotrail#75) ----------------------------------------------
+
+# Each place whose status sentence is rewritten, and its new sentence.
+STATUS_SENTENCES = {
+    "docs/product/l2-acceptance.md": (
+        "The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on #75); its owner checks are recorded "
+        "there, not here."
+    ),
+    "docs/handbook/chapters/19-l2-demonstration.html": (
+        "L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> "
+        "(D-132 on chadlis/hypotrail#75)."
+    ),
+}
+
+
+def test_each_place_holds_its_new_status_sentence_and_no_status_sentence_says_l2_is_built_not_demonstrated():
+    for place, sentence in STATUS_SENTENCES.items():
+        text = " ".join((ROOT / place).read_text(encoding="utf-8").split())
+        assert sentence in text, place
+        assert "is <b>built, not demonstrated</b>" not in text and "This grid holds no result of that demonstration" not in text, place
+
+
+# The horizons table of ROADMAP.md and its line 26, as they stood before the dated lines of D-132 on chadlis/hypotrail#75, each kept as the
+# SHA-256 of its lines joined by newlines (the lines cite decisions as the ROADMAP does, which the citation rule of the tests refuses).
+HORIZONS_TABLE_SHA256 = "78a233d08ca092c5baa7c2d610edd525bfbfc5e1143487f22c4c7f2ec145822e"
+LINE_26_SHA256 = "ce884f435f23b27d9ecc26dca051d691c9d19f52c157875c497a105eeab16b88"
+D_132 = "[D-132](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7173724609)"
+
+
+def test_the_roadmaps_horizons_table_and_its_line_26_are_unchanged_and_each_is_followed_by_its_dated_line_of_d_132():
+    lines = (ROOT / "docs" / "product" / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
+    start = lines.index("| Horizon | Result for the user | Commitment |")
+    last = next(at for at in range(start, len(lines)) if not lines[at + 1].startswith("|"))
+    assert hashlib.sha256("\n".join(lines[start : last + 1]).encode("utf-8")).hexdigest() == HORIZONS_TABLE_SHA256
+    [at] = [at for at, line in enumerate(lines) if hashlib.sha256(line.encode("utf-8")).hexdigest() == LINE_26_SHA256]
+    assert lines[last + 1] == "" and lines[last + 2].startswith("**Amended on 2026-11-26.**"), lines[last + 1 : last + 3]
+    assert "L2 row" in lines[last + 2] and D_132 in lines[last + 2], lines[last + 2]
+    assert lines[at + 1].startswith("  - Amended on 2026-11-26, by ") and D_132 in lines[at + 1], lines[at + 1]

@@ -13,6 +13,8 @@ Product purpose: [PRODUCT.md](PRODUCT.md). Current requirements: [L1 issue #1](h
 | L3 | Use the product on five further Tracks or Workloads, each with its evaluation contract written first. | Selected by the owner. No construction before the owner's demonstration of L2 (D-068 on chadlis/hypotrail#75). Its breadth waits on the decision pilot, a pending gate without a date (D-062 on chadlis/hypotrail#75, changes 4 and 5). |
 | Later options | Richer notebook and IDE interaction, clustering, pipeline integrations and public distribution. | Unordered options, not promised releases. |
 
+**Amended on 2026-11-26.** The L2 row: the owner demonstrated L2 on 2026-11-25 on `765a04b` and lifted "built, not demonstrated" ([D-132](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7173724609), item 1). Blocker 11 of that demonstration is fixed in a slice of its own before any L3 construction.
+
 These identifiers describe direction, not release numbers or calendar dates.
 
 **Owner selection, 2026-11-20.** The owner selected L2 and L3 in the end state on #1 ([comment 7043566976](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043566976), « H3 »; [comment 7043774378](https://github.com/chadlis/hypotrail/issues/1#issuecomment-7043774378), items 2 and 3).
@@ -24,6 +26,7 @@ This was decided without evidence from the engineer's walk. The engineer's walk 
 **Decisions of 2026-11-22.** Three owner decisions and one decision by proxy on chadlis/hypotrail#75 change L2 and L3 as selected above:
 - [D-062](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7074979450), change 3: "L2 is narrowed to one review decision, end to end." The L2 section below is rewritten for it.
 - D-062, change 4, as amended by [D-063](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7075198791): a decision pilot gates how far L3 widens, and L2 is recorded as "built, not demonstrated". See "Pending gate: the decision pilot" below.
+  - Amended on 2026-11-26, by [D-132](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7173724609) (owner decision, 2026-11-25): the owner demonstrated L2 and lifted "built, not demonstrated".
 - [D-068](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7076156755): the chain stops at the end of L2 for the owner's demonstration, before any L3 construction.
   - Amended on 2026-11-24, by [D-088](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7095319824) (owner decision, 2026-11-23): when L2 is delivered, the run continues with chadlis/hypotrail#173, modelled then built, and the stop for the owner's demonstration moves to the end of #173's build.
 - [D-077](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7080379605) (decision by proxy): the eleven points the rewrite left open, among them which decision L2 delivers and what the owner's demonstration lifts.
