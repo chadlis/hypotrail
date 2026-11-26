@@ -9,20 +9,27 @@ import copy
 import json
 import math
 import os
+import shlex
 import subprocess
 import sys
 from itertools import zip_longest
 from pathlib import Path
 
 import pytest
-from _demonstration_helpers import LIVE_KEY, ROOT, SCRIPT, commands, demonstration, run_in_process, value_at
+from _demonstration_helpers import LIVE_KEY, ROOT, SCRIPT, commands, demonstration, processes, run_in_process, value_at
 
 MODULE = demonstration()
 STEPS = MODULE.STEPS
 
-# The steps of this ticket, in the order of chadlis/hypotrail#218, "The demonstration, as this slice freezes it": L1.1 to L1.7 on the
-# first Bike Study, then L1.8 on the Chinook Study.
-DEMO_IDS = ["L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7", "L1.8"]
+# The steps of the demonstration, in the order of chadlis/hypotrail#218, "The demonstration, as this slice freezes it": L1.1 to L1.7 on
+# the first Bike Study, then the steps of the second Bike Study in the order of chadlis/hypotrail#221, "Words of this ticket", then L1.8
+# on the Chinook Study.
+DEMO_IDS = [
+    "L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
+    "A4", "A5", "task 1", "task 2", "task 3", "C10", "task 4", "task 5", "task 6.1", "task 6.2", "C5-check", "COMPARE", "S1", "C8",
+    "DEV", "REPORT",
+    "L1.8",
+]
 
 # Section 18 of `pages/de-zero-a-la-demo.html`, chadlis/hypotrail-learning at commit 164aa3a, steps L1.1 to L1.8: each step's commands
 # as the page writes them, run at the root of the checkout, but the ones that only find an id (the `status ... | python -c` lines whose
@@ -30,8 +37,39 @@ DEMO_IDS = ["L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7", "L1.8"]
 # page's `runs/` is the work folder; a shell variable is written `$NAME`, the name of the script's capture that holds that id. The
 # References ID that the page writes as the literal `references-7520d791bfe31924` in L1.4 and L1.7 is the one `init` printed, written
 # `$L1_BIKE_REFS`.
+#
+# The steps of the second Bike Study, from A4 to the C5 check of the same section: the page's `../demo-examples` is the Workload copy in the
+# work folder, and its `runs/bike` the second Bike Study. The copy is "given as `--examples-dir` to the commands that take it (`init`,
+# `run ml`, `run agent`, `import agent`, `data verify`), and to no others" (chadlis/hypotrail#221, "Words of this ticket"), so the page's
+# `--examples-dir` of `assess` and `compare`, which read it only for public_check Items, is left out. A `decide` is written as the panel's
+# bridge starts it, "each option joined to its value by `=`" (chadlis/hypotrail#221, "Acceptance criteria"); the page's request id at task
+# 3 is a new UUID of the walk, the script's a fixed text. Section 18 has neither COMPARE nor DEV, and leaves the hook of C10 to Claude Code
+# and the `decide` of S1 and of C8 to the panel and to Claude Code: those commands are written here from chadlis/hypotrail#221,
+# "Acceptance criteria", with the `status` read after COMPARE, C8 and DEV that shows what each wrote.
 KEPT_LOG = "docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval"
 POPULATION = '{"episodes": [{"case_id": "D03", "repeat": 0}, {"case_id": "D05", "repeat": 0}]}'
+QUESTION = "Which Configuration do we keep after this Comparison?"
+STATUS_BIKE = ("hypotrail", "status", "--study", "runs/bike", "--json")
+
+
+def decide_18(option, artifact, request_id, read_sequence, *source, author="human"):
+    return (
+        "hypotrail", "decide", "--study=runs/bike", f"--question={QUESTION}", f"--option={option}", f"--author={author}", *source,
+        f"--artifact={artifact}", f"--request-id={request_id}", f"--read-sequence={read_sequence}", "--json",
+    )
+
+
+def task_6(edit, refs) -> list:
+    return [
+        ("python", "docs/demo/edit_copy.py", "--copy", "../demo-examples", "--edit", edit),
+        ("hypotrail", "data", "verify", "--examples-dir", "../demo-examples"),
+        ("hypotrail", "init", "--study", "runs/bike", "--new-revision", "--examples-dir", "../demo-examples"),
+        ("hypotrail", "assess", "--study", "runs/bike", "--observations", "$L2_OBS_SEASONAL", "--scorer", "regression_mae_v1", "--references", refs),
+        ("hypotrail", "assess", "--study", "runs/bike", "--observations", "$L2_OBS_RIDGE", "--scorer", "regression_mae_v1", "--references", refs),
+        STATUS_BIKE,
+    ]
+
+
 SECTION_18 = {
     "L1.1": [
         ("hypotrail", "--help"),
@@ -78,20 +116,67 @@ SECTION_18 = {
         ("cat", "runs/l1-chinook/assessments/*/per_item.csv"),
         ("hypotrail", "report", "--study", "runs/l1-chinook", "--out", "runs/l1-chinook-report.html"),
     ],
+    "A4": [
+        ("cp", "-r", "examples", "../demo-examples"),
+        ("hypotrail", "data", "verify", "--examples-dir", "../demo-examples"),
+    ],
+    "A5": [
+        ("hypotrail", "init", "--workload", "bike_day", "--study", "runs/bike", "--examples-dir", "../demo-examples"),
+        ("hypotrail", "run", "ml", "--study", "runs/bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "demo-seasonal", "--examples-dir", "../demo-examples"),
+        ("hypotrail", "run", "ml", "--study", "runs/bike", "--config", "ridge_v1", "--partition", "dev", "--request-id", "demo-ridge", "--examples-dir", "../demo-examples"),
+        ("hypotrail", "assess", "--study", "runs/bike", "--observations", "$L2_OBS_SEASONAL", "--scorer", "regression_mae_v1", "--references", "$L2_REFS"),
+        ("hypotrail", "assess", "--study", "runs/bike", "--observations", "$L2_OBS_RIDGE", "--scorer", "regression_mae_v1", "--references", "$L2_REFS"),
+        ("hypotrail", "compare", "--study", "runs/bike", "--control", "$L2_A_SEASONAL", "--candidate", "$L2_A_RIDGE"),
+    ],
+    "task 1": [STATUS_BIKE],
+    "task 2": [STATUS_BIKE],
+    "task 3": [decide_18("Keep the Control", "$L2_COMPARISON", "demo-task-3", 12), STATUS_BIKE],
+    "C10": [("python3", "-I", "clients/claude-code/hypotrail_study_hook.py", "--study", "runs/bike")],
+    "task 4": [STATUS_BIKE],
+    "task 5": [STATUS_BIKE],
+    "task 6.1": task_6("6.1", "$L2_REFS_61"),
+    "task 6.2": task_6("6.2", "$L2_REFS_62"),
+    "C5-check": [STATUS_BIKE],
+    "COMPARE": [("hypotrail", "compare", "--study", "runs/bike", "--control", "$L2_A_SEASONAL_62", "--candidate", "$L2_A_RIDGE_62"), STATUS_BIKE],
+    "S1": [
+        ("hypotrail", "run", "ml", "--study", "runs/bike", "--config", "seasonal_7", "--partition", "dev", "--request-id", "demo-s1", "--examples-dir", "../demo-examples"),
+        STATUS_BIKE,
+        decide_18("Keep the Control", "$L2_COMPARISON_62", "demo-s1-decide", 28),
+    ],
+    "C8": [
+        decide_18("Keep the Control", "$L2_COMPARISON_62", "demo-c8", "$L2_READ_AFTER_S1", f"--source={MODULE.PROXY_SOURCE}", author="proxy"),
+        STATUS_BIKE,
+    ],
+    "DEV": [
+        (
+            "hypotrail", "deviation", "--study", "runs/bike", "--text", MODULE.DEVIATION_TEXT, "--author", "human", "--artifact", "$L2_REFS_62",
+            "--request-id", "demo-dev", "--read-sequence", "$L2_READ_AFTER_C8",
+        ),
+        STATUS_BIKE,
+    ],
+    "REPORT": [("hypotrail", "report", "--study", "runs/bike", "--out", "runs/bike-report.html")],
 }
 
 
 def as_section_18(text: str) -> str:
-    """A template of the script written as section 18 writes it: the work folder as `runs/`, the checkout as its root, a capture as `$NAME`."""
-    text = text.replace("{work}/", "runs/").replace("{checkout}/", "")
+    """A template of the script written as section 18 writes it: the Workload copy as `../demo-examples`, the work folder as `runs/`, the
+    checkout as its root, a capture as `$NAME`."""
+    text = text.replace("{work}/demo-examples", "../demo-examples").replace("{work}/", "runs/").replace("{checkout}/", "")
     return MODULE.PLACEHOLDER.sub(lambda match: f"${match[1]}", text)
 
 
-def section_18_form(action) -> tuple:
-    """One action of the step list as section 18 writes it. `--json` only chooses the form of what a command prints, so it is left out
-    on both sides of the comparison."""
+def section_18_form(action) -> tuple | None:
+    """One action of the step list as section 18 writes it; None for the two reads of a kept state, which are the reads kept for the
+    client's tests and no command of section 18. `--json` only chooses the form of what a command prints, so it is left out on both sides
+    of the comparison."""
+    if "keep" in action:
+        return None
     if "cli" in action:
         return ("hypotrail", *(as_section_18(part) for part in action["cli"] if part != "--json"))
+    if "program" in action:
+        return (*action.get("interpreter", ["python"]), action["program"], *(as_section_18(part) for part in action["args"]))
+    if "copy" in action:
+        return ("cp", "-r", as_section_18(action["copy"]), as_section_18(action["to"]))
     if "write" in action:
         return ("printf", "%s\\n", action["text"], ">", as_section_18(action["write"]))
     shown = action["show"]
@@ -122,7 +207,7 @@ def args_of(action) -> list:
 # --- the script's bounds: its imports, the folders it refuses, the files it leaves --------------------------------------------------------
 
 # The modules the script may import: each is in the standard library, and none reaches the network or a model.
-ALLOWED_IMPORTS = {"argparse", "collections", "glob", "json", "os", "pathlib", "re", "shlex", "subprocess", "sys"}
+ALLOWED_IMPORTS = {"argparse", "collections", "glob", "json", "os", "pathlib", "re", "shlex", "shutil", "subprocess", "sys"}
 NEVER_ALLOWED = ("socket", "ssl", "http", "urllib", "requests", "anthropic", "inspect_ai", "hypotrail")
 
 
@@ -270,6 +355,7 @@ def test_the_ids_of_the_step_list_are_the_ids_of_the_demonstration_in_order():
 def test_the_commands_of_each_step_are_those_of_its_step_in_section_18_but_the_ones_that_only_find_an_id():
     for step_id in sorted(set(SECTION_18) | {each["id"] for each in STEPS}):
         script = [section_18_form(action) for action in step(step_id)["actions"]] if step_id in [each["id"] for each in STEPS] else []
+        script = [each for each in script if each is not None]
         written = [tuple(part for part in each if part != "--json") for each in SECTION_18.get(step_id, [])]
         for at, (found, wrote) in enumerate(zip_longest(script, written)):
             assert found == wrote, (step_id, at)
@@ -307,6 +393,86 @@ def test_l1_8_expects_5_produced_1_failed_1_missing_of_the_scripted_fixture_atte
     assert "the counts the Scenarios are written to give" in step("L1.8")["why"]
 
 
+# --- the commands chadlis/hypotrail#221 names for the second Bike Study -----------------------------------------------------------------
+
+CONTRACT = json.loads((ROOT / "clients" / "vscode" / "contract.json").read_text(encoding="utf-8"))
+FRAGMENT = json.loads((ROOT / "clients" / "claude-code" / "settings-fragment.json").read_text(encoding="utf-8"))
+
+
+def options_of(args) -> list:
+    """(name, value) of each option of a `decide` argument list, each joined to its value by `=`; `--json` with no value."""
+    assert args[0] == "decide" and args[-1] == "--json", args
+    pairs = [tuple(part.split("=", 1)) for part in args[1:-1]]
+    assert all(len(pair) == 2 and pair[0].startswith("--") for pair in pairs), args
+    return [*pairs, ("--json", None)]
+
+
+def decide_of(step_id) -> dict:
+    [found] = [action for action in cli_actions(step_id) if action["cli"][0] == "decide"]
+    return found
+
+
+def capture_of(name) -> tuple:
+    """(step id, process) of the process that captures NAME."""
+    [found] = [(step_id, action) for step_id, action in commands(STEPS) if name in action.get("capture", {})]
+    return found
+
+
+def test_task_3_records_the_decision_with_the_argument_list_the_panels_bridge_builds():
+    options = options_of(decide_of("task 3")["cli"])
+    assert [name for name, _ in options] == [name for name in CONTRACT["decide_options"] if name != "--source"]
+    values = dict(options)
+    assert (values["--study"], values["--author"], values["--read-sequence"]) == ("{work}/bike", "human", "12")
+    assert [value for name, value in options if name == "--artifact"] == ["{L2_COMPARISON}"]
+    assert capture_of("L2_COMPARISON")[0] == "A5" and capture_of("L2_COMPARISON")[1]["cli"][0] == "compare" and values["--request-id"]
+
+
+def test_c10_runs_the_hooks_program_with_the_flags_of_the_settings_fragment_on_the_second_bike_study_its_input_on_stdin():
+    [hook] = [action for action in step("C10")["actions"] if "program" in action]
+    [entry] = FRAGMENT["hooks"]["UserPromptSubmit"]
+    words = shlex.split(entry["hooks"][0]["command"])
+    assert [*hook["interpreter"], "$CLAUDE_PROJECT_DIR/" + hook["program"], *hook["args"]] == [*words[:4], "{work}/bike"]
+    assert hook["environment"] == {"CLAUDE_PROJECT_DIR": "{checkout}"} and json.loads(hook["input"])["hook_event_name"] == "UserPromptSubmit"
+
+
+def test_task_4_is_a_status_json_read_by_a_process_of_its_own():
+    assert [action["cli"] for action in step("task 4")["actions"]] == [["status", "--study", "{work}/bike", "--json"]]
+
+
+def test_s1_is_a_run_ml_of_seasonal_7_on_dev_then_a_decide_built_as_task_3s_with_read_sequence_28():
+    actions = cli_actions("S1")
+    run_ml = actions[0]["cli"]
+    assert run_ml[:2] == ["run", "ml"] and (run_ml[run_ml.index("--config") + 1], run_ml[run_ml.index("--partition") + 1]) == ("seasonal_7", "dev")
+    s1, task_3 = options_of(decide_of("S1")["cli"]), options_of(decide_of("task 3")["cli"])
+    assert [name for name, _ in s1] == [name for name, _ in task_3] and dict(s1)["--read-sequence"] == "28"
+    assert actions.index(decide_of("S1")) > 0
+
+
+def test_c8_is_a_proxy_decide_whose_source_names_the_rule_whose_option_the_rule_gives_and_whose_read_sequence_is_read_after_s1(demonstration_run):
+    options = dict(options_of(decide_of("C8")["cli"]))
+    assert (options["--author"], "keep the Configuration with the lowest MAE" in options["--source"]) == ("proxy", True)
+    run = demonstration_run
+    comparison = run.outcome.captures["L2_COMPARISON_62"]
+    assert options["--artifact"] == "{L2_COMPARISON_62}"
+    [status] = [call["payload"] for (_, action), call in zip(processes(STEPS), run.calls) if "L2_READ_AFTER_S1" in action.get("capture", {})]
+    [compared] = [each for each in status["comparisons"] if each["comparison_id"] == comparison]
+    mae = {each["assessment_id"]: each["metrics"][0]["value"] for each in status["assessments"]}
+    lowest = min(("Keep the Control", "control_assessment_id"), ("Keep the Candidate", "candidate_assessment_id"), key=lambda side: mae[compared["roles"][side[1]]])
+    assert options["--option"] == lowest[0]
+    step_id, read = capture_of("L2_READ_AFTER_S1")
+    assert (options["--read-sequence"], step_id, read["cli"][0], read["capture"]["L2_READ_AFTER_S1"]) == ("{L2_READ_AFTER_S1}", "S1", "status", "write_sequence")
+
+
+def test_dev_is_a_deviation_whose_text_says_the_references_of_revisions_2_and_3_were_edited_by_the_script_citing_those_of_revision_3():
+    [action] = [action for action in cli_actions("DEV") if action["cli"][0] == "deviation"]
+    args = action["cli"]
+    text = args[args.index("--text") + 1]
+    for words in ("References of revisions 2 and 3", "edited by the demonstration's script", "correct no error of the data"):
+        assert words in text, words
+    step_id, init = capture_of(args[args.index("--artifact") + 1].strip("{}"))
+    assert (step_id, init["cli"][:1], init["expect"]["values"]["study.revision_number"]) == ("task 6.2", ["init"], 3)
+
+
 SHOWN = {"L1.1": "folders", "L1.5": "head", "L1.7": "files", "L1.8": "file"}
 
 
@@ -321,16 +487,34 @@ def test_the_files_a_step_shows_are_shown_through_a_named_show_action_and_only_i
 ID_FLAGS = ("--observations", "--references", "--control", "--candidate", "--artifact")
 
 
+def texts_of(value) -> list:
+    """Each text of an expected value: the value itself, or each member of a list."""
+    if isinstance(value, list):
+        return [part for each in value for part in texts_of(each)]
+    return [value] if isinstance(value, str) else []
+
+
+def flags_and_values(args) -> list:
+    """(flag, value) of each option of an argument list, given as `--flag value` or as `--flag=value`."""
+    pairs = [tuple(part.split("=", 1)) for part in args if part.startswith("--") and "=" in part]
+    return pairs + list(zip(args, args[1:]))
+
+
+def argument_list(action) -> list:
+    return action["cli"] if "cli" in action else action["args"]
+
+
 def captured_names_used_by_a_later_command_only(steps) -> list:
     """The faults of the step list: a name used before a command captures it, or an id flag given a value a `status` command captured."""
     faults, captured = [], {}
-    for step_id, action in commands(steps):
-        expected = [value for value in action.get("expect", {}).get("values", {}).values() if isinstance(value, str)]
-        for part in [*action["cli"], *expected]:
+    for step_id, action in processes(steps):
+        expect = action.get("expect", {})
+        expected = [part for value in expect.get("values", {}).values() for part in texts_of(value)] + expect.get("lines", [])
+        for part in [*argument_list(action), *expected, action.get("input") or ""]:
             for name in MODULE.PLACEHOLDER.findall(part):
                 if name not in MODULE.FOLDERS and name not in captured:
                     faults.append((step_id, name, "used before it is captured"))
-        for flag, value in zip(action["cli"], action["cli"][1:]):
+        for flag, value in flags_and_values(argument_list(action)):
             for name in MODULE.PLACEHOLDER.findall(value):
                 if flag in ID_FLAGS and captured.get(name) == "status":
                     faults.append((step_id, name, f"{flag} given a value a status command captured"))
@@ -343,7 +527,7 @@ def test_each_id_a_command_takes_is_captured_at_a_key_of_an_earlier_command_and_
     """Stated limit: the test reads the step list's data; that the script's code opens no file of a Study to find an id or a value it
     passes to a command is not listed mechanically, and is INFERRED from the one function that resolves an argument list."""
     assert captured_names_used_by_a_later_command_only(STEPS) == []
-    used = {name for _, action in commands(STEPS) for part in action["cli"] for name in MODULE.PLACEHOLDER.findall(part)} - set(MODULE.FOLDERS)
+    used = {name for _, action in processes(STEPS) for part in argument_list(action) for name in MODULE.PLACEHOLDER.findall(part)} - set(MODULE.FOLDERS)
     captured = {name: path for _, action in commands(STEPS) for name, path in action.get("capture", {}).items()}
     assert used
     for name in sorted(used):
@@ -377,16 +561,19 @@ def test_the_transcript_holds_one_block_per_step_with_its_title_commands_shown_v
         assert f"What it shows: {each['shows']}" in lines and f"Why: {each['why']}" in lines, step_id
         at = 0
         for action in each["actions"]:
-            if "cli" not in action:
+            if "cli" not in action and "program" not in action:
                 at = lines.index(f"$ {run.module.shown_action(action, run.module.folders_of(run.work))}", at)
-                continue
-            call = next(calls)
-            at = lines.index(f"$ python -m hypotrail {run.module.shlex.join(call['args'])}", at)
-            for path in action.get("print", []):
-                value = value_at(call["payload"], path)
-                assert f"  {path} = {json.dumps(value)}" in lines[at:], (step_id, path)
-            for key in run.module.expectation_keys(action["expect"]):
-                assert any(line.startswith(f"  expected {key} ") and line.endswith(": held") for line in lines[at:]), (step_id, key)
+            for started in run.module.processes(action):
+                call = next(calls)
+                if "program" in started:
+                    at = lines.index(run.module.shown_program(started, run.module.folders_of(run.work) | run.outcome.captures), at)
+                else:
+                    at = lines.index(f"$ python -m hypotrail {run.module.shlex.join(call['args'])}", at)
+                for path in started.get("print", []):
+                    value = value_at(call["payload"], path)
+                    assert f"  {path} = {json.dumps(value)}" in lines[at:], (step_id, path)
+                for key in run.module.expectation_keys(started["expect"]):
+                    assert any(line.startswith(f"  expected {key} ") and line.endswith(": held") for line in lines[at:]), (step_id, key)
     assert run.transcript.splitlines()[-1] == f"{len(STEPS)} of {len(STEPS)} steps gave what they expect."
 
 

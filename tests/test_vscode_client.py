@@ -199,6 +199,38 @@ def test_each_kept_figures_read_whose_ok_is_true_carries_the_write_sequence_and_
         assert [entry["comparison_id"] for entry in figures["comparisons"]] == [entry["comparison_id"] for entry in read["comparisons"]], name
 
 
+def kept_demonstration_names() -> list:
+    return sorted(Path(name).name for name in tracked("clients/vscode/test/cli/demonstration"))
+
+
+def test_each_kept_file_of_the_demonstration_is_what_its_step_list_wrote_in_the_work_folder_once_its_values_are_replaced(demonstration_run):
+    from _client_helpers import DEMONSTRATION_KEPT, demonstration_outputs, first_difference
+
+    made, names = demonstration_outputs(demonstration_run.work / "kept"), kept_demonstration_names()
+    assert made and names
+    for name in sorted(set(made) | set(names)):
+        assert name in made and name in names, name
+        kept = (DEMONSTRATION_KEPT / name).read_text(encoding="utf-8")
+        if name.endswith((".out", ".args")):
+            assert first_difference(json.loads(kept), json.loads(made[name])) is None, name
+        else:
+            assert kept == made[name], name
+
+
+def test_the_names_of_the_kept_files_of_the_demonstration_are_the_two_reads_of_each_kept_state_and_the_two_decide_calls_both_ways():
+    from _client_helpers import kept_names_of_the_demonstration
+    from _demonstration_helpers import demonstration
+
+    states = [action["keep"] for step in demonstration().STEPS for action in step["actions"] if "keep" in action]
+    expected = {f"{state}.{read}.{part}" for state in states for read in ("status", "figures") for part in ("exit", "out", "err")}
+    decides = [name for name in kept_names_of_the_demonstration() if name.startswith("decide-")]
+    expected |= {f"{name}.{part}" for name in decides for part in ("args", "exit", "out", "err")}
+    names = set(kept_demonstration_names())
+    assert len(states) == 7 and len(decides) == 2
+    for name in sorted(names | expected):
+        assert name in names and name in expected, name
+
+
 def test_each_kept_figures_read_is_shorter_than_the_output_limit_of_contract_json():
     limit = read_json(CLIENT / "contract.json")["max_buffer_bytes"]
     names = kept_figures_names()

@@ -5909,8 +5909,12 @@ def demonstration_steps() -> list:
 
 
 def study_of_step(step) -> str:
-    """The folder name, in the work folder, of the Study a step's commands name; empty for a step that names none."""
-    studies = {part.rsplit("/", 1)[1] for action in step["actions"] if "cli" in action for flag, part in zip(action["cli"], action["cli"][1:]) if flag == "--study"}
+    """The folder name, in the work folder, of the Study a step's processes name, as `--study DIR` or `--study=DIR`; empty for a step that
+    names none."""
+    from _demonstration_helpers import processes, study_of
+
+    found = {study_of(action.get("cli") or action["args"]) for _, action in processes([step])}
+    studies = {path.name for path in found if path is not None}
     assert len(studies) <= 1, (step["id"], studies)
     return next(iter(studies), "")
 
@@ -5942,6 +5946,34 @@ def test_the_prose_of_the_steps_section_restates_no_value_of_its_tables(page):
     assert f'id="{STEPS_TABLE}"' in section and prose and len(values) >= 8
     for value in sorted(values):
         assert html.unescape(value) not in prose, value
+
+
+KEPT_STATES_TABLE = "demo-kept-states"
+KEPT_STATES_SECTION = '<p class="sub2" id="demo-kept-states-section">'
+
+
+def kept_states_of_the_script() -> dict:
+    """{state: (its Write sequence, the id of the step that keeps it)} of each kept state of the step list."""
+    return {action["keep"]: (action["sequence"], step["id"]) for step in demonstration_steps() for action in step["actions"] if "keep" in action}
+
+
+def test_the_kept_states_table_of_chapter_19_has_one_row_per_kept_state_of_the_script_with_its_write_sequence_and_step_both_ways(page):
+    rows = {attrs["data-state"]: attrs for attrs in client_rows(page, KEPT_STATES_TABLE)}
+    states = kept_states_of_the_script()
+    assert rows and states
+    for state in sorted(set(rows) | set(states)):
+        assert state in rows and state in states, state
+        assert (int(rows[state]["data-sequence"]), rows[state]["data-step"]) == states[state], state
+
+
+def test_the_prose_of_the_kept_states_section_restates_no_row_of_its_table(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{KEPT_STATES_TABLE}"') == 1 and chapter.count(KEPT_STATES_SECTION) == 1
+    section = chapter.split(KEPT_STATES_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    assert f'id="{KEPT_STATES_TABLE}"' in section and prose
+    for row in client_rows(page, KEPT_STATES_TABLE):
+        assert not names(prose, html.unescape(row["data-state"])), row["data-state"]
 
 
 def test_where_to_look_names_the_demonstration_script_by_its_tracked_path(page):

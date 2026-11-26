@@ -5,16 +5,18 @@ checkout:
 
     uv run python docs/demo/demonstration.py --work DIR
 
-DIR is a new or empty folder outside the checkout: it receives the Studies, the report pages and the population file. The
-steps are those of section 18 of the teaching page that need no person, Bike then Chinook. For each step the script prints
-what it shows and why, starts each command as a process of its own, as a person would, prints what the command gave, and
-checks what the step expects of it. It stops at the first expectation that does not hold. Exit 0 when every step gave what
-it expects, 1 when one did not, 2 when DIR is refused.
+DIR is a new or empty folder outside the checkout: it receives the Studies, the Workload copy, the report pages, the population
+file and the reads kept for the client's tests (`kept/`). The steps are those of section 18 of the teaching page that need no
+person: a first Bike Study, a second Bike Study on a copy of the Workloads, then Chinook. For each step the script prints what
+it shows and why, starts each command as a process of its own, as a person would, prints what the command gave, and checks what
+the step expects of it. It stops at the first expectation that does not hold. Exit 0 when every step gave what it expects, 1
+when one did not, 2 when DIR is refused.
 
 No command calls a live model or the network: `run agent` is given the Mode `scripted_fixture` only, and each process is
 started without the live key `HYPOTRAIL_ANTHROPIC_API_KEY` in its environment. A command of the CLI is started as
-`python -B -m hypotrail`, with the Python that runs this script; `-B` keeps Python from writing its bytecode cache into the
-checkout, so that the script writes only inside DIR.
+`python -B -m hypotrail`, with the Python that runs this script, and the task-6 script as `python -B`; `-B` keeps Python from
+writing its bytecode cache into the checkout, so that the script writes only inside DIR. The Claude Code hook is started as
+its settings fragment starts it, `python3 -I`, and starts the CLI through `uv` itself: it gets `PYTHONDONTWRITEBYTECODE=1`.
 """
 
 import argparse
@@ -23,6 +25,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from collections import namedtuple
@@ -38,11 +41,56 @@ SIGNIFICANT_DIGITS = 12
 # A template names a folder as `{work}` or `{checkout}`, and a value captured from an earlier command by the capture's name.
 PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 FOLDERS = ("work", "checkout")
-PATH_PART = re.compile(r"\.?([A-Za-z_][A-Za-z0-9_]*)|\[(-?\d+)\]")
+# A key path names keys and list indexes; `[*]` takes the rest of the path in each entry of a list.
+PATH_PART = re.compile(r"\.?([A-Za-z_][A-Za-z0-9_]*)|\[(-?\d+|\*)\]")
 
 BIKE = "{work}/l1-bike"
 CHINOOK = "{work}/l1-chinook"
 COUNTS_182 = {"produced": 182, "failed": 0, "missing": 0}
+
+# The second Bike Study, made from the Workload copy: the copy is given as --examples-dir to the commands that read the Workload.
+L2_BIKE = "{work}/bike"
+COPY = "{work}/demo-examples"
+# Where the reads of each kept state, and the two kept decide calls, are written: NAME.exit, NAME.out and NAME.err, and for a
+# decide NAME.args, its argument list.
+KEPT = "kept"
+QUESTION = "Which Configuration do we keep after this Comparison?"
+PROXY_SOURCE = "rule: keep the Configuration with the lowest MAE"
+DEVIATION_TEXT = (
+    "The References of revisions 2 and 3 were edited by the demonstration's script, docs/demo/edit_copy.py, in a copy of the "
+    "Workload, to show a Decision outdated by its evidence; they correct no error of the data."
+)
+# The task-6 script, started with the Python that runs this script; the hook, started with the interpreter and flags of
+# clients/claude-code/settings-fragment.json.
+EDIT_COPY = "docs/demo/edit_copy.py"
+HOOK = "clients/claude-code/hypotrail_study_hook.py"
+HOOK_INTERPRETER = ["python3", "-I"]
+# What Claude Code writes on the hook's stdin at a prompt; the hook reads it whole and uses none of it.
+HOOK_INPUT = json.dumps(
+    {"session_id": "demonstration", "hook_event_name": "UserPromptSubmit", "prompt": "Which Decision did the Study record last?", "cwd": "{checkout}"}
+)
+LIMITATIONS = [
+    "Daily observations are dependent: the delta carries no confidence interval and no significance claim.",
+    "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+]
+
+
+def keep(state: str, sequence: int) -> dict:
+    """The action that writes the two reads of a kept state of the second Bike Study: `status --json` and `figures --json`."""
+    return {"keep": state, "study": L2_BIKE, "sequence": sequence}
+
+
+def decide(option: str, artifact: str, request_id: str, read_sequence, author: str = "human", source: str | None = None) -> list:
+    """A decide as the panel's bridge starts it: each option joined to its value by `=`, in the order of `decide_options`."""
+    return [
+        "decide", f"--study={L2_BIKE}", f"--question={QUESTION}", f"--option={option}", f"--author={author}",
+        *([] if source is None else [f"--source={source}"]),
+        f"--artifact={artifact}", f"--request-id={request_id}", f"--read-sequence={read_sequence}", "--json",
+    ]
+
+
+def status_l2() -> list:
+    return ["status", "--study", L2_BIKE, "--json"]
 
 # The step list. Each step has its id in section 18, its title, what it shows and why, and its actions. An action is a command
 # of the CLI (`cli`, its argument list), a file of the work folder written (`write`), or files shown, read only (`show`). A
@@ -321,6 +369,659 @@ STEPS = [
         ],
     },
     {
+        "id": "A4",
+        "title": "Copy the Workloads outside the checkout, and verify the copy",
+        "shows": (
+            "The checkout's examples/ copied into the work folder as demo-examples, then data verify on that copy: bike_day and "
+            "chinook each verified, with the SHA-256 of its data file, the same as in the checkout."
+        ),
+        "why": (
+            "Task 6 changes two References, and a rule of this repository forbids changing an expected value to improve a score. "
+            "So the second Bike Study is made from a copy of the Workloads in the work folder, given with --examples-dir to each "
+            "command that reads the Workload, and the two edits of task 6 are made in that copy. No tracked file of the checkout "
+            "changes."
+        ),
+        "actions": [
+            {"copy": "{checkout}/examples", "to": COPY},
+            {
+                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "print": ["datasets[*].workload", "datasets[*].status", "datasets[*].sha256"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "datasets[*].workload": ["bike_day", "chinook"],
+                        "datasets[*].status": ["verified", "verified"],
+                        "datasets[0].sha256": "a6bcf826782d3c0fbfdcbeead17cd0884185a0dafe8ff10cd48a874ee7ba18be",
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "A5",
+        "title": "Make the second Bike Study on the copy: two Attempts, two Assessments and one Comparison",
+        "shows": (
+            "The Study made from the copy, with the Protocol digest and the References ID of the first Bike Study; seasonal_7 and "
+            "ridge_v1 run on the 182 Items of dev; their MAEs, 1090.79 and 1264.73 rentals per day; the Comparison of the two, "
+            "seasonal_7 as the Control, with its delta of +173.939 and its warning; then the two reads of this state kept for the "
+            "client's tests, after-compare."
+        ),
+        "why": (
+            "These are the steps of L1 again, this time in the Study of L2. At the end, no Decision cites the Comparison: that is "
+            "what makes it a Pending decision. The reads written to kept/ are status --json and figures --json as the CLI printed "
+            "them: the client's tests build the panel's document from them, at this state and at six later ones."
+        ),
+        "actions": [
+            {
+                "cli": ["init", "--workload", "bike_day", "--study", L2_BIKE, "--examples-dir", COPY, "--json"],
+                "capture": {"L2_STUDY": "study.study_id", "L2_REFS": "references_id"},
+                "print": ["study.study_id", "study.protocol_digest", "references_id"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "study.revision_number": 1,
+                        "study.protocol_digest": "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0",
+                        "references_id": "references-7520d791bfe31924",
+                    },
+                },
+            },
+            {
+                "cli": ["run", "ml", "--study", L2_BIKE, "--config", "seasonal_7", "--partition", "dev", "--request-id", "demo-seasonal", "--examples-dir", COPY, "--json"],
+                "capture": {"L2_OBS_SEASONAL": "observation_set_id"},
+                "print": ["attempt.attempt_id", "attempt.item_counts", "observation_set_id"],
+                "expect": {"exit": 0, "values": {"replayed": False, "attempt.technical_status": "completed", "attempt.item_counts": COUNTS_182}},
+            },
+            {
+                "cli": ["run", "ml", "--study", L2_BIKE, "--config", "ridge_v1", "--partition", "dev", "--request-id", "demo-ridge", "--examples-dir", COPY, "--json"],
+                "capture": {"L2_OBS_RIDGE": "observation_set_id"},
+                "print": ["attempt.attempt_id", "attempt.item_counts", "observation_set_id"],
+                "expect": {"exit": 0, "values": {"replayed": False, "attempt.technical_status": "completed", "attempt.item_counts": COUNTS_182}},
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_SEASONAL}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS}", "--json"],
+                "capture": {"L2_A_SEASONAL": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring"],
+                "expect": {"exit": 0, "values": {"assessment.metrics[0].value": 1090.7912087912089, "assessment.rescoring": None}},
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_RIDGE}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS}", "--json"],
+                "capture": {"L2_A_RIDGE": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring"],
+                "expect": {"exit": 0, "values": {"assessment.metrics[0].value": 1264.730691775682, "assessment.rescoring": None}},
+            },
+            {
+                "cli": ["compare", "--study", L2_BIKE, "--control", "{L2_A_SEASONAL}", "--candidate", "{L2_A_RIDGE}", "--json"],
+                "capture": {"L2_COMPARISON": "comparison.comparison_id"},
+                "print": ["comparison.comparison_id", "comparison.delta.metric", "comparison.delta.value", "comparison.delta.unit", "comparison.warnings[0].code"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"comparison.delta.value": 173.93948298447322, "comparison.warnings[0].code": "COMPARISON_SINGLE_FEATURE_BEATS"},
+                },
+            },
+            keep("after-compare", 12),
+        ],
+    },
+    {
+        "id": "task 1",
+        "title": "Find the pending decision",
+        "shows": (
+            "status --json: the Write sequence 12, and one Pending decision, on the Comparison of A5, with its fixed question and "
+            "its three options, each with its consequence."
+        ),
+        "why": (
+            "A Pending decision is written nowhere: the Study derives it at each read, for each Comparison of the current revision "
+            "that no applying Decision cites. The panel shows this same read. It is the first half of the promise of L2: what needs "
+            "a person's attention is found without looking for it."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "print": [
+                    "write_sequence", "len(pending_decisions)", "pending_decisions[*].comparison_id", "pending_decisions[0].question.text",
+                    "pending_decisions[0].options[*].text", "pending_decisions[0].options[*].consequence",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 12,
+                        "pending_decisions[*].comparison_id": ["{L2_COMPARISON}"],
+                        "pending_decisions[0].question.text": QUESTION,
+                        "pending_decisions[0].options[*].text": ["Keep the Control", "Keep the Candidate", "Choose neither yet"],
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "task 2",
+        "title": "Open its evidence",
+        "shows": (
+            "The Comparison's delta, the Candidate's MAE minus the Control's, +173.939 rentals per day, and the two Assessments it "
+            "compares, each with its MAE."
+        ),
+        "why": (
+            "Deciding needs the evidence: the Comparison and the two Assessments it depends on, each number with the record that "
+            "holds it. A positive delta means the Candidate errs more. The panel draws the same numbers from this read, and the "
+            "spread of the paired deltas from the figures --json read kept at A5."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "print": [
+                    "comparisons[0].comparison_id", "comparisons[0].delta.value", "comparisons[0].roles", "assessments[*].assessment_id",
+                    "assessments[*].metrics[0].value",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "comparisons[0].comparison_id": "{L2_COMPARISON}",
+                        "comparisons[0].delta.value": 173.93948298447322,
+                        "comparisons[0].roles.control_assessment_id": "{L2_A_SEASONAL}",
+                        "comparisons[0].roles.candidate_assessment_id": "{L2_A_RIDGE}",
+                        "assessments[*].assessment_id": ["{L2_A_SEASONAL}", "{L2_A_RIDGE}"],
+                        "assessments[*].metrics[0].value": [1090.7912087912089, 1264.730691775682],
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "task 3",
+        "title": "Record an answer, as the panel records it",
+        "shows": (
+            "The decide the panel's bridge starts, each option joined to its value by =: the question, the option Keep the Control, "
+            "the author human, the Comparison as its one cited id, a request id and the Write sequence 12 it read; then status "
+            "--json: the Write sequence 14, no Pending decision, the Decision, which applies and has no reason, and the warning of "
+            "the Comparison, word for word; then the two reads of the state after-decide."
+        ),
+        "why": (
+            "A Decision is a file of the Study, written by decide alone and never rewritten. It holds the question, the option, its "
+            "author, what it cites and the Write sequence its author read: had the Study been written to since, decide would have "
+            "refused it (STUDY_CHANGED). The Write sequence goes from 12 to 14 because a write adds two entries to the Study's write "
+            "journal, its begin and its end. The option is the one the owner chose when he walked the demonstration on 2026-11-25."
+        ),
+        "actions": [
+            {
+                "cli": decide("Keep the Control", "{L2_COMPARISON}", "demo-task-3", 12),
+                "kept": "decide-task-3",
+                "capture": {"L2_DECISION": "decision.decision_id"},
+                "print": ["decision.decision_id", "decision.option", "decision.author", "decision.cited_ids", "decision.read_sequence"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"replayed": False, "decision.author": "human", "decision.cited_ids": ["{L2_COMPARISON}"], "decision.read_sequence": 12},
+                },
+            },
+            {
+                "cli": status_l2(),
+                "print": [
+                    "write_sequence", "len(pending_decisions)", "decisions[*].decision_id", "decisions[0].option", "decisions[0].author",
+                    "decisions[0].cited_ids", "decisions[0].applies", "decisions[0].reasons", "comparisons[0].warnings[0].message",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 14,
+                        "len(pending_decisions)": 0,
+                        "decisions[*].decision_id": ["{L2_DECISION}"],
+                        "decisions[0].author": "human",
+                        "decisions[0].cited_ids": ["{L2_COMPARISON}"],
+                        "decisions[0].applies": True,
+                        "decisions[0].reasons": [],
+                    },
+                },
+            },
+            keep("after-decide", 14),
+        ],
+    },
+    {
+        "id": "C10",
+        "title": "Give the Decision to the next prompt of Claude Code, through its hook",
+        "shows": (
+            "The hook's program, started with the interpreter and flags of its settings fragment, --study set to this Study, and the "
+            "hook's input written on its stdin, then closed: its text gives the Write sequence 14, no Pending decision, and the "
+            "Decision of task 3 with its option and its id, then the rule for an agent."
+        ),
+        "why": (
+            "Claude Code starts this hook before each prompt, so that the Study's state is in the context before the model answers. "
+            "The hook starts one read, status --since 0 --json, through uv in the checkout, and prints what it holds; it writes "
+            "nothing. No model is asked here: whether a model's answer then names the Decision is the owner's check."
+        ),
+        "actions": [
+            {
+                "program": HOOK,
+                "interpreter": HOOK_INTERPRETER,
+                "args": ["--study", L2_BIKE],
+                "input": HOOK_INPUT,
+                "environment": {"CLAUDE_PROJECT_DIR": "{checkout}"},
+                "expect": {
+                    "exit": 0,
+                    "lines": [
+                        "Write sequence: 14",
+                        "Pending decisions: 0",
+                        "Decisions, oldest first: 1",
+                        f'- Decision {{L2_DECISION}}: question "{QUESTION}"; option "Keep the Control"; author human; source none; '
+                        "cited {L2_COMPARISON}; applies true; evidence_change none.",
+                    ],
+                },
+            },
+        ],
+    },
+    {
+        "id": "task 4",
+        "title": "Find the answer again, read by a new process",
+        "shows": "status --json from a new process: the Write sequence still 14, no Pending decision, and the same Decision.",
+        "why": (
+            "No process of the demonstration keeps anything in memory: a new process finds the Decision because it reads it from the "
+            "Study's files. A read writes nothing, so the Write sequence stays 14. Closing and opening VS Code is the owner's part of "
+            "this task."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "print": ["write_sequence", "len(pending_decisions)", "decisions[*].decision_id", "decisions[0].option", "decisions[0].applies"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 14,
+                        "len(pending_decisions)": 0,
+                        "decisions[*].decision_id": ["{L2_DECISION}"],
+                        "decisions[0].option": "Keep the Control",
+                        "decisions[0].applies": True,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "task 5",
+        "title": "See a real limitation",
+        "shows": (
+            "The warning COMPARISON_SINGLE_FEATURE_BEATS of the Comparison, word for word, and its limitations, among them the "
+            "dependence of daily observations and the one code environment of the two Attempts."
+        ),
+        "why": (
+            "This limitation comes from the data, not from a made-up example: ridge_v1 is beaten by each of its own lag features used "
+            "alone as the forecast. The limitations say what the delta does not show: one day resembles the next, so no confidence "
+            "interval is given. The panel shows them beside the delta they limit."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "print": ["comparisons[0].warnings[*].code", "comparisons[0].warnings[0].message", "comparisons[0].limitations"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "comparisons[0].warnings[0].code": "COMPARISON_SINGLE_FEATURE_BEATS",
+                        "comparisons[0].limitations[0]": LIMITATIONS[0],
+                        "comparisons[0].limitations[1]": LIMITATIONS[1],
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "task 6.1",
+        "title": "Edit a Reference outside the assessed Partition: evidence rescored",
+        "shows": (
+            "edit_copy.py raises registered and cnt of 2012-12-31, a day of public_check, by 100 in the copy and rewrites its lock; "
+            "data verify gives the new SHA-256; init --new-revision makes revision 2 and prints its References ID; each Observation "
+            "set is assessed again against it, with rescoring.cause references_version, no changed Item and the same MAE; then "
+            "status --json: the Decision of task 3 no longer applies, with revision_changed among its reasons, and its evidence is "
+            "\"evidence rescored\"; then the two reads of the state after-6.1."
+        ),
+        "why": (
+            "Task 6 shows what becomes of a Decision when its evidence changes. A change of a Reference is a new revision of the "
+            "Protocol, then a new Assessment of each kept Observation set, with no model run again. The Decision no longer applies, "
+            "because the revision changed, but the Study says \"evidence rescored\": no assessed Item changed, and each cited Metric "
+            "equals the latest. The Decision's file is not touched."
+        ),
+        "actions": [
+            {
+                "program": EDIT_COPY,
+                "args": ["--copy", COPY, "--edit", "6.1"],
+                "expect": {"exit": 0, "lines": ["day: 2012-12-31", "registered: 2290 -> 2390", "cnt: 2729 -> 2829"]},
+            },
+            {
+                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "print": ["datasets[*].status", "datasets[0].sha256"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"datasets[*].status": ["verified", "verified"], "datasets[0].sha256": "0c4a409f8fb301748ae2593a0480a10bcf2253276dc4a6eab41abb419b210d72"},
+                },
+            },
+            {
+                "cli": ["init", "--study", L2_BIKE, "--new-revision", "--examples-dir", COPY, "--json"],
+                "capture": {"L2_REFS_61": "references_id"},
+                "print": ["study.revision_number", "study.protocol_digest", "references_id"],
+                "expect": {"exit": 0, "values": {"study.revision_number": 2}},
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_SEASONAL}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS_61}", "--json"],
+                "capture": {"L2_A_SEASONAL_61": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring.cause", "len(assessment.rescoring.changed_items)"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "assessment.metrics[0].value": 1090.7912087912089,
+                        "assessment.rescoring.cause": "references_version",
+                        "len(assessment.rescoring.changed_items)": 0,
+                    },
+                },
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_RIDGE}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS_61}", "--json"],
+                "capture": {"L2_A_RIDGE_61": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring.cause", "len(assessment.rescoring.changed_items)"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "assessment.metrics[0].value": 1264.730691775682,
+                        "assessment.rescoring.cause": "references_version",
+                        "len(assessment.rescoring.changed_items)": 0,
+                    },
+                },
+            },
+            {
+                "cli": status_l2(),
+                "print": [
+                    "write_sequence", "len(pending_decisions)", "decisions[0].applies", "decisions[0].reasons[*].reason",
+                    "decisions[0].evidence_change.state", "decisions[0].evidence_change.lines[*].changed_item_count",
+                    "decisions[0].evidence_change.lines[*].metrics[0]",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 20,
+                        "len(pending_decisions)": 0,
+                        "decisions[0].applies": False,
+                        "decisions[0].reasons[*].reason": ["revision_changed", "compared_assessment_superseded", "compared_assessment_superseded"],
+                        "decisions[0].evidence_change.state": "evidence_rescored",
+                        "decisions[0].evidence_change.lines[*].latest_assessment_id": ["{L2_A_SEASONAL_61}", "{L2_A_RIDGE_61}"],
+                        "decisions[0].evidence_change.lines[*].changed_item_count": [0, 0],
+                        "decisions[0].evidence_change.lines[*].metrics[0].latest": [1090.7912087912089, 1264.730691775682],
+                    },
+                },
+            },
+            keep("after-6.1", 20),
+        ],
+    },
+    {
+        "id": "task 6.2",
+        "title": "Edit a Reference inside the assessed Partition: result changed",
+        "shows": (
+            "edit_copy.py raises registered and cnt of 2012-03-15, a day of dev, by 100; data verify; revision 3 and its References "
+            "ID; the two new Assessments, each with one changed Item, and the MAEs 1091.34 and 1265.28; then status --json: the "
+            "Decision does not apply, and its evidence is \"result changed\", with for each side the cited and the latest Metric; "
+            "then the two reads of the state after-6.2."
+        ),
+        "why": (
+            "This time the edited day is one the Comparison scores: one Item changes on each side, and each MAE rises by 100/182. "
+            "The Study says \"result changed\" and shows the value the Decision cited beside the latest. No delta is computed again "
+            "behind a person's back: deciding again, on a new Comparison, is a person's choice."
+        ),
+        "actions": [
+            {
+                "program": EDIT_COPY,
+                "args": ["--copy", COPY, "--edit", "6.2"],
+                "expect": {"exit": 0, "lines": ["day: 2012-03-15", "registered: 5187 -> 5287", "cnt: 6192 -> 6292"]},
+            },
+            {
+                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "print": ["datasets[*].status", "datasets[0].sha256"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"datasets[*].status": ["verified", "verified"], "datasets[0].sha256": "dafe91afce9e159bad51950ccc24d78d1f7ef0045e8341f46acdea505613f71b"},
+                },
+            },
+            {
+                "cli": ["init", "--study", L2_BIKE, "--new-revision", "--examples-dir", COPY, "--json"],
+                "capture": {"L2_REFS_62": "references_id"},
+                "print": ["study.revision_number", "study.protocol_digest", "references_id"],
+                "expect": {"exit": 0, "values": {"study.revision_number": 3, "references_id": "references-ff964e6939ad94ee"}},
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_SEASONAL}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS_62}", "--json"],
+                "capture": {"L2_A_SEASONAL_62": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring.cause", "len(assessment.rescoring.changed_items)"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "assessment.metrics[0].value": 1091.3406593406594,
+                        "assessment.rescoring.cause": "references_version",
+                        "len(assessment.rescoring.changed_items)": 1,
+                    },
+                },
+            },
+            {
+                "cli": ["assess", "--study", L2_BIKE, "--observations", "{L2_OBS_RIDGE}", "--scorer", "regression_mae_v1", "--references", "{L2_REFS_62}", "--json"],
+                "capture": {"L2_A_RIDGE_62": "assessment.assessment_id"},
+                "print": ["assessment.assessment_id", "assessment.metrics[0].value", "assessment.rescoring.cause", "len(assessment.rescoring.changed_items)"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "assessment.metrics[0].value": 1265.2801423251326,
+                        "assessment.rescoring.cause": "references_version",
+                        "len(assessment.rescoring.changed_items)": 1,
+                    },
+                },
+            },
+            {
+                "cli": status_l2(),
+                "print": [
+                    "write_sequence", "len(pending_decisions)", "decisions[0].applies", "decisions[0].reasons[*].reason",
+                    "decisions[0].evidence_change.state", "decisions[0].evidence_change.lines[*].changed_item_count",
+                    "decisions[0].evidence_change.lines[*].metrics[0]",
+                ],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 26,
+                        "len(pending_decisions)": 0,
+                        "decisions[0].applies": False,
+                        "decisions[0].evidence_change.state": "result_changed",
+                        "decisions[0].evidence_change.lines[*].latest_assessment_id": ["{L2_A_SEASONAL_62}", "{L2_A_RIDGE_62}"],
+                        "decisions[0].evidence_change.lines[*].changed_item_count": [1, 1],
+                        "decisions[0].evidence_change.lines[*].metrics[0].cited": [1090.7912087912089, 1264.730691775682],
+                        "decisions[0].evidence_change.lines[*].metrics[0].latest": [1091.3406593406594, 1265.2801423251326],
+                    },
+                },
+            },
+            keep("after-6.2", 26),
+        ],
+    },
+    {
+        "id": "C5-check",
+        "title": "Check from the terminal what the panel shows",
+        "shows": (
+            "status --json at the state after-6.2: the study id, the Write sequence 26, the ids of the Pending decisions, none, and "
+            "each Decision with whether it applies: the Decision of task 3, which does not."
+        ),
+        "why": (
+            "\"Direct evaluation remains usable without the workflow\": what the panel shows can be read through the CLI alone. A "
+            "person notes what the panel shows and finds the same values here; the client's tests compare the panel's document of "
+            "the state after-6.2 with them."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "print": ["study.study_id", "write_sequence", "pending_decisions[*].comparison_id", "decisions[*].decision_id", "decisions[*].applies"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "study.study_id": "{L2_STUDY}",
+                        "write_sequence": 26,
+                        "pending_decisions[*].comparison_id": [],
+                        "decisions[*].decision_id": ["{L2_DECISION}"],
+                        "decisions[*].applies": [False],
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "COMPARE",
+        "title": "Compare the two latest Assessments",
+        "shows": (
+            "A new Comparison of the two Assessments of revision 3, seasonal_7 as the Control: its delta, +173.939 rentals per day, "
+            "equal to the delta of A5 to 12 significant digits, with the same warning on other numbers; then status --json: one "
+            "Pending decision, on this Comparison; then the two reads of the state before-the-refused-write."
+        ),
+        "why": (
+            "After task 6 nothing is pending: the Comparison of task 3 compares Assessments of revision 1. A Comparison of the latest "
+            "Assessments is pending again. Its delta is the delta of A5, because both MAEs rose by the same 100/182: so \"result "
+            "changed\" at 6.2 names a changed Item, not a changed delta, and not a changed conclusion."
+        ),
+        "actions": [
+            {
+                "cli": ["compare", "--study", L2_BIKE, "--control", "{L2_A_SEASONAL_62}", "--candidate", "{L2_A_RIDGE_62}", "--json"],
+                "capture": {"L2_COMPARISON_62": "comparison.comparison_id"},
+                "print": ["comparison.comparison_id", "comparison.delta.metric", "comparison.delta.value", "comparison.delta.unit", "comparison.warnings[0].code"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"comparison.delta.value": 173.93948298447322, "comparison.warnings[0].code": "COMPARISON_SINGLE_FEATURE_BEATS"},
+                },
+            },
+            {
+                "cli": status_l2(),
+                "print": ["write_sequence", "pending_decisions[*].comparison_id"],
+                "expect": {"exit": 0, "values": {"write_sequence": 28, "pending_decisions[*].comparison_id": ["{L2_COMPARISON_62}"]}},
+            },
+            keep("before-the-refused-write", 28),
+        ],
+    },
+    {
+        "id": "S1",
+        "title": "A write from the terminal, then a Decision sent on the older Write sequence",
+        "shows": (
+            "run ml of seasonal_7 on dev from the terminal: a new Attempt, which writes an Observation set and no Assessment; status "
+            "--json: the Write sequence 30, and the Comparison still pending; then the decide the panel sends when it has not read "
+            "again, with the Write sequence 28 it read: refused with STUDY_CHANGED, exit 6, stage sequence, naming the two journal "
+            "entries of that write; then the two reads of the state after-the-terminal-wrote, still at 30."
+        ),
+        "why": (
+            "The safety net: when the Study changes between the panel's read and its write, the write is refused and nothing is "
+            "written. The run ml from the terminal moves the Write sequence; the panel, which did not read again, sends the older "
+            "one, and the refusal is the outcome expected. The Comparison stays pending, since the new Observation set has no "
+            "Assessment."
+        ),
+        "actions": [
+            {
+                "cli": ["run", "ml", "--study", L2_BIKE, "--config", "seasonal_7", "--partition", "dev", "--request-id", "demo-s1", "--examples-dir", COPY, "--json"],
+                "print": ["attempt.attempt_id", "attempt.item_counts", "observation_set_id"],
+                "expect": {"exit": 0, "values": {"replayed": False, "attempt.technical_status": "completed", "attempt.item_counts": COUNTS_182}},
+            },
+            {
+                "cli": status_l2(),
+                "capture": {"L2_READ_AFTER_S1": "write_sequence"},
+                "print": ["write_sequence", "pending_decisions[*].comparison_id"],
+                "expect": {"exit": 0, "values": {"write_sequence": 30, "pending_decisions[*].comparison_id": ["{L2_COMPARISON_62}"]}},
+            },
+            {
+                "cli": decide("Keep the Control", "{L2_COMPARISON_62}", "demo-s1-decide", 28),
+                "kept": "decide-s1",
+                "print": ["error.code", "error.stage", "error.message", "error.details.read_sequence", "error.details.write_sequence", "error.details.writes_since"],
+                "expect": {
+                    "exit": 6,
+                    "refusal": {"code": "STUDY_CHANGED", "stage": "sequence"},
+                    "values": {
+                        "error.details.read_sequence": 28,
+                        "error.details.write_sequence": 30,
+                        "error.details.writes_since[*].command": ["run ml", "run ml"],
+                        "error.details.writes_since[*].phase": ["begin", "end"],
+                        "error.details.writes_since[*].request_id": ["demo-s1", "demo-s1"],
+                    },
+                },
+            },
+            keep("after-the-terminal-wrote", 30),
+        ],
+    },
+    {
+        "id": "C8",
+        "title": "A proxy Decision, by a stated rule",
+        "shows": (
+            "The decide an agent sends when it answers by a rule: the author proxy, a source that names the rule \"keep the "
+            "Configuration with the lowest MAE\", the option that rule gives on the two Metrics of the Comparison, Keep the Control "
+            "(1091.34 against 1265.28 rentals per day), and the Write sequence 30 read after S1; then status --json: two Decisions, "
+            "the second by proxy with its source, which applies, and no Pending decision."
+        ),
+        "why": (
+            "A Decision made by an agent that applies a rule is not a human Decision. It is written by decide too, with the author "
+            "proxy and a source that names the rule, so that who or what decided is always known. The rule is the one the owner gave "
+            "Claude Code on 2026-11-25; no model is asked here."
+        ),
+        "actions": [
+            {
+                "cli": decide("Keep the Control", "{L2_COMPARISON_62}", "demo-c8", "{L2_READ_AFTER_S1}", author="proxy", source=PROXY_SOURCE),
+                "print": ["decision.decision_id", "decision.option", "decision.author", "decision.source", "decision.cited_ids", "decision.read_sequence"],
+                "expect": {
+                    "exit": 0,
+                    "values": {"replayed": False, "decision.author": "proxy", "decision.source": PROXY_SOURCE, "decision.cited_ids": ["{L2_COMPARISON_62}"]},
+                },
+            },
+            {
+                "cli": status_l2(),
+                "capture": {"L2_READ_AFTER_C8": "write_sequence"},
+                "print": ["write_sequence", "len(pending_decisions)", "decisions[*].author", "decisions[*].source", "decisions[*].applies"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 32,
+                        "len(pending_decisions)": 0,
+                        "decisions[*].author": ["human", "proxy"],
+                        "decisions[1].source": PROXY_SOURCE,
+                        "decisions[1].applies": True,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        "id": "DEV",
+        "title": "Declare a deviation",
+        "shows": (
+            "A Declared deviation by human, citing the References ID of revision 3: the References of revisions 2 and 3 were edited "
+            "by the demonstration's script and correct no error of the data; then status --json: one Declared deviation, not "
+            "withdrawn, and the Write sequence 34; then the two reads of the final state."
+        ),
+        "why": (
+            "A Declared deviation records a known limit on what the Study's results show, one its records cannot establish: here, "
+            "that the two changes of task 6 were made to show how a Decision is outdated, not because the data was wrong. It is a "
+            "record of the Study, never rewritten; a later record can withdraw it."
+        ),
+        "actions": [
+            {
+                "cli": [
+                    "deviation", "--study", L2_BIKE, "--text", DEVIATION_TEXT, "--author", "human", "--artifact", "{L2_REFS_62}",
+                    "--request-id", "demo-dev", "--read-sequence", "{L2_READ_AFTER_C8}", "--json",
+                ],
+                "print": ["declared_deviation.declared_deviation_id", "declared_deviation.text", "declared_deviation.author", "declared_deviation.cited_ids"],
+                "expect": {"exit": 0, "values": {"replayed": False, "declared_deviation.author": "human", "declared_deviation.cited_ids": ["{L2_REFS_62}"]}},
+            },
+            {
+                "cli": status_l2(),
+                "print": ["write_sequence", "declared_deviations[*].declared_deviation_id", "declared_deviations[*].withdrawn"],
+                "expect": {"exit": 0, "values": {"write_sequence": 34, "declared_deviations[*].withdrawn": [False]}},
+            },
+            keep("final", 34),
+        ],
+    },
+    {
+        "id": "REPORT",
+        "title": "Render the report page of the second Bike Study",
+        "shows": "The report page, written outside the Study, with its ten sections and no Exposure recorded: nothing touched public_check here.",
+        "why": (
+            "The page is made from the Study's records alone, with no network. It shows neither the Decisions nor the Declared "
+            "deviation today; the panel and status --json do."
+        ),
+        "actions": [
+            {
+                "cli": ["report", "--study", L2_BIKE, "--out", "{work}/bike-report.html", "--json"],
+                "print": ["report.out", "report.sections", "report.exposure.recorded"],
+                "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+            },
+        ],
+    },
+    {
         "id": "L1.8",
         "title": "Evaluate an agent on Chinook, without calling a model",
         "shows": (
@@ -411,22 +1112,34 @@ def same(found, expected) -> bool:
     return found == expected
 
 
-def value_at(payload, path: str):
-    """The value at a key path such as `assessment.metrics[0].value`, `len(freeze_records)` for the number of entries, or MISSING."""
-    counted = path.startswith("len(") and path.endswith(")")
-    value = payload
-    for name, index in PATH_PART.findall(path[4:-1] if counted else path):
+def walked(value, parts):
+    for at, (name, index) in enumerate(parts):
+        if index == "*":
+            if not isinstance(value, list):
+                return MISSING
+            each = [walked(entry, parts[at + 1:]) for entry in value]
+            return MISSING if any(entry is MISSING for entry in each) else each
         try:
             value = value[name] if name else value[int(index)]
         except (KeyError, IndexError, TypeError):
             return MISSING
+    return value
+
+
+def value_at(payload, path: str):
+    """The value at a key path such as `assessment.metrics[0].value`, `len(freeze_records)` for the number of entries,
+    `decisions[*].applies` for the list of that value in each entry, or MISSING."""
+    counted = path.startswith("len(") and path.endswith(")")
+    value = walked(payload, PATH_PART.findall(path[4:-1] if counted else path))
     if counted:
         return len(value) if isinstance(value, (list, dict)) else MISSING
     return value
 
 
 def resolved(template, values: dict):
-    """A template with each placeholder replaced by its value; any other value as it is."""
+    """A template with each placeholder replaced by its value, in each member of a list; any other value as it is."""
+    if isinstance(template, list):
+        return [resolved(part, values) for part in template]
     if not isinstance(template, str):
         return template
 
@@ -446,28 +1159,46 @@ def shown(value) -> str:
     return "<missing>" if value is MISSING else json.dumps(value)
 
 
+def processes(action: dict) -> list:
+    """The processes an action starts, each a command of the CLI (`cli`) or another program (`program`): a kept state starts its
+    two reads, each kept under the state's name; an action that copies, writes or shows starts none."""
+    if "keep" in action:
+        expect = {"exit": 0, "values": {"write_sequence": action["sequence"]}}
+        return [
+            {"cli": [read, "--study", action["study"], "--json"], "kept": f"{action['keep']}.{read}", "print": ["write_sequence"], "expect": expect}
+            for read in ("status", "figures")
+        ]
+    return [action] if "cli" in action or "program" in action else []
+
+
 def expectation_keys(expect: dict) -> list:
-    """The key of each expectation, in the order the script checks them: the exit code, a refusal's code and stage, the key paths."""
+    """The key of each expectation, in the order the script checks them: the exit code, a refusal's code and stage, the key paths,
+    then each line the output holds."""
     keys = ["exit code"]
     if "refusal" in expect:
         keys += ["error.code", "error.stage"]
-    return keys + list(expect.get("values", {}))
+    return keys + list(expect.get("values", {})) + ["stdout line"] * len(expect.get("lines", []))
 
 
-def expectations(expect: dict, code: int, payload, values: dict) -> list:
-    """(key, expected, found) of each expectation of a command."""
+def expectations(expect: dict, code: int, payload, values: dict, out: str = "") -> list:
+    """(key, expected, found) of each expectation of a process."""
     found = [("exit code", expect["exit"], code)]
     if "refusal" in expect:
         found += [("error.code", expect["refusal"]["code"], value_at(payload, "error.code"))]
         found += [("error.stage", expect["refusal"]["stage"], value_at(payload, "error.stage"))]
     for path, expected in expect.get("values", {}).items():
         found.append((path, resolved(expected, values), value_at(payload, path)))
+    lines = out.splitlines()
+    for line in expect.get("lines", []):
+        line = resolved(line, values)
+        found.append(("stdout line", line, line if line in lines else MISSING))
     return found
 
 
-def start_process(argv, env, cwd):
-    """(exit code, stdout, stderr) of one process, started with no input."""
-    done = subprocess.run(argv, env=env, cwd=cwd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+def start_process(argv, env, cwd, text=None):
+    """(exit code, stdout, stderr) of one process: `text` written on its stdin, which is then closed, or no input at all."""
+    stdin = {"stdin": subprocess.DEVNULL} if text is None else {"input": text}
+    done = subprocess.run(argv, env=env, cwd=cwd, capture_output=True, text=True, **stdin)
     return done.returncode, done.stdout, done.stderr
 
 
@@ -484,6 +1215,10 @@ def shown_action(action: dict, values: dict) -> str:
     """The line that names an action that is not a command of the CLI."""
     if "write" in action:
         return f"write {resolved(action['write'], values)}"
+    if "copy" in action:
+        return f"copy {resolved(action['copy'], values)} to {resolved(action['to'], values)}"
+    if "keep" in action:
+        return f"keep the two reads of the state {action['keep']} of {resolved(action['study'], values)}, in {resolved('{work}', values)}/{KEPT}"
     if action["show"] == "head":
         return f"show the first {action['lines']} lines of {resolved(action['path'], values)}"
     if action["show"] == "folders":
@@ -493,17 +1228,34 @@ def shown_action(action: dict, values: dict) -> str:
     return f"show {resolved(action['path'], values)}"
 
 
+def shown_program(action: dict, values: dict) -> str:
+    """The line that names a program the script starts, by its path in the checkout and with its interpreter."""
+    interpreter = action.get("interpreter", ["python"])
+    return "$ " + shlex.join([*interpreter, action["program"], *resolved(action["args"], values)])
+
+
+def program_argv(action: dict, values: dict) -> list:
+    """The argument list of a program: the hook with its fragment's interpreter, any other with this script's Python and `-B`."""
+    interpreter = action.get("interpreter", [sys.executable, "-B"])
+    return [*interpreter, str(CHECKOUT / action["program"]), *resolved(action["args"], values)]
+
+
 def quoted(text: str, say) -> None:
     for line in text.splitlines():
         say(f"  | {line}")
 
 
 def show(action: dict, values: dict, work: Path, say) -> None:
-    """Print the files an action shows, read only; a written file must lie in the work folder."""
-    if "write" in action:
-        target = Path(resolved(action["write"], values))
+    """Carry out an action that starts no process: copy a folder or write a file, each inside the work folder, or print the files
+    an action shows, read only."""
+    if "write" in action or "copy" in action:
+        target = Path(resolved(action.get("write") or action["to"], values))
         if not inside(target, work):
             raise Failed(f"{target} is outside the work folder")
+        if "copy" in action:
+            shutil.copytree(resolved(action["copy"], values), target)
+            say(f"  | {len(list(target.rglob('*')))} files and folders copied")
+            return
         target.write_text(action["text"] + "\n", encoding="utf-8")
         quoted(action["text"], say)
         return
@@ -523,11 +1275,39 @@ def show(action: dict, values: dict, work: Path, say) -> None:
         quoted("\n".join(lines[: action["lines"]] if action["show"] == "head" else lines), say)
 
 
-def command(action: dict, values: dict, work: Path, start, say) -> None:
-    """Start one command of the CLI, print what it gave and what the step expects of it; raise Failed at the first that does not hold."""
-    args = [resolved(part, values) for part in action["cli"]]
-    say(f"$ python -m hypotrail {shlex.join(args)}")
-    code, out, err = start([*CLI, *args], without_live_key(), str(work))
+def kept_files(name: str, args: list, code: int, out: str, err: str, work: Path) -> None:
+    """Write what a kept process gave into the work folder's kept/, as it printed it; a decide also keeps its argument list."""
+    folder = work / KEPT
+    folder.mkdir(exist_ok=True)
+    (folder / f"{name}.exit").write_text(f"{code}\n", encoding="utf-8")
+    (folder / f"{name}.out").write_text(out, encoding="utf-8")
+    (folder / f"{name}.err").write_text(err, encoding="utf-8")
+    if args[0] == "decide":
+        (folder / f"{name}.args").write_text(json.dumps({"arguments": args}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def process(action: dict, values: dict, work: Path, start, say) -> None:
+    """Start one command of the CLI or one other program, print what it gave and what the step expects of it; raise Failed at the
+    first that does not hold."""
+    if "cli" in action:
+        args = [resolved(part, values) for part in action["cli"]]
+        say(f"$ python -m hypotrail {shlex.join(args)}")
+        argv, env, text = [*CLI, *args], without_live_key(), None
+    else:
+        args = resolved(action["args"], values)
+        say(shown_program(action, values))
+        argv, text = program_argv(action, values), resolved(action.get("input"), values)
+        env = {**without_live_key(), **{name: resolved(value, values) for name, value in action.get("environment", {}).items()}}
+        if "interpreter" in action:
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+        for line in (text or "").splitlines():
+            say(f"  stdin | {line}")
+    try:
+        code, out, err = start(argv, env, str(work), text)
+    except OSError as error:
+        raise Failed(f"{argv[0]} could not be started: {error}") from error
+    if "kept" in action:
+        kept_files(action["kept"], args, code, out, err, work)
     payload = None
     if "--json" in args:
         try:
@@ -540,20 +1320,20 @@ def command(action: dict, values: dict, work: Path, start, say) -> None:
         quoted(out, say)
     for line in err.splitlines():
         say(f"  stderr | {line}")
-    for key, expected, found in expectations(action["expect"], code, payload, values):
+    for key, expected, found in expectations(action["expect"], code, payload, values, out):
         held = same(found, expected) and found is not MISSING
         say(f"  expected {key} {shown(expected)}: found {shown(found)}: {'held' if held else 'did not hold'}")
         if not held:
             raise Failed(f"key {key}: expected {shown(expected)}, found {shown(found)}")
     for name, path in action.get("capture", {}).items():
         value = value_at(payload, path)
-        if value is MISSING or not isinstance(value, str):
-            raise Failed(f"key {path}: expected an id to capture as {name}, found {shown(value)}")
+        if value is MISSING or isinstance(value, bool) or not isinstance(value, (str, int)):
+            raise Failed(f"key {path}: expected an id or a Write sequence to capture as {name}, found {shown(value)}")
         values[name] = value
 
 
 def run(work, *, start=start_process, out=None, steps=None) -> Outcome:
-    """Run the step list in `work`, printing the transcript to `out`; each command is started by `start(argv, env, cwd)`."""
+    """Run the step list in `work`, printing the transcript to `out`; each process is started by `start(argv, env, cwd, text)`."""
     work, steps = Path(work), STEPS if steps is None else steps
     out = sys.stdout if out is None else out
 
@@ -562,7 +1342,10 @@ def run(work, *, start=start_process, out=None, steps=None) -> Outcome:
 
     work.mkdir(parents=True, exist_ok=True)
     values, passed = folders_of(work), 0
-    say(f"The demonstration of Hypotrail in {work}: {len(steps)} steps, Bike then Chinook, with no live model call and no network.")
+    say(
+        f"The demonstration of Hypotrail in {work}: {len(steps)} steps, a first Bike Study, a second on a copy of the Workloads, then "
+        "Chinook, with no live model call and no network."
+    )
     for step in steps:
         say("")
         say(f"== {step['id']} · {step['title']}")
@@ -570,11 +1353,13 @@ def run(work, *, start=start_process, out=None, steps=None) -> Outcome:
         say(f"Why: {step['why']}")
         try:
             for action in step["actions"]:
-                if "cli" in action:
-                    command(action, values, work, start, say)
-                else:
+                started = processes(action)
+                if "cli" not in action and "program" not in action:
                     say(f"$ {shown_action(action, values)}")
-                    show(action, values, work, say)
+                    if not started:
+                        show(action, values, work, say)
+                for each in started:
+                    process(each, values, work, start, say)
         except Failed as failure:
             say(f"FAILED: step {step['id']}, {failure}")
             later = len(steps) - passed - 1
