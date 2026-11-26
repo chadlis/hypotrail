@@ -283,6 +283,7 @@ def test_the_review_record_holds_one_agreed_line_per_case_whose_two_writers_sql_
 
 
 # D-158 on chadlis/hypotrail#75, item 1: "the allowed sets are derived from recorded SQL only, never from fixture or agent answers".
+# D-160 on chadlis/hypotrail#75, item 2: "D16–D18 allow customers 16 and 24 (`SELECT CustomerId FROM Customer WHERE FirstName = 'Frank'`), so an answer that names both Franks while asking is not penalised."
 ALLOWED_CASES = ("D16", "D17", "D18", "D25", "D26", "D27", "D28", "D29", "D30", "P04", "P05", "P06")
 
 
@@ -307,15 +308,44 @@ def test_each_allowed_identifier_set_is_exactly_what_the_sql_its_review_line_rec
         connection.close()
 
 
-@pytest.mark.parametrize("case_id", ["D26", "D29"])
-def test_the_verbose_fixtures_unexpected_identifier_witness_names_an_identifier_neither_expected_nor_allowed(case_id):
+# Each unexpected-identifier witness of the fixtures, with the customers its Case is about.
+UNEXPECTED_WITNESSES = {("answers-verbose.jsonl", "D16"): {16, 24}, ("answers-verbose.jsonl", "D26"): {12}, ("answers-verbose.jsonl", "D29"): {1}}
+
+
+def test_the_unexpected_identifier_witnesses_listed_are_every_fixture_line_that_fails_no_unexpected_identifier():
     from hypotrail.core import text_facts
 
     config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
-    [line] = [item for item in jsonl(PROSE / "fixtures" / "answers-verbose.jsonl") if item["case_id"] == case_id]
+    references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")}
+    failing = set()
+    for path in sorted((PROSE / "fixtures").glob("*.jsonl")):
+        for line in jsonl(path):
+            criteria = {c["name"]: c["score"] for c in text_facts.apply(line["raw_answer"], references[line["case_id"]], config, line.get("outcome"))["criteria"]}
+            if criteria["no_unexpected_identifier"] is False:
+                failing.add((path.name, line["case_id"]))
+    assert failing == set(UNEXPECTED_WITNESSES)
+
+
+@pytest.mark.parametrize("witness", sorted(UNEXPECTED_WITNESSES), ids=lambda witness: witness[1])
+def test_each_unexpected_identifier_witness_names_only_invoices_of_customers_foreign_to_its_case(witness):
+    from hypotrail.core import text_facts
+    from hypotrail.core.data import open_sqlite_readonly
+
+    name, case_id = witness
+    config = json.loads((PROSE / "scoring" / "text-facts.json").read_text(encoding="utf-8"))
+    [line] = [item for item in jsonl(PROSE / "fixtures" / name) if item["case_id"] == case_id]
     [reference] = [r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] == case_id]
     criteria = {c["name"]: (c["score"], c["reason"]) for c in text_facts.apply(line["raw_answer"], reference, config, line.get("outcome"))["criteria"]}
     assert criteria["no_unexpected_identifier"] == (False, "identifier_unexpected")
+    known = {(i["kind"], i["value"]) for i in reference["expected_identifiers"] + reference.get("allowed_identifiers", [])}
+    unexpected = text_facts.identifiers_in(line["raw_answer"], config) - known
+    assert unexpected and {kind for kind, _ in unexpected} == {"invoice"}
+    connection = open_sqlite_readonly(EXAMPLES / "chinook" / "data" / "Chinook_Sqlite.sqlite")
+    try:
+        owners = {connection.execute("SELECT CustomerId FROM Invoice WHERE InvoiceId = ?", (int(value),)).fetchone()[0] for _, value in unexpected}
+    finally:
+        connection.close()
+    assert not owners & UNEXPECTED_WITNESSES[witness]
 
 
 FRANK_QUESTIONS = {
@@ -325,11 +355,11 @@ FRANK_QUESTIONS = {
 }
 
 
-def test_the_clarification_family_asks_for_franks_spend_in_three_wordings_and_keeps_its_ids_group_partition_and_status():
+def test_the_clarification_family_asks_for_franks_spend_in_three_wordings_in_the_ambiguous_customer_group_and_keeps_its_ids_partition_and_status():
     cases = {c["case_id"]: c for c in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl") if c["case_id"] in FRANK_QUESTIONS}
     references = {r["case_id"]: r for r in jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if r["case_id"] in FRANK_QUESTIONS}
     assert {case_id: case["question"] for case_id, case in cases.items()} == FRANK_QUESTIONS
-    assert {(case["family"], case["group"]) for case in cases.values()} == {("clarification", "best-customer")}
+    assert {(case["family"], case["group"]) for case in cases.values()} == {("clarification", "ambiguous-customer")}
     assert {r["expected_outcome"] for r in references.values()} == {"needs_clarification"}
 
 
@@ -354,18 +384,30 @@ def test_the_frank_reference_texts_name_both_customers_called_frank_whose_totals
             assert all(c["score"] is True for c in scored), (reference["case_id"], scored)
 
 
+BLIND_WRITERS = "examples/chinook_prose/review/blind-writers-2026-11-26"
+
+
 def test_each_frank_review_line_records_the_replaced_text_the_blind_writers_results_and_the_rejected_artist_family():
+    import subprocess
+
+    tracked = set(subprocess.run(["git", "ls-files", BLIND_WRITERS], cwd=EXAMPLES.parent, capture_output=True, text=True, check=True).stdout.split())
+    assert tracked == {f"{BLIND_WRITERS}/{name}" for name in ("brief.md", "writer-a.md", "writer-b.md", "writer-a-q.py", "writer-b-query.py")}
     _, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
     previous = {"D16": "Who is our best customer?", "D17": "Which customer stands out above all the others?", "D18": "Tell me who our top customer is."}
     for line in (line for line in lines if line["case_id"] in FRANK_QUESTIONS):
         replaced = line["replacement"]
         assert line["case"]["question"] == FRANK_QUESTIONS[line["case_id"]]
         assert replaced["previous_question"] == previous[line["case_id"]]
-        assert [(w["file"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
-            ("writer-a.md", "2026-11-26", "needs_clarification"),
-            ("writer-b.md", "2026-11-26", "needs_clarification"),
+        assert [(w["file"], w["script"], w["date"], w["status"]) for w in (line["writer_a"], line["writer_b"])] == [
+            (f"{BLIND_WRITERS}/writer-a.md", f"{BLIND_WRITERS}/writer-a-q.py", "2026-11-26", "needs_clarification"),
+            (f"{BLIND_WRITERS}/writer-b.md", f"{BLIND_WRITERS}/writer-b-query.py", "2026-11-26", "needs_clarification"),
         ]
-        assert replaced["note"].startswith("2026-11-26, D-158") and "before any Attempt" in replaced["note"]
+        assert replaced["brief"] == f"{BLIND_WRITERS}/brief.md"
+        assert replaced["isolation"].startswith("Deviation:") and "by instruction only" in replaced["isolation"] and "not by tool" in replaced["isolation"]
+        assert replaced["note"].startswith("2026-11-26, D-160") and "before any Attempt" in replaced["note"]
+        assert line["case"]["group"] == "ambiguous-customer" and line["history"]["case"]["question"] != line["case"]["question"]
+        assert [note[:20] for note in line["dated_notes"]] == ["2026-11-26, D-160 on"]
+        assert all(note.startswith("2026-11-26, D-158") for note in line["history"]["dated_notes"])
         assert "Iron Maiden" in replaced["rejected_alternative"]["reason"]
         assert len(replaced["rejected_alternative"]["questions"]) == 3
 
@@ -388,11 +430,13 @@ def test_an_answer_naming_the_germany_2012_invoices_and_their_customers_names_no
     assert criteria["no_unexpected_identifier"] == (True, None)
 
 
-def test_the_review_record_holds_the_fresh_readers_findings_in_place_of_a_promise_that_one_will_check():
+def test_the_review_record_holds_the_fresh_readers_findings_and_keeps_those_on_the_replaced_family_as_superseded_history():
     header, *lines = jsonl(PROSE / "review" / "chinook-prose-references.review.jsonl")
     [d17] = [line for line in lines if line["case_id"] == "D17"]
-    for record in (header, d17):
-        assert "a fresh reader checks" not in json.dumps(record).lower()
-        assert record["fresh_reader"]["date"] == "2026-11-26" and record["fresh_reader"]["reader"] == "fresh slice-gate"
-    assert set(header["fresh_reader"]["findings"]) == {"allowed_invoice_sets", "p04_p06_customers", "d16_d18_reference_text", "d17"}
-    assert "pending" in header["fresh_reader"]["findings"]["d17"] and "pending" in d17["fresh_reader"]["finding"]
+    reader = header["fresh_reader"]
+    assert "a fresh reader checks" not in json.dumps(header).lower()
+    assert (reader["date"], reader["reader"]) == ("2026-11-26", "fresh slice-gate")
+    assert set(reader["findings"]) == {"allowed_invoice_sets", "p04_p06_customers"}
+    assert set(reader["superseded"]) == {"d16_d18_reference_text", "d17"}
+    assert all(item["superseded_by"].startswith("2026-11-26, D-160") for item in reader["superseded"].values())
+    assert "fresh_reader" not in d17 and d17["history"]["fresh_reader"]["finding"] == reader["superseded"]["d17"]["finding"]
