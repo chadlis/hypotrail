@@ -9,7 +9,8 @@ declared: its Configurations can change after the Study exists.
 
 The Protocol digest (`protocol_digest`) is the canonical digest of what binds every Attempt: the
 Cases of each Partition by their bytes, the memberships, the References, the answer schema and the
-database by their bytes, and the primary Criterion. It holds no Configuration. The primary
+database by their bytes, the primary Criterion, and the `resampling` the Workload declares, when it
+declares one. It holds no Configuration. The primary
 Criterion is declared as data by the Workload (`primary_criterion`, ADR 0002; owner decision 1A on
 chadlis/hypotrail#9) and becomes the Study's `primary_metric`.
 
@@ -81,7 +82,7 @@ def references_path(workload: Workload) -> Path:
 def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
     """What the Protocol is made of, from the bytes of the Workload's files."""
     declaration = workload.declaration
-    return {
+    content = {
         "track": TRACK,
         "cases_sha256": {role: canonical.sha256_hex(workload.cases_path(role).read_bytes()) for role in ROLES if role in declaration["cases"]},
         "memberships_sha256": canonical.sha256_hex(memberships_bytes(workload)),
@@ -90,6 +91,9 @@ def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
         "dataset_sha256": dataset_sha256,
         "primary_metric": {"id": declaration["primary_criterion"], "direction": PRIMARY_DIRECTION},
     }
+    if "resampling" in declaration:  # never a null: a Workload without it keeps the digest it had before the key existed
+        content["resampling"] = declaration["resampling"]
+    return content
 
 
 def dataset_sha256(spec: dict) -> str:
@@ -199,6 +203,8 @@ def _write_spec(study: Path, workload_name: str, workload: Workload, previous: d
         "artifacts": [memberships, references, schema],
         "revision_number": 1,
     }
+    if "resampling" in workload.declaration:
+        spec["resampling"] = workload.declaration["resampling"]
     if previous is not None:
         spec.update(revisions.next_fields(study, previous))
     spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})

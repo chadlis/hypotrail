@@ -6365,3 +6365,58 @@ def test_the_readme_sentence_on_the_chinook_workload_counts_the_cases_of_each_pa
     [match] = README_COUNTS.findall(" ".join((ROOT / "README.md").read_text(encoding="utf-8").split()))
     written = dict(zip(("dev", "public_check"), match))
     assert int(written[partition]) == cases_by_status(partition)["cases"], partition
+
+
+# --- the interval: the coverage tables printed from the kept simulation, and the words around them -----------------------------------
+
+COVERAGE_KEPT = HANDBOOK / "simulations" / "interval-coverage.json"
+
+
+def coverage_rows(page, table_id) -> list:
+    """(the row's data attributes, the text of its last cell) of each row of a coverage table."""
+    return [(row["attrs"], row["cells"][-1]["text"].strip()) for row in parse(page).tables[table_id] if "data-coverage" in row["attrs"]]
+
+
+def test_chapters_7_and_11_print_each_simulated_coverage_of_the_kept_file_beside_its_size_and_setting(page):
+    kept = json.loads(COVERAGE_KEPT.read_text(encoding="utf-8"))
+    days = [(str(s["units"]), s["dependence"], str(s["replications"]), s["coverage"]) for s in kept["block_sizes"]]
+    cases = [(str(s["units"]), str(s["repeats"]), str(s["replications"]), s["coverage"]) for s in kept["sizes"] if s["unit"] == "case"]
+    printed_days = coverage_rows(page, "interval-coverage-days")
+    printed_cases = coverage_rows(page, "interval-coverage-cases")
+    assert [(a["data-units"], a["data-dependence"], a["data-replications"], float(a["data-coverage"])) for a, _ in printed_days] == days
+    assert [(a["data-units"], a["data-repeats"], a["data-replications"], float(a["data-coverage"])) for a, _ in printed_cases] == cases
+    assert [text for _, text in printed_days + printed_cases] == [f"{c:.3f}" for *_, c in days + cases]
+    [item] = [s for s in kept["sizes"] if s["unit"] == "item"]
+    span = re.search(r'<span id="interval-coverage-items" data-units="(\d+)" data-replications="(\d+)" data-coverage="([^"]+)">([^<]+)</span>', page)
+    assert span and (int(span[1]), int(span[2]), float(span[3]), span[4]) == (item["units"], item["replications"], item["coverage"], f"{item['coverage']:.3f}")
+    timing = re.search(r'<span id="interval-timing" data-seconds="([^"]+)" data-python="([^"]+)">([^<]+) s</span>', page)
+    assert timing and (float(timing[1]), timing[2], timing[3]) == (kept["timing"]["seconds"], kept["timing"]["python"], str(kept["timing"]["seconds"]))
+    advised = re.search(r'<span id="interval-advised-length" data-circular="([^"]+)">([^<]+)</span>', page)
+    assert advised and (float(advised[1]), advised[2]) == (kept["optimal_block_length"]["circular"], f"{kept['optimal_block_length']['circular']:.1f}")
+    assert f"seed {kept['seed']}, commit <code>{kept['commit']}</code>" in chapter_text("07-comparison.html")
+
+
+INTERVAL_TEXTS = {
+    "07-comparison.html": ("interval-days-section", '<p class="sub2">Refusals</p>'),
+    "11-agent-comparison.html": ("interval-cases-section", '<p class="sub2">The rates, and what is only described</p>'),
+    "14-report.html": ("report-interval-section", '<p class="sub2">What the numbers are</p>'),
+    "19-l2-demonstration.html": ("demo-intervals", "</div>"),
+}
+
+
+def test_the_texts_of_the_interval_claim_no_significance_name_no_p_value_and_say_no_configuration_is_better():
+    from hypotrail.report import markup
+
+    texts = []
+    for name, (start, end) in INTERVAL_TEXTS.items():
+        chapter = chapter_text(name)
+        assert f'id="{start}"' in chapter, name
+        texts.append(plain_text(chapter.split(f'id="{start}"', 1)[1].split(end, 1)[0]))
+    texts += list(markup.INTERVAL_REASONS.values())
+    for text in texts:
+        for sentence in re.split(r"(?<=[.;:])\s+", text):
+            assert "p-value" not in sentence.lower(), sentence
+            if re.search(r"significan", sentence, re.I):
+                assert re.search(r"\bno significance\b|states no significance", sentence), sentence
+            if re.search(r"\bis better\b", sentence):
+                assert "does not say which Configuration is better" in sentence, sentence

@@ -14,10 +14,12 @@ from _chinook_helpers import FIXTURE, database_of, episodes_file, fixture_popula
 from _exposure_helpers import PUBLIC_CASES, REPEATS, assess_agent, correct_e01, edit_chinook_references, freezes, public_lines
 from _import_helpers import import_ml, ready
 from _run_agent_helpers import fixture
-from _study_helpers import examples_copy, init_study, run_ml, sha256
+from _study_helpers import EXAMPLES, before_resampling_examples, examples_copy, init_study, run_ml, sha256
 
-BIKE_PROTOCOL = "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0"
-BIKE_PROTOCOL_SHIFTED = "e55bb4c2c2ee510802ed59dfb5a226ea43b09dd53e1a290335b9f6b0c54c3e75"
+BIKE_PROTOCOL = "8c814f87519549fd33f1ccbbe342530d11e207e2ac5493c5a8b2f09f3fe13243"
+BIKE_PROTOCOL_SHIFTED = "f3a2abbb9b3a1c44ccbfe1d47189d28aa767fc8c38c5e67604520a3c036e45d4"
+# The digest of the Bike Workload before it declared `resampling` (`tests/fixtures/bike-before-resampling/`): every Study made on it keeps it.
+BIKE_PROTOCOL_UNDECLARED = "d4a1c2cbeb43025f6d3de1be6cc4375b83b0307d928cbb7fadf26f58fd78a6f0"
 CHINOOK_PROTOCOL = "aaea8fd070708b5952c408228467b5bfcb3ed77f3eef582d15cd88a9223c3f61"
 CHINOOK_PROTOCOL_E01_CORRECTED = "f5915c74b47e2e21dfbfbc469cc4e14a6b1b6f12c3c9e664a370c2d33301227d"
 
@@ -204,3 +206,32 @@ def test_the_freeze_basis_records_the_protocol_digest_of_the_studys_copy_of_the_
     [freeze] = freezes(study)
     assert (freeze["protocol_digest"], freeze["dataset_source"]) == (CHINOOK_PROTOCOL, "study_copy")
     assert spec_of(study)["protocol_digest"] == CHINOOK_PROTOCOL
+
+
+# --- the declared resampling and the Protocol digest ---------------------------------------------------------------------------
+
+
+def test_a_chinook_workload_that_declares_no_resampling_keeps_its_earlier_protocol_digest_and_the_live_one_gives_another(tmp_path):
+    from hypotrail.agentic.declaration import load_workload
+    from hypotrail.agentic.study import protocol_content
+
+    study, examples = kit_study(tmp_path)  # the frozen revision-1 Workload, which declares no `resampling`
+    assert spec_of(study)["protocol_digest"] == CHINOOK_PROTOCOL and "resampling" not in spec_of(study)
+    assert "resampling" not in protocol_content(load_workload(examples / "chinook"), dataset_sha256=sha256(database_of(examples)))
+    live, _ = init_chinook(tmp_path, name="live-study")
+    assert spec_of(live)["protocol_digest"] != CHINOOK_PROTOCOL
+    assert spec_of(live)["resampling"] == load_workload(EXAMPLES / "chinook").declaration["resampling"]
+
+
+def test_the_bike_workload_of_before_resampling_keeps_its_earlier_protocol_digest_and_the_live_one_gives_another(tmp_path):
+    from hypotrail.ml.declaration import load_declaration
+    from hypotrail.ml.study import protocol_content
+
+    examples = before_resampling_examples(tmp_path)
+    undeclared, _ = init_study(tmp_path, examples=examples, name="undeclared-study")
+    assert spec_of(undeclared)["protocol_digest"] == BIKE_PROTOCOL_UNDECLARED and "resampling" not in spec_of(undeclared)
+    content = protocol_content(load_declaration(examples / "bike_day"), dataset_sha256="0" * 64, memberships_sha256="0" * 64, references_sha256="0" * 64)
+    assert "resampling" not in content
+    live, _ = init_study(tmp_path, name="live-study")
+    assert spec_of(live)["protocol_digest"] == BIKE_PROTOCOL != BIKE_PROTOCOL_UNDECLARED
+    assert spec_of(live)["resampling"] == json.loads((EXAMPLES / "bike_day" / "workload.json").read_text(encoding="utf-8"))["resampling"]

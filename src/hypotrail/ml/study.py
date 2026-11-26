@@ -9,7 +9,8 @@ is declared: Configurations can change after the Study exists.
 The Protocol digest (`protocol_digest`) is the canonical digest of what binds every Attempt: the
 Partitions and their ranges, the population (memberships) and the References by their bytes, the
 data file by its bytes, the columns and the rules on when information is available
-(`period_k`, the forbidden and the allowed target features) and the primary metric. It does not hold
+(`period_k`, the forbidden and the allowed target features), the primary metric, and the `resampling` the
+Workload declares, when it declares one. It does not hold
 a Configuration: changing a Configuration never changes it.
 
 `new_revision` adds a revision to an existing Study (`init --study DIR --new-revision`): it derives the
@@ -57,7 +58,7 @@ def protocol_content(declaration: Declaration, *, dataset_sha256: str, membershi
         "data_file", "id_prefix", "date_column", "target_column", "target_unit",
         "period_k", "forbidden_features", "allowed_target_features",
     )
-    return {
+    content = {
         "track": TRACK,
         "partitions": {p.name: [p.first.isoformat(), p.last.isoformat()] for p in declaration.partitions},
         "id_prefix": declaration.id_prefix,
@@ -74,6 +75,9 @@ def protocol_content(declaration: Declaration, *, dataset_sha256: str, membershi
         "population_sha256": memberships_sha256,
         "references_sha256": references_sha256,
     }
+    if declaration.resampling is not None:  # never a null: a Workload without it keeps the digest it had before the key existed
+        content["resampling"] = plain(declaration.resampling)
+    return content
 
 
 def freeze_basis(spec: dict, source: Path) -> dict:
@@ -177,6 +181,8 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
         "artifacts": [memberships, references],
         "revision_number": 1,
     }
+    if declaration.resampling is not None:
+        spec["resampling"] = plain(declaration.resampling)
     if previous is not None:
         spec.update(revisions.next_fields(study, previous))
     spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key not in ("revision", "study_id")})

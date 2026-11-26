@@ -369,6 +369,19 @@
         "unit": "rentals per day",
         "value": null
       },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": null,
+        "method": "percentile_bootstrap",
+        "reason": "delta_withheld",
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": null,
+        "upper": null,
+        "variant": "circular"
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-000000000004",
       "limitations": [

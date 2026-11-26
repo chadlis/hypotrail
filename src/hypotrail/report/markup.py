@@ -48,6 +48,29 @@ def number(value, digits=6) -> Safe:
     return esc(UNKNOWN)
 
 
+INTERVAL_REASONS = {
+    "resampling_not_declared": "no interval: the Workload of the Study's revision declares no resampling",
+    "series_not_contiguous": "no interval: the population lists fewer days than its Partition, so the days are not one series",
+    "too_few_units": "no interval: fewer than two units",
+}
+INTERVAL_UNITS = {"case": "Cases", "item": "Items"}
+
+
+def interval(record: dict) -> Safe:
+    """The interval of a Comparison: its bounds, level, unit with its count and blocks; "withheld" for a withheld delta; else why none."""
+    entry = record.get("interval")
+    if entry is None:
+        return esc("no interval was recorded (a Comparison written before the interval)")
+    if entry["reason"] == "delta_withheld":
+        return esc("withheld")
+    if entry["lower"] is None:
+        return esc(INTERVAL_REASONS[entry["reason"]])
+    parts = [number(entry["lower"]), " to ", number(entry["upper"]), f", level {entry['level']:g}, over {entry['units']} {INTERVAL_UNITS[entry['unit']]}"]
+    if entry["block_length"] is not None:
+        parts.append(f", {entry['variant']} blocks of {entry['block_length']} days")
+    return join(parts)
+
+
 class Row(list):
     """A table row whose `<tr>` carries attributes: `Row(cells, data_attempt_id=...)`."""
 
