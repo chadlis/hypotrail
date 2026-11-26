@@ -318,3 +318,24 @@ def test_the_dated_lines_hold_one_line_for_the_open_message_that_quotes_its_tick
     assert f"the earlier line it overrides: \"{READ_THROUGH_STATUS_SENTENCE}\"" in line
     assert NARROWED_READ_SENTENCE in line
     assert "records no Exposure" in line and "writes nothing" in line
+
+
+# --- the dated line of the key `record_files` ---------------------------------------------------------------------------------------
+
+RECORD_FILES_TICKET_SENTENCE = (
+    "For every Study, the object of `status --json` and of `status --since N --json` holds `record_files`: a list with one entry per record"
+    " of the listings `decisions`, `declared_deviations`, `assessments` and `comparisons`, in that order, which is the order of"
+    " `core/state.py:138-141`, and in each listing's order; each entry holds exactly `kind`, `id` and `path`; `path` is relative to the Study"
+    " folder, written with `/`, and is a file of the Study that, read as JSON, is the record of that id."
+)
+
+
+def test_the_dated_lines_hold_one_line_that_names_record_files_and_its_shape_quotes_its_ticket_and_overrides_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#228" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`record_files`" in line and all(f"`{key}`" in line for key in ("kind", "id", "path"))
+    assert "computed when the Study is read and never stored" in line
+    assert RECORD_FILES_TICKET_SENTENCE in line
+    assert "the earlier line it overrides: none" in line

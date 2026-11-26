@@ -89,17 +89,32 @@ function record(message: Message): void {
   });
 }
 
-// The listing of the object read that holds the records of each kind of part a control that opens names.
-const LISTINGS: Record<string, string> = { assessment: "assessments", comparison: "comparisons" };
+// Each kind of part a control that opens names: the listing of the object read that holds its records, the key of a record's id, and the
+// kind of the entry of `record_files` that names a record's own file.
+const LISTINGS: Record<string, [string, string, string]> = {
+  assessment: ["assessments", "assessment_id", "assessment"],
+  comparison: ["comparisons", "comparison_id", "comparison"],
+  decision: ["decisions", "decision_id", "decision"],
+  deviation: ["declared_deviations", "declared_deviation_id", "declared_deviation"],
+};
+// The ref of a record's own file, which `record_files` names; every other ref is a key of the record.
+const RECORD_FILE = contract.open_refs[3];
 // "then runs the command `workbench.action.files.setActiveEditorReadonlyInSession` on that editor, so that the file is shown read-only"
 // (chadlis/hypotrail#227, T1-4).
 const READ_ONLY = "workbench.action.files.setActiveEditorReadonlyInSession";
 
-// The path relative to the Study folder that the object held gives at the message's kind, index and ref, if any.
+// The path relative to the Study folder that the object held gives at the message's kind, index and ref, if any: for a record's own file,
+// the path of the entry of `record_files` of that kind whose id is the record's.
 function namedPath(message: Message): string | undefined {
   if (!held || typeof message.kind !== "string" || !Object.hasOwn(LISTINGS, message.kind)) return undefined;
   if (typeof message.ref !== "string" || !contract.open_refs.includes(message.ref)) return undefined;
-  const found = (at(entries(held[LISTINGS[message.kind]]), message.index)?.[`${message.ref}_ref`] as { path?: unknown } | null | undefined)?.path;
+  const [listing, key, kind] = LISTINGS[message.kind];
+  const entry = at(entries(held[listing]), message.index);
+  if (entry === undefined) return undefined;
+  const found =
+    message.ref === RECORD_FILE
+      ? entries(held.record_files).find((each) => each.kind === kind && each.id === entry[key])?.path
+      : (entry[`${message.ref}_ref`] as { path?: unknown } | null | undefined)?.path;
   return typeof found === "string" ? found : undefined;
 }
 

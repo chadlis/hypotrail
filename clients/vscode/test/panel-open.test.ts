@@ -16,7 +16,7 @@ import * as stub from "./vscode-stub";
 type Entry = Record<string, any>;
 
 const [READ_AGAIN, RECORD, , OPEN] = contract.messages;
-const [PER_ITEM, PAIRED_DELTAS, POPULATION] = contract.open_refs;
+const [PER_ITEM, PAIRED_DELTAS, POPULATION, RECORD_FILE] = contract.open_refs;
 // "then runs the command `workbench.action.files.setActiveEditorReadonlyInSession` on that editor, so that the file is shown read-only"
 // (chadlis/hypotrail#227, T1-4).
 const READ_ONLY = "workbench.action.files.setActiveEditorReadonlyInSession";
@@ -29,7 +29,7 @@ const OUTPUT_REFS: Record<string, [string, string, string]> = {
   [POPULATION]: ["comparisons", "comparison", "population_ref"],
 };
 // The kinds of part a control that opens may name.
-const PART_KINDS = ["assessment", "comparison"];
+const PART_KINDS = ["assessment", "comparison", "decision", "deviation"];
 const TIMEOUT = { error: { code: null, killed: true, signal: "SIGTERM" } };
 
 const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
@@ -195,9 +195,10 @@ async function eachControlByTab(keys: Keys, reached: (place: number) => Promise<
   return count;
 }
 
-test("in a browser, Enter on each control that opens of status-success, reached by Tab, posts one message of four keys, the message, the part's kind, its index and the ref, and no value holds a path of the read", { timeout: 120000 }, async (t) => {
-  const read = keptObject("status-success");
-  const { document } = await documentFor(t, success(read), success(keptObject(KEPT_FIGURES["status-success"])));
+for (const name of ["status-success", "status-decided", "status-deviation"]) {
+test(`in a browser, Enter on each control that opens, reached by Tab, posts one message of four keys, the message, the part's kind, its index and the ref, and no value holds a path of the read: ${name}`, { timeout: 120000 }, async (t) => {
+  const read = keptObject(name);
+  const { document } = await documentFor(t, success(read), ...(KEPT_FIGURES[name] ? [success(keptObject(KEPT_FIGURES[name]))] : [FIGURES_FAILED]));
   const keys = await keyboardPage(t, document);
   if (keys === undefined) return;
   const paths = [...outputsOf(read).map((output) => output.path), ...((read.record_files ?? []) as Entry[]).map((entry) => entry.path)];
@@ -214,8 +215,10 @@ test("in a browser, Enter on each control that opens of status-success, reached 
     assert.equal(message.index, Number(control.index));
     assert.equal(message.ref, control.ref);
   });
-  assert.ok(count >= outputsOf(read).length, `${count} controls that open`);
+  assert.ok(count >= outputsOf(read).length + (read.record_files ?? []).length - read.assessments.length, `${count} controls that open`);
+  if (name !== "status-success") assert.ok(await keys.evaluate(`${CONTROLS}.some((c) => c.getAttribute("data-ref") === "${RECORD_FILE}" && c.getAttribute("data-part-kind") === "${name === "status-decided" ? "decision" : "deviation"}")`), "a control of the ref record of a Decision or a Declared deviation");
 });
+}
 
 test("in a browser, each control that opens of status-success, reached by Tab, shows a focus outline", { timeout: 120000 }, async (t) => {
   const { document } = await documentFor(t, success(keptObject("status-success")), success(keptObject(KEPT_FIGURES["status-success"])));
@@ -285,12 +288,28 @@ function outside(t: TestContext): string {
   return path.join(folder, "elsewhere.csv");
 }
 
-// The cases of an open message given to the panel on status-success: the object the panel holds, made from the read and the Study folder
-// (none when it gives undefined), what the folder holds besides the read's files, the message, what VS Code answers, whether the message is
-// sent while a call is in flight, and whether the file is opened.
-type Case = { name: string; held?: (read: Entry, study: string) => Entry | undefined; files?: (study: string, t: TestContext) => void; message?: (output: Output) => Entry; shows?: () => Promise<unknown>; inFlight?: boolean; opens: boolean };
-const FIRST = (read: Entry): Output => outputsOf(read)[0];
-const withPath = (read: Entry, value: string): Entry => ((read.assessments[FIRST(read).index].per_item_ref.path = value), read);
+// What a case opens: a read, the message's target in it, the read with that target's path made `value`, and the files its Study folder
+// holds: each output path and each record's own file that the read names.
+type Target = { read: string; first: (read: Entry) => Output; withPath: (read: Entry, value: string) => Entry };
+const filesOf = (read: Entry): string[] => [...outputsOf(read).map((output) => output.path), ...((read.record_files ?? []) as Entry[]).map((entry) => entry.path)];
+const recordOf = (read: Entry, kind: string): Entry => read.record_files.find((entry: Entry) => entry.kind === kind);
+const TARGETS: Target[] = [
+  {
+    read: "status-success",
+    first: (read) => outputsOf(read)[0],
+    withPath: (read, value) => ((read.assessments[outputsOf(read)[0].index].per_item_ref.path = value), read),
+  },
+  {
+    read: "status-decided",
+    first: (read) => ({ path: recordOf(read, "decision").path, kind: "decision", index: 0, ref: RECORD_FILE }),
+    withPath: (read, value) => ((recordOf(read, "decision").path = value), read),
+  },
+];
+
+// The cases of an open message given to the panel: the object the panel holds, made from the read and the Study folder (none when it
+// gives undefined), what the folder holds besides the read's files, the message, what VS Code answers, whether the message is sent while a
+// call is in flight, and whether the file is opened. `ref` limits a case to the target of that ref.
+type Case = { name: string; held?: (read: Entry, study: string, target: Target) => Entry | undefined; files?: (study: string, t: TestContext) => void; message?: (output: Output) => Entry; shows?: () => Promise<unknown>; inFlight?: boolean; opens: boolean; ref?: string };
 
 const CASES: Case[] = [
   { name: "the valid message", opens: true },
@@ -299,54 +318,164 @@ const CASES: Case[] = [
   { name: "a ref that names nothing in the object held", message: (output) => ({ ...messageOf(output), ref: "zq_none" }), opens: false },
   { name: "the ref of the References", message: (output) => ({ ...messageOf(output), ref: "references" }), opens: false },
   { name: "no object held", held: () => undefined, opens: false },
-  { name: "an absolute path, of a file of the Study", held: (read, study) => withPath(read, path.join(study, FIRST(read).path)), opens: false },
-  { name: "a path with a .. segment, to a file of the Study", held: (read) => withPath(read, `assessments/../${FIRST(read).path}`), opens: false },
-  { name: "a path whose real path lies outside the Study, through a symbolic link", held: (read) => withPath(read, "elsewhere.csv"), files: (study, t) => fs.symlinkSync(outside(t), path.join(study, "elsewhere.csv")), opens: false },
-  { name: "a file that does not exist", held: (read) => withPath(read, "assessments/zq-none/per_item.csv"), opens: false },
+  { name: "an absolute path, of a file of the Study", held: (read, study, target) => target.withPath(read, path.join(study, target.first(read).path)), opens: false },
+  { name: "a path with a .. segment, to a file of the Study", held: (read, _, target) => target.withPath(read, `assessments/../${target.first(read).path}`), opens: false },
+  { name: "a path whose real path lies outside the Study, through a symbolic link", held: (read, _, target) => target.withPath(read, "elsewhere.csv"), files: (study, t) => fs.symlinkSync(outside(t), path.join(study, "elsewhere.csv")), opens: false },
+  { name: "a file that does not exist", held: (read, _, target) => target.withPath(read, "assessments/zq-none/per_item.csv"), opens: false },
   { name: "a file VS Code does not show", shows: () => Promise.reject(new Error("not shown")), opens: false },
   { name: "a message sent while a call is in flight", inFlight: true, opens: false },
+  { name: "no entry of record_files of that kind and id", held: (read) => ((read.record_files = read.record_files.filter((entry: Entry) => entry.kind !== "decision")), read), opens: false, ref: RECORD_FILE },
 ];
 
-for (const each of CASES) {
-  const outcome = each.opens ? "opens the file and shows no line" : each.inFlight ? "drops it, opens nothing, starts nothing and shows no line" : "opens nothing, starts nothing and shows the one fixed line in the notice";
-  test(`given the open message on status-success with ${each.name}, the panel ${outcome}`, async (t) => {
-    const read = keptObject("status-success");
-    const files = outputsOf(read).map((output) => output.path);
-    const message = (each.message ?? messageOf)(FIRST(read));
-    let processes: () => number;
-    let answerFigures = (): void => {};
-    if (each.inFlight) {
-      studyWith(t, files);
-      const recorded = heldRecorder(t);
-      await runCommand();
-      recorded.answer(success(read));
-      await settle();
-      processes = () => recorded.calls.length;
-      answerFigures = () => recorded.answer(FIGURES_FAILED);
-    } else {
-      const opened = await openedOn(t, files, (study) => (each.held === undefined ? read : each.held(structuredClone(read), study)));
-      each.files?.(opened.study, t);
-      processes = () => opened.calls.length;
-    }
-    if (each.shows) stub.state.shown = each.shows;
-    const [started, documents] = [processes(), panelOf().documents.length];
-    panelOf().send(message);
-    await settled();
-    assert.equal(stub.callsOf("showTextDocument").length, each.opens || each.shows ? 1 : 0, "what was asked of the editor");
-    assert.deepEqual(stub.callsOf("executeCommand").map((call) => call.args), each.opens ? [[READ_ONLY]] : [], "the read-only command");
-    assert.equal(processes(), started, "no process started");
-    if (each.opens || each.inFlight) {
-      assert.equal(panelOf().documents.length, documents, "no document assigned");
-      answerFigures();
+for (const target of TARGETS) {
+  for (const each of CASES.filter((one) => one.ref === undefined || one.ref === target.first(keptObject(target.read)).ref)) {
+    const outcome = each.opens ? "opens the file and shows no line" : each.inFlight ? "drops it, opens nothing, starts nothing and shows no line" : "opens nothing, starts nothing and shows the one fixed line in the notice";
+    const { ref, kind } = target.first(keptObject(target.read));
+    test(`given the open message of ${ref} of ${kind} on ${target.read} with ${each.name}, the panel ${outcome}`, async (t) => {
+      const read = keptObject(target.read);
+      const files = filesOf(read);
+      const message = (each.message ?? messageOf)(target.first(read));
+      let processes: () => number;
+      let answerFigures = (): void => {};
+      if (each.inFlight) {
+        studyWith(t, files);
+        const recorded = heldRecorder(t);
+        await runCommand();
+        recorded.answer(success(read));
+        await settle();
+        processes = () => recorded.calls.length;
+        answerFigures = () => recorded.answer(FIGURES_FAILED);
+      } else {
+        const opened = await openedOn(t, files, (study) => (each.held === undefined ? read : each.held(structuredClone(read), study, target)));
+        each.files?.(opened.study, t);
+        processes = () => opened.calls.length;
+      }
+      if (each.shows) stub.state.shown = each.shows;
+      const [started, documents] = [processes(), panelOf().documents.length];
+      panelOf().send(message);
       await settled();
-      assert.ok(!lastDocument().includes(NOT_OPENED), "no line");
-    } else {
-      assert.equal(panelOf().documents.length, documents + 1, "one document");
-      assert.ok(contract.labels.includes(NOT_OPENED));
-      assert.equal(words(elementOf(lastDocument(), '<div data-element="notice"')), NOT_OPENED, "the notice holds the one fixed line");
+      assert.equal(stub.callsOf("showTextDocument").length, each.opens || each.shows ? 1 : 0, "what was asked of the editor");
+      assert.deepEqual(stub.callsOf("executeCommand").map((call) => call.args), each.opens ? [[READ_ONLY]] : [], "the read-only command");
+      assert.equal(processes(), started, "no process started");
+      if (each.opens || each.inFlight) {
+        assert.equal(panelOf().documents.length, documents, "no document assigned");
+        answerFigures();
+        await settled();
+        assert.ok(!lastDocument().includes(NOT_OPENED), "no line");
+      } else {
+        assert.equal(panelOf().documents.length, documents + 1, "one document");
+        assert.ok(contract.labels.includes(NOT_OPENED));
+        assert.equal(words(elementOf(lastDocument(), '<div data-element="notice"')), NOT_OPENED, "the notice holds the one fixed line");
+      }
+    });
+  }
+}
+
+// --- The own file of each record ----------------------------------------------------------------------------------------------------
+
+// The listing, the key of a record's id and the kind of its entry of `record_files`, by the kind of a record part.
+const RECORD_PARTS: Record<string, [string, string, string]> = {
+  assessment: ["assessments", "assessment_id", "assessment"],
+  comparison: ["comparisons", "comparison_id", "comparison"],
+  decision: ["decisions", "decision_id", "decision"],
+  deviation: ["declared_deviations", "declared_deviation_id", "declared_deviation"],
+};
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
+// The id a part shows first, outside its marked texts.
+const firstId = (html: string): string | undefined => partsOf(html.replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "")).between.match(UUID)?.[0];
+const partsOfKind = (document: string, kind: string): string[] => [...document.matchAll(new RegExp(`<([a-z0-9]+) data-part="${kind}"[^>]*>`, "g"))].map((match) => elementOf(document.slice(match.index), match[0])!);
+const withoutParts = (html: string, kind: string): string => partsOfKind(html, kind).reduce((rest, part) => rest.replace(part, ""), html);
+
+// The one control of the ref `record` for the record of `kind` at `index`, in `html`, beside the path of its entry of `record_files`.
+function assertRecordControl(html: string, document: string, read: Entry, kind: string, index: number, name: string): void {
+  const [listing, key, fileKind] = RECORD_PARTS[kind];
+  const id = read[listing][index][key];
+  const entry = (read.record_files ?? []).find((each: Entry) => each.kind === fileKind && each.id === id);
+  const controls = controlsOf(html).filter((control) => control.ref === RECORD_FILE && control.kind === kind && Number(control.index) === index);
+  assert.ok(entry, `${name}: record_files lists ${kind} ${id}`);
+  assert.equal(controls.length, 1, `${name}: one control of the ref record for ${kind} ${id}`);
+  assert.ok(contract.labels.includes(controls[0].text), controls[0].text);
+  const described = elementWithId(document, controls[0].describedBy);
+  assert.deepEqual(markedTexts(described ?? ""), [entry.path], `${name}: the control of ${kind} ${id} is described by its path`);
+  const holder = [...html.matchAll(/<(p|span) data-element="record-file">/g)].map((match) => elementOf(html.slice(match.index), match[0])!).find((each) => each.includes(controls[0].tag));
+  assert.ok(holder?.includes(described!) && !holder.includes("<a "), `${name}: the path stands beside the control, with no link`);
+}
+
+function assertOneRecordControlPerPart(document: string, read: Entry, name: string): void {
+  for (const [kind, [listing, key, fileKind]] of Object.entries(RECORD_PARTS)) {
+    for (const part of partsOfKind(document, kind)) {
+      const id = firstId(part);
+      const index = (read[listing] as Entry[]).findIndex((record) => record[key] === id);
+      const listed = (read.record_files ?? []).some((entry: Entry) => entry.kind === fileKind && entry.id === id);
+      if (listed) assertRecordControl(part, document, read, kind, index, name);
+      else assert.deepEqual(controlsOf(part).filter((control) => control.ref === RECORD_FILE && control.kind === kind), [], `${name}: no control of the ref record for ${kind} ${id}`);
+    }
+  }
+  read.decisions.forEach((decision: Entry, at: number) => {
+    const part = partsOfKind(document, "decision").find((each) => firstId(each) === decision.decision_id);
+    if (part === undefined) return;
+    const named = new Set<string>((decision.evidence_change?.lines ?? []).flatMap((line: Entry) => [line.assessment_id, line.latest_assessment_id]));
+    for (const id of named) {
+      const index = read.assessments.findIndex((each: Entry) => each.assessment_id === id);
+      if (index < 0 || !(read.record_files ?? []).some((entry: Entry) => entry.kind === "assessment" && entry.id === id)) continue;
+      assertRecordControl(withoutParts(part, "assessment"), document, read, "assessment", index, `${name}, Decision ${at}`);
+    }
+  });
+  const study = elementOf(document, '<div data-part="study"') ?? "";
+  assert.deepEqual(controlsOf(study), [], `${name}: the Study's part holds no control that opens`);
+  for (const summary of [...document.matchAll(/<div data-summary="comparison">/g)].map((match) => elementOf(document.slice(match.index), match[0])!)) {
+    assert.deepEqual(controlsOf(summary), [], `${name}: a Comparison's summary holds no control that opens`);
+  }
+}
+
+for (const name of KEPT_READS) {
+  test(`each record part whose record record_files lists holds one control that opens its own file, beside its path, and each Decision's part one for each Assessment of its evidence: ${name}`, async (t) => {
+    const read = keptObject(name);
+    assertOneRecordControlPerPart((await documentFor(t, success(read))).document, read, name);
+  });
+}
+
+test("a read without record_files gives no control of the ref record", async (t) => {
+  for (const name of ["status-success", "status-decided", "status-deviation", "status-result-changed"]) {
+    const read = keptObject(name);
+    delete read.record_files;
+    const { document } = await documentFor(t, success(read));
+    assert.deepEqual(controlsOf(document).filter((control) => control.ref === RECORD_FILE), [], name);
+  }
+});
+
+for (const name of ["status-decided", "status-deviation"]) {
+  test(`the open message of each control of the ref record of ${name} shows the Study folder joined to the path of its entry of record_files, then makes it read-only`, async (t) => {
+    const read = keptObject(name);
+    const { study } = await openedOn(t, filesOf(read), () => read);
+    const controls = controlsOf(lastDocument()).filter((control) => control.ref === RECORD_FILE);
+    assert.ok(controls.length >= read.record_files.length - read.assessments.length, `${controls.length} controls of the ref record`);
+    for (const control of controls) {
+      const before = stub.calls.length;
+      panelOf().send({ message: OPEN, kind: control.kind, index: Number(control.index), ref: control.ref });
+      await settled();
+      const [listing, key, fileKind] = RECORD_PARTS[control.kind!];
+      const entry = read.record_files.find((each: Entry) => each.kind === fileKind && each.id === read[listing][Number(control.index)][key]);
+      const calls = stub.calls.slice(before);
+      assert.deepEqual(calls.map((call) => call.name), ["showTextDocument", "executeCommand"], control.tag);
+      assert.equal((calls[0].args[0] as { fsPath: string }).fsPath, path.join(study, entry.path), control.tag);
     }
   });
 }
+
+test("status-success whose entry of record_files for its first Assessment names another file of the Study: that file is shown, and no path is composed from the id", async (t) => {
+  const read = keptObject("status-success");
+  const entry = recordOf(read, "assessment");
+  const index = read.assessments.findIndex((each: Entry) => each.assessment_id === entry.id);
+  const other = read.assessments[index].per_item_ref.path;
+  const composed = `assessments/${entry.id}/assessment.json`;
+  assert.equal(entry.path, composed);
+  entry.path = other;
+  const { study } = await openedOn(t, filesOf(read).concat([composed]), () => read);
+  panelOf().send({ message: OPEN, kind: "assessment", index, ref: RECORD_FILE });
+  await settled();
+  assert.deepEqual(stub.callsOf("showTextDocument").map((call) => (call.args[0] as { fsPath: string }).fsPath), [path.join(study, other)]);
+});
 
 // --- Inert while a call is in flight -------------------------------------------------------------------------------------------------
 

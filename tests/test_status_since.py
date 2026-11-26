@@ -21,8 +21,8 @@ from hypotrail.core import study as layout
 ROOT = Path(__file__).resolve().parent.parent
 KEPT = ROOT / "docs" / "handbook" / "traces" / "campaign-public-check" / "study"
 VALUES_REFUSED = ("-1", "x", "1.5")
-# The top-level keys of `status --json` before `--since` existed.
-STATUS_KEYS = {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+# The top-level keys of `status --json` without `--since`.
+STATUS_KEYS = {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
 BEGIN_KEYS, END_KEYS = {"phase", "command", "request_id"}, {"phase", "command", "request_id", "outcome", "written"}
 
 

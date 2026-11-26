@@ -12,7 +12,9 @@ and whether it still applies (`hypotrail.core.decisions`, `history`), computed n
 deviations, each with whether it is withdrawn (`hypotrail.core.deviations`, `listing`), as the top-level key `declared_deviations`. It lists every Assessment
 record (`assessments`) and every Comparison record (`comparisons`) the Study holds, each as stored, in the order of the write journal
 (`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
-`hypotrail.core.decisions`, `pending`). Given a write sequence (`--since N`), it also lists the write-journal entries after it, each as stored, as
+`hypotrail.core.decisions`, `pending`). It names the file of the Study that holds each record of the listings `decisions`,
+`declared_deviations`, `assessments` and `comparisons`, in that order, as the top-level key `record_files`, computed now and never stored
+(`record_files`). Given a write sequence (`--since N`), it also lists the write-journal entries after it, each as stored, as
 the top-level key `writes_since` (`write_journal.since`). It writes nothing and holds no lock; it probes whether a
 writer holds the lock (`lock.is_held`) with a non-blocking shared lock taken and dropped at once, so a writer starting at
 that instant is refused.
@@ -81,6 +83,30 @@ def check_informed(study: Path) -> list:
     return marked
 
 
+def _files_by_id(study: Path, names: list, key: str) -> dict:
+    """{id: path} of the records at `names`, each path relative to the Study folder, read from the record it names."""
+    return {layout.read_record(study, name)[key]: name for name in names}
+
+
+def record_files(study: Path, listings: dict) -> list:
+    """`{kind, id, path}` of each record of `listings` (`decisions`, `declared_deviations`, `assessments`, `comparisons`), in that order and
+    in each listing's order: `path` is the file of the Study that holds the record, as its folder names it, relative to the Study folder."""
+    def folder_names(folder: str, name: str) -> list:
+        root = study / folder
+        return [f"{folder}/{each.name}/{name}" for each in sorted(root.iterdir()) if (each / name).is_file()] if root.is_dir() else []
+
+    files = {
+        "decision": _files_by_id(study, [f"{decisions.DECISIONS_DIR}/{name}" for name in layout.record_names(study, decisions.DECISIONS_DIR)], "decision_id"),
+        "declared_deviation": _files_by_id(
+            study, [f"{deviations.DEVIATIONS_DIR}/{name}" for name in layout.record_names(study, deviations.DEVIATIONS_DIR)], "declared_deviation_id"
+        ),
+        "assessment": _files_by_id(study, folder_names(layout.ASSESSMENTS_DIR, "assessment.json"), "assessment_id"),
+        "comparison": _files_by_id(study, folder_names(layout.COMPARISONS_DIR, "comparison.json"), "comparison_id"),
+    }
+    kinds = (("decisions", "decision", "decision_id"), ("declared_deviations", "declared_deviation", "declared_deviation_id"), ("assessments", "assessment", "assessment_id"), ("comparisons", "comparison", "comparison_id"))
+    return [{"kind": kind, "id": record[key], "path": files[kind][record[key]]} for listing, kind, key in kinds for record in listings[listing]]
+
+
 def status(study, since: int | None = None) -> dict:
     """The Study's local state, read only; given `since`, also the write-journal entries after it, as `writes_since`."""
     study = Path(study)
@@ -107,6 +133,12 @@ def status(study, since: int | None = None) -> dict:
             }
         )
     history = decisions.history(study)
+    listings = {
+        "decisions": history,
+        "declared_deviations": deviations.listing(study),
+        "assessments": decisions.assessments_in_order(study),
+        "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
+    }
     return {
         "study": {
             **{key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest", "revision")},
@@ -131,11 +163,9 @@ def status(study, since: int | None = None) -> dict:
         "exposures": exposure.summary(study),
         "check_informed": check_informed(study),
         "write_sequence": write_journal.write_sequence(study) if journal is None else journal[0],
-        "decisions": history,
-        "declared_deviations": deviations.listing(study),
-        "assessments": decisions.assessments_in_order(study),
-        "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
+        **listings,
         "pending_decisions": decisions.pending(study, history),
+        "record_files": record_files(study, listings),
         **({} if journal is None else {"writes_since": journal[1]}),
     }
 

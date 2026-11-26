@@ -94,6 +94,7 @@ const LABEL = {
   dotOrder: 60,
   openFile: 61,
   notOpened: 62,
+  openRecord: 63,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -127,9 +128,11 @@ const CONSEQUENCE_ID = "consequence-";
 // The `id` of the element around a path that a control that opens is described by, before the place of that path among the paths of the
 // document.
 const PATH_ID = "path-";
-// The message of a control that opens, and the ref of each output path a record names.
+// The message of a control that opens, the ref of each output path a record names, and the ref of a record's own file.
 const OPEN = contract.messages[3];
-const [PER_ITEM, PAIRED_DELTAS, POPULATION] = contract.open_refs;
+const [PER_ITEM, PAIRED_DELTAS, POPULATION, RECORD_FILE] = contract.open_refs;
+// The kind of an entry of `record_files` that names the file of a record of each kind of part, by the kind of part.
+const FILE_KIND: Record<string, string> = { assessment: "assessment", comparison: "comparison", decision: "decision", deviation: "declared_deviation" };
 // "It is shown beside the label." (D-077 on chadlis/hypotrail#75, Q5, of `revision_changed`)
 const BESIDE_THE_STATE = "revision_changed";
 
@@ -192,8 +195,9 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 // The lists of the object read that a document's parts are found in, the records that already have a part in it (an Assessment
 // or a Comparison has one part that links name, at the first place that shows it) and how many options the document shows.
 // `figures` holds the entries of the figures read, none when it cannot stand beside the status read; `inert` is the attribute of a
-// control that is inert while a call is in flight, and `paths` how many paths beside a control the document shows.
-type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number };
+// control that is inert while a call is in flight, `paths` how many paths beside a control the document shows, and `files` the entries
+// of `record_files`.
+type Shown = { comparisons: Entry[]; assessments: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number; files: Entry[] };
 
 // The object of the figures read when it is usable beside the status read: the same Write sequence, and one entry with its five keys
 // for each Comparison the status read lists. Otherwise there is none, and the figures call counts as failed.
@@ -272,7 +276,7 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const locked = busy || held;
-  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0 };
+  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
   const count = `<p data-element="count">${label("pendingCount")} ${link("pending_decisions", 0, pending.length)}</p>`;
   return [
     `<h2>${label("study")}</h2>`,
@@ -284,7 +288,7 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
     `<h2>${label("decisions")}</h2>`,
     decisionsOf(list(object.decisions), linked, recorded, shown),
     `<h2>${label("deviations")}</h2>`,
-    deviationsOf(list(object.declared_deviations)),
+    deviationsOf(list(object.declared_deviations), shown),
   ].join("\n");
 }
 
@@ -353,6 +357,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "")
       const path = record(output).path;
       if (typeof path === "string") lines.push(`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref, path, shown)}</p>`);
     }
+    lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown));
     for (const [kind, items] of [["warnings", warnings], ["limitations", limitations]] as const) {
       lines.push(`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>");
     }
@@ -505,10 +510,17 @@ function coverageChartOf(coverage: [string, unknown][], index: number): string {
 
 // A path as a marked text, and beside it the control that opens the file it names: its message names the kind of the record's part, the
 // place of the record in its listing and the ref, and the control is described by the path.
-function opening(kind: string, index: number, ref: string, path: unknown, shown: Shown): string {
+function opening(kind: string, index: number, ref: string, path: unknown, shown: Shown, name: keyof typeof LABEL = "openFile"): string {
   const id = `${PATH_ID}${shown.paths++}`;
-  const control = `<button class="open" data-message="${OPEN}" data-part-kind="${kind}" data-index="${index}" data-ref="${ref}" aria-describedby="${id}"${shown.inert}>${label("openFile")}</button>`;
+  const control = `<button class="open" data-message="${OPEN}" data-part-kind="${kind}" data-index="${index}" data-ref="${ref}" aria-describedby="${id}"${shown.inert}>${label(name)}</button>`;
   return `<span id="${id}">${marked(path)}</span> ${control}`;
+}
+
+// The path of a record's own file, as `record_files` names it for the record of `id` of that kind of part, with the control that opens
+// it; nothing when `record_files` names none.
+function recordFileOf(kind: string, index: number, id: unknown, shown: Shown, tag = "p"): string {
+  const path = shown.files.find((entry) => entry.kind === FILE_KIND[kind] && entry.id === id)?.path;
+  return typeof path === "string" ? `<${tag} data-element="record-file">${opening(kind, index, RECORD_FILE, path, shown, "openRecord")}</${tag}>` : "";
 }
 
 // An Assessment, under its role where it has one: its part at the first place that shows it, its id as a link to that part after.
@@ -525,7 +537,8 @@ function assessmentOf(role: "control" | "candidate" | undefined, id: unknown, sh
     );
     const output = record(assessment.per_item_ref).path;
     const path = typeof output === "string" ? `<p data-element="output">${label("outputPath")} ${opening("assessment", index, PER_ITEM, output, shown)}</p>` : "";
-    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, path, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].filter((line) => line !== "").join("\n");
+    const own = recordFileOf("assessment", index, id, shown);
+    body = [`<div data-part="assessment"${anchor("assessment", index)}>`, body, path, own, `<ul>\n${metrics.join("\n")}\n</ul>`, "</div>"].filter((line) => line !== "").join("\n");
   }
   return role === undefined ? body : [`<div data-role="${role}">`, `<h4>${label(role)}</h4>`, body, "</div>"].join("\n");
 }
@@ -549,6 +562,7 @@ function decisionOf(decision: Entry, index: number, linked: boolean, recorded: b
     `<h3>${marked(decision.option, "strong")}${applies === undefined ? "" : ` <span data-applies="${decision.applies === true ? "yes" : "no"}">${escaped(applies)}</span>`}</h3>`,
     ...(linked ? [`<p>${label("linked")}</p>`] : []),
     `<p>${value(decision.decision_id)}</p>`,
+    recordFileOf("decision", index, decision.decision_id, shown),
     `<p data-element="question">${marked(decision.question)}</p>`,
     ...(change ? [stateOf(change, list(decision.reasons)), linesOf(change, index, shown)] : []),
     ...(reasons.length > 0 ? [`<h4>${label("reasons")}</h4>`] : []),
@@ -577,7 +591,7 @@ function decisionOf(decision: Entry, index: number, linked: boolean, recorded: b
   // The Assessments of each line stand after the cited Comparison's, so that a role's Assessment has its part under its role.
   if (change) lines.push(...list(change.lines).flatMap((line) => [assessmentOf(undefined, line.assessment_id, shown), assessmentOf(undefined, line.latest_assessment_id, shown)]));
   lines.push("</section>");
-  return lines.join("\n");
+  return lines.filter((line) => line !== "").join("\n");
 }
 
 const phrase = (state: unknown): string => text(PHRASES.get(String(state)) ?? state);
@@ -589,9 +603,16 @@ function stateOf(change: Entry, reasons: Entry[]): string {
 }
 
 // Each line of a Decision's evidence, with chart 3: each Metric's cited and latest value as two bars on one scale; the line's
-// Assessments are not shown here. `decision` is the
-// place of the Decision in `decisions`: a number links to that Decision's part when `assessments` holds no entry of its Assessment's id.
+// Assessments are not shown here, but the file of each Assessment a line names first in the Decision is, with its control. `decision`
+// is the place of the Decision in `decisions`: a number links to that Decision's part when `assessments` holds no entry of its
+// Assessment's id.
 function linesOf(change: Entry, decision: number, shown: Shown): string {
+  const named = new Set<unknown>();
+  const filesOf = (ids: unknown[]): string[] =>
+    ids.filter((id) => !named.has(id) && named.add(id)).map((id) => {
+      const index = shown.assessments.findIndex((each) => each.assessment_id === id);
+      return index < 0 ? "" : recordFileOf("assessment", index, id, shown);
+    });
   const to = (kind: string, id: unknown, number: unknown): string => {
     const index = shown.assessments.findIndex((each) => each.assessment_id === id);
     return index < 0 ? link(kind, decision, number, "decision") : link(kind, index, number);
@@ -604,12 +625,16 @@ function linesOf(change: Entry, decision: number, shown: Shown): string {
       ]);
       return `<li data-chart="evidence"><p>${label("metric")} ${value(metric.id)}</p>\n${chart}</li>`;
     });
-    return `<li data-part="line"><span>${phrase(line.state)}</span> ${label("changedItems")} ${to("changed_item_count", line.latest_assessment_id, line.changed_item_count)}\n<ul>\n${metrics.join("\n")}\n</ul>\n</li>`;
+    const files = filesOf([line.assessment_id, line.latest_assessment_id]).filter((file) => file !== "");
+    return `<li data-part="line"><span>${phrase(line.state)}</span> ${label("changedItems")} ${to("changed_item_count", line.latest_assessment_id, line.changed_item_count)}\n<ul>\n${metrics.join("\n")}\n</ul>${files.map((file) => `\n${file}`).join("")}\n</li>`;
   });
   return `<ul>\n${lines.join("\n")}\n</ul>`;
 }
 
-function deviationsOf(deviations: Entry[]): string {
-  const lines = deviations.map((deviation) => `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${label("withdrawn")} ${value(deviation.withdrawn)}</li>`);
+function deviationsOf(deviations: Entry[], shown: Shown): string {
+  const lines = deviations.map((deviation, index) => {
+    const file = recordFileOf("deviation", index, deviation.declared_deviation_id, shown, "span");
+    return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
+  });
   return lines.length === 0 ? `<p>${label("none")}</p>` : `<ul>\n${lines.join("\n")}\n</ul>`;
 }
