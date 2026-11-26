@@ -6605,6 +6605,8 @@ IDENTIFIER_READING_LIMITS = (
     '("invoices 34 and 2 more" reads invoice 2)',
     '"Inv:" and "Cust:" are no lead-ins',
     '"Number of invoices 34 and 155", with no copula, reads count 34 and fact 155',
+    'list items with different markers form one list, so "Invoices:" over "- 34", "- 155", a blank line and "1. 3 tracks were bought" reads invoice 3',
+    'in "Invoices for customer no. 12:" over "- 34" the last sentence is "12:", which names no kind, and 34 is lost',
 )
 
 
@@ -6613,4 +6615,4 @@ def test_chapter_08_states_the_rules_and_the_limits_of_the_block_reader_of_ident
     text = html.unescape(re.sub(r"<[^>]+>", "", paragraph))
     assert [rule for rule in IDENTIFIER_READING_RULES if rule not in text] == []
     assert [limit for limit in IDENTIFIER_READING_LIMITS if limit not in text] == []
-    assert "D-163 on chadlis/hypotrail#75" in text
+    assert "D-163 on chadlis/hypotrail#75" in text and "D-173 on chadlis/hypotrail#75" in text

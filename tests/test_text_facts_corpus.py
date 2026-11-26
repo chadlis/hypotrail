@@ -1,7 +1,7 @@
 """The blind corpus of the block reader of `text_facts_v1` (#271): each row read directly, then every row through the real commands.
 
-The rows are `tests/fixtures/text_facts_corpus/corpus.jsonl`, written blind to the code; a row with a ruling in `rulings.jsonl`
-holds the ruling's expectation instead of its own.
+The rows are `tests/fixtures/text_facts_corpus/corpus.jsonl`, written blind to the code, and the rows a ruling of
+`rulings.jsonl` adds; a row with a ruling holds the ruling's expectation instead of its own.
 """
 
 import csv
@@ -28,8 +28,10 @@ def jsonl(path: Path) -> list:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-ROWS = {row["row_id"]: row for row in jsonl(CORPUS / "corpus.jsonl")}
 RULINGS = {ruling["row"]: ruling for ruling in jsonl(CORPUS / "rulings.jsonl")}
+# The corpus rows, then the rows a ruling adds with their own question and answer.
+ROWS = {row["row_id"]: row for row in jsonl(CORPUS / "corpus.jsonl")}
+ROWS.update({row_id: ruling for row_id, ruling in RULINGS.items() if "answer" in ruling and row_id not in ROWS})
 
 
 def expectation(row_id: str) -> tuple:
