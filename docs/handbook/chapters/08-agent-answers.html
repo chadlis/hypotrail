@@ -18,7 +18,7 @@
 
 <p class="sub2">The command: import agent</p>
 <div class="prose">
-<p><code>import agent</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/agentic/imports.py</code>. It has the shape of <code>import ml</code> (<a href="#import">chapter 06</a>): <code>--request-id</code> is required, with <code>--json</code> stdout holds one object (<code>{"ok": true, "replayed": BOOL, "attempt": MANIFEST}</code> or the error object of chapter 04), and the command holds the Study's writer lock for the whole command. It imports neither Inspect, scikit-learn nor NumPy.</p>
+<p><code>import agent</code> is in <code>src/hypotrail/cli.py</code>; the work is in <code>src/hypotrail/agentic/imports.py</code>. It has the shape of <code>import ml</code> (<a href="#import">chapter 06</a>): <code>--request-id</code> is required, with <code>--json</code> stdout holds one object (<code>{"ok": true, "replayed": BOOL, "attempt": MANIFEST, "observation_set_id": ID}</code>, with the Observation set ID of chapter 04, or the error object of chapter 04), and the command holds the Study's writer lock for the whole command. It imports neither Inspect, scikit-learn nor NumPy.</p>
 </div>
 <pre class="code"><span class="cm"># population.json: {"episodes": [{"case_id": "D01", "repeat": 0}, {"case_id": "D03", "repeat": 0}, ...]}</span>
 uv run python -m hypotrail import agent --study runs/chinook --source examples/chinook/fixtures/agent-answers-authored.jsonl --population population.json --request-id import-a

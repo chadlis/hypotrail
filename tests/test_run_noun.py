@@ -8,6 +8,7 @@ The noun is found after a determiner or an adjective that only a noun takes, wit
 operators, not tags), and only a chapter is read as its reader reads it (tags stripped). This file is the one file of the corpus left out of the scan, because its sentences quote the noun on purpose.
 """
 
+import ast
 import html
 import re
 from pathlib import Path
@@ -113,3 +114,47 @@ def test_the_corpus_is_the_whole_of_src_tests_the_chapters_and_the_readme():
 @pytest.mark.parametrize("path", corpus(), ids=lambda p: str(p.relative_to(ROOT)))
 def test_no_file_calls_an_attempt_or_an_execution_a_run(path):
     assert run_as_a_noun(path.read_text(encoding="utf-8"), markup=path.suffix == ".html") == []
+
+
+def head_word_names(source: str) -> list:
+    """The name of each pytest fixture, class and named tuple a Python source defines whose last word is "run": a name such a word ends
+    is a noun phrase whose head is the noun ("demonstration_run", "Run"), which the finder above misses when no determiner or adjective
+    comes before it."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any("fixture" in ast.unparse(each) for each in node.decorator_list):
+            found.append(node.name)
+        elif isinstance(node, ast.ClassDef):
+            found.append(node.name)
+        elif isinstance(node, ast.Call) and ast.unparse(node.func).endswith("namedtuple") and node.args and isinstance(node.args[0], ast.Constant):
+            found.append(node.args[0].value)
+    return [name for name in found if re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).lower().split("_")[-1] == "run"]
+
+
+HEAD_WORD_SOURCES = [
+    'Run = namedtuple("Run", "module work")',
+    "@pytest.fixture(scope='session')\ndef demonstration_run(tmp_path_factory):\n    pass",
+    "@pytest.fixture\ndef process_run():\n    pass",
+    "class DryRun:\n    pass",
+]
+# A fixture named after a command, a verb, or a name whose last word is not the noun.
+HEAD_WORD_ALLOWED = [
+    "@pytest.fixture\ndef run_agent_attempts():\n    pass",
+    "@pytest.fixture\ndef never_runs():\n    pass",
+    "def demonstration_run():\n    pass",
+]
+
+
+@pytest.mark.parametrize("source", HEAD_WORD_SOURCES)
+def test_the_name_finder_sees_a_fixture_class_or_named_tuple_whose_last_word_is_run(source):
+    assert head_word_names(source), source
+
+
+@pytest.mark.parametrize("source", HEAD_WORD_ALLOWED)
+def test_the_name_finder_lets_a_command_name_a_verb_and_a_plain_function_through(source):
+    assert head_word_names(source) == [], source
+
+
+@pytest.mark.parametrize("path", [path for path in corpus() if path.suffix == ".py"], ids=lambda p: str(p.relative_to(ROOT)))
+def test_no_fixture_class_or_named_tuple_is_named_with_run_as_its_last_word(path):
+    assert head_word_names(path.read_text(encoding="utf-8")) == []

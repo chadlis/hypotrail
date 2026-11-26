@@ -277,3 +277,16 @@ def test_the_dated_lines_hold_one_line_for_the_figures_read_that_quotes_its_tick
     outside = line.replace(READ_THROUGH_STATUS_SENTENCE, "").replace(FIGURES_READ_SENTENCE, "")
     assert [s for s in re.split(r"(?<=[.:;])\s+", outside) if "takes no lock and writes nothing" in s], outside  # the reason, in a sentence of its own
     assert "line 1" in line and "line 15" in line
+
+
+# --- the dated line of the ids that the four Attempt writers and `init` print ------------------------------------------------------------
+
+
+def test_the_dated_lines_hold_one_line_that_names_the_two_printed_id_keys_and_overrides_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#219" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`observation_set_id`" in line
+    assert "`references_id`" in line
+    assert "the earlier line it overrides: none" in line

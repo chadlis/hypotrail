@@ -349,12 +349,12 @@ def test_a_study_written_before_this_slice_shows_zero_until_its_first_write_and_
 # --- Tightened D and H: the key, and the shapes that stay ------------------------------------------------------------------
 
 KEYS = {
-    "init": {"ok", "study"},
-    "init --new-revision": {"ok", "study"},
-    "run ml": {"ok", "replayed", "attempt"},
-    "run agent": {"ok", "replayed", "attempt", "warnings"},
-    "import ml": {"ok", "replayed", "attempt"},
-    "import agent": {"ok", "replayed", "attempt"},
+    "init": {"ok", "study", "references_id"},
+    "init --new-revision": {"ok", "study", "references_id"},
+    "run ml": {"ok", "replayed", "attempt", "observation_set_id"},
+    "run agent": {"ok", "replayed", "attempt", "observation_set_id", "warnings"},
+    "import ml": {"ok", "replayed", "attempt", "observation_set_id"},
+    "import agent": {"ok", "replayed", "attempt", "observation_set_id"},
     "assess": {"ok", "assessment"},
     "compare": {"ok", "comparison"},
     "recover": {"ok", "attempt"},

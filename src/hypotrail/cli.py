@@ -465,12 +465,23 @@ def _init(args) -> int:
         from hypotrail.ml import study
 
     spec = study.init_study(args.workload, args.study, examples)
+    references = _references_id(spec)
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
-        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
+        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}, references_id {references}"
     )
-    _emit({"ok": True, "study": spec}, args.json, human)
+    _emit({"ok": True, "study": spec, "references_id": references}, args.json, human)
     return EXIT_OK
+
+
+def _references_id(spec: dict) -> str:
+    """The ID of the References set a StudySpec revision holds: the value `assess --references` takes."""
+    return next(entry["artifact_id"] for entry in spec["artifacts"] if entry["ref"]["role"] == "references")
+
+
+def _observation_set_note(observation_set_id) -> str:
+    """What the line of an Attempt writer ends with: the Observation set ID that `assess --observations` takes, or that there is none."""
+    return "; no Observation set" if observation_set_id is None else f"; Observation set {observation_set_id}"
 
 
 def _new_revision(args) -> int:
@@ -491,15 +502,17 @@ def _new_revision(args) -> int:
         from hypotrail.ml import study
 
     spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence)
+    references = _references_id(spec)
     human = (
         f"Study {args.study} is at revision {revisions.revision_number(spec)}: Workload {spec['workload']}, "
-        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}"
+        f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}, references_id {references}"
     )
-    _emit({"ok": True, "study": spec}, args.json, human)
+    _emit({"ok": True, "study": spec, "references_id": references}, args.json, human)
     return EXIT_OK
 
 
 def _run_ml(args) -> int:
+    from hypotrail.core import attempts
     from hypotrail.ml import run
 
     manifest, replayed = run.run_ml(
@@ -511,18 +524,21 @@ def _run_ml(args) -> int:
         examples_dir=args.examples_dir,
         read_sequence=args.read_sequence,
     )
+    observation_set_id = attempts.observation_set_id(args.study, manifest)
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']}"
         + (f" ({counts['produced']} Items produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
         + (" (recorded earlier: nothing was recomputed)" if replayed else "")
+        + _observation_set_note(observation_set_id)
     )
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}, args.json, human)
     return EXIT_OK
 
 
 def _run_agent(args) -> int:
     from hypotrail.agentic import run
+    from hypotrail.core import attempts
 
     try:
         manifest, replayed, warnings = run.run_agent(
@@ -541,47 +557,55 @@ def _run_agent(args) -> int:
     except HypotrailError as error:  # a refusal, or an Attempt that failed (then the Study was scanned and `details.warnings` holds what it found)
         _print_warnings(error.details.get("warnings", []))
         raise
+    observation_set_id = attempts.observation_set_id(args.study, manifest)
     counts = manifest.get("item_counts")
     human = (
         f"Attempt {manifest['attempt_id']} {manifest['technical_status']} (Mode {manifest['mode']})"
         f" (model {manifest['effective_config']['model']}, served_model {manifest['effective_config']['served_model']})"  # both, as recorded
         + (f" ({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing)" if counts else "")
         + (" (recorded earlier: nothing was run again)" if replayed else "")
+        + _observation_set_note(observation_set_id)
     )
     _print_warnings(warnings)
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "warnings": warnings}, args.json, human)
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id, "warnings": warnings}, args.json, human)
     return EXIT_OK
 
 
 def _import_ml(args) -> int:
+    from hypotrail.core import attempts
     from hypotrail.ml import imports
 
     manifest, replayed = imports.import_ml(
         args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
     )
+    observation_set_id = attempts.observation_set_id(args.study, manifest)
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
         f"({counts['produced']} Items produced, Mode {manifest['mode']})"
         + (" (recorded earlier: nothing was read again)" if replayed else "")
+        + _observation_set_note(observation_set_id)
     )
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}, args.json, human)
     return EXIT_OK
 
 
 def _import_agent(args) -> int:
     from hypotrail.agentic import imports
+    from hypotrail.core import attempts
 
     manifest, replayed = imports.import_agent(
         args.study, args.source, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
     )
+    observation_set_id = attempts.observation_set_id(args.study, manifest)
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
         f"({counts['produced']} Episodes produced, {counts['failed']} failed, {counts['missing']} missing; Mode {manifest['mode']})"
         + (" (recorded earlier: nothing was read again)" if replayed else "")
+        + _observation_set_note(observation_set_id)
     )
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest}, args.json, human)
+    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}, args.json, human)
     return EXIT_OK
 
 

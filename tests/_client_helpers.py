@@ -29,8 +29,16 @@ FIXED_PYTHON = "PYTHON"
 FIXED_SIZE_BYTES = 0
 
 
+# A kept argument list names the Study it was given as this placeholder.
+STUDY_OPTION = "--study="
+STUDY_PLACEHOLDER = "--study=<study>"
+
+
 def fixed(value):
-    """`value` with the three keyed rules applied at every depth; a value of another shape under `code_revision` or `python` fails."""
+    """`value` with the three keyed rules applied at every depth, and the value of `--study=` in a text replaced by `<study>`; a value of
+    another shape under `code_revision` or `python` fails."""
+    if isinstance(value, str) and value.startswith(STUDY_OPTION):
+        return STUDY_PLACEHOLDER
     if isinstance(value, list):
         return [fixed(each) for each in value]
     if not isinstance(value, dict):
@@ -349,6 +357,31 @@ def kept(name: str) -> tuple:
     return (int((KEPT / f"{name}.exit").read_text(encoding="utf-8")), (KEPT / f"{name}.out").read_text(encoding="utf-8"), (KEPT / f"{name}.err").read_text(encoding="utf-8"))
 
 
+# The demonstration's kept files (docs/demo/demonstration.py): the two reads of each kept state of the second Bike Study and the two kept
+# `decide` calls, each as NAME.exit, NAME.out and NAME.err, and a `decide` with NAME.args, its argument list.
+DEMONSTRATION_KEPT = KEPT / "demonstration"
+
+
+def kept_names_of_the_demonstration() -> list:
+    """The name of each kept process of the demonstration's step list, in the order the script writes them."""
+    from _demonstration_helpers import demonstration, processes
+
+    return [each["kept"] for _, each in processes(demonstration().STEPS) if "kept" in each]
+
+
+def demonstration_outputs(folder: Path) -> dict:
+    """{file name: text} of the files the step list wrote in `folder`, the work folder's `kept/`: each `.args` and `.out` replaced as
+    `replaced` replaces them, with one numbering over all of them in the order the script wrote them, each `.exit` and `.err` as printed."""
+    made, seen = {}, {}
+    for name in kept_names_of_the_demonstration():
+        for part in ("args", "exit", "out", "err"):
+            path = folder / f"{name}.{part}"
+            if path.is_file():
+                text = path.read_text(encoding="utf-8")
+                made[path.name] = replaced(text, seen) if part in ("args", "out") else text
+    return made
+
+
 def write_kept(outputs: dict) -> None:
     """Writes the files of `outputs` under `KEPT`; used once, by hand, when an output is added."""
     KEPT.mkdir(parents=True, exist_ok=True)
@@ -356,6 +389,13 @@ def write_kept(outputs: dict) -> None:
         (KEPT / f"{name}.exit").write_text(f"{code}\n", encoding="utf-8")
         (KEPT / f"{name}.out").write_text(out, encoding="utf-8")
         (KEPT / f"{name}.err").write_text(err, encoding="utf-8")
+
+
+def write_demonstration_kept(folder: Path) -> None:
+    """Writes the files of `demonstration_outputs(folder)` under `DEMONSTRATION_KEPT`; used once, by hand, when the step list changes."""
+    DEMONSTRATION_KEPT.mkdir(parents=True, exist_ok=True)
+    for name, text in demonstration_outputs(folder).items():
+        (DEMONSTRATION_KEPT / name).write_text(text, encoding="utf-8")
 
 
 # The kept `figures` reads, each with the kept `status` read made from the same helper call.

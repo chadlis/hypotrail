@@ -1,0 +1,35 @@
+{
+  "ok": false,
+  "error": {
+    "code": "STUDY_CHANGED",
+    "message": "the Study was written to after the write sequence read (28): it is at 30; nothing was written (read it again)",
+    "stage": "sequence",
+    "details": {
+      "read_sequence": 28,
+      "write_sequence": 30,
+      "writes_since": [
+        {
+          "command": "run ml",
+          "phase": "begin",
+          "request_id": "demo-s1"
+        },
+        {
+          "command": "run ml",
+          "outcome": "completed",
+          "phase": "end",
+          "request_id": "demo-s1",
+          "written": [
+            {
+              "id": "00000000-0000-4000-8000-00000000000f",
+              "kind": "attempt"
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000010",
+              "kind": "observation_set"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

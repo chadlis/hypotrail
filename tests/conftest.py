@@ -42,9 +42,8 @@ class NetworkGuard:
         self.acknowledged = True
 
 
-@pytest.fixture(autouse=True)
-def network_guard(monkeypatch):
-    guard = NetworkGuard()
+def block_network(monkeypatch, guard):
+    """Block, through `monkeypatch`, every connection that would leave the machine; `guard` records each attempt."""
     for name in PROXY_VARIABLES:
         monkeypatch.delenv(name, raising=False)
     # "*" bypasses any proxy a client might still find, so a call goes direct
@@ -68,9 +67,31 @@ def network_guard(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", blocked_connect)
     monkeypatch.setattr(socket.socket, "connect_ex", blocked_connect)
     monkeypatch.setattr(socket, "getaddrinfo", blocked_getaddrinfo)
+
+
+@pytest.fixture(autouse=True)
+def network_guard(monkeypatch):
+    guard = NetworkGuard()
+    block_network(monkeypatch, guard)
     yield guard
     if guard.attempts and not guard.acknowledged:
         pytest.fail(f"network access attempted: {guard.attempts}")
+
+
+@pytest.fixture(scope="session")
+def demonstration_recording(tmp_path_factory):
+    """The demonstration's whole step list, carried out in process under the same network guard, with a live key planted in the
+    environment that each process the script starts must not receive. It is carried out once per session; its tests read what it recorded."""
+    from _demonstration_helpers import LIVE_KEY, run_in_process
+
+    guard = NetworkGuard()
+    with pytest.MonkeyPatch.context() as patch:
+        block_network(patch, guard)
+        patch.setenv(LIVE_KEY, "sk-ant-planted-not-a-key")
+        run = run_in_process(tmp_path_factory.mktemp("demonstration") / "work")
+    if guard.attempts:
+        pytest.fail(f"network access attempted by the demonstration: {guard.attempts}")
+    return run
 
 
 @pytest.fixture

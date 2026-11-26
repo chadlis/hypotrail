@@ -1,0 +1,13 @@
+{
+  "arguments": [
+    "decide",
+    "--study=<study>",
+    "--question=Which Configuration do we keep after this Comparison?",
+    "--option=Keep the Control",
+    "--author=human",
+    "--artifact=00000000-0000-4000-8000-000000000008",
+    "--request-id=demo-task-3",
+    "--read-sequence=12",
+    "--json"
+  ]
+}

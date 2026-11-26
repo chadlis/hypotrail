@@ -2,6 +2,7 @@
 
 import argparse
 import ast
+import hashlib
 import html
 import importlib.util
 import json
@@ -5794,43 +5795,95 @@ def readme_sentences(text: str) -> list:
     return [sentence for sentence in re.split(r"(?<=\.)\s+", " ".join(text.split())) if sentence]
 
 
-def test_the_readme_status_says_in_a_sentence_that_names_l2_that_it_is_built_not_demonstrated():
-    sentences = [sentence for sentence in readme_sentences(readme_status()) if "built, not demonstrated" in sentence]
-    assert sentences and all(re.search(r"\bL2\b", sentence) for sentence in sentences), sentences
+# The README's status sentence for L2 after the owner's demonstration (D-132 on chadlis/hypotrail#75).
+README_L2_STATUS = "L2 was demonstrated on 2026-11-25 (D-132 on chadlis/hypotrail#75)."
 
 
-def test_one_sentence_after_the_readmes_first_code_block_gives_the_route_of_the_observation_set_id_and_of_the_references_id():
+def test_the_readme_status_says_in_one_sentence_that_l2_was_demonstrated_on_2026_11_25_citing_d_132_with_its_issue_and_none_that_it_is_not():
+    sentences = readme_sentences(readme_status())
+    assert [sentence for sentence in sentences if re.search(r"\bL2\b", sentence)] == [README_L2_STATUS], sentences
+    assert not [sentence for sentence in sentences if "built, not demonstrated" in sentence]
+
+
+# For each placeholder of the README's path: the command that prints its id, and the key of the `--json` object that holds it.
+PRINTED_IDS = {
+    "`OBSERVATION_SET_ID`": ("`run ml`", "`observation_set_id`"),
+    "`REFERENCES_ID`": ("`init`", "`references_id`"),
+}
+
+
+def test_one_sentence_after_the_readmes_first_code_block_names_for_each_placeholder_of_assess_the_command_that_prints_its_id_and_no_status_read():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     after = readme.split("```", 2)[2]
-    route = ("`status --since 0 --json`", "`writes_since`", "`written`", "`observation_set`", "`status --json`")
-    found = [sentence for sentence in readme_sentences(after) if all(name in sentence for name in route)]
+    found = [sentence for sentence in readme_sentences(after) if all(placeholder in sentence for placeholder in PRINTED_IDS)]
     assert len(found) == 1, found
     [sentence] = found
-    for name in route:
-        assert name in sentence, name
-    assert sentence.index("`status --json`") > sentence.index("`observation_set`") and "References ID" in sentence[sentence.index("`observation_set`"):]
+    for placeholder, (command, key) in PRINTED_IDS.items():
+        assert command in sentence and key in sentence, placeholder
+    assert "status" not in sentence and "writes_since" not in sentence, sentence
 
 
-def test_the_ids_found_by_the_readmes_route_are_accepted_by_assess(tmp_path):
-    from _study_helpers import run_json
+def test_the_ids_that_the_readmes_init_and_run_ml_print_at_the_end_of_their_lines_are_accepted_by_assess(tmp_path):
+    from _study_helpers import run_cli, run_json
 
     study = tmp_path / "study"
-    assert run_json("init", "--workload", "bike_day", "--study", study)[0] == 0
-    code, payload, err = run_json("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
-    assert code == 0, (payload, err)
-    _, since, _ = run_json("status", "--study", study, "--since", "0")
-    [observations] = [
-        written["id"]
-        for entry in since["writes_since"]
-        if entry["command"] == "run ml" and entry["phase"] == "end"
-        for written in entry["written"]
-        if written["kind"] == "observation_set"
-    ] or [None]
-    _, status, _ = run_json("status", "--study", study)
-    [references] = [entry["artifact_id"] for entry in status["revisions"][-1]["artifacts"] if entry["role"] == "references"]
+    code, out, err = run_cli("init", "--workload", "bike_day", "--study", study)
+    assert code == 0, err
+    found = re.findall(r", references_id (\S+)$", out.strip())
+    assert len(found) == 1, out  # `REFERENCES_ID`, after `references_id` at the end of the line of `init`
+    [references] = found
+    code, out, err = run_cli("run", "ml", "--study", study, "--config", "seasonal_7", "--partition", "dev", "--request-id", "ml-route")
+    assert code == 0, err
+    found = re.findall(r"; Observation set ([0-9a-f-]{36})$", out.strip())
+    assert len(found) == 1, out  # `OBSERVATION_SET_ID`, after `Observation set` at the end of the line of `run ml`
+    [observations] = found
     code, payload, err = run_json("assess", "--study", study, "--observations", observations, "--scorer", "regression_mae_v1", "--references", references)
     assert code == 0, (payload, err)
     assert payload["assessment"]["observation_set_id"] == observations
+    spec = json.loads((study / "study.json").read_text(encoding="utf-8"))
+    assert [entry["ref"] for entry in spec["artifacts"] if entry["artifact_id"] == references] == [payload["assessment"]["references_ref"]]
+
+
+# The chapters that show the id line of one of the six commands that print an id as the current output. Chapter 16 keeps the lines the
+# paid Campaign of 2026-11-21 printed, a dated output that is not rewritten.
+ID_LINE_CHAPTERS = ["19-l2-demonstration.html"]
+DATED_ID_LINE_CHAPTER = "16-acceptance-grid.html"
+AN_ID = r"(?:[0-9a-f]{8}-[0-9a-f-]{27}|[A-Z_]+_ID)"
+ID_LINE = re.compile(rf"(?:Attempt|Import) {AN_ID} (?:completed|failed)[^<\n]*|Study created in [^<\n]*|Study \S+ is at revision [^<\n]*")
+ENDS_WITH_ITS_ID = re.compile(rf"(?:; Observation set {AN_ID}|; no Observation set|, references_id \S+)$")
+
+
+def test_each_chapter_that_shows_an_id_line_as_the_current_output_is_named_and_shows_the_line_that_ends_with_its_id():
+    shown = {}
+    for path in sorted((HANDBOOK / "chapters").glob("*.html")):
+        lines = ID_LINE.findall(path.read_text(encoding="utf-8"))
+        if lines and path.name != DATED_ID_LINE_CHAPTER:
+            shown[path.name] = lines
+    assert sorted(shown) == ID_LINE_CHAPTERS
+    for name in ID_LINE_CHAPTERS:
+        for line in shown[name]:
+            assert ENDS_WITH_ITS_ID.search(line), (name, line)
+    dated = ID_LINE.findall(chapter_text(DATED_ID_LINE_CHAPTER))
+    assert dated and not any(ENDS_WITH_ITS_ID.search(line) for line in dated), dated
+
+
+# Where each chapter states the shape of the `--json` object of a command that prints an id: (the start of that object, as the chapter
+# writes it, and the new key it holds).
+SHAPE_SENTENCES = {
+    "04-study-and-attempts.html": ('{"ok": true, "replayed": false, "attempt": MANIFEST', "observation_set_id"),
+    "06-import.html": ('{"ok": true, "replayed": BOOL, "attempt": MANIFEST', "observation_set_id"),
+    "08-agent-answers.html": ('{"ok": true, "replayed": BOOL, "attempt": MANIFEST', "observation_set_id"),
+    "10-revisions-and-rescoring.html": ('{"ok": true, "study": SPEC', "references_id"),
+    "13-run-agent.html": ('{"ok": true, "replayed": ..., "attempt": MANIFEST', "observation_set_id"),
+}
+
+
+@pytest.mark.parametrize("chapter", SHAPE_SENTENCES)
+def test_each_chapter_that_states_the_json_shape_of_a_command_that_prints_an_id_names_its_new_key_in_that_shape(chapter):
+    start, key = SHAPE_SENTENCES[chapter]
+    shapes = [shape for shape in re.findall(r"<code>(\{[^<]*\})</code>", chapter_text(chapter)) if shape.startswith(start)]
+    assert len(shapes) == 1, (chapter, shapes)
+    assert f'"{key}"' in shapes[0], shapes[0]
 
 
 def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_tracked_path(page):
@@ -5838,3 +5891,184 @@ def test_where_to_look_names_the_l2_grid_and_the_task_6_script_each_by_its_track
     for path in ("docs/product/l2-acceptance.md", demo_rows(page).get("script", {}).get("data-path", "<no row>")):
         assert path in where, path
         assert tracked_files(path) == [path], path
+
+
+# --- the frozen demonstration (chapter 19): the table of its steps, what it does not run, and where to look ---------------------------
+
+STEPS_TABLE = "demo-steps"
+NOT_RUN_TABLE = "demo-not-run"
+STEPS_SECTION = '<p class="sub2" id="demo-steps-section">'
+# chadlis/hypotrail#218, "The demonstration, as this slice freezes it", the paragraph "Not run": each item it names.
+NOT_RUN = {"A1-A3", "A6", "task-4-window", "claude-code-answers", "copilot-answers", "C2-C4", "R1-R3", "llm_live", "spike-live"}
+
+
+def demonstration_steps() -> list:
+    from _demonstration_helpers import demonstration
+
+    return demonstration().STEPS
+
+
+def study_of_step(step) -> str:
+    """The folder name, in the work folder, of the Study a step's processes name, as `--study DIR` or `--study=DIR`; empty for a step that
+    names none."""
+    from _demonstration_helpers import processes, study_of
+
+    found = {study_of(action.get("cli") or action["args"]) for _, action in processes([step])}
+    studies = {path.name for path in found if path is not None}
+    assert len(studies) <= 1, (step["id"], studies)
+    return next(iter(studies), "")
+
+
+def test_the_steps_table_of_chapter_19_has_one_row_per_step_of_the_script_with_its_title_and_study_both_ways(page):
+    rows = {attrs["data-step"]: attrs for attrs in client_rows(page, STEPS_TABLE) if "data-step" in attrs}
+    steps = {step["id"]: step for step in demonstration_steps()}
+    assert rows and steps
+    for step_id in sorted(set(rows) | set(steps)):
+        assert step_id in rows and step_id in steps, step_id
+        assert (rows[step_id]["data-title"], rows[step_id]["data-study"]) == (steps[step_id]["title"], study_of_step(steps[step_id])), step_id
+    order = [attrs["data-step"] for attrs in client_rows(page, STEPS_TABLE) if "data-step" in attrs]
+    assert order == [step["id"] for step in demonstration_steps()]
+
+
+# Where section 18 is: its page, the page's repository and the commit it was read at.
+TEACHING_PAGE = (
+    "section 18 of the teaching page, <code>pages/de-zero-a-la-demo.html</code> in chadlis/hypotrail-learning (in French; read at "
+    "commit <code>164aa3a</code>)"
+)
+NOT_RUN_INSTRUCTIONS = "The instructions for these steps are in that section."
+
+
+def test_chapter_19_names_section_18_by_the_teaching_pages_path_its_repository_and_its_commit_where_it_first_names_it():
+    section = " ".join(chapter_text(DEMO_CHAPTER).split(STEPS_SECTION, 1)[1].split('<p class="sub2"', 1)[0].split())
+    assert section.find(TEACHING_PAGE) == section.index("section 18"), section[:600]
+
+
+def test_directly_above_the_not_run_table_chapter_19_says_that_the_instructions_for_its_steps_are_in_that_section():
+    after_the_steps = chapter_text(DEMO_CHAPTER).split(f'id="{STEPS_TABLE}"', 1)[1].split("</table></div>", 1)[1]
+    between = after_the_steps.split(f'<div class="tblwrap"><table class="tbl" id="{NOT_RUN_TABLE}">', 1)[0]
+    assert plain_text(between) == NOT_RUN_INSTRUCTIONS, between
+
+
+def test_the_not_run_table_of_chapter_19_names_each_item_the_demonstration_does_not_run_with_a_reason(page):
+    rows = {attrs["data-item"]: attrs for attrs in client_rows(page, NOT_RUN_TABLE)}
+    for item in sorted(set(rows) | NOT_RUN):
+        assert item in rows and item in NOT_RUN, item
+        assert rows[item].get("data-reason"), item
+
+
+def test_the_prose_of_the_steps_section_restates_no_value_of_its_tables(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{STEPS_TABLE}"') == 1 and chapter.count(STEPS_SECTION) == 1
+    section = chapter.split(STEPS_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    values = {value for table in (STEPS_TABLE, NOT_RUN_TABLE) for row in client_rows(page, table) for name, value in row.items() if name in ("data-title", "data-reason")}
+    assert f'id="{STEPS_TABLE}"' in section and prose and len(values) >= 8
+    for value in sorted(values):
+        assert html.unescape(value) not in prose, value
+
+
+KEPT_STATES_TABLE = "demo-kept-states"
+KEPT_STATES_SECTION = '<p class="sub2" id="demo-kept-states-section">'
+
+
+def kept_states_of_the_script() -> dict:
+    """{state: (its Write sequence, the id of the step that keeps it)} of each kept state of the step list."""
+    return {action["keep"]: (action["sequence"], step["id"]) for step in demonstration_steps() for action in step["actions"] if "keep" in action}
+
+
+def test_the_kept_states_table_of_chapter_19_has_one_row_per_kept_state_of_the_script_with_its_write_sequence_and_step_both_ways(page):
+    rows = {attrs["data-state"]: attrs for attrs in client_rows(page, KEPT_STATES_TABLE)}
+    states = kept_states_of_the_script()
+    assert rows and states
+    for state in sorted(set(rows) | set(states)):
+        assert state in rows and state in states, state
+        assert (int(rows[state]["data-sequence"]), rows[state]["data-step"]) == states[state], state
+
+
+def test_the_prose_of_the_kept_states_section_restates_no_row_of_its_table(page):
+    chapter = chapter_text(DEMO_CHAPTER)
+    assert chapter.count(f'id="{KEPT_STATES_TABLE}"') == 1 and chapter.count(KEPT_STATES_SECTION) == 1
+    section = chapter.split(KEPT_STATES_SECTION, 1)[1].split('<p class="sub2"', 1)[0]
+    prose = plain_text(prose_of(section))
+    assert f'id="{KEPT_STATES_TABLE}"' in section and prose
+    for row in client_rows(page, KEPT_STATES_TABLE):
+        assert not names(prose, html.unescape(row["data-state"])), row["data-state"]
+
+
+# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion that is expected to
+# fail: "Chapter 19 says that the panel is walked through the kept states by the client's tests, and that one assertion is expected to
+# fail until blocker 11 is fixed." (chadlis/hypotrail#222.)
+PANEL_WALK = "clients/vscode/test/panel-demonstration.test.ts"
+BLOCKER_11_SENTENCE = "One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record."
+
+
+def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_kept_states_by_its_tracked_path():
+    assert f"<code>{PANEL_WALK}</code>" in chapter_text(DEMO_CHAPTER)
+    assert tracked_files(PANEL_WALK) == [PANEL_WALK]
+
+
+def test_chapter_19_says_that_one_assertion_is_expected_to_fail_until_blocker_11_is_fixed():
+    assert BLOCKER_11_SENTENCE in plain_text(chapter_text(DEMO_CHAPTER))
+
+
+def test_the_no_picture_paragraph_of_the_l2_grid_names_each_kept_state_of_the_script():
+    [paragraph] = [block for block in L2_GRID.read_text(encoding="utf-8").split("\n\n") if block.startswith("No picture of the panel")]
+    states = kept_states_of_the_script()
+    assert len(states) == 7
+    for state in states:
+        assert f"`{state}`" in paragraph, state
+
+
+def test_where_to_look_names_the_demonstration_script_by_its_tracked_path(page):
+    from _demonstration_helpers import SCRIPT
+
+    [path] = [attrs["data-path"] for attrs in client_rows(page, STEPS_TABLE) if attrs.get("data-row") == "script"] or ["<no row>"]
+    assert tracked_files(path) == [path] and (ROOT / path).resolve() == SCRIPT, path
+    where = (ROOT / "README.md").read_text(encoding="utf-8").split("## Where to look\n", 1)[1].split("\n## ", 1)[0]
+    assert path in where
+
+
+# --- L2's status sentences after the owner's demonstration (D-132 on chadlis/hypotrail#75) ----------------------------------------------
+
+# Each place whose status sentences are rewritten, and its new sentences.
+STATUS_SENTENCES = {
+    "README.md": (README_L2_STATUS,),
+    "docs/product/l2-acceptance.md": (
+        "L2 was demonstrated by the owner on 2026-11-25 (D-132 on chadlis/hypotrail#75).",
+        "The owner ran this demonstration on 2026-11-25 on `765a04b` and lifted the status (D-132 on chadlis/hypotrail#75); its owner checks "
+        "are recorded there, not here.",
+    ),
+    "docs/handbook/chapters/19-l2-demonstration.html": (
+        "L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> "
+        "(D-132 on chadlis/hypotrail#75).",
+    ),
+}
+
+
+def test_each_place_holds_its_new_status_sentences_and_no_status_sentence_says_l2_is_built_not_demonstrated():
+    """A Markdown block quotation is a recorded quotation, not a status sentence: the grid's quotation of chadlis/hypotrail#103 keeps the
+    words "built, not demonstrated"."""
+    for place, sentences in STATUS_SENTENCES.items():
+        lines = (ROOT / place).read_text(encoding="utf-8").splitlines()
+        text = " ".join(" ".join(line for line in lines if not line.startswith("> ")).split())
+        for sentence in sentences:
+            assert sentence in text, (place, sentence)
+        assert "built, not demonstrated" not in text, place
+
+
+# The horizons table of ROADMAP.md and its line 26, as they stood before the dated lines of D-132 on chadlis/hypotrail#75, each kept as the
+# SHA-256 of its lines joined by newlines (the lines cite decisions as the ROADMAP does, which the citation rule of the tests refuses).
+HORIZONS_TABLE_SHA256 = "78a233d08ca092c5baa7c2d610edd525bfbfc5e1143487f22c4c7f2ec145822e"
+LINE_26_SHA256 = "ce884f435f23b27d9ecc26dca051d691c9d19f52c157875c497a105eeab16b88"
+D_132 = "[D-132](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7173724609)"
+
+
+def test_the_roadmaps_horizons_table_and_its_line_26_are_unchanged_and_each_is_followed_by_its_dated_line_of_d_132():
+    lines = (ROOT / "docs" / "product" / "ROADMAP.md").read_text(encoding="utf-8").splitlines()
+    start = lines.index("| Horizon | Result for the user | Commitment |")
+    last = next(at for at in range(start, len(lines)) if not lines[at + 1].startswith("|"))
+    assert hashlib.sha256("\n".join(lines[start : last + 1]).encode("utf-8")).hexdigest() == HORIZONS_TABLE_SHA256
+    [at] = [at for at, line in enumerate(lines) if hashlib.sha256(line.encode("utf-8")).hexdigest() == LINE_26_SHA256]
+    assert lines[last + 1] == "" and lines[last + 2].startswith("**Amended on 2026-11-26.**"), lines[last + 1 : last + 3]
+    assert "L2 row" in lines[last + 2] and D_132 in lines[last + 2], lines[last + 2]
+    assert lines[at + 1].startswith("  - Amended on 2026-11-26, by ") and D_132 in lines[at + 1], lines[at + 1]

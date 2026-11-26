@@ -278,7 +278,7 @@ def test_a_successful_run_ml_prints_exactly_one_json_object_on_stdout(tmp_path, 
     captured = capsys.readouterr()
     assert code == 0
     payload = json.loads(captured.out)  # the whole of stdout is one object
-    assert set(payload) == {"ok", "replayed", "attempt"} and payload["replayed"] is False and payload["ok"] is True
+    assert set(payload) == {"ok", "replayed", "attempt", "observation_set_id"} and payload["replayed"] is False and payload["ok"] is True
 
 
 # --- AC: request identity -----------------------------------------------------------------------------------------
