@@ -5976,6 +5976,30 @@ def test_the_prose_of_the_kept_states_section_restates_no_row_of_its_table(page)
         assert not names(prose, html.unescape(row["data-state"])), row["data-state"]
 
 
+# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion that is expected to
+# fail: "Chapter 19 says that the panel is walked through the kept states by the client's tests, and that one assertion is expected to
+# fail until blocker 11 is fixed." (chadlis/hypotrail#222.)
+PANEL_WALK = "clients/vscode/test/panel-demonstration.test.ts"
+BLOCKER_11_SENTENCE = "One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record."
+
+
+def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_kept_states_by_its_tracked_path():
+    assert f"<code>{PANEL_WALK}</code>" in chapter_text(DEMO_CHAPTER)
+    assert tracked_files(PANEL_WALK) == [PANEL_WALK]
+
+
+def test_chapter_19_says_that_one_assertion_is_expected_to_fail_until_blocker_11_is_fixed():
+    assert BLOCKER_11_SENTENCE in plain_text(chapter_text(DEMO_CHAPTER))
+
+
+def test_the_no_picture_paragraph_of_the_l2_grid_names_each_kept_state_of_the_script():
+    [paragraph] = [block for block in L2_GRID.read_text(encoding="utf-8").split("\n\n") if block.startswith("No picture of the panel")]
+    states = kept_states_of_the_script()
+    assert len(states) == 7
+    for state in states:
+        assert f"`{state}`" in paragraph, state
+
+
 def test_where_to_look_names_the_demonstration_script_by_its_tracked_path(page):
     from _demonstration_helpers import SCRIPT
 

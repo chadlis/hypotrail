@@ -1,11 +1,26 @@
-// The states the demonstration kept for the client: the kept reads on disk under `test/cli/demonstration/`, and their entries in the
-// lists of kept reads that every per-read check of the panel runs on.
-import { test } from "node:test";
+// The panel walked through the demonstration: at each state the demonstration kept, the document a person would see then, read
+// against the kept read it was made from; the two actions that record the Decision of task 3, in a browser and through the bridge;
+// the write the Study refuses at S1; and whether every number and file name leads to its record.
+// "At chosen states of the demonstration, the client's tests build the real webview document from that state's `status --json`
+// and `figures --json`, and assert what a person sees and can do: the question, the delta, the options, the path to Record, and
+// whether every number and file name leads to its record." (chadlis/hypotrail#218, item 4.)
+import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { DEMONSTRATION, KEPT } from "./kept";
-import { KEPT_FIGURES, KEPT_READS } from "./panel-harness";
+import { pathToFileURL } from "node:url";
+import contract from "../contract.json";
+import * as bridge from "../src/bridge";
+import { CHROME, START_MS, pageOf, startChrome } from "./chrome";
+import { DEMONSTRATION, KEPT, kept } from "./kept";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, unescaped, workspace } from "./panel-harness";
+import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
+
+type Entry = Record<string, any>;
+type Seen = { document: string; read: Entry; figures: Entry };
+
+const [, RECORD] = contract.messages;
 
 // The kept states of the demonstration on disk: each state whose status read the folder holds.
 function statesOnDisk(): string[] {
@@ -18,6 +33,186 @@ function statesOnDisk(): string[] {
 
 const readOf = (state: string): string => `${DEMONSTRATION}${state}.status`;
 const figuresOf = (state: string): string => `${DEMONSTRATION}${state}.figures`;
+const keptAnswer = (name: string): Answer => exit(Number(kept(`${name}.exit`)), kept(`${name}.out`), kept(`${name}.err`));
+const keptJson = (name: string): Entry => JSON.parse(kept(`${name}.out`));
+
+// A label of the panel, read from contract.json: the test fails on a text that is not one of its labels.
+function label(text: string): string {
+  assert.ok(contract.labels.includes(text), `${text} is a label of contract.json`);
+  return text;
+}
+const phrases = (list: string[]): Map<string, string> => new Map(list.map((entry) => [entry.slice(0, entry.indexOf("=")), entry.slice(entry.indexOf("=") + 1)]));
+const APPLIES = phrases(contract.applies_phrases);
+const EVIDENCE = phrases(contract.evidence_phrases);
+const applies = (value: boolean): string => APPLIES.get(String(value))!;
+
+// A number written by another route than the client's, to find a value in a document.
+function written(value: number | null): string {
+  if (value === null) return contract.no_value;
+  if (Number.isInteger(value)) return String(value);
+  const fixed = value.toPrecision(6);
+  return fixed.includes("e") ? String(Number(fixed)) : fixed.replace(/\.?0+$/, "");
+}
+
+const words = (html: string | undefined): string => partsOf(html ?? "").between.split(/\s+/).filter(Boolean).join(" ");
+// The part of a document between two of its headings.
+const under = (document: string, heading: string, next: string): string => document.slice(document.indexOf(`<h2>${label(heading)}</h2>`), document.indexOf(`<h2>${label(next)}</h2>`));
+const questionsOf = (html: string): string[] => [...html.matchAll(/<h3 data-text>([^<]*)<\/h3>/g)].map((match) => unescaped(match[1]));
+const linkTexts = (html: string, kind: string): string[] => [...html.matchAll(new RegExp(`<a [^>]*data-kind="${kind}"[^>]*>([^<]*)</a>`, "g"))].map((match) => match[1]);
+const decisionParts = (document: string): string[] => elementsOf(document, '<section data-part="decision"');
+
+// The document a person sees at a kept state: the panel opened by the command, its status call and its figures call answered with
+// the two kept reads of that state.
+async function seenAt(t: TestContext, state: string, read = readOf(state)): Promise<Seen> {
+  const figures = read.replace(/\.status$/, ".figures");
+  const { document } = await documentFor(t, keptAnswer(read), keptAnswer(figures));
+  return { document, read: keptJson(read), figures: keptJson(figures) };
+}
+
+// What every document of a kept state shows: the Study id and the Write sequence of the read.
+function assertStudy({ document, read }: Seen): void {
+  assert.equal(words(elementOf(document, '<div data-part="study"')), `${read.study.study_id} ${label("Write sequence")} ${written(read.write_sequence)}`);
+}
+
+function assertNoPending({ document }: Seen): void {
+  assert.equal(words(under(document, "Pending decisions", "Decisions")), `${label("Pending decisions")} ${label("No pending decision.")}`);
+}
+
+// The one Pending decision under its heading: its question, its options with their consequences, the delta of its Comparison, the
+// Metric of the Control and of the Candidate, the Comparison's warning and limitations, and its figures.
+function assertPending({ document, read, figures }: Seen): Entry {
+  const part = under(document, "Pending decisions", "Decisions");
+  const [pending] = read.pending_decisions;
+  assert.equal(read.pending_decisions.length, 1);
+  assert.deepEqual(questionsOf(part), [pending.question.text], "one question, the read's");
+  assert.deepEqual(elementsOf(part, "<label>").map(markedTexts), pending.options.map((option: Entry) => [option.text, option.consequence]), "each option with its consequence");
+  assert.equal(partsOf(part).tags.filter((tag) => tag.startsWith('<input type="radio"')).length, pending.options.length, "one radio input per option");
+  const comparison = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
+  const { delta } = comparison;
+  assert.equal(words(elementOf(part, '<p data-element="delta">')), `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`, "the delta of the Comparison");
+  for (const [role, name] of [["control", "Control"], ["candidate", "Candidate"]]) {
+    const assessment = read.assessments.find((each: Entry) => each.assessment_id === pending[`${role}_assessment_id`]);
+    const metric = assessment.metrics.find((each: Entry) => each.id === delta.metric);
+    const shown = words(elementOf(part, `<div data-role="${role}">`));
+    assert.ok(shown.startsWith(`${label(name)} ${label("Assessment")} ${assessment.assessment_id}`), shown);
+    assert.ok(shown.includes(`${label("Metric")} ${metric.id} ${written(metric.value)} ${metric.unit}`), `the Metric of the ${name}: ${shown}`);
+  }
+  const warning = comparison.warnings.find((each: Entry) => each.code === "COMPARISON_SINGLE_FEATURE_BEATS");
+  assert.ok(warning, "the read holds the warning");
+  const warnings = elementOf(part, '<div data-part="warnings"')!;
+  assert.ok(warnings.includes(`<h4>${label("Warnings of the Comparison")}</h4>`));
+  assert.ok(elementsOf(warnings, "<li>").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
+  const limitations = elementOf(part, '<div data-part="limitations"')!;
+  assert.ok(limitations.includes(`<h4>${label("Limitations of the Comparison")}</h4>`));
+  assert.deepEqual(markedTexts(limitations), comparison.limitations, "each limitation");
+  const entry = figures.comparisons.find((each: Entry) => each.comparison_id === comparison.comparison_id);
+  const shownFigures = elementOf(part, "<div data-figures>") ?? "";
+  assert.deepEqual(linkTexts(shownFigures, "bin_count"), entry.histogram.map((bin: Entry) => written(bin.count)), "the counts of the figures");
+  assert.deepEqual(linkTexts(shownFigures, "quartile"), ["min", "q1", "median", "q3", "max"].map((key) => written(entry.quartiles[key])), "the five numbers of the figures");
+  return comparison;
+}
+
+// A Decision's part: its option and the phrase of its applies, and its author.
+function assertDecision(part: string, decision: Entry, appliesValue: boolean, author: string): void {
+  assert.equal(decision.applies, appliesValue);
+  assert.equal(words(elementOf(part, "<h3>")), `${decision.option} ${applies(appliesValue)}`, "the option and the phrase of its applies");
+  assert.ok(elementsOf(part, "<p>").map(words).includes(`${label("Author")} ${author}`), `the author ${author}`);
+}
+
+// The state of a Decision's evidence and each of its two lines, one per side: the phrase, the changed Items, the cited and the latest value.
+function assertEvidence(part: string, decision: Entry, state: string, changed: number): { cited: string[]; latest: string[] } {
+  assert.equal(words(elementOf(part, '<p data-element="evidence">')), `${EVIDENCE.get(state)} revision_changed`, "the phrase of the evidence and the reason revision_changed");
+  const lines = elementsOf(part, '<li data-part="line">');
+  assert.deepEqual(decision.evidence_change.lines.map((line: Entry) => line.role), ["control", "candidate"]);
+  assert.equal(lines.length, 2, "a line for each side");
+  const cited: string[] = [];
+  const latest: string[] = [];
+  decision.evidence_change.lines.forEach((line: Entry, at: number) => {
+    const [metric] = line.metrics;
+    assert.ok(words(lines[at]).startsWith(`${EVIDENCE.get(state)} ${label("Changed Items")} ${changed}`), words(lines[at]));
+    assert.equal(line.changed_item_count, changed);
+    assert.ok(words(lines[at]).includes(`${label("Cited value")} ${written(metric.cited)} ${label("Latest value")} ${written(metric.latest)}`), words(lines[at]));
+    cited.push(linkTexts(lines[at], "cited")[0]);
+    latest.push(linkTexts(lines[at], "latest")[0]);
+  });
+  return { cited, latest };
+}
+
+// The Pending decision of the last two kept states before the proxy Decision: one question, on the Comparison of the two Assessments
+// the earlier Decision's evidence names as the latest, and that Decision, which does not apply.
+function assertAskedAgain(seen: Seen): void {
+  const { document, read } = seen;
+  assertPending(seen);
+  const [earlier] = read.decisions;
+  const latest = earlier.evidence_change.lines.map((line: Entry) => line.latest_assessment_id);
+  const [pending] = read.pending_decisions;
+  assert.deepEqual([pending.control_assessment_id, pending.candidate_assessment_id], latest, "the Comparison of the two latest Assessments");
+  const part = under(document, "Pending decisions", "Decisions");
+  assert.equal(words(elementOf(part, '<div data-part="comparison"')).split(" ").slice(0, 2).join(" "), `${label("Comparison")} ${pending.comparison_id}`);
+  assert.equal(decisionParts(document).length, 1, "the earlier Decision alone");
+  assertDecision(decisionParts(document)[0], earlier, false, "human");
+}
+
+// The values C5-check prints, at the key paths it prints them at (tests/test_demonstration_end_to_end.py ties them to the transcript).
+const C5_PATHS = ["study.study_id", "write_sequence", "pending_decisions[*].comparison_id", "decisions[*].decision_id", "decisions[*].applies"];
+function valueAt(object: unknown, keyPath: string): unknown {
+  const [head, ...rest] = keyPath.split(".");
+  const tail = rest.join(".");
+  if (head.endsWith("[*]")) return ((object as Entry)[head.slice(0, -3)] as unknown[]).map((each) => (tail ? valueAt(each, tail) : each));
+  const value = (object as Entry)[head];
+  return tail ? valueAt(value, tail) : value;
+}
+
+// What a person sees at each kept state of the demonstration, by its name.
+const SEES: Record<string, (seen: Seen) => void> = {
+  "after-compare": (seen) => {
+    assertPending(seen);
+    assert.ok(seen.document.slice(seen.document.indexOf(`<h2>${label("Decisions")}</h2>`)).includes(`<h2>Decisions</h2>\n<p>${label("None.")}</p>`), "under Decisions, None.");
+  },
+  "after-decide": (seen) => {
+    assertNoPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 1, "one Decision");
+    const [decision] = seen.read.decisions;
+    assertDecision(parts[0], decision, true, "human");
+    assert.ok(words(elementOf(parts[0], '<ul data-element="cited">')).split(" ").includes(seen.read.comparisons[0].comparison_id), "the Comparison among its cited ids");
+  },
+  "after-6.1": (seen) => {
+    const parts = decisionParts(seen.document);
+    const [decision] = seen.read.decisions;
+    assertDecision(parts[0], decision, false, "human");
+    const { cited, latest } = assertEvidence(parts[0], decision, "evidence_rescored", 0);
+    assert.deepEqual(cited, latest, "a cited value equal to the latest value");
+    const recorded = seen.read.comparisons.find((each: Entry) => decision.cited_ids.includes(each.comparison_id));
+    const deltas = elementsOf(seen.document, '<p data-element="delta">').map(words);
+    assert.ok(deltas.length > 0 && deltas.every((each) => each === `${label("Delta")} ${written(recorded.delta.value)} ${recorded.delta.metric} ${recorded.delta.unit}`), `no delta but the recorded Comparison's: ${deltas.join(" | ")}`);
+    assert.ok(linkTexts(seen.document, "delta").every((each) => each === written(recorded.delta.value)), linkTexts(seen.document, "delta").join(" | "));
+  },
+  "after-6.2": (seen) => {
+    const [decision] = seen.read.decisions;
+    const part = decisionParts(seen.document)[0];
+    assertDecision(part, decision, false, "human");
+    const { cited, latest } = assertEvidence(part, decision, "result_changed", 1);
+    cited.forEach((each, at) => assert.notEqual(each, latest[at], "the cited and the latest value differ"));
+    // C5-check.
+    const [studyId, sequence, pending, ids, values] = C5_PATHS.map((keyPath) => valueAt(seen.read, keyPath)) as [string, number, string[], string[], boolean[]];
+    assert.equal(words(elementOf(seen.document, '<div data-part="study"')), `${studyId} ${label("Write sequence")} ${written(sequence)}`, "the study id and the Write sequence of C5-check");
+    assert.deepEqual(elementsOf(seen.document, '<section data-part="pending">').map((each) => /<p>Comparison <span>([^<]*)<\/span><\/p>/.exec(each)?.[1]), pending, "the pending ids of C5-check");
+    assert.deepEqual(decisionParts(seen.document).map((each) => [/<p><span>([^<]*)<\/span><\/p>/.exec(each)?.[1], words(elementOf(each, "<h3>")).endsWith(applies(true)) && !words(elementOf(each, "<h3>")).endsWith(applies(false))]), ids.map((id, at) => [id, values[at]]), "each Decision of C5-check with applies or does not apply");
+  },
+  "before-the-refused-write": assertAskedAgain,
+  "after-the-terminal-wrote": assertAskedAgain,
+  final: (seen) => {
+    assertNoPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 2, "two Decisions");
+    assertDecision(parts[0], seen.read.decisions[0], false, "human");
+    assertDecision(parts[1], seen.read.decisions[1], true, "proxy");
+    const deviations = elementsOf(seen.document, '<li data-part="deviation">');
+    assert.equal(deviations.length, 1, "one Declared deviation");
+    assert.ok(words(deviations[0]).startsWith(seen.read.declared_deviations[0].declared_deviation_id), "with its id");
+  },
+};
 
 test("the demonstration's entries of KEPT_READS are the kept states of the demonstration on disk, both ways, each with its figures read in KEPT_FIGURES", () => {
   const listed = KEPT_READS.filter((name) => name.startsWith(DEMONSTRATION));
@@ -28,4 +223,286 @@ test("the demonstration's entries of KEPT_READS are the kept states of the demon
     assert.ok(listed.includes(readOf(state)), `the kept state ${state} is not in KEPT_READS`);
     assert.equal(KEPT_FIGURES[readOf(state)], figuresOf(state), state);
   }
+});
+
+test("the states this file builds a document for are the kept states of the demonstration on disk, both ways", () => {
+  const onDisk = statesOnDisk();
+  for (const state of [...new Set([...onDisk, ...Object.keys(SEES)])].sort()) {
+    assert.ok(onDisk.includes(state), `${state} has a test and no kept read on disk`);
+    assert.ok(state in SEES, `the kept state ${state} has no test`);
+  }
+});
+
+for (const state of Object.keys(SEES)) {
+  test(`the document a person sees at the kept state shows the Study id, the Write sequence and what the demonstration shows there: ${state}`, async (t) => {
+    const seen = await seenAt(t, state);
+    assertStudy(seen);
+    SEES[state](seen);
+  });
+}
+
+// The record message of the second action on the first option of the first Pending decision.
+const FIRST_OPTION = { message: RECORD, pending: 0, option: 0 };
+
+// The list of arguments of a decide call after its first arguments, with the value of --study= made `<study>`, the rule of
+// tests/_client_helpers.py::replaced, and the request id set apart.
+const STUDY = /^--study=.*$/s;
+const REQUEST = /^--request-id=.*$/s;
+const apart = (args: string[]): string[] => args.map((argument) => argument.replace(STUDY, "--study=<study>").replace(REQUEST, "--request-id="));
+const decideCalls = (calls: RecordedCall[]): RecordedCall[] => calls.filter((call) => call.args[contract.first_arguments.length] === "decide");
+
+// Each request id the panel asks the bridge for, in order.
+function madeIds(t: TestContext): string[] {
+  const made: string[] = [];
+  const make = bridge.newRequestId;
+  t.mock.method(bridge, "newRequestId", () => {
+    const id = make();
+    made.push(id);
+    return id;
+  });
+  return made;
+}
+
+const argumentsOf = (name: string): string[] => JSON.parse(fs.readFileSync(path.join(KEPT, "demonstration", `${name}.args`), "utf8")).arguments;
+
+// The panel opened on a kept state, `message` sent as the document's script sends it, and each later call answered in turn.
+async function recordedOn(t: TestContext, state: string, message: Entry, ...after: Answer[]): Promise<{ calls: RecordedCall[]; made: string[] }> {
+  workspace(t, ["bike"]);
+  const made = madeIds(t);
+  const calls = recorder(t, keptAnswer(readOf(state)), keptAnswer(figuresOf(state)), ...after);
+  await runCommand();
+  await settle();
+  panelOf().send(message);
+  for (let turn = 0; turn < 3; turn += 1) await settle();
+  return { calls, made };
+}
+
+// The one decide call, compared argument by argument with the argument list the demonstration ran, but for the request id, which is
+// the one the panel made.
+function assertArgumentsOf(calls: RecordedCall[], made: string[], name: string, sequence: number): void {
+  const decides = decideCalls(calls);
+  assert.equal(decides.length, 1, "one decide call");
+  assert.equal(decides[0].program, contract.program);
+  assert.deepEqual(decides[0].args.slice(0, contract.first_arguments.length), contract.first_arguments);
+  const ours = apart(decides[0].args.slice(contract.first_arguments.length));
+  const theirs = apart(argumentsOf(name));
+  for (let at = 0; at < Math.max(ours.length, theirs.length); at += 1) assert.equal(ours[at], theirs[at], `argument ${at}`);
+  assert.ok(decides[0].args.includes(`--read-sequence=${sequence}`), `--read-sequence=${sequence}`);
+  assert.deepEqual(decides[0].args.filter((argument) => REQUEST.test(argument)), [`--request-id=${made[0]}`], "the request id the panel made");
+}
+
+async function assertRecordedAtTaskThree(t: TestContext, message: Entry): Promise<void> {
+  const answer = `${DEMONSTRATION}decide-task-3`;
+  const { calls, made } = await recordedOn(t, "after-compare", message, keptAnswer(answer), keptAnswer(readOf("after-decide")), keptAnswer(figuresOf("after-decide")));
+  assertArgumentsOf(calls, made, "decide-task-3", 12);
+  const document = lastDocument();
+  // The read that follows holds the Decision the answer names, so the panel says it was recorded by "Recorded:" and its option, in a
+  // link to its part; "The Decision was recorded." stands only beside an id that read does not hold.
+  const seen: Seen = { document, read: keptJson(readOf("after-decide")), figures: keptJson(figuresOf("after-decide")) };
+  const [decision] = seen.read.decisions;
+  assert.equal(decision.decision_id, keptJson(answer).decision.decision_id);
+  const notice = elementOf(document, '<div data-element="notice"') ?? "";
+  assert.equal(words(notice), `${label("Recorded:")} ${decision.option}`, "the notice says the Decision was recorded");
+  assert.ok(notice.includes('<a href="#decision-0" data-recorded>'), "its option links to the Decision's part");
+  assertStudy(seen);
+  SEES["after-decide"](seen);
+}
+
+test("the record message on the first option of after-compare starts one decide with the argument list of task 3 but for the request id, and once answered the panel says the Decision was recorded and shows the document of after-decide", async (t) => {
+  await assertRecordedAtTaskThree(t, FIRST_OPTION);
+});
+
+test("on before-the-refused-write the record message starts one decide with the argument list of S1 but for the request id, and the refusal STUDY_CHANGED is shown before the question, asked again at Write sequence 30, with no Decision added and no second decide", async (t) => {
+  const refusal = `${DEMONSTRATION}decide-s1`;
+  const { calls, made } = await recordedOn(t, "before-the-refused-write", FIRST_OPTION, keptAnswer(refusal), keptAnswer(readOf("after-the-terminal-wrote")), keptAnswer(figuresOf("after-the-terminal-wrote")));
+  assertArgumentsOf(calls, made, "decide-s1", 28);
+  const document = lastDocument();
+  const { error } = keptJson(refusal);
+  assert.equal(error.code, "STUDY_CHANGED");
+  const notice = elementOf(document, '<div data-element="notice"') ?? "";
+  assert.ok(words(notice).includes(`${error.code} ${error.message}`), `the code and the message as the CLI printed them: ${words(notice)}`);
+  assert.ok(document.indexOf(notice) < document.indexOf("<h3 data-text>"), "before the first question");
+  const after = keptJson(readOf("after-the-terminal-wrote"));
+  assert.equal(decisionParts(document).length, keptJson(readOf("before-the-refused-write")).decisions.length, "no Decision added");
+  const seen: Seen = { document, read: after, figures: keptJson(figuresOf("after-the-terminal-wrote")) };
+  assert.deepEqual(questionsOf(under(document, "Pending decisions", "Decisions")), [after.pending_decisions[0].question.text], "the question shown again");
+  assert.equal(after.write_sequence, 30);
+  assertStudy(seen);
+  for (let turn = 0; turn < 3; turn += 1) await settle();
+  assert.equal(decideCalls(calls).length, 1, "no second decide call");
+});
+
+// --- The path to Record in a browser ------------------------------------------------------------------------------------------------
+
+// "With `CI` set in the environment, the test of D3 fails when Chrome is missing or does not start, and is skipped only when `CI` is
+// not set" (chadlis/hypotrail#222).
+async function browserOrFailInCi(t: TestContext, what: string): Promise<string | undefined> {
+  const address = fs.existsSync(CHROME) ? await startChrome(t) : undefined;
+  if (address !== undefined) return address;
+  const why = `${what}: Chrome at ${CHROME} is missing, or did not start or open its debugging port within ${START_MS} ms`;
+  if ((process.env.CI ?? "") !== "") assert.fail(`${why}; CI is set, so the test fails instead of being skipped`);
+  t.skip(`${why}, so the test is skipped`);
+  return undefined;
+}
+
+type Keys = { key: (name: "Tab" | "Space" | "Enter") => Promise<void>; evaluate: (expression: string) => Promise<any> };
+
+// `document` opened in a page of the browser at 420 by 700 px, the messages its script posts kept in `window.posted`, and its keys.
+async function keyboardPage(t: TestContext, address: string, document: string): Promise<Keys> {
+  const page = await pageOf(t, address);
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-keys-")), "panel.html");
+  t.after(() => fs.rmSync(path.dirname(file), { recursive: true, force: true }));
+  fs.writeFileSync(file, document);
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 420, height: 700, deviceScaleFactor: 1, mobile: false });
+  await page.send("Page.enable");
+  await page.send("Page.addScriptToEvaluateOnNewDocument", { source: "window.posted = []; window.acquireVsCodeApi = () => ({ postMessage: (message) => window.posted.push(message), getState() {}, setState() {} });" });
+  await page.send("Page.navigate", { url: pathToFileURL(file).href });
+  while (!page.events.some((event) => event.method === "Page.loadEventFired")) await new Promise((resolve) => setTimeout(resolve, 20));
+  const KEYS = { Tab: { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 }, Space: { key: " ", code: "Space", windowsVirtualKeyCode: 32, text: " " }, Enter: { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" } };
+  return {
+    key: async (name) => {
+      await page.send("Input.dispatchKeyEvent", { type: "keyDown", ...KEYS[name] });
+      await page.send("Input.dispatchKeyEvent", { type: "keyUp", ...KEYS[name], text: undefined });
+    },
+    evaluate: async (expression) => {
+      const answer = await page.send("Runtime.evaluate", { expression, returnByValue: true });
+      if (answer.exceptionDetails) throw new Error(`${expression}: ${answer.exceptionDetails.exception?.description ?? answer.exceptionDetails.text}`);
+      return answer.result.value;
+    },
+  };
+}
+
+const RECORD_CONTROL = `document.querySelector('button[data-message="${RECORD}"][data-pending="0"]')`;
+const FIRST_RADIO = "document.querySelector('input[type=\"radio\"]')";
+
+// The document of after-compare brought by the keyboard alone from its top to a recorded choice: Tab to the first option, Space, Tab
+// to the control that records, Enter. Gives back the messages the document posted.
+async function recordedByKeyboard(t: TestContext, address: string): Promise<Entry[]> {
+  const { document } = await seenAt(t, "after-compare");
+  const page = await keyboardPage(t, address, document);
+  for (let at = 0; at < 300 && !(await page.evaluate(`document.activeElement === ${FIRST_RADIO}`)); at += 1) await page.key("Tab");
+  assert.ok(await page.evaluate(`document.activeElement === ${FIRST_RADIO}`), "Tab brings the focus to the first option");
+  assert.equal(await page.evaluate(`${RECORD_CONTROL}.disabled`), true, "before Space, the control that records is disabled");
+  await page.key("Space");
+  assert.equal(await page.evaluate(`${FIRST_RADIO}.checked`), true, "Space selects the first option");
+  await page.key("Tab");
+  assert.ok(await page.evaluate(`document.activeElement === ${RECORD_CONTROL}`), `Tab brings the focus to the control that records: ${await page.evaluate("document.activeElement.outerHTML.slice(0, 80)")}`);
+  await page.key("Enter");
+  return page.evaluate("window.posted");
+}
+
+test("at 420 by 700 px, the keyboard alone brings the document of after-compare from its top to a recorded choice, and it posts the record message of the first option of the first Pending decision and no other", { timeout: 60000 }, async (t) => {
+  const address = await browserOrFailInCi(t, "the path to Record in a browser");
+  if (address === undefined) return;
+  const posted = await recordedByKeyboard(t, address);
+  assert.deepEqual(posted, [{ message: RECORD, pending: 0, option: 0 }], "the record message of contract.json with the first Pending decision and its first option, and no other");
+});
+
+test("the message the document of after-compare posts in a browser is the message the panel is given at task 3, key by key, and given to the panel it starts the decide of task 3", { timeout: 60000 }, async (t) => {
+  const address = await browserOrFailInCi(t, "the message of the path to Record");
+  if (address === undefined) return;
+  const [captured] = await recordedByKeyboard(t, address);
+  for (const key of [...new Set([...Object.keys(captured ?? {}), ...Object.keys(FIRST_OPTION)])]) assert.deepEqual(captured?.[key], (FIRST_OPTION as Entry)[key], `the key ${key}`);
+  await assertRecordedAtTaskThree(t, captured);
+});
+
+// --- Blocker 11 ---------------------------------------------------------------------------------------------------------------------
+
+// Stated limit: what "leads to its record" requires here is the least the owner's sentence states. Blocker 11's slice decides how the
+// panel opens a record, and may rewrite this function with its own tickets. The requirement is the owner's own sentence:
+// « Panneau, tâche 2 — BLOCAGE : noms de fichiers affichés, pas cliquables ; aucun nombre n'ouvre son enregistrement. »
+// A file name opens its file, and a number opens its record. The next slice may rewrite the function that recognises a link, but not
+// that requirement.
+//
+// The file names and the numbers of a document that do not lead to their record. A file name is a value of the read at
+// `assessments[].per_item_ref.path`, `comparisons[].paired_deltas_ref.path` or `comparisons[].population_ref.path` that the document
+// shows; it leads to its record when it stands inside an element a person can act on, a link or a button. A number is an element whose
+// `data-kind` is among `number_links` of contract.json; it leads to its record when it stands inside a button, or inside a link whose
+// target is not a part of the same document.
+const NUMBER_KINDS = new Set(contract.number_links.map((entry) => entry.slice(0, entry.indexOf("="))));
+const VOID = new Set(["input", "br", "hr", "meta", "img"]);
+
+function unled(document: string, read: Entry): { fileNames: string[]; numbers: string[] } {
+  const paths = new Set<string>([
+    ...(read.assessments ?? []).map((each: Entry) => each.per_item_ref?.path),
+    ...(read.comparisons ?? []).flatMap((each: Entry) => [each.paired_deltas_ref?.path, each.population_ref?.path]),
+  ].filter((each) => typeof each === "string"));
+  const body = document.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, "$1$2").replace(/(<style[^>]*>)[\s\S]*?(<\/style>)/, "$1$2");
+  const actionable = (tag: string): boolean => tag.startsWith("<button") || tag.startsWith("<a ");
+  const outward = (tag: string): boolean => tag.startsWith("<button") || (tag.startsWith("<a ") && !/\shref="#/.test(tag) && /\shref="/.test(tag));
+  const open: string[] = [];
+  const fileNames: string[] = [];
+  const numbers: string[] = [];
+  let number: string | undefined;
+  for (const [token] of body.matchAll(/<[^>]*>|[^<]+/g)) {
+    if (token.startsWith("</")) {
+      const name = /^<\/([a-z0-9]+)/.exec(token)?.[1];
+      const at = open.map((tag) => /^<([a-z0-9]+)/.exec(tag)?.[1]).lastIndexOf(name);
+      if (at >= 0) open.splice(at);
+    } else if (token.startsWith("<")) {
+      const name = /^<([a-z0-9!]+)/.exec(token)?.[1] ?? "";
+      if (VOID.has(name) || name.startsWith("!") || token.endsWith("/>")) continue;
+      open.push(token);
+      const kind = /\sdata-kind="([^"]*)"/.exec(token)?.[1];
+      if (kind !== undefined && NUMBER_KINDS.has(kind) && !open.some(outward)) number = kind;
+    } else {
+      const text = unescaped(token).trim();
+      if (number !== undefined && text !== "") {
+        numbers.push(`${number} ${text}`);
+        number = undefined;
+      }
+      if (paths.has(text) && !open.some(actionable)) fileNames.push(text);
+    }
+  }
+  return { fileNames, numbers };
+}
+
+// The mark of the tests of blocker 11: while it is set, they are expected to fail. Remove it the day the panel opens each record.
+const BLOCKER_11: string | undefined = "blocker 11: no file name and no number of the panel opens its record";
+
+// The document the tests of blocker 11 read at a kept state, and its read.
+async function blockerDocument(t: TestContext, state: string): Promise<{ document: string; read: Entry }> {
+  const { document, read } = await seenAt(t, state);
+  return { document, read };
+}
+
+for (const state of Object.keys(SEES)) {
+  test(`blocker 11, expected to fail: every file name and every number of the document of the kept state leads to its record: ${state}`, { todo: BLOCKER_11 }, async (t) => {
+    const { document, read } = await blockerDocument(t, state);
+    const found = unled(document, read);
+    t.diagnostic(`${found.fileNames.length} file names and ${found.numbers.length} numbers do not lead to their record`);
+    assert.deepEqual(found, { fileNames: [], numbers: [] }, `${found.fileNames.length} file names and ${found.numbers.length} numbers do not lead to their record`);
+  });
+}
+
+test("the mark of blocker 11 stands only while a kept state holds a file name or a number that does not lead to its record", async (t) => {
+  if (BLOCKER_11 === undefined) return;
+  const found = [];
+  for (const state of Object.keys(SEES)) {
+    const { document, read } = await blockerDocument(t, state);
+    const { fileNames, numbers } = unled(document, read);
+    found.push(fileNames.length + numbers.length);
+  }
+  assert.ok(found.some((count) => count > 0), "every file name and every number of each kept state leads to its record: remove the mark BLOCKER_11, so that its tests are no longer expected to fail");
+});
+
+// A document of after-compare whose file names stand in buttons and whose numbers are links out of the document, but for the
+// `keep`-th file name and the `keep`-th number, left as the panel writes them.
+function planted(document: string, read: Entry, keep?: number): string {
+  const paths = [...read.assessments.map((each: Entry) => each.per_item_ref.path), ...read.comparisons.flatMap((each: Entry) => [each.paired_deltas_ref.path, each.population_ref.path])];
+  let file = 0;
+  let number = 0;
+  return document
+    .replace(/<span data-text>([^<]*)<\/span>/g, (whole, text) => (paths.includes(unescaped(text)) && file++ !== keep ? `<button>${whole}</button>` : whole))
+    .replace(/<a href="#([^"]*)" data-kind="/g, (whole, target) => (number++ !== keep ? `<a href="hypotrail-record:${target}" data-kind="` : whole));
+}
+
+test("the function of blocker 11 finds nothing in a planted document whose file names are buttons and whose numbers are links out of it, and finds the one of each left as today", async (t) => {
+  const { document, read } = await seenAt(t, "after-compare");
+  const today = unled(document, read);
+  assert.ok(today.fileNames.length > 1 && today.numbers.length > 1, "the document of after-compare shows several of each");
+  assert.deepEqual(unled(planted(document, read), read).fileNames, [], "no file name found in a button");
+  assert.deepEqual(unled(planted(document, read), read).numbers, [], "no number found in a link out of the document");
+  assert.deepEqual(unled(planted(document, read, 0), read).fileNames, [today.fileNames[0]], "the file name left as today");
+  assert.deepEqual(unled(planted(document, read, 0), read).numbers, [today.numbers[0]], "the number left as today");
 });

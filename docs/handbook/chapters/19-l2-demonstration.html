@@ -1,5 +1,5 @@
 <!-- chapter: id=l2-demonstration; kicker=Demonstration; title=The frozen demonstration; accent=coral -->
-<p class="lead">L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> (D-132 on chadlis/hypotrail#75). This chapter is the chapter of the demonstration: the script that runs it, frozen in this repository and run by the tests, what it does not run and why, the reads it keeps for the client's tests, a script that makes the edits of task 6 in a Workload copy, the ignore entries that keep the demonstration's files out of commits, where the two ids that <code>assess</code> needs come from, and <a href="../product/l2-acceptance.md">the L2 acceptance grid</a>. No command of the CLI is added for it, and no Reference of the repository changes.</p>
+<p class="lead">L2, the review decision of the panel and the chat clients, was demonstrated by the owner on 2026-11-25 on <code>765a04b</code> (D-132 on chadlis/hypotrail#75). This chapter is the chapter of the demonstration: the script that runs it, frozen in this repository and run by the tests, what it does not run and why, the reads it keeps for the client's tests and the panel walked through them, a script that makes the edits of task 6 in a Workload copy, the ignore entries that keep the demonstration's files out of commits, where the two ids that <code>assess</code> needs come from, and <a href="../product/l2-acceptance.md">the L2 acceptance grid</a>. No command of the CLI is added for it, and no Reference of the repository changes.</p>
 
 <p class="sub2" id="demo-steps-section">The demonstration script</p>
 <div class="prose">
@@ -62,6 +62,12 @@
 <tr data-state="after-the-terminal-wrote" data-sequence="30" data-step="S1"><td><code>after-the-terminal-wrote</code></td><td>30</td><td>S1</td></tr>
 <tr data-state="final" data-sequence="34" data-step="DEV"><td><code>final</code></td><td>34</td><td>DEV</td></tr>
 </tbody></table></div>
+
+<p class="sub2" id="demo-panel-section">The panel on the kept states</p>
+<div class="prose">
+<p>The client's tests walk the panel through the kept states, in <code>clients/vscode/test/panel-demonstration.test.ts</code>. At each one they build the document the panel shows once its two reads answer, and read it against them: the question, the delta, the options with their consequences, each Decision with whether it applies, and the state of its evidence. They record the Decision of task 3 twice: in headless Chrome with the keyboard alone, from the top of the document to the message it posts, and through the panel's bridge, where that message starts the <code>decide</code> the demonstration ran. They also send the write that the Study refuses at S1, and read the refusal and the question asked again. The same reads go through the client's other checks of a read, the drawings of <code>clients/vscode/test/panel-screen.test.ts</code> in the four themes at 420 and 900 px, the contact sheet of verify-panel, and the two Copilot tools in <code>clients/vscode/test/tools-demonstration.test.ts</code>.</p>
+<p>One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record. Two parts of the drawings are expected to fail until the panel is redesigned: Record in the first screen at 420 px, and the latest of two Decisions in it. Each is marked, so that the run stays green while it fails, and an unmarked test fails on the day it holds, until the mark is removed.</p>
+</div>
 
 <p class="sub2" id="demo-edits-section">The edits of task 6</p>
 <div class="prose">
