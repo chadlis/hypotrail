@@ -2,8 +2,10 @@
 
 AG-11 proposes the values below; the Episode token budget was revised by owner decision on #50 (2026-11-07):
 4,000 output tokens, metered by Inspect's own `TokenLimit(type="output")`, not 12,000 tokens in total.
-Nothing here re-implements a limit: each field maps to an Inspect option, or is reported as having no
-native control.
+The Episode cost limit and one tool call per turn follow D-146 on chadlis/hypotrail#75: "`EpisodeLimits` gains
+`cost_limit_usd: float | None = None` and `parallel_tool_calls: bool = False`, passed through `eval_options`." The
+cost limit is off unless an `llm_live` Attempt sets it. Nothing here re-implements a limit: each field maps to an
+Inspect option, or is reported as having no native control.
 """
 
 from dataclasses import asdict, dataclass
@@ -36,6 +38,10 @@ class EpisodeLimits:
     response_cache: bool = False
     sample_retries: int = 0
     transport_retries: int = 0
+    # Inspect's per-sample `cost_limit`, in USD; it needs the prices of the model (`model_cost_config`)
+    cost_limit_usd: float | None = None
+    # Inspect's `GenerateConfig.parallel_tool_calls`, which the Anthropic provider sends as `disable_parallel_tool_use`
+    parallel_tool_calls: bool = False
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -92,6 +98,8 @@ def eval_options(limits: EpisodeLimits) -> dict:
         "max_connections": limits.concurrency,
         "max_retries": limits.transport_retries,
         "cache": limits.response_cache,
+        "parallel_tool_calls": limits.parallel_tool_calls,
+        "cost_limit": limits.cost_limit_usd,
     }
 
 
@@ -122,6 +130,8 @@ def effective_limits(log) -> dict:
         "response_cache": generate.cache,
         "sample_retries": config.retry_on_error,
         "transport_retries": generate.max_retries,
+        "cost_limit_usd": config.cost_limit,
+        "parallel_tool_calls": generate.parallel_tool_calls,
         # the per-query caps of `query_readonly`, recorded in the task metadata
         "query_caps": (log.eval.metadata or {}).get("query_caps"),
     }
@@ -153,4 +163,6 @@ ENFORCEMENT = {
     "response_cache": ("shown enforced", "test_the_response_cache_is_off"),
     "sample_retries": ("shown enforced", "test_an_errored_episode_is_not_retried"),
     "transport_retries": ("shown enforced", "test_a_transient_model_error_is_not_retried"),
+    "cost_limit_usd": ("shown enforced", "test_the_cost_limit_stops_the_episode"),
+    "parallel_tool_calls": ("configured, not witnessed", "test_one_tool_call_per_turn_reaches_every_model_call"),
 }

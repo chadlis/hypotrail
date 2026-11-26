@@ -195,7 +195,8 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     for limit in current:
         by_attr = rows[limit]["cells"]
         label, witness = ENFORCEMENT[limit]
-        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
+        # the spike's run record was written before the cost limit and `parallel_tool_calls` existed: a key it lacks reads as null
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"].get(limit)), limit
         assert by_attr["data-state"] == label, limit
         assert by_attr["data-witness"] == witness, limit  # the cell itself, compared with the code's witness for this key
         assert defines(by_attr["data-file"], witness), witness
@@ -2388,7 +2389,7 @@ def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_
     for flag, row in rows.items():
         assert (row["data-required"] == "yes") == options[flag].required, flag
         assert (row["data-mode"] == "llm_live") == (flag in run.FLAGS_OF_LIVE.values()), flag
-    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases"}
+    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases", "cost_limit", "price_list"}
 
 
 def run_agent_refusals(tmp_path, monkeypatch):
@@ -2428,6 +2429,17 @@ def run_agent_refusals(tmp_path, monkeypatch):
     record("repeats-out-of-bounds", live(study, "plain", "r", repeats=4))
     record("case-repeated", live(study, "plain", "r", cases=["D03", "D03"]))
     record("case-not-in-partition", live(study, "plain", "r", cases=["E01"]))
+    from _cost_limit_helpers import TEST_MODEL, price_list, write_price_list
+
+    prices = write_price_list(tmp_path)
+    record("price-list-required", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05"))
+    record("cost-limit-required", live(study, "plain", "r", "--price-list", prices))
+    record("cost-limit-out-of-bounds", live(study, "plain", "r", "--episode-cost-limit-usd", "0", "--price-list", prices))
+    no_source = write_price_list(tmp_path, price_list(source=None), name="no-source.json")
+    record("price-list-invalid", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05", "--price-list", no_source))
+    unpriced = write_price_list(tmp_path, price_list(["mockllm/model"]), name="unpriced.json")
+    assert TEST_MODEL not in price_list(["mockllm/model"])["models"]
+    record("model-not-priced", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05", "--price-list", unpriced))
     with held_by_another_process(study):
         record("study-locked", live(study, "plain", "r"))
     first = live(study, "plain", "first")[1]["attempt"]

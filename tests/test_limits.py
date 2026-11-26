@@ -141,6 +141,38 @@ def test_the_same_usage_under_total_metering_would_have_stopped_the_episode(tmp_
     assert episode["stopped_by_limit"] == {"type": "token", "limit": 4000}
 
 
+# --- the Episode cost limit and one tool call per turn (D-146 on chadlis/hypotrail#75) ----------------------
+
+
+def test_the_cost_limit_stops_the_episode(tmp_path):
+    from _cost_limit_helpers import MOCK, price_list, priceable
+
+    # USD 0.021 per call (10,000 input tokens at 2, 100 output tokens at 10, per million): USD 0.05 is crossed on the third
+    script = ScriptedModel(cases(), always_call_tool=True)
+    usage = ModelUsage(input_tokens=10_000, output_tokens=100, total_tokens=10_100)
+    with priceable(MOCK):
+        location, (episode,) = run(
+            tmp_path, with_usage(script, usage), limits=EpisodeLimits(cost_limit_usd=0.05), model_costs=price_list([MOCK])["models"]
+        )
+    assert episode["stopped_by_limit"] == {"type": "cost", "limit": 0.05}
+    assert (episode["status"], episode["reason"]) == ("failed", "cost_limit")
+    assert len(script.calls) == 3 and kinds(episode).count("model_turn") < 6
+    assert read_back(location)["cost_limit_usd"] == 0.05
+
+
+def test_one_tool_call_per_turn_reaches_every_model_call(tmp_path):
+    seen = []
+    script = ScriptedModel(cases())
+
+    def spy(input, tools, tool_choice, config):
+        seen.append(config.parallel_tool_calls)
+        return script(input, tools, tool_choice, config)
+
+    location, _ = run(tmp_path, spy)
+    assert seen == [False, False]
+    assert read_back(location)["parallel_tool_calls"] is False
+
+
 # --- per-call output cap ------------------------------------------------------------------
 
 
@@ -288,6 +320,8 @@ def test_every_limit_is_read_back_from_the_log(tmp_path):
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
+        "cost_limit_usd": None,
+        "parallel_tool_calls": False,
         "query_caps": {"time_seconds": 1.0, "max_instructions": 100_000_000, "max_rows": 200, "max_bytes": 65536},
     }
 
@@ -311,6 +345,8 @@ def test_the_limit_values_are_the_ag_11_proposals_but_the_token_budget():
         "response_cache": False,
         "sample_retries": 0,
         "transport_retries": 0,
+        "cost_limit_usd": None,
+        "parallel_tool_calls": False,
     }
     assert limits_module.eval_options(EpisodeLimits())["turn_limit"] == 6
 

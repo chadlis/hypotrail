@@ -13,7 +13,7 @@ Criterion and a Reason for every non-score (CMP-03):
 - `failed` at one of our limits, or by the output cap: see `criteria_for_limit_stop`.
 
 A missing Episode, and one that failed by an execution error, a time limit or the output cap, is never
-scored false. Only the agent's own `turn_limit` and `token_limit` are (owner decision D1).
+scored false. Only the agent's own `turn_limit`, `token_limit` and `cost_limit` are (`criteria_for_limit_stop`).
 """
 
 from collections.abc import Callable, Iterable
