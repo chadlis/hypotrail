@@ -6528,3 +6528,12 @@ def test_the_texts_of_the_interval_claim_no_significance_name_no_p_value_and_say
                 assert re.search(r"\bno significance\b|states no significance", sentence), sentence
             if re.search(r"\bis better\b", sentence):
                 assert "does not say which Configuration is better" in sentence, sentence
+
+
+def test_chapter_08_says_how_identifiers_are_read_and_that_a_bare_labelled_number_is_a_one_item_list(page):
+    [paragraph] = re.findall(r'<p id="identifier-reading">(.*?)</p>', page, re.S)
+    text = html.unescape(re.sub(r"<[^>]+>", "", paragraph))
+    assert "every identifier of the list" in text and "D-163" in text
+    assert all(phrase in text for phrase in ("number of", "numbers of", "count of", "total"))
+    assert '"Invoices: 7" reads as invoice 7' in text
+    assert "one-item" in text and "count phrase" in text
