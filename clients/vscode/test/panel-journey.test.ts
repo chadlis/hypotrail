@@ -431,7 +431,8 @@ for (const state of STATES.filter((each) => readOf(each).ok === true)) {
     assert.ok(line, "Now's heading line");
     assert.ok(contract.labels.includes("pending decisions"));
     const n = read.pending_decisions.length;
-    assert.equal(words(line), n === 0 ? "Now" : `Now \u00b7 ${n} pending decisions`);
+    assert.ok(contract.labels.includes("pending decision"));
+    assert.equal(words(line), n === 0 ? "Now" : `Now \u00b7 ${n} ${n === 1 ? "pending decision" : "pending decisions"}`);
     if (n > 0) assert.match(line!, new RegExp(`<a href="#study-0" data-kind="pending_decisions">${n}</a>`));
     assert.equal(elementsOf(document, '<span data-element="count">').length, n === 0 ? 0 : 1, "one count only");
     assert.ok(!partsOf(document).between.includes("No pending decision."));

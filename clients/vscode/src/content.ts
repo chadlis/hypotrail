@@ -132,6 +132,7 @@ const LABEL = {
   seeDecision: 98,
   observationSet: 99,
   noDecisionWaits: 100,
+  pendingOne: 101,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -451,7 +452,7 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const produce = attempts.length === 0 ? [] : [attemptsStepOf(attempts, shown)];
   const assess = [...(assessments.length === 0 ? [] : [assessmentsStepOf(shown)]), ...(comparisons.length === 0 ? [] : [comparisonsStepOf(shown)])];
   // The count of pending decisions stands on Now's heading line, only when n > 0, at no cost of height (D-161).
-  const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label("pendingCount")}</span>`;
+  const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label(pending.length === 1 ? "pendingOne" : "pendingCount")}</span>`;
   return { count, now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
     momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),
     momentOf("produce", produce),

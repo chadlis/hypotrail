@@ -226,7 +226,7 @@ for (const name of PENDING_READS) {
     const object = keptObject(name);
     const { document } = await documentFor(t, success(object));
     const line = elementOf(elementOf(document, '<section data-part="now"')!, '<div data-element="now-heading">')!;
-    assert.equal(words(line), `Now \u00b7 ${object.pending_decisions.length} ${COUNT}`);
+    assert.equal(words(line), `Now \u00b7 ${object.pending_decisions.length} ${object.pending_decisions.length === 1 ? "pending decision" : COUNT}`);
     const [[target, count]] = linkTo(line);
     assert.equal(count, String(object.pending_decisions.length));
     assert.match(elementWithId(document, target) ?? "", /^<div data-part="study"/);

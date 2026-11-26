@@ -139,7 +139,8 @@
     "Latest Decision:",
     "See it in the Study so far",
     "Observation set",
-    "No decision waits for you."
+    "No decision waits for you.",
+    "pending decision"
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
