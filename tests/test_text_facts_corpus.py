@@ -42,11 +42,11 @@ def expectation(row_id: str) -> tuple:
     return identifiers, {float(number) for number in source["fact_numbers"]}
 
 
-def test_the_corpus_files_are_the_ones_the_writers_reconciliation_gave_byte_for_byte():
-    digests = {name: hashlib.sha256((CORPUS / name).read_bytes()).hexdigest() for name in ("corpus.jsonl", "rulings.jsonl")}
+def test_the_two_writer_files_are_kept_byte_for_byte_as_written():
+    digests = {name: hashlib.sha256((CORPUS / name).read_bytes()).hexdigest() for name in ("writer-a.jsonl", "writer-b.jsonl")}
     assert digests == {
-        "corpus.jsonl": "d18a2c8aa1e3571bb0a8b8b37c098e19a194d1dc12fa78cc6b0a7074b1f3fe2f",
-        "rulings.jsonl": "657ec541b2df8186efe3267ebc132420ab43410bb5eaa62b002898acc2c4f9a9",
+        "writer-a.jsonl": "863ef2ee8ab2847df611a89831a8cce947d9b415df3208c745cb63b949e5a1e0",
+        "writer-b.jsonl": "0c90a03f67c3cfedc1a7f2f6db5215b672aff0cccd08b1512a038c73e800a454",
     }
 
 
