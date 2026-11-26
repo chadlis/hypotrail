@@ -5218,6 +5218,55 @@ def test_chapter_02_states_that_instant_is_the_row_number_and_the_rule_of_the_ki
     assert "casual + registered = cnt" in prose and "No p-value is computed" in prose
 
 
+# --- the lesson read (chapter 02): its object, its card kinds and their key paths against the read and `lesson.json` ----------------
+
+LESSON_DATA = ROOT / "src" / "hypotrail" / "ml" / "lesson.json"
+
+
+def test_the_card_and_key_path_tables_of_chapter_02_equal_lesson_json_both_ways():
+    cards = json.loads(LESSON_DATA.read_text(encoding="utf-8"))["cards"]
+    assert [(row["data-kind"], row["data-title"]) for row in profile_rows("lesson-cards")] == [(card["kind"], card["title"]) for card in cards]
+    assert [(row["data-kind"], row["data-read"], row["data-path"]) for row in profile_rows("lesson-key-paths")] == [
+        (card["kind"], key_path["read"], key_path["path"]) for card in cards for key_path in card["key_paths"]
+    ]
+
+
+def test_the_object_table_of_chapter_02_equals_the_leaf_paths_the_lesson_read_prints_both_ways(tmp_path):
+    from _compare_helpers import assessed, compare
+    from _figures_helpers import leaf_paths
+    from _review_helpers import decide
+    from _study_helpers import run_cli
+
+    study, _, assessments = assessed(tmp_path, "seasonal_7", "ridge_v1")
+    code, payload, err = compare(study, assessments["seasonal_7"]["assessment_id"], assessments["ridge_v1"]["assessment_id"])
+    assert code == 0, (payload, err)
+    decide(study, [payload["comparison"]["comparison_id"]], request_id="lesson-table")
+    code, out, err = run_cli("lesson", f"--study={study}", "--json")
+    assert code == 0, err
+    table = [row["data-path"] for row in profile_rows("lesson-object")]
+    assert len(table) == len(set(table))
+    printed = leaf_paths([json.loads(out)])
+    assert sorted(set(table) - printed) == [] and sorted(printed - set(table)) == []
+
+
+def test_chapter_02_names_the_five_card_kinds_and_the_refusal_of_a_track_with_no_cards():
+    from hypotrail.ml import lesson
+
+    prose = " ".join(plain_text(prose_of(chapter_text("02-temporal-regression-track.html"))).split())
+    assert all(kind in prose for kind in lesson.KINDS)
+    assert "lesson" in prose and "UNSUPPORTED_CAPABILITY" in prose
+
+
+def test_the_readme_names_lesson():
+    assert "`lesson`" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_adr_0003_holds_the_dated_line_on_explaining_a_step_the_product_shows():
+    text = (ROOT / "docs" / "adr" / "0003-two-html-books.md").read_text(encoding="utf-8")
+    assert "## Amendment — 2026-11-26" in text
+    assert "Explaining a step that the product shows is not teaching a concept" in text.split("## Amendment — 2026-11-26")[1]
+
+
 # --- the VS Code client (chapter 18): its tables against `clients/vscode/contract.json`, the manifest and the workflow -------------
 
 CLIENT = ROOT / "clients" / "vscode"
