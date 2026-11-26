@@ -3,7 +3,7 @@
   "replayed": false,
   "decision": {
     "kind": "decision",
-    "schema_version": "decision/1",
+    "schema_version": "decision/2",
     "decision_id": "UUID",
     "request_id": "panel-1",
     "question": "Which Configuration do we keep after this Comparison?",
@@ -15,6 +15,9 @@
     ],
     "revision": "3e51d0e3322449e0c6f793c6adedd15a2b827b4a9b0030a148cad42889899654",
     "read_sequence": 12,
-    "write_sequence": 13
+    "write_sequence": 13,
+    "question_id": null,
+    "option_id": null,
+    "words": null
   }
 }

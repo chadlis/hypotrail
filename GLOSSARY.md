@@ -21,11 +21,16 @@ _Avoid_: revision
 
 **Decision**:
 One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
+Clarification, 2026-11-26: a Decision may also hold the ids the core supplies for its question and its option (`question_id`, `option_id`) and the person's `words`: their own sentences, verbatim, with the channel they came through (`panel`, `choice` or `chat_relayed`) and a declared `by`; `authenticated` is false, and the agent's own wording is never `words`, it is the `source` (D-148 and D-149 on chadlis/hypotrail#75; built by chadlis/hypotrail#244).
 _Avoid_: note, verdict, conclusion
 
 **Declared deviation**:
 One known limit on what results of a Study show, declared in the Study because its records cannot establish it (for example an owner review of References still pending): what is declared, its author and the ids of the Study's records it cites. It is a record of the Study, never rewritten; a later record can withdraw it, and a derived deviation is a deviation but not a Declared deviation.
 _Avoid_: caveat, waiver, limitation, warning
+
+**Validation**:
+One generic record of a Study by which a person adopts or rejects the records it cites, such as proxy Decisions, a Plan, a Claim or a revision, which it never rewrites.
+_Avoid_: approval, sign-off, review (for the record)
 
 **Pending decision**:
 A Comparison of the current revision that no applying Decision cites and whose two Assessments have no later Assessment. It is derived when the Study is read and never stored, and it is not a **Decision**.
@@ -43,6 +48,14 @@ _Avoid_: benchmark, dataset (for the whole), use case, example (as a domain term
 What a Study evaluates and how it scores it: the population, Partitions, References, Scorers and the rules on when information is available; it binds every Attempt, while how an imported Attempt's outputs were produced stays `declared` or `unknown`.
 Clarification, 2026-11-20: an Assessment applies the Protocol of its revision, also to outputs recorded under an earlier revision (owner decision 2A on chadlis/hypotrail#9).
 _Avoid_: pipeline, method, setup
+
+**Plan**:
+The record of a Study, kept outside the Protocol digest, that holds the `rule`, the `budget` and the `delegation` a person ratified, the `delegation` being the kinds of question a proxy may answer; the rules on when information is available stay in the Protocol, and a Plan is not a Campaign's `plan.json`.
+_Avoid_: methodology, strategy, policy
+
+**Claim**:
+One statement about the domain, recorded with what it is about, when it is available and its source embedded in the record, such as a local PDF, HTML or Markdown file named by its path, page, date and sha256.
+_Avoid_: fact, finding, domain claim
 
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
@@ -162,6 +175,10 @@ _Avoid_: variant (as a role), challenger, treatment
 - A **Decision** is a record of one **Study**: it cites at least one record the Study holds, is made on the **Write sequence** its author read, and advances that sequence when it is recorded.
 - A **Study** admits the writes of one **Study writer** at a time, and each write advances the **Write sequence**.
 - A **Declared deviation** is a record of one **Study**: it cites records the Study holds.
+- A **Plan** is a record of one **Study** outside its **Protocol** digest: a new Plan is not a new revision, and a change of the rules on when information is available is.
+- A **Claim** holds its source inside its own record; a **Validation** that cites it adopts or rejects it.
+- A **Validation** is a record of one **Study**: it cites the records a person adopts or rejects, such as proxy **Decisions**, a **Plan**, a **Claim** or a revision.
+- A data profile, a read of a **Workload**'s `train` data, is named here in lower case and has no entry: a read is not a term.
 
 ## Correspondence with Inspect
 

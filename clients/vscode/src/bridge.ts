@@ -76,6 +76,11 @@ export type DecisionInput = {
   option: string;
   author: string;
   source?: string;
+  question_id?: string;
+  option_id?: string;
+  words?: string[];
+  channel?: string;
+  by?: string;
   cited_ids: string[];
   request_id: string;
   read_sequence: number;
@@ -98,6 +103,11 @@ export async function recordDecision(root: string, study: string, decision: Deci
     `--option=${decision.option}`,
     `--author=${decision.author}`,
     ...(decision.source === undefined ? [] : [`--source=${decision.source}`]),
+    ...(decision.question_id === undefined ? [] : [`--question-id=${decision.question_id}`]),
+    ...(decision.option_id === undefined ? [] : [`--option-id=${decision.option_id}`]),
+    ...(decision.words ?? []).map((text) => `--words=${text}`),
+    ...(decision.channel === undefined ? [] : [`--channel=${decision.channel}`]),
+    ...(decision.by === undefined ? [] : [`--by=${decision.by}`]),
     ...decision.cited_ids.map((id) => `--artifact=${id}`),
     `--request-id=${decision.request_id}`,
     `--read-sequence=${decision.read_sequence}`,
@@ -108,15 +118,25 @@ export async function recordDecision(root: string, study: string, decision: Deci
 }
 
 const nonEmpty = (value: unknown): boolean => typeof value === "string" && value.length > 0;
+const absentOrText = (value: unknown): boolean => value === undefined || typeof value === "string";
+// Characters are counted as code points, as the CLI's Python counts them; the CLI and the record keep no limit.
+const words = (value: unknown): boolean =>
+  value === undefined ||
+  (Array.isArray(value) && value.length > 0 && value.every(nonEmpty) && value.reduce((total: number, text: string) => total + [...text].length, 0) <= contract.words_limit_characters);
 
-// The checks of the seven inputs, in the order of `client_refusal_fields`. What the CLI refuses itself (an empty list
-// of cited ids, an unknown author) is left to the CLI.
+// The checks of the inputs, in the order of `client_refusal_fields`. What the CLI refuses itself (an empty list of cited
+// ids, an unknown author, an id or a channel it does not know, words with a proxy author) is left to the CLI.
 const CHECKS: Record<string, (value: unknown) => boolean> = {
   question: nonEmpty,
   option: nonEmpty,
   author: (value) => typeof value === "string",
   cited_ids: (value) => Array.isArray(value) && value.every(nonEmpty),
-  source: (value) => value === undefined || typeof value === "string",
+  source: absentOrText,
+  question_id: absentOrText,
+  option_id: absentOrText,
+  words,
+  channel: absentOrText,
+  by: absentOrText,
   request_id: nonEmpty,
   read_sequence: (value) => Number.isSafeInteger(value) && (value as number) >= 0,
 };

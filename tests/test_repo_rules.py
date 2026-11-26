@@ -272,3 +272,46 @@ def test_agents_md_states_the_language_of_workload_data_in_the_bullet_after_the_
     rules = (ROOT / "AGENTS.md").read_text(encoding="utf-8").splitlines()
     english = next(i for i, line in enumerate(rules) if line.startswith("- Everything committed to this repository is in English"))
     assert rules[english + 1] == WORKLOAD_LANGUAGE
+
+
+# --- the terms Plan, Claim and Validation, the person's words on a Decision, and the read "data profile" ---------------------------
+
+
+def _avoided(entry: list) -> list:
+    """The words of the entry's _Avoid_ line, each without the parenthesis that qualifies it."""
+    [avoid] = [line for line in entry if line.startswith("_Avoid_:")]
+    return [word.split("(", 1)[0].strip() for word in avoid.removeprefix("_Avoid_:").split(",")]
+
+
+def test_the_glossary_defines_plan_claim_and_validation_without_the_words_other_entries_avoid_and_dates_the_words_of_a_decision():
+    # chadlis/hypotrail#243: "`GLOSSARY.md` holds the entries **Plan**, **Claim** and **Validation** in the form of its other entries: the term in
+    # bold, one definition, one `_Avoid_` line."
+    text = (ROOT / "GLOSSARY.md").read_text(encoding="utf-8")
+    entries = {term: _glossary_entry(text, term) for term in ("Plan", "Claim", "Validation", "Protocol", "Decision", "Reference")}
+    for term in ("Plan", "Claim", "Validation"):
+        entry = entries[term]
+        assert len(entry) == 3 and entry[0] == f"**{term}**:" and entry[2].startswith("_Avoid_: "), (term, entry)
+        assert _avoided(entry) and all(_avoided(entry)), (term, entry)
+    # "not "method", "pipeline" or "setup" for the Plan (Protocol's list), not "note", "verdict" or "conclusion" for a Validation (Decision's
+    # list), not "label" for a Claim's source (Reference's list)."
+    for term, other, words in (("Plan", "Protocol", {"method", "pipeline", "setup"}), ("Validation", "Decision", {"note", "verdict", "conclusion"}), ("Claim", "Reference", {"label"})):
+        assert words <= set(_avoided(entries[other])), (other, entries[other])
+        definition = entries[term][1]
+        assert [word for word in _avoided(entries[other]) if re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", definition, re.I)] == [], (term, definition)
+    # "The Plan entry says what stays in the Protocol (the rules on when information is available) and names `rule`, `budget` and `delegation`; it
+    # holds one clause that tells it from a Campaign's `plan.json`, and it does not hold "decision authority"."
+    plan = entries["Plan"][1]
+    assert "the rules on when information is available stay in the Protocol" in plan and "outside the Protocol digest" in plan, plan
+    assert all(f"`{key}`" in plan for key in ("rule", "budget", "delegation")), plan
+    assert "the kinds of question a proxy may answer" in plan, plan
+    assert plan.count("`plan.json`") == 1 and "not a Campaign's `plan.json`" in plan, plan
+    assert "decision authority" not in " ".join(entries["Plan"]), entries["Plan"]
+    # "The Decision entry is followed by one line that starts "Clarification, 2026-" and names `question_id`, `option_id` and `words`, with the
+    # three channels of this slice and the sentence that `authenticated` is false."
+    decision = entries["Decision"]
+    assert decision[2].startswith("Clarification, 2026-") and decision[3] == "_Avoid_: note, verdict, conclusion", decision
+    clarification = decision[2]
+    assert all(f"`{name}`" in clarification for name in ("question_id", "option_id", "words", "panel", "choice", "chat_relayed", "by")), clarification
+    assert "`authenticated` is false" in clarification and "verbatim" in clarification and "`source`" in clarification, clarification
+    # ""data profile" named in lower case, with no entry of its own"
+    assert "data profile" in text and not re.search(r"^\*\*data profile\*\*", text, re.I | re.M)

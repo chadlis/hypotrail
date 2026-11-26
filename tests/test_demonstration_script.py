@@ -28,7 +28,7 @@ STEPS = MODULE.STEPS
 DEMO_IDS = [
     "L1.1", "L1.2", "L1.3", "L1.4", "L1.5", "L1.6", "L1.7",
     "A4", "A5", "task 1", "task 2", "task 3", "C10", "task 4", "task 5", "task 6.1", "task 6.2", "C5-check", "COMPARE", "S1", "C8",
-    "DEV", "REPORT",
+    "DEV", "REPORT", "WORDS",
     "L1.8",
 ]
 
@@ -159,6 +159,17 @@ SECTION_18 = {
         STATUS_BIKE,
     ],
     "REPORT": [("hypotrail", "report", "--study", "runs/bike", "--out", "runs/bike-report.html")],
+    # A step that section 18 does not have: the person's words recorded from a file, then read back (chadlis/hypotrail#245).
+    "WORDS": [
+        STATUS_BIKE,
+        ("printf", "%s\\n", MODULE.WORDS_TEXT, ">", "runs/words.txt"),
+        (
+            "hypotrail", "decide", "--study", "runs/bike", "--question", QUESTION, "--option", "Keep the Control", "--author", "human",
+            "--artifact", "$L2_COMPARISON_62", "--question-id", "keep_after_comparison", "--option-id", "keep_control",
+            "--words-file", "runs/words.txt", "--by", MODULE.WORDS_BY, "--request-id", "demo-words", "--read-sequence", "$L2_READ_BEFORE_WORDS",
+        ),
+        STATUS_BIKE,
+    ],
 }
 
 
@@ -441,7 +452,7 @@ def capture_of(name) -> tuple:
 
 def test_task_3_records_the_decision_with_the_argument_list_the_panels_bridge_builds():
     options = options_of(decide_of("task 3")["cli"])
-    assert [name for name, _ in options] == [name for name in CONTRACT["decide_options"] if name != "--source"]
+    assert [name for name, _ in options] == [name for name in CONTRACT["decide_options"] if name not in CONTRACT["decide_optional_options"]]
     values = dict(options)
     assert (values["--study"], values["--author"], values["--read-sequence"]) == ("{work}/bike", "human", "12")
     assert [value for name, value in options if name == "--artifact"] == ["{L2_COMPARISON}"]

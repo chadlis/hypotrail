@@ -135,7 +135,7 @@ def test_validation_does_not_change_the_record():
     assert record == before
 
 
-# The property names and `required` lists of five record definitions, written from the schema at `7db697f`:
+# The property names and `required` lists of five record definitions, written from the schema at `7db697f`, and of the `decision/2` definition added after it:
 # "The Decision, Assessment and Comparison records, the write journal and the contract schema stay as they are" (chadlis/hypotrail#159, "Out of scope").
 RECORD_DEFINITIONS_AT_7DB697F = {
     "Assessment": (
@@ -151,6 +151,10 @@ RECORD_DEFINITIONS_AT_7DB697F = {
     "DecisionRecord": (
         "author cited_ids decision_id kind option question read_sequence request_id revision schema_version source write_sequence",
         "kind schema_version decision_id request_id question option author source cited_ids revision read_sequence write_sequence",
+    ),
+    "DecisionRecordV2": (
+        "author cited_ids decision_id kind option option_id question question_id read_sequence request_id revision schema_version source words write_sequence",
+        "kind schema_version decision_id request_id question option author source cited_ids revision read_sequence write_sequence question_id option_id words",
     ),
     "WriteJournalBegin": ("command phase request_id", "phase command request_id"),
     "WriteJournalEnd": ("command outcome phase request_id written", "phase command request_id outcome written"),

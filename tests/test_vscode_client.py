@@ -596,7 +596,7 @@ def test_the_decide_argument_lists_the_client_tests_keep_are_accepted_by_the_par
     from hypotrail.cli import build_parser
 
     lists = read_json(CLIENT / "test" / "decide-arguments.json")
-    assert len(lists) == 3
+    assert len(lists) == 5
     assert [(each["decision"]["question"], each["decision"]["option"]) for each in lists if each["decision"]["question"] == "-x"] == [("-x", "--study")]
     for each in lists:
         assert each["arguments"][0] == "decide", each["name"]
@@ -607,6 +607,24 @@ def test_the_decide_argument_lists_the_client_tests_keep_are_accepted_by_the_par
         assert parsed.source == decision.get("source"), each["name"]
         assert parsed.artifact == decision["cited_ids"], each["name"]
         assert (parsed.request_id, parsed.read_sequence, parsed.json) == (decision["request_id"], decision["read_sequence"], True), each["name"]
+        assert (parsed.question_id, parsed.option_id) == (decision.get("question_id"), decision.get("option_id")), each["name"]
+        assert parsed.words == [("text", text) for text in decision.get("words", [])], each["name"]
+        assert (parsed.channel, parsed.by) == (decision.get("channel"), decision.get("by")), each["name"]
+
+
+def test_a_real_decide_started_from_the_tools_argument_list_with_words_records_them_whole_as_chat_relayed(tmp_path):
+    """The case with words of `decide-arguments.json`, which `tools-write.test.ts` shows to be the list the write tool builds, run by the
+    CLI on a Study: its `--study` and `--artifact` set to that Study and an id it holds, its `--read-sequence` to the Study's."""
+    from _study_helpers import init_study, run_cli
+
+    [case] = [each for each in read_json(CLIENT / "test" / "decide-arguments.json") if each["decision"].get("words")]
+    study, payload = init_study(tmp_path)
+    values = {"--study": str(study), "--artifact": payload["references_id"], "--read-sequence": "2"}
+    arguments = [f"{name}={values[name]}" if name in values else argument for argument in case["arguments"] for name in [argument.split("=", 1)[0]]]
+    code, out, err = run_cli(*arguments)
+    assert code == 0, (out, err)
+    words = json.loads(out)["decision"]["words"]
+    assert words == {"texts": case["decision"]["words"], "channel": "chat_relayed", "by": case["decision"]["by"], "authenticated": False}
 
 
 KEPT_WRITES = [
@@ -678,6 +696,10 @@ TOOLS = {
             "cited_ids": {"type": "array", "items": {"type": "string"}},
             "source": {"type": "string"},
             "read_sequence": {"type": "integer", "minimum": 0},
+            "words": {"type": "array", "items": {"type": "string"}},
+            "question_id": {"type": "string"},
+            "option_id": {"type": "string"},
+            "by": {"type": "string"},
             "study": {"type": "string"},
         },
         "required": ["question", "option", "author", "cited_ids", "read_sequence", "study"],
@@ -721,9 +743,9 @@ def test_the_input_schema_of_each_copilot_tool_holds_its_properties_with_their_t
             assert absent not in schema.get("properties", {}), (name, absent)
 
 
-def test_the_write_tools_inputs_less_study_are_the_client_refusal_fields_less_request_id_both_ways():
+def test_the_write_tools_inputs_less_study_are_the_client_refusal_fields_less_request_id_and_channel_both_ways():
     inputs = set(manifest_tools()["hypotrail_decide"]["inputSchema"]["properties"]) - {"study"}
-    fields = set(read_json(CLIENT / "contract.json")["client_refusal_fields"]) - {"request_id"}
+    fields = set(read_json(CLIENT / "contract.json")["client_refusal_fields"]) - {"request_id", "channel"}  # the tool declares the channel itself
     assert sorted(inputs - fields) == []
     assert sorted(fields - inputs) == []
 

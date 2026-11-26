@@ -70,5 +70,67 @@
       "--read-sequence=14",
       "--json"
     ]
+  },
+  {
+    "name": "the person's words with a double quote, a line break and the French quotation marks, a text that is --study and one that starts with -, the ids and by",
+    "study": "/work/runs/bike",
+    "decision": {
+      "question": "Which Configuration do we keep after this Comparison?",
+      "option": "Keep the Candidate",
+      "author": "human",
+      "question_id": "keep_after_comparison",
+      "option_id": "keep_candidate",
+      "words": ["She wrote \"keep the candidate\".\nThen, in French: \u00ab on garde le candidat \u00bb, which is the same choice.", "--study", "-x"],
+      "channel": "chat_relayed",
+      "by": "the owner, in chat",
+      "cited_ids": ["817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"],
+      "request_id": "panel-4",
+      "read_sequence": 20
+    },
+    "arguments": [
+      "decide",
+      "--study=/work/runs/bike",
+      "--question=Which Configuration do we keep after this Comparison?",
+      "--option=Keep the Candidate",
+      "--author=human",
+      "--question-id=keep_after_comparison",
+      "--option-id=keep_candidate",
+      "--words=She wrote \"keep the candidate\".\nThen, in French: \u00ab on garde le candidat \u00bb, which is the same choice.",
+      "--words=--study",
+      "--words=-x",
+      "--channel=chat_relayed",
+      "--by=the owner, in chat",
+      "--artifact=817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21",
+      "--request-id=panel-4",
+      "--read-sequence=20",
+      "--json"
+    ]
+  },
+  {
+    "name": "the ids and no words",
+    "study": "/work/runs/bike",
+    "decision": {
+      "question": "Which Configuration do we keep after this Comparison?",
+      "option": "Keep the Control",
+      "author": "human",
+      "question_id": "keep_after_comparison",
+      "option_id": "keep_control",
+      "cited_ids": ["817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"],
+      "request_id": "panel-5",
+      "read_sequence": 20
+    },
+    "arguments": [
+      "decide",
+      "--study=/work/runs/bike",
+      "--question=Which Configuration do we keep after this Comparison?",
+      "--option=Keep the Control",
+      "--author=human",
+      "--question-id=keep_after_comparison",
+      "--option-id=keep_control",
+      "--artifact=817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21",
+      "--request-id=panel-5",
+      "--read-sequence=20",
+      "--json"
+    ]
   }
 ]
