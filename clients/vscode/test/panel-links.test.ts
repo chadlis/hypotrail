@@ -522,11 +522,15 @@ test("the key paths the function reads from the figures read over every kept fig
   assert.deepEqual(leaves(read), [...contract.figures_key_paths].sort());
 });
 
-test("status-public-check: the document holds none of the attempt_id, the request_id and the artifact paths of the Attempt no Assessment assessed", async (t) => {
+// "its id and its Observation set's id are plain text, never links" (D-143, correction 1): the Attempt's id stands as text only.
+test("status-public-check: the document holds the attempt_id of the Attempt no Assessment assessed as plain text only, and none of its request_id and artifact paths", async (t) => {
   const object = keptObject("status-public-check");
   const [attempt] = object.attempts.filter((each: Entry) => each.request_id === "ml-public_check-seasonal_7");
   const { document } = await documentFor(t, success(object));
-  for (const value of [attempt.attempt_id, attempt.request_id, ...attempt.artifacts.map((artifact: Entry) => artifact.path)]) assert.ok(!document.includes(value), value);
+  for (const value of [attempt.request_id, ...attempt.artifacts.map((artifact: Entry) => artifact.path)]) assert.ok(!document.includes(value), value);
+  assert.ok(partsOf(document).between.split(/\s+/).includes(attempt.attempt_id), "the attempt_id as text");
+  assert.ok(!partsOf(document).tags.some((tag) => tag.includes(attempt.attempt_id)), "the attempt_id in no tag");
+  assert.ok(![...document.matchAll(/<a [^>]*>([^<]*)<\/a>/g)].some((match) => match[1].includes(attempt.attempt_id)), "the attempt_id in no link");
 });
 
 // "a deep link builds the document with the target's folds open" (D-136, I3), in headless Chrome: state 16, its first Decision.

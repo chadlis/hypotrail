@@ -476,6 +476,21 @@ def test_the_dated_lines_hold_one_line_for_the_refusal_under_an_uncited_attempts
     assert f'"{UNCITED_SENTENCE}"' in line and "the earlier line it narrows: the 2026-11-26 line on the `open` message" in line
 
 
+# --- the dated line that corrects what the panel shows of an uncited Attempt ----------------------------------------------------------
+
+UNCITED_IDS_SENTENCE = "its id and its Observation set's id are plain text, never links"
+
+
+def test_the_line_after_the_refusal_under_an_uncited_attempts_folder_corrects_it_the_ids_shown_as_plain_text_quoting_its_ticket():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    [refusal] = [at for at, line in enumerate(lines) if "chadlis/hypotrail#255" in line and "opens no file" in line]
+    line = lines[refusal + 1]
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert "chadlis/hypotrail#255" in line and f'"{UNCITED_IDS_SENTENCE}"' in line, line
+    assert "the earlier line it corrects: the 2026-11-26 line on the panel's refusal under an uncited Attempt's folder" in line, line
+    assert "item_counts" in line and "no link" in line, line
+
+
 # --- the dated line of the key `interval` of each Comparison of `status --json` -----------------------------------------------------
 
 INTERVAL_TICKET_SENTENCE = "`status --json` lists each Comparison with its `interval` equal to the stored one, and its top-level keys are unchanged"

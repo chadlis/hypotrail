@@ -133,6 +133,7 @@ const LABEL = {
   noEnd: 99,
   latestDecision: 100,
   seeDecision: 101,
+  observationSet: 102,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -471,14 +472,18 @@ function stepOf(name: keyof typeof LABEL, values: string, form: string, chart = 
   ].join("\n");
 }
 
-// The Attempts: each with its Mode, its technical status and the mark of a recoverable one. "Its `item_counts`, and anything derived from
-// its outputs, show only once an Assessment cites it" (D-136, question 1): an Attempt is cited when an Assessment holds the
-// `observation_set_id` the read gives the Attempt; its id and its counts then show, each count a link to the part of that Assessment.
+// The Attempts: each with its id, its Mode, its technical status and the mark of a recoverable one. "Its `item_counts`, and anything
+// derived from its outputs, show only once an Assessment cites it" (D-136, question 1): an Attempt is cited when an Assessment holds the
+// `observation_set_id` the read gives the Attempt; its counts then show, each count a link to the part of that Assessment.
 function attemptsStepOf(attempts: Entry[], shown: Shown): string {
   const rows = attempts.map((attempt) => {
     const cited = attempt.observation_set_id === null || attempt.observation_set_id === undefined ? -1 : shown.assessments.findIndex((each) => each.observation_set_id === attempt.observation_set_id);
     const mark = attempt.recoverable === true ? ` ${markOf("!", "recoverable")}` : "";
-    if (cited < 0) return `<li data-part="attempt">${label("attempt")} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark} <span>${label("countsOnceCited")}</span></li>`;
+    if (cited < 0) {
+      // "its id and its Observation set's id are plain text, never links" (D-143, correction 1).
+      const set = attempt.observation_set_id === null || attempt.observation_set_id === undefined ? "" : ` ${label("observationSet")} ${value(attempt.observation_set_id)}`;
+      return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)}${set} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark} <span>${label("countsOnceCited")}</span></li>`;
+    }
     const counts = Object.entries(record(attempt.item_counts)).map(([key, number]) => `${value(key)} ${link("item_counts", cited, number)}`);
     return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)} ${value(attempt.mode)} ${value(attempt.technical_status)}${mark}${counts.length === 0 ? "" : ` ${counts.join(" ")}`}</li>`;
   });

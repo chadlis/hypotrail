@@ -315,6 +315,13 @@ test("on state 12 the document holds no link to the Attempt no Assessment cites 
   assert.ok(!partsOf(document).between.split(/\s+/).includes("184"), "no 184");
   const step = elementOf(document, '<details data-step="attempts">')!;
   assert.ok(words(step).includes("its counts and its record open once an Assessment cites it"));
+  // The uncited Attempt's id and its Observation set's id stand in its row as plain text: present, and inside no link.
+  const uncited = elementsOf(step, '<li data-part="attempt">').find((each) => each.includes(check.attempt_id));
+  assert.ok(uncited, "the uncited Attempt's id stands in its row");
+  assert.ok(words(uncited).split(" ").includes(check.attempt_id), "the Attempt's id as a word of its row");
+  assert.ok(words(uncited).split(" ").includes(check.observation_set_id), "its Observation set's id as a word of its row");
+  assert.ok(words(uncited).includes(`Observation set ${check.observation_set_id}`), "its Observation set's id after its label");
+  assert.ok(!/<a /.test(uncited!), "no link in its row");
   const thirteen = readOf("13-exposure");
   const later = (await built(t, "13-exposure")).document;
   const row = elementsOf(elementOf(later, '<details data-step="attempts">')!, '<li data-part="attempt">').find((each) => each.includes(check.attempt_id));
