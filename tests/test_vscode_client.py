@@ -72,7 +72,7 @@ def test_the_manifest_contributes_no_setting():
 
 # --- CI --------------------------------------------------------------------------------------------------------------------------
 
-# The job `pytest` as it stands at the base, `main` at 62b8c8d.
+# The job `pytest` as it stood at `main` 62b8c8d, its pytest step since run across workers by pytest-xdist.
 PYTEST_JOB_AT_THE_BASE = """\
   pytest:
     runs-on: ubuntu-latest
@@ -84,7 +84,7 @@ PYTEST_JOB_AT_THE_BASE = """\
       - run: uv sync --locked --all-extras
       # Offline: the suite blocks outbound network in every test. No secret is
       # passed, so no live model call can run here (AGENTS.md).
-      - run: uv run --locked --all-extras pytest
+      - run: uv run --locked --all-extras pytest -n auto --dist loadfile
 """
 
 
