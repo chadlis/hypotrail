@@ -221,3 +221,24 @@ def test_the_committed_scoring_config_matches_its_schema():
     schema = json.loads(resources.files("hypotrail.core").joinpath("text-facts.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     assert list(Draft202012Validator(schema).iter_errors(CONFIG)) == []
+
+
+COUNT_PHRASES = (
+    "Customer 1. Number of invoices: 7",
+    "Customer 1. Invoices: 7",
+    "Customer 1 has 7 invoices.",
+    "Customer 1. Number of invoices : 7.",
+    "Customer 1 - invoices:7",
+)
+
+
+@pytest.mark.parametrize("text", COUNT_PHRASES)
+def test_a_count_of_invoices_is_read_as_the_count_fact_and_not_as_invoice_7(text):
+    result = {c["name"]: (c["state"], c["score"], c["reason"]) for c in text_facts.score_text(text, count_fact(7), CONFIG, None)["criteria"]}
+    assert result["facts_present"] == ("scored", True, None)
+    assert ("invoice", "7") not in text_facts.identifiers_in(text, CONFIG)
+
+
+@pytest.mark.parametrize("text", ["See invoice 7.", "See invoice #7.", "See Invoice: 7.", "See invoice no. 7.", "See inv 7."])
+def test_an_invoice_named_by_its_number_is_still_read_as_that_invoice(text):
+    assert ("invoice", "7") in text_facts.identifiers_in(text, CONFIG)
