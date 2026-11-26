@@ -55,7 +55,8 @@ export function lastDocument(): string {
   return documents[documents.length - 1];
 }
 
-// The kept status reads, the seven states the demonstration kept last, in the order it went through them.
+// The kept status reads, the nine states the demonstration kept last, in the order it went through them: seven of the second Bike
+// Study, then two of the copy of the kept Chinook Campaign.
 export const KEPT_READS = [
   "status-success",
   "status-chinook-pending",
@@ -77,6 +78,8 @@ export const KEPT_READS = [
   "demonstration.before-the-refused-write.status",
   "demonstration.after-the-terminal-wrote.status",
   "demonstration.final.status",
+  "demonstration.chinook-campaign-pending.status",
+  "demonstration.chinook-campaign-decided.status",
 ];
 
 // The kept figures read made beside each kept status read that has one, by the status read's name.
@@ -95,6 +98,8 @@ export const KEPT_FIGURES: Record<string, string> = {
   "demonstration.before-the-refused-write.status": "demonstration.before-the-refused-write.figures",
   "demonstration.after-the-terminal-wrote.status": "demonstration.after-the-terminal-wrote.figures",
   "demonstration.final.status": "demonstration.final.figures",
+  "demonstration.chinook-campaign-pending.status": "demonstration.chinook-campaign-pending.figures",
+  "demonstration.chinook-campaign-decided.status": "demonstration.chinook-campaign-decided.figures",
 };
 
 export function keptObject(name: string): Record<string, any> {
