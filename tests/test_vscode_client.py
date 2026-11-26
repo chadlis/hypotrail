@@ -571,6 +571,19 @@ def test_where_to_look_names_the_client_directory_which_holds_the_manifest():
     assert (CLIENT / "package.json").is_file()
 
 
+def test_the_readme_says_the_first_pending_decision_is_in_now_the_others_under_waiting_and_the_study_so_far_in_moments_and_steps():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    panel = readme.split("## Use the VS Code panel\n", 1)[1].split("\n## ", 1)[0]
+    paragraph = panel.strip().split("\n\n", 1)[0]
+    assert "the first pending decision, whole, with its evidence" in paragraph, paragraph
+    assert '"Waiting"' in paragraph and "each other pending decision" in paragraph, paragraph
+    labels = json.loads((CLIENT / "contract.json").read_text(encoding="utf-8"))["labels"]
+    for moment in ("Frame", "Produce", "Assess and compare", "Decide and follow"):
+        assert moment in labels and f'"{moment}"' in paragraph, moment
+    assert "one line per step" in paragraph and "review form, then its chart, then its limitation" in paragraph, paragraph
+    assert "with the pending decisions and their evidence" not in paragraph, paragraph
+
+
 # --- the bridge's writes ----------------------------------------------------------------------------------------------------------
 
 

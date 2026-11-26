@@ -53,7 +53,7 @@ The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose Refere
 
 ## Use the VS Code panel
 
-The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`, then "The Study so far", with the pending decisions and their evidence, including figures of each Comparison's paired deltas, and then "Tools". It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
+The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`: the first pending decision, whole, with its evidence, including figures of its Comparison's paired deltas, and each other pending decision under "Waiting", folded to its question. "The Study so far" follows, in moments ("Frame", "Produce", "Assess and compare", "Decide and follow") with one line per step, which folds open to its review form, then its chart, then its limitation; then "Tools". It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.
