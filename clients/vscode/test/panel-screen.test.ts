@@ -35,7 +35,7 @@ const CONTROL_RULES: [string, (rules: [string, string][]) => boolean][] = [
   ["button takes its colour from --btnfg", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "color", /^var\(--btnfg\)$/))],
   ["a hovered button takes --pen", (rules) => rules.some(([s, b]) => /button[^,{]*:hover/.test(s) && declares(b, "background", /^var\(--pen\)$/))],
   ["a disabled button takes its colours from the palettes", (rules) => rules.some(([s, b]) => /button[^,{]*:disabled/.test(s) && declares(b, "background", THEME) && declares(b, "color", THEME))],
-  ["button takes a border from --line", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "border", /var\(--line\)/))],
+  ["button takes a border from --chalk2, which stands out from the palette's ground", (rules) => rules.some(([s, b]) => /(^|,\s*)button\s*(,|$)/.test(s) && declares(b, "border", /var\(--chalk2\)/))],
   [":focus-visible has an outline of 1px solid --focus", (rules) => rules.some(([s, b]) => /:focus-visible/.test(s) && declares(b, "outline", /^1px solid var\(--focus\)$/))],
   ["a radio input takes its accent-color from the palettes", (rules) => rules.some(([s, b]) => /input\[type="radio"\]/.test(s) && declares(b, "accent-color", THEME))],
 ];

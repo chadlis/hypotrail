@@ -526,7 +526,7 @@ h3 { font-size: 1.08em; margin: 0.3em 0 0.2em; }
 h4 { font-size: 0.85em; color: var(--chalk2); margin: 0.5em 0 0.1em; }
 p, ul { margin: 0.2em 0; }
 ul { padding-left: 1.2em; }
-button { font: inherit; padding: 0.2em 0.8em; color: var(--btnfg); background: var(--slate); border: 1px solid var(--line); border-radius: 2px; cursor: pointer; }
+button { font: inherit; padding: 0.2em 0.8em; color: var(--btnfg); background: var(--slate); border: 1px solid var(--chalk2); border-radius: 2px; cursor: pointer; }
 button:hover:not(:disabled) { background: var(--pen); }
 button:disabled { color: var(--cardink); background: var(--cardsoft); border-style: dashed; cursor: default; }
 :focus-visible { outline: 1px solid var(--focus); outline-offset: 2px; }
