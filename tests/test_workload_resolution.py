@@ -137,6 +137,11 @@ def _report(root):
     return ["report", "--study", study, "--out", root / "page.html"], None
 
 
+def _profile(root):
+    study, _ = fresh_study(root, "seasonal_7")
+    return ["profile", "--study", study], None
+
+
 def _spike_live(root):
     return ["spike", "live", "--config", "nonesuch", "--model", "anthropic/m", "--out", root / "out"], UNDECLARED
 
@@ -155,6 +160,7 @@ ROWS = {
     "compare (ml)": ("compare", _compare_ml),
     "compare (agent)": ("compare", _compare_agent),
     "report": ("report", _report),
+    "profile": ("profile", _profile),
     "spike live": ("spike live", _spike_live),
 }
 

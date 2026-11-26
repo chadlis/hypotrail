@@ -47,10 +47,11 @@
 <tr data-command="assess"><td><code>assess</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
 <tr data-command="compare"><td><code>compare</code></td><td>the digests to freeze, for <code>public_check</code> Items</td></tr>
 <tr data-command="report"><td><code>report</code></td><td>the digests to freeze, for <code>public_check</code> Items shown (a page of <code>dev</code> Items reads no Workload)</td></tr>
+<tr data-command="profile"><td><code>profile</code></td><td>the names, the marks and the Partition band of the data profile, and its Protocol digest (every value comes from the Study's own data)</td></tr>
 <tr data-command="spike live"><td><code>spike live</code></td><td>the Chinook declaration and Cases</td></tr>
 </tbody></table></div>
 <p class="sub2">Every command</p>
-<div class="prose"><p>The 14 commands the parser defines, each with the chapter that describes it. A command added to the parser without its row here fails the handbook's tests.</p></div>
+<div class="prose"><p>The 17 commands the parser defines, each with the chapter that describes it. A command added to the parser without its row here fails the handbook's tests.</p></div>
 <div class="tblwrap"><table class="tbl" id="commands-index"><thead><tr><th>Command</th><th>Described in</th><th>What it does</th></tr></thead><tbody>
 <tr data-command="data verify" data-chapter="feasibility-spike"><td><code>data verify</code></td><td><a href="#feasibility-spike">chapter 01</a></td><td>Check the public datasets against their lock.</td></tr>
 <tr data-command="data fetch" data-chapter="data-fetch"><td><code>data fetch</code></td><td><a href="#data-fetch">chapter 15</a></td><td>Acquire a missing data file from its lock's URL, checked against the lock.</td></tr>
@@ -65,6 +66,7 @@
 <tr data-command="decide" data-chapter="decisions"><td><code>decide</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Decision in a Study.</td></tr>
 <tr data-command="deviation" data-chapter="decisions"><td><code>deviation</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Declared deviation in a Study, or the withdrawal of one.</td></tr>
 <tr data-command="figures" data-chapter="decisions"><td><code>figures</code></td><td><a href="#decisions">chapter 17</a></td><td>Show each Comparison's paired deltas, with the bins and the five numbers of a box computed from them.</td></tr>
+<tr data-command="profile" data-chapter="temporal-regression-track"><td><code>profile</code></td><td><a href="#temporal-regression-track">chapter 02</a></td><td>Show the data profile of a Bike Study's <code>train</code> Items.</td></tr>
 <tr data-command="status" data-chapter="study-and-attempts"><td><code>status</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Show the local state of a Study, with its Write sequence.</td></tr>
 <tr data-command="recover" data-chapter="study-and-attempts"><td><code>recover</code></td><td><a href="#study-and-attempts">chapter 04</a></td><td>Record an Attempt left running as interrupted.</td></tr>
 <tr data-command="spike live" data-chapter="feasibility-spike"><td><code>spike live</code></td><td><a href="#feasibility-spike">chapter 01</a></td><td>Run one Configuration of the spike task against a real model, opt-in and paid.</td></tr>

@@ -4135,7 +4135,7 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 16
+    assert len(parser_commands()) == 17
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     assert rows["deviation"]["data-chapter"] == "decisions"
     assert rows["figures"]["data-chapter"] == "decisions"
@@ -4716,6 +4716,7 @@ def test_the_readme_status_says_what_figures_does_with_a_verb_and_recover_repair
     status = " ".join(readme_status().split())
     assert "`status` shows a Study's state and decision history, `recover` repairs it," in status
     assert re.search(r"`figures` [a-z]+s ", status), "a verb after `figures`"
+    assert "`profile` reads a Bike Study's `train` data" in status
 
 
 def test_the_client_chapter_prose_writes_no_capitalised_figures_as_if_it_were_a_term_of_the_glossary():
@@ -4938,7 +4939,7 @@ def test_the_readme_sentence_that_lists_the_commands_names_every_leaf_command_of
     """`spike` is the parser of the "feasibility spike entry points" (`cli.py`), not a product command, so the sentence does not name `spike live`."""
     line = (ROOT / "README.md").read_text(encoding="utf-8").splitlines()[6]
     sentence = next(part for part in re.split(r"(?<=\.)\s+", line) if part.startswith("`init` creates a Study"))
-    named = set(re.findall(r"`([^`]+)`", sentence))
+    named = set(re.findall(r"`([^`]+)`", sentence)) - {"train"}  # the Partition `profile` reads, not a command
     assert named == set(parser_commands()) - {"spike live"}, (sorted(named - set(parser_commands())), sorted(set(parser_commands()) - named))
 
 
@@ -5157,6 +5158,41 @@ def test_the_section_of_chapter_17_on_the_figures_read_states_no_value_of_its_ta
     prose = html.unescape(plain_text(prose_of(figures_section())))
     assert "ignore a key it does not know" in prose
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
+
+
+# --- the profile read (chapter 02): its key paths, its reasons and its measures against the read and the module ---------------------
+
+
+def profile_rows(table_id):
+    """The data attributes of each row of one table of chapter 02's section on the data profile, in order."""
+    return [row["attrs"] for row in parse(chapter_text("02-temporal-regression-track.html")).tables.get(table_id, []) if any(k.startswith("data-") for k in row["attrs"])]
+
+
+def test_the_key_path_table_of_chapter_02_equals_the_leaf_paths_the_profile_read_prints_both_ways(tmp_path):
+    from _figures_helpers import leaf_paths
+    from _study_helpers import init_study, run_cli
+
+    study, _ = init_study(tmp_path)
+    code, out, err = run_cli("profile", f"--study={study}", "--json")
+    assert code == 0, err
+    table = [row["data-path"] for row in profile_rows("profile-key-paths")]
+    assert len(table) == len(set(table))
+    printed = leaf_paths([json.loads(out)])
+    assert sorted(set(table) - printed) == [] and sorted(printed - set(table)) == []
+
+
+def test_the_reasons_and_measures_tables_of_chapter_02_equal_the_module_both_ways():
+    from hypotrail.ml import profile
+
+    assert [row["data-reason"] for row in profile_rows("profile-reasons")] == list(profile.REASONS)
+    assert {row["data-measure"]: html.unescape(row["data-description"]) for row in profile_rows("profile-measures")} == profile.MEASURES
+
+
+def test_chapter_02_states_that_instant_is_the_row_number_and_the_rule_of_the_kinds():
+    prose = " ".join(plain_text(prose_of(chapter_text("02-temporal-regression-track.html"))).split())
+    assert "instant is the row number" in prose
+    assert "at most 12 distinct values on train is categorical" in prose
+    assert "casual + registered = cnt" in prose and "No p-value is computed" in prose
 
 
 # --- the VS Code client (chapter 18): its tables against `clients/vscode/contract.json`, the manifest and the workflow -------------

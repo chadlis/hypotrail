@@ -255,7 +255,7 @@ THIRD_PARTY = {
     # `anyio` is declared in the `agent` extra of `pyproject.toml`, beside `inspect_ai`.
     "agentic": {"anyio", "inspect_ai", "jsonschema"},
     "core": {"jsonschema"},
-    "ml": {"jsonschema", "numpy", "sklearn"},
+    "ml": {"jsonschema", "numpy", "scipy", "sklearn"},
     "report": set(),
     "cli": set(),
     "__init__": set(),

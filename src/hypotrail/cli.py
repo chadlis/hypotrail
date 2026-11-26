@@ -316,6 +316,22 @@ def build_parser() -> argparse.ArgumentParser:
     figures.add_argument("--json", action="store_true", help="print one JSON object")
     figures.set_defaults(handler=_figures)
 
+    profile = commands.add_parser(
+        "profile",
+        help="show the data profile of a Bike Study's train Items: the target over time with the Partition band, one distribution per column, "
+        "the association matrix of the columns and the target against each allowed feature (read only)",
+    )
+    profile.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to read")
+    profile.add_argument(
+        "--examples-dir",
+        type=Path,
+        metavar="DIR",
+        help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag); "
+        "the Workload gives the names, the marks and the band, the Study's own data every value",
+    )
+    profile.add_argument("--json", action="store_true", help="print one JSON object")
+    profile.set_defaults(handler=_profile)
+
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
     )
@@ -802,6 +818,36 @@ def _figures(args) -> int:
             lines.append(f"{entry['comparison_id']}: no figures ({entry['unavailable']})")
     _emit({"ok": True, **report}, args.json, "\n".join(lines) or "no Comparison in this Study")
     return EXIT_OK
+
+
+def _profile(args) -> int:
+    from hypotrail.ml import profile
+
+    read = profile.profile(args.study, args.examples_dir)
+    _emit({"ok": True, **read}, args.json, "\n".join(_profile_lines(read)))
+    return EXIT_OK
+
+
+def _profile_lines(read: dict) -> list:
+    """One short line per part of the profile."""
+    def shown(value) -> str:
+        return "no value" if value is None else f"{value:.6g}"
+
+    target, columns, associations = read["target"], read["columns"], read["associations"]
+    quartiles = target["figures"]["quartiles"] or {}
+    flagged = [pair for pair in associations["pairs"] if pair["flagged"]]
+    return [
+        f"{read['items']} {read['partition']} Items, revision {read['revision_number']}, write sequence {read['write_sequence']}; "
+        f"the Workload's Protocol {'is' if read['workload_protocol'] == 'same' else 'is no longer'} this Study's",
+        "Partitions: " + ", ".join(f"{p['name']} {p['first']} to {p['last']}" for p in read["band"]),
+        f"target {target['column']} ({target['unit']}) over {len(target['series'])} days: "
+        + ", ".join(f"{name} {shown(quartiles.get(name))}" for name in ("min", "median", "max")),
+        f"{len(columns)} columns, {sum(c['kind'] == 'categorical' for c in columns)} categorical, "
+        f"{sum(not c['available'] for c in columns)} not available at prediction time",
+        f"{len(associations['pairs'])} pairs, {len(flagged)} at |value| >= {associations['level']}: "
+        + (", ".join(f"{p['a']} and {p['b']} {shown(p['value'])}" for p in flagged) or "none"),
+        "against the target: " + ", ".join(f"{e['name']} {e['measure']} {shown(e['value'])}" for e in read["against_target"]),
+    ]
 
 
 def _decide(args) -> int:

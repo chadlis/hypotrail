@@ -23,6 +23,7 @@ agent = [
 ml = [
     "numpy==2.5.4",
     "scikit-learn==1.9.1",
+    "scipy==1.18.1",
 ]
 
 [dependency-groups]
