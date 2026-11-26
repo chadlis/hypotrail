@@ -48,7 +48,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import database_changed, load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
+from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, declares_database, protocol_content
 from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import live as core_live
 from hypotrail.core import study as layout
@@ -207,6 +207,13 @@ def run_agent(
     layout.require_domain(spec, DOMAIN, COMMAND)
     examples = data.resolve_examples_dir(examples_dir)
     workload = load_workload(examples / spec["workload"])
+    if not declares_database(workload):  # a Workload whose data lives outside the repository is evaluated only through `import agent`
+        raise InvalidInputError(
+            "DATABASE_NOT_DECLARED",
+            f"the Workload {spec['workload']!r} declares no database: its data lives outside the repository, so it is evaluated only through `import agent`",
+            stage="config",
+            details={"workload": spec["workload"], "key": "database"},
+        )
     plan = _checked_flags(workload, mode, config, partition, repeats, model, cases, episode_cost_limit_usd, price_list)
     with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
         return _run_locked(study, write, examples, workload, mode, plan, request_id, retry_of, os.environ if environ is None else environ)

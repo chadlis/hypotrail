@@ -1,0 +1,30 @@
+{"case_id": "D01", "family": "lookup", "group": "customer-12-invoices", "question": "List every invoice billed to customer 12, with its invoice id, invoice date and total."}
+{"case_id": "D02", "family": "lookup", "group": "customer-12-invoices", "question": "Which invoices has customer 12 been billed? For each one, give the id, the date and the total amount."}
+{"case_id": "D03", "family": "lookup", "group": "customer-12-invoices", "question": "Show me all of customer 12's invoices: the id, date and total of each."}
+{"case_id": "D04", "family": "lookup", "group": "invoice-98-customer", "question": "Who is the customer on invoice 98? Give their customer id, full name and country."}
+{"case_id": "D05", "family": "lookup", "group": "invoice-98-customer", "question": "Invoice 98 was billed to which customer? I need the customer id, the first and last name, and the country."}
+{"case_id": "D06", "family": "lookup", "group": "invoice-98-customer", "question": "Tell me the customer id, name and country of the customer who received invoice 98."}
+{"case_id": "D07", "family": "aggregate", "group": "invoice-totals-2010", "question": "What is the sum of the totals of all invoices dated in 2010?"}
+{"case_id": "D08", "family": "aggregate", "group": "invoice-totals-2010", "question": "Add up the totals of every invoice with an invoice date in 2010. What do you get?"}
+{"case_id": "D09", "family": "aggregate", "group": "invoice-totals-2010", "question": "How much was invoiced during 2010, summing the invoice totals?"}
+{"case_id": "D10", "family": "aggregate", "group": "jazz-track-count", "question": "How many tracks belong to the Jazz genre?"}
+{"case_id": "D11", "family": "aggregate", "group": "jazz-track-count", "question": "What is the number of tracks whose genre is Jazz?"}
+{"case_id": "D12", "family": "aggregate", "group": "jazz-track-count", "question": "Count the tracks in the catalogue that are in the Jazz genre."}
+{"case_id": "D13", "family": "aggregate", "group": "top-three-customers", "question": "Which three customers have spent the most, summing the totals of their invoices? Give each one's customer id and amount spent, highest first."}
+{"case_id": "D14", "family": "aggregate", "group": "top-three-customers", "question": "Name the top three customers by the sum of their invoice totals, with their customer ids and the sums, from the highest down."}
+{"case_id": "D15", "family": "aggregate", "group": "top-three-customers", "question": "Rank the customers by the total of all their invoices and give me the first three: customer id and total, highest first."}
+{"case_id": "D16", "family": "clarification", "group": "best-customer", "question": "Who is our best customer?"}
+{"case_id": "D17", "family": "clarification", "group": "best-customer", "question": "Which customer is the most valuable one?"}
+{"case_id": "D18", "family": "clarification", "group": "best-customer", "question": "Tell me who our top customer is."}
+{"case_id": "D19", "family": "no_data", "group": "invoice-98-refund", "question": "How much was refunded on invoice 98?"}
+{"case_id": "D20", "family": "no_data", "group": "invoice-98-refund", "question": "What refund amount was issued for invoice 98?"}
+{"case_id": "D21", "family": "no_data", "group": "invoice-98-refund", "question": "What is the refund amount recorded for invoice 98?"}
+{"case_id": "D22", "family": "no_data", "group": "customer-12-age", "question": "How old is customer 12?"}
+{"case_id": "D23", "family": "no_data", "group": "customer-12-age", "question": "What is the age of customer 12?"}
+{"case_id": "D24", "family": "no_data", "group": "customer-12-age", "question": "When was customer 12 born?"}
+{"case_id": "D25", "family": "follow_up", "group": "customer-12-invoices-sum", "history": [{"content": "List every invoice billed to customer 12, with its invoice id, invoice date and total.", "role": "user"}], "question": "What do those invoices add up to?"}
+{"case_id": "D26", "family": "follow_up", "group": "customer-12-invoices-sum", "history": [{"content": "Which invoices has customer 12 been billed? For each one, give the id, the date and the total amount.", "role": "user"}], "question": "What is the sum of their totals?"}
+{"case_id": "D27", "family": "follow_up", "group": "customer-12-invoices-sum", "history": [{"content": "Show me all of customer 12's invoices: the id, date and total of each.", "role": "user"}], "question": "Add those totals together: what is the sum?"}
+{"case_id": "D28", "family": "follow_up", "group": "invoice-98-customer-invoice-count", "history": [{"content": "Who is the customer on invoice 98? Give their customer id, full name and country.", "role": "user"}], "question": "How many invoices has that customer received in total?"}
+{"case_id": "D29", "family": "follow_up", "group": "invoice-98-customer-invoice-count", "history": [{"content": "Invoice 98 was billed to which customer? I need the customer id, the first and last name, and the country.", "role": "user"}], "question": "And how many invoices does that customer have altogether?"}
+{"case_id": "D30", "family": "follow_up", "group": "invoice-98-customer-invoice-count", "history": [{"content": "Tell me the customer id, name and country of the customer who received invoice 98.", "role": "user"}], "question": "Count all the invoices billed to that customer."}

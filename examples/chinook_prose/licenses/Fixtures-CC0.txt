@@ -1,0 +1,3 @@
+The Cases, References, scoring configuration, review record and fixtures authored in this Workload are offered under CC0 1.0.
+https://creativecommons.org/publicdomain/zero/1.0/
+This notice does not replace the licence of the source data: the Chinook database keeps its MIT notice (licenses/Chinook-MIT.txt).

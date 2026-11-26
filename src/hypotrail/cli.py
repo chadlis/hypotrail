@@ -464,6 +464,9 @@ def _data_verify(args) -> int:
     lines = [
         f"{r['workload']}: {r['dataset_id']} verified "
         f"({r['file']}, sha256 {r['sha256'][:12]}..., licence {r['license']})"
+        if r["status"] == "verified"
+        else f"{r['workload']}: {r['dataset_id']} declared by its data manifest "
+        f"(sha256 {r['sha256'][:12]}..., {r['size_bytes']} bytes, as of {r['as_of']}, licence {r['license']}; no data file opened)"
         for r in reports
     ]
     _emit({"ok": True, "datasets": reports}, args.json, "\n".join(lines))

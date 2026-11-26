@@ -47,6 +47,8 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
+A third Workload, `examples/chinook_prose`, is a data assistant that answers in prose about the same Chinook bytes, which it declares by a data manifest of digests (`data-manifest.json`) and never opens: it is evaluated only through `import agent`, and `run agent` refuses it.
+
 The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose References two writers wrote apart (the review record is `examples/chinook/references/chinook-references-2.review.jsonl`), and 12 `public_check` Cases. The live Campaign on `dev` (2026-11-26, `plain` and `verify`, one Repeat each, its plan, ceiling, captures, estimated spend and report) is kept whole in `docs/handbook/traces/campaign-chinook-dev/`, its Study in `docs/handbook/traces/campaign-chinook-dev/study/`. The demonstration, in `docs/demo/`, compares and decides again on a copy of that Study, offline. The handbook's chapter on the larger Chinook Workload gives the detail.
 
 ## Use the VS Code panel

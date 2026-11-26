@@ -3,6 +3,12 @@
 Standard library only. The order is fixed: the bytes of every selected dataset
 are verified first, then the licence notices, and only then the content checks
 (calendar, tables). Tampered bytes never reach a content check.
+
+A Workload whose data lives outside the repository holds a data manifest
+(`data-manifest.json`, `data-manifest/1`, described by `data-manifest.schema.json`)
+instead of a lock: each source is declared by its digest and size, with no URL and
+no local path. Its sources are reported `declared`; only their licence notices are
+checked, and no data file is opened.
 """
 
 import csv
@@ -17,6 +23,8 @@ from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 LOCK_NAME = "data-sources.lock.json"
 CHECKS_NAME = "data-checks.json"
+MANIFEST_NAME = "data-manifest.json"
+DECLARATION_NAME = "workload.json"
 
 
 class DataCheckError(IntegrityError):
@@ -84,10 +92,12 @@ def open_sqlite_readonly(path: Path) -> sqlite3.Connection:
 # --- loading ------------------------------------------------------------------
 
 
+def _is_workload(directory: Path) -> bool:
+    return (directory / LOCK_NAME).is_file() or (directory / MANIFEST_NAME).is_file()
+
+
 def discover_workloads(examples_dir: Path) -> list[str]:
-    return sorted(
-        p.name for p in examples_dir.iterdir() if (p / LOCK_NAME).is_file()
-    )
+    return sorted(p.name for p in examples_dir.iterdir() if _is_workload(p))
 
 
 def _load_json(path: Path, what: str) -> dict:
@@ -111,13 +121,15 @@ def _load_json(path: Path, what: str) -> dict:
 
 def _load_workload(examples_dir: Path, name: str) -> dict:
     directory = examples_dir / name
-    if not (directory / LOCK_NAME).is_file():
+    if not _is_workload(directory):
         raise InvalidInputError(
             "UNKNOWN_WORKLOAD",
             f"unknown workload: {name}",
             stage="config",
             details={"workload": name, "known": discover_workloads(examples_dir)},
         )
+    if (directory / MANIFEST_NAME).is_file():
+        return _load_manifest_workload(directory, name)
     lock = _load_json(directory / LOCK_NAME, "lock")
     checks = _load_json(directory / CHECKS_NAME, "data checks")
     by_dataset = {s["dataset_id"]: s for s in lock["sources"]}
@@ -133,7 +145,34 @@ def _load_workload(examples_dir: Path, name: str) -> dict:
         "directory": directory,
         "source": by_dataset[checks["dataset_id"]],
         "checks": checks,
-        "lock_sources": lock["sources"],
+        "sources": lock["sources"],
+        "declared_only": False,
+    }
+
+
+def _declares_database(directory: Path) -> bool:
+    declaration = directory / DECLARATION_NAME
+    if not declaration.is_file():
+        return False
+    value = _load_json(declaration, "declaration")
+    return isinstance(value, dict) and "database" in value
+
+
+def _load_manifest_workload(directory: Path, name: str) -> dict:
+    """A Workload whose data is declared by its manifest; a lock or a `database` beside it is refused."""
+    if (directory / LOCK_NAME).is_file() or _declares_database(directory):
+        raise InvalidInputError(
+            "DATA_DECLARED_TWICE",
+            f"the Workload {name} declares its data twice: a {MANIFEST_NAME} and a database or a lock",
+            stage="config",
+            details={"workload": name, "manifest": MANIFEST_NAME},
+        )
+    manifest = _load_json(directory / MANIFEST_NAME, "data manifest")
+    return {
+        "name": name,
+        "directory": directory,
+        "sources": manifest["sources"],
+        "declared_only": True,
     }
 
 
@@ -141,7 +180,7 @@ def _load_workload(examples_dir: Path, name: str) -> dict:
 
 
 def _verify_bytes(workload: dict, *, skip_dataset: bool = False) -> None:
-    for source in workload["lock_sources"]:
+    for source in workload["sources"]:
         if skip_dataset and source["dataset_id"] == workload["source"]["dataset_id"]:
             continue
         path = workload["directory"] / source["local_path"]
@@ -172,7 +211,7 @@ def _verify_bytes(workload: dict, *, skip_dataset: bool = False) -> None:
 
 
 def _verify_licence(workload: dict) -> None:
-    for source in workload["lock_sources"]:
+    for source in workload["sources"]:
         notice = workload["directory"] / source["notice"]
         details = {"workload": workload["name"], "file": source["notice"]}
         if not notice.is_file() or notice.stat().st_size == 0:
@@ -332,11 +371,15 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
         )
     workloads = [_load_workload(examples_dir, name) for name in names]
     for workload in workloads:
-        _verify_bytes(workload)
+        if not workload["declared_only"]:
+            _verify_bytes(workload)
     for workload in workloads:
         _verify_licence(workload)
     reports = []
     for workload in workloads:
+        if workload["declared_only"]:
+            reports.extend(_declared(workload))
+            continue
         content = _check_content(workload)
         source = workload["source"]
         reports.append(
@@ -355,8 +398,27 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
     return reports
 
 
+def _declared(workload: dict) -> list[dict]:
+    """One report per source of a data manifest: what it declares, since no data file is opened."""
+    return [
+        {
+            "workload": workload["name"],
+            "dataset_id": source["dataset_id"],
+            "status": "declared",
+            "sha256": source["sha256"],
+            "size_bytes": source["size_bytes"],
+            "as_of": source["as_of"],
+            "license": source["license"],
+            "notice": source["notice"],
+        }
+        for source in workload["sources"]
+    ]
+
+
 def verify_workload_files(examples_dir: Path, name: str) -> None:
     """Check the bytes of the named Workload's other files against its lock, and its licence notices; the dataset is not opened.
+
+    A Workload with a data manifest has only its licence notices checked.
 
     `verify_workloads` goes further and queries the content (the Chinook database is opened and its
     tables counted). A command that must never open the database, as `import agent` and `assess` must
@@ -372,5 +434,6 @@ def verify_workload_files(examples_dir: Path, name: str) -> None:
             details={"examples_dir": str(examples_dir)},
         )
     workload = _load_workload(examples_dir, name)
-    _verify_bytes(workload, skip_dataset=True)
+    if not workload["declared_only"]:
+        _verify_bytes(workload, skip_dataset=True)
     _verify_licence(workload)

@@ -2399,7 +2399,7 @@ def run_agent_refusals(tmp_path, monkeypatch):
     from _chinook_helpers import chinook_examples, database_of, init_chinook
     from _exposure_helpers import edit_chinook_references
     from _run_agent_helpers import FAKE_KEY, agent, answering_with, fixture, live, live_args, patch_model
-    from _study_helpers import init_study
+    from _study_helpers import init_study, run_json
     from test_study_lock import held_by_another_process
 
     from hypotrail.agentic import runner
@@ -2423,6 +2423,8 @@ def run_agent_refusals(tmp_path, monkeypatch):
         del args[at : at + 2]
         record(case, agent(study, *args))
     record("configuration-not-declared", live(study, "nonesuch", "r"))
+    run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "prose")
+    record("database-not-declared", fixture(tmp_path / "prose", "external", "r"))
     no_scenarios = chinook_examples(tmp_path, edit=lambda declaration: declaration.pop("scenarios"), name="no-scenarios")
     record("scenarios-not-declared", fixture(study, "plain", "r", "--examples-dir", no_scenarios))
     record("partition-not-allowed", live(study, "plain", "r", partition="train"))
@@ -4299,7 +4301,7 @@ def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_
         for code, row in attrs_of(page, table_id, "data-code").items():
             assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
             seen += 1
-    assert seen == 7 + 5 + 17 + 2 + 1
+    assert seen == 8 + 5 + 17 + 2 + 1
 
 
 # --- #109: `decide` and the decision record (chapter 17) ---------------------------------------------------------------------------------
