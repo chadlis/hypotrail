@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "PREDICTION_NOT_FINITE",
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "the score of 12347@2011-01-01 is nan"
+}

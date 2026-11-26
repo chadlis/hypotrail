@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "MAPPING_KEY_UNKNOWN",
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "the mapping names a label column"
+}

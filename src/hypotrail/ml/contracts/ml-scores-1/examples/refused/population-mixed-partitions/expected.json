@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "POPULATION_MIXED_PARTITIONS",
+  "exit": 2,
+  "caught_by": "import",
+  "why": "12346@2011-06-01 is held_out, the others dev"
+}
