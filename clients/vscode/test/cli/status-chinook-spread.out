@@ -54,6 +54,7 @@
         "missing": 0,
         "produced": 12
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -101,7 +102,7 @@
       "temporary_files": []
     },
     {
-      "attempt_id": "00000000-0000-4000-8000-000000000003",
+      "attempt_id": "00000000-0000-4000-8000-000000000004",
       "request_id": "some-wrong",
       "operation": "import",
       "mode": "external_unknown",
@@ -116,11 +117,12 @@
         "missing": 0,
         "produced": 12
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/observation_set.json",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observation_set.json",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000b",
           "size_bytes": 0,
           "media_type": "application/json",
@@ -128,7 +130,7 @@
           "role": "observation_set"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/observations.jsonl",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observations.jsonl",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000c",
           "size_bytes": 0,
           "media_type": "application/octet-stream",
@@ -136,7 +138,7 @@
           "role": "observations"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/population.json",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/population.json",
           "sha256": "0000000000000000000000000000000000000000000000000000000000000008",
           "size_bytes": 0,
           "media_type": "application/json",
@@ -144,7 +146,7 @@
           "role": "import_population"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/source/some-wrong.jsonl",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/source/some-wrong.jsonl",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000d",
           "size_bytes": 0,
           "media_type": "application/octet-stream",
@@ -152,7 +154,7 @@
           "role": "import_source"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/validation_report.json",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/validation_report.json",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000e",
           "size_bytes": 0,
           "media_type": "application/json",
@@ -176,7 +178,7 @@
   "declared_deviations": [],
   "assessments": [
     {
-      "assessment_id": "00000000-0000-4000-8000-000000000004",
+      "assessment_id": "00000000-0000-4000-8000-000000000006",
       "counts": {
         "attempted": 12,
         "correct": 12,
@@ -189,7 +191,7 @@
       },
       "detailed_metrics_ref": {
         "media_type": "application/json",
-        "path": "assessments/00000000-0000-4000-8000-000000000004/metrics.json",
+        "path": "assessments/00000000-0000-4000-8000-000000000006/metrics.json",
         "role": "detailed_metrics",
         "sha256": "000000000000000000000000000000000000000000000000000000000000000f",
         "size_bytes": 0
@@ -220,14 +222,14 @@
           "value": 1.0
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "operational_errors": {
         "failed": 0,
         "missing": 0
       },
       "per_item_ref": {
         "media_type": "text/csv",
-        "path": "assessments/00000000-0000-4000-8000-000000000004/per_item.csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000006/per_item.csv",
         "role": "per_item",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000010",
         "size_bytes": 0
@@ -260,7 +262,7 @@
       }
     },
     {
-      "assessment_id": "00000000-0000-4000-8000-000000000006",
+      "assessment_id": "00000000-0000-4000-8000-000000000007",
       "counts": {
         "attempted": 12,
         "correct": 8,
@@ -273,7 +275,7 @@
       },
       "detailed_metrics_ref": {
         "media_type": "application/json",
-        "path": "assessments/00000000-0000-4000-8000-000000000006/metrics.json",
+        "path": "assessments/00000000-0000-4000-8000-000000000007/metrics.json",
         "role": "detailed_metrics",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
         "size_bytes": 0
@@ -304,14 +306,14 @@
           "value": 0.6666666666666666
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000007",
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "operational_errors": {
         "failed": 0,
         "missing": 0
       },
       "per_item_ref": {
         "media_type": "text/csv",
-        "path": "assessments/00000000-0000-4000-8000-000000000006/per_item.csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000007/per_item.csv",
         "role": "per_item",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000013",
         "size_bytes": 0
@@ -470,7 +472,7 @@
         }
       },
       "kind": "comparison",
-      "left_assessment_id": "00000000-0000-4000-8000-000000000004",
+      "left_assessment_id": "00000000-0000-4000-8000-000000000006",
       "limitations": [
         "The Repeats of a Case are not independent samples: the Comparison carries no binomial interval over Episodes, no confidence interval and no significance claim; every Case weighs the same.",
         "Latency and the numbers of model and tool calls are descriptive only, and no Criterion rests on them; tokens and cost are null where they are not observable, never 0, and no cost is compared.",
@@ -564,10 +566,10 @@
           }
         }
       },
-      "right_assessment_id": "00000000-0000-4000-8000-000000000006",
+      "right_assessment_id": "00000000-0000-4000-8000-000000000007",
       "roles": {
-        "candidate_assessment_id": "00000000-0000-4000-8000-000000000006",
-        "control_assessment_id": "00000000-0000-4000-8000-000000000004"
+        "candidate_assessment_id": "00000000-0000-4000-8000-000000000007",
+        "control_assessment_id": "00000000-0000-4000-8000-000000000006"
       },
       "schema_version": "comparison/1",
       "secondary_deltas": [
@@ -610,8 +612,8 @@
   "pending_decisions": [
     {
       "comparison_id": "00000000-0000-4000-8000-000000000008",
-      "control_assessment_id": "00000000-0000-4000-8000-000000000004",
-      "candidate_assessment_id": "00000000-0000-4000-8000-000000000006",
+      "control_assessment_id": "00000000-0000-4000-8000-000000000006",
+      "candidate_assessment_id": "00000000-0000-4000-8000-000000000007",
       "question": {
         "id": "keep_after_comparison",
         "text": "Which Configuration do we keep after this Comparison?"
@@ -638,13 +640,13 @@
   "record_files": [
     {
       "kind": "assessment",
-      "id": "00000000-0000-4000-8000-000000000004",
-      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
     },
     {
       "kind": "assessment",
-      "id": "00000000-0000-4000-8000-000000000006",
-      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+      "id": "00000000-0000-4000-8000-000000000007",
+      "path": "assessments/00000000-0000-4000-8000-000000000007/assessment.json"
     },
     {
       "kind": "comparison",

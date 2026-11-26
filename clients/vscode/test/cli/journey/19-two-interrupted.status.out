@@ -88,6 +88,7 @@
         "missing": 0,
         "produced": 184
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000014",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -142,6 +143,7 @@
         "missing": 0,
         "produced": 182
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000011",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -192,6 +194,7 @@
       "retry_of": null,
       "reason": "the writer ended before the terminal manifest; recorded as interrupted by `recover` (partial artifacts kept, nothing resubmitted)",
       "item_counts": null,
+      "observation_set_id": null,
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [],
@@ -209,6 +212,7 @@
       "retry_of": null,
       "reason": null,
       "item_counts": null,
+      "observation_set_id": null,
       "writer_alive": false,
       "recoverable": true,
       "artifacts": [],
@@ -226,6 +230,7 @@
       "retry_of": null,
       "reason": null,
       "item_counts": null,
+      "observation_set_id": null,
       "writer_alive": false,
       "recoverable": true,
       "artifacts": [],
@@ -247,6 +252,7 @@
         "missing": 0,
         "produced": 182
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -294,7 +300,7 @@
       "temporary_files": []
     },
     {
-      "attempt_id": "00000000-0000-4000-8000-000000000003",
+      "attempt_id": "00000000-0000-4000-8000-000000000004",
       "request_id": "seasonal",
       "operation": "execute",
       "mode": "native_ml",
@@ -309,11 +315,12 @@
         "missing": 0,
         "produced": 182
       },
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/observation_set.json",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observation_set.json",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000a",
           "size_bytes": 0,
           "media_type": "application/json",
@@ -321,7 +328,7 @@
           "role": "observation_set"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/observations.csv",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observations.csv",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000b",
           "size_bytes": 0,
           "media_type": "text/csv",
@@ -329,7 +336,7 @@
           "role": "observations"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/predictions.csv",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/predictions.csv",
           "sha256": "000000000000000000000000000000000000000000000000000000000000000c",
           "size_bytes": 0,
           "media_type": "text/csv",
@@ -337,7 +344,7 @@
           "role": "predictions"
         },
         {
-          "path": "attempts/00000000-0000-4000-8000-000000000003/workload.json",
+          "path": "attempts/00000000-0000-4000-8000-000000000004/workload.json",
           "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
           "size_bytes": 0,
           "media_type": "application/json",
@@ -566,7 +573,7 @@
           "value": 1090.7912087912089
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000004",
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-000000000006/per_item.csv",
@@ -626,7 +633,7 @@
           "value": 1264.730691775682
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-000000000007/per_item.csv",
@@ -736,7 +743,7 @@
           "value": 1090.7912087912089
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000004",
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-00000000000a/per_item.csv",
@@ -800,7 +807,7 @@
           "value": 1264.730691775682
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-00000000000b/per_item.csv",
@@ -914,7 +921,7 @@
           "value": 1091.3406593406594
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000004",
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-00000000000c/per_item.csv",
@@ -993,7 +1000,7 @@
           "value": 1265.2801423251326
         }
       ],
-      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
       "per_item_ref": {
         "media_type": "text/csv",
         "path": "assessments/00000000-0000-4000-8000-00000000000d/per_item.csv",
@@ -1458,7 +1465,7 @@
         ],
         "status": "compatible"
       },
-      "comparison_id": "00000000-0000-4000-8000-000000000011",
+      "comparison_id": "00000000-0000-4000-8000-000000000012",
       "coverage": {
         "candidate_scored": 182,
         "control_scored": 182,
@@ -1480,14 +1487,14 @@
       ],
       "paired_deltas_ref": {
         "media_type": "text/csv",
-        "path": "comparisons/00000000-0000-4000-8000-000000000011/paired_deltas.csv",
+        "path": "comparisons/00000000-0000-4000-8000-000000000012/paired_deltas.csv",
         "role": "paired_deltas",
         "sha256": "000000000000000000000000000000000000000000000000000000000000001b",
         "size_bytes": 0
       },
       "population_ref": {
         "media_type": "application/json",
-        "path": "comparisons/00000000-0000-4000-8000-000000000011/population.json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000012/population.json",
         "role": "comparison_population",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
         "size_bytes": 0
@@ -1508,7 +1515,7 @@
   ],
   "pending_decisions": [
     {
-      "comparison_id": "00000000-0000-4000-8000-000000000011",
+      "comparison_id": "00000000-0000-4000-8000-000000000012",
       "control_assessment_id": "00000000-0000-4000-8000-00000000000c",
       "candidate_assessment_id": "00000000-0000-4000-8000-00000000000d",
       "question": {
@@ -1602,15 +1609,15 @@
     },
     {
       "kind": "comparison",
-      "id": "00000000-0000-4000-8000-000000000011",
-      "path": "comparisons/00000000-0000-4000-8000-000000000011/comparison.json"
+      "id": "00000000-0000-4000-8000-000000000012",
+      "path": "comparisons/00000000-0000-4000-8000-000000000012/comparison.json"
     }
   ],
   "next_step": {
     "kind": "decide",
     "text": null,
     "ids": [
-      "00000000-0000-4000-8000-000000000011"
+      "00000000-0000-4000-8000-000000000012"
     ],
     "context": [],
     "to_handle": [
@@ -1655,11 +1662,11 @@
       "request_id": "seasonal",
       "written": [
         {
-          "id": "00000000-0000-4000-8000-000000000003",
+          "id": "00000000-0000-4000-8000-000000000004",
           "kind": "attempt"
         },
         {
-          "id": "00000000-0000-4000-8000-000000000004",
+          "id": "00000000-0000-4000-8000-000000000005",
           "kind": "observation_set"
         }
       ]
@@ -1680,7 +1687,7 @@
           "kind": "attempt"
         },
         {
-          "id": "00000000-0000-4000-8000-000000000005",
+          "id": "00000000-0000-4000-8000-000000000003",
           "kind": "observation_set"
         }
       ]
@@ -1901,7 +1908,7 @@
       "request_id": null,
       "written": [
         {
-          "id": "00000000-0000-4000-8000-000000000011",
+          "id": "00000000-0000-4000-8000-000000000012",
           "kind": "comparison"
         }
       ]
@@ -1922,7 +1929,7 @@
           "kind": "attempt"
         },
         {
-          "id": "00000000-0000-4000-8000-000000000012",
+          "id": "00000000-0000-4000-8000-000000000011",
           "kind": "observation_set"
         }
       ]

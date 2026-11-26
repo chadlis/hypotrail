@@ -443,3 +443,20 @@ def test_the_dated_lines_hold_one_line_for_the_panels_words_quoting_its_ticket_a
     assert PANEL_WORDS_SENTENCE in line and "the earlier line it narrows" in line
     for name in ("`--question-id`", "`--option-id`", "`--words`", "`--channel=panel`", "never `--by`", "`client_refusal`"):
         assert name in line, name
+
+
+# --- the dated line of `attempts[].observation_set_id` (D-157) ---------------------------------------------------------------------------
+
+OBSERVATION_SET_SENTENCE = (
+    "`attempts[]` in `status --json` gains an additive key, `observation_set_id`: the id of the Observation set the Attempt produced, or null if it"
+    " produced none."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_observation_set_id_of_attempts_quoting_d_157_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "D-157" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert OBSERVATION_SET_SENTENCE in line and "the earlier line it overrides: none" in line
