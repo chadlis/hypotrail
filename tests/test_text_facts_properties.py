@@ -104,7 +104,9 @@ def sentence(r: random.Random, kind: str) -> str:
 def test_p4_two_blocks_joined_by_a_blank_line_read_as_the_union_of_their_readings(kind):
     r = rng(kind, "P4")
     for _ in range(TRIALS * 3):
-        first, second = sentence(r, kind), sentence(r, r.choice(KINDS))
+        a, b = values(r, 2)
+        first = r.choice([sentence(r, kind), f"See {kind}s {a}, {b}", f"Number of {kind}s", f"The {kind}s are {a} and"])
+        second = r.choice([sentence(r, r.choice(KINDS)), f"{a} more are pending", f"and {b} for {kind} {a}", f", {a} and {b}", f"is {b}.", f"- {a}\n- {b}"])
         assert not first.endswith(":")
         (ids_a, numbers_a), (ids_b, numbers_b) = reading(first), reading(second)
         assert reading(f"{first}\n\n{second}") == (ids_a | ids_b, numbers_a | numbers_b), (first, second)

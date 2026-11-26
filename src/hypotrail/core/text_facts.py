@@ -3,13 +3,16 @@
 One pure function, `score_text`, takes the raw answer text, the Reference record and the Workload's scoring config, and
 gives five Criteria, each in state `scored`, `unscored` or `errored`, with a Reason for every non-score and every false:
 
-- `identifiers_complete`: every expected identifier, normalised, is among those found in the text (`identifier_missing`);
-  an identifier found is a kind pattern's capture, then each item of the list that follows it ("invoices 34, 155 and 166");
+- `identifiers_complete`: every expected identifier, normalised, is among those found in the text (`identifier_missing`).
+  The text is read block by block (paragraphs, list items, table cells and headings; fenced code is ignored): an identifier
+  found is a kind pattern's capture and each item an explicit joiner adds to it ("invoices 34, 155 and 166"), or the leading
+  number of an item in a list under a lead-in that names one kind ("Invoices:" over "- 34");
 - `no_unexpected_identifier`: every identifier found, normalised, is expected or allowed (`identifier_unexpected`); the
   optional `allowed_identifiers` of a Reference lists the records an answer may name beside the expected ones;
 - `facts_present`: every expected fact is found in the text (`fact_missing`). A number counts within its absolute
-  tolerance, ignoring the currency signs `$ € £` and `,` thousands separators, and never through a `%`, nor from inside an
-  identifier match or an ISO date; a date counts in ISO form; a text counts as a casefolded substring;
+  tolerance, ignoring the currency signs `$ € £` and `,` thousands separators, and never through a `%`, nor from a list
+  marker, an identifier value, an ISO date and its time, or fenced code; a date counts in ISO form; a text counts as a
+  casefolded substring of the raw answer;
 - `outcome_matches`: the answer's outcome is the Reference's `expected_outcome` (`outcome_mismatch`). The outcome is the
   one the Import line declares; otherwise the one the config's phrase rules recognise (`needs_clarification`, then
   `not_answerable`, else `answered`); without either it is `unscored` with `outcome_not_declared`;
@@ -24,6 +27,7 @@ scorers are not used (they are `async` functions of a `TaskState`, and this one 
 """
 
 import datetime
+import itertools
 import math
 import re
 from dataclasses import dataclass
@@ -48,26 +52,37 @@ SCORING_FAILED = "scoring_failed"
 REASONS = (IDENTIFIER_MISSING, IDENTIFIER_UNEXPECTED, FACT_MISSING, OUTCOME_MISMATCH, OUTCOME_NOT_DECLARED, REFERENCE_MISSING, REFERENCE_INVALID, SCORING_FAILED)
 
 CURRENCY_SIGNS = "$€£"
-# A number not glued to a word, a dot or a dash before it (so the parts of an ISO date after its year are not numbers), with
-# optional `,` thousands groups; one followed by `%` is skipped.
+# A number not glued to a letter, a digit, `_`, a dot or a dash before it, with optional `,` thousands groups and a decimal
+# part; one followed by `%` is skipped.
 _NUMBER = re.compile(r"(?<![\w.\-])(-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(?![\d.,]*\d)(?!\s*%)")
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# An ISO date, with the time "HH:MM" or "HH:MM:SS" that may follow it after a space or a "T": none of its parts is a number.
+_DATE_TIME = re.compile(r"\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?")
 # D-163 on chadlis/hypotrail#75, item 2, verbatim: "number(s) of", "count of" or "total", followed by the plural, with any
 # whitespace between them, makes the number a count and not an id.
 _COUNT_BEFORE = re.compile(r"(?i)\b(?:numbers?\s+of|count\s+of|total)\s+\Z")
 _PLURAL_LABEL = re.compile(r"[^\W\d_]+s\b")
-# D-163 on chadlis/hypotrail#75, item 1: "After a kind's label, the scorer reads every identifier in the list that follows it".
-# An item is a number, with "#" before it or not, that does not start a date, an amount or a time.
-_ITEM = r"#?(?P<value>[0-9](?:[0-9_]*[0-9])?)\b(?![.,:/-][0-9])"
-# The owner's decision on the round-5 floor (#263): "explicit joiners only". On one line, the next item follows ",", ";", "&",
-# "and" or "or", with optional spaces or tabs, never a bare space or a newline; an item reached through "&", "and" or "or"
-# closes the list. Anything else (a word, a full stop, a newline, a table bar) ends it.
-_JOINED_NEXT = re.compile(r"(?i)(?:[ \t]*[,;][ \t]*(?:(?P<and_after_comma>and|or)[ \t]+)?|[ \t]*(?P<amp>&)[ \t]*|[ \t]+(?P<word>and|or)[ \t]+)" + _ITEM)
-# The owner's decision: "bulleted or numbered lines read one per line" and "a list marker is never an id". A marker opens a
-# line: "-", "*", "+", "N." or "N)", then a space or a tab.
-_MARKER = re.compile(r"(?m)^[ \t]*(?:[-*+]|[0-9]+[.)])(?=[ \t])")
-# After a label that ends its line, the next line holds the next item when it opens with a marker; any other line ends the list.
-_LINE_NEXT = re.compile(r"[ \t]*\r?\n[ \t]*(?:[-*+]|[0-9]+[.)])[ \t]+" + _ITEM)
+# What may stand between a count phrase's plural and its number.
+_COPULA = re.compile(r"(?i):|=|\b(?:is|are|was)\b")
+# An item is a number, with "#" before it or not, that is not a date, an amount, a time or a percentage.
+_ITEM = r"#?(?P<value>[0-9](?:[0-9_]*[0-9])?)\b(?![.,:/-][0-9])(?!\s*%)"
+# The next item of a list: ",", ";", "&", "and" or "or", also ", and" and ", or", with whitespace around that may hold a line
+# break. A bare space or a line break alone joins nothing.
+_JOINED_NEXT = re.compile(r"(?i)\s*(?:,\s*(?:(?:and|or)\b\s*)?|;\s*|&\s*|(?<!\S)(?:and|or)\b\s*)" + _ITEM)
+_LEADING_ITEM = re.compile(r"\s*" + _ITEM)
+_TRAILING_COUNT = re.compile(r"(?i)\s+in\s+(?:total|all)\b")
+# A pattern's capture that is an amount (a decimal part follows it) or the year of an ISO date is no identifier.
+_NOT_AN_IDENTIFIER = re.compile(r"\.[0-9]|-[0-9]{2}-[0-9]{2}")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+# The blocks of an answer, modelled on CommonMark 0.31.2 and GFM pipe tables.
+_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+_LIST_ITEM = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>[-*+]|[0-9]{1,9}[.)])[ \t]+(?P<rest>.*)$")
+_HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]+(?P<text>.*?))?(?:[ \t]+#+)?[ \t]*$")
+_MARKUP_LINE = re.compile(r"^[ \t]*(?:-+|=+|\*+|_+)[ \t]*$")
+_DELIMITER_CELL = re.compile(r"^[ \t]*:?-+:?[ \t]*$")
+# An emphasis `_` run is removed at a word boundary only, never between two letters or digits.
+_UNDERSCORES = re.compile(r"_+")
 _REFERENCE_KEYS = {"case_id", "reference_version", "expected_outcome", "expected_identifiers", "expected_facts", "as_of"}
 _OPTIONAL_REFERENCE_KEYS = {"reference_text", "allowed_identifiers"}
 
@@ -198,69 +213,231 @@ def normalised(kind_config: dict, value: str) -> str:
     return value
 
 
-def _without_markers(text: str) -> str:
-    """The text with every line's list marker blanked to spaces, so that no marker is read as an identifier; spans are kept."""
-    return _MARKER.sub(lambda marker: " " * len(marker.group(0)), text)
+class _Block:
+    """One block of the answer: its text with the markup removed, and for a list item the item it is nested in and its list."""
+
+    __slots__ = ("text", "item", "parent", "list_id")
+
+    def __init__(self, text: str, item: bool = False, parent=None, list_id: int = -1):
+        self.text, self.item, self.parent, self.list_id = text, item, parent, list_id
 
 
-def identifier_spans(text: str, config: dict) -> list:
-    """(kind, normalised value, span) of each identifier: a pattern's one capture group, then each item of the list that follows it.
+def _without_markup(text: str) -> str:
+    """The text without inline code backticks, `*` and the `_` runs that do not stand between two letters or digits."""
+    text = text.replace("`", "").replace("*", "")
 
-    The patterns run on the text with its list markers blanked. A label that ends its line ("Invoices:") is followed by its
-    items one per marker line, and a match whose value sits on a later line with no marker gives none. A match whose label is
-    a plural word right after a count phrase ("number of invoices: 7") is a count, and gives none, nor does the list after it.
-    """
-    view = _without_markers(text)
-    found = []
+    def underscores(run):
+        before, after = run.string[run.start() - 1 : run.start()], run.string[run.end() : run.end() + 1]
+        inside = before.isalnum() and after.isalnum()
+        return run.group(0) if inside else ""
+
+    return _UNDERSCORES.sub(underscores, text)
+
+
+def _cells(line: str) -> list:
+    line = line.strip()
+    if line.startswith("|"):
+        line = line[1:]
+    if line.endswith("|"):
+        line = line[:-1]
+    return line.split("|")
+
+
+def _table_starts(lines: list, index: int) -> bool:
+    if index + 1 >= len(lines) or "|" not in lines[index] or "|" not in lines[index + 1]:
+        return False
+    delimiter = _cells(lines[index + 1])
+    return len(delimiter) == len(_cells(lines[index])) and all(_DELIMITER_CELL.match(cell) for cell in delimiter)
+
+
+def _opens_block(lines: list, index: int) -> bool:
+    line = lines[index]
+    return bool(_FENCE.match(line) and not _not_a_fence(line)) or bool(_HEADING.match(line)) or bool(_LIST_ITEM.match(line)) or bool(_MARKUP_LINE.match(line)) or _table_starts(lines, index)
+
+
+def _not_a_fence(line: str) -> bool:
+    match = _FENCE.match(line)
+    return match.group(1)[0] == "`" and "`" in match.group(2)
+
+
+def _blocks(text: str) -> list:
+    """The blocks of the text in order; fenced code gives none, and a list item knows its parent item and its list."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    blocks, open_items, current = [], [], None  # open_items: (block, indent, content column) from the outermost
+    pieces = []
+    next_list = itertools.count()
+
+    def close():
+        nonlocal current
+        if current is not None:
+            current.text = _without_markup("\n".join(pieces))
+            blocks.append(current)
+        current = None
+        pieces.clear()
+
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        fence = _FENCE.match(line)
+        if fence and not _not_a_fence(line):
+            close()
+            run = fence.group(1)
+            index += 1
+            while index < len(lines) and not re.match(rf"^[ \t]*{re.escape(run[0])}{{{len(run)},}}[ \t]*$", lines[index]):
+                index += 1
+            index += 1
+            continue
+        if line.strip() == "":
+            close()
+            index += 1
+            continue
+        item = _LIST_ITEM.match(line)
+        if item:
+            close()
+            indent = len(item.group("indent").expandtabs(4))
+            sibling = None
+            while open_items and open_items[-1][1] >= indent:
+                sibling = open_items.pop()
+            parent = open_items[-1][0] if open_items else None
+            list_id = sibling[0].list_id if sibling is not None and sibling[0].parent is parent else next(next_list)
+            current = _Block("", True, parent, list_id)
+            pieces.append(item.group("rest"))
+            open_items.append((current, indent, len(line) - len(item.group("rest"))))
+            index += 1
+            continue
+        heading = _HEADING.match(line)
+        if heading or _MARKUP_LINE.match(line):
+            close()
+            open_items.clear()
+            if heading:
+                blocks.append(_Block(_without_markup(heading.group("text") or "")))
+            index += 1
+            continue
+        if _table_starts(lines, index):
+            close()
+            open_items.clear()
+            rows = [lines[index]]
+            index += 2
+            while index < len(lines) and lines[index].strip() != "" and not _opens_block(lines, index):
+                rows.append(lines[index])
+                index += 1
+            blocks.extend(_Block(_without_markup(cell.strip())) for row in rows for cell in _cells(row))
+            continue
+        if current is not None:
+            pieces.append(line.strip())
+            index += 1
+            continue
+        indent = len(line) - len(line.lstrip())
+        while open_items and indent < open_items[-1][2]:
+            open_items.pop()
+        current = _Block("")
+        pieces.append(line.strip())
+        index += 1
+    close()
+    return blocks
+
+
+def _captures(pattern: str, text: str):
+    """The matches of a kind's pattern in the text whose capture is neither an amount nor the year of an ISO date."""
+    return [m for m in re.finditer(pattern, text) if not _NOT_AN_IDENTIFIER.match(text, m.end(1))]
+
+
+def _plain(text: str) -> str:
+    """The text with its currency signs and its ISO dates (and the time after one) blanked to spaces."""
+    for sign in CURRENCY_SIGNS:
+        text = text.replace(sign, " ")
+    return _DATE_TIME.sub(lambda date: " " * len(date.group(0)), text)
+
+
+def _count_numbers(text: str, plain: str, config: dict) -> set:
+    """The (start, end) of the number of each count phrase of the block: a fact, never an identifier, and no list goes on from it."""
+    spans = set()
+    for kind_config in config["identifier_kinds"].values():
+        for match in re.finditer(kind_config["pattern"], text):
+            plural = _PLURAL_LABEL.match(text, match.start())
+            if plural is None or not _COUNT_BEFORE.search(text[: match.start()]):
+                continue
+            copula = _COPULA.search(text, plural.end())
+            number = _NUMBER.search(plain, copula.end()) if copula else None
+            spans.add(number.span(1) if number else match.span(1))
+    return spans
+
+
+def _lead_in_kind(text: str, config: dict) -> str | None:
+    """The kind a lead-in names without a value, when it names exactly one and is no count phrase; None otherwise."""
+    if not text.rstrip().endswith(":"):
+        return None
+    last = _SENTENCE_END.split(text.strip())[-1]
+    named = []
     for kind, kind_config in config["identifier_kinds"].items():
-        for match in re.finditer(kind_config["pattern"], view):
-            if _PLURAL_LABEL.match(view, match.start()) and _COUNT_BEFORE.search(view[: match.start()]):
+        word = re.search(rf"(?i)\b{re.escape(kind)}s?\b", last)
+        if word is not None and not _captures(kind_config["pattern"], last):
+            named.append((kind, word))
+    if len(named) != 1:
+        return None
+    kind, word = named[0]
+    return None if _COUNT_BEFORE.search(last[: word.start()]) else kind
+
+
+def _read_block(block: _Block, config: dict, label: str | None):
+    """(identifiers, numbers) of one block; `label` is the kind of the lead-in whose list holds this item, if any."""
+    text, kinds = block.text, config["identifier_kinds"]
+    plain = _plain(text)
+    counts = _count_numbers(text, plain, config)
+    found, values = [], []
+
+    def follow(kind, end):
+        while (item := _JOINED_NEXT.match(text, end)) is not None:
+            if item.span("value") in counts or _TRAILING_COUNT.match(text, item.end()):
+                return
+            found.append((kind, normalised(kinds[kind], item.group("value"))))
+            values.append(item.span("value"))
+            end = item.end()
+
+    if label is not None and (leading := _LEADING_ITEM.match(text)) is not None:
+        found.append((label, normalised(kinds[label], leading.group("value"))))
+        values.append(leading.span("value"))
+        follow(label, leading.end())
+    for kind, kind_config in kinds.items():
+        for match in _captures(kind_config["pattern"], text):
+            if match.span(1) in counts:
                 continue
-            by_line = "\n" in view[match.start() : match.start(1)]
-            if by_line and view[: match.start(1)].rsplit("\n", 1)[1].strip() == "":
-                line_start = text.rfind("\n", 0, match.start(1)) + 1
-                if not _MARKER.match(text, line_start):
-                    continue
-            found.append((kind, normalised(kind_config, match.group(1)), match.span()))
-            end = match.end()
-            if by_line:
-                while (item := _LINE_NEXT.match(text, end)) is not None:
-                    found.append((kind, normalised(kind_config, item.group("value")), item.span()))
-                    end = item.end()
-                continue
-            while (item := _JOINED_NEXT.match(text, end)) is not None:
-                found.append((kind, normalised(kind_config, item.group("value")), item.span()))
-                end = item.end()
-                if item.group("and_after_comma") or item.group("amp") or item.group("word"):
-                    break
-    return found
+            found.append((kind, normalised(kind_config, match.group(1))))
+            values.append(match.span(1))
+            follow(kind, match.end())
+    chars = list(plain)
+    for start, end in values:
+        chars[start:end] = " " * (end - start)
+    numbers = [float(number.replace(",", "")) for number in _NUMBER.findall("".join(chars))]
+    return found, numbers
+
+
+def _reading(text: str, config: dict):
+    """(identifiers, numbers) of the whole text, read block by block: no reading crosses a block boundary."""
+    blocks = _blocks(text)
+    labels = {}
+    for index, block in enumerate(blocks[:-1]):
+        kind = _lead_in_kind(block.text, config)
+        following = blocks[index + 1]
+        if kind is None or not following.item or (block.item and following.parent is not block):
+            continue
+        labels.update({id(b): kind for b in blocks if b.item and b.list_id == following.list_id})
+    identifiers, numbers = [], []
+    for block in blocks:
+        found, read = _read_block(block, config, labels.get(id(block)))
+        identifiers += found
+        numbers += read
+    return identifiers, numbers
 
 
 def identifiers_in(text: str, config: dict) -> set:
-    """Every (kind, normalised value) found in the text (`identifier_spans`)."""
-    return {(kind, value) for kind, value, _ in identifier_spans(text, config)}
-
-
-def numbers_in(text: str) -> list:
-    """The numbers of the text, read without its currency signs and `,` thousands separators; a number before `%` is not one."""
-    for sign in CURRENCY_SIGNS:
-        text = text.replace(sign, " ")
-    return [float(match.replace(",", "")) for match in _NUMBER.findall(text)]
-
-
-def without_identifiers_and_dates(text: str, config: dict) -> str:
-    """The text with every identifier match, of any configured kind, and every ISO date blanked to spaces, so their numbers are not read as numbers."""
-    spans = [span for _, _, span in identifier_spans(text, config)]
-    spans += [match.span() for match in _ISO_DATE.finditer(text)]
-    chars = list(text)
-    for start, end in spans:
-        chars[start:end] = " " * (end - start)
-    return "".join(chars)
+    """Every (kind, normalised value) the text names: a pattern's capture and the list after it, and the items of a labelled list."""
+    return set(_reading(text, config)[0])
 
 
 def fact_numbers(text: str, config: dict) -> list:
-    """The numbers of the text that `facts_present` reads: every number outside an identifier match and an ISO date."""
-    return numbers_in(without_identifiers_and_dates(text, config))
+    """The numbers of the text that `facts_present` reads: every number outside fenced code, list markers, identifier values and ISO dates."""
+    return _reading(text, config)[1]
 
 
 def fact_found(fact: Fact, text: str, numbers: list) -> bool:
@@ -320,8 +497,8 @@ def score_text(raw_answer: str, reference_record, config: dict, declared_outcome
         return {"criteria": _all("unscored", REFERENCE_INVALID)}
     expected = {(kind, normalised(kinds[kind], value)) for kind, value in reference.identifiers}
     allowed = {(kind, normalised(kinds[kind], value)) for kind, value in reference.allowed}
-    found = identifiers_in(raw_answer, config)
-    numbers = fact_numbers(raw_answer, config)
+    identifiers, numbers = _reading(raw_answer, config)
+    found = set(identifiers)
     outcome = declared_outcome if declared_outcome is not None else recognised_outcome(raw_answer, config)
     if outcome is None:
         outcome_matches = _criterion("outcome_matches", "unscored", None, OUTCOME_NOT_DECLARED)
