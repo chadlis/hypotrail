@@ -14,7 +14,7 @@ from hypotrail.core.attempts import SCENARIO_MODE
 from hypotrail.core import scorers
 from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.report import gather_agent
-from hypotrail.report.markup import UNKNOWN, Links, Safe, esc, join, json_text, number, paragraph, rescoring_note, scoped, sub, table, tag
+from hypotrail.report.markup import UNKNOWN, Links, Safe, esc, interval, join, json_text, number, paragraph, rescoring_note, scoped, sub, table, tag
 
 LIVE_MODE = "llm_live"
 COUNT_KEYS = ("expected", "attempted", "produced", "scored", "correct", "incorrect", "unscored", "errored")
@@ -205,6 +205,7 @@ def _comparison(index: int, record: dict, paired) -> Safe:
         ["Coverage rates", join(["Control ", number(coverage.get("control_rate")), ", Candidate ", number(coverage.get("candidate_rate"))])],
         ["Primary Criterion", record.get("primary_criterion", UNKNOWN)],
         ["Delta", shown(delta)],
+        ["Interval", interval(record)],
         ["Delta definition", delta["definition"]],
         ["Declared factor", _text(record.get("declared_factor"))],
     ]

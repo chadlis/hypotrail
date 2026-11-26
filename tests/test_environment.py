@@ -78,12 +78,12 @@ def _locked_versions():
     return {p["name"]: p["version"] for p in lock["package"]}
 
 
-def test_the_core_depends_on_one_schema_validator_and_inspect_scikit_learn_numpy_are_extras():
+def test_the_core_depends_on_one_schema_validator_and_inspect_scikit_learn_numpy_scipy_are_extras():
     project = _pyproject()["project"]
     assert project["dependencies"] == ["jsonschema==4.26.0"]
     extras = project["optional-dependencies"]
     assert any(d.startswith("inspect-ai") for d in extras["agent"])
-    assert {d.split("==")[0] for d in extras["ml"]} == {"numpy", "scikit-learn"}
+    assert {d.split("==")[0] for d in extras["ml"]} == {"numpy", "scikit-learn", "scipy"}
 
 
 def test_every_dependency_is_pinned_exactly_and_matches_the_committed_lock():

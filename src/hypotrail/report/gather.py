@@ -2,6 +2,7 @@
 
 Every ArtifactRef the page shows is read with `artifacts.read_verified` (a changed byte is `ARTIFACT_INTEGRITY`, exit 3).
 The Workload is never read here: the page is made from the Study alone.
+2026-11-26: the page also shows the data profile the command hands it, which the Track reads from the Workload (`hypotrail.ml.profile`).
 """
 
 import csv

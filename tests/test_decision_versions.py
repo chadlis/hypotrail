@@ -8,7 +8,7 @@ import json
 import shutil
 from pathlib import Path
 
-from _study_helpers import init_study, run_json
+from _study_helpers import before_resampling_examples, init_study, run_json
 from test_write_sequence import seq
 
 KEPT = Path(__file__).resolve().parent / "fixtures" / "decision_1"
@@ -17,7 +17,8 @@ RECORD = json.loads(KEPT_FILE.read_text(encoding="utf-8"))
 
 
 def holding_both(tmp_path) -> Path:
-    study, _ = init_study(tmp_path)
+    """A Bike Study whose StudySpec is the one the kept `decision/1` record names: made on the Workload of before `resampling`."""
+    study, _ = init_study(tmp_path, examples=before_resampling_examples(tmp_path))
     (study / "decisions").mkdir()
     shutil.copyfile(KEPT_FILE, study / "decisions" / KEPT_FILE.name)
     return study

@@ -319,6 +319,7 @@ LEAF_COMMANDS = {
     "compare": WRITER,
     "status": NON_WRITER,
     "figures": NON_WRITER,
+    "profile": NON_WRITER,
     "decide": WRITER,
     "deviation": WRITER,
     "recover": WRITER,

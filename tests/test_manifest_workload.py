@@ -19,8 +19,9 @@ from hypotrail.core import data as core_data
 
 PROSE = EXAMPLES / "chinook_prose"
 MANIFEST = PROSE / "data-manifest.json"
-# The Protocol digest of `init --workload chinook` on the Chinook Workload as it is at 9d443aa, computed before #264 changed `init`.
-CHINOOK_PROTOCOL_AT_9D443AA = "d6d1d70b197dc8720797f60a664dd5499c78358ad41d65631658cad5d94a7778"
+# The Protocol digest of `init --workload chinook` on the Chinook Workload as it is on main at 64b77d4, computed on that commit,
+# without #264's change to `init`. (At 9d443aa, before main's Chinook Workload declared its resampling, it was d6d1d70b….)
+CHINOOK_PROTOCOL_AT_MAIN = "eca303c62ef111f0e516278e53733ffb39fa973e503050b3654b3938e26a66c3"
 
 
 def init_prose(tmp_path, *more, name="prose"):
@@ -80,10 +81,10 @@ def write_sequence(study) -> int:
 # --- criterion 1: the Chinook and Bike digests -------------------------------------------------------------------------------
 
 
-def test_init_of_the_chinook_workload_keeps_the_protocol_digest_it_had_at_9d443aa(tmp_path):
+def test_init_of_the_chinook_workload_keeps_the_protocol_digest_it_has_on_main(tmp_path):
     code, payload, err = run_json("init", "--workload", "chinook", "--study", tmp_path / "chinook")
     assert code == 0, (payload, err)
-    assert payload["study"]["protocol_digest"] == CHINOOK_PROTOCOL_AT_9D443AA
+    assert payload["study"]["protocol_digest"] == CHINOOK_PROTOCOL_AT_MAIN
 
 
 # --- criterion 2: `init` of a manifest Workload --------------------------------------------------------------------------------

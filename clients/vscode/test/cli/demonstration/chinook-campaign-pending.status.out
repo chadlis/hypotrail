@@ -391,7 +391,7 @@
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
           },
           "python": "PYTHON"
         },
@@ -403,7 +403,7 @@
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
           },
           "python": "PYTHON"
         },
@@ -518,21 +518,21 @@
         "media_type": "application/json",
         "path": "comparisons/00000000-0000-4000-8000-000000000016/matrix.json",
         "role": "comparison_matrix",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000033",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
         "size_bytes": 0
       },
       "paired_deltas_ref": {
         "media_type": "text/csv",
         "path": "comparisons/00000000-0000-4000-8000-000000000016/paired_deltas.csv",
         "role": "paired_deltas",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
         "size_bytes": 0
       },
       "population_ref": {
         "media_type": "application/json",
         "path": "comparisons/00000000-0000-4000-8000-000000000016/population.json",
         "role": "comparison_population",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000036",
         "size_bytes": 0
       },
       "primary_criterion": "contract_success",
@@ -652,7 +652,7 @@
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
           },
           "python": "PYTHON"
         },
@@ -664,7 +664,7 @@
           },
           "dependency_lock": {
             "path": "uv.lock",
-            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
           },
           "python": "PYTHON"
         },
@@ -766,6 +766,19 @@
           "tool_calls": 205
         }
       },
+      "interval": {
+        "block_length": null,
+        "level": 0.95,
+        "lower": null,
+        "method": "percentile_bootstrap",
+        "reason": "resampling_not_declared",
+        "resamples": 2000,
+        "seed": null,
+        "unit": null,
+        "units": null,
+        "upper": null,
+        "variant": null
+      },
       "kind": "comparison",
       "left_assessment_id": "00000000-0000-4000-8000-000000000018",
       "limitations": [
@@ -779,21 +792,21 @@
         "media_type": "application/json",
         "path": "comparisons/00000000-0000-4000-8000-00000000001c/matrix.json",
         "role": "comparison_matrix",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000033",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
         "size_bytes": 0
       },
       "paired_deltas_ref": {
         "media_type": "text/csv",
         "path": "comparisons/00000000-0000-4000-8000-00000000001c/paired_deltas.csv",
         "role": "paired_deltas",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
         "size_bytes": 0
       },
       "population_ref": {
         "media_type": "application/json",
         "path": "comparisons/00000000-0000-4000-8000-00000000001c/population.json",
         "role": "comparison_population",
-        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000036",
         "size_bytes": 0
       },
       "primary_criterion": "contract_success",

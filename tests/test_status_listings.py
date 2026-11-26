@@ -165,3 +165,37 @@ def test_on_public_check_the_listings_hold_only_what_the_records_hold_and_readin
     assert {entry["assessment_id"] for entry in listing["assessments"]} == set(assessment_ids)
     assert [entry["comparison_id"] for entry in listing["comparisons"]] == [comparison["comparison_id"]]
     assert exposure_count(study) == count
+
+
+# --- the interval of each Comparison, as stored -------------------------------------------------------------------------------
+
+KEPT_STUDY = Path(__file__).resolve().parent.parent / "docs" / "handbook" / "traces" / "campaign-public-check" / "study"
+
+
+def test_status_lists_each_comparison_with_its_stored_interval_and_keeps_its_top_level_keys(tmp_path):
+    from _agent_compare_helpers import answer_lines, imported
+    from _chinook_helpers import init_chinook
+    from _review_helpers import compare
+    from test_status_since import STATUS_KEYS
+
+    study = init_chinook(tmp_path)[0]
+    _, control = imported(tmp_path, study, "plain", answer_lines(wrong={("D01", 0), ("D03", 1)}))
+    _, candidate = imported(tmp_path, study, "verify", answer_lines())
+    first = compare(study, control["assessment_id"], candidate["assessment_id"])
+    _, withheld = imported(tmp_path, study, "failed", answer_lines(failed={("D07", 2)}))
+    second = compare(study, withheld["assessment_id"], candidate["assessment_id"])
+    payload = status(study)
+    assert set(payload) == STATUS_KEYS
+    listed = {entry["comparison_id"]: entry.get("interval") for entry in payload["comparisons"]}
+    stored = {comparison_id: record["interval"] for comparison_id, record in comparison_files(study).items()}
+    assert listed == stored and set(listed) == {first["comparison_id"], second["comparison_id"]}
+    assert listed[first["comparison_id"]]["lower"] is not None and listed[second["comparison_id"]]["reason"] == "delta_withheld"
+
+
+def test_a_comparison_written_before_the_interval_still_validates_and_is_listed_as_stored_with_no_interval_key(tmp_path):
+    study = copy_of(KEPT_STUDY, tmp_path / "kept")
+    [kept] = comparison_files(study).values()
+    contracts.validate(kept)
+    assert "interval" not in kept
+    [listed] = status(study)["comparisons"]
+    assert listed == kept and "interval" not in listed

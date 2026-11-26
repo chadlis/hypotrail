@@ -268,6 +268,7 @@ class Declaration:
     forbidden_features: Optional[tuple] = None
     allowed_target_features: Optional[tuple] = None
     configurations: Optional[Mapping] = None
+    resampling: Optional[Mapping] = None
 
 
 def plain(value):
@@ -338,6 +339,8 @@ def _declaration(raw: dict) -> Declaration:
         optional["forbidden_features"] = tuple(raw["forbidden_features"])
     if "allowed_target_features" in raw:
         optional["allowed_target_features"] = _features(raw["allowed_target_features"], "allowed_target_features")
+    if "resampling" in raw:  # a read-only copy of what the schema accepted: unit, block and seed
+        optional["resampling"] = MappingProxyType({**raw["resampling"], "block": MappingProxyType(dict(raw["resampling"]["block"]))})
     if "configurations" in raw:
         optional["configurations"] = MappingProxyType(
             {config_id: _configuration(config_id, config) for config_id, config in raw["configurations"].items()}

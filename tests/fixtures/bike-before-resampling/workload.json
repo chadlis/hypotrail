@@ -1,0 +1,64 @@
+{
+  "schema_version": "workload/1",
+  "track": "temporal_regression",
+  "data_file": "data/day.csv",
+  "licence_notice": "licenses/Bike-Sharing-attribution.md",
+  "question": "At the start of day t, estimate the total number of rentals cnt[t] of that day, assuming that cnt[t-1] is already available.",
+  "objective": "Compare ridge_v1 with the seasonal_7 baseline by MAE, in rentals per day, one day ahead on the dev Partition.",
+  "limitations": [
+    "The simulation is sequential at a one-day horizon; it is not a forecast of a whole semester made at a single date.",
+    "The dataset does not establish the real publication delay of the daily counts.",
+    "The public_check Partition names a role in the protocol, not a guarantee of novelty or secrecy: the file is public and known.",
+    "Daily observations are dependent: no iid interval is computed and no statistical significance is claimed."
+  ],
+  "id_prefix": "bike-day",
+  "date_column": "dteday",
+  "target_column": "cnt",
+  "target_unit": "rentals per day",
+  "period_k": 7,
+  "forbidden_features": ["casual", "registered", "cnt", "temp", "atemp", "hum", "windspeed", "weathersit"],
+  "allowed_target_features": [
+    {"name": "lag_1", "kind": "lag", "period": 1},
+    {"name": "lag_7", "kind": "lag", "period": 7},
+    {"name": "mean_previous_7", "kind": "mean_previous", "period": 7}
+  ],
+  "partitions": {
+    "train": ["2011-01-08", "2011-12-31"],
+    "dev": ["2012-01-01", "2012-06-30"],
+    "public_check": ["2012-07-01", "2012-12-31"]
+  },
+  "configurations": {
+    "seasonal_7": {
+      "kind": "seasonal_baseline",
+      "period_k": 7,
+      "post_processing": {
+        "clip_min": 0
+      }
+    },
+    "ridge_v1": {
+      "kind": "ridge_pipeline",
+      "lag_features": [
+        {"name": "lag_1", "kind": "lag", "period": 1},
+        {"name": "lag_7", "kind": "lag", "period": 7},
+        {"name": "mean_previous_7", "kind": "mean_previous", "period": 7}
+      ],
+      "calendar_columns": ["mnth", "weekday", "holiday", "workingday"],
+      "encoder": {
+        "columns": ["mnth", "weekday", "holiday", "workingday"],
+        "handle_unknown": "ignore",
+        "sparse_output": false
+      },
+      "scaler": {
+        "columns": ["lag_1", "lag_7", "mean_previous_7"]
+      },
+      "ridge": {
+        "alpha": 1.0,
+        "fit_intercept": true,
+        "solver": "svd"
+      },
+      "post_processing": {
+        "clip_min": 0
+      }
+    }
+  }
+}

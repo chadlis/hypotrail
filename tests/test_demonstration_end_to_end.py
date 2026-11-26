@@ -12,8 +12,11 @@ import csv
 import json
 import shlex
 import shutil
+import subprocess
 from itertools import zip_longest
 from pathlib import Path
+
+import pytest
 
 from _demonstration_helpers import CAMPAIGN_FOLDER, ROOT, journal_entries, processes, tracked_examples, value_at
 
@@ -23,11 +26,13 @@ F3_DELTA = 173.93948298447322
 # After edit 6.2, the MAE of each side.
 F3_MAE_62 = {"seasonal_7": 1091.3406593406594, "ridge_v1": 1265.2801423251326}
 
-# The ten sections of a report page, in order, from chadlis/hypotrail#218, "Facts checked at `7b8e550`".
+# The ten sections of a report page, in order, from chadlis/hypotrail#218, "Facts checked at `7b8e550`"; a Bike page holds "Data profile"
+# after "Protocol and Partitions" (chadlis/hypotrail#261), a Chinook page keeps the ten.
 F4_SECTIONS = [
     "Question and Mode", "Data and licences", "Protocol and Partitions", "Configurations compared", "Coverage and statuses",
     "Metrics and differences", "Individual errors", "Limits", "Origin of the artifacts", "Exposure",
 ]
+F4_BIKE_SECTIONS = [*F4_SECTIONS[:3], "Data profile", *F4_SECTIONS[3:]]
 
 # The Write sequence of the Study each process names, after it: a command that writes moves it by two (its `begin` and `end` entries),
 # a read, a refusal, a request sent again and a report that records no Exposure by none. Chinook's is the one the ticket gate measured
@@ -36,6 +41,7 @@ F4_SECTIONS = [
 WRITE_SEQUENCES = {
     "L1.1": [None],
     "L1.2": [2, 2, 2],
+    "PROFILE": [2],
     "L1.3": [4, 6, 6, 6],
     "L1.4": [8, 10],
     "L1.5": [12, 12],
@@ -61,6 +67,8 @@ WRITE_SEQUENCES = {
     "L1.8": [2, 4, 6, 8, 8],
     # the copy of the kept Campaign's Study, at 14 when copied: its compare and its decide each move it by two
     "CAMPAIGN": [14, 16, 16, 16, 16, 18, 18, 18, 18, 18],
+    # the same copy: its new revision, its two Assessments and its compare each move it by two
+    "INTERVAL": [20, 22, 24, 26],
 }
 
 # Where each kind of record a journal entry lists under `written` lies in the Study, and the key that holds its id.
@@ -159,11 +167,12 @@ def assert_the_step(run, step_id) -> list:
             if record["kind"] in LISTED:
                 key, id_key = LISTED[record["kind"]]
                 assert record["id"] in [each[id_key] for each in status[key]], (step_id, record)
-        # a report page lies outside the Study and holds the ten sections, in order
+        # a report page lies outside the Study and holds its sections, in order: a Bike page the eleven, a Chinook page the ten
         if call["args"][0] == "report":
             page = Path(call["args"][call["args"].index("--out") + 1])
             assert study.resolve() not in page.resolve().parents, page
-            for at, (found, heading) in enumerate(zip_longest(call["headings"], F4_SECTIONS)):
+            bike = status["study"]["workload"] == "bike_day"
+            for at, (found, heading) in enumerate(zip_longest(call["headings"], F4_BIKE_SECTIONS if bike else F4_SECTIONS)):
                 assert found == heading, (step_id, at)
     assert len(pairs) == len(sequences), (step_id, [call["args"] for _, call in pairs])
     return pairs
@@ -626,3 +635,33 @@ def test_campaign_every_file_of_the_kept_campaign_folder_keeps_its_bytes_and_the
         assert before.get(path) == after.get(path), path
     copy = Path(run.module.resolved(run.module.CAMPAIGN, run.module.folders_of(run.work)))
     assert (copy / "study.json").is_file() and ROOT.resolve() not in copy.resolve().parents
+
+
+# --- the intervals the transcript shows: Bike's over days in blocks, Chinook's over Cases after a new revision ----------------------
+
+
+def printed_values(run, step_id) -> dict:
+    """{key path: the text printed after it} of the step's commands, as its transcript block prints them."""
+    return dict(line[2:].split(" = ", 1) for line in transcript_block(run, step_id) if line.startswith("  ") and " = " in line)
+
+
+def stored_comparison(study, comparison_id) -> dict:
+    return json.loads((Path(study) / "comparisons" / comparison_id / "comparison.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(("step_id", "unit", "units"), [("L1.5", "item", 182), ("INTERVAL", "case", 100)])
+def test_the_transcript_prints_the_bounds_of_the_compare_of_each_track_equal_to_the_interval_of_the_comparison_the_step_wrote(demonstration_recording, step_id, unit, units):
+    run = demonstration_recording
+    [(_, compare)] = [(action, call) for action, call in assert_the_step(run, step_id) if call["args"][0] == "compare"]
+    made = compare["payload"]["comparison"]
+    interval = stored_comparison(compare["study"], made["comparison_id"])["interval"]
+    assert (interval["unit"], interval["units"], interval["reason"]) == (unit, units, None)
+    printed = printed_values(run, step_id)
+    for key in ("lower", "upper", "level", "units"):
+        assert run.module.same(json.loads(printed[f"comparison.interval.{key}"]), interval[key]), key
+
+
+def test_the_kept_campaign_study_is_byte_identical_to_the_commit_after_the_script(demonstration_recording):
+    folder = CAMPAIGN_FOLDER / "study"
+    changed = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all", "--", str(folder)], capture_output=True, text=True, cwd=ROOT, check=True)
+    assert demonstration_recording.outcome.code == 0 and changed.stdout == ""

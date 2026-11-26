@@ -19,6 +19,25 @@
     "target_column": {"$ref": "#/$defs/name"},
     "target_unit": {"$ref": "#/$defs/name"},
     "period_k": {"type": "integer", "minimum": 1},
+    "resampling": {
+      "description": "The resampling of the paired interval on the delta of a Comparison: the Items in date order, by circular blocks of `length` consecutive days, with a seed; the level and the count of resamples are the core's (hypotrail.core.intervals). Optional: a Workload without it gets no interval.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "block", "seed"],
+      "properties": {
+        "unit": {"type": "string", "enum": ["item"]},
+        "block": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["variant", "length"],
+          "properties": {
+            "variant": {"type": "string", "enum": ["circular"]},
+            "length": {"type": "integer", "minimum": 2}
+          }
+        },
+        "seed": {"type": "integer", "minimum": 0}
+      }
+    },
     "forbidden_features": {"$ref": "#/$defs/names"},
     "allowed_target_features": {"type": "array", "items": {"$ref": "#/$defs/target_feature"}},
     "partitions": {

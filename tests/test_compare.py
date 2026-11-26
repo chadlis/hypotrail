@@ -1,11 +1,14 @@
 """Ticket #71: `compare` writes a Comparison of two Assessments as Control and Candidate."""
 
+import json
 from pathlib import Path
 
 import pytest
 from _assess_helpers import rows_of
 from _compare_helpers import assessed, compare, comparisons
+from _study_helpers import run_cli
 
+from hypotrail.core import artifacts, comparison, intervals
 from hypotrail.ml.comparison import compare as library_compare
 
 BIKE = Path(__file__).resolve().parent.parent / "examples" / "bike_day"
@@ -261,3 +264,90 @@ def test_without_json_the_status_line_of_compare_names_the_declared_deviation_co
     assert line.startswith(f"Comparison {record['comparison_id']} ({record['comparability']['status']}") and CODE in line.split("):")[0], line
     (warning,) = [w for w in record["warnings"] if w["code"] == CODE]
     assert f"{CODE}: {warning['message']}" in err.splitlines()
+
+
+# --- the interval over days, by circular blocks ---------------------------------------------------------------------------------
+
+
+def stored(study, record) -> dict:
+    return json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
+
+
+def deltas_in_date_order(study, record) -> list:
+    """The `delta_abs_error` column of the record's paired deltas, ordered by the dates of the Study's memberships."""
+    dates = {row["row_id"]: row["date"] for row in rows_of(Path(study) / "artifacts" / "memberships.csv")}
+    rows = rows_of(Path(study) / record["paired_deltas_ref"]["path"])
+    return [float(row["delta_abs_error"]) for row in sorted(rows, key=lambda row: dates[row["row_id"]])]
+
+
+def test_a_dev_comparison_holds_an_interval_over_its_182_days_by_circular_blocks_of_7_from_its_paired_deltas_in_date_order(dev):
+    study, _, a = dev
+    record = stored(study, compare(study, a["seasonal_7"]["assessment_id"], a["ridge_v1"]["assessment_id"])[1]["comparison"])
+    declared = json.loads((Path(study) / "study.json").read_text())["resampling"]
+    bounds = intervals.circular_block_interval(deltas_in_date_order(study, record), length=7, seed=declared["seed"])
+    assert record["interval"] == {
+        "unit": "item",
+        "units": 182,
+        "method": "percentile_bootstrap",
+        "variant": "circular",
+        "block_length": 7,
+        "seed": declared["seed"],
+        "level": 0.95,
+        "resamples": 2000,
+        "reason": None,
+        "lower": bounds["lower"],
+        "upper": bounds["upper"],
+    }
+    assert record["limitations"][0] == comparison.LIMITATION_BLOCKS.format(length=7)
+
+
+def test_the_compare_line_gives_the_bounds_the_level_and_the_items_in_blocks_of_7_days(dev):
+    study, _, a = dev
+    code, out, _ = run_cli("compare", "--study", study, "--control", a["seasonal_7"]["assessment_id"], "--candidate", a["ridge_v1"]["assessment_id"])
+    assert code == 0 and "0.95 interval [" in out and "over 182 Items in blocks of 7 days" in out
+    assert "significan" not in out.lower() and "p-value" not in out.lower()
+
+
+def test_the_days_are_ordered_by_the_dates_of_the_memberships_not_by_the_spelling_of_their_ids(tmp_path):
+    ids = {"day:c": "2012-01-01", "day:a": "2012-01-02", "day:b": "2012-01-03", "day:z": "2011-12-31"}
+    lines = ["row_id,date,partition,exclusion_reason", *(f"{row_id},{date},dev," for row_id, date in ids.items()), "day:w,2011-01-01,,insufficient_history"]
+    ref = artifacts.publish_bytes(tmp_path, "artifacts/memberships.csv", ("\n".join(lines) + "\n").encode(), media_type="text/csv", role="memberships")
+    spec = {"artifacts": [{"artifact_id": "memberships", "ref": ref}]}
+    assert comparison.date_order(tmp_path, spec, "dev", sorted(ids)) == ["day:z", "day:c", "day:a", "day:b"]
+    assert comparison.date_order(tmp_path, spec, "dev", ["day:a", "day:b", "day:c"]) is None  # a day of the Partition is missing
+
+
+def test_a_comparison_of_imports_whose_population_lists_fewer_days_than_the_partition_holds_no_bounds_series_not_contiguous(tmp_path):
+    from _assess_helpers import assess, init_study, observation_set_id, references_id
+    from _import_helpers import FIELDS, export, import_ml, mapping_of, write_json, write_rows
+    from _import_helpers import rows_of as import_rows
+
+    study, _ = init_study(tmp_path)
+    source, digest = export(tmp_path)
+    rows = import_rows(source)
+    kept = rows[:50] + rows[51:]  # one day of the Partition left out
+    subset = write_rows(tmp_path / "gap.csv", kept, FIELDS)
+    population = write_json(tmp_path / "gap.json", {"item_ids": [row["day_key"] for row in kept]})
+    sides = []
+    for name in ("first", "second"):
+        code, payload, err = import_ml(study, subset, mapping_of(tmp_path, digest, name=f"{name}-mapping.json"), population, name)
+        assert code == 0, (payload, err)
+        code, payload, err = assess(study, observation_set_id(study, payload["attempt"]), "regression_mae_v1", references_id(study))
+        assert code == 0, (payload, err)
+        sides.append(payload["assessment"])
+    record = stored(study, compare(study, sides[0]["assessment_id"], sides[1]["assessment_id"])[1]["comparison"])
+    interval = record["interval"]
+    assert (interval["lower"], interval["upper"], interval["units"], interval["reason"]) == (None, None, None, "series_not_contiguous")
+    assert (record["delta"]["value"], record["comparability"]["status"], record["coverage"]["paired"]) == (0.0, "descriptive_only", 181)
+    assert record["limitations"][0] == comparison.LIMITATION_DEPENDENCE
+
+
+def test_a_bike_comparison_whose_delta_is_withheld_holds_an_interval_with_no_bounds_and_reason_delta_withheld(tmp_path):
+    from _client_helpers import bike_withheld_study
+
+    study = bike_withheld_study(tmp_path)
+    [path] = (Path(study) / "comparisons").glob("*/comparison.json")
+    record = json.loads(path.read_text())
+    assert record["delta"]["value"] is None
+    assert (record["interval"]["lower"], record["interval"]["upper"], record["interval"]["reason"]) == (None, None, "delta_withheld")
+    assert record["limitations"][0] == comparison.LIMITATION_DEPENDENCE

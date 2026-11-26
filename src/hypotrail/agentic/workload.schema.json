@@ -44,6 +44,16 @@
       "$ref": "#/$defs/name"
     },
     "scenarios": {"$ref": "#/$defs/name"},
+    "resampling": {
+      "description": "The resampling unit and seed of the paired interval on the delta of a Comparison; the level and the count of resamples are the core's (hypotrail.core.intervals). Optional: a Workload without it gets no interval.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "seed"],
+      "properties": {
+        "unit": {"enum": ["case"]},
+        "seed": {"type": "integer", "minimum": 0}
+      }
+    },
     "configurations": {
       "type": "object",
       "minProperties": 1,
