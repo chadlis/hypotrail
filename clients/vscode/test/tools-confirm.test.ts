@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -212,4 +212,44 @@ test("a given Study whose study.json is removed between prepareInvocation and in
   assert.equal(calls.length, 0);
   assert.match(text, /Nothing was started\./);
   assert.ok(text.includes(JSON.stringify([studies[1]])), text);
+});
+
+// The confirmation texts kept under `test/confirmations/`, with the Study folder written `<study>`: one call without words, whose text
+// is the one the tool gave before it took words, and one with words, ids and a label.
+const CONFIRMATIONS = path.join(__dirname, "..", "..", "test", "confirmations");
+const CONFIRMED_INPUT = {
+  question: "Which Configuration do we keep after this Comparison?",
+  option: "Keep the Candidate",
+  author: "human",
+  cited_ids: CITED,
+  read_sequence: READ_SEQUENCE,
+};
+const WORDS = ['She wrote "keep the candidate".\nThen: it\'s the same choice, Zoë agrees.', "Yes, the candidate."];
+const KEPT_CONFIRMATIONS: [string, Record<string, unknown>][] = [
+  ["without-words", { ...CONFIRMED_INPUT, source: "the owner, in chat" }],
+  ["with-words", { ...CONFIRMED_INPUT, question_id: "keep_after_comparison", option_id: "keep_candidate", words: WORDS, by: "the owner" }],
+];
+
+async function confirmationOf(t: TestContext, input: Record<string, unknown>): Promise<string> {
+  const { studies } = workspace(t, ["bike"]);
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const prepared = (await toolOf(WRITE_TOOL).prepareInvocation!({ input: { ...input, study: studies[0] } }, {})) as { confirmationMessages: { message: string } };
+  assert.equal(calls.length, 0);
+  return prepared.confirmationMessages.message.replaceAll(JSON.stringify(studies[0]), '"<study>"');
+}
+
+for (const [name, input] of KEPT_CONFIRMATIONS) {
+  test(`the confirmation of the call ${name} is its kept text, byte for byte`, async (t) => {
+    assert.equal(await confirmationOf(t, input), fs.readFileSync(path.join(CONFIRMATIONS, `${name}.txt`), "utf8"));
+  });
+}
+
+test("the confirmation of a call with words holds each text as a JSON string on its own line, in order, before the buttons' lines, and says they are relayed and not checked", async (t) => {
+  const lines = (await confirmationOf(t, KEPT_CONFIRMATIONS[1][1])).split("\n");
+  const at = WORDS.map((text) => lines.indexOf(JSON.stringify(text)));
+  assert.ok(at.every((index) => index > 0) && at[0] < at[1], lines.join("\n"));
+  assert.ok(at[1] < lines.findIndex((line) => line.startsWith("Continue:")), lines.join("\n"));
+  const sentence = lines.find((line) => line.includes("relayed by Copilot"));
+  assert.ok(sentence !== undefined && sentence.includes("not checked against the chat"), lines.join("\n"));
+  assert.equal(/verified|confirmed|authenticated/i.test(lines.join("\n")), false, lines.join("\n"));
 });

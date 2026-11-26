@@ -5210,8 +5210,8 @@ def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
 
 
-# The options of `decide` that the bridge does not pass yet: "Until it lands, the bridge's argument list is today's" (chadlis/hypotrail#244).
-NOT_PASSED_BY_THE_BRIDGE = {"--question-id", "--option-id", "--words-file", "--words", "--channel", "--by"}
+# The option of `decide` that the bridge does not pass: it holds no file write, so it cannot make a file for it, and passes the texts with `--words`.
+NOT_PASSED_BY_THE_BRIDGE = {"--words-file"}
 
 
 def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_options_the_parser_defines_both_ways(page):
@@ -5229,7 +5229,10 @@ def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_opti
     options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help") and flag not in NOT_PASSED_BY_THE_BRIDGE}
     assert {row["data-option"] for row in rows} == set(options)
     assert {row["data-option"] for row in rows if row["data-passed"] == "always"} == {flag for flag, required in options.items() if required} | {"--json"}
-    assert client_items(page, "client-write") == {"write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"]}
+    assert client_items(page, "client-write") == {
+        "write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"],
+        "words-limit-characters": str(contract["words_limit_characters"]),
+    }
     assert [row["data-value"] for row in client_rows(page, "client-missing")] == contract["client_refusal_fields"]
 
 
@@ -5582,7 +5585,7 @@ def test_the_copilot_tools_table_of_chapter_18_equals_the_manifest_both_ways(pag
     tools = {(row["data-tool"], row["data-reference"], row["data-activation"]) for row in rows if "data-reference" in row}
     inputs = {(row["data-tool"], row["data-input"], row["data-required"]) for row in rows if "data-input" in row}
     expected_tools, expected_inputs = copilot_rows_of_the_manifest()
-    assert len(expected_tools) == 2 and len(expected_inputs) == 8
+    assert len(expected_tools) == 2 and len(expected_inputs) == 12
     assert sorted(tools - expected_tools) == [] and sorted(expected_tools - tools) == []
     assert sorted(inputs - expected_inputs) == [] and sorted(expected_inputs - inputs) == []
     assert len(rows) == len(tools) + len(inputs)
@@ -5652,24 +5655,29 @@ def test_the_prose_of_the_template_section_restates_no_row_of_its_table(page):
     assert found == []
 
 
-# The four requirements of the hook's rule, each with the strings that name it in the hook's rule, then in the template. A name is
+# The five requirements of the hook's rule, each with the strings that name it in the hook's rule, then in the template. A name is
 # looked for in its code marks, so that the English words "decide", "proxy" and "source" do not count; `--author proxy` is part of a
 # longer code span of the rule, and is looked for bare.
-FOUR_REQUIREMENTS = [
+FIVE_REQUIREMENTS = [
     ("read the Study's state at the start of each turn", ("`status --json`",), ("`hypotrail_read_study`",)),
     ("pass the Write sequence read on every write", ("`--read-sequence`", "`write_sequence`"), ("`read_sequence`", "`write_sequence`")),
     ("record a Decision only through decide", ("`decide`",), ("`hypotrail_decide`", "`decide`")),
     ("record an answer chosen by a stated rule as a proxy Decision whose source names the rule", ("--author proxy", "`--source`"), ("`proxy`", "`source`")),
+    (
+        "record the person's own words with the Decision, whole, with the ids of the pending decision's question and option",
+        ("`--words-file`", "`--question-id`", "`--option-id`", "`panel`"),
+        ("`words`", "`question_id`", "`option_id`", "`panel`"),
+    ),
 ]
 
 
-def test_the_hook_rule_and_the_copilot_template_each_name_the_four_requirements(page):
-    """Each of the four requirements is named in the hook's rule and in the template, by the strings that name it in each.
+def test_the_hook_rule_and_the_copilot_template_each_name_the_five_requirements(page):
+    """Each of the five requirements is named in the hook's rule and in the template, by the strings that name it in each.
 
     Stated limit: this checks that each requirement is named, not its wording, so a weak paraphrase in the template can pass.
     """
     rule, template = hook_script_values()["RULE"], instructions_template(page)
-    for requirement, in_rule, in_template in FOUR_REQUIREMENTS:
+    for requirement, in_rule, in_template in FIVE_REQUIREMENTS:
         for string in in_rule:
             assert names(rule, string), (requirement, "the hook's rule", string)
         for string in in_template:

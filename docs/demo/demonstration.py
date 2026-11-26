@@ -66,6 +66,11 @@ COPY = "{work}/demo-examples"
 KEPT = "kept"
 QUESTION = "Which Configuration do we keep after this Comparison?"
 PROXY_SOURCE = "rule: keep the Configuration with the lowest MAE"
+# The person's words of the step WORDS, as a file of the work folder: an apostrophe, an accented name, a narrow no-break space, a
+# double quote and the two French quotation marks around a French phrase, which a shell or a re-encoding damages. The marks are
+# written as escapes, as every file under `tests/` writes them.
+WORDS_TEXT = 'Zo\u00eb\'s call\u202f: keep the Control, she wrote \u00ab on garde le t\u00e9moin \u00bb and "the lag feature can wait".'
+WORDS_BY = "the owner, in chat"
 DEVIATION_TEXT = (
     "The References of revisions 2 and 3 were edited by the demonstration's script, docs/demo/edit_copy.py, in a copy of the "
     "Workload, to show a Decision outdated by its evidence; they correct no error of the data."
@@ -619,7 +624,7 @@ STEPS = [
                         "Pending decisions: 0",
                         "Decisions, oldest first: 1",
                         f'- Decision {{L2_DECISION}}: question "{QUESTION}"; option "Keep the Control"; author human; source none; '
-                        "cited {L2_COMPARISON}; applies true; evidence_change none.",
+                        "channel none; cited {L2_COMPARISON}; applies true; evidence_change none.",
                     ],
                 },
             },
@@ -1040,6 +1045,62 @@ STEPS = [
                 "cli": ["report", "--study", L2_BIKE, "--out", "{work}/bike-report.html", "--json"],
                 "print": ["report.out", "report.sections", "report.exposure.recorded"],
                 "expect": {"exit": 0, "values": {"report.exposure.recorded": False, "report.exposure.journal_entries": 0, "len(report.sections)": 10}},
+            },
+        ],
+    },
+    {
+        "id": "WORDS",
+        "title": "A human Decision with the person's own words, read back",
+        "shows": (
+            "The person's words written to a file of the work folder, as typed; the decide that records them with the ids of the "
+            "pending decision's question and option, one --words-file and --by; then status --json, whose last Decision gives the "
+            "text back whole, its channel chat_relayed, its by and authenticated false."
+        ),
+        "why": (
+            "In accompanied mode the person thinks the choice through in the chat and the agent records it. The words are kept "
+            "whole on the Decision, from a file, since a shell reading them could change a quote or an accent. The channel says "
+            "how they reached the caller, as the caller declares it: nothing checks them against the chat, and the record says so "
+            "with authenticated false."
+        ),
+        "actions": [
+            {
+                "cli": status_l2(),
+                "capture": {"L2_READ_BEFORE_WORDS": "write_sequence"},
+                "expect": {"exit": 0, "values": {"write_sequence": 34}},
+            },
+            {"write": "{work}/words.txt", "text": WORDS_TEXT},
+            {
+                "cli": [
+                    "decide", "--study", L2_BIKE, "--question", QUESTION, "--option", "Keep the Control", "--author", "human",
+                    "--artifact", "{L2_COMPARISON_62}", "--question-id", "keep_after_comparison", "--option-id", "keep_control",
+                    "--words-file", "{work}/words.txt", "--by", WORDS_BY, "--request-id", "demo-words",
+                    "--read-sequence", "{L2_READ_BEFORE_WORDS}", "--json",
+                ],
+                "print": ["decision.decision_id", "decision.question_id", "decision.option_id", "decision.words.channel"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "replayed": False,
+                        "decision.schema_version": "decision/2",
+                        "decision.question_id": "keep_after_comparison",
+                        "decision.option_id": "keep_control",
+                        "decision.words": {"texts": [WORDS_TEXT + "\n"], "channel": "chat_relayed", "by": WORDS_BY, "authenticated": False},
+                    },
+                },
+            },
+            {
+                "cli": status_l2(),
+                "print": ["write_sequence", "decisions[-1].words.texts", "decisions[-1].words.channel", "decisions[-1].words.by", "decisions[-1].words.authenticated"],
+                "expect": {
+                    "exit": 0,
+                    "values": {
+                        "write_sequence": 36,
+                        "decisions[-1].words.texts": [WORDS_TEXT + "\n"],
+                        "decisions[-1].words.channel": "chat_relayed",
+                        "decisions[-1].words.by": WORDS_BY,
+                        "decisions[-1].words.authenticated": False,
+                    },
+                },
             },
         ],
     },

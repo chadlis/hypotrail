@@ -12,6 +12,7 @@ A Study is the only authority on its decisions: a Decision exists once the Study
 4. Set `author` by who made the choice:
    - `human` only when the user states the choice in this chat. A `source` may then be given, and it is optional.
    - `proxy` when you answer by a stated rule, one that the user gave you or that this workspace's instructions give. Then pass `source`, a text that names that rule. A `proxy` Decision without a `source` is refused, and nothing is recorded.
+5. When the user states the choice in this chat, record the user's own words with the Decision: pass `words`, the user's messages that state the choice, each whole and unchanged, one string per message, and `question_id` and `option_id`, the ids of the pending decision's question and of the option chosen. Your own wording, or a summary of what the user said, goes in `source`, never in `words`. The tool records the words as relayed by Copilot; never declare the channel `panel`, which is the Study panel's own.
 
 ## Calling the tools
 

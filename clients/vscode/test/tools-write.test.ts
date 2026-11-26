@@ -108,3 +108,42 @@ for (const [how, call] of CALLERS) {
     });
   }
 }
+
+const WORDS = ["Keep the control.", 'I said "control", not "candidate".'];
+
+for (const [how, call] of CALLERS) {
+  test(`the write tool called ${how} with words starts one decide with one --words= per text, in order, and --channel=chat_relayed`, async (t) => {
+    const { studies } = workspace(t, ["bike"]);
+    const calls = recorder(t, keptAnswer("decide-success"));
+    await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0], words: WORDS, by: "the owner" });
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].args.filter((argument) => argument.startsWith("--words=")), WORDS.map((text) => `--words=${text}`));
+    assert.deepEqual(calls[0].args.filter((argument) => argument.startsWith("--channel")), ["--channel=chat_relayed"]);
+    assert.deepEqual(calls[0].args.filter((argument) => argument.startsWith("--by")), ["--by=the owner"]);
+  });
+
+  test(`the write tool called ${how} with a channel of its caller's and no words passes no --channel: the tool has no input for it`, async (t) => {
+    const { studies } = workspace(t, ["bike"]);
+    const calls = recorder(t, keptAnswer("decide-success"));
+    await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0], channel: "panel" });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].args.some((argument) => argument.startsWith("--channel") || argument.startsWith("--words")), false, calls[0].args.join(" "));
+  });
+
+  // The refusal of words on a proxy Decision comes where the refusal of a proxy Decision with no source comes: after the bridge's
+  // own checks, and before the walk.
+  const PROXY_WORDS: [string, Record<string, unknown>, RegExp][] = [
+    ["author proxy, a source and words", {}, /^Nothing was sent to the CLI: words are the user's own messages/],
+    ["author proxy, a source, words and no question", { question: undefined }, /these inputs are missing or not valid: question\./],
+    ["author proxy, a source, words and a Study the walk does not find", { study: "/nowhere/bike" }, /^Nothing was sent to the CLI: words are the user's own messages/],
+  ];
+  for (const [name, change, refusal] of PROXY_WORDS) {
+    test(`the write tool called ${how} with ${name} is refused as the order of its checks gives, with no start`, async (t) => {
+      const { studies } = workspace(t, ["bike"]);
+      const calls = recorder(t, keptAnswer("decide-success"));
+      const text = await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0], author: "proxy", source: "the rule: keep the lower MAE", words: WORDS, ...change });
+      assert.equal(calls.length, 0);
+      assert.match(text, refusal);
+    });
+  }
+}
