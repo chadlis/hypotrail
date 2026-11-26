@@ -770,7 +770,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files", "next_step"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -783,6 +783,14 @@ def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_name
     assert set(listing) - {"ok"} == set(since) - {"ok", "writes_since"}  # `writes_since` is there with `--since` only
     assert "write_sequence" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#107: the top-level key
     assert "decisions" in attrs_of(page, "status-keys", "data-field")  # chadlis/hypotrail#110: the decision history
+
+
+def test_the_next_step_row_of_the_status_keys_table_names_its_four_rules_in_order_and_its_seven_keys(page):
+    row = " ".join(table_rows(page, "status-keys", "data-field")["next_step"]["text"].split())
+    rules = ["1. an interrupted Attempt goes to", "2. a Pending decision is Now", "3. with no Pending decision and a Decision that no longer applies", "4. otherwise nothing waits"]
+    assert all(rule in row for rule in rules), row
+    assert [row.index(rule) for rule in rules] == sorted(row.index(rule) for rule in rules)
+    assert "Always present, with exactly kind, text, ids, context, to_handle, flagged and answered" in row
 
 
 def test_the_write_sequence_table_equals_the_commands_that_write_and_what_each_names(page, tmp_path):

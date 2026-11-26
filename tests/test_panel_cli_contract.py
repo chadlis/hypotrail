@@ -386,3 +386,22 @@ def test_the_dated_lines_hold_one_line_for_the_tools_words_and_one_for_the_fifth
     assert 'the earlier lines it widens: "The template states the four requirements of the rule written for Claude Code"' in rule
     assert "The template states the four requirements of the rule written for Claude Code" in adr()
     assert "the 2026-11-24 line on the rule for Claude Code" in rule
+
+
+# --- the dated line of `next_step` in `status --json` ----------------------------------------------------------------------------
+
+NEXT_STEP_SENTENCE = (
+    "A new function of the core, computed when the Study is read and never stored, gives the top-level key `next_step` of `status` (and of"
+    " `status --since N`)."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_next_step_quoting_its_ticket_naming_its_keys_and_the_configuration_identity_and_overriding_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#251" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert NEXT_STEP_SENTENCE in line and "the earlier line it overrides: none" in line
+    for name in ("`kind`", "`text`", "`ids`", "`context`", "`to_handle`", "`flagged`", "`answered`", "`configuration_digest_of`", "Attempt's own id"):
+        assert name in line, name

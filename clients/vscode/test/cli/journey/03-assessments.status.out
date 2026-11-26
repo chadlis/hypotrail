@@ -346,6 +346,15 @@
       "path": "assessments/00000000-0000-4000-8000-000000000007/assessment.json"
     }
   ],
+  "next_step": {
+    "kind": null,
+    "text": null,
+    "ids": [],
+    "context": [],
+    "to_handle": [],
+    "flagged": [],
+    "answered": []
+  },
   "writes_since": [
     {
       "command": "init",

@@ -989,6 +989,19 @@
       "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
     }
   ],
+  "next_step": {
+    "kind": "look_again",
+    "text": "Your Decision no longer applies.",
+    "ids": [
+      "00000000-0000-4000-8000-000000000009"
+    ],
+    "context": [],
+    "to_handle": [],
+    "flagged": [
+      "00000000-0000-4000-8000-000000000009"
+    ],
+    "answered": []
+  },
   "writes_since": [
     {
       "command": "init",

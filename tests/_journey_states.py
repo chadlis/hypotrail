@@ -15,8 +15,9 @@ without the live key in its environment.
 After each state, `status --since 0 --json` is read, and `figures --json` when the state holds a Comparison. Each read is kept as three
 files, `<NN>-<name>.<read>.exit`, `.out` and `.err`, with the scratch folders replaced by `SCRATCH` and, when its `ok` is true, its values
 replaced as `tests/_client_helpers.py::replaced` replaces them, with one numbering per Study over its reads in the order they are taken;
-the name of an Inspect log (a timestamp and a random suffix) becomes `LOG.eval` first, the rule of `tests/_kept_studies.py`, and the
-`code` of each freeze record takes a fixed value (`FIXED_FREEZE_CODE`).
+the name of an Inspect log (a timestamp and a random suffix) becomes `LOG.eval` first, the rule of `tests/_kept_studies.py`, the
+`code` of each freeze record takes a fixed value (`FIXED_FREEZE_CODE`), and `next_step.to_handle`, in the order of `attempts` (by Attempt
+id, a random UUID), is sorted by request id, as `replaced` sorts `attempts`.
 The duplicate of state 19 holds the Bike Study (the same `study_id` and records), so its reads go on with the Bike Study's numbering.
 State 00 is a read in a folder that holds no Study: the refusal names no scratch folder and is kept as printed.
 """
@@ -270,6 +271,9 @@ def _kept(out: str, study, numbering: dict) -> str:
     for record in payload.get("freeze_records") or []:
         assert set(record["code"]) == set(FIXED_FREEZE_CODE), record["code"]
         record["code"] = dict(FIXED_FREEZE_CODE)
+    if isinstance(payload.get("next_step"), dict):
+        request_ids = {attempt["attempt_id"]: attempt["request_id"] for attempt in payload["attempts"]}
+        payload["next_step"]["to_handle"] = sorted(payload["next_step"]["to_handle"], key=request_ids.__getitem__)
     return replaced(json.dumps(payload), numbering)
 
 

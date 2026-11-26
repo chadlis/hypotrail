@@ -164,6 +164,15 @@
   "comparisons": [],
   "pending_decisions": [],
   "record_files": [],
+  "next_step": {
+    "kind": null,
+    "text": null,
+    "ids": [],
+    "context": [],
+    "to_handle": [],
+    "flagged": [],
+    "answered": []
+  },
   "writes_since": [
     {
       "command": "init",

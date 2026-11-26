@@ -495,5 +495,14 @@
       "id": "00000000-0000-4000-8000-000000000004",
       "path": "comparisons/00000000-0000-4000-8000-000000000004/comparison.json"
     }
-  ]
+  ],
+  "next_step": {
+    "kind": null,
+    "text": null,
+    "ids": [],
+    "context": [],
+    "to_handle": [],
+    "flagged": [],
+    "answered": []
+  }
 }

@@ -1137,6 +1137,21 @@
       "path": "comparisons/00000000-0000-4000-8000-00000000000e/comparison.json"
     }
   ],
+  "next_step": {
+    "kind": "decide",
+    "text": null,
+    "ids": [
+      "00000000-0000-4000-8000-00000000000e"
+    ],
+    "context": [
+      "00000000-0000-4000-8000-000000000009"
+    ],
+    "to_handle": [],
+    "flagged": [
+      "00000000-0000-4000-8000-000000000009"
+    ],
+    "answered": []
+  },
   "writes_since": [
     {
       "command": "init",
