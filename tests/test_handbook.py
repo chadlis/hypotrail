@@ -5839,8 +5839,7 @@ def test_the_ids_that_the_readmes_init_and_run_ml_print_at_the_end_of_their_line
 
 
 # The chapters that show the id line of one of the six commands that print an id as the current output. Chapter 16 keeps the lines the
-# paid Campaign of 2026-11-21 printed: "Dated outputs of past runs (chapter 16's kept lines of the paid run of 2026-11-21, the kept walk and
-# the kept traces) are not rewritten." (#219, A5).
+# paid Campaign of 2026-11-21 printed, a dated output that is not rewritten.
 ID_LINE_CHAPTERS = ["19-l2-demonstration.html"]
 DATED_ID_LINE_CHAPTER = "16-acceptance-grid.html"
 AN_ID = r"(?:[0-9a-f]{8}-[0-9a-f-]{27}|[A-Z_]+_ID)"
