@@ -7,6 +7,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
+import { DEMONSTRATION } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, keptObject, success } from "./panel-harness";
 
 const HEIGHT = 900;
@@ -52,6 +53,18 @@ test("at the width of guard_bounds, the first question and the first evidence nu
   assert.ok(at.question! <= BOUND.question, `innerWidth=${at.innerWidth}: the first question is ${at.question} px from the top, past ${BOUND.question}`);
   assert.ok(at.evidence! <= BOUND.evidence, `innerWidth=${at.innerWidth}: the first evidence number is ${at.evidence} px from the top, past ${BOUND.evidence}`);
 });
+
+for (const name of KEPT_READS.filter((read) => read.startsWith(DEMONSTRATION) && keptObject(read).pending_decisions.length > 0)) {
+  test(`at the width of guard_bounds, the first question and the first evidence number of the demonstration's kept state are within their bounds of the top: ${name}`, { timeout: 60000 }, async (t) => {
+    if (!guarded(t)) return;
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object), success(keptObject(KEPT_FIGURES[name])));
+    const at = await measured(t, document, evidenceOf(object));
+    if (at === undefined) return;
+    assert.ok(at.question !== null && at.question <= BOUND.question, `innerWidth=${at.innerWidth}: the first question is ${at.question} px from the top, past ${BOUND.question}`);
+    assert.ok(at.evidence !== null && at.evidence <= BOUND.evidence, `innerWidth=${at.innerWidth}: the first evidence number is ${at.evidence} px from the top, past ${BOUND.evidence}`);
+  });
+}
 
 test("the guard of how far from the top the first question and the first evidence number stand finds the element it measures on status-chinook-withheld: the delta's element", { timeout: 60000 }, async (t) => {
   if (!guarded(t)) return;

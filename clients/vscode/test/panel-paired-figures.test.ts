@@ -4,7 +4,8 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { axisPosition, histogramTop } from "../src/charts";
-import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
+import { DEMONSTRATION } from "./kept";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
 import { exit } from "./recorder";
 
 type Entry = Record<string, any>;
@@ -59,7 +60,8 @@ const height = (count: number, top: number): number => Number(((count / top) * 1
 const DRAWN = Object.keys(KEPT_FIGURES).filter((name) => keptObject(KEPT_FIGURES[name]).comparisons.some((entry: Entry) => entry.unavailable === null));
 
 test("the kept figures reads hold entries with figures on both Tracks, and status-chinook-spread holds a spread", () => {
-  assert.deepEqual(DRAWN.sort(), ["status-chinook-pending", "status-chinook-spread", "status-public-check", "status-several-pending", "status-success"]);
+  const demonstration = KEPT_READS.filter((name) => name.startsWith(DEMONSTRATION));
+  assert.deepEqual(DRAWN.sort(), [...demonstration, "status-chinook-pending", "status-chinook-spread", "status-public-check", "status-several-pending", "status-success"].sort());
   assert.ok(keptObject("figures-chinook-spread").comparisons[0].histogram.length > 1);
 });
 
@@ -323,7 +325,8 @@ for (const name of DRAWN) {
       assert.ok(at >= 0 && at > part.indexOf('<div data-chart="delta">') && at < histogram && histogram < part.indexOf('<div data-figure="box">'), entry.comparison_id);
       for (const after of ['<p data-element="limits">', "<fieldset ", '<div data-part="warnings"']) assert.ok(!part.includes(after) || part.indexOf('<div data-figure="box">') < part.indexOf(after), `${entry.comparison_id}: before ${after}`);
     }
-    assert.ok(elementsOf(await drawn(t, object, figures), '<section data-part="pending">').some((pending) => pending.indexOf("<div data-figures>") < pending.indexOf("<fieldset ")), "in a pending decision, above its choices");
+    const pending = elementsOf(await drawn(t, object, figures), '<section data-part="pending">');
+    assert.equal(pending.some((part) => part.indexOf("<div data-figures>") < part.indexOf("<fieldset ")), object.pending_decisions.length > 0, "in a pending decision, above its choices");
   });
 }
 
