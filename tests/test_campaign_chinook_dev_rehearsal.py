@@ -2,8 +2,8 @@
 
 The lines are read from `docs/handbook/traces/campaign-chinook-dev/plan.json` (`_campaign_plan`), their placeholders filled from
 the earlier output the plan names, and each line is run as a process of its own in a fresh copy of the checkout, from the copy's
-root, with the same relative Study path. The copy leaves out what the paid run itself writes beside the plan (its Study, captures,
-report page and spend), so the rehearsal starts from the commit the run is made from. Two things differ from the live line: the
+root, with the same relative Study path. The copy leaves out what the paid invocations write beside the plan (their Study, captures,
+report page and spend), so the rehearsal starts from the commit the Campaign is run from. Two things differ from the live line: the
 provider, patched (`DRIVER` replaces `prepared_model` with Inspect's mock model, priced as the price list prices the requested model,
 then runs `hypotrail.__main__` with the line's own arguments), and the launcher (the live line starts with `uv run python -m
 hypotrail`; the driver runs under the test interpreter, so `uv run` was not rehearsed, as D-029 on chadlis/hypotrail#75 records).
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PLAN = read_plan(ROOT)
 CEILING = json.loads((ROOT / PLAN["ceiling_file"]).read_text(encoding="utf-8"))
 FOLDER = Path(PLAN["ceiling_file"]).parent
-# what the paid run writes beside the plan, absent from the commit the run is made from
+# what the paid invocations write beside the plan, absent from the commit the Campaign is run from
 RUN_OUTPUTS = {FOLDER / name for name in ("study", "commands", "report.html", "spend.json", "commit.txt")}
 FAKE_KEY = "sk-ant-FAKE-rehearsal-0123456789abcdef"
 KEY_VARIABLE = "HYPOTRAIL_ANTHROPIC_API_KEY"
@@ -351,7 +351,7 @@ def test_no_model_is_called_no_network_attempt_is_made_and_the_key_variable_hold
     assert FAKE_KEY not in shown and all(FAKE_KEY.encode() not in p.read_bytes() for p in clean.study.rglob("*") if p.is_file())
 
 
-# --- one run of the rerun line ---------------------------------------------------------------------------------------------------------------
+# --- the rerun line, run once ------------------------------------------------------------------------------------------------------------------
 
 
 def test_a_technical_failure_of_plain_runs_the_rerun_line_in_its_form_and_its_observation_set_is_the_one_assessed(rerun):
@@ -371,7 +371,7 @@ def test_a_technical_failure_of_plain_runs_the_rerun_line_in_its_form_and_its_ob
     assert first.is_dir()  # the first Attempt stays in the Study
 
 
-# --- one run of each Decision line, over the two ---------------------------------------------------------------------------------------------
+# --- each Decision line, run once, over the two ---------------------------------------------------------------------------------------------
 
 
 def test_the_rule_decision_line_runs_when_the_delta_has_a_value(clean):

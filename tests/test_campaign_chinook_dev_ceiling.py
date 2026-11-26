@@ -1,4 +1,4 @@
-"""The Repeats, the Episode cost limit C and the ceiling of the Chinook `dev` Campaign, fixed before its run (#235).
+"""The Repeats, the Episode cost limit C and the ceiling of the Chinook `dev` Campaign, fixed before its first paid invocation (#235).
 
 The ceiling file, `docs/handbook/traces/campaign-chinook-dev/ceiling.json`, is checked against what it is computed from:
 the price list, the plan's C, B and the declared limits, through ticket 1b (#234)'s helper (`tests/_cost_ceiling.py`).
