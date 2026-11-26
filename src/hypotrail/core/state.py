@@ -14,7 +14,8 @@ record (`assessments`) and every Comparison record (`comparisons`) the Study hol
 (`decisions.assessments_in_order` and `write_journal.comparison_order`), and the Comparisons that wait for a decision (`pending_decisions`,
 `hypotrail.core.decisions`, `pending`). It names the file of the Study that holds each record of the listings `decisions`,
 `declared_deviations`, `assessments` and `comparisons`, in that order, as the top-level key `record_files`, computed now and never stored
-(`record_files`). Given a write sequence (`--since N`), it also lists the write-journal entries after it, each as stored, as
+(`record_files`), and what waits in the Study as the top-level key `next_step`, computed now and never stored (`hypotrail.core.next_step`).
+Given a write sequence (`--since N`), it also lists the write-journal entries after it, each as stored, as
 the top-level key `writes_since` (`write_journal.since`). It writes nothing and holds no lock; it probes whether a
 writer holds the lock (`lock.is_held`) with a non-blocking shared lock taken and dropped at once, so a writer starting at
 that instant is refused.
@@ -32,9 +33,9 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, exposure, lock, revisions, study_write, write_journal
+from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, exposure, lock, next_step, revisions, study_write, write_journal
 from hypotrail.core import study as layout
-from hypotrail.core.attempts import now
+from hypotrail.core.attempts import now, observation_set_id
 from hypotrail.core.errors import InvalidInputError
 
 PROVIDER_MODES = ("llm_live",)
@@ -108,7 +109,8 @@ def record_files(study: Path, listings: dict) -> list:
 
 
 def status(study, since: int | None = None) -> dict:
-    """The Study's local state, read only; given `since`, also the write-journal entries after it, as `writes_since`."""
+    """The Study's local state, read only, with `next_step`, what waits in it (`hypotrail.core.next_step`); given `since`, also the
+    write-journal entries after it, as `writes_since`."""
     study = Path(study)
     spec = layout.read_spec(study)
     journal = None if since is None else write_journal.since(study, since)
@@ -126,6 +128,9 @@ def status(study, since: int | None = None) -> dict:
                 },
                 "reason": manifest.get("reason"),
                 "item_counts": manifest.get("item_counts"),
+                # "`attempts[]` in `status --json` gains an additive key, `observation_set_id`: the id of the Observation set the Attempt
+                # produced, or null if it produced none." (D-157 on chadlis/hypotrail#75)
+                "observation_set_id": observation_set_id(study, manifest),
                 "writer_alive": running and writer_alive,
                 "recoverable": running and not writer_alive,
                 "artifacts": found,
@@ -139,6 +144,7 @@ def status(study, since: int | None = None) -> dict:
         "assessments": decisions.assessments_in_order(study),
         "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
     }
+    pending = decisions.pending(study, history)
     return {
         "study": {
             **{key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest", "revision")},
@@ -164,8 +170,9 @@ def status(study, since: int | None = None) -> dict:
         "check_informed": check_informed(study),
         "write_sequence": write_journal.write_sequence(study) if journal is None else journal[0],
         **listings,
-        "pending_decisions": decisions.pending(study, history),
+        "pending_decisions": pending,
         "record_files": record_files(study, listings),
+        "next_step": next_step.next_step(study, attempts, history, pending),
         **({} if journal is None else {"writes_since": journal[1]}),
     }
 

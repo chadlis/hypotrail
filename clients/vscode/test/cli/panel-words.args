@@ -1,0 +1,17 @@
+{
+  "arguments": [
+    "decide",
+    "--study=<study>",
+    "--question=Which Configuration do we keep after this Comparison?",
+    "--option=Keep the Control",
+    "--author=human",
+    "--question-id=keep_after_comparison",
+    "--option-id=keep_control",
+    "--words=Keep the Control, she wrote \u00ab on garde le t\u00e9moin \u00bb.\nAnd \"the lag feature can wait\".\n",
+    "--channel=panel",
+    "--artifact=00000000-0000-4000-8000-000000000008",
+    "--request-id=panel-words",
+    "--read-sequence=12",
+    "--json"
+  ]
+}

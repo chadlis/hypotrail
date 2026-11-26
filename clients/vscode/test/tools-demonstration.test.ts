@@ -18,10 +18,20 @@ const STATES = KEPT_READS.filter((name) => name.startsWith(DEMONSTRATION)).map((
 const apart = (args: string[]): string[] => args.slice(FIRST.length).map((argument) => argument.replace(/^--study=.*$/s, "--study=<study>").replace(/^--request-id=.*$/s, "--request-id="));
 const decides = (calls: RecordedCall[]): RecordedCall[] => calls.filter((call) => call.args[FIRST.length] === "decide");
 
-// What the write tool is given for the first option of the first Pending decision of a read, as the panel's Record sends it.
+// What the write tool is given for the first option of the first Pending decision of a read, with the ids of the question and of the
+// option, as the panel's Record sends it.
 function firstOption(read: Entry, study: string): Entry {
   const [pending] = read.pending_decisions;
-  return { question: pending.question.text, option: pending.options[0].text, author: contract.decide_author, cited_ids: [pending.comparison_id], read_sequence: read.write_sequence, study };
+  return {
+    question: pending.question.text,
+    option: pending.options[0].text,
+    author: contract.decide_author,
+    question_id: pending.question.id,
+    option_id: pending.options[0].id,
+    cited_ids: [pending.comparison_id],
+    read_sequence: read.write_sequence,
+    study,
+  };
 }
 
 // The argument list of the panel's Record on the first option of the first Pending decision of a kept state.

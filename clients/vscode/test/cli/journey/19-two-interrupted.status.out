@@ -1,0 +1,2106 @@
+{
+  "ok": true,
+  "study": {
+    "study_id": "00000000-0000-4000-8000-000000000001",
+    "workload": "bike_day",
+    "protocol_id": "bike_day:protocol",
+    "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000017",
+    "revision_number": 3
+  },
+  "writer_alive": false,
+  "revisions": [
+    {
+      "revision_number": 1,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+      "previous_revision": null,
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-204bf1f9317286f8",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        },
+        {
+          "artifact_id": "references-7520d791bfe31924",
+          "role": "references",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
+        }
+      ]
+    },
+    {
+      "revision_number": 2,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000014",
+      "previous_revision": "0000000000000000000000000000000000000000000000000000000000000002",
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000013",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-204bf1f9317286f8",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        },
+        {
+          "artifact_id": "references-929d8dad7d70f952",
+          "role": "references",
+          "version": 2,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000015"
+        }
+      ]
+    },
+    {
+      "revision_number": 3,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000017",
+      "previous_revision": "0000000000000000000000000000000000000000000000000000000000000014",
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-204bf1f9317286f8",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000003"
+        },
+        {
+          "artifact_id": "references-ff964e6939ad94ee",
+          "role": "references",
+          "version": 3,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000018"
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000013",
+      "request_id": "check",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000013+00:00",
+      "finished_at": "2000-01-01T00:00:00.000014+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 184
+      },
+      "observation_set_id": "00000000-0000-4000-8000-000000000014",
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000013/observation_set.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000001f",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000013/observations.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000020",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000013/predictions.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000021",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "predictions"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000013/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000010",
+      "request_id": "demo-s1",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000011+00:00",
+      "finished_at": "2000-01-01T00:00:00.000012+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 182
+      },
+      "observation_set_id": "00000000-0000-4000-8000-000000000011",
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000010/observation_set.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000001c",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000010/observations.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000001d",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000010/predictions.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000001e",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "predictions"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000010/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-00000000001b",
+      "request_id": "killed",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "interrupted",
+      "started_at": "2000-01-01T00:00:00.000019+00:00",
+      "finished_at": "2000-01-01T00:00:00.000020+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": "the writer ended before the terminal manifest; recorded as interrupted by `recover` (partial artifacts kept, nothing resubmitted)",
+      "item_counts": null,
+      "observation_set_id": null,
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-00000000001c",
+      "request_id": "killed-2",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "running",
+      "started_at": "2000-01-01T00:00:00.000021+00:00",
+      "finished_at": null,
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": null,
+      "observation_set_id": null,
+      "writer_alive": false,
+      "recoverable": true,
+      "artifacts": [],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-00000000001d",
+      "request_id": "killed-3",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "running",
+      "started_at": "2000-01-01T00:00:00.000022+00:00",
+      "finished_at": null,
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": null,
+      "observation_set_id": null,
+      "writer_alive": false,
+      "recoverable": true,
+      "artifacts": [],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000002",
+      "request_id": "ridge",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000001+00:00",
+      "finished_at": "2000-01-01T00:00:00.000002+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 182
+      },
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observation_set.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000005",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/observations.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000006",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/predictions.csv",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000007",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "predictions"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/sklearn_params.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000008",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "effective_parameters"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000002/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000004",
+      "request_id": "seasonal",
+      "operation": "execute",
+      "mode": "native_ml",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000003+00:00",
+      "finished_at": "2000-01-01T00:00:00.000004+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 182
+      },
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observation_set.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000a",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000004/observations.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000b",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000004/predictions.csv",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000000c",
+          "size_bytes": 0,
+          "media_type": "text/csv",
+          "referenced": true,
+          "role": "predictions"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000004/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000009",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    }
+  ],
+  "freeze_records": [
+    {
+      "code": {
+        "dirty": false,
+        "revision": "0000000000000000000000000000000000000000"
+      },
+      "configuration_digests": {
+        "ridge_v1": "0000000000000000000000000000000000000000000000000000000000000022",
+        "seasonal_7": "0000000000000000000000000000000000000000000000000000000000000023"
+      },
+      "dataset_source": "workload_file",
+      "environment": {
+        "dependency_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000010",
+        "python": "PYTHON"
+      },
+      "freeze_id": "00000000-0000-4000-8000-000000000015",
+      "kind": "freeze",
+      "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+      "recorded_at": "2000-01-01T00:00:00.000015+00:00",
+      "revision_number": 3,
+      "schema_version": "freeze/1",
+      "study_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "exposures": {
+    "recorded_in_this_study": 2,
+    "earlier_exposure": "unknown",
+    "statement": "This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.",
+    "entries": [
+      {
+        "assessment_ids": [
+          "00000000-0000-4000-8000-000000000016"
+        ],
+        "attempt_ids": [
+          "00000000-0000-4000-8000-000000000013"
+        ],
+        "comparison_ids": [],
+        "entry_id": "00000000-0000-4000-8000-000000000017",
+        "freeze_id": "00000000-0000-4000-8000-000000000015",
+        "kind": "exposure",
+        "recorded_at": "2000-01-01T00:00:00.000016+00:00",
+        "schema_version": "exposure/1"
+      },
+      {
+        "assessment_ids": [
+          "00000000-0000-4000-8000-000000000016"
+        ],
+        "attempt_ids": [
+          "00000000-0000-4000-8000-000000000013"
+        ],
+        "comparison_ids": [],
+        "entry_id": "00000000-0000-4000-8000-000000000018",
+        "freeze_id": "00000000-0000-4000-8000-000000000015",
+        "kind": "exposure",
+        "recorded_at": "2000-01-01T00:00:00.000018+00:00",
+        "schema_version": "exposure/1"
+      }
+    ]
+  },
+  "check_informed": [],
+  "write_sequence": 49,
+  "decisions": [
+    {
+      "author": "human",
+      "cited_ids": [
+        "00000000-0000-4000-8000-000000000008"
+      ],
+      "decision_id": "00000000-0000-4000-8000-000000000009",
+      "kind": "decision",
+      "option": "Keep the Control",
+      "option_id": null,
+      "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
+      "read_sequence": 12,
+      "request_id": "panel-1",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000002",
+      "schema_version": "decision/2",
+      "source": null,
+      "words": null,
+      "write_sequence": 13,
+      "applies": false,
+      "reasons": [
+        {
+          "reason": "revision_changed",
+          "id": "0000000000000000000000000000000000000000000000000000000000000017"
+        },
+        {
+          "reason": "compared_assessment_superseded",
+          "id": "00000000-0000-4000-8000-00000000000c"
+        },
+        {
+          "reason": "compared_assessment_superseded",
+          "id": "00000000-0000-4000-8000-00000000000d"
+        }
+      ],
+      "evidence_change": {
+        "state": "result_changed",
+        "lines": [
+          {
+            "assessment_id": "00000000-0000-4000-8000-000000000006",
+            "comparison_id": "00000000-0000-4000-8000-000000000008",
+            "role": "control",
+            "latest_assessment_id": "00000000-0000-4000-8000-00000000000c",
+            "state": "result_changed",
+            "changed_item_count": 1,
+            "metrics": [
+              {
+                "id": "mae",
+                "cited": 1090.7912087912089,
+                "latest": 1091.3406593406594
+              }
+            ]
+          },
+          {
+            "assessment_id": "00000000-0000-4000-8000-000000000007",
+            "comparison_id": "00000000-0000-4000-8000-000000000008",
+            "role": "candidate",
+            "latest_assessment_id": "00000000-0000-4000-8000-00000000000d",
+            "state": "result_changed",
+            "changed_item_count": 1,
+            "metrics": [
+              {
+                "id": "mae",
+                "cited": 1264.730691775682,
+                "latest": 1265.2801423251326
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "author": "proxy",
+      "cited_ids": [
+        "00000000-0000-4000-8000-00000000000e"
+      ],
+      "decision_id": "00000000-0000-4000-8000-00000000000f",
+      "kind": "decision",
+      "option": "Keep the Control",
+      "option_id": null,
+      "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
+      "read_sequence": 28,
+      "request_id": "proxy-1",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000017",
+      "schema_version": "decision/2",
+      "source": "rule: keep the Configuration with the lowest MAE",
+      "words": null,
+      "write_sequence": 29,
+      "applies": true,
+      "reasons": [],
+      "evidence_change": null
+    }
+  ],
+  "declared_deviations": [
+    {
+      "author": "human",
+      "cited_ids": [
+        "references-ff964e6939ad94ee"
+      ],
+      "declared_deviation_id": "00000000-0000-4000-8000-000000000019",
+      "kind": "declared_deviation",
+      "read_sequence": 40,
+      "request_id": "dv-1",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000017",
+      "schema_version": "declared_deviation/1",
+      "source": null,
+      "text": "owner review of References pending",
+      "write_sequence": 41,
+      "withdrawn": true,
+      "withdrawn_by": "00000000-0000-4000-8000-00000000001a"
+    },
+    {
+      "author": "human",
+      "cited_ids": [
+        "00000000-0000-4000-8000-000000000019"
+      ],
+      "declared_deviation_id": "00000000-0000-4000-8000-00000000001a",
+      "kind": "declared_deviation",
+      "read_sequence": 42,
+      "request_id": "dv-2",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000017",
+      "schema_version": "declared_deviation/1",
+      "source": null,
+      "text": "the owner review of References is done",
+      "write_sequence": 43,
+      "withdrawn": false,
+      "withdrawn_by": null
+    }
+  ],
+  "assessments": [
+    {
+      "assessment_id": "00000000-0000-4000-8000-000000000006",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1090.7912087912089
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000006/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000d",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000005+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+        "size_bytes": 0
+      },
+      "rescoring": null,
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [],
+        "computed": []
+      },
+      "study_revision": {
+        "number": 1,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000002"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-000000000007",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1264.730691775682
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000007/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000f",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000006+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+        "size_bytes": 0
+      },
+      "rescoring": null,
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [
+          {
+            "feature": "mean_previous_7",
+            "value": 823.8783359497645
+          },
+          {
+            "feature": "lag_1",
+            "value": 900.6043956043956
+          },
+          {
+            "feature": "lag_7",
+            "value": 1090.7912087912089
+          }
+        ],
+        "computed": [
+          {
+            "feature": "lag_1",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 900.6043956043956
+            }
+          },
+          {
+            "feature": "lag_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 1090.7912087912089
+            }
+          },
+          {
+            "feature": "mean_previous_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 823.8783359497645
+            }
+          }
+        ]
+      },
+      "study_revision": {
+        "number": 1,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000001",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000002"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-00000000000a",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1090.7912087912089
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-00000000000a/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000d",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000007+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references-929d8dad7d70f952.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000015",
+        "size_bytes": 0
+      },
+      "rescoring": {
+        "cause": "references_version",
+        "changed_items": [],
+        "earlier_assessment_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [],
+        "computed": []
+      },
+      "study_revision": {
+        "number": 2,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000013",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000014"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-00000000000b",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1264.730691775682
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-00000000000b/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000000f",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000008+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references-929d8dad7d70f952.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000015",
+        "size_bytes": 0
+      },
+      "rescoring": {
+        "cause": "references_version",
+        "changed_items": [],
+        "earlier_assessment_id": "00000000-0000-4000-8000-000000000007"
+      },
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [
+          {
+            "feature": "mean_previous_7",
+            "value": 823.8783359497645
+          },
+          {
+            "feature": "lag_1",
+            "value": 900.6043956043956
+          },
+          {
+            "feature": "lag_7",
+            "value": 1090.7912087912089
+          }
+        ],
+        "computed": [
+          {
+            "feature": "lag_1",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 900.6043956043956
+            }
+          },
+          {
+            "feature": "lag_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 1090.7912087912089
+            }
+          },
+          {
+            "feature": "mean_previous_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 823.8783359497645
+            }
+          }
+        ]
+      },
+      "study_revision": {
+        "number": 2,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000013",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000014"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-00000000000c",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1091.3406593406594
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-00000000000c/per_item.csv",
+        "role": "per_item",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000019",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000009+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references-ff964e6939ad94ee.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000018",
+        "size_bytes": 0
+      },
+      "rescoring": {
+        "cause": "references_version",
+        "changed_items": [
+          {
+            "criterion": "absolute_error",
+            "earlier": {
+              "reason": null,
+              "score": 810.0,
+              "state": "scored"
+            },
+            "item_id": "bike-day:2012-03-15",
+            "now": {
+              "reason": null,
+              "score": 910.0,
+              "state": "scored"
+            }
+          }
+        ],
+        "earlier_assessment_id": "00000000-0000-4000-8000-00000000000a"
+      },
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [],
+        "computed": []
+      },
+      "study_revision": {
+        "number": 3,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000017"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-00000000000d",
+      "counts": {
+        "attempted": 182,
+        "correct": null,
+        "errored": 0,
+        "expected": 182,
+        "incorrect": null,
+        "produced": 182,
+        "scored": 182,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 182,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1265.2801423251326
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-00000000000d/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000001a",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000010+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references-ff964e6939ad94ee.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000018",
+        "size_bytes": 0
+      },
+      "rescoring": {
+        "cause": "references_version",
+        "changed_items": [
+          {
+            "criterion": "absolute_error",
+            "earlier": {
+              "reason": null,
+              "score": 2021.154336685213,
+              "state": "scored"
+            },
+            "item_id": "bike-day:2012-03-15",
+            "now": {
+              "reason": null,
+              "score": 2121.154336685213,
+              "state": "scored"
+            }
+          }
+        ],
+        "earlier_assessment_id": "00000000-0000-4000-8000-00000000000b"
+      },
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [
+          {
+            "feature": "mean_previous_7",
+            "value": 824.427786499215
+          },
+          {
+            "feature": "lag_1",
+            "value": 900.054945054945
+          },
+          {
+            "feature": "lag_7",
+            "value": 1091.3406593406594
+          }
+        ],
+        "computed": [
+          {
+            "feature": "lag_1",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 900.054945054945
+            }
+          },
+          {
+            "feature": "lag_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 1091.3406593406594
+            }
+          },
+          {
+            "feature": "mean_previous_7",
+            "metric": {
+              "denominator": 182,
+              "direction": "lower_is_better",
+              "id": "mae",
+              "reason": null,
+              "status": "scored",
+              "unit": "rentals per day",
+              "value": 824.427786499215
+            }
+          }
+        ]
+      },
+      "study_revision": {
+        "number": 3,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000017"
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-000000000016",
+      "counts": {
+        "attempted": 184,
+        "correct": null,
+        "errored": 0,
+        "expected": 184,
+        "incorrect": null,
+        "produced": 184,
+        "scored": 184,
+        "unscored": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "Daily observations are dependent: the Metric carries no confidence interval and no significance claim."
+      ],
+      "metrics": [
+        {
+          "denominator": 184,
+          "direction": "lower_is_better",
+          "id": "mae",
+          "reason": null,
+          "status": "scored",
+          "unit": "rentals per day",
+          "value": 1130.3315217391305
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000014",
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000016/per_item.csv",
+        "role": "per_item",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000024",
+        "size_bytes": 0
+      },
+      "recorded_at": "2000-01-01T00:00:00.000017+00:00",
+      "references_ref": {
+        "media_type": "text/csv",
+        "path": "artifacts/references-ff964e6939ad94ee.csv",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000018",
+        "size_bytes": 0
+      },
+      "rescoring": null,
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "000000000000000000000000000000000000000000000000000000000000000e",
+        "id": "regression_mae_v1",
+        "version": "1"
+      },
+      "single_feature_check": {
+        "beating": [],
+        "computed": []
+      },
+      "study_revision": {
+        "number": 3,
+        "protocol_digest": "0000000000000000000000000000000000000000000000000000000000000016",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000017"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "code_environment": {
+        "candidate": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "control": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "differs": [],
+        "same": true
+      },
+      "comparability": {
+        "checks": [
+          {
+            "check": "population",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "references",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "scorer",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "unit",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "items",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "mode",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "coverage",
+            "passed": true,
+            "reason": null
+          }
+        ],
+        "status": "compatible"
+      },
+      "comparison_id": "00000000-0000-4000-8000-000000000008",
+      "coverage": {
+        "candidate_scored": 182,
+        "control_scored": 182,
+        "expected": 182,
+        "paired": 182
+      },
+      "delta": {
+        "definition": "Metric(Candidate) - Metric(Control); positive means the Candidate is worse (the Metric is lower-is-better)",
+        "metric": "mae",
+        "unit": "rentals per day",
+        "value": 173.93948298447322
+      },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
+      "kind": "comparison",
+      "left_assessment_id": "00000000-0000-4000-8000-000000000006",
+      "limitations": [
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
+        "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+        "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-000000000007, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
+      ],
+      "paired_deltas_ref": {
+        "media_type": "text/csv",
+        "path": "comparisons/00000000-0000-4000-8000-000000000008/paired_deltas.csv",
+        "role": "paired_deltas",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000011",
+        "size_bytes": 0
+      },
+      "population_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000008/population.json",
+        "role": "comparison_population",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
+        "size_bytes": 0
+      },
+      "right_assessment_id": "00000000-0000-4000-8000-000000000007",
+      "roles": {
+        "candidate_assessment_id": "00000000-0000-4000-8000-000000000007",
+        "control_assessment_id": "00000000-0000-4000-8000-000000000006"
+      },
+      "schema_version": "comparison/1",
+      "warnings": [
+        {
+          "code": "COMPARISON_SINGLE_FEATURE_BEATS",
+          "message": "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-000000000007, mae 1264.73 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (823.878 rentals per day), lag_1 (900.604 rentals per day), lag_7 (1090.79 rentals per day)."
+        }
+      ]
+    },
+    {
+      "code_environment": {
+        "candidate": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "control": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "differs": [],
+        "same": true
+      },
+      "comparability": {
+        "checks": [
+          {
+            "check": "population",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "references",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "scorer",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "unit",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "items",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "mode",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "coverage",
+            "passed": true,
+            "reason": null
+          }
+        ],
+        "status": "compatible"
+      },
+      "comparison_id": "00000000-0000-4000-8000-00000000000e",
+      "coverage": {
+        "candidate_scored": 182,
+        "control_scored": 182,
+        "expected": 182,
+        "paired": 182
+      },
+      "delta": {
+        "definition": "Metric(Candidate) - Metric(Control); positive means the Candidate is worse (the Metric is lower-is-better)",
+        "metric": "mae",
+        "unit": "rentals per day",
+        "value": 173.93948298447322
+      },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
+      "kind": "comparison",
+      "left_assessment_id": "00000000-0000-4000-8000-00000000000c",
+      "limitations": [
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
+        "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+        "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
+      ],
+      "paired_deltas_ref": {
+        "media_type": "text/csv",
+        "path": "comparisons/00000000-0000-4000-8000-00000000000e/paired_deltas.csv",
+        "role": "paired_deltas",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000001b",
+        "size_bytes": 0
+      },
+      "population_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-00000000000e/population.json",
+        "role": "comparison_population",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
+        "size_bytes": 0
+      },
+      "right_assessment_id": "00000000-0000-4000-8000-00000000000d",
+      "roles": {
+        "candidate_assessment_id": "00000000-0000-4000-8000-00000000000d",
+        "control_assessment_id": "00000000-0000-4000-8000-00000000000c"
+      },
+      "schema_version": "comparison/1",
+      "warnings": [
+        {
+          "code": "COMPARISON_SINGLE_FEATURE_BEATS",
+          "message": "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
+        }
+      ]
+    },
+    {
+      "code_environment": {
+        "candidate": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "control": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000010"
+          },
+          "python": "PYTHON"
+        },
+        "differs": [],
+        "same": true
+      },
+      "comparability": {
+        "checks": [
+          {
+            "check": "population",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "references",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "scorer",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "unit",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "items",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "mode",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "coverage",
+            "passed": true,
+            "reason": null
+          }
+        ],
+        "status": "compatible"
+      },
+      "comparison_id": "00000000-0000-4000-8000-000000000012",
+      "coverage": {
+        "candidate_scored": 182,
+        "control_scored": 182,
+        "expected": 182,
+        "paired": 182
+      },
+      "delta": {
+        "definition": "Metric(Candidate) - Metric(Control); positive means the Candidate is worse (the Metric is lower-is-better)",
+        "metric": "mae",
+        "unit": "rentals per day",
+        "value": 173.93948298447322
+      },
+      "interval": {
+        "block_length": 7,
+        "level": 0.95,
+        "lower": 33.969181219064296,
+        "method": "percentile_bootstrap",
+        "reason": null,
+        "resamples": 2000,
+        "seed": 241,
+        "unit": "item",
+        "units": 182,
+        "upper": 304.04316377953563,
+        "variant": "circular"
+      },
+      "kind": "comparison",
+      "left_assessment_id": "00000000-0000-4000-8000-00000000000c",
+      "limitations": [
+        "Daily observations are dependent: the interval resamples blocks of 7 consecutive days, which assumes that the dependence beyond 7 days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim.",
+        "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+        "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
+      ],
+      "paired_deltas_ref": {
+        "media_type": "text/csv",
+        "path": "comparisons/00000000-0000-4000-8000-000000000012/paired_deltas.csv",
+        "role": "paired_deltas",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000001b",
+        "size_bytes": 0
+      },
+      "population_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000012/population.json",
+        "role": "comparison_population",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000012",
+        "size_bytes": 0
+      },
+      "right_assessment_id": "00000000-0000-4000-8000-00000000000d",
+      "roles": {
+        "candidate_assessment_id": "00000000-0000-4000-8000-00000000000d",
+        "control_assessment_id": "00000000-0000-4000-8000-00000000000c"
+      },
+      "schema_version": "comparison/1",
+      "warnings": [
+        {
+          "code": "COMPARISON_SINGLE_FEATURE_BEATS",
+          "message": "The candidate of this Comparison (Assessment 00000000-0000-4000-8000-00000000000d, mae 1265.28 rentals per day) is beaten by lag features of its own Configuration, each used alone as the forecast on the same Items: mean_previous_7 (824.428 rentals per day), lag_1 (900.055 rentals per day), lag_7 (1091.34 rentals per day)."
+        }
+      ]
+    }
+  ],
+  "pending_decisions": [
+    {
+      "comparison_id": "00000000-0000-4000-8000-000000000012",
+      "control_assessment_id": "00000000-0000-4000-8000-00000000000c",
+      "candidate_assessment_id": "00000000-0000-4000-8000-00000000000d",
+      "question": {
+        "id": "keep_after_comparison",
+        "text": "Which Configuration do we keep after this Comparison?"
+      },
+      "options": [
+        {
+          "id": "keep_control",
+          "text": "Keep the Control",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Keep the Control\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work."
+        },
+        {
+          "id": "keep_candidate",
+          "text": "Keep the Candidate",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Keep the Candidate\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work."
+        },
+        {
+          "id": "keep_neither",
+          "text": "Choose neither yet",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Choose neither yet\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule."
+        }
+      ]
+    }
+  ],
+  "record_files": [
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000009",
+      "path": "decisions/000001-00000000-0000-4000-8000-000000000009.json"
+    },
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-00000000000f",
+      "path": "decisions/000002-00000000-0000-4000-8000-00000000000f.json"
+    },
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-000000000019",
+      "path": "declared_deviations/000001-00000000-0000-4000-8000-000000000019.json"
+    },
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-00000000001a",
+      "path": "declared_deviations/000002-00000000-0000-4000-8000-00000000001a.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000007",
+      "path": "assessments/00000000-0000-4000-8000-000000000007/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000a",
+      "path": "assessments/00000000-0000-4000-8000-00000000000a/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "path": "assessments/00000000-0000-4000-8000-00000000000b/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000c",
+      "path": "assessments/00000000-0000-4000-8000-00000000000c/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000d",
+      "path": "assessments/00000000-0000-4000-8000-00000000000d/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000016",
+      "path": "assessments/00000000-0000-4000-8000-000000000016/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-00000000000e",
+      "path": "comparisons/00000000-0000-4000-8000-00000000000e/comparison.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000012",
+      "path": "comparisons/00000000-0000-4000-8000-000000000012/comparison.json"
+    }
+  ],
+  "next_step": {
+    "kind": "decide",
+    "text": null,
+    "ids": [
+      "00000000-0000-4000-8000-000000000012"
+    ],
+    "context": [],
+    "to_handle": [
+      "00000000-0000-4000-8000-00000000001c",
+      "00000000-0000-4000-8000-00000000001d"
+    ],
+    "flagged": [],
+    "answered": [
+      {
+        "decision": "00000000-0000-4000-8000-000000000009",
+        "by": "00000000-0000-4000-8000-00000000000f"
+      }
+    ]
+  },
+  "writes_since": [
+    {
+      "command": "init",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "init",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "0000000000000000000000000000000000000000000000000000000000000002",
+          "kind": "revision"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "seasonal"
+    },
+    {
+      "command": "run ml",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "seasonal",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "kind": "attempt"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "kind": "observation_set"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "ridge"
+    },
+    {
+      "command": "run ml",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "ridge",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "kind": "attempt"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "kind": "observation_set"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "compare",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "compare",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "kind": "comparison"
+        }
+      ]
+    },
+    {
+      "command": "decide",
+      "phase": "begin",
+      "request_id": "panel-1"
+    },
+    {
+      "command": "decide",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "panel-1",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000009",
+          "kind": "decision"
+        }
+      ]
+    },
+    {
+      "command": "init --new-revision",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "init --new-revision",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "0000000000000000000000000000000000000000000000000000000000000014",
+          "kind": "revision"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000a",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000b",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "init --new-revision",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "init --new-revision",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "0000000000000000000000000000000000000000000000000000000000000017",
+          "kind": "revision"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000c",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000d",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "compare",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "compare",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000e",
+          "kind": "comparison"
+        }
+      ]
+    },
+    {
+      "command": "decide",
+      "phase": "begin",
+      "request_id": "proxy-1"
+    },
+    {
+      "command": "decide",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "proxy-1",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000000f",
+          "kind": "decision"
+        }
+      ]
+    },
+    {
+      "command": "compare",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "compare",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000012",
+          "kind": "comparison"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "demo-s1"
+    },
+    {
+      "command": "run ml",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "demo-s1",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "kind": "attempt"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "kind": "observation_set"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "check"
+    },
+    {
+      "command": "run ml",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "check",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "kind": "attempt"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "kind": "observation_set"
+        }
+      ]
+    },
+    {
+      "command": "assess",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "assess",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "kind": "freeze"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "kind": "exposure"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000016",
+          "kind": "assessment"
+        }
+      ]
+    },
+    {
+      "command": "report",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "report",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000018",
+          "kind": "exposure"
+        }
+      ]
+    },
+    {
+      "command": "deviation",
+      "phase": "begin",
+      "request_id": "dv-1"
+    },
+    {
+      "command": "deviation",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "dv-1",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-000000000019",
+          "kind": "declared_deviation"
+        }
+      ]
+    },
+    {
+      "command": "deviation",
+      "phase": "begin",
+      "request_id": "dv-2"
+    },
+    {
+      "command": "deviation",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": "dv-2",
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000001a",
+          "kind": "declared_deviation"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "killed"
+    },
+    {
+      "command": "recover",
+      "phase": "begin",
+      "request_id": null
+    },
+    {
+      "command": "recover",
+      "outcome": "completed",
+      "phase": "end",
+      "request_id": null,
+      "written": [
+        {
+          "id": "00000000-0000-4000-8000-00000000001b",
+          "kind": "attempt"
+        }
+      ]
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "killed-2"
+    },
+    {
+      "command": "run ml",
+      "phase": "begin",
+      "request_id": "killed-3"
+    }
+  ]
+}

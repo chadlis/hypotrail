@@ -63,12 +63,17 @@ for (const name of ["status-success", "status-chinook-pending", "status-chinook-
   });
 }
 
-test("status-chinook-withheld: the word stands once for each Comparison whose main delta value is null, and no secondary delta is shown", async (t) => {
+test("status-chinook-withheld: the word stands once for each Comparison whose main delta value is null, once more on the line of the step of the Comparisons and once in each summary, and no secondary delta is shown", async (t) => {
   const object = keptObject("status-chinook-withheld");
   assert.ok(object.comparisons.every((comparison: Entry) => comparison.secondary_deltas.every((delta: Entry) => delta.value === null)));
   const { document, parts } = await pendingParts(t, object);
   const count = partsOf(document).between.split(/\s+/).filter((word) => word === "withheld").length;
-  assert.equal(count, withheldParts(parts).length);
+  const step = elementOf(document, '<details data-step="comparisons">')!;
+  const line = partsOf(elementOf(step, "<summary>")!).between.split(/\s+/).filter((word) => word === "withheld").length;
+  assert.equal(line, 1, "the latest Comparison's withheld delta on the line of the step");
+  // And once in each summary of a Comparison whose delta is withheld, which the step of the Comparisons shows for a Comparison Now holds.
+  const summaries = elementsOf(document, '<div data-summary="comparison">').filter((summary) => partsOf(summary).between.split(/\s+/).includes("withheld")).length;
+  assert.equal(count, withheldParts(parts).length + line + summaries);
 });
 
 test("status-chinook-withheld: the Comparison's part holds no roles' element", async (t) => {

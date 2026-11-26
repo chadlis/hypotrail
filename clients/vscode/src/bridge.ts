@@ -23,8 +23,12 @@ export function checkoutRoot(extensionPath: string): string {
 }
 
 // "A client reads through `status --json`, which takes no lock and writes nothing, and writes only through the documented CLI commands." (ADR 0004)
-export function readStudy(root: string, study: string): Promise<Outcome> {
-  const args = contract.read_arguments.map((argument) => argument.replace("{path}", study));
+// "The panel's own read becomes `status --since <previous read's Write sequence, else 0> --json`, labelled "Since this panel's last read".
+// The Copilot tool's arguments are unchanged." (D-136): given `since`, the read passes it as `--since=`; given none, it leaves that argument out.
+export function readStudy(root: string, study: string, since?: number): Promise<Outcome> {
+  const args = contract.read_arguments
+    .filter((argument) => since !== undefined || !argument.includes("{n}"))
+    .map((argument) => argument.replace("{path}", study).replace("{n}", String(since)));
   return start(root, args, contract.read_timeout_ms);
 }
 

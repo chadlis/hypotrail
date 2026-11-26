@@ -1,5 +1,6 @@
 // What the tests of the panel's read and content share: a workspace of Studies, the extension activated on the stub,
 // an opening by the command or a link, and the parts of a document that the tests read.
+import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -268,3 +269,49 @@ export function geometryValues(document: string): string[] {
 export function samePath(document: string): string {
   return document.replace(/<h1 data-text>[^<]*<\/h1>/, "<h1 data-text>PATH</h1>");
 }
+
+// "fixed `h2` texts: "To handle", "Now", "Waiting", "The Study so far" and "Tools". The test becomes "an in-order subset, with Now, the
+// path and Tools always present"" (D-136, B3).
+export const HEADINGS = ["To handle", "Now", "Waiting", "The Study so far", "Tools"];
+const ALWAYS = ["Now", "The Study so far", "Tools"];
+const inOrderSubset = (headings: string[]): boolean => headings.every((heading, at) => HEADINGS.includes(heading) && (at === 0 || HEADINGS.indexOf(headings[at - 1]) < HEADINGS.indexOf(heading)));
+export const holdsTheHeadings = (headings: string[]): boolean => inOrderSubset(headings) && ALWAYS.every((heading) => headings.includes(heading));
+
+// An `interval` in the shape of #238's S2 keys (chadlis/hypotrail#240): no kept read holds one until that slice lands, so the tests inject
+// it into a Comparison of a kept read.
+export const S2_INTERVAL = { level: 0.95, lower: 120.5, upper: 231.25, method: "moving_block_bootstrap", unit: "day", units: 182, variant: "basic", block_length: 7, resamples: 2000, seed: 0, reason: null };
+
+// "Now's order where `next_step` says rule 2, for the first Pending decision" (chadlis/hypotrail#253): the places of its parts in Now, in
+// document order, and what each holds. `read` is the object the document was built from.
+export function assertNowOrder(document: string, read: Record<string, any>): void {
+  const now = elementOf(document, '<section data-part="now"')!;
+  const [first] = read.pending_decisions.filter((each: Record<string, any>) => each.comparison_id === read.next_step.ids[0]);
+  const comparison = read.comparisons.find((each: Record<string, any>) => each.comparison_id === first.comparison_id);
+  const at = (opening: string): number => now.indexOf(opening);
+  const fieldset = elementOf(now, "<fieldset ")!;
+  const fold = elementOf(now, '<details data-element="charts">');
+  const places = [
+    at(`<h3 data-text>${escapedText(first.question.text)}</h3>`),
+    at('<p data-element="delta">'),
+    at('<p data-element="coverage">'),
+    at('<p data-element="frame">'),
+    ...comparison.warnings.map((warning: Record<string, any>) => at(`<span data-text>${escapedText(warning.message)}</span>`)),
+    at('<p data-element="limits">'),
+    now.indexOf(fieldset),
+    now.indexOf(`<button data-message="${contract.messages[1]}"`),
+    ...(fold === undefined ? [] : [now.indexOf(fold)]),
+  ];
+  assert.ok(places.every((place) => place >= 0), `every part in Now: ${places}`);
+  assert.deepEqual(places, [...places].sort((a, b) => a - b), `in D-148's order: ${places}`);
+  const consequences = elementsOf(fieldset, '<details data-element="consequence">');
+  assert.equal(consequences.length, first.options.length, "each option's consequence in a fold");
+  for (const fold of [...consequences, ...(elementOf(now, '<details data-element="charts">') ? [elementOf(now, '<details data-element="charts">')!] : [])]) assert.ok(!/^<details[^>]*\sopen/.test(fold), "each fold closed");
+  if (comparison.delta.value !== null) {
+    assert.ok(fold, "a fold of the charts");
+    const computed = read.assessments.find((each: Record<string, any>) => each.assessment_id === first.candidate_assessment_id)?.single_feature_check?.computed ?? [];
+    assert.equal(fold!.includes('<div data-chart="features">'), computed.length > 0, "the single-feature chart in the fold where the check computed one");
+    assert.ok(fold!.includes('<div data-chart="delta">'), "the two-value chart in the fold");
+  }
+}
+
+const escapedText = (text: string): string => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");

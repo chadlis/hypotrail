@@ -13,7 +13,9 @@ import { KEPT_FIGURES, KEPT_READS, documentFor, keptObject, success } from "./pa
 const HEIGHT = 900;
 const BOUND = Object.fromEntries(contract.guard_bounds.map((entry) => [entry.split("=")[0], Number(entry.split("=")[1])]));
 
-const QUESTION = 'section[data-part="pending"] h3[data-text]';
+// "`guard_bounds` guards that the question a person must answer sits near the top; in the redesign, Now's question line is that question"
+// (the drive's answer on chadlis/hypotrail#252, D-133).
+const QUESTION = '[data-element="now-question"]';
 const DELTA = 'section[data-part="pending"] [data-element="delta"]';
 
 // The selector of the first evidence number: the delta's value of the first pending Comparison, or the delta's element when

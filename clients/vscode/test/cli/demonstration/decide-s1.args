@@ -5,6 +5,8 @@
     "--question=Which Configuration do we keep after this Comparison?",
     "--option=Keep the Control",
     "--author=human",
+    "--question-id=keep_after_comparison",
+    "--option-id=keep_control",
     "--artifact=00000000-0000-4000-8000-00000000000e",
     "--request-id=demo-s1-decide",
     "--read-sequence=28",
