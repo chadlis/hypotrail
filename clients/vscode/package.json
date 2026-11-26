@@ -44,7 +44,7 @@
         "toolReferenceName": "hypotrailDecide",
         "displayName": "Record a Hypotrail Decision",
         "userDescription": "Records one Decision in a Hypotrail Study through the CLI's `decide`, after you confirm it, unless you chose \"Always Allow\" for this tool.",
-        "modelDescription": "Records one Decision in a Hypotrail Study of this workspace with the CLI command `decide`, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give the question and the option as the Study's pending decision words them, cited_ids (the ids of the records the Decision cites, such as the Comparison's), read_sequence, the write_sequence of the Study as you last read it, and study, the absolute path of the folder of the Study to write to, even when the workspace holds one Study. author is human when the user stated the choice in chat, and proxy when you chose by a stated rule; with proxy, give source, which names that rule. The extension makes the request id. A write the CLI refuses, or that gets no answer, is reported and never sent again by this tool: read the Study before any other write.",
+        "modelDescription": "Records one Decision in a Hypotrail Study of this workspace with the CLI command `decide`, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give the question and the option as the Study's pending decision words them, cited_ids (the ids of the records the Decision cites, such as the Comparison's), read_sequence, the write_sequence of the Study as you last read it, and study, the absolute path of the folder of the Study to write to, even when the workspace holds one Study. author is human when the user stated the choice in chat, and proxy when you chose by a stated rule; with proxy, give source, which names that rule. When the user states the choice in this chat, pass words: the user's own messages that state it, each whole and as typed, one string per message, with author human; your own wording or a paraphrase goes in source, never in words. Words are recorded as relayed by you; the tool declares that channel itself, and an agent never declares the channel panel. Pass question_id and option_id, the ids of the pending decision's question and of the option chosen, as your read gives them; by is an optional label of who gave the words. The extension makes the request id. A write the CLI refuses, or that gets no answer, is reported and never sent again by this tool: read the Study before any other write.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -80,6 +80,25 @@
               "type": "integer",
               "minimum": 0,
               "description": "The write_sequence of the Study as last read."
+            },
+            "words": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The user's own messages that state the choice, each whole and as typed, one string per message. Only with author human. Recorded as relayed by Copilot and not checked against the chat."
+            },
+            "question_id": {
+              "type": "string",
+              "description": "The id of the pending decision's question, as the Study gives it. Given with option_id."
+            },
+            "option_id": {
+              "type": "string",
+              "description": "The id of the option chosen, as the Study gives it. Given with question_id."
+            },
+            "by": {
+              "type": "string",
+              "description": "An optional label of who gave the words, recorded as given. Only with words."
             },
             "study": {
               "type": "string",

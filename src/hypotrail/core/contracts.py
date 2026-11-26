@@ -38,12 +38,15 @@ def validate(record) -> None:
     if not errors:
         return
     kind = record.get("kind") if isinstance(record, dict) else None
-    # `oneOf` at the root hides the fault: report the fault in the definition the record's kind selects.
+    # `oneOf` at the root hides the fault: report the fault in the definition the record's kind selects, the one of its own
+    # `schema_version` when the kind has several, else the first of that kind.
     selected = [e for e in errors if e.validator != "oneOf"]
     if kind is not None and not selected:
+        of_kind = [name for name, d in schema()["$defs"].items() if d.get("properties", {}).get("kind", {}).get("const") == kind]
+        version = record.get("schema_version")
         definition = next(
-            (name for name, d in schema()["$defs"].items() if d.get("properties", {}).get("kind", {}).get("const") == kind),
-            None,
+            (name for name in of_kind if schema()["$defs"][name]["properties"].get("schema_version", {}).get("const") == version),
+            of_kind[0] if of_kind else None,
         )
         if definition is not None:
             sub = Draft202012Validator({"$ref": f"#/$defs/{definition}", "$defs": schema()["$defs"]})

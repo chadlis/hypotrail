@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from _assess_helpers import assess, fresh_study, observation_set_id, references_id
-from _chinook_helpers import references_id as chinook_references_id, undeclared_examples
+from _chinook_helpers import references_id as chinook_references_id, revision_one_examples
 from _revision_helpers import new_revision
 from _study_helpers import examples_copy, init_study, run_cli, run_json
 from test_write_sequence import entries, seq, tree
@@ -338,7 +338,7 @@ def test_a_new_assess_on_a_study_written_before_the_journal_comes_after_a_kept_a
     assert entries(kept) and row_of(kept, on_kept["decision_id"])["applies"] is True
     code, payload, err = run_json(
         "assess", "--study", kept, "--observations", observation_set, "--scorer", "chinook_contract_v1", "--references", chinook_references_id(kept),
-        "--examples-dir", undeclared_examples(kept.parent),  # the Protocol the kept Study was made on
+        "--examples-dir", revision_one_examples(kept.parent),  # the Workload the kept Study was made on
     )
     assert code == 0, (payload, err)
     new_id = payload["assessment"]["assessment_id"]
@@ -460,3 +460,37 @@ def test_the_consequence_texts_status_gives_for_a_pending_decision_are_the_three
     study, _, _, _ = TRACKS["bike"].compared(tmp_path / "base")
     [entry] = status(study)["pending_decisions"]
     assert [option["consequence"] for option in entry["options"]] == CONSEQUENCES_READ
+
+
+# --- ticket #244: a Study that holds a `decision/1` record and a `decision/2` record with words ---------------------------------------
+
+
+def test_status_lists_the_ids_and_words_of_a_decision_2_as_stored_beside_a_decision_1_and_computes_whether_each_applies_as_before(tmp_path):
+    from test_decision_versions import KEPT_FILE, RECORD, holding_both
+    from test_status_since import STATUS_KEYS
+
+    study = holding_both(tmp_path)
+    words = tmp_path / "words.txt"
+    words.write_text("Keep the candidate,\nas I said.", encoding="utf-8")
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", "Which Configuration do we keep after this Comparison?", "--option", "Keep the Candidate",
+        "--author", "human", "--artifact", RECORD["cited_ids"][0], "--request-id", "with-words", "--read-sequence", seq(study),
+        "--question-id", "keep_after_comparison", "--option-id", "keep_candidate", "--words-file", words, "--by", "the owner",
+    )
+    assert code == 0, (payload, err)
+    stored = json.loads(next((study / "decisions").glob(f"*-{payload['decision']['decision_id']}.json")).read_text(encoding="utf-8"))
+    code, listing, err = run_json("status", "--study", study)
+    assert code == 0, (listing, err)
+    assert set(listing) == STATUS_KEYS
+    old, new = listing["decisions"]
+    assert {key: new.get(key, "absent") for key in ("question_id", "option_id", "words")} == {key: stored[key] for key in ("question_id", "option_id", "words")}
+    assert new["words"] == {"texts": ["Keep the candidate,\nas I said."], "channel": "chat_relayed", "by": "the owner", "authenticated": False}
+    assert [(row["applies"], row["reasons"], row["evidence_change"]) for row in (old, new)] == [(True, [], None)] * 2
+
+    code, payload, err = new_revision(study, "--examples-dir", examples_copy(tmp_path, rows=corrected_day, name="revised"), "--read-sequence", seq(study))
+    assert code == 0, (payload, err)
+    revision = json.loads((study / "study.json").read_text(encoding="utf-8"))["revision"]
+    old, new = listed(study)
+    assert [(row["applies"], row["reasons"]) for row in (old, new)] == [(False, [{"reason": "revision_changed", "id": revision}])] * 2
+    assert "words" not in old and old["schema_version"] == "decision/1"
+    assert (study / "decisions" / KEPT_FILE.name).read_text(encoding="utf-8") == KEPT_FILE.read_text(encoding="utf-8")

@@ -21,7 +21,7 @@ function keptAnswer(name: string): Answer {
 
 const DECISION: DecisionInput = LISTS[1].decision;
 
-for (const list of LISTS.slice(0, 2)) {
+for (const list of [...LISTS.slice(0, 2), ...LISTS.slice(3)]) {
   test(`a Decision with ${list.name} starts decide with the whole list of arguments, 120 s and no shell key`, async (t) => {
     const calls = recorder(t, keptAnswer("decide-success"));
     await recordDecision(ROOT, list.study, list.decision);
@@ -129,7 +129,7 @@ for (const [name, change, missing] of REFUSED) {
 
 test("the fields of a client_refusal are those of contract.json, in its order", async (t) => {
   recorder(t);
-  const none = { question: 0, option: 0, author: 0, cited_ids: 0, source: 0, request_id: 0, read_sequence: "x" };
+  const none = { question: 0, option: 0, author: 0, cited_ids: 0, source: 0, question_id: 0, option_id: 0, words: 0, channel: 0, by: 0, request_id: 0, read_sequence: "x" };
   assert.deepEqual(await recordDecision(ROOT, STUDY, none as unknown as DecisionInput), { outcome: "client_refusal", missing: contract.client_refusal_fields });
 });
 
@@ -230,12 +230,47 @@ for (const field of ["question", "option", "source"] as const) {
 }
 
 test("the options decide is given are those of contract.json, in its order, the optional one only when given", async (t) => {
-  const calls = recorder(t, keptAnswer("decide-success"), keptAnswer("decide-success"));
+  const calls = recorder(t, keptAnswer("decide-success"), keptAnswer("decide-success"), keptAnswer("decide-success"));
   await recordDecision(ROOT, STUDY, LISTS[0].decision);
   await recordDecision(ROOT, STUDY, LISTS[1].decision);
+  await recordDecision(ROOT, STUDY, { ...LISTS[3].decision, source: "the owner, in chat" });
   const names = (args: string[]) => [...new Set(args.slice(FIRST.length + 1).map((argument) => argument.split("=")[0]))];
-  assert.deepEqual(names(calls[0].args), contract.decide_options);
-  assert.deepEqual(names(calls[1].args), contract.decide_options.filter((option) => !contract.decide_optional_options.includes(option)));
+  const without = (absent: string[]) => contract.decide_options.filter((option) => !absent.includes(option));
+  assert.deepEqual(names(calls[0].args), without(contract.decide_optional_options.filter((option) => option !== "--source")));
+  assert.deepEqual(names(calls[1].args), without(contract.decide_optional_options));
+  assert.deepEqual(names(calls[2].args), contract.decide_options);
   assert.equal(calls[0].args[FIRST.length], contract.writes[0]);
   assert.equal(calls[0].options.timeout, contract.write_timeout_ms);
+});
+
+// Each input of the words, the ids and the label that the bridge refuses, with the field the refusal names: no process starts.
+const LIMIT = contract.words_limit_characters;
+const WORDS_REFUSED: [string, Partial<Record<keyof DecisionInput, unknown>>, string][] = [
+  ["words that is a text, not a list", { words: "keep it" }, "words"],
+  ["words that is an empty list", { words: [] }, "words"],
+  ["words that holds an empty text", { words: ["keep it", ""] }, "words"],
+  ["words that holds a number", { words: ["keep it", 3] }, "words"],
+  [`words of ${LIMIT + 1} characters in total, in two texts`, { words: ["a".repeat(LIMIT), "b"] }, "words"],
+  [`words of ${LIMIT + 1} characters in total, counted as code points`, { words: ["\u00e9".repeat(LIMIT - 1), "\u{1F600}\u{1F600}"] }, "words"],
+  ["a question_id that is not a text", { question_id: 1 }, "question_id"],
+  ["an option_id that is not a text", { option_id: ["keep_control"] }, "option_id"],
+  ["a channel that is not a text", { channel: true }, "channel"],
+  ["a by that is not a text", { by: { name: "owner" } }, "by"],
+];
+
+for (const [name, change, field] of WORDS_REFUSED) {
+  test(`${name} is a client_refusal that names ${field}, and no process starts`, async (t) => {
+    const calls = recorder(t, keptAnswer("decide-success"));
+    const outcome = await recordDecision(ROOT, STUDY, { ...LISTS[3].decision, ...change } as DecisionInput);
+    assert.deepEqual(outcome, { outcome: "client_refusal", missing: [field] });
+    assert.equal(calls.length, 0);
+  });
+}
+
+test(`words of exactly ${LIMIT} characters in total start decide, with one --words= per text`, async (t) => {
+  const calls = recorder(t, keptAnswer("decide-success"));
+  const words = ["\u00e9".repeat(LIMIT - 2), "\u{1F600}\u{1F600}"];
+  await recordDecision(ROOT, STUDY, { ...LISTS[3].decision, words });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args.filter((argument) => argument.startsWith("--words=")), words.map((text) => `--words=${text}`));
 });

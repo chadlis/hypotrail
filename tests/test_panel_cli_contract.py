@@ -290,3 +290,99 @@ def test_the_dated_lines_hold_one_line_that_names_the_two_printed_id_keys_and_ov
     assert "`observation_set_id`" in line
     assert "`references_id`" in line
     assert "the earlier line it overrides: none" in line
+
+
+# --- the dated line of the file a client opens in the editor ------------------------------------------------------------------------
+
+OPEN_TICKET_SENTENCE = (
+    "Given the `open` message for each output path of a read, the panel asks VS Code once to show one file, whose path is the Study folder"
+    " joined to the path the object held gives at that kind, index and ref, then runs the command"
+    " `workbench.action.files.setActiveEditorReadonlyInSession` on that editor, so that the file is shown read-only; it reads no content of"
+    " the file, starts no process, makes no read through the bridge, and assigns no new document"
+)
+# "narrowed to "A client reads through `status --json` and `figures --json`, and may open in the editor, read-only, a file of the Study
+# whose path a read names; it writes only through the documented CLI commands"" (chadlis/hypotrail#227, T1-10).
+NARROWED_READ_SENTENCE = (
+    "A client reads through `status --json` and `figures --json`, and may open in the editor, read-only, a file of the Study whose path a"
+    " read names; it writes only through the documented CLI commands"
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_open_message_that_quotes_its_ticket_and_the_read_line_it_overrides_and_narrows():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#227" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`open`" in line
+    assert OPEN_TICKET_SENTENCE in line
+    assert f"the earlier line it overrides: \"{READ_THROUGH_STATUS_SENTENCE}\"" in line
+    assert NARROWED_READ_SENTENCE in line
+    assert "records no Exposure" in line and "writes nothing" in line
+
+
+# --- the dated line of the key `record_files` ---------------------------------------------------------------------------------------
+
+RECORD_FILES_TICKET_SENTENCE = (
+    "For every Study, the object of `status --json` and of `status --since N --json` holds `record_files`: a list with one entry per record"
+    " of the listings `decisions`, `declared_deviations`, `assessments` and `comparisons`, in that order, which is the order of"
+    " `core/state.py:138-141`, and in each listing's order; each entry holds exactly `kind`, `id` and `path`; `path` is relative to the Study"
+    " folder, written with `/`, and is a file of the Study that, read as JSON, is the record of that id."
+)
+
+
+def test_the_dated_lines_hold_one_line_that_names_record_files_and_its_shape_quotes_its_ticket_and_overrides_none():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#228" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert "`record_files`" in line and all(f"`{key}`" in line for key in ("kind", "id", "path"))
+    assert "computed when the Study is read and never stored" in line
+    assert RECORD_FILES_TICKET_SENTENCE in line
+    assert "the earlier line it overrides: none" in line
+
+
+# --- the dated line of `decision/2` and the options of `decide` that carry the ids and the words ------------------------------------
+
+WORDS_TICKET_SENTENCE = (
+    "`decide` gains `--question-id ID`, `--option-id ID`, `--words-file FILE` (repeatable, one text per file, in order), `--words TEXT`"
+    " (repeatable, S3; no limit on length in the CLI or the record), `--channel` (S1, `chat_relayed` when words are given without it) and"
+    " `--by LABEL`."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_decision_2_that_quotes_its_ticket_and_narrows_the_line_on_what_decide_requires():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#244" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert f'"{WORDS_TICKET_SENTENCE}"' in line
+    assert 'the earlier line it narrows: "`decide` requires `--read-sequence N` and `--request-id`"' in line
+    assert "`decision/2`" in line and "`authenticated` always false" in line
+    assert "`decide` requires `--read-sequence N` and `--request-id`" in section(adr(), "The contract")
+
+
+# --- the dated lines of the Copilot write tool's words and of the rule's fifth requirement ---------------------------------------
+
+TOOL_WORDS_TICKET_SENTENCE = (
+    "`hypotrail_decide` gains the optional inputs `words` (an array of strings: the user's own messages that state the choice, each whole"
+    " and as typed), `question_id`, `option_id` and `by`."
+)
+FIFTH_REQUIREMENT_TICKET_SENTENCE = (
+    "when the person states the choice, record their own words, whole and unchanged, with the Decision (`--words-file`, one file per"
+    " message; `words` for the tool), pass the ids of the pending decision's question and option, and put your own wording in the source."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_the_tools_words_and_one_for_the_fifth_requirement_each_quoting_its_ticket():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#245" in line]
+    assert len(found) == 2, lines
+    tool, rule = found
+    assert f'"{TOOL_WORDS_TICKET_SENTENCE}"' in tool
+    assert "`--channel=chat_relayed`" in tool and "16,000" in tool and "`client_refusal`" in tool
+    assert "the earlier line it overrides: none" in tool
+    assert "fifth requirement" in rule and f'"{FIFTH_REQUIREMENT_TICKET_SENTENCE}"' in rule
+    assert all(f"`{name}`" in rule for name in ("--words-file", "--question-id", "--option-id", "words", "question_id", "option_id", "panel"))
+    assert 'the earlier lines it widens: "The template states the four requirements of the rule written for Claude Code"' in rule
+    assert "The template states the four requirements of the rule written for Claude Code" in adr()
+    assert "the 2026-11-24 line on the rule for Claude Code" in rule

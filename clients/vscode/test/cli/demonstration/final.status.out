@@ -261,12 +261,15 @@
       "decision_id": "00000000-0000-4000-8000-000000000009",
       "kind": "decision",
       "option": "Keep the Control",
+      "option_id": null,
       "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
       "read_sequence": 12,
       "request_id": "demo-task-3",
       "revision": "0000000000000000000000000000000000000000000000000000000000000002",
-      "schema_version": "decision/1",
+      "schema_version": "decision/2",
       "source": null,
+      "words": null,
       "write_sequence": 13,
       "applies": false,
       "reasons": [
@@ -327,12 +330,15 @@
       "decision_id": "00000000-0000-4000-8000-000000000011",
       "kind": "decision",
       "option": "Keep the Control",
+      "option_id": null,
       "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
       "read_sequence": 30,
       "request_id": "demo-c8",
       "revision": "0000000000000000000000000000000000000000000000000000000000000017",
-      "schema_version": "decision/1",
+      "schema_version": "decision/2",
       "source": "rule: keep the Configuration with the lowest MAE",
+      "words": null,
       "write_sequence": 31,
       "applies": true,
       "reasons": [],
@@ -1176,5 +1182,62 @@
       ]
     }
   ],
-  "pending_decisions": []
+  "pending_decisions": [],
+  "record_files": [
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000009",
+      "path": "decisions/000001-00000000-0000-4000-8000-000000000009.json"
+    },
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000011",
+      "path": "decisions/000002-00000000-0000-4000-8000-000000000011.json"
+    },
+    {
+      "kind": "declared_deviation",
+      "id": "00000000-0000-4000-8000-000000000012",
+      "path": "declared_deviations/000001-00000000-0000-4000-8000-000000000012.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000a",
+      "path": "assessments/00000000-0000-4000-8000-00000000000a/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "path": "assessments/00000000-0000-4000-8000-00000000000b/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000c",
+      "path": "assessments/00000000-0000-4000-8000-00000000000c/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000d",
+      "path": "assessments/00000000-0000-4000-8000-00000000000d/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-00000000000e",
+      "path": "comparisons/00000000-0000-4000-8000-00000000000e/comparison.json"
+    }
+  ]
 }

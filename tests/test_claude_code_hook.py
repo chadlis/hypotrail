@@ -259,8 +259,9 @@ def assert_ends_with_the_rule(stdout: str):
 
 def test_the_rule_names_the_read_the_read_sequence_decide_and_a_proxy_decision_with_its_source():
     rule = the_rule()
-    for named in ("status --json", "--read-sequence", "decide", "--author proxy", "--source", "write_sequence"):
+    for named in ("status --json", "--read-sequence", "decide", "--author proxy", "--source", "write_sequence", "--words-file", "--question-id", "--option-id"):
         assert named in rule, named
+    assert "never declares the channel `panel`" in rule
 
 
 # --- when the script cannot read --------------------------------------------------------------------------------------
@@ -395,6 +396,39 @@ def test_a_proxy_decision_recorded_as_the_rule_says_is_listed_with_its_source_an
     assert (decision["author"], decision["source"], decision["cited_ids"]) == ("proxy", RULE_SOURCE, [comparison])
     [line] = decision_lines(started(["--study", str(study)], session="session-2").stdout)
     assert decision["decision_id"] in line and "author proxy;" in line and f"source {quoted(RULE_SOURCE)};" in line
+
+
+# The person's words, of more characters than the hook's text may hold, each character one the line of a Decision never holds otherwise.
+LONG_WORDS = "\u00e9" * 20000
+
+
+def test_the_line_of_a_decision_with_words_holds_its_channel_and_no_character_of_its_texts_and_the_text_stays_within_its_limit(tmp_path):
+    study = compared_study(tmp_path)
+    before = started(["--study", str(study)]).stdout
+    [(comparison, question, options)] = pending_of(before)
+    words = tmp_path / "words.txt"
+    words.write_text(LONG_WORDS, encoding="utf-8")
+    code, out, err = run_cli(
+        "decide", "--study", study, "--question", question, "--option", options["keep_candidate"], "--author", "human",
+        "--artifact", comparison, "--question-id", "keep_after_comparison", "--option-id", "keep_candidate", "--words-file", words,
+        "--words", "\u00e8 as typed", "--request-id", "words-1", "--read-sequence", str(write_sequence_of(before)), "--json",
+    )
+    assert code == 0, (out, err)
+    [decision] = status_json(study)["decisions"]
+    assert decision["words"]["texts"] == [LONG_WORDS, "\u00e8 as typed"]
+    result = started(["--study", str(study)])
+    [line] = decision_lines(result.stdout)
+    assert "; channel chat_relayed;" in line
+    assert not {"\u00e9", "\u00e8"} & set(result.stdout)
+    assert len(result.stdout) <= script().TEXT_LIMIT
+    assert_ends_with_the_rule(result.stdout)
+
+
+def test_the_line_of_a_decision_without_words_names_the_channel_none():
+    line = script().decision_line(
+        {"decision_id": "d", "question": "q", "option": "o", "author": "human", "source": None, "cited_ids": ["c"], "applies": True, "evidence_change": None}
+    )
+    assert "; source none; channel none; cited c;" in line
 
 
 # --- the cut ---------------------------------------------------------------------------------------------------------

@@ -25,7 +25,11 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "docs" / "demo" / "demonstration.py"
 LIVE_KEY = "HYPOTRAIL_ANTHROPIC_API_KEY"
 
-Recording = namedtuple("Recording", "module work outcome transcript calls key_in_environment examples_before examples_after")
+Recording = namedtuple(
+    "Recording", "module work outcome transcript calls key_in_environment examples_before examples_after campaign_before campaign_after"
+)
+# The folder of the Chinook Campaign kept in the repository, whose Study the step CAMPAIGN copies.
+CAMPAIGN_FOLDER = ROOT / "docs" / "handbook" / "traces" / "campaign-chinook-dev"
 
 
 def demonstration():
@@ -65,6 +69,11 @@ def tracked_examples() -> dict:
     """{path: SHA-256} of each file `git ls-files examples` lists in the checkout."""
     listing = subprocess.run(["git", "ls-files", "-z", "examples"], cwd=ROOT, capture_output=True, text=True, check=True)
     return {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in sorted(listing.stdout.split("\0")) if name}
+
+
+def folder_digests(folder: Path) -> dict:
+    """{path relative to `folder`: SHA-256} of every file under `folder`, at any depth."""
+    return {path.relative_to(folder).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(folder.rglob("*")) if path.is_file()}
 
 
 def journal_entries(study: Path) -> list:
@@ -120,12 +129,13 @@ class Recorder:
 
 def run_in_process(work: Path, steps=None) -> Recording:
     """The step list (the script's own when `steps` is None) carried out once in the work folder, each process through `Recorder`, with
-    the SHA-256 of each tracked file under `examples/` read before and after."""
+    the SHA-256 of each tracked file under `examples/`, and of each file of the kept Campaign's folder, read before and after."""
     module = demonstration()
     recorder, out = Recorder(module), io.StringIO()
-    before = tracked_examples()
+    before, campaign = tracked_examples(), folder_digests(CAMPAIGN_FOLDER)
     outcome = module.run(work, start=recorder, out=out, steps=steps)
-    return Recording(module, work, outcome, out.getvalue(), recorder.calls, LIVE_KEY in os.environ, before, tracked_examples())
+    recorded = (out.getvalue(), recorder.calls, LIVE_KEY in os.environ)
+    return Recording(module, work, outcome, *recorded, before, tracked_examples(), campaign, folder_digests(CAMPAIGN_FOLDER))
 
 
 EXPANDED = demonstration().processes

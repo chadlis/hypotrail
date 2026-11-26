@@ -1,0 +1,975 @@
+{
+  "ok": true,
+  "study": {
+    "study_id": "00000000-0000-4000-8000-000000000013",
+    "workload": "chinook",
+    "protocol_id": "chinook:protocol",
+    "protocol_digest": "000000000000000000000000000000000000000000000000000000000000001f",
+    "revision": "0000000000000000000000000000000000000000000000000000000000000020",
+    "revision_number": 1
+  },
+  "writer_alive": false,
+  "revisions": [
+    {
+      "revision_number": 1,
+      "revision": "0000000000000000000000000000000000000000000000000000000000000020",
+      "previous_revision": null,
+      "protocol_digest": "000000000000000000000000000000000000000000000000000000000000001f",
+      "artifacts": [
+        {
+          "artifact_id": "memberships-580cd77bff2a04f5",
+          "role": "memberships",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000021"
+        },
+        {
+          "artifact_id": "references-0d503e9fd3d88362",
+          "role": "references",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000022"
+        },
+        {
+          "artifact_id": "answer-schema-72377e13ba30c890",
+          "role": "answer_schema",
+          "version": 1,
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000023"
+        }
+      ]
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000014",
+      "request_id": "chinook-dev-plain",
+      "operation": "execute",
+      "mode": "llm_live",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000013+00:00",
+      "finished_at": "2000-01-01T00:00:00.000014+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 100
+      },
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/inspect/2026-11-26T08-49-41-00-00_chinook-plain_Zp85o63G9CoHGzy5jnYBBA.eval",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000024",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "inspect_log"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/observation_set.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000025",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/observations.jsonl",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000026",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/population.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000027",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_population"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/run.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000028",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_record"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000014/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000029",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    },
+    {
+      "attempt_id": "00000000-0000-4000-8000-000000000015",
+      "request_id": "chinook-dev-verify",
+      "operation": "execute",
+      "mode": "llm_live",
+      "technical_status": "completed",
+      "started_at": "2000-01-01T00:00:00.000015+00:00",
+      "finished_at": "2000-01-01T00:00:00.000016+00:00",
+      "outcome_unknown": false,
+      "retry_of": null,
+      "reason": null,
+      "item_counts": {
+        "failed": 0,
+        "missing": 0,
+        "produced": 100
+      },
+      "writer_alive": false,
+      "recoverable": false,
+      "artifacts": [
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/inspect/2026-11-26T08-59-46-00-00_chinook-verify_6DH6ZhnMGDQtmSj4C9T3Aj.eval",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000002a",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "inspect_log"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/observation_set.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000002b",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "observation_set"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/observations.jsonl",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000002c",
+          "size_bytes": 0,
+          "media_type": "application/octet-stream",
+          "referenced": true,
+          "role": "observations"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/population.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000027",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_population"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/run.json",
+          "sha256": "000000000000000000000000000000000000000000000000000000000000002d",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "run_record"
+        },
+        {
+          "path": "attempts/00000000-0000-4000-8000-000000000015/workload.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000029",
+          "size_bytes": 0,
+          "media_type": "application/json",
+          "referenced": true,
+          "role": "workload_declaration"
+        }
+      ],
+      "temporary_files": []
+    }
+  ],
+  "freeze_records": [],
+  "exposures": {
+    "recorded_in_this_study": 0,
+    "earlier_exposure": "unknown",
+    "statement": "This count is of the Exposures this Study recorded. Any earlier exposure to public_check, by the user or by the producer of an Import, is unknown: no local lock proves that it never happened.",
+    "entries": []
+  },
+  "check_informed": [],
+  "write_sequence": 16,
+  "decisions": [
+    {
+      "author": "proxy",
+      "cited_ids": [
+        "00000000-0000-4000-8000-000000000016"
+      ],
+      "decision_id": "00000000-0000-4000-8000-000000000017",
+      "kind": "decision",
+      "option": "Keep the Control",
+      "question": "Which Configuration is kept on dev?",
+      "read_sequence": 12,
+      "request_id": "chinook-dev-decision",
+      "revision": "0000000000000000000000000000000000000000000000000000000000000020",
+      "schema_version": "decision/1",
+      "source": "D-145 on chadlis/hypotrail#75 (comment 7182974525), point 6 and Q2, and ticket chadlis/hypotrail#235: the rule of the plan docs/handbook/traces/campaign-chinook-dev/plan.json, fixed before any call",
+      "write_sequence": 13,
+      "applies": true,
+      "reasons": [],
+      "evidence_change": null
+    }
+  ],
+  "declared_deviations": [],
+  "assessments": [
+    {
+      "assessment_id": "00000000-0000-4000-8000-000000000018",
+      "counts": {
+        "attempted": 100,
+        "correct": 73,
+        "errored": 0,
+        "expected": 100,
+        "incorrect": 27,
+        "produced": 100,
+        "scored": 100,
+        "unscored": 0
+      },
+      "detailed_metrics_ref": {
+        "media_type": "application/json",
+        "path": "assessments/00000000-0000-4000-8000-000000000018/metrics.json",
+        "role": "detailed_metrics",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000002e",
+        "size_bytes": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "The Repeats of a Case are not independent samples: the shares carry no confidence interval and no significance claim.",
+        "evidence_link_valid checks that the IDs an answer cites designate successful calls of its own trace; it does not prove that every claim follows from the trace.",
+        "The shares describe the Cases of this Workload, not agents in general."
+      ],
+      "metrics": [
+        {
+          "denominator": 100,
+          "direction": "higher_is_better",
+          "id": "quality_among_scored",
+          "reason": null,
+          "status": "scored",
+          "unit": "share of Episodes",
+          "value": 0.73
+        },
+        {
+          "denominator": 100,
+          "direction": "higher_is_better",
+          "id": "confirmed_share_of_expected",
+          "reason": null,
+          "status": "scored",
+          "unit": "share of Episodes",
+          "value": 0.73
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-000000000019",
+      "operational_errors": {
+        "failed": 0,
+        "missing": 0
+      },
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-000000000018/per_item.csv",
+        "role": "per_item",
+        "sha256": "000000000000000000000000000000000000000000000000000000000000002f",
+        "size_bytes": 0
+      },
+      "primary_criterion": "contract_success",
+      "recorded_at": "2000-01-01T00:00:00.000017+00:00",
+      "references_ref": {
+        "media_type": "application/jsonl",
+        "path": "artifacts/chinook-references.jsonl",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000022",
+        "size_bytes": 0
+      },
+      "rescoring": null,
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000030",
+        "id": "chinook_contract_v1",
+        "version": "3"
+      },
+      "study_revision": {
+        "number": 1,
+        "protocol_digest": "000000000000000000000000000000000000000000000000000000000000001f",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000020"
+      },
+      "unknowns": {
+        "errored": 0,
+        "reasons": {},
+        "unscored": 0
+      }
+    },
+    {
+      "assessment_id": "00000000-0000-4000-8000-00000000001a",
+      "counts": {
+        "attempted": 100,
+        "correct": 38,
+        "errored": 0,
+        "expected": 100,
+        "incorrect": 62,
+        "produced": 100,
+        "scored": 100,
+        "unscored": 0
+      },
+      "detailed_metrics_ref": {
+        "media_type": "application/json",
+        "path": "assessments/00000000-0000-4000-8000-00000000001a/metrics.json",
+        "role": "detailed_metrics",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000031",
+        "size_bytes": 0
+      },
+      "kind": "assessment",
+      "limitations": [
+        "The Repeats of a Case are not independent samples: the shares carry no confidence interval and no significance claim.",
+        "evidence_link_valid checks that the IDs an answer cites designate successful calls of its own trace; it does not prove that every claim follows from the trace.",
+        "The shares describe the Cases of this Workload, not agents in general."
+      ],
+      "metrics": [
+        {
+          "denominator": 100,
+          "direction": "higher_is_better",
+          "id": "quality_among_scored",
+          "reason": null,
+          "status": "scored",
+          "unit": "share of Episodes",
+          "value": 0.38
+        },
+        {
+          "denominator": 100,
+          "direction": "higher_is_better",
+          "id": "confirmed_share_of_expected",
+          "reason": null,
+          "status": "scored",
+          "unit": "share of Episodes",
+          "value": 0.38
+        }
+      ],
+      "observation_set_id": "00000000-0000-4000-8000-00000000001b",
+      "operational_errors": {
+        "failed": 0,
+        "missing": 0
+      },
+      "per_item_ref": {
+        "media_type": "text/csv",
+        "path": "assessments/00000000-0000-4000-8000-00000000001a/per_item.csv",
+        "role": "per_item",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000032",
+        "size_bytes": 0
+      },
+      "primary_criterion": "contract_success",
+      "recorded_at": "2000-01-01T00:00:00.000018+00:00",
+      "references_ref": {
+        "media_type": "application/jsonl",
+        "path": "artifacts/chinook-references.jsonl",
+        "role": "references",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000022",
+        "size_bytes": 0
+      },
+      "rescoring": null,
+      "schema_version": "assessment/1",
+      "scorer": {
+        "config_digest": "0000000000000000000000000000000000000000000000000000000000000030",
+        "id": "chinook_contract_v1",
+        "version": "3"
+      },
+      "study_revision": {
+        "number": 1,
+        "protocol_digest": "000000000000000000000000000000000000000000000000000000000000001f",
+        "revision": "0000000000000000000000000000000000000000000000000000000000000020"
+      },
+      "unknowns": {
+        "errored": 0,
+        "reasons": {},
+        "unscored": 0
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "code_environment": {
+        "candidate": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
+          },
+          "python": "PYTHON"
+        },
+        "control": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
+          },
+          "python": "PYTHON"
+        },
+        "differs": [],
+        "same": true
+      },
+      "comparability": {
+        "checks": [
+          {
+            "check": "population",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "cases",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "references",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "scorer",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "unit",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "repeats",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "tools",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "model",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "budgets",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "mode",
+            "passed": true,
+            "reason": null
+          }
+        ],
+        "status": "compatible"
+      },
+      "comparison_id": "00000000-0000-4000-8000-000000000016",
+      "coverage": {
+        "candidate_rate": 1.0,
+        "candidate_scored": 100,
+        "complete": true,
+        "control_rate": 1.0,
+        "control_scored": 100,
+        "criterion": "contract_success",
+        "expected": 100,
+        "only_candidate": 0,
+        "only_control": 0,
+        "paired": 100,
+        "unit": "Episodes"
+      },
+      "declared_factor": "configuration",
+      "delta": {
+        "candidate": 0.38,
+        "control": 0.73,
+        "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+        "metric": "contract_success",
+        "reason": null,
+        "unit": "share of Repeats per Case, every Case weighted equally",
+        "value": -0.35
+      },
+      "descriptive": {
+        "candidate": {
+          "cost": null,
+          "latency_seconds": 594.137,
+          "model_calls": 318,
+          "tokens": 1140663,
+          "tool_calls": 218
+        },
+        "control": {
+          "cost": null,
+          "latency_seconds": 574.2570000000001,
+          "model_calls": 305,
+          "tokens": 1052622,
+          "tool_calls": 205
+        }
+      },
+      "kind": "comparison",
+      "left_assessment_id": "00000000-0000-4000-8000-000000000018",
+      "limitations": [
+        "The Repeats of a Case are not independent samples: the Comparison carries no binomial interval over Episodes, no confidence interval and no significance claim; every Case weighs the same.",
+        "Latency and the numbers of model and tool calls are descriptive only, and no Criterion rests on them; tokens and cost are null where they are not observable, never 0, and no cost is compared.",
+        "The shares describe the Cases of this Workload, not agents in general.",
+        "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+        "The control ran before the candidate: its Attempt finished at 2000-01-01T00:00:00.000014+00:00 and the candidate's started at 2000-01-01T00:00:00.000015+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect (a drift between the two blocks loads on the difference between the sides)."
+      ],
+      "matrix_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000016/matrix.json",
+        "role": "comparison_matrix",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
+        "size_bytes": 0
+      },
+      "paired_deltas_ref": {
+        "media_type": "text/csv",
+        "path": "comparisons/00000000-0000-4000-8000-000000000016/paired_deltas.csv",
+        "role": "paired_deltas",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
+        "size_bytes": 0
+      },
+      "population_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-000000000016/population.json",
+        "role": "comparison_population",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000036",
+        "size_bytes": 0
+      },
+      "primary_criterion": "contract_success",
+      "rates": {
+        "candidate": {
+          "metrics": [
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "quality_among_scored",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.38
+            },
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "confirmed_share_of_expected",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.38
+            }
+          ],
+          "operational_errors": {
+            "failed": 0,
+            "missing": 0
+          },
+          "unknowns": {
+            "errored": 0,
+            "reasons": {},
+            "unscored": 0
+          }
+        },
+        "control": {
+          "metrics": [
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "quality_among_scored",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.73
+            },
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "confirmed_share_of_expected",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.73
+            }
+          ],
+          "operational_errors": {
+            "failed": 0,
+            "missing": 0
+          },
+          "unknowns": {
+            "errored": 0,
+            "reasons": {},
+            "unscored": 0
+          }
+        }
+      },
+      "right_assessment_id": "00000000-0000-4000-8000-00000000001a",
+      "roles": {
+        "candidate_assessment_id": "00000000-0000-4000-8000-00000000001a",
+        "control_assessment_id": "00000000-0000-4000-8000-000000000018"
+      },
+      "schema_version": "comparison/1",
+      "secondary_deltas": [
+        {
+          "candidate": 0.98,
+          "control": 0.99,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "exact_table",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": -0.010000000000000009
+        },
+        {
+          "candidate": 0.38,
+          "control": 0.74,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "format_valid",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": -0.36
+        },
+        {
+          "candidate": 0.98,
+          "control": 0.98,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "evidence_link_valid",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": 0.0
+        }
+      ],
+      "warnings": [
+        {
+          "code": "COMPARISON_ORDER_NOT_ALTERNATED",
+          "message": "The control ran before the candidate: its Attempt finished at 2000-01-01T00:00:00.000014+00:00 and the candidate's started at 2000-01-01T00:00:00.000015+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect (a drift between the two blocks loads on the difference between the sides)."
+        }
+      ]
+    },
+    {
+      "code_environment": {
+        "candidate": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
+          },
+          "python": "PYTHON"
+        },
+        "control": {
+          "code_revision": {
+            "commit": "0000000000000000000000000000000000000000",
+            "dirty": false,
+            "local_code_fingerprint": null
+          },
+          "dependency_lock": {
+            "path": "uv.lock",
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000033"
+          },
+          "python": "PYTHON"
+        },
+        "differs": [],
+        "same": true
+      },
+      "comparability": {
+        "checks": [
+          {
+            "check": "population",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "cases",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "references",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "scorer",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "unit",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "repeats",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "tools",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "model",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "budgets",
+            "passed": true,
+            "reason": null
+          },
+          {
+            "check": "mode",
+            "passed": true,
+            "reason": null
+          }
+        ],
+        "status": "compatible"
+      },
+      "comparison_id": "00000000-0000-4000-8000-00000000001c",
+      "coverage": {
+        "candidate_rate": 1.0,
+        "candidate_scored": 100,
+        "complete": true,
+        "control_rate": 1.0,
+        "control_scored": 100,
+        "criterion": "contract_success",
+        "expected": 100,
+        "only_candidate": 0,
+        "only_control": 0,
+        "paired": 100,
+        "unit": "Episodes"
+      },
+      "declared_factor": "configuration",
+      "delta": {
+        "candidate": 0.38,
+        "control": 0.73,
+        "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+        "metric": "contract_success",
+        "reason": null,
+        "unit": "share of Repeats per Case, every Case weighted equally",
+        "value": -0.35
+      },
+      "descriptive": {
+        "candidate": {
+          "cost": null,
+          "latency_seconds": 594.137,
+          "model_calls": 318,
+          "tokens": 1140663,
+          "tool_calls": 218
+        },
+        "control": {
+          "cost": null,
+          "latency_seconds": 574.2570000000001,
+          "model_calls": 305,
+          "tokens": 1052622,
+          "tool_calls": 205
+        }
+      },
+      "interval": {
+        "block_length": null,
+        "level": 0.95,
+        "lower": null,
+        "method": "percentile_bootstrap",
+        "reason": "resampling_not_declared",
+        "resamples": 2000,
+        "seed": null,
+        "unit": null,
+        "units": null,
+        "upper": null,
+        "variant": null
+      },
+      "kind": "comparison",
+      "left_assessment_id": "00000000-0000-4000-8000-000000000018",
+      "limitations": [
+        "The Repeats of a Case are not independent samples: the Comparison carries no binomial interval over Episodes, no confidence interval and no significance claim; every Case weighs the same.",
+        "Latency and the numbers of model and tool calls are descriptive only, and no Criterion rests on them; tokens and cost are null where they are not observable, never 0, and no cost is compared.",
+        "The shares describe the Cases of this Workload, not agents in general.",
+        "The two Attempts record the same code environment; this does not establish that the two executions were identical.",
+        "The control ran before the candidate: its Attempt finished at 2000-01-01T00:00:00.000014+00:00 and the candidate's started at 2000-01-01T00:00:00.000015+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect (a drift between the two blocks loads on the difference between the sides)."
+      ],
+      "matrix_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-00000000001c/matrix.json",
+        "role": "comparison_matrix",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000034",
+        "size_bytes": 0
+      },
+      "paired_deltas_ref": {
+        "media_type": "text/csv",
+        "path": "comparisons/00000000-0000-4000-8000-00000000001c/paired_deltas.csv",
+        "role": "paired_deltas",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000035",
+        "size_bytes": 0
+      },
+      "population_ref": {
+        "media_type": "application/json",
+        "path": "comparisons/00000000-0000-4000-8000-00000000001c/population.json",
+        "role": "comparison_population",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000036",
+        "size_bytes": 0
+      },
+      "primary_criterion": "contract_success",
+      "rates": {
+        "candidate": {
+          "metrics": [
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "quality_among_scored",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.38
+            },
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "confirmed_share_of_expected",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.38
+            }
+          ],
+          "operational_errors": {
+            "failed": 0,
+            "missing": 0
+          },
+          "unknowns": {
+            "errored": 0,
+            "reasons": {},
+            "unscored": 0
+          }
+        },
+        "control": {
+          "metrics": [
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "quality_among_scored",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.73
+            },
+            {
+              "denominator": 100,
+              "direction": "higher_is_better",
+              "id": "confirmed_share_of_expected",
+              "reason": null,
+              "status": "scored",
+              "unit": "share of Episodes",
+              "value": 0.73
+            }
+          ],
+          "operational_errors": {
+            "failed": 0,
+            "missing": 0
+          },
+          "unknowns": {
+            "errored": 0,
+            "reasons": {},
+            "unscored": 0
+          }
+        }
+      },
+      "right_assessment_id": "00000000-0000-4000-8000-00000000001a",
+      "roles": {
+        "candidate_assessment_id": "00000000-0000-4000-8000-00000000001a",
+        "control_assessment_id": "00000000-0000-4000-8000-000000000018"
+      },
+      "schema_version": "comparison/1",
+      "secondary_deltas": [
+        {
+          "candidate": 0.98,
+          "control": 0.99,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "exact_table",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": -0.010000000000000009
+        },
+        {
+          "candidate": 0.38,
+          "control": 0.74,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "format_valid",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": -0.36
+        },
+        {
+          "candidate": 0.98,
+          "control": 0.98,
+          "definition": "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; every Case has the same weight; positive means the Candidate is better (the Criterion is higher-is-better)",
+          "metric": "evidence_link_valid",
+          "reason": null,
+          "unit": "share of Repeats per Case, every Case weighted equally",
+          "value": 0.0
+        }
+      ],
+      "warnings": [
+        {
+          "code": "COMPARISON_ORDER_NOT_ALTERNATED",
+          "message": "The control ran before the candidate: its Attempt finished at 2000-01-01T00:00:00.000014+00:00 and the candidate's started at 2000-01-01T00:00:00.000015+00:00. The two sides ran in separate time blocks, not alternated, so the delta may include a time effect (a drift between the two blocks loads on the difference between the sides)."
+        }
+      ]
+    }
+  ],
+  "pending_decisions": [
+    {
+      "comparison_id": "00000000-0000-4000-8000-00000000001c",
+      "control_assessment_id": "00000000-0000-4000-8000-000000000018",
+      "candidate_assessment_id": "00000000-0000-4000-8000-00000000001a",
+      "question": {
+        "id": "keep_after_comparison",
+        "text": "Which Configuration do we keep after this Comparison?"
+      },
+      "options": [
+        {
+          "id": "keep_control",
+          "text": "Keep the Control",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Keep the Control\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work."
+        },
+        {
+          "id": "keep_candidate",
+          "text": "Keep the Candidate",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Keep the Candidate\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work."
+        },
+        {
+          "id": "keep_neither",
+          "text": "Choose neither yet",
+          "consequence": "A Decision that cites this Comparison is recorded with the option \"Choose neither yet\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule."
+        }
+      ]
+    }
+  ],
+  "record_files": [
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000017",
+      "path": "decisions/000001-00000000-0000-4000-8000-000000000017.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000018",
+      "path": "assessments/00000000-0000-4000-8000-000000000018/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000001a",
+      "path": "assessments/00000000-0000-4000-8000-00000000001a/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000016",
+      "path": "comparisons/00000000-0000-4000-8000-000000000016/comparison.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-00000000001c",
+      "path": "comparisons/00000000-0000-4000-8000-00000000001c/comparison.json"
+    }
+  ]
+}

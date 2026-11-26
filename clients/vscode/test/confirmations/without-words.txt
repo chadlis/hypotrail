@@ -1,0 +1,9 @@
+Study folder: "<study>"
+Question: "Which Configuration do we keep after this Comparison?"
+Option: "Keep the Candidate"
+Author: "human" (the record names you, the user, as the one who made this choice)
+Source: "the owner, in chat"
+Cited ids: "c53337e9-d255-423d-a851-414278d5c3f0", "817d7c96-0d5e-4a2b-9c55-1f0e3a6b7d21"
+
+Continue: the Decision is recorded in the Study, and it is not withdrawn. It can still be refused if the Study was written to since Copilot read it.
+Cancel: nothing is recorded.

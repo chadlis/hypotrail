@@ -167,12 +167,15 @@
       "decision_id": "00000000-0000-4000-8000-000000000009",
       "kind": "decision",
       "option": "Keep the Control",
+      "option_id": null,
       "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
       "read_sequence": 12,
       "request_id": "demo-task-3",
       "revision": "0000000000000000000000000000000000000000000000000000000000000002",
-      "schema_version": "decision/1",
+      "schema_version": "decision/2",
       "source": null,
+      "words": null,
       "write_sequence": 13,
       "applies": true,
       "reasons": [],
@@ -483,5 +486,27 @@
       ]
     }
   ],
-  "pending_decisions": []
+  "pending_decisions": [],
+  "record_files": [
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000009",
+      "path": "decisions/000001-00000000-0000-4000-8000-000000000009.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
+    }
+  ]
 }

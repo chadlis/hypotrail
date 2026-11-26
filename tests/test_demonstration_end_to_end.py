@@ -15,7 +15,7 @@ import shutil
 from itertools import zip_longest
 from pathlib import Path
 
-from _demonstration_helpers import ROOT, journal_entries, processes, tracked_examples, value_at
+from _demonstration_helpers import CAMPAIGN_FOLDER, ROOT, journal_entries, processes, tracked_examples, value_at
 
 # The values of the walk, from chadlis/hypotrail#218, "Facts checked at `7b8e550`".
 F3_MAE = {"seasonal_7": 1090.7912087912089, "ridge_v1": 1264.730691775682}
@@ -57,7 +57,10 @@ WRITE_SEQUENCES = {
     "C8": [32, 32],
     "DEV": [34, 34, 34, 34],
     "REPORT": [34],
+    "WORDS": [34, 36, 36],
     "L1.8": [2, 4, 6, 8, 8],
+    # the copy of the kept Campaign's Study, at 14 when copied: its compare and its decide each move it by two
+    "CAMPAIGN": [14, 16, 16, 16, 16, 18, 18, 18, 18, 18],
 }
 
 # Where each kind of record a journal entry lists under `written` lies in the Study, and the key that holds its id.
@@ -452,6 +455,24 @@ def test_c8_a_second_decision_by_proxy_with_its_source_that_applies_and_no_pendi
     assert status["payload"]["pending_decisions"] == []
 
 
+def test_words_the_decision_holds_the_bytes_of_the_words_file_as_chat_relayed_and_the_read_after_it_prints_the_text_the_channel_and_by(demonstration_recording):
+    run = demonstration_recording
+    _, (decide_action, decide), (_, status) = assert_the_step(run, "WORDS")
+    assert "--words-file" in decide_action["cli"] and "--words" not in decide_action["cli"]
+    written = (run.work / "words.txt").read_bytes()
+    words = decide["payload"]["decision"]["words"]
+    assert [text.encode("utf-8") for text in words["texts"]] == [written]
+    assert (words["channel"], words["by"], words["authenticated"]) == ("chat_relayed", run.module.WORDS_BY, False)
+    assert status["payload"]["decisions"][-1]["words"] == words
+    for line in (
+        f"decisions[-1].words.texts = {json.dumps([written.decode('utf-8')])}",
+        'decisions[-1].words.channel = "chat_relayed"',
+        f"decisions[-1].words.by = {json.dumps(run.module.WORDS_BY)}",
+        "decisions[-1].words.authenticated = false",
+    ):
+        assert f"  {line}" in run.transcript.splitlines(), line
+
+
 def test_dev_one_declared_deviation_not_withdrawn_by_human_citing_the_references_id_of_revision_3(demonstration_recording):
     run = demonstration_recording
     (_, declared), (_, status), _, _ = assert_the_step(run, "DEV")
@@ -504,6 +525,10 @@ KEPT_STATES = {
     "before-the-refused-write": 28,
     "after-the-terminal-wrote": 30,
     "final": 34,
+    # the copy of the kept Chinook Campaign: "the state with the Pending decision and the state after the Decision"
+    # (chadlis/hypotrail#236, "What to build", item 3)
+    "chinook-campaign-pending": 16,
+    "chinook-campaign-decided": 18,
 }
 KEPT_DECIDES = ["decide-task-3", "decide-s1"]
 
@@ -550,3 +575,54 @@ def test_after_task_6_1_nothing_is_pending_because_the_comparison_of_task_3_comp
     assert status["pending_decisions"] == [] and status["revisions"][-1]["revision_number"] == 2
     assert [revisions[comparison["roles"][side]] for side in ("control_assessment_id", "candidate_assessment_id")] == [1, 1]
     assert [each["comparison_id"] for each in status["comparisons"]] == [captured(run, "L2_COMPARISON")]
+
+
+# --- the copy of the kept Chinook Campaign ----------------------------------------------------------------------------------------------
+
+
+def kept_comparison(run) -> dict:
+    """The Comparison the kept Campaign's Study holds, read from the kept folder."""
+    path = CAMPAIGN_FOLDER / "study" / "comparisons" / run.module.CAMPAIGN_COMPARISON / "comparison.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_campaign_compare_records_a_compatible_comparison_of_the_two_kept_assessments_whose_delta_and_shares_are_the_kept_comparisons(demonstration_recording):
+    run = demonstration_recording
+    pairs = assert_the_step(run, "CAMPAIGN")
+    [(_, compare)] = [(action, call) for action, call in pairs if call["args"][0] == "compare"]
+    made, kept = compare["payload"]["comparison"], kept_comparison(run)
+    assert made["comparison_id"] != kept["comparison_id"] and made["comparability"]["status"] == "compatible"
+    assert [made["roles"][side] for side in ("control_assessment_id", "candidate_assessment_id")] == [kept["roles"][side] for side in ("control_assessment_id", "candidate_assessment_id")]
+    for key in ("value", "control", "candidate"):
+        found, expected = made["delta"][key], kept["delta"][key]
+        assert (found is None and expected is None) or run.module.same(found, expected), (key, found, expected)
+
+
+def test_campaign_the_kept_delta_has_a_value_so_the_step_states_the_delta_and_not_that_none_was_computable(demonstration_recording):
+    run = demonstration_recording
+    kept = kept_comparison(run)
+    assert kept["delta"]["value"] is not None and kept["delta"]["reason"] is None and kept["coverage"]["complete"] is True
+    step = run.module.STEPS[[each["id"] for each in run.module.STEPS].index("CAMPAIGN")]
+    assert f"{kept['delta']['value']:.2f}" in step["why"] and "no delta was computable" not in step["why"]
+
+
+def test_campaign_after_compare_its_comparison_is_the_one_pending_decision_and_after_decide_none_is(demonstration_recording):
+    run = demonstration_recording
+    pairs = assert_the_step(run, "CAMPAIGN")
+    statuses = [call for action, call in pairs if call["args"][0] == "status" and "kept" not in action]
+    before, after_compare, after_decide = (call["payload"] for call in statuses)
+    made = captured(run, "CAMPAIGN_COMPARISON_2")
+    assert before["pending_decisions"] == [] and [each["comparison_id"] for each in after_compare["pending_decisions"]] == [made]
+    [decide] = [call for _, call in pairs if call["args"][0] == "decide"]
+    assert decide["code"] == 0 and decide["payload"]["decision"]["cited_ids"] == [made]
+    assert after_decide["pending_decisions"] == [] and len(after_decide["decisions"]) == 2
+
+
+def test_campaign_every_file_of_the_kept_campaign_folder_keeps_its_bytes_and_the_copy_lies_outside_the_checkout(demonstration_recording):
+    run = demonstration_recording
+    before, after = run.campaign_before, run.campaign_after
+    assert before and "study/study.json" in before
+    for path in sorted(set(before) | set(after)):
+        assert before.get(path) == after.get(path), path
+    copy = Path(run.module.resolved(run.module.CAMPAIGN, run.module.folders_of(run.work)))
+    assert (copy / "study.json").is_file() and ROOT.resolve() not in copy.resolve().parents

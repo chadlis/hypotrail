@@ -444,5 +444,22 @@
         }
       ]
     }
+  ],
+  "record_files": [
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
+    }
   ]
 }

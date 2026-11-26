@@ -62,10 +62,10 @@ def compare_ids(study, control, candidate, *more):
     return run_json("compare", "--study", study, "--control", control, "--candidate", candidate, *more)
 
 
-def edit_chinook_references(tmp_path, edit, *, name="corrected") -> Path:
-    """A copy of `examples/` whose Chinook References `edit` changes (the data lock does not cover that file)."""
+def edit_chinook_references(tmp_path, edit, *, name="corrected", base=EXAMPLES) -> Path:
+    """A copy of `base` (`examples/` by default) whose Chinook References `edit` changes (the data lock does not cover that file)."""
     target = tmp_path / name
-    shutil.copytree(EXAMPLES, target)
+    shutil.copytree(base, target)
     path = target / "chinook" / "references" / "chinook-references.jsonl"
     records = {r["case_id"]: r for r in (json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip())}
     edit(records)

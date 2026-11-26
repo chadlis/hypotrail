@@ -6,9 +6,20 @@ import shutil
 from pathlib import Path
 
 import pytest
-from _agent_compare_helpers import REPEATS, answer_lines, compare, comparison_files, imported, keys_of, native
+from _agent_compare_helpers import (
+    REPEATS,
+    answer_lines,
+    assess,
+    compare,
+    comparison_files,
+    imported,
+    keys_of,
+    native,
+    observation_set_of,
+    reference_answer_lines,
+)
 from _assess_helpers import rows_of, snapshot
-from _chinook_helpers import FIXTURE_CASES, chinook_examples, init_chinook
+from _chinook_helpers import FIXTURE_CASES, chinook_examples, episodes_file, import_agent, init_chinook, write_lines
 from _study_helpers import run_cli, run_json
 
 from hypotrail.core import canonical, contracts, intervals
@@ -101,17 +112,42 @@ def delta_shares(study, record) -> list:
     return [float(row["delta_share"]) for row in rows_of(Path(study) / record["paired_deltas_ref"]["path"])]
 
 
-def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_delta_share_column_of_its_own_paired_deltas(plain_and_verify):
-    study, plain, verify = plain_and_verify
+DEV_CASES = [f"D{n:02d}" for n in range(1, 101)]
+# The Control answers a Case wrongly on as many of its three Repeats as its number modulo 4 gives, up to three: per-Case shares that differ.
+PLAIN_WRONG = {(case_id, repeat) for number, case_id in enumerate(DEV_CASES, 1) for repeat in range(min(number % 4, 3))}
+
+
+def hundred_cases(tmp_path, *, examples=None, name="hundred"):
+    """(Study, Control Assessment, Candidate Assessment): two imports of answers over the 100 `dev` Cases by 3 Repeats, each assessed."""
+    more = () if examples is None else ("--examples-dir", examples)
+    study, _ = init_chinook(Path(tmp_path), name=name, examples=examples)
+    population = episodes_file(tmp_path, keys_of(REPEATS, DEV_CASES), name=f"{name}-population.json")
+    sides = []
+    for side, wrong in (("plain", PLAIN_WRONG), ("verify", set())):
+        source = write_lines(Path(tmp_path) / f"{name}-{side}.jsonl", reference_answer_lines(DEV_CASES, wrong=wrong))
+        code, payload, err = import_agent(study, source, population, f"{name}-{side}", *more)
+        assert code == 0, (payload, err)
+        sides.append(assess(study, observation_set_of(study, payload["attempt"]), *more))
+    return study, sides[0], sides[1]
+
+
+@pytest.fixture(scope="module")
+def hundred(tmp_path_factory):
+    return hundred_cases(tmp_path_factory.mktemp("hundred"))
+
+
+def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_delta_share_column_of_its_own_paired_deltas(hundred, tmp_path):
+    base, plain, verify = hundred
+    study = shutil.copytree(base, Path(tmp_path) / "study")
     record = compare(study, plain, verify)[1]["comparison"]
     stored = json.loads((Path(study) / "comparisons" / record["comparison_id"] / "comparison.json").read_text())
     interval = stored["interval"]
     shares = delta_shares(study, stored)
-    assert len(shares) == len(FIXTURE_CASES)
+    assert len(shares) == len(DEV_CASES) == 100
     bounds = intervals.percentile_interval(shares, seed=declared_seed(study))
     assert interval == {
         "unit": "case",
-        "units": len(FIXTURE_CASES),
+        "units": 100,
         "resamples": 2000,
         "level": 0.95,
         "method": "percentile_bootstrap",
@@ -122,30 +158,22 @@ def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_de
         "lower": bounds["lower"],
         "upper": bounds["upper"],
     }
-    assert interval["lower"] < interval["upper"]
+    assert interval["lower"] < stored["delta"]["value"] < interval["upper"]
 
 
-def test_the_same_compare_on_a_copy_gives_the_same_bounds_and_another_declared_seed_the_bounds_of_that_seed_and_the_same_delta(tmp_path, plain_and_verify):
-    study, plain, verify = plain_and_verify
-    first = compare(study, plain, verify)[1]["comparison"]
-    copy = Path(tmp_path) / "copy"
-    shutil.copytree(study, copy)
-    again = compare(copy, plain, verify)[1]["comparison"]
+def test_the_same_compare_on_a_copy_gives_the_same_bounds_and_another_declared_seed_other_bounds_and_the_same_delta(hundred, tmp_path):
+    base, plain, verify = hundred
+    first = compare(shutil.copytree(base, Path(tmp_path) / "first"), plain, verify)[1]["comparison"]
+    again = compare(shutil.copytree(base, Path(tmp_path) / "copy"), plain, verify)[1]["comparison"]
     assert (again["interval"]["lower"], again["interval"]["upper"]) == (first["interval"]["lower"], first["interval"]["upper"])
 
     def reseeded(declaration):
         declaration["resampling"]["seed"] += 1
 
-    examples = chinook_examples(tmp_path, edit=reseeded, name="reseeded")
-    more = ("--examples-dir", examples)
-    other, _ = init_chinook(tmp_path, name="reseeded-study", examples=examples)
-    _, other_plain = imported(tmp_path, other, "plain-2", answer_lines(wrong={("D01", 0), ("D01", 1)}), more=more)
-    _, other_verify = imported(tmp_path, other, "verify-2", answer_lines(), more=more)
+    other, other_plain, other_verify = hundred_cases(tmp_path, examples=chinook_examples(tmp_path, edit=reseeded, name="reseeded"), name="reseeded")
     reseeded_record = compare(other, other_plain, other_verify)[1]["comparison"]
-    # Four Cases give a bootstrap distribution of a few atoms, so two seeds can land on the same bounds: the record follows its own seed.
-    bounds = intervals.percentile_interval(delta_shares(other, reseeded_record), seed=first["interval"]["seed"] + 1)
     assert reseeded_record["interval"]["seed"] == first["interval"]["seed"] + 1
-    assert (reseeded_record["interval"]["lower"], reseeded_record["interval"]["upper"]) == (bounds["lower"], bounds["upper"])
+    assert (reseeded_record["interval"]["lower"], reseeded_record["interval"]["upper"]) != (first["interval"]["lower"], first["interval"]["upper"])
     assert reseeded_record["delta"]["value"] == first["delta"]["value"]
 
 

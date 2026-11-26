@@ -195,7 +195,8 @@ def test_the_sheet_limits_are_the_effective_values_with_their_state(page):
     for limit in current:
         by_attr = rows[limit]["cells"]
         label, witness = ENFORCEMENT[limit]
-        assert by_attr["data-effective"] == shown(RUN["effective_limits"][limit]), limit
+        # the spike's run record was written before the cost limit and `parallel_tool_calls` existed: a key it lacks reads as null
+        assert by_attr["data-effective"] == shown(RUN["effective_limits"].get(limit)), limit
         assert by_attr["data-state"] == label, limit
         assert by_attr["data-witness"] == witness, limit  # the cell itself, compared with the code's witness for this key
         assert defines(by_attr["data-file"], witness), witness
@@ -223,6 +224,13 @@ def test_the_spike_report_no_longer_lists_the_token_budget_as_shown_enforced(pag
 
 
 CHAPTER_03 = HANDBOOK / "chapters" / "03-agentic-track.html"
+
+
+def test_the_references_row_of_the_declaration_table_says_what_reference_version_means_and_names_both_versions(page):
+    [row] = [row for row in parse(page).tables["agentic-declaration"] if row["cells"][0]["text"] == "references"]
+    text = " ".join(cell["text"] for cell in row["cells"])
+    assert "the set version in which this record was written" in text
+    assert "chinook-references/1" in text and "chinook-references/2" in text
 
 
 def table_rows(page, table_id, attribute):
@@ -770,7 +778,7 @@ def test_the_status_table_equals_the_keys_status_reports_for_an_attempt(page, tm
     assert set(attrs_of(page, "status-fields", "data-field")) == set(attempt)
     assert set(attrs_of(page, "status-artifact-fields", "data-field")) == set(attempt["artifacts"][0])
     # `revisions` is chapter 10's; `freeze_records`, `exposures` and `check_informed` are chapter 12's
-    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+    assert set(listing) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
 
 
 def test_the_status_keys_table_equals_the_top_level_keys_status_reports_and_names_the_write_sequence(page, tmp_path):
@@ -2381,7 +2389,7 @@ def test_the_run_agent_flag_table_equals_the_parser_and_says_which_flags_belong_
     for flag, row in rows.items():
         assert (row["data-required"] == "yes") == options[flag].required, flag
         assert (row["data-mode"] == "llm_live") == (flag in run.FLAGS_OF_LIVE.values()), flag
-    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases"}
+    assert set(run.FLAGS_OF_LIVE) == {"partition", "repeats", "model", "cases", "cost_limit", "price_list"}
 
 
 def run_agent_refusals(tmp_path, monkeypatch):
@@ -2421,6 +2429,17 @@ def run_agent_refusals(tmp_path, monkeypatch):
     record("repeats-out-of-bounds", live(study, "plain", "r", repeats=4))
     record("case-repeated", live(study, "plain", "r", cases=["D03", "D03"]))
     record("case-not-in-partition", live(study, "plain", "r", cases=["E01"]))
+    from _cost_limit_helpers import TEST_MODEL, price_list, write_price_list
+
+    prices = write_price_list(tmp_path)
+    record("price-list-required", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05"))
+    record("cost-limit-required", live(study, "plain", "r", "--price-list", prices))
+    record("cost-limit-out-of-bounds", live(study, "plain", "r", "--episode-cost-limit-usd", "0", "--price-list", prices))
+    no_source = write_price_list(tmp_path, price_list(source=None), name="no-source.json")
+    record("price-list-invalid", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05", "--price-list", no_source))
+    unpriced = write_price_list(tmp_path, price_list(["mockllm/model"]), name="unpriced.json")
+    assert TEST_MODEL not in price_list(["mockllm/model"])["models"]
+    record("model-not-priced", live(study, "plain", "r", "--episode-cost-limit-usd", "0.05", "--price-list", unpriced))
     with held_by_another_process(study):
         record("study-locked", live(study, "plain", "r"))
     first = live(study, "plain", "first")[1]["attempt"]
@@ -4143,6 +4162,7 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "WriteJournalBegin": ("record", "write-journal-fields"),
     "WriteJournalEnd": ("record", "write-journal-fields"),
     "DecisionRecord": ("record", "decision-fields"),
+    "DecisionRecordV2": ("record", "decision-fields"),
     "DeclaredDeviationRecord": ("record", "deviation-fields"),
 }
 
@@ -4321,8 +4341,8 @@ def _decided(tmp_path, name="chapter-17"):
 def test_the_decision_record_table_equals_the_contract_schema_and_the_fields_the_code_writes(page, tmp_path):
     from hypotrail.core import contracts
 
-    definition = contracts.schema()["$defs"]["DecisionRecord"]
-    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecord"]
+    definition = contracts.schema()["$defs"]["DecisionRecordV2"]  # the version `decide` writes
+    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecordV2"]
     assert words(row["data-required"]) == set(definition["required"])
     assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
     assert row["data-kind"] == "decision" == definition["properties"]["kind"]["const"]
@@ -4633,8 +4653,8 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
 
     rows, _ = _history(tmp_path)
     keys = set(attrs_of(page, "decision-history-keys", "data-field"))
-    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons", "evidence_change"}
-    assert len(keys) == 15
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecordV2"]["properties"]) | {"applies", "reasons", "evidence_change"}
+    assert len(keys) == 18
     assert all(set(row) == keys for row in rows)
 
 
@@ -5209,6 +5229,10 @@ def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
 
 
+# The option of `decide` that the bridge does not pass: it holds no file write, so it cannot make a file for it, and passes the texts with `--words`.
+NOT_PASSED_BY_THE_BRIDGE = {"--words-file"}
+
+
 def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_options_the_parser_defines_both_ways(page):
     from hypotrail.cli import build_parser
 
@@ -5221,10 +5245,13 @@ def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_opti
     assert {row["data-passed"] for row in rows} == {"always", "optional"}
     parser = build_parser()
     decide = next(a for a in parser._actions if getattr(a, "choices", None) and "decide" in a.choices).choices["decide"]
-    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help") and flag not in NOT_PASSED_BY_THE_BRIDGE}
     assert {row["data-option"] for row in rows} == set(options)
     assert {row["data-option"] for row in rows if row["data-passed"] == "always"} == {flag for flag, required in options.items() if required} | {"--json"}
-    assert client_items(page, "client-write") == {"write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"]}
+    assert client_items(page, "client-write") == {
+        "write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"],
+        "words-limit-characters": str(contract["words_limit_characters"]),
+    }
     assert [row["data-value"] for row in client_rows(page, "client-missing")] == contract["client_refusal_fields"]
 
 
@@ -5371,6 +5398,7 @@ PANEL_LINK_TABLES = {
     "panel-statuses": lambda contract: contract["statuses"],
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
+    "panel-open-refs": lambda contract: contract["open_refs"],
 }
 
 
@@ -5393,6 +5421,56 @@ def test_the_prose_of_chapter_18_names_each_panel_link_table_by_one_link_to_its_
     for table in PANEL_LINK_TABLES:
         assert prose.count(f'href="#{table}"') == 1, table
         assert page.count(f'id="{table}"') == 1, table
+
+
+# The two sentences of chapter 18 that the controls that open leave as they were: "keeps, word for word, "A link of the panel moves the view
+# to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and
+# writes nothing." and "Every number the panel prints is a link to the part of the record it comes from"" (chadlis/hypotrail#227, T1-10).
+KEPT_LINK_SENTENCES = (
+    "A link of the panel moves the view to another part of the same document and does nothing else: it posts no message to the extension, starts no process, opens no file and writes nothing.",
+    "Every number the panel prints is a link to the part of the record it comes from",
+)
+# The sentence of the control beside an output path, and the bridge sentence amended to match ADR 0004's dated line: "the client reads
+# through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names" (chadlis/hypotrail#227, T1-10).
+OPEN_CONTROL_SENTENCES = (
+    "Beside each output path that the part of an Assessment or a Comparison shows stands one control that opens that file",
+    "The message the control posts carries no path: it names the kind of the record's part, the place of that record in its listing of the object read and one of the refs of the table below",
+    "The extension finds the path in the object it holds and opens nothing when the message names nothing there, when the path is absolute or holds a .. segment, when the file's real path lies outside the real path of the Study's folder, or when the file does not exist; otherwise it shows the file in the editor and makes that editor read-only for the session.",
+    "The References, anything of an Attempt and any path the client would compose itself are never opened, and the panel reads no content of the file: the editor shows it.",
+    "It reads what a Study holds only through the bridge, and may open in the editor, read-only, a file of the Study whose path a read names.",
+)
+# The sentence of the control of a record's own file: "chapter 18 gains the sentence of the record's control" (chadlis/hypotrail#228, T2-10).
+RECORD_CONTROL_SENTENCES = (
+    "The part of an Assessment, a Comparison, a recorded Decision and a Declared deviation also gives the path of the record's own file, as the CLI names it in record_files , with one control beside it that opens that file the same way;",
+    "The extension finds that path in the entry of record_files of the record's kind and id, and composes none from an id;",
+)
+
+
+def test_chapter_18_holds_the_sentences_of_the_control_of_a_records_own_file():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in RECORD_CONTROL_SENTENCES:
+        assert sentence in prose, sentence
+
+
+def test_chapter_04_names_record_files_with_its_shape():
+    chapter = chapter_text("04-study-and-attempts.html")
+    [row] = re.findall(r'<tr data-field="record_files">.*?</tr>', chapter, re.S)
+    text = plain_text(row)
+    for word in ("decisions", "declared_deviations", "assessments", "comparisons", "kind", "id", "path", "never stored"):
+        assert re.search(rf"(?<![\w-]){re.escape(word)}(?![\w-])", text), word
+
+
+def test_chapter_18_keeps_the_two_link_sentences_word_for_word():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in KEPT_LINK_SENTENCES:
+        assert sentence in prose, sentence
+
+
+def test_chapter_18_holds_the_sentences_of_the_control_that_opens_and_the_amended_bridge_sentence():
+    prose = plain_text(prose_of(chapter_text(CLIENT_CHAPTER)))
+    for sentence in OPEN_CONTROL_SENTENCES:
+        assert sentence in prose, sentence
+    assert "It reads what a Study holds only through the bridge. " not in prose
 
 
 def test_each_key_path_the_panel_reads_from_the_figures_read_is_a_row_of_the_key_path_table_of_chapter_17_or_a_prefix_of_its_rows(page):
@@ -5526,7 +5604,7 @@ def test_the_copilot_tools_table_of_chapter_18_equals_the_manifest_both_ways(pag
     tools = {(row["data-tool"], row["data-reference"], row["data-activation"]) for row in rows if "data-reference" in row}
     inputs = {(row["data-tool"], row["data-input"], row["data-required"]) for row in rows if "data-input" in row}
     expected_tools, expected_inputs = copilot_rows_of_the_manifest()
-    assert len(expected_tools) == 2 and len(expected_inputs) == 8
+    assert len(expected_tools) == 2 and len(expected_inputs) == 12
     assert sorted(tools - expected_tools) == [] and sorted(expected_tools - tools) == []
     assert sorted(inputs - expected_inputs) == [] and sorted(expected_inputs - inputs) == []
     assert len(rows) == len(tools) + len(inputs)
@@ -5596,24 +5674,29 @@ def test_the_prose_of_the_template_section_restates_no_row_of_its_table(page):
     assert found == []
 
 
-# The four requirements of the hook's rule, each with the strings that name it in the hook's rule, then in the template. A name is
+# The five requirements of the hook's rule, each with the strings that name it in the hook's rule, then in the template. A name is
 # looked for in its code marks, so that the English words "decide", "proxy" and "source" do not count; `--author proxy` is part of a
 # longer code span of the rule, and is looked for bare.
-FOUR_REQUIREMENTS = [
+FIVE_REQUIREMENTS = [
     ("read the Study's state at the start of each turn", ("`status --json`",), ("`hypotrail_read_study`",)),
     ("pass the Write sequence read on every write", ("`--read-sequence`", "`write_sequence`"), ("`read_sequence`", "`write_sequence`")),
     ("record a Decision only through decide", ("`decide`",), ("`hypotrail_decide`", "`decide`")),
     ("record an answer chosen by a stated rule as a proxy Decision whose source names the rule", ("--author proxy", "`--source`"), ("`proxy`", "`source`")),
+    (
+        "record the person's own words with the Decision, whole, with the ids of the pending decision's question and option",
+        ("`--words-file`", "`--question-id`", "`--option-id`", "`panel`"),
+        ("`words`", "`question_id`", "`option_id`", "`panel`"),
+    ),
 ]
 
 
-def test_the_hook_rule_and_the_copilot_template_each_name_the_four_requirements(page):
-    """Each of the four requirements is named in the hook's rule and in the template, by the strings that name it in each.
+def test_the_hook_rule_and_the_copilot_template_each_name_the_five_requirements(page):
+    """Each of the five requirements is named in the hook's rule and in the template, by the strings that name it in each.
 
     Stated limit: this checks that each requirement is named, not its wording, so a weak paraphrase in the template can pass.
     """
     rule, template = hook_script_values()["RULE"], instructions_template(page)
-    for requirement, in_rule, in_template in FOUR_REQUIREMENTS:
+    for requirement, in_rule, in_template in FIVE_REQUIREMENTS:
         for string in in_rule:
             assert names(rule, string), (requirement, "the hook's rule", string)
         for string in in_template:
@@ -5995,11 +6078,11 @@ def test_the_prose_of_the_kept_states_section_restates_no_row_of_its_table(page)
         assert not names(prose, html.unescape(row["data-state"])), row["data-state"]
 
 
-# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion that is expected to
-# fail: "Chapter 19 says that the panel is walked through the kept states by the client's tests, and that one assertion is expected to
-# fail until blocker 11 is fixed." (chadlis/hypotrail#222.)
+# The client's test file that walks the panel through the kept states, and the sentence of chapter 19 on its assertion of blocker 11:
+# "Chapter 19's sentence that one assertion is expected to fail until blocker 11 is fixed, and the README's "blocker 11 is fixed before
+# L3", are rewritten to say that blocker 11 is fixed by this slice" (chadlis/hypotrail#228, T2-10).
 PANEL_WALK = "clients/vscode/test/panel-demonstration.test.ts"
-BLOCKER_11_SENTENCE = "One assertion is expected to fail until blocker 11 is fixed: that every file name and every number the panel shows leads to its record."
+BLOCKER_11_SENTENCE = "Blocker 11 is fixed (chadlis/hypotrail#226): one assertion checks that every file name and every number the panel shows leads to its record, and it holds on every kept state."
 
 
 def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_kept_states_by_its_tracked_path():
@@ -6007,14 +6090,14 @@ def test_chapter_19_names_the_client_test_file_that_walks_the_panel_through_the_
     assert tracked_files(PANEL_WALK) == [PANEL_WALK]
 
 
-def test_chapter_19_says_that_one_assertion_is_expected_to_fail_until_blocker_11_is_fixed():
+def test_chapter_19_says_that_blocker_11_is_fixed_and_that_its_assertion_holds_on_every_kept_state():
     assert BLOCKER_11_SENTENCE in plain_text(chapter_text(DEMO_CHAPTER))
 
 
 def test_the_no_picture_paragraph_of_the_l2_grid_names_each_kept_state_of_the_script():
     [paragraph] = [block for block in L2_GRID.read_text(encoding="utf-8").split("\n\n") if block.startswith("No picture of the panel")]
     states = kept_states_of_the_script()
-    assert len(states) == 7
+    assert len(states) == 9
     for state in states:
         assert f"`{state}`" in paragraph, state
 
@@ -6072,3 +6155,213 @@ def test_the_roadmaps_horizons_table_and_its_line_26_are_unchanged_and_each_is_f
     assert lines[last + 1] == "" and lines[last + 2].startswith("**Amended on 2026-11-26.**"), lines[last + 1 : last + 3]
     assert "L2 row" in lines[last + 2] and D_132 in lines[last + 2], lines[last + 2]
     assert lines[at + 1].startswith("  - Amended on 2026-11-26, by ") and D_132 in lines[at + 1], lines[at + 1]
+
+
+# --- the larger Chinook Workload and its Campaign (chapter 20) ---------------------------------------------------------------------------
+
+CAMPAIGN_CHAPTER = "20-chinook-campaign.html"
+CHINOOK_CAMPAIGN = HANDBOOK / "traces" / "campaign-chinook-dev"
+CHINOOK_EXAMPLES = ROOT / "examples" / "chinook"
+# The parts of chapter 20, one per item of chadlis/hypotrail#236, "What to build", item 4, each by the id of its heading.
+CAMPAIGN_PARTS = {
+    "what the Workload holds": "chinook-workload-section",
+    "how the References were written and where the review record is": "chinook-references-section",
+    "the plan's lines, printed from plan.json": "chinook-plan-section",
+    "the ceiling and the Repeats it fixed": "chinook-ceiling-section",
+    "what the Campaign recorded": "chinook-recorded-section",
+    "the limits": "chinook-limits-section",
+}
+
+
+@pytest.fixture(scope="module")
+def campaign_status(tmp_path_factory):
+    """`status --json` of a copy of the kept Campaign's Study, and the copy's folder; the kept folder is never given to a command."""
+    from _study_helpers import run_json
+
+    copy = tmp_path_factory.mktemp("chinook-campaign") / "study"
+    shutil.copytree(CHINOOK_CAMPAIGN / "study", copy)
+    code, status, err = run_json("status", "--study", copy)
+    assert code == 0, err
+    return status, copy
+
+
+def kept_json(name: str) -> dict:
+    return json.loads((CHINOOK_CAMPAIGN / name).read_text(encoding="utf-8"))
+
+
+def figure_rows(page, table_id) -> dict:
+    """{data-figure: (its data attributes, the text of its Value cell)} of a figures table of chapter 20."""
+    return {row["attrs"]["data-figure"]: (row["attrs"], row["cells"][1]["text"]) for row in parse(page).tables.get(table_id, []) if "data-figure" in row["attrs"]}
+
+
+def attempt_of(status, copy, configuration):
+    """(the Attempt of one Configuration, its run.json) in the copy of the kept Study."""
+    for attempt in status["attempts"]:
+        [path] = [each["path"] for each in attempt["artifacts"] if each["role"] == "run_record"]
+        run = json.loads((copy / path).read_text(encoding="utf-8"))
+        if run["configuration"] == configuration:
+            return attempt, run
+    raise AssertionError(configuration)
+
+
+def campaign_figures(status, copy) -> dict:
+    """{figure: the value its kept file gives} of each figure of chapter 20's two figures tables."""
+    ceiling, spend = kept_json("ceiling.json"), kept_json("spend.json")
+    [comparison] = status["comparisons"]
+    plain, plain_run = attempt_of(status, copy, "plain")
+    verify, verify_run = attempt_of(status, copy, "verify")
+    control = next(each for each in status["assessments"] if each["assessment_id"] == comparison["roles"]["control_assessment_id"])
+    candidate = next(each for each in status["assessments"] if each["assessment_id"] == comparison["roles"]["candidate_assessment_id"])
+    invocations = {each["step"]: each for each in spend["invocations"]}
+    [served] = {model for run in (plain_run, verify_run) for model in run["served_models"]}
+    return {
+        "cost_limit": ceiling["episode_bound"]["cost_limit_usd"],
+        "episode_bound": ceiling["episode_bound"]["value_usd"],
+        "ceiling": ceiling["ceilings_usd"]["one_repeat"],
+        "three_repeat_ceiling": ceiling["repeats_rule"]["three_repeat_ceiling_at_that_c_usd"],
+        "repeats": ceiling["repeats_rule"]["repeats"],
+        "attempts": len([each for each in status["attempts"] if each["mode"] == "llm_live"]),
+        "reruns": len([each for each in status["attempts"] if each["retry_of"] is not None]),
+        "episodes_plain": sum(plain["item_counts"].values()),
+        "episodes_verify": sum(verify["item_counts"].values()),
+        "produced": sum(each["item_counts"]["produced"] for each in status["attempts"]),
+        "failed": sum(each["item_counts"]["failed"] for each in status["attempts"]),
+        "missing": sum(each["item_counts"]["missing"] for each in status["attempts"]),
+        "correct_plain": control["counts"]["correct"],
+        "correct_verify": candidate["counts"]["correct"],
+        "share_plain": comparison["delta"]["control"],
+        "share_verify": comparison["delta"]["candidate"],
+        "delta": comparison["delta"]["value"],
+        "decision": status["decisions"][0]["option"],
+        "served_model": served,
+        "spend_plain": invocations["run-plain"]["cost_usd"],
+        "spend_verify": invocations["run-verify"]["cost_usd"],
+        "spend": spend["total_usd"],
+    }
+
+
+def same_figure(written: str, value) -> bool:
+    """Whether a figure the chapter writes in `data-value` is the kept value: a number to 12 significant digits, a text exactly."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return f"{float(written):.12g}" == f"{float(value):.12g}"
+    return written == value
+
+
+def shown_figure(attrs) -> str:
+    """The text of the Value cell a figure is written as: an amount in USD to the cent, any other figure as its value."""
+    return f"USD {float(attrs['data-value']):.2f}" if attrs["data-unit"] == "USD" else attrs["data-value"]
+
+
+def test_each_figure_of_chapter_20_equals_the_kept_file_it_is_read_from_and_is_shown_as_its_value(page, campaign_status):
+    rows = {**figure_rows(page, "chinook-ceiling"), **figure_rows(page, "chinook-recorded")}
+    expected = campaign_figures(*campaign_status)
+    assert rows and expected
+    for figure in sorted(set(rows) | set(expected)):
+        assert figure in rows and figure in expected, figure
+        attrs, text = rows[figure]
+        assert same_figure(attrs["data-value"], expected[figure]), (figure, attrs["data-value"], expected[figure])
+        assert text == shown_figure(attrs), (figure, text)
+
+
+def test_chapter_20_states_the_delta_because_the_kept_comparison_has_one_and_never_says_that_none_was_computable(page, campaign_status):
+    status, _ = campaign_status
+    [comparison] = status["comparisons"]
+    assert comparison["delta"]["value"] is not None and comparison["delta"]["reason"] is None
+    assert "delta" in figure_rows(page, "chinook-recorded")
+    assert "no delta was computable" not in plain_text(chapter_text(CAMPAIGN_CHAPTER))
+
+
+def test_the_plan_table_of_chapter_20_prints_each_line_of_plan_json_with_when_it_runs_both_ways(page):
+    import shlex
+
+    lines = {line["step"]: line for line in kept_json("plan.json")["lines"]}
+    rows = {row["attrs"]["data-step"]: row["cells"] for row in parse(page).tables.get("chinook-plan", []) if "data-step" in row["attrs"]}
+    assert lines and rows
+    for step in sorted(set(lines) | set(rows)):
+        assert step in lines and step in rows, step
+        assert (rows[step][1]["text"], shlex.split(rows[step][2]["text"])) == (lines[step]["runs"], lines[step]["argv"]), step
+    assert [row["attrs"]["data-step"] for row in parse(page).tables["chinook-plan"] if "data-step" in row["attrs"]] == list(lines)
+
+
+def cases_by_status(partition: str) -> dict:
+    """{Reference status: number of Cases} of one Partition of the Chinook Workload, read from its Cases and References files."""
+    name = {"dev": "chinook-dev.jsonl", "public_check": "chinook-public-check.jsonl"}[partition]
+    ids = [json.loads(line)["case_id"] for line in (CHINOOK_EXAMPLES / "cases" / name).read_text(encoding="utf-8").splitlines() if line.strip()]
+    records = [json.loads(line) for line in (CHINOOK_EXAMPLES / "references" / "chinook-references.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    statuses = {record["case_id"]: record["status"] for record in records}
+    return {"cases": len(ids), **Counter(statuses[case_id] for case_id in ids)}
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check"])
+def test_the_workload_table_of_chapter_20_counts_the_cases_of_each_partition_by_reference_status_as_the_files_hold_them(page, partition):
+    [attrs] = [row for row in client_rows(page, "chinook-workload") if row["data-partition"] == partition]
+    counted = cases_by_status(partition)
+    written = {"cases": int(attrs["data-cases"]), **{status: int(attrs[f"data-{status.replace('_', '-')}"]) for status in ("answered", "needs_clarification", "not_answerable")}}
+    assert written == counted
+
+
+def test_the_review_table_of_chapter_20_counts_the_review_record_and_its_link_is_the_tracked_record(page):
+    lines = [json.loads(line) for line in (CHINOOK_EXAMPLES / "references" / "chinook-references-2.review.jsonl").read_text(encoding="utf-8").splitlines()][1:]
+    [attrs] = client_rows(page, "chinook-review")
+    counted = {
+        "candidates": len(lines),
+        "agreed": sum(line["outcome"] == "agreed" for line in lines),
+        "third-reader": sum(line["third_reader"] is not None for line in lines),
+        "withdrawn": sum(line["outcome"] == "withdrawn" for line in lines),
+        "accepted": sum(line["case_id"] is not None for line in lines),
+    }
+    assert {key: int(attrs[f"data-{key}"]) for key in counted} == counted
+    record = "examples/chinook/references/chinook-references-2.review.jsonl"
+    assert f'<a href="../../{record}">' in chapter_text(CAMPAIGN_CHAPTER) and tracked_files(record) == [record]
+
+
+@pytest.mark.parametrize("part", sorted(CAMPAIGN_PARTS))
+def test_chapter_20_has_a_part_for_each_item_the_ticket_asks_it_to_state(part):
+    assert f'<p class="sub2" id="{CAMPAIGN_PARTS[part]}">' in chapter_text(CAMPAIGN_CHAPTER), part
+
+
+# Each statement chapter 20 makes, as the chapter makes it: "it states that the Comparison carries no interval and no significance
+# claim, that the two sides ran one after the other, and that the spend is an estimate" (chadlis/hypotrail#236).
+CAMPAIGN_STATEMENTS = {
+    "no interval and no significance claim": "The Comparison carries no interval and no significance claim",
+    "the two sides ran one after the other": "The two sides ran one after the other, plain first, not alternated",
+    "the spend is an estimate": "The spend is an estimate",
+}
+
+
+@pytest.mark.parametrize("statement", sorted(CAMPAIGN_STATEMENTS))
+def test_chapter_20_states_what_the_comparison_and_the_spend_do_not_show(statement):
+    assert CAMPAIGN_STATEMENTS[statement] in plain_text(chapter_text(CAMPAIGN_CHAPTER)), statement
+
+
+def test_the_prose_of_chapter_20_names_d_131_and_d_145_each_once_by_its_issue():
+    """The plan's lines, which the plan table prints, cite D-145 in their source text: only the prose around the tables is read."""
+    text = plain_text(prose_of(chapter_text(CAMPAIGN_CHAPTER)))
+    for decision in ("D-131", "D-145"):
+        assert text.count(f"{decision} on chadlis/hypotrail#75") == text.count(decision) == 1, decision
+
+
+def test_each_kept_file_chapter_20_links_exists():
+    links = re.findall(r'href="(traces/campaign-chinook-dev/[^"#]*)"', chapter_text(CAMPAIGN_CHAPTER))
+    assert {"traces/campaign-chinook-dev/plan.json", "traces/campaign-chinook-dev/ceiling.json", "traces/campaign-chinook-dev/spend.json"} <= set(links)
+    for link in links:
+        assert (HANDBOOK / link).exists(), link
+
+
+# --- the README on the larger Chinook Workload --------------------------------------------------------------------------------------------
+
+README_CHINOOK_PATHS = ("docs/handbook/traces/campaign-chinook-dev/study/", "docs/demo/")
+README_COUNTS = re.compile(r"The Chinook Workload holds (\d+) `dev` Cases, .*?, and (\d+) `public_check` Cases\.")
+
+
+@pytest.mark.parametrize("path", README_CHINOOK_PATHS)
+def test_the_readme_names_the_campaigns_kept_study_and_the_demonstrations_home_and_each_is_tracked(path):
+    assert f"`{path}`" in (ROOT / "README.md").read_text(encoding="utf-8"), path
+    assert tracked_files(path), path
+
+
+@pytest.mark.parametrize("partition", ["dev", "public_check"])
+def test_the_readme_sentence_on_the_chinook_workload_counts_the_cases_of_each_partition_as_its_cases_file_holds_them(partition):
+    [match] = README_COUNTS.findall(" ".join((ROOT / "README.md").read_text(encoding="utf-8").split()))
+    written = dict(zip(("dev", "public_check"), match))
+    assert int(written[partition]) == cases_by_status(partition)["cases"], partition

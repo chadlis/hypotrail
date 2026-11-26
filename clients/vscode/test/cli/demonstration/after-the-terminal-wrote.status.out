@@ -261,12 +261,15 @@
       "decision_id": "00000000-0000-4000-8000-000000000009",
       "kind": "decision",
       "option": "Keep the Control",
+      "option_id": null,
       "question": "Which Configuration do we keep after this Comparison?",
+      "question_id": null,
       "read_sequence": 12,
       "request_id": "demo-task-3",
       "revision": "0000000000000000000000000000000000000000000000000000000000000002",
-      "schema_version": "decision/1",
+      "schema_version": "decision/2",
       "source": null,
+      "words": null,
       "write_sequence": 13,
       "applies": false,
       "reasons": [
@@ -1165,6 +1168,53 @@
           "consequence": "A Decision that cites this Comparison is recorded with the option \"Choose neither yet\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule."
         }
       ]
+    }
+  ],
+  "record_files": [
+    {
+      "kind": "decision",
+      "id": "00000000-0000-4000-8000-000000000009",
+      "path": "decisions/000001-00000000-0000-4000-8000-000000000009.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000a",
+      "path": "assessments/00000000-0000-4000-8000-00000000000a/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000b",
+      "path": "assessments/00000000-0000-4000-8000-00000000000b/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000c",
+      "path": "assessments/00000000-0000-4000-8000-00000000000c/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-00000000000d",
+      "path": "assessments/00000000-0000-4000-8000-00000000000d/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-00000000000e",
+      "path": "comparisons/00000000-0000-4000-8000-00000000000e/comparison.json"
     }
   ]
 }

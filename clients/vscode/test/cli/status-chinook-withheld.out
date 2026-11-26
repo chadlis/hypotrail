@@ -476,10 +476,10 @@
         "level": 0.95,
         "lower": null,
         "method": "percentile_bootstrap",
-        "reason": "delta_withheld",
+        "reason": "resampling_not_declared",
         "resamples": 2000,
-        "seed": 240,
-        "unit": "case",
+        "seed": null,
+        "unit": null,
         "units": null,
         "upper": null,
         "variant": null
@@ -644,6 +644,23 @@
           "consequence": "A Decision that cites this Comparison is recorded with the option \"Choose neither yet\". The Comparison stops being pending while that Decision applies. Beyond that Decision and its two write-journal entries, nothing is written, and the Study enforces nothing on later work: a later compare writes a new Comparison that is pending under the same rule."
         }
       ]
+    }
+  ],
+  "record_files": [
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000004",
+      "path": "assessments/00000000-0000-4000-8000-000000000004/assessment.json"
+    },
+    {
+      "kind": "assessment",
+      "id": "00000000-0000-4000-8000-000000000006",
+      "path": "assessments/00000000-0000-4000-8000-000000000006/assessment.json"
+    },
+    {
+      "kind": "comparison",
+      "id": "00000000-0000-4000-8000-000000000008",
+      "path": "comparisons/00000000-0000-4000-8000-000000000008/comparison.json"
     }
   ]
 }

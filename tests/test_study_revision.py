@@ -243,10 +243,10 @@ NO_INTERVAL_LIMITATION = (
 
 def test_a_study_made_before_resampling_gets_no_interval_until_a_new_revision_and_its_earlier_comparison_is_never_rewritten(tmp_path):
     from _agent_compare_helpers import answer_lines, assess, imported, observation_set_of
-    from _chinook_helpers import undeclared_examples
+    from _chinook_helpers import revision_one_examples
     from _review_helpers import compare, comparison_file
 
-    examples = undeclared_examples(tmp_path)
+    examples = revision_one_examples(tmp_path)  # the frozen revision-1 Workload, which declares no `resampling`
     more = ("--examples-dir", examples)
     study, _ = init_chinook(tmp_path, examples=examples)
     plain_attempt, plain = imported(tmp_path, study, "plain", answer_lines(wrong={("D01", 0), ("D03", 1)}), more=more)

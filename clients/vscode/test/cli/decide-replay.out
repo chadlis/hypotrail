@@ -9,12 +9,15 @@
     "decision_id": "UUID",
     "kind": "decision",
     "option": "Keep the Control",
+    "option_id": null,
     "question": "Which Configuration do we keep after this Comparison?",
+    "question_id": null,
     "read_sequence": 12,
     "request_id": "panel-1",
     "revision": "c5b9b3892ecefc079ae7c3ded80a7ea0c5fa21247333f24ea0287bc194737b31",
-    "schema_version": "decision/1",
+    "schema_version": "decision/2",
     "source": null,
+    "words": null,
     "write_sequence": 13
   }
 }

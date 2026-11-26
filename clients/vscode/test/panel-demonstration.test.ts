@@ -153,6 +153,25 @@ function assertAskedAgain(seen: Seen): void {
   assertDecision(decisionParts(document)[0], earlier, false, "human");
 }
 
+// The one Pending decision of the copy of the kept Chinook Campaign: its question, the delta of its Comparison, its options with their
+// consequences, and the path to Record, a radio input per option and the control that records the first Pending decision. "With a
+// null delta, ticket 3 shows the two per-side matrices and the unscored Episodes with their reasons, states that no delta was
+// computable, and shows no delta or share figure" (D-146 on chadlis/hypotrail#75, B2): the kept Comparison has a delta, so the
+// document shows it.
+function assertCampaignPending({ document, read }: Seen): void {
+  const part = under(document, "Pending decisions", "Decisions");
+  assert.equal(read.pending_decisions.length, 1);
+  const [pending] = read.pending_decisions;
+  assert.deepEqual(questionsOf(part), [pending.question.text], "one question, the read's");
+  const { delta } = read.comparisons.find((each: Entry) => each.comparison_id === pending.comparison_id);
+  assert.notEqual(delta.value, null, "the Comparison has a delta");
+  assert.equal(words(elementOf(part, '<p data-element="delta">')), `${label("Delta")} ${written(delta.value)} ${delta.metric} ${delta.unit}`, "the delta of the Comparison");
+  assert.deepEqual(elementsOf(part, "<label>").map(markedTexts), pending.options.map((option: Entry) => [option.text, option.consequence]), "each option with its consequence");
+  const tags = partsOf(part).tags;
+  assert.equal(tags.filter((tag) => tag.startsWith('<input type="radio"')).length, pending.options.length, "one radio input per option");
+  assert.equal(tags.filter((tag) => tag.startsWith("<button") && tag.includes(`data-message="${RECORD}"`) && tag.includes('data-pending="0"')).length, 1, "the control that records");
+}
+
 // The values C5-check prints, at the key paths it prints them at (tests/test_demonstration_end_to_end.py ties them to the transcript).
 const C5_PATHS = ["study.study_id", "write_sequence", "pending_decisions[*].comparison_id", "decisions[*].decision_id", "decisions[*].applies"];
 function valueAt(object: unknown, keyPath: string): unknown {
@@ -211,6 +230,19 @@ const SEES: Record<string, (seen: Seen) => void> = {
     const deviations = elementsOf(seen.document, '<li data-part="deviation">');
     assert.equal(deviations.length, 1, "one Declared deviation");
     assert.ok(words(deviations[0]).startsWith(seen.read.declared_deviations[0].declared_deviation_id), "with its id");
+  },
+  "chinook-campaign-pending": (seen) => {
+    assertCampaignPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 1, "the proxy Decision of the Campaign");
+    assertDecision(parts[0], seen.read.decisions[0], true, "proxy");
+  },
+  "chinook-campaign-decided": (seen) => {
+    assertNoPending(seen);
+    const parts = decisionParts(seen.document);
+    assert.equal(parts.length, 2, "two Decisions");
+    assertDecision(parts[0], seen.read.decisions[0], true, "proxy");
+    assertDecision(parts[1], seen.read.decisions[1], true, "human");
   },
 };
 
@@ -408,19 +440,56 @@ test("the message the document of after-compare posts in a browser is the messag
 
 // --- Blocker 11 ---------------------------------------------------------------------------------------------------------------------
 
-// Stated limit: what "leads to its record" requires here is the least the owner's sentence states. Blocker 11's slice decides how the
-// panel opens a record, and may rewrite this function with its own tickets. The requirement is the owner's own sentence:
+// Stated limit: what "leads to its record" requires here is the least the owner's sentence states, read as the panel now meets it: a
+// file name or a number leads to a control that opens a file of the Study. The requirement is the owner's own sentence:
 // « Panneau, tâche 2 — BLOCAGE : noms de fichiers affichés, pas cliquables ; aucun nombre n'ouvre son enregistrement. »
-// A file name opens its file, and a number opens its record. The next slice may rewrite the function that recognises a link, but not
+// A file name opens its file, and a number opens its record. A later slice may rewrite the function that recognises a link, but not
 // that requirement.
 //
 // The file names and the numbers of a document that do not lead to their record. A file name is a value of the read at
 // `assessments[].per_item_ref.path`, `comparisons[].paired_deltas_ref.path` or `comparisons[].population_ref.path` that the document
-// shows; it leads to its record when it stands inside an element a person can act on, a link or a button. A number is an element whose
-// `data-kind` is among `number_links` of contract.json; it leads to its record when it stands inside a button, or inside a link whose
-// target is not a part of the same document.
+// shows; it leads to its record when it stands in the same `data-part` element as a control that opens it. A number is an element whose
+// `data-kind` is among `number_links` of contract.json; it leads to its record when it stands in a link to a part of the same document
+// and the record part of that number, that part or the record part it stands in, holds a control that opens the file the number is read
+// or computed from: for `bin_count`, `bin_edge`, `quartile` and `dot_end`, the Comparison's control of `paired_deltas`; for `cited`,
+// `latest` and `changed_item_count` that lead to a Decision's part, that Decision's control of its own file and the control of the own file
+// of each Assessment its `evidence_change` names that `record_files` and `assessments` list; for every other kind, the control of the own
+// file of that record part.
+// The kinds `write_sequence` and `pending_decisions` are exempt: they lead to the Study's part, and neither is read or computed from a file
+// of the Study.
 const NUMBER_KINDS = new Set(contract.number_links.map((entry) => entry.slice(0, entry.indexOf("="))));
-const VOID = new Set(["input", "br", "hr", "meta", "img"]);
+const EXEMPT = new Set(["write_sequence", "pending_decisions"]);
+const FROM_PAIRED_DELTAS = new Set(["bin_count", "bin_edge", "quartile", "dot_end"]);
+const OF_A_LINE = new Set(["cited", "latest", "changed_item_count"]);
+const RECORD_PARTS = new Set(["assessment", "comparison", "decision", "deviation"]);
+const [, , , OPEN] = contract.messages;
+const [, PAIRED_DELTAS, , RECORD_FILE] = contract.open_refs;
+// The listing and the key of a record's id of each kind of record part, and the kind of its entry of `record_files`.
+const LISTED: Record<string, [string, string, string]> = {
+  assessment: ["assessments", "assessment_id", "assessment"],
+  comparison: ["comparisons", "comparison_id", "comparison"],
+  decision: ["decisions", "decision_id", "decision"],
+  deviation: ["declared_deviations", "declared_deviation_id", "declared_deviation"],
+};
+
+type Element = { start: number; end: number; tag: string; part?: string; id?: string };
+type Opener = { kind?: string; index: number; ref?: string };
+
+// The controls that open in `html`, each with the kind, the index and the ref its message names.
+const openersIn = (html: string): Opener[] =>
+  [...html.matchAll(/<button [^>]*>/g)]
+    .map(([tag]) => tag)
+    .filter((tag) => tag.includes(` data-message="${OPEN}"`))
+    .map((tag) => ({ kind: /data-part-kind="([^"]*)"/.exec(tag)?.[1], index: Number(/data-index="([^"]*)"/.exec(tag)?.[1]), ref: /data-ref="([^"]*)"/.exec(tag)?.[1] }));
+
+// The path of the file a control opens, as the read names it.
+function openedPath(opener: Opener, read: Entry): unknown {
+  const [listing, key, kind] = LISTED[opener.kind ?? ""] ?? [];
+  const record = listing === undefined ? undefined : read[listing]?.[opener.index];
+  if (record === undefined) return undefined;
+  if (opener.ref === RECORD_FILE) return (read.record_files ?? []).find((entry: Entry) => entry.kind === kind && entry.id === record[key])?.path;
+  return record[`${opener.ref}_ref`]?.path;
+}
 
 function unled(document: string, read: Entry): { fileNames: string[]; numbers: string[] } {
   const paths = new Set<string>([
@@ -428,37 +497,45 @@ function unled(document: string, read: Entry): { fileNames: string[]; numbers: s
     ...(read.comparisons ?? []).flatMap((each: Entry) => [each.paired_deltas_ref?.path, each.population_ref?.path]),
   ].filter((each) => typeof each === "string"));
   const body = document.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, "$1$2").replace(/(<style[^>]*>)[\s\S]*?(<\/style>)/, "$1$2");
-  const actionable = (tag: string): boolean => tag.startsWith("<button") || tag.startsWith("<a ");
-  const outward = (tag: string): boolean => tag.startsWith("<button") || (tag.startsWith("<a ") && !/\shref="#/.test(tag) && /\shref="/.test(tag));
-  const open: string[] = [];
+  const elements: Element[] = [...body.matchAll(/<[a-z0-9]+ [^>]*>/g)].map((match) => {
+    const html = elementOf(body.slice(match.index), match[0]) ?? match[0];
+    return { start: match.index, end: match.index + html.length, tag: match[0], part: /\sdata-part="([^"]*)"/.exec(match[0])?.[1], id: /\sid="([^"]*)"/.exec(match[0])?.[1] };
+  });
+  // The innermost element that holds `at` and for which `which` holds.
+  const around = (at: number, which: (element: Element) => boolean): Element | undefined =>
+    elements.filter((element) => which(element) && element.start <= at && at < element.end).sort((a, b) => a.end - a.start - (b.end - b.start))[0];
+  const inside = (element: Element): string => body.slice(element.start, element.end);
   const fileNames: string[] = [];
+  for (const match of body.matchAll(/<([a-z0-9]+) data-text>([^<]*)<\/\1>/g)) {
+    const text = unescaped(match[2]);
+    if (!paths.has(text)) continue;
+    const part = around(match.index, (element) => element.part !== undefined);
+    if (part === undefined || !openersIn(inside(part)).some((opener) => openedPath(opener, read) === text)) fileNames.push(text);
+  }
   const numbers: string[] = [];
-  let number: string | undefined;
-  for (const [token] of body.matchAll(/<[^>]*>|[^<]+/g)) {
-    if (token.startsWith("</")) {
-      const name = /^<\/([a-z0-9]+)/.exec(token)?.[1];
-      const at = open.map((tag) => /^<([a-z0-9]+)/.exec(tag)?.[1]).lastIndexOf(name);
-      if (at >= 0) open.splice(at);
-    } else if (token.startsWith("<")) {
-      const name = /^<([a-z0-9!]+)/.exec(token)?.[1] ?? "";
-      if (VOID.has(name) || name.startsWith("!") || token.endsWith("/>")) continue;
-      open.push(token);
-      const kind = /\sdata-kind="([^"]*)"/.exec(token)?.[1];
-      if (kind !== undefined && NUMBER_KINDS.has(kind) && !open.some(outward)) number = kind;
-    } else {
-      const text = unescaped(token).trim();
-      if (number !== undefined && text !== "") {
-        numbers.push(`${number} ${text}`);
-        number = undefined;
-      }
-      if (paths.has(text) && !open.some(actionable)) fileNames.push(text);
-    }
+  for (const match of body.matchAll(/<([a-z]+) [^>]*\bdata-kind="([^"]*)"[^>]*>([^<]*)</g)) {
+    const [tag, name, kind, text] = [match[0].slice(0, match[0].lastIndexOf(">") + 1), match[1], match[2], unescaped(match[3]).trim()];
+    if (!NUMBER_KINDS.has(kind) || EXEMPT.has(kind)) continue;
+    const href = /\shref="#([^"]*)"/.exec(tag)?.[1];
+    const target = name === "a" && href !== undefined ? elements.filter((element) => element.id === href) : [];
+    const part = target.length === 1 ? around(target[0].start, (element) => RECORD_PARTS.has(element.part ?? "") && element.id !== undefined) : undefined;
+    const index = part === undefined ? NaN : Number(/-(\d+)$/.exec(part.id!)?.[1]);
+    const openers = part === undefined ? [] : openersIn(inside(part));
+    const has = (kind: string, at: number, ref: string): boolean => openers.some((opener) => opener.kind === kind && opener.index === at && opener.ref === ref);
+    let led: boolean;
+    if (part === undefined || Number.isNaN(index)) led = false;
+    else if (FROM_PAIRED_DELTAS.has(kind)) led = part.part === "comparison" && has("comparison", index, PAIRED_DELTAS);
+    else if (OF_A_LINE.has(kind) && part.part === "decision") {
+      const lines: Entry[] = read.decisions?.[index]?.evidence_change?.lines ?? [];
+      const named = [...new Set(lines.flatMap((line) => [line.assessment_id, line.latest_assessment_id]))];
+      const listed = named.filter((id) => (read.record_files ?? []).some((entry: Entry) => entry.kind === "assessment" && entry.id === id));
+      const at = listed.map((id) => (read.assessments ?? []).findIndex((each: Entry) => each.assessment_id === id)).filter((each) => each >= 0);
+      led = has("decision", index, RECORD_FILE) && at.every((each) => has("assessment", each, RECORD_FILE));
+    } else led = has(part.part!, index, RECORD_FILE);
+    if (!led) numbers.push(`${kind} ${text}`);
   }
   return { fileNames, numbers };
 }
-
-// The mark of the tests of blocker 11: while it is set, they are expected to fail. Remove it the day the panel opens each record.
-const BLOCKER_11: string | undefined = "blocker 11: no file name and no number of the panel opens its record";
 
 // The document the tests of blocker 11 read at a kept state, and its read.
 async function blockerDocument(t: TestContext, state: string): Promise<{ document: string; read: Entry }> {
@@ -467,7 +544,7 @@ async function blockerDocument(t: TestContext, state: string): Promise<{ documen
 }
 
 for (const state of Object.keys(SEES)) {
-  test(`blocker 11, expected to fail: every file name and every number of the document of the kept state leads to its record: ${state}`, { todo: BLOCKER_11 }, async (t) => {
+  test(`blocker 11: every file name and every number of the document of the kept state leads to its record: ${state}`, async (t) => {
     const { document, read } = await blockerDocument(t, state);
     const found = unled(document, read);
     t.diagnostic(`${found.fileNames.length} file names and ${found.numbers.length} numbers do not lead to their record`);
@@ -475,34 +552,23 @@ for (const state of Object.keys(SEES)) {
   });
 }
 
-test("the mark of blocker 11 stands only while a kept state holds a file name or a number that does not lead to its record", async (t) => {
-  if (BLOCKER_11 === undefined) return;
-  const found = [];
-  for (const state of Object.keys(SEES)) {
-    const { document, read } = await blockerDocument(t, state);
-    const { fileNames, numbers } = unled(document, read);
-    found.push(fileNames.length + numbers.length);
-  }
-  assert.ok(found.some((count) => count > 0), "every file name and every number of each kept state leads to its record: remove the mark BLOCKER_11, so that its tests are no longer expected to fail");
-});
-
-// A document of after-compare whose file names stand in buttons and whose numbers are links out of the document, but for the
-// `keep`-th file name and the `keep`-th number, left as the panel writes them.
-function planted(document: string, read: Entry, keep?: number): string {
-  const paths = [...read.assessments.map((each: Entry) => each.per_item_ref.path), ...read.comparisons.flatMap((each: Entry) => [each.paired_deltas_ref.path, each.population_ref.path])];
-  let file = 0;
-  let number = 0;
-  return document
-    .replace(/<span data-text>([^<]*)<\/span>/g, (whole, text) => (paths.includes(unescaped(text)) && file++ !== keep ? `<button>${whole}</button>` : whole))
-    .replace(/<a href="#([^"]*)" data-kind="/g, (whole, target) => (number++ !== keep ? `<a href="hypotrail-record:${target}" data-kind="` : whole));
+// A document of after-compare with the control beside the per-Item path of its first Assessment's part removed, and that part's control
+// of its own file removed.
+function planted(document: string): { document: string; index: number } {
+  const part = elementOf(document, '<div data-part="assessment"')!;
+  const index = Number(/id="assessment-(\d+)"/.exec(part)![1]);
+  const without = part.replace(/ <button [^>]*data-ref="per_item"[^>]*>[^<]*<\/button>/, "").replace(/ <button [^>]*data-ref="record"[^>]*>[^<]*<\/button>/, "");
+  return { document: document.replace(part, without), index };
 }
 
-test("the function of blocker 11 finds nothing in a planted document whose file names are buttons and whose numbers are links out of it, and finds the one of each left as today", async (t) => {
+test("the function of blocker 11 finds nothing in the document of after-compare, and finds the output path left with no control and each number whose record part has no control left in a planted one", async (t) => {
   const { document, read } = await seenAt(t, "after-compare");
-  const today = unled(document, read);
-  assert.ok(today.fileNames.length > 1 && today.numbers.length > 1, "the document of after-compare shows several of each");
-  assert.deepEqual(unled(planted(document, read), read).fileNames, [], "no file name found in a button");
-  assert.deepEqual(unled(planted(document, read), read).numbers, [], "no number found in a link out of the document");
-  assert.deepEqual(unled(planted(document, read, 0), read).fileNames, [today.fileNames[0]], "the file name left as today");
-  assert.deepEqual(unled(planted(document, read, 0), read).numbers, [today.numbers[0]], "the number left as today");
+  assert.deepEqual(unled(document, read), { fileNames: [], numbers: [] }, "the document follows the rules");
+  const { document: changed, index } = planted(document);
+  assert.notEqual(changed, document, "a control was removed");
+  const found = unled(changed, read);
+  assert.deepEqual(found.fileNames, [read.assessments[index].per_item_ref.path], "the output path with no control");
+  const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)">([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
+  assert.ok(expected.length > 0, "numbers lead to the first Assessment's part");
+  assert.deepEqual(found.numbers, expected, "each number whose record part has no control");
 });

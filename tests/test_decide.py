@@ -125,7 +125,8 @@ def test_decide_records_one_decision_and_every_field_is_read_back_from_the_study
         "request_id": "d-1",
         "read_sequence": before,
     }
-    assert (record["kind"], record["write_sequence"]) == ("decision", before + 1)
+    assert (record["kind"], record["schema_version"], record["write_sequence"]) == ("decision", "decision/2", before + 1)
+    assert (record["question_id"], record["option_id"], record["words"]) == (None, None, None)
     assert file.name == f"000001-{record['decision_id']}.json"
 
 
@@ -187,6 +188,41 @@ def test_a_decision_record_with_a_wrong_value_or_an_extra_field_is_refused_with_
     assert "not valid under any of the given schemas" not in caught.value.details["message"], caught.value.details
 
 
+def a_record_with_words() -> dict:
+    return {
+        **a_record(),
+        "schema_version": "decision/2",
+        "question_id": "keep_after_comparison",
+        "option_id": "keep_candidate",
+        "words": {"texts": ["keep it"], "channel": "chat_relayed", "by": None, "authenticated": False},
+    }
+
+
+def test_a_well_formed_decision_2_record_with_words_matches_the_contract_schema():
+    contracts.validate(a_record_with_words())
+
+
+@pytest.mark.parametrize(
+    "record, path",
+    [
+        ({**a_record_with_words(), "words": {**a_record_with_words()["words"], "authenticated": True}}, "/words/authenticated"),
+        ({**a_record_with_words(), "words": {**a_record_with_words()["words"], "channel": "chat_matched"}}, "/words/channel"),
+        ({**a_record_with_words(), "words": {key: value for key, value in a_record_with_words()["words"].items() if key != "texts"}}, "/words"),
+        ({**a_record_with_words(), "words": {**a_record_with_words()["words"], "texts": []}}, "/words/texts"),
+        ({**a_record_with_words(), "words": {**a_record_with_words()["words"], "digest": "x"}}, "/words"),
+        ({**a_record(), "words": None}, "/"),
+    ],
+    ids=["authenticated true", "an unknown channel", "no texts", "empty texts", "a fourth key in words", "a decision/1 record that holds words"],
+)
+def test_a_decision_2_record_with_wrong_words_or_a_decision_1_record_with_words_is_refused_at_the_path_of_its_own_version(record, path):
+    with pytest.raises(IntegrityError) as caught:
+        contracts.validate(record)
+    assert (caught.value.code, caught.value.details["kind"], caught.value.details["path"]) == ("CONTRACT_VIOLATION", "decision", path), caught.value.details
+    assert "not valid under any of the given schemas" not in caught.value.details["message"], caught.value.details
+    if record["schema_version"] == "decision/1":
+        assert "'words' was unexpected" in caught.value.details["message"], caught.value.details
+
+
 def test_a_decision_file_that_no_longer_matches_the_contract_is_refused_when_it_is_read(study):
     first = made(study)
     [file] = decision_files(study)
@@ -205,7 +241,7 @@ def test_the_record_of_a_human_decision_holds_the_author_kind_and_the_source_and
     assert {key for key in record if key.startswith("author")} == {"author"}
     assert set(record) == {
         "kind", "schema_version", "decision_id", "request_id", "question", "option", "author", "source",
-        "cited_ids", "revision", "read_sequence", "write_sequence",
+        "cited_ids", "revision", "read_sequence", "write_sequence", "question_id", "option_id", "words",
     }
 
 
@@ -337,9 +373,16 @@ def test_while_another_writer_holds_the_lock_decide_is_refused_with_study_locked
 
 def test_decide_creates_or_changes_no_file_outside_the_study_folder(study, tmp_path, monkeypatch):
     (tmp_path / "workspace" / "notes.txt").write_text("beside the Study", encoding="utf-8")
+    words = tmp_path / "workspace" / "words.txt"
+    words.write_text("Keep it,\nas I said.", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     before = tree(tmp_path)
     made(study)
+    code, payload, err = run_json(
+        "decide", "--study", study, "--question", QUESTION, "--option", OPTION, "--author", "human", "--artifact", held(study)["attempt"],
+        "--request-id", "d-words", "--read-sequence", seq(study), "--words-file", words, "--words-file", words,
+    )
+    assert code == 0 and payload["decision"]["words"]["texts"] == ["Keep it,\nas I said."] * 2, (payload, err)
     after = tree(tmp_path)
     inside = "workspace/study/"
     assert {k: v for k, v in after.items() if not k.startswith(inside)} == {k: v for k, v in before.items() if not k.startswith(inside)}
@@ -423,11 +466,11 @@ def test_an_id_given_twice_and_ids_out_of_order_are_recorded_once_and_sorted(stu
     assert record["cited_ids"] == sorted({ids["comparison"], ids["attempt"], ids["assessment"]})
 
 
-def test_status_json_with_a_decision_recorded_has_the_fourteen_top_level_keys_with_the_listings_and_the_pending_decisions_and_no_list_of_observation_sets(study):
+def test_status_json_with_a_decision_recorded_has_the_fifteen_top_level_keys_with_the_listings_the_pending_decisions_and_the_record_files_and_no_list_of_observation_sets(study):
     made(study)
     code, payload, err = run_json("status", "--study", study)
     assert code == 0, err
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
     assert "observation_sets" not in payload
 
 

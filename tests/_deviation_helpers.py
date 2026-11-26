@@ -98,15 +98,19 @@ def bike_world(tmp_path, count=4):
     return study, attempts, assessments
 
 
-def chinook_world(tmp_path, count=4):
-    """A Chinook Study with `count` imports of the same answers, each assessed: (study, [Attempt ids], [Assessment ids])."""
+def chinook_world(tmp_path, count=4, examples=None):
+    """A Chinook Study with `count` imports of the same answers, each assessed: (study, [Attempt ids], [Assessment ids]).
+
+    `examples`, when given, is the examples folder every command of it reads (`--examples-dir`).
+    """
     from _agent_compare_helpers import answer_lines, imported
     from _chinook_helpers import init_chinook
 
-    study, _ = init_chinook(tmp_path)
+    study, _ = init_chinook(tmp_path, examples=examples)
+    more = () if examples is None else ("--examples-dir", examples)
     attempts, assessments = [], []
     for number in range(count):
-        attempt, assessment = imported(tmp_path, study, f"answers-{number}", answer_lines())
+        attempt, assessment = imported(tmp_path, study, f"answers-{number}", answer_lines(), more=more)
         attempts.append(attempt["attempt_id"])
         assessments.append(assessment["assessment_id"])
     return study, attempts, assessments

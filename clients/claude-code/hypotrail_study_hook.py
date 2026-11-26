@@ -23,7 +23,10 @@ RULE = (
     "Rule for an agent on this Study: read the Study's state at the start of each turn; when this hook printed the Study's values above,"
     " they are that read, from `status --since 0 --json`, and `status --json` gives the rest. Pass the `write_sequence` you read as"
     " `--read-sequence` on every write to the Study. Record a Decision only through `decide`. Record an answer chosen by a stated rule as a"
-    " proxy Decision: `decide --author proxy` with a `--source` that names the rule."
+    " proxy Decision: `decide --author proxy` with a `--source` that names the rule. When the person states the choice, record their own"
+    " words with the Decision, whole and unchanged: `decide --author human` with one `--words-file` per message, and the ids of the"
+    " pending decision's question and option as `--question-id` and `--option-id`; your own wording goes in `--source`. An agent never"
+    " declares the channel `panel`."
 )
 FAILURE_LINE = "Hypotrail: this hook could not read the Study at this prompt, so it printed none of its values. " + RULE
 
@@ -60,10 +63,12 @@ def pending_line(entry):
 
 def decision_line(decision):
     source = "none" if decision["source"] is None else quoted(decision["source"])
+    words = decision.get("words")  # a `decision/1` record holds no `words`; a text of the words is never printed
+    channel = "none" if words is None else words["channel"]
     change = "none" if decision["evidence_change"] is None else decision["evidence_change"]["state"]
     return (
         f"- Decision {decision['decision_id']}: question {quoted(decision['question'])}; option {quoted(decision['option'])};"
-        f" author {decision['author']}; source {source}; cited {', '.join(decision['cited_ids']) or 'none'};"
+        f" author {decision['author']}; source {source}; channel {channel}; cited {', '.join(decision['cited_ids']) or 'none'};"
         f" applies {'true' if decision['applies'] else 'false'}; evidence_change {change}."
     )
 

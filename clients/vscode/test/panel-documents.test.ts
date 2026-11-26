@@ -32,7 +32,7 @@ import {
 import { exit, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
-const [, RECORD] = contract.messages;
+const [, RECORD, , OPEN] = contract.messages;
 const keptAnswer = (name: string): Answer => exit(Number(kept(`${name}.exit`)), kept(`${name}.out`), kept(`${name}.err`));
 const NOT_FOUND = keptAnswer("status-not-found");
 const NO_ANSWERS: [string, Answer][] = [
@@ -130,6 +130,21 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
   ["a write the CLI refuses, then its read", (t) => afterWrite(t, read("status-success"), keptAnswer("decide-study-changed"), read("status-success"))],
   ["a write with no answer", (t) => afterWrite(t, read("status-success"), NO_ANSWERS[1][1])],
   ["a write the bridge refuses", (t) => afterWrite(t, withoutQuestion())],
+  [
+    "a control that opens whose file the Study folder does not hold",
+    async (t) => {
+      workspace(t, ["bike"]);
+      recorder(t, ...withFigures(read("status-success")));
+      await runCommand();
+      await settle();
+      panelOf().send({ message: OPEN, kind: "assessment", index: 0, ref: contract.open_refs[0] });
+      for (let turn = 0; turn < 4; turn += 1) {
+        await settle();
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      return { document: lastDocument(), answers: [read("status-success")] };
+    },
+  ],
   ["a write the CLI refuses, then a read that fails", (t) => afterWrite(t, read("status-success"), keptAnswer("decide-study-changed"), NOT_FOUND)],
   ["a write the CLI accepts, then a read that fails", (t) => afterWrite(t, read("status-success"), keptAnswer("decide-success"), NOT_FOUND)],
   [

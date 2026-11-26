@@ -129,6 +129,28 @@ def test_a_comparison_is_pending_until_an_applying_decision_cites_it_and_stays_c
     assert read_pending(study) == []
 
 
+@pytest.mark.parametrize("name", list(TRACKS))
+def test_a_decision_with_the_ids_and_words_closes_its_comparison_exactly_as_one_recorded_without(name, compared, tmp_path):
+    from _review_helpers import sequence
+    from _study_helpers import run_json
+
+    without, ids = copy(compared, name, tmp_path / "without")
+    with_words, _ = copy(compared, name, tmp_path / "with")
+    comparison = ids["comparison"]["comparison_id"]
+    question, option = decisions.PENDING_QUESTION["text"], decisions.PENDING_OPTIONS[1]["text"]
+    decide(without, [comparison], request_id="d-answer", question=question, option=option)
+    code, payload, err = run_json(
+        "decide", "--study", with_words, "--question", question, "--option", option, "--author", "human", "--artifact", comparison,
+        "--request-id", "d-answer", "--read-sequence", sequence(with_words), "--question-id", "keep_after_comparison", "--option-id", "keep_candidate",
+        "--words", "Keep the candidate.", "--by", "the owner",
+    )
+    assert code == 0, (payload, err)
+    assert read_pending(without) == read_pending(with_words) == []
+    TRACKS[name].assess_again(without, ids["control"])
+    TRACKS[name].assess_again(with_words, ids["control"])
+    assert read_pending(without) == read_pending(with_words) == []
+
+
 # --- the other cases, on Bike ------------------------------------------------------------------------------------------------------
 
 

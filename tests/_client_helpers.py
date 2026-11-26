@@ -116,10 +116,14 @@ def compared_study(tmp_path):
 
 
 def chinook_pending_study(tmp_path):
-    """A Chinook Study with two imports of the same answers, each assessed, and one Comparison of the two: its delta has a value."""
+    """A Chinook Study with two imports of the same answers, each assessed, and one Comparison of the two: its delta has a value.
+
+    It is made on the frozen revision-1 Workload, the one its kept reads were made on.
+    """
+    from _chinook_helpers import revision_one_examples
     from _deviation_helpers import chinook_world, compare_ids
 
-    study, _, assessments = chinook_world(tmp_path, count=2)
+    study, _, assessments = chinook_world(tmp_path, count=2, examples=revision_one_examples(tmp_path))
     compare_ids(study, assessments[0], assessments[1])
     return study
 
@@ -219,15 +223,20 @@ def chinook_decided_study(tmp_path):
 
 def chinook_withheld_study(tmp_path):
     """A Chinook Study with two imports, the full answers as the Control and answers whose D01 and D03 are `failed` as the Candidate, each
-    assessed, and one Comparison of the two: an Episode is not scored on both sides, so the record withholds its main delta."""
+    assessed, and one Comparison of the two: an Episode is not scored on both sides, so the record withholds its main delta.
+
+    It is made on the frozen revision-1 Workload, the one its kept reads were made on.
+    """
     from _agent_compare_helpers import answer_lines, imported
-    from _chinook_helpers import init_chinook
+    from _chinook_helpers import init_chinook, revision_one_examples
     from _deviation_helpers import compare_ids
 
-    study, _ = init_chinook(tmp_path)
+    examples = revision_one_examples(tmp_path)
+    more = ("--examples-dir", examples)
+    study, _ = init_chinook(tmp_path, examples=examples)
     claims = {"repeats": 1, "model": None, "tool_use": None, "mode": None}
-    _, control = imported(tmp_path, study, "full", answer_lines(**claims), repeats=1)
-    _, candidate = imported(tmp_path, study, "broken", answer_lines(**claims, failed={("D01", 0), ("D03", 0)}), repeats=1)
+    _, control = imported(tmp_path, study, "full", answer_lines(**claims), repeats=1, more=more)
+    _, candidate = imported(tmp_path, study, "broken", answer_lines(**claims, failed={("D01", 0), ("D03", 0)}), repeats=1, more=more)
     compare_ids(study, control["assessment_id"], candidate["assessment_id"])
     return study
 
@@ -272,14 +281,19 @@ def public_check_compared_study(tmp_path):
 
 def chinook_spread_study(tmp_path):
     """A Chinook Study with two imports, the full answers as the Control and answers wrong on D01 once and on D03 always as the Candidate,
-    each assessed, and one Comparison of the two: its paired deltas are not all equal and its delta has a value."""
+    each assessed, and one Comparison of the two: its paired deltas are not all equal and its delta has a value.
+
+    It is made on the frozen revision-1 Workload, the one its kept reads were made on.
+    """
     from _agent_compare_helpers import answer_lines, imported
-    from _chinook_helpers import init_chinook
+    from _chinook_helpers import init_chinook, revision_one_examples
     from _deviation_helpers import compare_ids
 
-    study, _ = init_chinook(tmp_path)
-    _, control = imported(tmp_path, study, "full", answer_lines())
-    _, candidate = imported(tmp_path, study, "some-wrong", answer_lines(wrong={("D01", 0), ("D03", 0), ("D03", 1), ("D03", 2)}))
+    examples = revision_one_examples(tmp_path)
+    more = ("--examples-dir", examples)
+    study, _ = init_chinook(tmp_path, examples=examples)
+    _, control = imported(tmp_path, study, "full", answer_lines(), more=more)
+    _, candidate = imported(tmp_path, study, "some-wrong", answer_lines(wrong={("D01", 0), ("D03", 0), ("D03", 1), ("D03", 2)}), more=more)
     compare_ids(study, control["assessment_id"], candidate["assessment_id"])
     return study
 

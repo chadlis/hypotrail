@@ -39,7 +39,7 @@ uv run python -m hypotrail status --study runs/bike --json                 # the
 
 Every command that writes to an existing Study takes `--read-sequence N`, the write sequence its author read (`write_sequence` of `status --json`): when the Study was written to since, the command is refused with `STUDY_CHANGED` and writes nothing; not given, nothing is checked. `init` that creates a Study takes none (it is refused), and `report` compares it only when its page records an Exposure. `status --study runs/bike --since N --json` gives the same object as `status --json` plus `writes_since`, the write-journal entries after write sequence N; a value above the Study's is refused with `WRITE_SEQUENCE_AHEAD`. The contract between a client and the CLI is [ADR 0004](docs/adr/0004-panel-cli-contract.md).
 
-`decide` records one decision in a Study and requires `--read-sequence`: `decide --study runs/bike --question TEXT --option TEXT --author human --artifact ASSESSMENT_ID --request-id decide-a --read-sequence N` (`--author human|proxy`, `--artifact` repeatable, `--source TEXT` optional). It is not part of the path above: that path is the one walked for T24.
+`decide` records one decision in a Study and requires `--read-sequence`: `decide --study runs/bike --question TEXT --option TEXT --author human --artifact ASSESSMENT_ID --request-id decide-a --read-sequence N` (`--author human|proxy`, `--artifact` repeatable, `--source TEXT` optional; `--question-id` and `--option-id` name the pending decision answered, and `--words-file FILE` or `--words TEXT`, with `--channel` and `--by`, record a human's own words whole on the Decision). It is not part of the path above: that path is the one walked for T24.
 
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 
@@ -47,9 +47,11 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
 
+The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose References two writers wrote apart (the review record is `examples/chinook/references/chinook-references-2.review.jsonl`), and 12 `public_check` Cases. The live Campaign on `dev` (2026-11-26, `plain` and `verify`, one Repeat each, its plan, ceiling, captures, estimated spend and report) is kept whole in `docs/handbook/traces/campaign-chinook-dev/`, its Study in `docs/handbook/traces/campaign-chinook-dev/study/`. The demonstration, in `docs/demo/`, compares and decides again on a copy of that Study, offline. The handbook's chapter on the larger Chinook Workload gives the detail.
+
 ## Use the VS Code panel
 
-The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. From a checkout:
+The VS Code client shows a Study's pending decisions with their evidence, including figures of each Comparison's paired deltas, and records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.
@@ -57,15 +59,15 @@ The VS Code client shows a Study's pending decisions with their evidence, includ
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
-The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool).
+The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
 
 ## Give Claude Code the Study at every prompt
 
-`clients/claude-code/` holds a template of a Claude Code `UserPromptSubmit` hook: at every prompt it reads one Study with `status --since 0 --json` and adds, as context, its write sequence, its pending decisions and its decisions, with the rule for an agent (pass the write sequence read as `--read-sequence`; record a rule-based answer with `decide --author proxy` and a `--source`). On a checkout installed with `uv sync`, copy `clients/claude-code/settings-fragment.json` into `.claude/settings.local.json` and set its `--study` to the Study's folder, one entry per Study. It writes and keeps nothing; this repository's `.claude/settings.json` does not register it. The handbook's chapter on the client gives the detail.
+`clients/claude-code/` holds a template of a Claude Code `UserPromptSubmit` hook: at every prompt it reads one Study with `status --since 0 --json` and adds, as context, its write sequence, its pending decisions and its decisions (each with the channel of its words, never the words), with the rule for an agent (pass the write sequence read as `--read-sequence`; record a rule-based answer with `decide --author proxy` and a `--source`; when the person states the choice, record their own words with `--words-file` and the pending decision's `--question-id` and `--option-id`). On a checkout installed with `uv sync`, copy `clients/claude-code/settings-fragment.json` into `.claude/settings.local.json` and set its `--study` to the Study's folder, one entry per Study. It writes and keeps nothing; this repository's `.claude/settings.json` does not register it. The handbook's chapter on the client gives the detail.
 
 ## Give Copilot the rule for a Study
 
-`clients/vscode/copilot-instructions.md` is a template of Copilot's instructions file. It tells Copilot chat to read the Study with `hypotrail_read_study` at the start of each turn, to pass the `write_sequence` it read as `read_sequence` on every write, to record a Decision only through `hypotrail_decide`, and to record an answer chosen by a stated rule with `author` `proxy` and a `source` that names the rule. Copy it to `.github/copilot-instructions.md` in the workspace that holds the Study; this repository's own `.github/` holds none. The handbook's chapter on the client gives the detail.
+`clients/vscode/copilot-instructions.md` is a template of Copilot's instructions file. It tells Copilot chat to read the Study with `hypotrail_read_study` at the start of each turn, to pass the `write_sequence` it read as `read_sequence` on every write, to record a Decision only through `hypotrail_decide`, to record an answer chosen by a stated rule with `author` `proxy` and a `source` that names the rule, and, when the user states the choice, to pass the user's own messages as `words` with `question_id` and `option_id`. Copy it to `.github/copilot-instructions.md` in the workspace that holds the Study; this repository's own `.github/` holds none. The handbook's chapter on the client gives the detail.
 
 ## Where to look
 
@@ -73,7 +75,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`docs/handbook/handbook.html#acceptance-grid`](docs/handbook/handbook.html#acceptance-grid): the acceptance grid T01–T24, with the three statuses and the account of the live Campaign (T20).
 - [`docs/handbook/walk-t24.html`](docs/handbook/walk-t24.html): the record of the clean-install walk of the README's path (T24).
 - [`docs/product/l2-acceptance.md`](docs/product/l2-acceptance.md): the L2 acceptance grid: each criterion with its tests, its owner checks and its engineer checks.
-- [`docs/demo/demonstration.py`](docs/demo/demonstration.py): the frozen demonstration, a first Bike Study, a second on a Workload copy that records, outdates and refuses Decisions, then Chinook, with no live model call and no network: `uv run python docs/demo/demonstration.py --work DIR`, DIR a new folder outside the checkout; the end-to-end tests run its steps (the handbook's chapter on the demonstration).
+- [`docs/demo/demonstration.py`](docs/demo/demonstration.py): the frozen demonstration, a first Bike Study, a second on a Workload copy that records, outdates and refuses Decisions, then Chinook, then a copy of the kept Chinook Campaign, with no live model call and no network: `uv run python docs/demo/demonstration.py --work DIR`, DIR a new folder outside the checkout; the end-to-end tests run its steps (the handbook's chapter on the demonstration).
 - [`docs/demo/edit_copy.py`](docs/demo/edit_copy.py): the script that makes each edit of task 6 of the L2 demonstration in a Workload copy and rewrites the copy's lock (the handbook's chapter on the L2 demonstration).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools).

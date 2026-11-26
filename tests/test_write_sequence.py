@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from _assess_helpers import assess, fresh_study, observation_set_id, references_id
-from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, undeclared_examples, write_lines
+from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, revision_one_examples, write_lines
 from _compare_helpers import compare
 from _import_helpers import import_ml, ready
 from _report_helpers import report
@@ -341,7 +341,7 @@ def test_a_study_written_before_this_slice_shows_zero_until_its_first_write_and_
     observations = json.loads((copy / "attempts" / attempt["attempt_id"] / "observation_set.json").read_text())["observation_set_id"]
     code, payload, err = run_json(
         "assess", "--study", copy, "--observations", observations, "--scorer", "chinook_contract_v1", "--references", references_id(copy),
-        "--examples-dir", undeclared_examples(tmp_path),  # the Protocol the kept Study was made on
+        "--examples-dir", revision_one_examples(tmp_path),  # the Workload the kept Study was made on
     )
     assert code == 0, (payload, err)  # a write on a copy of it
     assert seq(copy) == 2
@@ -377,7 +377,7 @@ def test_status_json_gains_the_one_top_level_key_write_sequence_and_keeps_the_ot
     study, _ = init_study(tmp_path)
     payload = run_json("status", "--study", study)[1]
     assert "write_sequence" in payload, "status --json shows no write_sequence"
-    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions"}
+    assert set(payload) == {"ok", "study", "writer_alive", "revisions", "attempts", "freeze_records", "exposures", "check_informed", "write_sequence", "decisions", "declared_deviations", "assessments", "comparisons", "pending_decisions", "record_files"}
 
 
 # --- Tightened F, G, I, J: what an entry holds --------------------------------------------------------------------------
