@@ -339,3 +339,23 @@ def test_the_dated_lines_hold_one_line_that_names_record_files_and_its_shape_quo
     assert "computed when the Study is read and never stored" in line
     assert RECORD_FILES_TICKET_SENTENCE in line
     assert "the earlier line it overrides: none" in line
+
+
+# --- the dated line of `decision/2` and the options of `decide` that carry the ids and the words ------------------------------------
+
+WORDS_TICKET_SENTENCE = (
+    "`decide` gains `--question-id ID`, `--option-id ID`, `--words-file FILE` (repeatable, one text per file, in order), `--words TEXT`"
+    " (repeatable, S3; no limit on length in the CLI or the record), `--channel` (S1, `chat_relayed` when words are given without it) and"
+    " `--by LABEL`."
+)
+
+
+def test_the_dated_lines_hold_one_line_for_decision_2_that_quotes_its_ticket_and_narrows_the_line_on_what_decide_requires():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#244" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    assert f'"{WORDS_TICKET_SENTENCE}"' in line
+    assert 'the earlier line it narrows: "`decide` requires `--read-sequence N` and `--request-id`"' in line
+    assert "`decision/2`" in line and "`authenticated` always false" in line
+    assert "`decide` requires `--read-sequence N` and `--request-id`" in section(adr(), "The contract")

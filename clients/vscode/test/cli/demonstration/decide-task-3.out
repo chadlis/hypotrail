@@ -3,7 +3,7 @@
   "replayed": false,
   "decision": {
     "kind": "decision",
-    "schema_version": "decision/1",
+    "schema_version": "decision/2",
     "decision_id": "00000000-0000-4000-8000-000000000009",
     "request_id": "demo-task-3",
     "question": "Which Configuration do we keep after this Comparison?",
@@ -15,6 +15,9 @@
     ],
     "revision": "0000000000000000000000000000000000000000000000000000000000000002",
     "read_sequence": 12,
-    "write_sequence": 13
+    "write_sequence": 13,
+    "question_id": null,
+    "option_id": null,
+    "words": null
   }
 }

@@ -10,12 +10,16 @@ decisions/<seq>-<decision_id>.json   one decision each, published atomically and
 contract schema) holds the question it answers and the option chosen, both free text and never empty; the author, `human` or `proxy`, recorded by
 its kind only; a declared `source` text, or null; the ids it cites, de-duplicated and sorted, at least one; its `request_id`; the `revision` of the
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
-own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first.
+own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first. `decide` writes
+`decision/2` (`DecisionRecordV2`), which holds three keys more, always present: `question_id` and `option_id`, the ids of the pending question
+and of the option chosen, checked against `PENDING_QUESTION` and `PENDING_OPTIONS`; and `words`, the person's texts kept whole with the
+channel and `by` label its caller declared and `authenticated` false, never read by a check. Each is null when not given. A `decision/1`
+record stays as it was written.
 
 `decide` takes its steps in the order that `hypotrail.core.study_write` gives a writer that has a `request_id` (the checks of the other writers are listed in handbook chapter 04): the arguments and the Study before the lock, then the lock. The arguments (the read sequence value is the library's first argument check, then
-`REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, and `DECISION_FIELD_EMPTY`); `STUDY_NOT_FOUND`. Under the lock: the request identity; the stale sequence (`Write.replay_decision` runs both); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
+`REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, `DECISION_FIELD_EMPTY`, then the ids and the words); `STUDY_NOT_FOUND`. Under the lock: the request identity; the stale sequence (`Write.replay_decision` runs both); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
-the same decision (question, option, author, source and cited ids; the read sequence is not part of it) returns the recorded decision and writes
+the same decision (question, option, author, source, cited ids, question id, option id and words; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
 
 An id is citable when the Study holds a record with that id, of one of these kinds: Attempt, Observation set, Assessment, Comparison, Study artifact,
@@ -43,7 +47,7 @@ records hold them, and no difference of the two.
 
 `status` also lists the pending decisions (`pending`): a Comparison is pending when both its Assessments are of the current revision, neither has
 a later Assessment, and no decision that applies cites it. Each comes with the one question and the three options of `PENDING_QUESTION` and
-`PENDING_OPTIONS`, each option with its consequence text. `decide` records a question and an option as given and checks neither against them.
+`PENDING_OPTIONS`, each option with its consequence text. Without `--question-id` and `--option-id`, `decide` records a question and an option as given and checks neither against them.
 """
 
 import contextlib
@@ -57,8 +61,13 @@ from hypotrail.core.errors import InvalidInputError
 DECISIONS_DIR = "decisions"
 STAGE = "decision"
 AUTHORS = ("human", "proxy")
-# the fields that make "the same decision" (D-034 on chadlis/hypotrail#75), in the order `differs` lists them
-IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids")
+# the fields that make "the same decision" (D-034 on chadlis/hypotrail#75), in the order `differs` lists them; a `decision/1` record holds
+# none of the last three and is compared as holding null for each
+IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids", "question_id", "option_id", "words")
+SCHEMA_VERSION = "decision/2"
+# who declared where the words come from; `authenticated` is false whatever the channel
+CHANNELS = ("panel", "choice", "chat_relayed")
+CHOICE, CHAT_RELAYED = "choice", "chat_relayed"
 CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED = "cited_id_not_held", "revision_changed", "assessment_superseded"
 COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD = "compared_assessment_superseded", "compared_assessment_not_held"
 # "A constant in `core/decisions.py` lists the reason codes." (D-078 on chadlis/hypotrail#75, item 4)
@@ -286,6 +295,57 @@ def _invalid(message: str) -> InvalidInputError:
     return study_write.invalid_arguments(message, study_write.DECIDE)
 
 
+def _read_words_file(path) -> str:
+    """The text of one `--words-file`, whole: its bytes decoded as UTF-8, nothing stripped or normalised."""
+    try:
+        data = Path(path).read_bytes()
+    except OSError as error:
+        raise _invalid(f"--words-file {str(path)!r} cannot be read: {error.strerror or error}") from None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise _invalid(f"--words-file {str(path)!r} is not UTF-8 text") from None
+
+
+def _words(words: list, *, author: str, option: str, option_id, channel, by) -> dict | None:
+    """The `words` of the record, or None: `words` lists `("text", TEXT)` and `("file", PATH)` in the order given."""
+    texts = [value if kind == "text" else _read_words_file(value) for kind, value in words]
+    if channel == CHOICE:
+        if option_id is None:
+            raise _invalid("--channel choice records the text of the option chosen: --option-id is required")
+        if texts:
+            raise _invalid("--channel choice records the text of the option chosen: give no --words or --words-file")
+        texts = [option]
+    if not texts:
+        if channel is not None or by is not None:
+            raise _invalid("--channel and --by describe the person's words: give --words or --words-file")
+        return None
+    if channel is not None and channel not in CHANNELS:
+        raise _invalid(f"the channel of the words is one of {', '.join(CHANNELS)}, not {channel!r}")
+    if author != "human":
+        raise _invalid("the words on a decision are the words of a human: they need --author human")
+    if any(not text for text in texts):
+        raise _invalid("a text of the words must not be empty")
+    return {"texts": texts, "channel": channel or CHAT_RELAYED, "by": by, "authenticated": False}
+
+
+def _check_ids(question: str, option: str, question_id, option_id) -> None:
+    """`--question-id` and `--option-id` are given together, each an id the core supplies, with `--question` and `--option` its texts."""
+    if (question_id is None) != (option_id is None):
+        raise _invalid("--question-id and --option-id are given together")
+    if question_id is None:
+        return
+    if question_id != PENDING_QUESTION["id"]:
+        raise _invalid(f"the question id of a decision is {PENDING_QUESTION['id']!r}, not {question_id!r}")
+    texts = {entry["id"]: entry["text"] for entry in PENDING_OPTIONS}
+    if option_id not in texts:
+        raise _invalid(f"the option id of a decision is one of {', '.join(texts)}, not {option_id!r}")
+    if question != PENDING_QUESTION["text"]:
+        raise _invalid(f"--question is the text of {question_id!r}: {PENDING_QUESTION['text']!r}")
+    if option != texts[option_id]:
+        raise _invalid(f"--option is the text of {option_id!r}: {texts[option_id]!r}")
+
+
 def decide(
     study,
     *,
@@ -296,8 +356,16 @@ def decide(
     cited_ids: list,
     request_id: str,
     read_sequence: int,
+    question_id: str | None = None,
+    option_id: str | None = None,
+    words: list = (),
+    channel: str | None = None,
+    by: str | None = None,
 ) -> tuple[dict, bool]:
-    """Record (or replay) one decision under the Study's writer lock; return the record and whether it was recorded already."""
+    """Record (or replay) one decision under the Study's writer lock; return the record and whether it was recorded already.
+
+    `words` lists `("text", TEXT)` for a `--words` and `("file", PATH)` for a `--words-file`, in the order given.
+    """
     study = Path(study)
     study_write.check_arguments(study_write.DECIDE, read_sequence, request_id)
     if author not in AUTHORS:
@@ -309,15 +377,20 @@ def decide(
     for field, value in (("question", question), ("option", option)):
         if not value:
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
+    _check_ids(question, option, question_id, option_id)
+    recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    wanted = {"question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids))}
+    wanted = {
+        "question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids)),
+        "question_id": question_id, "option_id": option_id, "words": recorded_words,
+    }
     with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence) as write:
         return _decide_locked(study, write, wanted, request_id, read_sequence)
 
 
 def _decide_locked(study: Path, write, wanted: dict, request_id: str, read_sequence: int) -> tuple[dict, bool]:
     def check_recorded(recorded: dict) -> None:
-        differs = [field for field in IDENTITY_FIELDS if recorded[field] != wanted[field]]
+        differs = [field for field in IDENTITY_FIELDS if recorded.get(field) != wanted[field]]
         if differs:
             raise requests.conflict_between_decisions(request_id, recorded["decision_id"], differs)
 
@@ -334,15 +407,19 @@ def _decide_locked(study: Path, write, wanted: dict, request_id: str, read_seque
             details={"ids": unknown},
         )
     decision_id = str(uuid.uuid4())
+    five = {field: wanted[field] for field in ("question", "option", "author", "source", "cited_ids")}
     record = {
         "kind": "decision",
-        "schema_version": "decision/1",
+        "schema_version": SCHEMA_VERSION,
         "decision_id": decision_id,
         "request_id": request_id,
-        **wanted,
+        **five,
         "revision": spec["revision"],
         "read_sequence": read_sequence,
         "write_sequence": write_journal.write_sequence(study) + 1,  # the position of the `begin` entry that is appended next
+        "question_id": wanted["question_id"],
+        "option_id": wanted["option_id"],
+        "words": wanted["words"],
     }
     contracts.validate(record)
     write.begin()

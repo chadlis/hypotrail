@@ -4143,6 +4143,7 @@ RECORD_TABLES = {  # each record definition of the contract schema: where the ha
     "WriteJournalBegin": ("record", "write-journal-fields"),
     "WriteJournalEnd": ("record", "write-journal-fields"),
     "DecisionRecord": ("record", "decision-fields"),
+    "DecisionRecordV2": ("record", "decision-fields"),
     "DeclaredDeviationRecord": ("record", "deviation-fields"),
 }
 
@@ -4321,8 +4322,8 @@ def _decided(tmp_path, name="chapter-17"):
 def test_the_decision_record_table_equals_the_contract_schema_and_the_fields_the_code_writes(page, tmp_path):
     from hypotrail.core import contracts
 
-    definition = contracts.schema()["$defs"]["DecisionRecord"]
-    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecord"]
+    definition = contracts.schema()["$defs"]["DecisionRecordV2"]  # the version `decide` writes
+    row = attrs_of(page, "decision-fields", "data-record")["DecisionRecordV2"]
     assert words(row["data-required"]) == set(definition["required"])
     assert words(row["data-optional"]) == set(definition["properties"]) - set(definition["required"])
     assert row["data-kind"] == "decision" == definition["properties"]["kind"]["const"]
@@ -4633,8 +4634,8 @@ def test_the_decision_history_table_equals_the_keys_status_reports_for_a_decisio
 
     rows, _ = _history(tmp_path)
     keys = set(attrs_of(page, "decision-history-keys", "data-field"))
-    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecord"]["properties"]) | {"applies", "reasons", "evidence_change"}
-    assert len(keys) == 15
+    assert keys == set(rows[0]) == set(contracts.schema()["$defs"]["DecisionRecordV2"]["properties"]) | {"applies", "reasons", "evidence_change"}
+    assert len(keys) == 18
     assert all(set(row) == keys for row in rows)
 
 
@@ -5209,6 +5210,10 @@ def test_the_client_chapter_prose_states_no_value_of_its_tables(page):
     assert sorted(v for v in values if re.search(rf"(?<![\w-]){re.escape(v)}(?![\w-])", prose)) == []
 
 
+# The options of `decide` that the bridge does not pass yet: "Until it lands, the bridge's argument list is today's" (chadlis/hypotrail#244).
+NOT_PASSED_BY_THE_BRIDGE = {"--question-id", "--option-id", "--words-file", "--words", "--channel", "--by"}
+
+
 def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_options_the_parser_defines_both_ways(page):
     from hypotrail.cli import build_parser
 
@@ -5221,7 +5226,7 @@ def test_the_client_chapter_write_tables_equal_contract_json_and_the_decide_opti
     assert {row["data-passed"] for row in rows} == {"always", "optional"}
     parser = build_parser()
     decide = next(a for a in parser._actions if getattr(a, "choices", None) and "decide" in a.choices).choices["decide"]
-    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help")}
+    options = {flag: a.required for a in decide._actions for flag in a.option_strings if flag not in ("-h", "--help") and flag not in NOT_PASSED_BY_THE_BRIDGE}
     assert {row["data-option"] for row in rows} == set(options)
     assert {row["data-option"] for row in rows if row["data-passed"] == "always"} == {flag for flag, required in options.items() if required} | {"--json"}
     assert client_items(page, "client-write") == {"write-limit-ms": str(contract["write_timeout_ms"]), "no-answer-words": contract["write_no_answer_words"]}
