@@ -4313,7 +4313,7 @@ def test_the_exit_and_stage_of_each_row_of_the_library_refusal_tables_are_those_
         for code, row in attrs_of(page, table_id, "data-code").items():
             assert {(int(row["data-exit"]), stage) for stage in row["data-stage"].split()} == sites[code], code
             seen += 1
-    assert seen == 8 + 5 + 17 + 2 + 1
+    assert seen == 9 + 5 + 17 + 2 + 1
 
 
 # --- #109: `decide` and the decision record (chapter 17) ---------------------------------------------------------------------------------
@@ -6450,6 +6450,21 @@ def test_the_text_case_refusal_table_equals_the_code_exit_stage_and_details_of_e
     for code, row in rows.items():
         exit_code, stage, details = found[code]
         assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code
+
+
+def test_the_scoring_config_and_data_manifest_refusal_rows_equal_the_code_exit_stage_and_details_init_gives(page, tmp_path):
+    from test_manifest_workload import MALFORMED_MANIFESTS, malformed_manifest
+    from test_text_workload import SCORING_CONFIG_FAULTS, init_prose, scoring_config_copy
+
+    edit, _ = next(iter(SCORING_CONFIG_FAULTS.values()))
+    _, code, config_refusal, _ = init_prose(tmp_path, scoring_config_copy(tmp_path, edit, name="config"), name="config-study")
+    edit, _ = next(iter(MALFORMED_MANIFESTS.values()))
+    _, manifest_code, manifest_refusal, _ = init_prose(tmp_path, malformed_manifest(tmp_path, edit), name="manifest-study")
+    for table_id, exit_code, payload in (("text-facts-config-codes", code, config_refusal), ("data-verify-codes", manifest_code, manifest_refusal)):
+        error = payload["error"]
+        row = attrs_of(page, table_id, "data-code")[error["code"]]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, error["stage"], set(error["details"])), table_id
+    assert list(attrs_of(page, "text-facts-config-codes", "data-code")) == ["SCORING_CONFIG_INVALID"]
 
 
 def test_the_usage_shape_table_equals_the_keys_of_a_normalized_jsonl_usage(page):

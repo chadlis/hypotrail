@@ -181,6 +181,40 @@ def test_init_refuses_a_workload_that_declares_a_database_and_a_manifest_before_
     assert not study.exists()
 
 
+# --- a data manifest that does not match its schema ---------------------------------------------------------------------------
+
+
+MALFORMED_MANIFESTS = {
+    "no sources": (lambda manifest: manifest.pop("sources"), ""),
+    "sources not a list": (lambda manifest: manifest.update(sources={}), "sources"),
+    "a source without its notice": (lambda manifest: manifest["sources"][0].pop("notice"), "sources.0"),
+}
+
+
+def malformed_manifest(tmp_path, edit) -> Path:
+    """A copy of `examples/` whose `chinook_prose` data manifest is changed by `edit`."""
+    target = Path(tmp_path) / "malformed"
+    shutil.copytree(EXAMPLES, target)
+    path = target / "chinook_prose" / core_data.MANIFEST_NAME
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    edit(manifest)
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return target
+
+
+@pytest.mark.parametrize("fault", list(MALFORMED_MANIFESTS))
+def test_data_verify_and_init_refuse_a_data_manifest_that_does_not_match_its_schema_with_data_manifest_invalid(tmp_path, fault):
+    edit, path = MALFORMED_MANIFESTS[fault]
+    examples = malformed_manifest(tmp_path, edit)
+    code, payload, err = verify(examples, "chinook_prose")
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_MANIFEST_INVALID"), (payload, err)
+    assert (payload["error"]["details"]["workload"], payload["error"]["details"]["path"]) == ("chinook_prose", path)
+    study = tmp_path / "study"
+    code, payload, err = init_prose(tmp_path, "--examples-dir", examples, name="study")
+    assert (code, payload.get("error", {}).get("code")) == (2, "DATA_MANIFEST_INVALID"), (payload, err)
+    assert not study.exists()
+
+
 # --- criterion 5: DATABASE_NOT_DECLARED -----------------------------------------------------------------------------------------
 
 

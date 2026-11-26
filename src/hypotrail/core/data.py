@@ -1,14 +1,15 @@
 """Verification of the public datasets against their lock (`data verify`).
 
-Standard library only. The order is fixed: the bytes of every selected dataset
+Standard library and `jsonschema`. The order is fixed: the bytes of every selected dataset
 are verified first, then the licence notices, and only then the content checks
 (calendar, tables). Tampered bytes never reach a content check.
 
 A Workload whose data lives outside the repository holds a data manifest
 (`data-manifest.json`, `data-manifest/1`, described by `data-manifest.schema.json`)
 instead of a lock: each source is declared by its digest and size, with no URL and
-no local path. Its sources are reported `declared`; only their licence notices are
-checked, and no data file is opened.
+no local path. A manifest that does not match its schema is refused `DATA_MANIFEST_INVALID`.
+Its sources are reported `declared`; only their licence notices are checked, and no data
+file is opened.
 """
 
 import csv
@@ -17,13 +18,18 @@ import hashlib
 import json
 import re
 import sqlite3
+from functools import cache
+from importlib import resources
 from pathlib import Path
+
+from jsonschema import Draft202012Validator
 
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
 LOCK_NAME = "data-sources.lock.json"
 CHECKS_NAME = "data-checks.json"
 MANIFEST_NAME = "data-manifest.json"
+MANIFEST_SCHEMA = "data-manifest.schema.json"
 DECLARATION_NAME = "workload.json"
 
 
@@ -150,6 +156,21 @@ def _load_workload(examples_dir: Path, name: str) -> dict:
     }
 
 
+@cache
+def _validator(schema_name: str) -> Draft202012Validator:
+    schema = json.loads(resources.files(__package__).joinpath(schema_name).read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
+
+
+def schema_fault(schema_name: str, value) -> tuple[str, str] | None:
+    """(dotted path, message) of the first fault of `value` against a schema of the core, in path order; None when it matches."""
+    errors = sorted(_validator(schema_name).iter_errors(value), key=lambda error: [str(step) for step in error.absolute_path])
+    if not errors:
+        return None
+    return ".".join(str(step) for step in errors[0].absolute_path), errors[0].message
+
+
 def _declares_database(directory: Path) -> bool:
     declaration = directory / DECLARATION_NAME
     if not declaration.is_file():
@@ -168,6 +189,15 @@ def _load_manifest_workload(directory: Path, name: str) -> dict:
             details={"workload": name, "manifest": MANIFEST_NAME},
         )
     manifest = _load_json(directory / MANIFEST_NAME, "data manifest")
+    fault = schema_fault(MANIFEST_SCHEMA, manifest)
+    if fault is not None:
+        path, message = fault
+        raise InvalidInputError(
+            "DATA_MANIFEST_INVALID",
+            f"the {MANIFEST_NAME} of the Workload {name} does not match its schema at {path or 'its root'}: {message}",
+            stage="config",
+            details={"workload": name, "path": path, "message": message},
+        )
     return {
         "name": name,
         "directory": directory,

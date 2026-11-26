@@ -178,6 +178,32 @@ def test_text_facts_v1_on_a_study_that_keeps_no_scoring_config_is_refused_scorin
     assert (code, payload.get("error", {}).get("code")) == (2, "SCORING_CONFIG_NOT_KEPT"), (payload, err)
 
 
+SCORING_CONFIG_FAULTS = {
+    "no identifier kinds": (lambda config: config.pop("identifier_kinds"), ""),
+    "a kind without its pattern": (lambda config: config["identifier_kinds"]["invoice"].pop("pattern"), "identifier_kinds.invoice"),
+    "a phrase list that is not a list": (lambda config: config["outcome_phrases"].update(not_answerable="no data"), "outcome_phrases.not_answerable"),
+}
+
+
+def scoring_config_copy(tmp_path, edit, name="examples") -> Path:
+    """A copy of `examples/` whose `chinook_prose` scoring config is changed by `edit`."""
+    target = prose_copy(tmp_path, name=name)
+    path = target / "chinook_prose" / "scoring" / "text-facts.json"
+    config = json.loads(path.read_text(encoding="utf-8"))
+    edit(config)
+    path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    return target
+
+
+@pytest.mark.parametrize("fault", list(SCORING_CONFIG_FAULTS))
+def test_init_refuses_a_scoring_config_that_does_not_match_the_text_facts_schema_before_anything_is_written(tmp_path, fault):
+    edit, path = SCORING_CONFIG_FAULTS[fault]
+    study, code, payload, err = init_prose(tmp_path, scoring_config_copy(tmp_path, edit))
+    assert (code, payload.get("error", {}).get("code")) == (2, "SCORING_CONFIG_INVALID"), (payload, err)
+    assert (payload["error"]["details"]["file"], payload["error"]["details"]["path"]) == ("scoring/text-facts.json", path)
+    assert not study.exists()
+
+
 def test_the_config_digest_of_a_text_facts_assessment_covers_the_studys_scoring_config(tmp_path):
     study, references = prose_study(tmp_path)
     code, payload, err = assess(study, observation_set(tmp_path, study), "text_facts_v1", references)
