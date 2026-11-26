@@ -1608,6 +1608,15 @@ def test_the_agent_assess_refusal_table_equals_the_code_exit_stage_and_details_o
     spec["artifacts"] = [e for e in spec["artifacts"] if e["ref"]["role"] != "answer_schema"]
     (study / "study.json").write_bytes(canonical.dumps(spec))
     record(run_json(*args, "--references", references_id(study)))
+    record(run_json("assess", "--study", study, "--observations", observation_set, "--scorer", "text_facts_v1", "--references", references_id(study)))
+    run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "prose")
+    prose = tmp_path / "prose"
+    line = write_lines(tmp_path / "prose.jsonl", [{"case_id": "D01", "repeat": 0, "observation_status": "missing"}])
+    _, prose_import, _ = import_agent(prose, line, episodes_file(tmp_path, [("D01", 0)], name="prose-population.json"), "prose-imp")
+    prose_spec = spec_of(prose)
+    prose_spec["artifacts"] = [e for e in prose_spec["artifacts"] if e["ref"]["role"] != "scoring_config"]
+    (prose / "study.json").write_bytes(canonical.dumps(prose_spec))
+    record(run_json("assess", "--study", prose, "--observations", prose_import["observation_set_id"], "--scorer", "text_facts_v1", "--references", references_id(prose)))
     rows = attrs_of(page, "agent-assess-codes", "data-code")
     assert set(rows) == set(found)
     for code, row in rows.items():
@@ -6367,3 +6376,38 @@ def test_the_readme_sentence_on_the_chinook_workload_counts_the_cases_of_each_pa
     [match] = README_COUNTS.findall(" ".join((ROOT / "README.md").read_text(encoding="utf-8").split()))
     written = dict(zip(("dev", "public_check"), match))
     assert int(written[partition]) == cases_by_status(partition)["cases"], partition
+
+
+# --- chapter 08: a prose answer, text Cases, text-reference/1 and text_facts_v1 (#265) --------------------------------------------
+
+
+def test_the_text_facts_criteria_and_reasons_tables_equal_the_scorers_criteria_and_reasons(page):
+    from hypotrail.core import text_facts
+
+    criteria = attrs_of(page, "text-facts-criteria", "data-criterion")
+    assert list(criteria) == list(text_facts.CRITERIA)
+    assert [row["data-reason"] for name, row in criteria.items() if name != text_facts.PRIMARY] == [
+        text_facts.IDENTIFIER_MISSING, text_facts.IDENTIFIER_UNEXPECTED, text_facts.FACT_MISSING, text_facts.OUTCOME_MISMATCH
+    ]
+    assert list(attrs_of(page, "text-facts-reasons", "data-reason")) == list(text_facts.REASONS)
+
+
+def test_the_text_reference_key_table_equals_the_keys_text_reference_1_reads(page):
+    from hypotrail.core import text_facts
+
+    assert set(attrs_of(page, "text-reference-keys", "data-key")) == text_facts._REFERENCE_KEYS | text_facts._OPTIONAL_REFERENCE_KEYS
+
+
+def test_the_text_case_refusal_table_equals_the_code_exit_stage_and_details_of_each_refusal(page, tmp_path):
+    from test_text_workload import REFUSALS, init_prose, prose_copy
+
+    found = {}
+    for name, (edit, _, _) in REFUSALS.items():
+        _, code, payload, _ = init_prose(tmp_path, prose_copy(tmp_path, edit_cases=edit, name=name.replace(" ", "-")), name=name.replace(" ", "-") + "-study")
+        error = payload["error"]
+        found[error["code"]] = (code, error["stage"], set(error["details"]))
+    rows = attrs_of(page, "text-case-codes", "data-code")
+    assert set(rows) == set(found)
+    for code, row in rows.items():
+        exit_code, stage, details = found[code]
+        assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (exit_code, stage, details), code

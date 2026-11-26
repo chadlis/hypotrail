@@ -27,7 +27,7 @@ uv run python -m hypotrail init --workload chinook --study runs/chinook
 uv run python -m hypotrail run agent --study runs/chinook --mode scripted_fixture --config plain --request-id fixture-a    # the scenarios: mock model, no key
 uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --config plain --partition dev --cases D03 --cases D05 --repeats 1 --model anthropic/<model> --request-id live-a    # opt-in, paid, needs the key
 uv run python -m hypotrail import agent --study runs/chinook --source docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval --population population.json --request-id import-b   # the kept Inspect log; or --source answers.jsonl, agent answers
-uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
+uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID    # a chinook_prose Study takes --scorer text_facts_v1
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
 uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study
 uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html    # the same page for a Chinook Study

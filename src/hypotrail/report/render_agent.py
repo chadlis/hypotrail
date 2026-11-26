@@ -11,6 +11,7 @@ import json
 
 from hypotrail.core.agent_comparison import DEVIATIONS
 from hypotrail.core.attempts import SCENARIO_MODE
+from hypotrail.core import scorers
 from hypotrail.core.chinook_contract import CRITERIA
 from hypotrail.report import gather_agent
 from hypotrail.report.markup import UNKNOWN, Links, Safe, esc, join, json_text, number, paragraph, rescoring_note, scoped, sub, table, tag
@@ -161,11 +162,17 @@ def self_checks(model) -> list:
 # --- Metrics and differences ------------------------------------------------------------------------------------------
 
 
+def criteria_of(record: dict) -> tuple:
+    """The Criteria of the Assessment's Scorer, by its registry entry; those of `chinook_contract_v1` for a Scorer the registry no longer holds."""
+    scorer = scorers.REGISTRY.get(record["scorer"]["id"])
+    return scorer.criteria if scorer is not None and scorer.criteria else CRITERIA
+
+
 def _criteria_table(assessment: dict) -> Safe:
     record = assessment["record"]
     primary = record["primary_criterion"]
     rows = []
-    for name in CRITERIA:
+    for name in criteria_of(record):
         source = {"counts": record["counts"], "metrics": record["metrics"]} if name == primary else assessment["detailed"]["criteria"].get(name)
         if source is None:
             rows.append([name, *[UNKNOWN] * 11])
@@ -273,7 +280,8 @@ def _cell(case_id: str, repeat: int, episode: dict, entry, trace, links: Links) 
     if episode["status"] == "produced" and episode["answer_given_as"]:
         read = episode["answer_read_from"]
         lines.append(f"Answer read from: {WRAPPED.get(read, read)}")
-    for name in CRITERIA:
+    names = CRITERIA if set(episode["criteria"]) <= set(CRITERIA) else tuple(episode["criteria"])  # another Scorer's Criteria, as recorded
+    for name in names:
         row = episode["criteria"].get(name)
         if row is None:
             lines.append(f"{name}: not recorded")

@@ -30,7 +30,9 @@ A line is a JSON object: `case_id`, `repeat`, `observation_status` (`produced`, 
 `missing`) and, when `produced`, one of `raw_answer` (the text the system returned) or `final_answer`
 (an already-parsed JSON object, scored as its canonical JSON text); an optional `trace` is a list of
 the projected steps the Scorer reads (plain records with a `kind`). The optional `origin`, `mode` and
-`producer` (`model`, `generation_time`, `historical_protocol`, `tool_use`) say what the file claims.
+`producer` (`model`, `generation_time`, `historical_protocol`, `tool_use`) say what the file claims. An optional
+`outcome` (`answered`, `needs_clarification` or `not_answerable`) declares the answer's outcome; it is kept in the
+normalized entry, and `text_facts_v1` reads it.
 
 What the import cannot establish is recorded as `unknown`; what the file claims is `declared`, and
 only when every line says the same. Nothing is `verified`, and no record says the producer worked
@@ -84,7 +86,10 @@ LINE_KEYS = {
     "origin": OPTIONAL,
     "mode": OPTIONAL,
     "producer": OPTIONAL,
+    "outcome": OPTIONAL,
 }
+# The outcome a line may declare for its answer, kept in the normalized entry and read by `text_facts_v1` (D-155 on chadlis/hypotrail#75, item 2).
+OUTCOMES = ("answered", "needs_clarification", "not_answerable")
 
 
 def _refuse(code, message, **details):
@@ -324,6 +329,9 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
         if final_answer is not None and not isinstance(final_answer, dict):
             raise _refuse("LINE_FIELD_INVALID", f"line {number}: 'final_answer' must be a JSON object", line=number, field="final_answer")
         trace = _trace(line, number)
+        outcome = line.get("outcome")
+        if "outcome" in line and outcome not in OUTCOMES:
+            raise _refuse("LINE_FIELD_INVALID", f"line {number}: 'outcome' must be one of {', '.join(OUTCOMES)}", line=number, field="outcome")
         claims.append(_claims(line, number))
         if raw_answer is not None and final_answer is not None:
             raise _refuse(
@@ -353,6 +361,8 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             "final_answer": final_answer if produced else None,
             "trace": trace,
         }
+        if "outcome" in line:  # absent from the entry of a line without it, so an earlier import's normalized bytes are unchanged
+            entries[key]["outcome"] = outcome
     absent = sorted(expected - set(entries))
     if absent:
         raise _refuse(

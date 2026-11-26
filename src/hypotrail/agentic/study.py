@@ -27,6 +27,7 @@ Nothing here imports Inspect, and the database is never opened as a database: it
 
 import csv
 import io
+import json
 import uuid
 from pathlib import Path
 
@@ -47,6 +48,7 @@ DOMAIN = "agentic"
 SPEC_VERSION = "study/1"
 MEMBERSHIPS_PATH = f"{ARTIFACTS_DIR}/memberships.csv"
 ANSWER_SCHEMA_PATH = f"{ARTIFACTS_DIR}/answer-schema.json"
+SCORING_CONFIG_PATH = f"{ARTIFACTS_DIR}/scoring-config.json"
 DATASET_ROLE = "dataset"
 MANIFEST_ROLE = "data_manifest"
 PRIMARY_DIRECTION = "higher_is_better"
@@ -75,6 +77,56 @@ def required_by_init(workload: Workload) -> tuple:
     """The keys `init` reads: the answer schema only for a Workload that declares a database."""
     keys = ("question", "objective", "limitations", "primary_criterion")
     return (*keys, "answer_schema") if declares_database(workload) else keys
+
+
+def _reference_texts(workload: Workload) -> dict:
+    """{case_id: reference_text} of the Workload's References file, for the records that hold one."""
+    texts = {}
+    for line in references_path(workload).read_text(encoding="utf-8").splitlines():
+        try:
+            record = json.loads(line) if line.strip() else None
+        except ValueError:
+            continue
+        if isinstance(record, dict) and isinstance(record.get("case_id"), str) and "reference_text" in record:
+            texts[record["case_id"]] = record["reference_text"]
+    return texts
+
+
+def _history_refusal(code, message, case_id, turn, **details):
+    return InvalidInputError(code, message, stage="declaration", details={"case_id": case_id, "turn": turn, **details})
+
+
+def check_histories(workload: Workload) -> None:
+    """Refuse a scripted history that would show a Case its own Reference, or that is not the Reference text it names.
+
+    D-154 on chadlis/hypotrail#75, item 1: "A later turn may receive a scripted history built from earlier turns' Reference
+    texts, as frozen Case input that the Protocol declares. Its own Reference is never shown." A turn naming the Case itself
+    in `from_case`, or holding the Case's own `reference_text`, is HISTORY_SHOWS_OWN_REFERENCE; a turn whose `from_case`
+    names no Case of the Workload, or whose text differs from that Case's `reference_text`, is HISTORY_SOURCE_MISMATCH.
+    """
+    cases = [case for role in ROLES if role in workload.declaration["cases"] for case in workload.cases(role)]
+    if not any("history" in case for case in cases):
+        return
+    texts = _reference_texts(workload)
+    known = {case["case_id"] for case in cases}
+    for case in cases:
+        case_id = case["case_id"]
+        for turn_number, turn in enumerate(case.get("history", [])):
+            source = turn.get("from_case")
+            if source == case_id or (case_id in texts and turn["content"] == texts[case_id]):
+                raise _history_refusal(
+                    "HISTORY_SHOWS_OWN_REFERENCE", f"the history of Case {case_id} shows its own Reference (turn {turn_number})", case_id, turn_number
+                )
+            if source is None:
+                continue
+            if source not in known or turn["content"] != texts.get(source):
+                raise _history_refusal(
+                    "HISTORY_SOURCE_MISMATCH",
+                    f"turn {turn_number} of the history of Case {case_id} is not the reference_text of the Case {source!r} it names",
+                    case_id,
+                    turn_number,
+                    from_case=source,
+                )
 
 
 def memberships_bytes(workload: Workload) -> bytes:
@@ -219,6 +271,18 @@ def _write_spec(study: Path, workload_name: str, workload: Workload, previous: d
         role="references",
     )
     entries = [memberships, references]
+    if "scoring_config" in workload.declaration:
+        entries.append(
+            revisions.artifact_entry(
+                study,
+                "scoring-config",
+                before.get("scoring_config"),
+                SCORING_CONFIG_PATH,
+                scoring_config_path(workload).read_bytes(),
+                media_type="application/json",
+                role="scoring_config",
+            )
+        )
     if "answer_schema" in workload.declaration:
         entries.append(
             revisions.artifact_entry(
@@ -271,6 +335,7 @@ def init_study(workload_name: str, study: Path, examples_dir: Path | None = None
     data.verify_workloads(examples, [workload_name])
     workload = load_workload(examples / workload_name)
     require_declared(workload, *required_by_init(workload))
+    check_histories(workload)
 
     study.mkdir(parents=True, exist_ok=True)
     with study_write.locked(study, study_write.INIT) as write:
@@ -297,4 +362,5 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
         data.verify_workloads(examples, [workload_name])  # T01 at this entry point: before anything is written
         workload = load_workload(examples / workload_name)
         require_declared(workload, *required_by_init(workload))
+        check_histories(workload)
         return _write_spec(study, workload_name, workload, previous, write)
