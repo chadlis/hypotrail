@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from jsonschema import Draft202012Validator, FormatChecker
 
 from hypotrail.core import canonical
+from hypotrail.core.comparison import DEV
 from hypotrail.core.errors import InvalidInputError
 
 PACKS_ENV = "HYPOTRAIL_LESSON_PACKS"
@@ -223,3 +224,39 @@ def discover(environ):
         if counts[entry["id"]] > 1:
             entries[index] = {"id": entry["id"], "path": entry["path"], "valid": False, "reason": "DUPLICATE_PACK_ID"}
     return entries
+
+
+def station_marks(status):
+    """Use only dev Assessments and the presence of a Comparison or Decision."""
+    dev_observations = {
+        attempt["observation_set_id"]
+        for attempt in status["attempts"]
+        if attempt["partition"] == DEV and attempt["observation_set_id"] is not None
+    }
+    dev_assessments = sum(
+        assessment.get("observation_set_id") in dev_observations for assessment in status["assessments"]
+    )
+    return {
+        "baseline": dev_assessments >= 1,
+        "iterate": dev_assessments >= 2,
+        "compare_decide": bool(status["comparisons"] or status["decisions"]),
+    }
+
+
+def pack_read(entries, track):
+    """Return public metadata and the first valid matching pack's text."""
+    packs, stations, lessons = [], [], []
+    selected = False
+    for entry in entries:
+        manifest = entry.get("manifest", {})
+        packs.append({
+            "id": entry["id"], "version": manifest.get("version"), "title": manifest.get("title"),
+            "language": manifest.get("language"), "licence": manifest.get("licence"),
+            "valid": entry["valid"], "reason": entry["reason"],
+        })
+        if not selected and entry["valid"] and track in manifest["tracks"]:
+            source = f"{manifest['id']}@{manifest['version']}"
+            stations = [{**station, "has_records": None} for station in manifest["stations"]]
+            lessons = [{**lesson, "source": source} for lesson in entry["lessons"] if lesson["track"] == track]
+            selected = True
+    return {"packs": packs, "stations": stations, "lessons": lessons}

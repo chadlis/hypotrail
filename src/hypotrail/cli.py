@@ -340,7 +340,9 @@ def build_parser() -> argparse.ArgumentParser:
         "lesson",
         help="show the cards the Study's Track serves, one per kind of step the Study holds a record of: what the step is and how to read it (read only)",
     )
-    lesson.add_argument("--study", type=Path, metavar="DIR", help="the Study to read")
+    lesson_source = lesson.add_mutually_exclusive_group()
+    lesson_source.add_argument("--study", type=Path, metavar="DIR", help="the Study to read")
+    lesson_source.add_argument("--track", choices=("temporal_regression", "tool_using_agent"), help="read the Track's pack without a Study")
     lesson.add_argument("action", nargs="?", choices=("check",), help="check a pack without opening a Study")
     lesson.add_argument("pack_dir", nargs="?", type=Path, metavar="PACK_DIR", help="the pack directory for lesson check")
     lesson.add_argument("--kept", type=Path, metavar="DIR", help="kept status and figures reads for lesson check")
@@ -892,8 +894,8 @@ def _lesson_check(args) -> int:
 
     if args.pack_dir is None or args.kept is None:
         args.lesson_parser.error("lesson check requires PACK_DIR and --kept DIR")
-    if args.study is not None or not args.kept.is_dir():
-        args.lesson_parser.error("lesson check needs a kept-read directory and no Study")
+    if args.study is not None or args.track is not None or not args.kept.is_dir():
+        args.lesson_parser.error("lesson check needs a kept-read directory and accepts neither --study nor --track")
     errors = check(args.pack_dir, args.kept)
     if errors:
         message = "the lesson pack failed validation"
@@ -911,9 +913,19 @@ def _lesson(args) -> int:
         return _lesson_check(args)
     if args.kept is not None:
         args.lesson_parser.error("--kept applies only to lesson check")
-    if args.study is None:
-        args.lesson_parser.error("the following arguments are required: --study")
+    from hypotrail.core import state
     from hypotrail.core import study as layout
+    from hypotrail.lessons import discover, pack_read, station_marks
+
+    if args.study is None:
+        if args.track is None:
+            args.lesson_parser.error("one of --study or --track is required")
+        payload = pack_read(discover(os.environ), args.track)
+        _emit(
+            {"ok": True, "track": args.track, "cards": [], **payload},
+            args.json, "\n".join(_lesson_pack_lines(payload)) or "no lesson pack applies to this Track",
+        )
+        return EXIT_OK
 
     domain = layout.read_spec(args.study)["domain"]
     track = _lesson_track(domain)
@@ -926,8 +938,27 @@ def _lesson(args) -> int:
         )
     read = track.lesson(args.study)
     lines = [f"{card['title']}: {card['text']}" for card in read["cards"]]
+    entries = discover(os.environ)
+    if entries:
+        payload = pack_read(entries, read["track"])
+        if payload["stations"]:
+            status = state.status(args.study)
+            # A concurrent writer can change the sequence after the cards were read.
+            # Mark only from a status read at the same sequence as those cards.
+            if not status["writer_alive"] and status["write_sequence"] == read["write_sequence"]:
+                marks = station_marks(status)
+                for station in payload["stations"]:
+                    station["has_records"] = marks.get(station["id"])
+        read.update(payload)
+        lines.extend(_lesson_pack_lines(payload))
     _emit({"ok": True, **read}, args.json, "\n".join(lines) or "no card applies to this Study yet")
     return EXIT_OK
+
+
+def _lesson_pack_lines(payload):
+    return [f"{station['title']}: {station['purpose']}" for station in payload["stations"]] + [
+        f"{lesson['title']} ({lesson['source']}): {lesson['why_this_step']}" for lesson in payload["lessons"]
+    ]
 
 
 def _profile_lines(read: dict) -> list:
