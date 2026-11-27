@@ -565,6 +565,10 @@ test("the key paths the function reads from the lesson read over every kept less
     reading: false, object: keptObject("demonstration.after-decide.status"),
     lesson: recording(keptObject("lesson.with-pack-bike"), "", read) as Entry,
   });
+  bodyOf({
+    reading: false, object: keptObject("demonstration.after-decide.status"),
+    lesson: recording(keptObject("lesson.with-illustration-bike"), "", read) as Entry,
+  });
   assert.deepEqual(leaves(read), [...contract.lesson_key_paths].sort());
 });
 

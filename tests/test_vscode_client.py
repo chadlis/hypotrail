@@ -540,6 +540,7 @@ def test_no_client_file_but_the_lockfile_holds_copyright_or_license_and_the_lock
         text = (ROOT / path).read_text(encoding="utf-8")
         if path in {
             "clients/vscode/test/cli/lesson/with-pack-bike.out",
+            "clients/vscode/test/cli/lesson/with-illustration-bike.out",
             "clients/vscode/test/lesson-packs-panel.test.ts",
         }:
             # Exact data values of the synthetic pack. The VS Code client itself has no licence declaration.

@@ -760,7 +760,7 @@ function developmentIntervalOf(delta: Entry, interval: Entry, index: number, now
     '<figure data-element="development-interval">',
     methodFigureTarget(index, now),
     intervalPlot(low, high, estimate),
-    `<figcaption>${label("chartEstimate")} ${value(estimate)} ${marked(delta.unit)} · ${label("chartInterval")} ${value(low)} ${label("chartTo")} ${value(high)} ${marked(delta.unit)}. ${label("chartZero")}</figcaption>`,
+    `<figcaption>${label("chartEstimate")} ${link("delta", index, estimate)} ${marked(delta.unit)} · ${label("chartInterval")} ${link("interval", index, low)} ${label("chartTo")} ${link("interval", index, high)} ${marked(delta.unit)}. ${label("chartZero")}</figcaption>`,
     '</figure>',
   ].join("\n");
 }

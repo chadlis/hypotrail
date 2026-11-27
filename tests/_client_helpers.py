@@ -550,6 +550,7 @@ def lesson_outputs(tmp_path) -> dict:
             text = (work / module.KEPT / f"{name}.lesson.{part}").read_text(encoding="utf-8")
             made[f"{name}.{part}"] = replaced(text) if part == "out" else text
     made.update(lesson_pack_outputs(work / "bike"))
+    made.update(lesson_pack_outputs(work / "bike", "illustrated", "with-illustration-bike"))
     (tmp_path / CHINOOK_LESSON).mkdir()
     study = chinook_pending_study(tmp_path / CHINOOK_LESSON)
     code, out, err = run_cli("lesson", f"--study={study}", "--json")
@@ -557,14 +558,14 @@ def lesson_outputs(tmp_path) -> dict:
     return made
 
 
-def lesson_pack_outputs(study):
+def lesson_pack_outputs(study, fixture_name="minimal", kept_name="with-pack-bike"):
     """The demonstration's dev Bike read with one valid fixture and one unavailable pack."""
-    fixture = ROOT / "tests" / "fixtures" / "lesson_packs" / "minimal"
+    fixture = ROOT / "tests" / "fixtures" / "lesson_packs" / fixture_name
     pack_list = os.pathsep.join((str(fixture), str(study.parent / "unavailable-pack")))
     with patch.dict(os.environ, {"HYPOTRAIL_LESSON_PACKS": pack_list}):
         code, out, err = run_cli("lesson", f"--study={study}", "--json")
     assert code == 0, err
-    return {"with-pack-bike.exit": f"{code}\n", "with-pack-bike.out": replaced(out), "with-pack-bike.err": err}
+    return {f"{kept_name}.exit": f"{code}\n", f"{kept_name}.out": replaced(out), f"{kept_name}.err": err}
 
 
 def write_lesson_kept(tmp_path) -> None:

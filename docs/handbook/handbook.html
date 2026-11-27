@@ -3559,6 +3559,9 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="cards[].title"><td><code>cards[].title</code></td></tr>
 <tr data-entry="lessons[].how_to_do_it"><td><code>lessons[].how_to_do_it</code></td></tr>
 <tr data-entry="lessons[].how_to_read"><td><code>lessons[].how_to_read</code></td></tr>
+<tr data-entry="lessons[].illustration.caption"><td><code>lessons[].illustration.caption</code></td></tr>
+<tr data-entry="lessons[].illustration.labels"><td><code>lessons[].illustration.labels</code></td></tr>
+<tr data-entry="lessons[].illustration.layout"><td><code>lessons[].illustration.layout</code></td></tr>
 <tr data-entry="lessons[].pitfalls"><td><code>lessons[].pitfalls</code></td></tr>
 <tr data-entry="lessons[].question"><td><code>lessons[].question</code></td></tr>
 <tr data-entry="lessons[].source"><td><code>lessons[].source</code></td></tr>
@@ -3587,6 +3590,12 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <p>The Study variant of the <a href="#client-read">fourth read</a> also gives the installed packs. The folded section after the Track cards lists each configured pack and its availability. Each station opens to the method lessons for that Track, with their provenance and exact text. The comparison station links to the aggregate distribution for the eligible development Comparison in Now, or for a sole eligible Comparison elsewhere in the Study.</p>
 <p>Before creating a Study, use the stations command from <a href="#client-command">the command table</a> and pick a Track. The panel requests the Track variant of the fourth read. The Copilot read tool can also take a Track before a Study exists.</p>
 <p>Set <code>HYPOTRAIL_LESSON_PACKS</code> before starting VS Code. The extension's child processes inherit it. The setting lists pack directories with the platform's path separator.</p>
+</div>
+
+<p class="sub2">Reading teaching figures</p>
+<div class="prose">
+<p>Illustrated method material includes a diagram with readable labels and a caption. The same illustration is available before a Study. The panel builds it using its own shapes and theme colours.</p>
+<p>The Comparison station can reveal an actual aggregate development figure. Where the stored Comparison has an estimate and usable bounds, the figure plots its interval on a scale containing zero. Its caption gives the same estimate and bounds as text. A figure for the current Pending decision takes precedence when several development Comparisons exist.</p>
 </div>
 
 <p class="sub2" id="panel-style">The panel's style, the guard of its layout and its own wording</p>
@@ -3753,6 +3762,9 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="See the aggregate development figure"><td>See the aggregate development figure</td></tr>
 <tr data-entry="Stations and lessons"><td>Stations and lessons</td></tr>
 <tr data-entry="Lesson packs: availability unknown"><td>Lesson packs: availability unknown</td></tr>
+<tr data-entry="Estimate"><td>Estimate</td></tr>
+<tr data-entry="to"><td>to</td></tr>
+<tr data-entry="Zero marks equal performance."><td>Zero marks equal performance.</td></tr>
 </tbody></table></div>
 <div class="prose">
 <p>The heading of the full list of Attempts to handle has a label of its own, other than the compact line's, so that no two headings of the page share a text; the count of pending decisions on the line of the heading of "Now" takes its singular label for one (the second addendum to D-161, on chadlis/hypotrail#75).</p>
