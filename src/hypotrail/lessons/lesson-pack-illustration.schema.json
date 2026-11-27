@@ -3,17 +3,48 @@
   "title": "An optional lesson-pack/2 teaching illustration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["layout", "labels", "caption"],
+  "required": [
+    "layout",
+    "labels",
+    "caption"
+  ],
   "properties": {
-    "layout": { "enum": ["flow", "compare"] },
+    "layout": {
+      "enum": [
+        "flow",
+        "compare"
+      ]
+    },
     "labels": {
       "type": "array",
       "minItems": 2,
       "maxItems": 4,
-      "items": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[^<>\\r\\n]+$(?![\\s\\S])" }
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[^<>\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+$(?![\\s\\S])"
+      }
     },
-    "caption": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^[^<>\\r\\n]+$(?![\\s\\S])" }
+    "caption": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[^<>\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+$(?![\\s\\S])"
+    }
   },
-  "if": { "properties": { "layout": { "const": "compare" } } },
-  "then": { "properties": { "labels": { "maxItems": 2 } } }
+  "if": {
+    "properties": {
+      "layout": {
+        "const": "compare"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "labels": {
+        "maxItems": 2
+      }
+    }
+  }
 }

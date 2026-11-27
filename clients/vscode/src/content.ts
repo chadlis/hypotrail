@@ -743,12 +743,6 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
   ].join("\n");
 }
 
-// A Comparison. Where it is pending (`choices` given), in D-148's order: its delta with its interval, the context of Now, its coverage,
-// its frame line, its warnings word for word, the line that counts its warnings and the limitations that are no warning's message, the
-// choices, then one closed fold of its charts and figures, then the rest of its part. Elsewhere: its delta, its coverage, its roles, chart
-// 1, the single-feature chart and the figures of its paired deltas, then the rest, and last its dots when they do not stand with the figures. `roles` are the ids
-// of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta record
-// carries no value of its own; `context`, the ids of the Decisions that no longer apply that Now shows.
 function methodFigureTarget(index: number, now: boolean): string {
   return `<span id="lesson-figure-${index}"${now ? ' data-lesson-figure="now"' : ""} role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>`;
 }
@@ -765,6 +759,12 @@ function developmentIntervalOf(delta: Entry, interval: Entry, index: number, now
   ].join("\n");
 }
 
+// A Comparison. Where it is pending (`choices` given), in D-148's order: its delta with its interval, the context of Now, its coverage,
+// its frame line, its warnings word for word, the line that counts its warnings and the limitations that are no warning's message, the
+// choices, then one closed fold of its charts and figures, then the rest of its part. Elsewhere: its delta, its coverage, its roles, chart
+// 1, the single-feature chart and the figures of its paired deltas, then the rest, and last its dots when they do not stand with the figures. `roles` are the ids
+// of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta record
+// carries no value of its own; `context`, the ids of the Decisions that no longer apply that Now shows.
 function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "", context?: unknown[]): string {
   const index = shown.comparisons.findIndex((each) => each.comparison_id === id);
   const comparison = shown.comparisons[index];

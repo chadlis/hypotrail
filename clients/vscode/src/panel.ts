@@ -587,6 +587,7 @@ const STYLE = [
   '[data-element="pack-illustration"] ol { display: flex; flex-wrap: wrap; gap: 0.35em; list-style: none; margin: 0 0 0.45em; padding: 0; }',
   '[data-element="pack-illustration"] li { display: flex; align-items: center; gap: 0.35em; flex: 1 1 6em; min-width: 0; }',
   '[data-element="pack-illustration"] li [data-text] { flex: 1; border: 1px solid var(--pen); color: var(--pen); padding: 0.25em; text-align: center; overflow-wrap: anywhere; }',
+  '[data-element="development-interval"] a { color: var(--pen); }',
   '[data-element="development-interval"] svg { width: 100%; height: 2.2em; display: block; }',
   '[data-element="development-interval"] svg :is(.whisker, .cap, .delta) { fill: var(--pen); }',
   '[data-element="development-interval"] svg .zero { fill: var(--cardmuted); }',

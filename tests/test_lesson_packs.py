@@ -275,6 +275,7 @@ def test_lesson_pack_v1_rejects_an_illustration(tmp_path, kept):
         {"caption": ""},
         {"caption": "a" * 241},
         {"caption": "Compare the results.\nExplain the differences."},
+        {"caption": "Compare the results.\u2028Explain the differences."},
         {"caption": "<img src='some-file'>"},
         {"caption": "Compare 2 alternatives."},
         {"url": "https://example.invalid/diagram.svg"},
@@ -282,7 +283,7 @@ def test_lesson_pack_v1_rejects_an_illustration(tmp_path, kept):
     ids=[
         "unsupported-layout", "flow-too-short", "flow-too-long", "compare-arity",
         "empty-label", "long-label", "label-newline", "label-markup", "label-digit",
-        "empty-caption", "long-caption", "caption-newline", "caption-markup",
+        "empty-caption", "long-caption", "caption-newline", "caption-separator", "caption-markup",
         "caption-digit", "external-url-field",
     ],
 )
