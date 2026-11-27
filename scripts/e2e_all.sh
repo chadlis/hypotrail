@@ -172,12 +172,31 @@ fi
 step "C2 Agentkit pinned workflow" agentkit_e2e || true
 step "C2 lesson-pack pinned fixture and published packs" check_packs || true
 
+proof_pack() {
+    python3 - "$lessons/packs" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+matches = [
+    manifest.parent
+    for manifest in Path(sys.argv[1]).glob("*/pack.json")
+    if "temporal_regression" in json.loads(manifest.read_bytes())["tracks"]
+]
+if len(matches) != 1:
+    raise SystemExit("The proof requires exactly one temporal-regression pack")
+print(matches[0])
+PY
+}
+
 journey() {
     [[ ${ready[product-build]:-0} == 1 && ${ready[hypotrail-lessons]:-0} == 1 ]] || return 1
+    local pack
+    pack=$(proof_pack) || return 1
     # Copy the harness only, so the test runs under the cloned Hypotrail conftest
     # and uses that clone's helpers and offline guard.
     cp -- "$here/e2e_journey.py" "$product/tests/manual_e2e_journey.py" || return 1
-    at "$product" env HYPOTRAIL_LESSON_PACKS="$lessons/packs/scoring-en" \
+    at "$product" env HYPOTRAIL_LESSON_PACKS="$pack" \
         uv run --frozen python -m pytest -q -p no:cacheprovider --tb=no \
         "tests/manual_e2e_journey.py::$1"
 }
