@@ -945,7 +945,7 @@ def _lesson(args) -> int:
             status = state.status(args.study)
             # A concurrent writer can change the sequence after the cards were read.
             # Mark only from a status read at the same sequence as those cards.
-            if status["write_sequence"] == read["write_sequence"]:
+            if not status["writer_alive"] and status["write_sequence"] == read["write_sequence"]:
                 marks = station_marks(status)
                 for station in payload["stations"]:
                     station["has_records"] = marks.get(station["id"])

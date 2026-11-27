@@ -123,3 +123,30 @@ def test_a_study_with_only_invalid_pack_entries_still_receives_all_pack_keys(tmp
     entry, = read["packs"]
     assert (entry["valid"], entry["reason"]) == (False, "NOT_A_DIRECTORY")
     assert read["stations"] == read["lessons"] == []
+
+
+@pytest.mark.parametrize("writer_alive", [True, False], ids=["live-writer", "changed-sequence"])
+def test_station_marks_are_unknown_while_the_status_read_may_be_inconsistent(tmp_path, monkeypatch, writer_alive):
+    from hypotrail.core import state
+
+    study, _, _ = assessed(tmp_path, "seasonal_7")
+    real_status = state.status
+    count = 0
+
+    def status_with_concurrent_writer(directory):
+        nonlocal count
+        payload = real_status(directory)
+        count += 1
+        if count == 2:
+            payload["writer_alive"] = writer_alive
+            if not writer_alive:
+                payload["write_sequence"] += 1
+        return payload
+
+    monkeypatch.setattr(state, "status", status_with_concurrent_writer)
+    monkeypatch.setenv(PACK_VARIABLE, str(FIXTURE))
+    code, read, err = run_json("lesson", "--study", study)
+    assert code == 0, err
+    assert count == 2
+    assert read["stations"] and all(row["has_records"] is None for row in read["stations"])
+    assert read["lessons"]
