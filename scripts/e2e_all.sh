@@ -13,7 +13,7 @@ twin=$2
 export HYPOTRAIL_E2E_READS="$scratch/reads"
 mkdir -p "$HYPOTRAIL_E2E_READS"
 unset HYPOTRAIL_LESSON_PACKS HYPOTRAIL_ANTHROPIC_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY
-unset PYTEST_ADDOPTS
+unset PYTEST_ADDOPTS HYPOTRAIL_CHECKOUT AGENTKIT_REQUIRE_TWIN MLKIT_E2E
 export GIT_TERMINAL_PROMPT=0 NPM_CONFIG_AUDIT=false NPM_CONFIG_FUND=false
 export XDG_DATA_HOME="$scratch/data" XDG_STATE_HOME="$scratch/state" XDG_CONFIG_HOME="$scratch/config"
 export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$scratch/npm-cache}" UV_CACHE_DIR="${UV_CACHE_DIR:-$scratch/uv-cache}"
@@ -67,11 +67,16 @@ checkout_pin() {
     git -C "$scratch/$repo/hypotrail" -c advice.detachedHead=false checkout --detach "$pin"
 }
 
-for repo in hypotrail-lessons mlkit agentkit; do
+report_pin() {
+    local repo=$1
     if step "C1 explicit Hypotrail pin for $repo" checkout_pin "$repo"; then
         ready["$repo-pin"]=1
         printf 'PIN %s %s\n' "$repo" "$(<"$scratch/$repo/hypotrail.pin")"
     fi
+}
+
+for repo in hypotrail-lessons mlkit; do
+    report_pin "$repo"
 done
 
 at() {
@@ -117,6 +122,7 @@ kit_suite() {
 
 step "C2 MLkit CI suite" kit_suite "$mlkit" || true
 step "C2 Agentkit CI suite" kit_suite "$agentkit" || true
+report_pin agentkit
 
 # Test on the workflow's cache-hit path. The file must already exist before
 # mlkit fetch is called, so that command only checks the workbook digest.

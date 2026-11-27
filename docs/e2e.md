@@ -10,7 +10,7 @@ scripts/e2e_all.sh /path/to/writable/scratch /path/to/cached/online_retail_II.xl
 
 The second argument is the public MLkit twin workbook from an existing, independently provisioned cache. The script verifies its digest with `mlkit fetch` after copying it to the already-present cache path. A missing or unreadable cache is a failed MLkit proof step. The other checks still run. The script makes no dataset download. Remote activity is limited to Git clones and package installation. The browser loads test pages on loopback and uses the client's VS Code stub. There are no live model calls.
 
-The script creates a new private scratch directory. It uses private package caches by default. Set `NPM_CONFIG_CACHE` or `UV_CACHE_DIR` to reuse a writable cache. It reports all four cloned heads and each consumer's exact Hypotrail pin. The product checks always run from a clean clone of product `main`. Each kit and the lesson repository get a separate detached Hypotrail checkout at their own pin, even when the pins differ.
+The script creates a new private scratch directory. It uses private package caches by default. Set `NPM_CONFIG_CACHE` or `UV_CACHE_DIR` to reuse a writable cache. It reports all four cloned heads and each consumer's exact Hypotrail pin. The product checks always run from a clean clone of product `main`. Each kit and the lesson repository get a separate detached Hypotrail checkout at their own pin, even when the pins differ. Agentkit's standalone tests run before its pinned checkout is staged for the required twin tests.
 
 | Step | What it checks |
 | --- | --- |
