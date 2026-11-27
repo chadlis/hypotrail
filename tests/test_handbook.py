@@ -6563,6 +6563,22 @@ def test_the_readme_sentence_on_the_chinook_workload_counts_the_cases_of_each_pa
 # --- chapter 08: a prose answer, text Cases, text-reference/1 and text_facts_v1 (#265) --------------------------------------------
 
 
+def test_the_authored_repeats_table_matches_the_files_and_declared_instability(page):
+    workload = ROOT / "examples" / "chinook_prose"
+    folder = workload / "fixtures" / "repeats"
+    declared = json.loads((folder / "instability.json").read_text(encoding="utf-8"))
+    rows = attrs_of(page, "authored-repeats-files", "data-file")
+    assert set(rows) == {path.name for path in folder.glob("*.jsonl")}
+    for filename, row in rows.items():
+        with (folder / filename).open(encoding="utf-8") as stream:
+            routes = sorted({json.loads(line)["metadata"]["route"] for line in stream})
+        assert row["data-routes"].split() == routes
+        assert row["data-instability"].split() == declared[Path(filename).stem]
+    mark = "The deltas between these authored fixtures are invented, not measured."
+    assert mark in page
+    assert mark in json.loads((workload / "workload.json").read_text(encoding="utf-8"))["limitations"]
+
+
 def test_the_text_facts_criteria_and_reasons_tables_equal_the_scorers_criteria_and_reasons(page):
     from hypotrail.core import text_facts
 

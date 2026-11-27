@@ -3,6 +3,7 @@
 Every command runs in process through `hypotrail.cli`; `chinook_prose` is evaluated only through `import agent`.
 """
 
+import csv
 import json
 import shutil
 from pathlib import Path
@@ -14,6 +15,7 @@ PROSE = EXAMPLES / "chinook_prose"
 CONCISE = PROSE / "fixtures" / "answers-concise.jsonl"
 VERBOSE = PROSE / "fixtures" / "answers-verbose.jsonl"
 SCORER = "text_facts_v1"
+REPEATS = PROSE / "fixtures" / "repeats"
 
 
 def jsonl(path: Path) -> list:
@@ -122,3 +124,59 @@ def test_chinook_prose_compare_lists_the_two_fixture_imports_settings(tmp_path):
     }
     assert declared["control"]["seed"] is None and declared["candidate"]["seed"] is None
     assert "settings: 4 equal, 3 different, 0 unknown" in out
+
+
+def test_three_authored_versions_at_three_repeats_compared_over_groups(tmp_path):
+    study = tmp_path / "s2-repeats"
+    refs = ok(run_json("init", "--workload", "chinook_prose", "--study", study))["references_id"]
+    declared = json.loads((REPEATS / "instability.json").read_text(encoding="utf-8"))
+    cases = {row["case_id"] for row in jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl")}
+    reference_texts = {
+        row["case_id"]: row["reference_text"]
+        for row in jsonl(PROSE / "references" / "chinook-prose-references.jsonl")
+        if row["case_id"] in cases
+    }
+    files = sorted(REPEATS.glob("*.jsonl"))
+    assert len(files) == 3
+    assert set(declared) == {file.stem for file in files}
+    expected = {(case_id, repeat) for case_id in cases for repeat in range(3)}
+    imports = []
+    assessments = []
+    for file in files:
+        lines = jsonl(file)
+        keys = [(row["case_id"], row["repeat"]) for row in lines]
+        assert len(lines) == len(expected) == 90
+        assert set(keys) == expected
+        routes = {key: row["metadata"]["route"] for key, row in zip(keys, lines)}
+        assert all(isinstance(route, str) and route for route in routes.values())
+        assert len(set(routes.values())) >= 2
+        assert all(row["origin"] == "authored_fixture" and row["settings"]["configuration"] == file.stem for row in lines)
+        assert all(row["raw_answer"] != reference_texts[row["case_id"]] for row in lines)
+
+        attempt = imported(tmp_path, study, file, file.stem)
+        imports.append(attempt["attempt"]["attempt_id"])
+        normalized = jsonl(study / "attempts" / imports[-1] / "observations.jsonl")
+        assert {(row["case_id"], row["repeat"]): row["metadata"]["route"] for row in normalized} == routes
+        evaluation = assessed(study, attempt, refs)
+        assessments.append(evaluation["assessment_id"])
+        with (study / evaluation["per_item_ref"]["path"]).open(encoding="utf-8", newline="") as stream:
+            scores = [row for row in csv.DictReader(stream) if row["criterion"] == "text_facts_success"]
+        assert len(scores) == 90 and all(row["state"] == "scored" and row["score"] in ("true", "false") for row in scores)
+        assert {(row["case_id"], int(row["repeat"])) for row in scores} == expected
+        by_case = {}
+        for row in scores:
+            by_case.setdefault(row["case_id"], set()).add(row["score"])
+        assert sorted(case_id for case_id, values in by_case.items() if len(values) == 2) == declared[file.stem]
+
+    comparisons = []
+    for candidate in assessments[1:]:
+        record = ok(run_json("compare", "--study", study, "--control", assessments[0], "--candidate", candidate))["comparison"]
+        comparisons.append(record["comparison_id"])
+        interval = record["interval"]
+        assert (interval["unit"], interval["units"], interval["cases"]) == ("group", 10, 30)
+        assert interval["lower"] is not None and interval["upper"] is not None
+        assert {row["key"]: row["state"] for row in record["settings"]["keys"]}["configuration"] == "different"
+    status = ok(run_json("status", "--study", study))
+    assert {row["attempt_id"] for row in status["attempts"]} == set(imports)
+    assert {row["assessment_id"] for row in status["assessments"]} == set(assessments)
+    assert {row["comparison_id"] for row in status["comparisons"]} == set(comparisons)
