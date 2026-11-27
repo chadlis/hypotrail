@@ -57,3 +57,10 @@ def test_the_kept_file_names_each_group_size_with_its_replications_seed_commit_g
     for size in kept["group_sizes"]:
         assert size["replications"] >= 300 and "true_delta" in size
         assert 0 <= size["group_coverage"] <= 1 and 0 <= size["case_coverage"] <= 1
+
+
+def test_in_the_kept_file_at_ten_groups_the_case_interval_covers_less_than_the_group_interval_on_the_same_data():
+    kept = json.loads(KEPT.read_text(encoding="utf-8"))
+    for size in kept["group_sizes"]:
+        if size["groups"] == 10:
+            assert size["case_coverage"] < size["group_coverage"], size

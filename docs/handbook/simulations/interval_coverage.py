@@ -18,10 +18,10 @@ The data-generating settings:
   sin(2 pi (t + phase) / 7) with a phase drawn per series, plus standard normal noise.
 
 - Groups (`unit` "group", chinook_prose's 10 `dev` and 2 `public_check` groups of 3 Cases): each group draws a Control rate uniform on
-  [0.2, 0.75] and an effect uniform on [0, 0.2], which its Cases share, each Case moving the rate by a uniform draw on [-0.05, 0.05];
-  the Candidate's rate is the Control's plus the group's effect, so the true delta over the population of groups is 0.1, and Repeats
-  and Episodes are drawn as for Cases. Each data set gets the group interval and the Case interval, with
-  the same resampling seed, and the coverage of each is recorded: the Case interval treats the Cases of a group as independent.
+  [0.35, 0.45] and an effect uniform on [-0.35, 0.55], which its Cases share; the Candidate's rate is the Control's plus the group's
+  effect, so the true delta over the population of groups is 0.1, and Repeats and Episodes are drawn as for Cases. The effect varies
+  far more between groups than the noise of one Episode, so the Cases of a group are not independent. Each data set gets the group
+  interval and the Case interval, with the same resampling seed, and the coverage of each is recorded.
 
 Unless `--no-block-length` is given, it also records the length `arch.bootstrap.optimal_block_length` gives for the circular variant on
 the target of Bike's `train` Partition, beside the declared length, as agreement or disagreement; it never changes the declared length.
@@ -57,10 +57,9 @@ BLOCK_SIZES = [(days, dependence, 1000) for days in (182, 184) for dependence in
 GROUP_SIZES = [(10, 3, 1, 1000), (10, 3, 3, 1000), (2, 3, 1, 1000)]
 CASE_RATE = (0.2, 0.8)
 CASE_EFFECT = 0.1
-GROUP_JITTER = 0.05
-GROUP_EFFECT = (0.0, 0.2)
-# The groups' Control rates stop at 0.75 so that a rate moved by the jitter plus an effect stays at most 1: the true delta is exactly 0.1.
-GROUP_RATE = (0.2, 0.75)
+# A group effect large beside the noise of an Episode, mean 0.1; with a Control rate in [0.35, 0.45], the Candidate's stays in [0, 1].
+GROUP_EFFECT = (-0.35, 0.55)
+GROUP_RATE = (0.35, 0.45)
 ITEM_SHIFT = 0.8
 
 
@@ -74,14 +73,12 @@ def case_deltas(generator: random.Random, cases: int, repeats: int) -> list:
 
 
 def group_deltas(generator: random.Random, groups: int, size: int, repeats: int) -> tuple:
-    """(per-Case deltas, the group of each): the Cases of a group share its Control rate and its effect, the rate moved per Case by a
-    small jitter."""
+    """(per-Case deltas, the group of each): the Cases of a group share its Control rate and its effect."""
     deltas, labels = [], []
     for group in range(groups):
-        shared = generator.uniform(*GROUP_RATE)
+        rate = generator.uniform(*GROUP_RATE)
         effect = generator.uniform(*GROUP_EFFECT)
         for _ in range(size):
-            rate = shared + generator.uniform(-GROUP_JITTER, GROUP_JITTER)
             pairs = [generator.random() for _ in range(repeats)]
             deltas.append(sum(float(u < rate + effect) - float(u < rate) for u in pairs) / repeats)
             labels.append(f"g{group:02d}")
@@ -205,9 +202,8 @@ def run(replications: int | None, block_length: bool = True) -> dict:
             "days": "daily deltas of mean 0: independent standard normal; x[t] = phi x[t-1] + e[t] with phi 0.5 and 0.9, from the stationary "
             f"distribution; sin(2 pi (t + phase) / {BLOCK_LENGTH}) with a random phase plus standard normal noise",
             "group": f"each group draws a Control rate uniform on [{GROUP_RATE[0]}, {GROUP_RATE[1]}] and an effect uniform on "
-            f"[{GROUP_EFFECT[0]}, {GROUP_EFFECT[1]}] that its Cases share, each Case moving the rate by a uniform draw on "
-            f"[-{GROUP_JITTER}, {GROUP_JITTER}]; the Candidate's rate is the Control's plus the group's effect, and the Repeats and the two "
-            "sides of an Episode are drawn as for Cases",
+            f"[{GROUP_EFFECT[0]}, {GROUP_EFFECT[1]}] that its Cases share; the Candidate's rate is the Control's plus the group's effect, "
+            "and the Repeats and the two sides of an Episode are drawn as for Cases",
         },
         "sizes": [coverage(unit, units, repeats, replications or count, generator) for unit, units, repeats, count in SIZES],
         "block_sizes": [block_coverage(days, dependence, replications or count, generator) for days, dependence, count in BLOCK_SIZES],

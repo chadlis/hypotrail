@@ -154,3 +154,13 @@ def test_a_record_under_the_group_unit_counts_groups_in_units_and_cases_in_cases
     assert (withheld["units"], withheld["cases"], withheld["reason"]) == (None, None, "delta_withheld")
     assert intervals.record({"unit": "case", "seed": SEED}, EQUAL)["cases"] is None
     assert intervals.record(None, EQUAL)["cases"] is None
+
+
+def test_when_the_cases_of_a_group_have_the_same_delta_the_group_interval_is_wider_than_the_case_interval_on_the_same_deltas():
+    # 10 groups of 3 Cases, every Case of a group with its group's delta: 30 deltas that hold 10 independent values, not 30.
+    deltas = [((g * 7) % 10) / 10 - 0.35 for g in range(10) for _ in range(3)]
+    groups = [f"g{g:02d}" for g in range(10) for _ in range(3)]
+    by_group = intervals.cluster_interval(deltas, groups, seed=SEED)
+    by_case = intervals.percentile_interval(deltas, seed=SEED)
+    assert (by_group["lower"], by_group["upper"]) != (by_case["lower"], by_case["upper"])
+    assert by_group["upper"] - by_group["lower"] > 1.5 * (by_case["upper"] - by_case["lower"])

@@ -115,6 +115,34 @@ def test_the_group_interval_agrees_with_inspects_clustered_bootstrap_over_groups
     assert abs(ours["lower"] - lower) < allowed and abs(ours["upper"] - upper) < allowed, (ours, (lower, upper), allowed)
 
 
+def strongly_grouped_set(groups: int, size: int, repeats: int, seed: int) -> dict:
+    """As `grouped_set`, with a group effect that dominates: each group's Candidate rate is 0.5 plus an effect uniform on [-0.45, 0.45]
+    over a Control rate of 0.5, and one uniform draw decides both sides of an Episode, so the Cases of a group have close deltas."""
+    generator = random.Random(seed)
+    episodes = {}
+    for group in range(groups):
+        effect = generator.uniform(-0.45, 0.45)
+        for case in range(size):
+            draws = [generator.random() for _ in range(repeats)]
+            episodes[(f"G{group:02d}", f"G{group:02d}C{case}")] = [float(u < 0.5 + effect) - float(u < 0.5) for u in draws]
+    return episodes
+
+
+@pytest.mark.parametrize(("groups", "size", "repeats", "seed"), [(10, 3, 3, 11), (40, 3, 3, 12)], ids=["10 groups of 3 x 3", "40 groups of 3 x 3"])
+def test_under_a_strong_group_effect_inspects_clustered_bootstrap_tells_the_group_interval_from_the_case_interval(groups, size, repeats, seed):
+    episodes = strongly_grouped_set(groups, size, repeats, seed)
+    case_deltas = [sum(values) / len(values) for values in episodes.values()]
+    labels = [group for group, _ in episodes]
+    lower, upper = inspect_group_bounds(episodes, numpy_seed=seed)
+    group_means = [sum(case_deltas[i * size : (i + 1) * size]) / size for i in range(groups)]
+    allowed = tolerance(group_means)
+    by_group = intervals.cluster_interval(case_deltas, labels, seed=seed, resamples=RESAMPLES, level=LEVEL)
+    by_case = intervals.percentile_interval(case_deltas, seed=seed, resamples=RESAMPLES, level=LEVEL)
+    assert abs(by_group["lower"] - lower) < allowed and abs(by_group["upper"] - upper) < allowed, (by_group, (lower, upper), allowed)
+    # The Case interval treats the Cases of a group as independent: it is narrower, by more than the resampling error.
+    assert (upper - lower) - (by_case["upper"] - by_case["lower"]) > 2 * allowed, (by_case, (lower, upper), allowed)
+
+
 # --- the circular block interval against arch's CircularBlockBootstrap ------------------------------------------------------------
 
 
