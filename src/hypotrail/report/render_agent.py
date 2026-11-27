@@ -244,6 +244,16 @@ def _comparison(index: int, record: dict, paired) -> Safe:
             sub("Descriptive measures (no Criterion rests on them)"),
             table(f"comparison-descriptive-{index}", ["Side", *measures], [[side, *[number(descriptive[side].get(m)) for m in measures]] for side in ("control", "candidate")]),
         ]
+    settings = record.get("settings")
+    if settings:
+        body += [
+            sub(f"Declared settings (Control {settings['control']}, Candidate {settings['candidate']}; no check reads them)"),
+            table(
+                f"comparison-settings-{index}",
+                ["Key", "Control", "Candidate", "State"],
+                [[entry["key"], json_text(entry["control"]), json_text(entry["candidate"]), entry["state"]] for entry in settings["keys"]],
+            ),
+        ]
     for warning in record.get("warnings", []):
         body.append(tag("div", join([tag("b", f"Warning {warning['code']}. "), warning["message"]]), class_="note"))
     return tag("div", join(body), class_="card")

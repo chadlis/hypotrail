@@ -10,6 +10,8 @@ SCRIPT = ROOT / "docs" / "handbook" / "simulations" / "interval_coverage.py"
 KEPT = ROOT / "docs" / "handbook" / "simulations" / "interval-coverage.json"
 SIZES = [("case", 12, 1), ("case", 12, 3), ("case", 100, 1), ("case", 100, 3), ("item", 3000, None)]
 BLOCK_SIZES = [(days, dependence) for days in (182, 184) for dependence in ("independent", "ar1_0.5", "ar1_0.9", "weekly")]
+# (groups, Cases per group, Repeats): chinook_prose's 10 `dev` groups at one and three Repeats, and its 2 `public_check` groups.
+GROUP_SIZES = [(10, 3, 1), (10, 3, 3), (2, 3, 1)]
 
 
 def sizes_of(result) -> list:
@@ -21,13 +23,19 @@ def block_sizes_of(result) -> list:
     return [(size["units"], size["dependence"]) for size in result["block_sizes"]]
 
 
+def group_sizes_of(result) -> list:
+    assert all(size["unit"] == "group" for size in result["group_sizes"])
+    return [(size["groups"], size["cases_per_group"], size["repeats"]) for size in result["group_sizes"]]
+
+
 def test_the_script_runs_at_a_reduced_count_and_gives_a_share_for_each_size(tmp_path):
     out = tmp_path / "coverage.json"
     run = [sys.executable, str(SCRIPT), "--replications", "3", "--no-block-length", "--out", str(out)]
     subprocess.run(run, check=True, capture_output=True, text=True)
     result = json.loads(out.read_text(encoding="utf-8"))
-    assert sizes_of(result) == SIZES and block_sizes_of(result) == BLOCK_SIZES
+    assert sizes_of(result) == SIZES and block_sizes_of(result) == BLOCK_SIZES and group_sizes_of(result) == GROUP_SIZES
     assert all(size["replications"] == 3 and 0 <= size["coverage"] <= 1 for size in result["sizes"] + result["block_sizes"])
+    assert all(size["replications"] == 3 and 0 <= size["group_coverage"] <= 1 and 0 <= size["case_coverage"] <= 1 for size in result["group_sizes"])
 
 
 def test_the_kept_file_names_the_sizes_the_settings_the_seed_the_replications_the_commit_and_the_advised_block_length():
@@ -37,6 +45,22 @@ def test_the_kept_file_names_the_sizes_the_settings_the_seed_the_replications_th
     advised = kept["optimal_block_length"]
     assert advised["partition"] == "train" and advised["declared"] == 7 and isinstance(advised["agreement"], bool) and advised["computed_on"]
     assert (kept["level"], kept["resamples"], kept["method"]) == (0.95, 2000, "percentile_bootstrap")
-    assert isinstance(kept["seed"], int) and kept["commit"] and set(kept["settings"]) == {"case", "item", "days"}
+    assert isinstance(kept["seed"], int) and kept["commit"] and set(kept["settings"]) == {"case", "item", "days", "group"}
     assert all(size["replications"] >= 300 and "true_delta" in size and "coverage" in size for size in kept["sizes"])
     assert set(kept["timing"]) == {"units", "resamples", "seconds", "python"} and kept["timing"]["units"] == 3000
+
+
+def test_the_kept_file_names_each_group_size_with_its_replications_seed_commit_group_coverage_and_case_coverage():
+    kept = json.loads(KEPT.read_text(encoding="utf-8"))
+    assert group_sizes_of(kept) == GROUP_SIZES
+    assert isinstance(kept["seed"], int) and kept["commit"] and not kept["commit"].endswith("-dirty") and "group" in kept["settings"]
+    for size in kept["group_sizes"]:
+        assert size["replications"] >= 300 and "true_delta" in size
+        assert 0 <= size["group_coverage"] <= 1 and 0 <= size["case_coverage"] <= 1
+
+
+def test_in_the_kept_file_at_ten_groups_the_case_interval_covers_less_than_the_group_interval_on_the_same_data():
+    kept = json.loads(KEPT.read_text(encoding="utf-8"))
+    for size in kept["group_sizes"]:
+        if size["groups"] == 10:
+            assert size["case_coverage"] < size["group_coverage"], size

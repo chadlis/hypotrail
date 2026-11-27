@@ -1,0 +1,19 @@
+{
+  "schema_version": "ranking-build/1",
+  "label_cutoff": "2011-12-10",
+  "frame_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "source": {
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "files": {
+    "items.csv": {
+      "sha256": "9730ae166259feed53c8887b39db6b2ee72d582c318b83ce82c641c6b9d5a1e3",
+      "size_bytes": 259
+    },
+    "references-dev.csv": {
+      "sha256": "feb005a4ae9576539446ad6d5af4a9452c94b17ce3d5b33d54615e5c1295123f",
+      "size_bytes": 71
+    }
+  },
+  "last_observed_day": "2011-12-09"
+}

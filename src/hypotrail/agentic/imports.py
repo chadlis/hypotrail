@@ -46,7 +46,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, InvalidInputError
@@ -457,10 +457,10 @@ def declared_settings(settings: list) -> dict:
 
     D-155 on chadlis/hypotrail#75, item 1: "in each line, declared only when every line agrees, as `producer` already is
     (`agentic/imports.py:368-376`). A line set that disagrees has `settings` unknown, and the Comparison shows it as unknown."
-    The map is compared whole, not key by key.
+    The map is compared whole, not key by key, by its canonical JSON bytes, so lines holding `1`, `1.0` and `true` disagree.
     """
     first = settings[0] if settings else None
-    if first is None or any(other != first for other in settings):
+    if first is None or any(canonical.dumps(other) != canonical.dumps(first) for other in settings):
         return {"value": None, "origin": UNKNOWN}
     return {"value": first, "origin": DECLARED}
 
@@ -636,5 +636,6 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         input_refs=study_refs,
         produce=produce,
         started_at=import_time,
+        marks=exposure.import_mark(study),
     )
     return terminal, False

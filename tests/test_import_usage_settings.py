@@ -129,6 +129,8 @@ RECORDED = {
     "absent on every line": (two_lines(None, None), {"value": None, "origin": "unknown"}),
     "absent on one line": (two_lines(SCALARS, None), {"value": None, "origin": "unknown"}),
     "two lines differing": (two_lines(SCALARS, {**SCALARS, "temperature": 0.7}), {"value": None, "origin": "unknown"}),
+    "two lines differing only by type, 1 and true": (two_lines({"seed": 1}, {"seed": True}), {"value": None, "origin": "unknown"}),
+    "two lines differing only by type, 1 and 1.0": (two_lines({"seed": 1}, {"seed": 1.0}), {"value": None, "origin": "unknown"}),
 }
 
 

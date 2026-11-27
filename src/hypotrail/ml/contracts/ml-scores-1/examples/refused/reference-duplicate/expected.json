@@ -1,7 +1,7 @@
 {
   "contract": "ranking-reference/1",
-  "code": null,
+  "code": "REFERENCE_ROW_DUPLICATE",
   "exit": 2,
-  "caught_by": "import",
-  "why": "12346@2011-01-01 has two rows. Its code is M1's to name"
+  "caught_by": "init",
+  "why": "12346@2011-01-01 has two rows"
 }

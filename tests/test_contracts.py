@@ -147,7 +147,7 @@ RECORD_DEFINITIONS_AT_7DB697F = {
     ),
     "Comparison": (
         "check_informed code_environment comparability comparison_id coverage declared_factor delta descriptive interval kind left_assessment_id limitations "
-        "matrix_ref paired_deltas_ref population_ref primary_criterion rates right_assessment_id roles schema_version secondary_deltas warnings",
+        "matrix_ref paired_deltas_ref population_ref primary_criterion rates right_assessment_id roles schema_version secondary_deltas settings warnings",
         "kind schema_version comparison_id left_assessment_id right_assessment_id comparability population_ref paired_deltas_ref coverage limitations",
     ),
     "DecisionRecord": (

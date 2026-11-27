@@ -626,6 +626,25 @@ rect.favours-candidate { fill: var(--orange); }
 [data-element="dot-order"] { font-size: 0.85em; color: var(--chalk2); }
 [data-key="control"]::before { background: var(--pen); }
 [data-key="candidate"]::before { width: 0.35em; height: 0.45em; vertical-align: 0.1em; background: var(--orange); }
+[data-figure^="profile-"] rect { stroke: none; }
+[data-figure="profile-target"] svg { height: 6em; background: var(--board2); }
+[data-element="distribution"] svg { height: 3em; border-bottom: 1px solid var(--line2); }
+[data-figure="profile-matrix"] svg { width: 16em; max-width: 100%; height: 16em; background: var(--board2); }
+[data-element="against"] svg { height: 7em; background: var(--board2); }
+details[data-element="distribution"], details[data-element="numbers"] { margin: 0.2em 0; }
+[data-element="profile-numbers"] { border-collapse: collapse; font-size: 0.85em; }
+[data-element="profile-numbers"] th, [data-element="profile-numbers"] td { padding: 0 0.6em 0 0; text-align: left; }
+[data-element="profile-numbers"] th { color: var(--chalk2); font-weight: normal; }
+[data-element="unavailable"], [data-element="differs"], [data-element="profile-failed"] { color: var(--coral); }
+[data-element="band-key"] { display: flex; gap: 1em; font-size: 0.85em; }
+[data-key="band"]::before { background: var(--line2); }
+[data-key="band-read"]::before { background: var(--yellow); }
+rect.day, rect.point { fill: var(--teal); }
+rect.band { fill: var(--line2); }
+rect.band-read { fill: var(--yellow); }
+rect.cell { fill: var(--violet); }
+rect.flagged { fill: var(--pink); }
+rect.no-value { fill: var(--line); }
 section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--line2); }
 section[data-linked], section[data-recorded] { border-left-color: var(--focus); }
 [data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--cardink); background: var(--card); }

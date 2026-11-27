@@ -1,7 +1,7 @@
 {
   "contract": "ranking-reference/1",
-  "code": null,
+  "code": "REFERENCE_LABEL_NOT_BINARY",
   "exit": 2,
   "caught_by": "schema",
-  "why": "a label is 2. Its code is M1's to name"
+  "why": "a label is 2; init refuses it with this code"
 }

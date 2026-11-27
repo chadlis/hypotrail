@@ -39,7 +39,7 @@ Episode. With full coverage (every Episode scored on both sides), each Criterion
 (its share of Repeats scored true) and every Case weighs the same; the main delta is that of the primary Criterion
 (owner decision 1A on chadlis/hypotrail#9), the others are secondary. Without full coverage the value is null with a
 Reason, and the rates of coverage and the two named rates of each side (CMP-04) stand beside it. No interval is computed over Episodes:
-the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`). Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
+the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`), by whole groups (the `group` column of its memberships) under the unit `group`. Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
 """
 
 import csv
@@ -83,6 +83,8 @@ CASES_NOT_ESTABLISHED = (
     "not strict."
 )
 PRODUCTION_MODES = ("scripted_fixture", "llm_live")
+SETTING_EQUAL, SETTING_DIFFERENT, SETTING_UNKNOWN = "equal", "different", "unknown"
+SETTING_STATES = (SETTING_EQUAL, SETTING_DIFFERENT, SETTING_UNKNOWN)
 UNIT = "share of Repeats per Case, every Case weighted equally"
 DELTA_DEFINITION = (
     "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; "
@@ -99,6 +101,19 @@ LIMITATION_INTERVAL = (
     "The interval is a percentile bootstrap over Cases and every Case weighs the same: the Repeats of a Case are not resampled, and the "
     "Comparison carries no binomial interval over Episodes and no significance claim."
 )
+
+# The first limitation once an interval over groups is computed.
+LIMITATION_GROUP_INTERVAL = (
+    "The interval is a percentile bootstrap over groups of Cases: the Cases of a group are drawn together, the Repeats of a Case are not "
+    "resampled, and the Comparison carries no binomial interval over Episodes and no significance claim; every Case weighs the same."
+)
+
+
+def case_groups(study: Path, spec: dict) -> dict:
+    """{case_id: group} from the `group` column of the memberships of the Study's current revision."""
+    ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
+    rows = csv.DictReader(io.StringIO(artifacts.read_verified(study, ref).decode("utf-8"), newline=""))
+    return {row["case_id"]: row["group"] for row in rows}
 
 
 def _population(study: Path, side: dict) -> dict:
@@ -318,6 +333,35 @@ def _measures(study: Path, side: dict) -> dict:
     }
 
 
+def _declared_settings(side: dict):
+    """The flat map of settings the side declares, or None when it declares none (a native side, or an Import's `unknown`)."""
+    if not _is_import(side):
+        return None
+    entry = side["observation_set"]["provenance"].get("settings") or {}
+    return entry["value"] if entry.get("origin") == "declared" else None
+
+
+def settings_of(control: dict, candidate: dict):
+    """The Comparison's `settings`: each key either side declares, with both values (null where undeclared) and its state; None when neither declares.
+
+    An Import's Observation set declares its lines' flat map or leaves it `unknown` (`hypotrail.agentic.imports.declared_settings`); a
+    native side declares none. A key both sides declare with the same canonical JSON bytes is `equal` (so `1` and `true` differ), with
+    other bytes `different`, and `unknown` when a side does not declare it. No check, status, warning or refusal reads it.
+    """
+    declared = {side["role"]: _declared_settings(side) for side in (control, candidate)}
+    if declared["control"] is None and declared["candidate"] is None:
+        return None
+    keys = []
+    for key in sorted(set(declared["control"] or {}) | set(declared["candidate"] or {})):
+        values = {role: (settings or {}).get(key) for role, settings in declared.items()}
+        if all(settings is not None and key in settings for settings in declared.values()):
+            state = SETTING_EQUAL if canonical.dumps(values["control"]) == canonical.dumps(values["candidate"]) else SETTING_DIFFERENT
+        else:
+            state = SETTING_UNKNOWN
+        keys.append({"key": key, **values, "state": state})
+    return {**{role: "unknown" if settings is None else "declared" for role, settings in declared.items()}, "keys": keys}
+
+
 def _rate(scored: int, expected: int):
     return scored / expected if expected else None
 
@@ -383,9 +427,17 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
     delta, cases = _delta(primary, side_episodes["control"], side_episodes["candidate"], keys)
     secondary = [_delta(name, side_episodes["control"], side_episodes["candidate"], keys)[0] for name in dict.fromkeys(row["criterion"] for row in control["per_item"]) if name != primary]
 
-    interval = intervals.record(layout.read_spec(study).get("resampling"), None if cases is None else [d - c for _, c, d in cases.values()])
+    spec = layout.read_spec(study)
+    resampling = spec.get("resampling")
+    groups = None
+    if resampling is not None and resampling["unit"] == intervals.GROUP:
+        by_case = case_groups(study, spec)
+        case_ids = populations["control"]["cases"] if cases is None else cases
+        groups = [by_case[case_id] for case_id in case_ids]
+    interval = intervals.record(resampling, None if cases is None else [d - c for _, c, d in cases.values()], groups=groups)
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
-    limitations = [LIMITATION_INTERVAL if interval["reason"] is None else LIMITATIONS[0], *LIMITATIONS[1:], environment_sentence]
+    first = LIMITATIONS[0] if interval["reason"] is not None else LIMITATION_GROUP_INTERVAL if interval["unit"] == intervals.GROUP else LIMITATION_INTERVAL
+    limitations = [first, *LIMITATIONS[1:], environment_sentence]
     warnings = []
     if imports:
         warnings.append(import_scope_warning(imports))
@@ -450,6 +502,9 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
         "warnings": warnings,
         "limitations": limitations,
     }
+    settings = settings_of(control, candidate)
+    if settings is not None:
+        record["settings"] = settings
     contracts.validate(record)
     artifacts.publish_record(study, f"{folder}/comparison.json", record, role="comparison")
     return record

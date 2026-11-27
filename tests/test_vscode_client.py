@@ -206,6 +206,36 @@ def test_each_kept_figures_read_whose_ok_is_true_carries_the_write_sequence_and_
         assert [entry["comparison_id"] for entry in figures["comparisons"]] == [entry["comparison_id"] for entry in read["comparisons"]], name
 
 
+def kept_profile_names() -> list:
+    return sorted(Path(name).stem for name in tracked("clients/vscode/test/cli") if re.fullmatch(r".*/profile-[a-z-]+\.out", name))
+
+
+def test_each_kept_profile_read_is_the_clis_own_once_its_values_are_replaced_as_the_kept_status_read_beside_it_replaces_them(tmp_path):
+    from _client_helpers import PROFILE_KEPT, first_difference, kept, profile_outputs
+
+    made = profile_outputs(tmp_path)
+    assert sorted(name for name in made if name.startswith("profile-")) == kept_profile_names() == sorted(PROFILE_KEPT)
+    for name, (code, out, err) in made.items():
+        kept_code, kept_out, kept_err = kept(name)
+        assert (code, err) == (kept_code, kept_err), name
+        if not json.loads(kept_out)["ok"]:
+            assert out == kept_out, name  # a refusal names no scratch folder and is kept as printed
+            continue
+        assert first_difference(json.loads(kept_out), json.loads(out)) is None, name
+
+
+def test_the_kept_profile_reads_are_a_bike_studys_at_the_write_sequence_of_the_kept_status_read_beside_it_and_a_chinook_studys_refusal():
+    from _client_helpers import PROFILE_KEPT, STUDIES
+
+    assert set(PROFILE_KEPT.values()) <= set(STUDIES)
+    bike, read = read_json(KEPT / "profile-bike.out"), read_json(KEPT / f"{PROFILE_KEPT['profile-bike']}.out")
+    assert bike["ok"] is True and read["study"]["workload"] == "bike_day" and bike["write_sequence"] == read["write_sequence"]
+    chinook = read_json(KEPT / "profile-chinook.out")
+    assert chinook["ok"] is False and chinook["error"]["code"] == "UNSUPPORTED_CAPABILITY"
+    assert read_json(KEPT / f"{PROFILE_KEPT['profile-chinook']}.out")["study"]["workload"] == "chinook"
+    assert len((KEPT / "profile-bike.out").read_bytes()) < read_json(CLIENT / "contract.json")["max_buffer_bytes"]
+
+
 def kept_demonstration_names() -> list:
     return sorted(Path(name).name for name in tracked("clients/vscode/test/cli/demonstration"))
 
@@ -433,6 +463,8 @@ LET_BINDINGS = {
     ("clients/vscode/src/panel.ts", "unanswered"): "3. from a `no_answer` of a write to that call's answer: its request id, with the call's five identity values and the read sequence it passed",
     ("clients/vscode/src/panel.ts", "inFlight"): "4. whether a call is in flight",
     ("clients/vscode/src/panel.ts", "figures"): "the last figures read",
+    # "`panel.ts` makes the read after the figures read and holds its object as it holds `figures`." (chadlis/hypotrail#262)
+    ("clients/vscode/src/panel.ts", "profile"): "the answer of the last profile read",
 }
 
 
@@ -681,7 +713,7 @@ def test_the_kept_decide_outputs_are_the_clis_own_once_each_uuid_and_the_scratch
 def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_request_id_and_read_sequence_and_no_other_writer_is_listed():
     contract = read_json(CLIENT / "contract.json")
     leaves = leaf_commands()
-    assert contract["reads"] == ["status", "figures"] and contract["writes"] == ["decide"]
+    assert contract["reads"] == ["status", "figures", "profile"] and contract["writes"] == ["decide"]
     for command in contract["reads"] + contract["writes"]:
         assert command in leaves, command
     for command in contract["writes"]:
@@ -839,7 +871,17 @@ def test_a_planted_file_that_holds_an_option_text_is_found():
 # The two headings that name the keys `warnings` and `limitations` of a Comparison; the _Avoid_ entry that lists "limitation" and
 # "warning" is about naming a Declared deviation, not these keys.
 # "Revision" is shown as "Protocol revision N", and that exact label is exempted by name (D-136).
-AVOID_EXEMPT = ("Warnings of the Comparison", "Limitations of the Comparison", "Protocol revision")
+# "**Avoid:** named exemptions for "Revision" and "Data profile"." (D-136, the drive's choice, 7174768926, point 5); the glossary's
+# _Avoid_ "profile" is about naming a Mode, and "A data profile, a read of a **Workload**'s `train` data, is named here in lower case and
+# has no entry" (GLOSSARY.md). The step's name and the two sentences chadlis/hypotrail#262 prints are exempted by name.
+AVOID_EXEMPT = (
+    "Warnings of the Comparison",
+    "Limitations of the Comparison",
+    "Protocol revision",
+    "Data profile",
+    "The data profile could not be read.",
+    "The Workload as declared now no longer gives this Study's Protocol; the profile is read from the Study's own data.",
+)
 
 
 def avoided_words(glossary: str) -> list:

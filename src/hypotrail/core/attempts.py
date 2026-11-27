@@ -43,15 +43,11 @@ def record_failure(study: Path, manifest_path: str, running: dict, error: Except
     """An error inside this live process: the Attempt is `failed`, with finished_at and a Reason.
 
     Its published artifacts stay. If even this write fails, the manifest stays `running`: no state
-    is invented. The Reason names the error, never a secret: an OS error by its message, a Hypotrail
-    error by its code, anything else by its type only.
+    is invented. The Reason is the code and message of the error `coded_error` names, so a foreign
+    exception, an OS error included, is named by its type only.
     """
-    if isinstance(error, OSError):
-        reason = f"{type(error).__name__}: {error}"
-    elif isinstance(error, HypotrailError):
-        reason = f"{error.code}: {error.message}"
-    else:
-        reason = f"unexpected {type(error).__name__}"
+    coded = coded_error(error)
+    reason = f"{coded.code}: {coded.message}"
     failed = {**running, "technical_status": "failed", "finished_at": now(), "reason": reason}
     try:
         contracts.validate(failed)
@@ -110,9 +106,9 @@ class Plain:
     def publish_file(self, source: Path, relative: str, *, media_type: str, role: str) -> dict:
         return artifacts.publish_file(self.study, source, relative, media_type=media_type, role=role)
 
-    def coded(self, error: Exception, manifest_path: str) -> HypotrailError | None:
-        """None: the error is recorded as `record_failure` names it, and raised as it is."""
-        return None
+    def coded(self, error: Exception, manifest_path: str) -> HypotrailError:
+        """The error the `failed` manifest records and the writer raises: a foreign exception by its type only."""
+        return coded_error(error)
 
 
 class Scanned(Plain):
@@ -266,8 +262,8 @@ def record(
     `outside_config` (keys the manifest holds outside `effective_config`, after `input_refs`) and `marks` (what
     `hypotrail.core.exposure.marks` gives, last).
 
-    An error inside the live process leaves a `failed` Attempt. With `Plain`, it is recorded as `record_failure` names it and
-    raised as it is. With `Scanned`, the error it codes is recorded and raised, after `failed`, when given, is called with it.
+    An error inside the live process leaves a `failed` Attempt: the error the adapter codes is recorded and raised, after `failed`,
+    when given, is called with it.
     """
     writes = writes or Plain(study)
     attempt_id = str(uuid.uuid4())
@@ -315,9 +311,6 @@ def record(
         return terminal
     except Exception as error:
         coded = writes.coded(error, manifest_path)
-        if coded is None:
-            record_failure(study, manifest_path, manifest, error)
-            raise
         record_failure(study, manifest_path, manifest, coded)
         if failed is not None:
             failed(coded)
