@@ -40,3 +40,9 @@ With a Study, the station marks come from `status`: at least one dev Assessment 
 D-209 adds teaching figures to the accompanied journey. The panel can show the interval of an eligible development Comparison using the stored estimate and bounds. The renderer owns the chart and its text equivalent, and pack key paths do not select its data. When the interval is unavailable, the lesson can lead to the existing aggregate distribution.
 
 `lesson-pack/2` extends the base schema by accepting an optional `illustration` object on a lesson. It carries a layout, labels and a caption. A flow takes two to four labels and a comparison takes two. Each label has at most sixty-four characters and a caption has at most two hundred and forty. These fields use plain single-line text without digits. The extension schema is `src/hypotrail/lessons/lesson-pack-illustration.schema.json`. The first format still accepts the original fields. Diagrams share the panel's theme and work before a Study exists.
+
+## Amendment — 2026-11-27 (closeout)
+
+`lesson check` applies the D-204 per-Track allowlist of exact Track, read and path triples. Each listed path names a safe aggregate or metadata leaf. A path outside the allowlist is `FORBIDDEN_PATH` even if none of its segments matches a forbidden term. Discovery applies the same rule offline, and `lesson check` additionally resolves allowed paths against the Track's kept reads.
+
+`lesson-pack/2` remains merged, pending owner approval (G1).
