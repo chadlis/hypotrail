@@ -51,8 +51,13 @@ export function panelOf() {
 }
 
 export function lastDocument(): string {
-  const documents = panelOf().documents;
-  return documents[documents.length - 1];
+  const { documents, updates } = panelOf();
+  const document = documents[documents.length - 1];
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(document)?.[1];
+  // The document receives a lesson section by message without a new assignment of its HTML.
+  const lesson = (updates as { lesson: string; nonce: string }[]).find((update) => update.nonce === nonce)?.lesson;
+  return lesson === undefined ? document : document.replace('<section data-part="path">', () => `${lesson}
+<section data-part="path">`);
 }
 
 // The kept status reads, the nine states the demonstration kept last, in the order it went through them: seven of the second Bike
@@ -171,7 +176,7 @@ export function partsOf(document: string): { script: string; style: string; tags
 
 // The unescaped texts of the elements that carry the marker attribute of a marked text.
 export function markedTexts(document: string): string[] {
-  return [...document.matchAll(/<([a-z0-9]+) data-text>([^<]*)<\/\1>/g)].map((match) => unescaped(match[2]));
+  return [...document.matchAll(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>([^<]*)<\/\1>/g)].map((match) => unescaped(match[2]));
 }
 
 // The HTML of the first element that opens with `opening` and closes with `</tag>`, nested elements of the same tag

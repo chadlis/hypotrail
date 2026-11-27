@@ -55,6 +55,7 @@
         "produced": 5
       },
       "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "partition": null,
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [

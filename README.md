@@ -57,7 +57,7 @@ The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose Refere
 
 ## Use the VS Code panel
 
-The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`: the first pending decision, whole, with its evidence, including figures of its Comparison's paired deltas, and each other pending decision under "Waiting", folded to its question. "The Study so far" follows, in moments ("Frame", "Produce", "Assess and compare", "Decide and follow") with one line per step, which folds open to its review form, then its chart, then its limitation; on a Bike Study its first step is "Data profile", the `profile` read of the `train` data drawn as figures; then "Tools". It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
+The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`: the first pending decision, whole, with its evidence, including figures of its Comparison's paired deltas, and each other pending decision under "Waiting", folded to its question. "The Study so far" follows, in moments ("Frame", "Produce", "Assess and compare", "Decide and follow") with one line per step, which folds open to its review form, then its chart, then its limitation; on a Bike Study its first step is "Data profile", the `profile` read of the `train` data drawn as figures; then "Tools". Between "Waiting" and "The Study so far" stand the lesson cards the Study's Track serves (`lesson --json`), each a closed fold that explains a kind of step shown and, while open, outlines where the panel shows the values it speaks of. It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.
@@ -65,7 +65,8 @@ The VS Code client shows a Study on one page: a band with the Write sequence and
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
-The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_study` reads the Study and its lesson cards, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+`hypotrail_run` can run `run`, `assess`, `compare`, `profile` and `report` on the Study once you confirm it. It refuses other commands, the paid Mode `llm_live` and reads of `public_check` Items. The CLI checks the Partition again under the Study's lock before opening the payloads of a guarded Assessment, Comparison or report. See `clients/vscode/run-tool.contract.md` for the command and refusal lists.
 
 ## Give Claude Code the Study at every prompt
 
@@ -85,6 +86,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`docs/demo/edit_copy.py`](docs/demo/edit_copy.py): the script that makes each edit of task 6 of the L2 demonstration in a Workload copy and rewrites the copy's lock (the handbook's chapter on the L2 demonstration).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools).
+- [`clients/vscode/run-tool.contract.md`](clients/vscode/run-tool.contract.md): the contract of the Copilot run tool, with its case corpus under `clients/vscode/test/run-tool-corpus/`.
 - [`clients/vscode/copilot-instructions.md`](clients/vscode/copilot-instructions.md): the template of Copilot's instructions file, copied to `.github/copilot-instructions.md` in a workspace that holds a Study.
 - [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.

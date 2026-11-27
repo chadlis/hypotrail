@@ -141,7 +141,7 @@ for (const name of DECIDED) {
     object.decisions.forEach((decision: Entry, index: number) => {
       if (decision.applies) return;
       assert.ok(decision.reasons.length > 0);
-      const reasons = elementsOf(elementOf(parts[index], '<ul data-element="reasons">')!, "<li>").map((each) => words(between(each)));
+      const reasons = elementsOf(elementOf(parts[index], '<ul data-element="reasons">')!, "<li").map((each) => words(between(each)));
       for (const reason of decision.reasons) assert.ok(reasons.includes(`${reason.reason} ${reason.id}`), `${reason.reason} ${reason.id} in ${reasons}`);
     });
   });

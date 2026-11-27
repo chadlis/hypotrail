@@ -35,7 +35,7 @@ from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, exposure, lock, next_step, revisions, study_write, write_journal
 from hypotrail.core import study as layout
-from hypotrail.core.attempts import now, observation_set_id
+from hypotrail.core.attempts import now, observation_set_id, observation_set_partition
 from hypotrail.core.errors import InvalidInputError
 
 PROVIDER_MODES = ("llm_live",)
@@ -131,6 +131,9 @@ def status(study, since: int | None = None) -> dict:
                 # "`attempts[]` in `status --json` gains an additive key, `observation_set_id`: the id of the Observation set the Attempt
                 # produced, or null if it produced none." (D-157 on chadlis/hypotrail#75)
                 "observation_set_id": observation_set_id(study, manifest),
+                # "`status --json` gains `attempts[].partition`, read from the Observation set's `provenance.partition` (null when there is
+                # none)" (D-175 on chadlis/hypotrail#75)
+                "partition": observation_set_partition(study, manifest),
                 "writer_alive": running and writer_alive,
                 "recoverable": running and not writer_alive,
                 "artifacts": found,

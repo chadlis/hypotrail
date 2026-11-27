@@ -89,6 +89,7 @@
         "produced": 184
       },
       "observation_set_id": "00000000-0000-4000-8000-000000000014",
+      "partition": "public_check",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -144,6 +145,7 @@
         "produced": 182
       },
       "observation_set_id": "00000000-0000-4000-8000-000000000011",
+      "partition": "dev",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -195,6 +197,7 @@
       "reason": null,
       "item_counts": null,
       "observation_set_id": null,
+      "partition": null,
       "writer_alive": false,
       "recoverable": true,
       "artifacts": [],
@@ -217,6 +220,7 @@
         "produced": 182
       },
       "observation_set_id": "00000000-0000-4000-8000-000000000003",
+      "partition": "dev",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [
@@ -280,6 +284,7 @@
         "produced": 182
       },
       "observation_set_id": "00000000-0000-4000-8000-000000000005",
+      "partition": "dev",
       "writer_alive": false,
       "recoverable": false,
       "artifacts": [

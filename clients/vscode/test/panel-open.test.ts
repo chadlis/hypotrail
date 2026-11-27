@@ -387,7 +387,7 @@ const RECORD_PARTS: Record<string, [string, string, string]> = {
 };
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 // The id a part shows first, outside its marked texts.
-const firstId = (html: string): string | undefined => partsOf(html.replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "")).between.match(UUID)?.[0];
+const firstId = (html: string): string | undefined => partsOf(html.replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "")).between.match(UUID)?.[0];
 const partsOfKind = (document: string, kind: string): string[] => [...document.matchAll(new RegExp(`<([a-z0-9]+) data-part="${kind}"[^>]*>`, "g"))].map((match) => elementOf(document.slice(match.index), match[0])!);
 const withoutParts = (html: string, kind: string): string => partsOfKind(html, kind).reduce((rest, part) => rest.replace(part, ""), html);
 
@@ -645,6 +645,8 @@ rect.band-read { fill: var(--yellow); }
 rect.cell { fill: var(--violet); }
 rect.flagged { fill: var(--pink); }
 rect.no-value { fill: var(--line); }
+[data-highlighted] { outline: 2px dashed var(--focus); outline-offset: 2px; }
+details[data-element="card"] li { font-size: 0.85em; color: var(--chalk2); }
 section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--line2); }
 section[data-linked], section[data-recorded] { border-left-color: var(--focus); }
 [data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--cardink); background: var(--card); }
