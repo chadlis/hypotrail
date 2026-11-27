@@ -227,7 +227,7 @@ for (const name of DRAWN) {
       if (entry.unavailable !== null) continue;
       // The histogram and the box plot; the dots, whose numbers are values of the entry's paired deltas, have their own test.
       const shown = [histogramOf(part), boxOf(part)].join("\n");
-      const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)">([^<]*)<\/a>/g)];
+      const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)"(?: data-lesson-value="[^"]*")?>([^<]*)<\/a>/g)];
       assert.ok(links.length >= entry.histogram.length + FIVE.length, `${links.length} links`);
       for (const [, index, kind, text] of links) {
         assert.ok(numbersOf(entry, comparison).has(text), `${text} is a number of the entry of ${entry.comparison_id}`);
@@ -378,7 +378,7 @@ test("the figures open with the heading of the paired deltas and their unit, the
     assert.equal(opening, "<div data-figures>");
     assert.ok(heading.startsWith(`<h4>${LABELS("Paired deltas")} (<span data-text>`) && heading.endsWith("</span>)</h4>"), heading);
     assert.deepEqual(markedTexts(heading), [comparison.delta.unit]);
-    assert.ok(caption.startsWith('<p data-element="caption"><span data-text>'), caption);
+    assert.ok(caption.startsWith('<p data-element="caption"><span data-text data-lesson-value="status comparisons[].delta.definition">'), caption);
     assert.deepEqual(markedTexts(caption), [comparison.delta.definition]);
   }
 });
@@ -409,7 +409,7 @@ test("the key of the box plot names each mark in the order of the axis, the Delt
     const [{ part, comparison, entry }] = comparisonsOf(await drawn(t, object, figures), object, figures);
     const key = elementOf(boxOf(part)!, '<p data-element="quartiles">')!;
     const index = object.comparisons.indexOf(comparison);
-    assert.ok(key.includes(`<span data-key="delta">${LABELS("Delta")} <a href="#comparison-${index}" data-kind="delta">${written(comparison.delta.value)}</a></span>`), key);
+    assert.ok(key.includes(`<span data-key="delta">${LABELS("Delta")} <a href="#comparison-${index}" data-kind="delta" data-lesson-value="status comparisons[].delta.value">${written(comparison.delta.value)}</a></span>`), key);
     const named: [string, number][] = [
       ...(["Minimum", "First quartile", "Median", "Third quartile", "Maximum"] as const).map((text, at): [string, number] => [LABELS(text), entry.quartiles[FIVE[at]]]),
       [LABELS("Delta"), comparison.delta.value],

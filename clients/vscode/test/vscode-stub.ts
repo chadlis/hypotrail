@@ -7,12 +7,16 @@ export type StubPanel = {
   viewType: string;
   options: unknown;
   documents: string[];
+  updates: unknown[];
+  visible: boolean;
   reveals: number;
   disposed: boolean;
-  webview: { html: string; cspSource: string; onDidReceiveMessage(listener: (message: unknown) => void): { dispose(): void } };
+  webview: { html: string; cspSource: string; postMessage(message: unknown): Promise<boolean>; onDidReceiveMessage(listener: (message: unknown) => void): { dispose(): void } };
   // Sends a message as the document's script would.
   send(message: unknown): void;
   reveal(): void;
+  setVisible(visible: boolean): void;
+  onDidChangeViewState(listener: (event: { webviewPanel: StubPanel }) => void): { dispose(): void };
   onDidDispose(listener: () => void): { dispose(): void };
   dispose(): void;
 };
@@ -74,11 +78,14 @@ export const workspace = {
 function makePanel(viewType: string, options: unknown): StubPanel {
   const listeners: (() => void)[] = [];
   const receivers: ((message: unknown) => void)[] = [];
+  const viewStates: ((event: { webviewPanel: StubPanel }) => void)[] = [];
   let html = "";
   const panel: StubPanel = {
     viewType,
     options,
     documents: [],
+    updates: [],
+    visible: true,
     reveals: 0,
     disposed: false,
     webview: {
@@ -90,6 +97,11 @@ function makePanel(viewType: string, options: unknown): StubPanel {
         panel.documents.push(value);
       },
       cspSource: "vscode-webview://stub",
+      async postMessage(message) {
+        if (!panel.visible) return false;
+        panel.updates.push(message);
+        return true;
+      },
       onDidReceiveMessage(listener) {
         receivers.push(listener);
         return disposable;
@@ -101,6 +113,15 @@ function makePanel(viewType: string, options: unknown): StubPanel {
     reveal() {
       record("reveal", []);
       panel.reveals += 1;
+    },
+    setVisible(visible) {
+      if (panel.visible === visible) return;
+      panel.visible = visible;
+      for (const listener of viewStates) listener({ webviewPanel: panel });
+    },
+    onDidChangeViewState(listener) {
+      viewStates.push(listener);
+      return disposable;
     },
     onDidDispose(listener) {
       listeners.push(listener);

@@ -15,7 +15,7 @@ import * as bridge from "../src/bridge";
 import { CHROME, START_MS, pageOf, startChrome } from "./chrome";
 import { DEMONSTRATION, KEPT, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, unescaped, workspace } from "./panel-harness";
-import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
+import { exit, lesson, recorder, type Answer, type RecordedCall } from "./recorder";
 
 type Entry = Record<string, any>;
 type Seen = { document: string; read: Entry; figures: Entry };
@@ -116,7 +116,7 @@ function assertPending({ document, read, figures }: Seen): Entry {
   assert.ok(warning, "the read holds the warning");
   const warnings = elementOf(part, '<div data-part="warnings"')!;
   assert.ok(warnings.includes(`<h4>${label("Warnings of the Comparison")}</h4>`));
-  assert.ok(elementsOf(warnings, "<li>").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
+  assert.ok(elementsOf(warnings, "<li").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
   const limitations = elementOf(part, '<div data-part="limitations"')!;
   assert.ok(limitations.includes(`<h4>${label("Limitations of the Comparison")}</h4>`));
   // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
@@ -560,7 +560,7 @@ function unled(document: string, read: Entry): { fileNames: string[]; numbers: s
     elements.filter((element) => which(element) && element.start <= at && at < element.end).sort((a, b) => a.end - a.start - (b.end - b.start))[0];
   const inside = (element: Element): string => body.slice(element.start, element.end);
   const fileNames: string[] = [];
-  for (const match of body.matchAll(/<([a-z0-9]+) data-text>([^<]*)<\/\1>/g)) {
+  for (const match of body.matchAll(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>([^<]*)<\/\1>/g)) {
     const text = unescaped(match[2]);
     if (!paths.has(text)) continue;
     const part = around(match.index, (element) => element.part !== undefined);
@@ -622,7 +622,30 @@ test("the function of blocker 11 finds nothing in the document of after-compare,
   assert.notEqual(changed, document, "a control was removed");
   const found = unled(changed, read);
   assert.deepEqual(found.fileNames, [read.assessments[index].per_item_ref.path], "the output path with no control");
-  const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)">([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
+  const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)"[^>]*>([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
   assert.ok(expected.length > 0, "numbers lead to the first Assessment's part");
   assert.deepEqual(found.numbers, expected, "each number whose record part has no control");
+});
+
+// The cards of the demonstration's two kept lesson reads, after compare and after decide, beside the status and figures reads of the same
+// state (tests/_client_helpers.py, `lesson_outputs`): the Comparisons card from the first, the Comparisons and Decisions cards from the second.
+test("the demonstration panel draws the Comparisons and Decisions cards folded after Record", async (t) => {
+  const drawn: Record<string, string[]> = {};
+  for (const state of ["after-compare", "after-decide"]) {
+    const read = keptJson(`lesson.${state}`);
+    const { document } = await documentFor(t, keptAnswer(readOf(state)), keptAnswer(figuresOf(state)), lesson(keptAnswer(`lesson.${state}`)));
+    const cards = elementsOf(document, '<details data-element="card"');
+    assert.equal(cards.length, read.cards.length, state);
+    const nowEnd = document.indexOf("</section>", document.indexOf('<section data-part="now"'));
+    const records = [...document.matchAll(new RegExp(`<button data-message="${RECORD}"`, "g"))].map((match) => match.index!);
+    for (const card of cards) {
+      assert.ok(!/^<details[^>]*\sopen[\s>]/.test(card), `${state}: a closed fold`);
+      assert.ok(document.indexOf(card) > Math.max(nowEnd, ...records), `${state}: the card after Record and Now`);
+      assert.doesNotMatch(words(card), /\d/, `${state}: no digit in the card`);
+    }
+    drawn[state] = cards.map((card) => unescaped(markedTexts(card)[0]));
+    assert.deepEqual(cards.map((card) => markedTexts(card).slice(0, 2)), read.cards.map((card: Entry) => [card.title, card.text]), state);
+    if (state === "after-compare") assert.ok(records.length > 0, "after compare, Record stands in Now");
+  }
+  assert.deepEqual(drawn, { "after-compare": ["Comparisons"], "after-decide": ["Comparisons", "Decisions"] });
 });

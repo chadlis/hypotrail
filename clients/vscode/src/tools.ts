@@ -1,12 +1,12 @@
 // The three language-model tools Copilot chat calls: a read of the Study, with no side effect, the write of a Decision, and
 // the run tool, which starts one command of its contract (`run-tool.contract.md`) and may write records, never an act.
-// Each starts its processes through the bridge and holds nothing between calls. The read takes the Study the walk finds,
-// or the folder given as `study` when the walk finds it; the write and the run tool take only the folder given as
-// `study`, when the walk finds it. Otherwise they refuse and start nothing.
+// Each starts its processes through the bridge and holds nothing between calls. The read starts status and, on success, lesson.
+// It takes the Study the walk finds, or the folder given as `study` when the walk finds it; the write and the run tool take only
+// the folder given as `study`, when the walk finds it. Otherwise they refuse and start nothing.
 import * as vscode from "vscode";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, missingInputs, newRequestId, readStudy, recordDecision, runCommand, type Outcome } from "./bridge";
+import { checkoutRoot, missingInputs, newRequestId, readLesson, readStudy, recordDecision, runCommand, type Outcome } from "./bridge";
 import { findStudies, workspaceFolders } from "./studies";
 
 type ReadInput = { study?: unknown };
@@ -173,7 +173,9 @@ export const readTool: vscode.LanguageModelTool<ReadInput> = {
   async invoke(options) {
     const resolved = await studyOf(options.input.study, READ);
     if ("refusal" in resolved) return answer(resolved.refusal);
-    return answer(readAnswer(resolved.study, await readStudy(ROOT, resolved.study)));
+    const outcome = await readStudy(ROOT, resolved.study);
+    if (outcome.outcome !== "success") return answer(readAnswer(resolved.study, outcome));
+    return answer(`${readAnswer(resolved.study, outcome)}\n${lessonAnswer(await readLesson(ROOT, resolved.study))}`);
   },
 };
 
@@ -210,6 +212,22 @@ export const decideTool: vscode.LanguageModelTool<DecideInput> = {
   },
 };
 
+
+// What the read gives back of the lesson read made after a status read that succeeded, on two lines: what the call gave, then the object
+// the CLI printed, whole, its error as printed, or what the bridge holds of a call that did not succeed. The cards explain the steps the
+// Study shows, so that the chat explains with the same text.
+function lessonAnswer(outcome: Outcome): string {
+  switch (outcome.outcome) {
+    case "success":
+      return `The lesson cards of the Study, as the CLI's lesson read printed them; each explains a kind of step the Study shows:\n${json(outcome.object)}`;
+    case "refusal":
+      return `The CLI refused the lesson read, with exit code ${outcome.exit_code}: the Study has no cards to explain with. Its error, as printed:\n${json(outcome.error)}`;
+    case "no_answer":
+      return `The CLI gave no usable answer to the lesson read (${outcome.cause}). What the bridge holds of the call:\n${json(outcome)}`;
+    case "client_refusal":
+      return notSent(READ, outcome.missing);
+  }
+}
 
 // --- The run tool ---------------------------------------------------------------------------------------------------------------
 
