@@ -4,7 +4,8 @@
   "read_arguments": ["status", "--study={path}", "--since={n}", "--json"],
   "figures_arguments": ["figures", "--study={path}", "--json"],
   "profile_arguments": ["profile", "--study={path}", "--json"],
-  "reads": ["status", "figures", "profile"],
+  "lesson_arguments": ["lesson", "--study={path}", "--json"],
+  "reads": ["status", "figures", "profile", "lesson"],
   "writes": ["decide"],
   "decide_options": ["--study", "--question", "--option", "--author", "--source", "--question-id", "--option-id", "--words", "--channel", "--by", "--artifact", "--request-id", "--read-sequence", "--json"],
   "decide_optional_options": ["--source", "--question-id", "--option-id", "--words", "--channel", "--by"],
@@ -330,6 +331,14 @@
     "target.series[].value",
     "target.unit",
     "workload_protocol",
+    "write_sequence"
+  ],
+  "lesson_key_paths": [
+    "cards[].key_paths[].path",
+    "cards[].key_paths[].read",
+    "cards[].text",
+    "cards[].title",
+    "ok",
     "write_sequence"
   ]
 }

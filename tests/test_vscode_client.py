@@ -458,6 +458,8 @@ LET_BINDINGS = {
     ("clients/vscode/src/panel.ts", "figures"): "the last figures read",
     # "`panel.ts` makes the read after the figures read and holds its object as it holds `figures`." (chadlis/hypotrail#262)
     ("clients/vscode/src/panel.ts", "profile"): "the answer of the last profile read",
+    # D-178 on chadlis/hypotrail#75, item 2, with the #283 line "`bridge.ts` gains `readLesson`, with the same limits as `readFigures`".
+    ("clients/vscode/src/panel.ts", "lesson"): "the answer of the last lesson read",
 }
 
 
@@ -706,7 +708,7 @@ def test_the_kept_decide_outputs_are_the_clis_own_once_each_uuid_and_the_scratch
 def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_request_id_and_read_sequence_and_no_other_writer_is_listed():
     contract = read_json(CLIENT / "contract.json")
     leaves = leaf_commands()
-    assert contract["reads"] == ["status", "figures", "profile"] and contract["writes"] == ["decide"]
+    assert contract["reads"] == ["status", "figures", "profile", "lesson"] and contract["writes"] == ["decide"]
     for command in contract["reads"] + contract["writes"]:
         assert command in leaves, command
     for command in contract["writes"]:

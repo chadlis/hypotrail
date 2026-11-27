@@ -3,6 +3,7 @@ through the CLI; and the accompanied agent path, on the demonstration's Chinook 
 
 import json
 
+from _client_helpers import LESSON_KEPT, first_difference, lesson_outputs
 from _lesson_helpers import demonstration_until, lesson, resolved
 from _study_helpers import run_json
 
@@ -26,6 +27,16 @@ def test_bike_accompanied_from_the_demonstration_to_record(tmp_path):
             assert resolved(reads[key_path["read"]], key_path["path"]) != [], (card["kind"], key_path)
     assert run_json("status", "--study", study)[1] == status
 
+    # The `lesson` reads the client's tests are built from equal those a fresh run of the demonstration gives, both ways.
+    made = lesson_outputs(tmp_path / "lesson-reads")
+    names = sorted(path.name for path in LESSON_KEPT.iterdir())
+    assert sorted(made) == names
+    for name in names:
+        kept = (LESSON_KEPT / name).read_text(encoding="utf-8")
+        if name.endswith(".out"):
+            assert first_difference(json.loads(kept), json.loads(made[name])) is None, name
+        else:
+            assert kept == made[name], name
 
 def agentic_reads(study) -> dict:
     """{read: the object it printed} of `status`, `figures` and `lesson` on the Study, through the CLI; each exits 0."""

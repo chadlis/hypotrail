@@ -645,6 +645,8 @@ rect.band-read { fill: var(--yellow); }
 rect.cell { fill: var(--violet); }
 rect.flagged { fill: var(--pink); }
 rect.no-value { fill: var(--line); }
+[data-highlighted] { outline: 2px dashed var(--focus); outline-offset: 2px; }
+details[data-element="card"] li { font-size: 0.85em; color: var(--chalk2); }
 section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--line2); }
 section[data-linked], section[data-recorded] { border-left-color: var(--focus); }
 [data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--cardink); background: var(--card); }

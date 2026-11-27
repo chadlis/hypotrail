@@ -10,6 +10,7 @@ import * as path from "node:path";
 import { DEMONSTRATION, JOURNEY, KEPT } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED, profileFor } from "./panel-harness";
 import { BELOW_AA, THEMES, themed } from "./themes";
+import { KEPT_LESSONS } from "./recorder";
 
 type Entry = Record<string, any>;
 
@@ -331,6 +332,17 @@ const FIRST_SCREEN_READS = [
   ...["04-pending", "09-new-compare", "11-study-changed"].map((state) => `${JOURNEY}${state}.status`),
   "status-several-pending",
 ];
+
+// "At 420 px, the question, the delta, any warning, the limitations line, the options and Record stay in the first screen with the cards
+// present" (#283): the documents the first-screen tests measure hold the folded cards wherever a lesson read is kept beside the state.
+for (const name of [...FIRST_SCREEN_READS, ...DEMONSTRATION_READS].filter((read, at, all) => all.indexOf(read) === at && read in KEPT_LESSONS)) {
+  test(`the document the first-screen tests measure holds the closed cards of the lesson read kept beside the state: ${name}`, async (t) => {
+    const document = await demonstrationDocument(t, name);
+    const cards = elementsOf(document, '<details data-element="card"');
+    assert.equal(cards.length, keptObject(KEPT_LESSONS[name]).cards.length);
+    assert.ok(cards.length > 0 && cards.every((card) => !/^<details[^>]*\sopen[\s>]/.test(card)), name);
+  });
+}
 
 // The browser, or a skip when it is missing or does not start.
 async function chromeOrSkip(t: TestContext, what: string): Promise<string | undefined> {

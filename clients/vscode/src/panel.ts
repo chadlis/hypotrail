@@ -1,16 +1,17 @@
 // The one webview panel of the extension. It holds in memory only, for as long as it is open, the target it was
 // opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
-// call is answered, whether a call is in flight, the last figures read and the answer of the last profile read. It reads the Study
-// through the bridge when it is opened, after each write the CLI answered and on the control "Read again", and at no other time,
-// each status read that succeeds followed by the figures call, then, once its document is drawn, the profile call; it writes only through `recordDecision`, on the control that records and on
+// call is answered, whether a call is in flight, the last figures read, the answer of the last profile read and the last lesson read
+// usable beside the object held. It reads the Study through the bridge when it is opened, after each write the CLI answered and on the
+// control "Read again", and at no other time, each status read that succeeds followed by the figures call, then, once its document is
+// drawn, the profile call and the lesson call; it writes only through `recordDecision`, on the control that records and on
 // "Send again". On a control that opens, it shows in the editor, read-only, a file of the Study whose path the object held names.
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readFigures, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, usableFigures, type View } from "./content";
+import { checkoutRoot, newRequestId, readFigures, readLesson, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
+import { bodyOf, usableFigures, usableLesson, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
@@ -29,6 +30,7 @@ let unanswered: DecisionInput | undefined;
 let inFlight = false;
 let figures: Record<string, unknown> | undefined;
 let profile: Outcome | undefined;
+let lesson: Record<string, unknown> | undefined;
 
 export function openPanel(next: Target): void {
   if (panel && (inFlight || unanswered)) {
@@ -39,6 +41,7 @@ export function openPanel(next: Target): void {
   held = undefined;
   figures = undefined;
   profile = undefined;
+  lesson = undefined;
   if (panel) {
     panel.reveal();
   } else {
@@ -50,6 +53,7 @@ export function openPanel(next: Target): void {
       held = undefined;
       figures = undefined;
       profile = undefined;
+      lesson = undefined;
       unanswered = undefined;
       inFlight = false;
     });
@@ -169,14 +173,14 @@ async function open(message: Message): Promise<void> {
     await vscode.commands.executeCommand(READ_ONLY);
   } catch {
     if (panel !== opened || inFlight || held !== object) return;
-    show({ reading: false, object: held, figures, profile, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study, unopened: true });
+    show({ reading: false, object: held, figures, profile, lesson, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study: target!.study, unopened: true });
   }
 }
 
 async function write(input: DecisionInput): Promise<void> {
   const opened = panel!;
   inFlight = true;
-  show({ reading: false, writing: true, object: held, figures, profile, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
+  show({ reading: false, writing: true, object: held, figures, profile, lesson, unanswered: unanswered !== undefined, sent: input, decision: target!.decision, study: target!.study });
   const outcome = await recordDecision(ROOT, target!.study, input);
   if (panel !== opened) return;
   inFlight = false;
@@ -184,7 +188,7 @@ async function write(input: DecisionInput): Promise<void> {
   if (outcome.outcome === "no_answer" || outcome.outcome === "client_refusal") {
     // A write the bridge refuses keeps its choice and its words in the document, so that the person can correct them.
     const sent = outcome.outcome === "client_refusal" ? input : unanswered;
-    show({ reading: false, object: held, figures, profile, written: outcome, unanswered: unanswered !== undefined, sent, decision: target!.decision, study: target!.study });
+    show({ reading: false, object: held, figures, profile, lesson, written: outcome, unanswered: unanswered !== undefined, sent, decision: target!.decision, study: target!.study });
   } else {
     await read(outcome);
   }
@@ -197,7 +201,7 @@ async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
   inFlight = true;
-  show({ reading: true, object: held, figures, profile, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: true, object: held, figures, profile, lesson, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   const sequence = held?.write_sequence;
   const outcome = await readStudy(ROOT, study, Number.isSafeInteger(sequence) && (sequence as number) >= 0 ? (sequence as number) : 0);
   if (panel !== opened) return;
@@ -208,9 +212,11 @@ async function read(written?: Outcome): Promise<void> {
   held = object;
   figures = answer?.outcome === "success" ? usableFigures(object, answer.object) : undefined;
   profile = undefined;
+  lesson = undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
-  show({ reading: false, object: held, figures, profile, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  show({ reading: false, object: held, figures, profile, lesson, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   if (object !== undefined) void readProfileOf(opened, object, study, written);
+  if (object !== undefined) void readLessonOf(opened, object, study, written);
 }
 
 // The profile call, made once the document of the status and figures reads is drawn, so that nothing waits for it: its answer is kept for
@@ -219,7 +225,17 @@ async function readProfileOf(opened: vscode.WebviewPanel, object: Record<string,
   const answer = await readProfile(ROOT, study);
   if (panel !== opened || held !== object) return;
   profile = answer;
-  if (!inFlight) show({ reading: false, object: held, figures, profile, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  if (!inFlight) show({ reading: false, object: held, figures, profile, lesson, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+}
+
+// The lesson call, made once the document of the status and figures reads is drawn, as the profile call is, so that the Pending decision,
+// its choices and Record never wait for it: only a lesson read usable beside the object it was made beside is kept, and the document is
+// built again with it unless a call is in flight or the panel has read again meanwhile.
+async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string, written?: Outcome): Promise<void> {
+  const answer = await readLesson(ROOT, study);
+  if (panel !== opened || held !== object) return;
+  lesson = answer.outcome === "success" ? usableLesson(object, answer.object) : undefined;
+  if (!inFlight && lesson !== undefined) show({ reading: false, object: held, figures, profile, lesson, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {
@@ -290,6 +306,13 @@ const SCRIPT = [
   "    reveal(target);",
   "  });",
   "}",
+  // Mark every rendered value named by an open card.
+  `const cards = document.querySelectorAll('details[data-element="card"]');`,
+  "const mark = () => {",
+  `  const paths = new Set([...document.querySelectorAll('details[data-element="card"][open] [data-shows]')].map((item) => item.getAttribute("data-shows")));`,
+  '  for (const value of document.querySelectorAll("[data-lesson-value]")) value.toggleAttribute("data-highlighted", paths.has(value.getAttribute("data-lesson-value")));',
+  "};",
+  'for (const card of cards) card.addEventListener("toggle", mark);',
   'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
   "else {",
   '  const linked = document.querySelector("[data-linked]");',
@@ -439,6 +462,9 @@ const STYLE = [
   "rect.cell { fill: var(--violet); }",
   "rect.flagged { fill: var(--pink); }",
   "rect.no-value { fill: var(--line); }",
+  // The places an open card names: an outline in the theme's focus colour, which changes no size and no text.
+  "[data-highlighted] { outline: 2px dashed var(--focus); outline-offset: 2px; }",
+  'details[data-element="card"] li { font-size: 0.85em; color: var(--chalk2); }',
   'section[data-part="decision"] { margin: 0.4em 0 0.8em; padding: 0.1em 0.6em; border-left: 3px solid var(--line2); }',
   "section[data-linked], section[data-recorded] { border-left-color: var(--focus); }",
   "[data-applies] { font-size: 0.8em; font-weight: normal; padding: 0 0.5em; border-radius: 1em; color: var(--cardink); background: var(--card); }",
