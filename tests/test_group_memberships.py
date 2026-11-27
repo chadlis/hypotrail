@@ -104,7 +104,7 @@ def test_a_workload_whose_cases_declare_no_group_keeps_the_bytes_of_its_membersh
     if entry == "init --new-revision":
         revised(tmp_path, workload, study)
     assert sha256(memberships_of(study)) == MEMBERSHIPS_AT_MAIN[workload]
-    assert memberships_of(study).read_text(encoding="utf-8").splitlines()[0].split(",")[:2] == ["case_id", "partition"]
+    assert "group" not in memberships_of(study).read_text(encoding="utf-8").splitlines()[0].split(",")
 
 
 def without_group_on_d02(partition, records):

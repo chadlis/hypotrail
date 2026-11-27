@@ -53,7 +53,7 @@ INTERVAL_REASONS = {
     "series_not_contiguous": "no interval: the population lists fewer days than its Partition, so the days are not one series",
     "too_few_units": "no interval: fewer than two units",
 }
-INTERVAL_UNITS = {"case": "Cases", "item": "Items"}
+INTERVAL_UNITS = {"case": "Cases", "item": "Items", "group": "groups"}
 
 
 def interval(record: dict) -> Safe:

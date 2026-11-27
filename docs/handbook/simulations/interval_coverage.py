@@ -1,4 +1,4 @@
-"""The coverage of the paired interval of `hypotrail.core.intervals` for independent units, at the sizes the Workloads use.
+"""The coverage of the paired interval of `hypotrail.core.intervals` for independent units and for groups, at the sizes the Workloads use.
 
 A development script, never run by a command of Hypotrail. For each size it simulates `replications` paired data sets whose true delta is
 known, computes the interval each would get (the core's function, the level and the count of resamples of the core), and counts the share
@@ -16,6 +16,11 @@ The data-generating settings:
   182 and 184 days of Bike's `dev` and `public_check`, under four dependences: independent standard normal noise; a first-order
   autoregression x[t] = phi x[t-1] + e[t] with phi 0.5 and 0.9, started from its stationary distribution; and a weekly pattern,
   sin(2 pi (t + phase) / 7) with a phase drawn per series, plus standard normal noise.
+
+- Groups (`unit` "group", chinook_prose's 10 `dev` and 2 `public_check` groups of 3 Cases): each group draws a Control rate uniform on
+  [0.2, 0.8] that its Cases share, each Case moving it by a uniform draw on [-0.05, 0.05], and the Candidate's rate is 0.1 above, so the
+  true delta is 0.1; Repeats and Episodes are drawn as for Cases. Each data set gets the group interval and the Case interval, with
+  the same resampling seed, and the coverage of each is recorded: the Case interval treats the Cases of a group as independent.
 
 Unless `--no-block-length` is given, it also records the length `arch.bootstrap.optimal_block_length` gives for the circular variant on
 the target of Bike's `train` Partition, beside the declared length, as agreement or disagreement; it never changes the declared length.
@@ -47,8 +52,11 @@ BLOCK_LENGTH = 7
 DEPENDENCES = ["independent", "ar1_0.5", "ar1_0.9", "weekly"]
 # (days, dependence, replications of the kept run)
 BLOCK_SIZES = [(days, dependence, 1000) for days in (182, 184) for dependence in DEPENDENCES]
+# (groups, Cases per group, Repeats, replications of the kept run): chinook_prose's 10 `dev` groups and its 2 `public_check` groups.
+GROUP_SIZES = [(10, 3, 1, 1000), (10, 3, 3, 1000), (2, 3, 1, 1000)]
 CASE_RATE = (0.2, 0.8)
 CASE_EFFECT = 0.1
+GROUP_JITTER = 0.05
 ITEM_SHIFT = 0.8
 
 
@@ -59,6 +67,41 @@ def case_deltas(generator: random.Random, cases: int, repeats: int) -> list:
         pairs = [generator.random() for _ in range(repeats)]
         deltas.append(sum(float(u < rate + CASE_EFFECT) - float(u < rate) for u in pairs) / repeats)
     return deltas
+
+
+def group_deltas(generator: random.Random, groups: int, size: int, repeats: int) -> tuple:
+    """(per-Case deltas, the group of each): the Cases of a group share its Control rate, each moved by its own small jitter."""
+    deltas, labels = [], []
+    for group in range(groups):
+        shared = generator.uniform(*CASE_RATE)
+        for _ in range(size):
+            rate = shared + generator.uniform(-GROUP_JITTER, GROUP_JITTER)
+            pairs = [generator.random() for _ in range(repeats)]
+            deltas.append(sum(float(u < rate + CASE_EFFECT) - float(u < rate) for u in pairs) / repeats)
+            labels.append(f"g{group:02d}")
+    return deltas, labels
+
+
+def group_coverage(groups: int, size: int, repeats: int, replications: int, generator: random.Random) -> dict:
+    """The coverage of the group interval and of the Case interval on the same data sets, each with the same resampling seed."""
+    held = {"group": 0, "case": 0}
+    for _ in range(replications):
+        deltas, labels = group_deltas(generator, groups, size, repeats)
+        seed = generator.randrange(2**31)
+        by_group = intervals.cluster_interval(deltas, labels, seed=seed)
+        by_case = intervals.percentile_interval(deltas, seed=seed)
+        held["group"] += by_group["lower"] <= CASE_EFFECT <= by_group["upper"]
+        held["case"] += by_case["lower"] <= CASE_EFFECT <= by_case["upper"]
+    return {
+        "unit": "group",
+        "groups": groups,
+        "cases_per_group": size,
+        "repeats": repeats,
+        "replications": replications,
+        "true_delta": CASE_EFFECT,
+        "group_coverage": held["group"] / replications,
+        "case_coverage": held["case"] / replications,
+    }
 
 
 def item_deltas(generator: random.Random, items: int) -> list:
@@ -155,9 +198,13 @@ def run(replications: int | None, block_length: bool = True) -> dict:
             "item": f"independent Item deltas, exponential of mean 1 minus {ITEM_SHIFT}",
             "days": "daily deltas of mean 0: independent standard normal; x[t] = phi x[t-1] + e[t] with phi 0.5 and 0.9, from the stationary "
             f"distribution; sin(2 pi (t + phase) / {BLOCK_LENGTH}) with a random phase plus standard normal noise",
+            "group": f"each group draws a Control rate uniform on [{CASE_RATE[0]}, {CASE_RATE[1]}] that its Cases share, each Case moving it "
+            f"by a uniform draw on [-{GROUP_JITTER}, {GROUP_JITTER}]; the Candidate's rate is + {CASE_EFFECT}, and the Repeats and the two "
+            "sides of an Episode are drawn as for Cases",
         },
         "sizes": [coverage(unit, units, repeats, replications or count, generator) for unit, units, repeats, count in SIZES],
         "block_sizes": [block_coverage(days, dependence, replications or count, generator) for days, dependence, count in BLOCK_SIZES],
+        "group_sizes": [group_coverage(groups, size, repeats, replications or count, generator) for groups, size, repeats, count in GROUP_SIZES],
         "timing": timing(),
     }
     if block_length:
