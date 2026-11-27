@@ -107,9 +107,25 @@ test("the Comparison lesson links only to an existing aggregate development figu
   const link = /<a data-pack-figure href="(#lesson-figure-\d+)">/.exec(document);
   assert.ok(link);
   assert.ok(document.includes(`id="${link[1].slice(1)}"`));
-  assert.doesNotMatch(bodyOf({ ...view, figures: undefined }), /data-pack-figure/);
+  const withoutInterval = { ...object, comparisons: object.comparisons.map((comparison: object) => ({ ...comparison, interval: undefined })) };
+  assert.doesNotMatch(bodyOf({ ...view, object: withoutInterval, figures: undefined }), /data-pack-figure/);
   const unknown = { ...object, attempts: object.attempts.map((attempt: object) => ({ ...attempt, partition: null })) };
   assert.doesNotMatch(bodyOf({ ...view, object: unknown }), /data-pack-figure/);
+});
+
+test("the development figure plots the stored interval with a text equivalent", () => {
+  const object = keptObject("journey.04-pending.status");
+  const figures = keptObject("journey.04-pending.figures");
+  const lesson = { ...packRead, write_sequence: object.write_sequence };
+  const view = { study: "bike", reading: false, object, figures, lesson };
+  const html = bodyOf(view);
+  const plot = elementOf(html, '<figure data-element="development-interval">');
+  assert.ok(plot);
+  assert.match(plot, /<svg/);
+  assert.match(words(plot), /Interval/);
+  assert.match(words(plot), /Estimate/);
+  const unknown = { ...object, attempts: object.attempts.map((attempt: object) => ({ ...attempt, partition: null })) };
+  assert.doesNotMatch(bodyOf({ ...view, object: unknown }), /<figure data-element="development-interval">/);
 });
 
 test("a legacy lesson read with no configured pack still draws the pack status", () => {

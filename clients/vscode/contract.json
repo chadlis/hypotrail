@@ -177,7 +177,10 @@
     "No matching records",
     "See the aggregate development figure",
     "Stations and lessons",
-    "Lesson packs: availability unknown"
+    "Lesson packs: availability unknown",
+    "Estimate",
+    "to",
+    "Zero marks equal performance."
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
@@ -354,6 +357,9 @@
     "cards[].title",
     "lessons[].how_to_do_it",
     "lessons[].how_to_read",
+    "lessons[].illustration.caption",
+    "lessons[].illustration.labels",
+    "lessons[].illustration.layout",
     "lessons[].pitfalls",
     "lessons[].question",
     "lessons[].source",

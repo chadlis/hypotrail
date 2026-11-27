@@ -5,7 +5,7 @@
 // sign of the paired delta the figures read holds.
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
-import { bars, boxPlot, boxes, columns, dayOf, dots, histogram, matrix, partBar, scatter, timeline, type Bar, type Cell, type Dot, type Five } from "./charts";
+import { bars, boxPlot, boxes, columns, dayOf, dots, histogram, intervalPlot, matrix, partBar, scatter, timeline, type Bar, type Cell, type Dot, type Five } from "./charts";
 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `profile` the
 // answer of the profile call made after it, `lesson` the object of the lesson read made after it, `failure`
@@ -171,6 +171,10 @@ const LABEL = {
   packFigure: 133,
   packSection: 134,
   packUnavailable: 135,
+  chartEstimate: 136,
+  chartInterval: 69,
+  chartTo: 137,
+  chartZero: 138,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -305,12 +309,27 @@ const ATTEMPT_COUNT_KEYS = new Map([
   ["missing", "status attempts[].item_counts.missing"],
 ]);
 
+function packIllustrationOf(input: unknown): string {
+  const illustration = record(input);
+  const { layout, labels, caption } = illustration;
+  if ((layout !== "flow" && layout !== "compare") || !Array.isArray(labels) || typeof caption !== "string") return "";
+  return [
+    '<figure data-element="pack-illustration">',
+    `<ol data-layout="${layout}">`,
+    ...labels.map((item, index) => `<li>${index > 0 && layout === "flow" ? '<span aria-hidden="true">→</span>' : ""}${marked(item)}</li>`),
+    '</ol>',
+    marked(caption, "figcaption"),
+    '</figure>',
+  ].join("\n");
+}
+
 function packLessonOf(lesson: Entry): string {
   const items = (value: unknown): string => Array.isArray(value) ? `<ul>${value.map((item) => marked(item, "li")).join("")}</ul>` : "";
   return [
     '<details data-element="pack-lesson">',
     `<summary>${marked(lesson.title)}</summary>`,
     `<p>${label("packSource")} · ${marked(lesson.source)}</p>`,
+    packIllustrationOf(lesson.illustration),
     '<dl>',
     `<dt>${label("packWhy")}</dt>${marked(lesson.why_this_step, "dd")}`,
     `<dt>${label("packDo")}</dt><dd>${items(lesson.how_to_do_it)}</dd>`,
@@ -730,6 +749,22 @@ function pendingOf(pending: Entry, index: number, locked: boolean, shown: Shown,
 // 1, the single-feature chart and the figures of its paired deltas, then the rest, and last its dots when they do not stand with the figures. `roles` are the ids
 // of the Assessments that stand under the Control and the Candidate, whose Metric of the delta chart 1 draws where the delta record
 // carries no value of its own; `context`, the ids of the Decisions that no longer apply that Now shows.
+function methodFigureTarget(index: number, now: boolean): string {
+  return `<span id="lesson-figure-${index}"${now ? ' data-lesson-figure="now"' : ""} role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>`;
+}
+
+function developmentIntervalOf(delta: Entry, interval: Entry, index: number, now: boolean): string {
+  const estimate = number(delta.value), low = number(interval.lower), high = number(interval.upper);
+  if (estimate === null || low === null || high === null || low > high) return "";
+  return [
+    '<figure data-element="development-interval">',
+    methodFigureTarget(index, now),
+    intervalPlot(low, high, estimate),
+    `<figcaption>${label("chartEstimate")} ${value(estimate)} ${marked(delta.unit)} · ${label("chartInterval")} ${value(low)} ${label("chartTo")} ${value(high)} ${marked(delta.unit)}. ${label("chartZero")}</figcaption>`,
+    '</figure>',
+  ].join("\n");
+}
+
 function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "", context?: unknown[]): string {
   const index = shown.comparisons.findIndex((each) => each.comparison_id === id);
   const comparison = shown.comparisons[index];
@@ -758,7 +793,9 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
       const assessment = shown.assessments.find((each) => each.assessment_id === role);
       return assessment !== undefined && shown.devObservations.has(assessment.observation_set_id);
     });
-    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first, methodFigure, context !== undefined);
+    const intervalFigure = methodFigure ? developmentIntervalOf(delta, record(comparison.interval), index, context !== undefined) : "";
+    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first, methodFigure && intervalFigure === "", context !== undefined);
+    const evidence = [intervalFigure, figures].filter(Boolean).join("\n");
     const paths = [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]].flatMap(([ref, output]) => {
       const path = record(output).path;
       return typeof path === "string" ? [`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref as string, path, shown)}</p>`] : [];
@@ -767,12 +804,12 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
       lines.push(deltaOf(delta, index, comparison.interval), contextOf(context ?? [], shown), coverageLine);
       lines.push(`<p data-element="frame">${label("scorer")} ${value(scorerOf(roles[0], shown), lessonValue("status assessments[].scorer.id"))} ${status}</p>`, listOf("warnings", warnings));
       lines.push(`<p data-element="limits">${label("warnings")} ${link("warnings", index, warnings.length)} ${label("limitations")} ${link("limitations", index, limitations.length)} <span>${label("limitationsRule")}</span></p>`, choices);
-      const fold = [featuresChartOf(roles, delta, shown), rolesLine, deltaChartOf(delta, index, roles, shown), figures, rest].filter((line) => line !== "");
+      const fold = [featuresChartOf(roles, delta, shown), rolesLine, deltaChartOf(delta, index, roles, shown), evidence, rest].filter((line) => line !== "");
       if (fold.length > 0) lines.push(['<details data-element="charts">', `<summary>${label("charts")}</summary>`, ...fold, "</details>"].join("\n"));
       lines.push(`<p data-element="definition">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`, coverageChartOf(coverage, index), ...paths);
       lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("limitations", limitations));
     } else {
-      lines.push(deltaOf(delta, index, comparison.interval), coverageLine, rolesLine, deltaChartOf(delta, index, roles, shown), featuresChartOf(roles, delta, shown), figures);
+      lines.push(deltaOf(delta, index, comparison.interval), coverageLine, rolesLine, deltaChartOf(delta, index, roles, shown), featuresChartOf(roles, delta, shown), evidence);
       lines.push(`<p data-element="definition">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`, coverageChartOf(coverage, index), `<p>${status}</p>`, ...paths);
       lines.push(recordFileOf("comparison", index, comparison.comparison_id, shown), listOf("warnings", warnings), listOf("limitations", limitations), rest);
     }
@@ -858,7 +895,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
       `<p data-element="caption">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`,
       few ? shownDots : "",
       '<div data-figure="histogram">',
-      methodFigure ? `<span id="lesson-figure-${index}"${now ? ' data-lesson-figure="now"' : ""} role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>` : "",
+      methodFigure ? methodFigureTarget(index, now) : "",
       `<table data-element="counts"><caption>${label(agent ? "casesPerBin" : "itemsPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
       histogram(counts as number[], ends),
       `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(` ${marked(delta.unit)} `)}</p>`,
