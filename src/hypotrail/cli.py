@@ -340,9 +340,12 @@ def build_parser() -> argparse.ArgumentParser:
         "lesson",
         help="show the cards the Study's Track serves, one per kind of step the Study holds a record of: what the step is and how to read it (read only)",
     )
-    lesson.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to read")
+    lesson.add_argument("--study", type=Path, metavar="DIR", help="the Study to read")
+    lesson.add_argument("action", nargs="?", choices=("check",), help="check a pack without opening a Study")
+    lesson.add_argument("pack_dir", nargs="?", type=Path, metavar="PACK_DIR", help="the pack directory for lesson check")
+    lesson.add_argument("--kept", type=Path, metavar="DIR", help="kept status and figures reads for lesson check")
     lesson.add_argument("--json", action="store_true", help="print one JSON object")
-    lesson.set_defaults(handler=_lesson)
+    lesson.set_defaults(handler=_lesson, lesson_parser=lesson)
 
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
@@ -884,7 +887,32 @@ def _lesson_track(domain: str):
     return lesson
 
 
+def _lesson_check(args) -> int:
+    from hypotrail.lessons import check
+
+    if args.pack_dir is None or args.kept is None:
+        args.lesson_parser.error("lesson check requires PACK_DIR and --kept DIR")
+    if args.study is not None or not args.kept.is_dir():
+        args.lesson_parser.error("lesson check needs a kept-read directory and no Study")
+    errors = check(args.pack_dir, args.kept)
+    if errors:
+        message = "the lesson pack failed validation"
+        if not args.json:
+            message += "\n" + "\n".join(f"{error['rule']} at {error['path']}" for error in errors)
+        raise InvalidInputError(
+            "LESSON_PACK_INVALID", message, stage="config", details={"errors": errors},
+        )
+    _emit({"ok": True}, args.json, "lesson pack valid")
+    return EXIT_OK
+
+
 def _lesson(args) -> int:
+    if args.action == "check":
+        return _lesson_check(args)
+    if args.kept is not None:
+        args.lesson_parser.error("--kept applies only to lesson check")
+    if args.study is None:
+        args.lesson_parser.error("the following arguments are required: --study")
     from hypotrail.core import study as layout
 
     domain = layout.read_spec(args.study)["domain"]

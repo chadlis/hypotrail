@@ -1,0 +1,30 @@
+{
+  "lessons": [
+    {
+      "id": "read-the-delta",
+      "station": "held_out",
+      "track": "temporal_regression",
+      "title": "Read the paired difference",
+      "why_this_step": "Measure the change on the same units before choosing a Configuration.",
+      "how_to_do_it": [
+        "Check that both Assessments cover the same units.",
+        "Find the sign of the paired difference."
+      ],
+      "how_to_read": "Relate the sign to the direction in which the Metric improves.",
+      "pitfalls": [
+        "Reversing the Comparison sides changes the sign and reverses which side appears to improve."
+      ],
+      "question": "Which side would you favour if the error fell?",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "comparisons[].delta.value"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].quartiles.median"
+        }
+      ]
+    }
+  ]
+}

@@ -538,6 +538,12 @@ uv run python -m hypotrail lesson --study runs/bike --json</pre>
 <tr data-kind="decisions" data-read="status" data-path="decisions[].reasons"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].reasons</code></td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="lesson-pack-check">Check a lesson pack</p>
+<p><code>hypotrail lesson check PACK_DIR --kept DIR</code> reads the two JSON files of a lesson pack and checks it against kept reads. Use <code>--json</code> for the rule, lesson identifier and path of each validation error. The check opens no Study and writes nothing.</p>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Code</th><th>What it means</th><th>Exit</th></tr></thead><tbody>
+<tr data-code="LESSON_PACK_INVALID" data-exit="2" data-stage="config"><td><code>LESSON_PACK_INVALID</code></td><td>The files or declared lesson content failed validation. The JSON error gives <code>details.errors</code>.</td><td>2</td></tr>
+</tbody></table></div>
+
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>Study</h3><p>A Study, the Attempt manifest, the Observation set and the <code>request_id</code> identity exist and are driven by <code>init</code> and <code>run ml</code> (<a href="#study-and-attempts">chapter 04</a>). The library functions of this chapter write plain files and know nothing of a Study. Assessments and Comparisons in a Study are <a href="#assessments">chapter 05</a> and <a href="#comparison">chapter 07</a>.</p></div>

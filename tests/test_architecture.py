@@ -48,9 +48,9 @@ def test_the_resolver_finds_the_modules_of_the_subpackages_and_resolves_each_rel
 # --- rule 1: layering ----------------------------------------------------------------------------------------------------------
 
 # Every package and top-level module of `src/hypotrail/`, with its layer: cli is above the Tracks and report, which are above core.
-LAYERS = {"cli": "top", "__init__": "top", "__main__": "top", "agentic": "track", "ml": "track", "report": "report", "core": "core"}
+LAYERS = {"cli": "top", "__init__": "top", "__main__": "top", "agentic": "track", "ml": "track", "report": "report", "lessons": "lessons", "core": "core"}
 # What a layer may import, besides the package that holds the importing module.
-MAY_IMPORT = {"track": {"core"}, "report": {"core"}, "core": set()}
+MAY_IMPORT = {"track": {"core"}, "report": {"core"}, "lessons": {"core"}, "core": set()}
 
 
 def entry_of(module: str) -> str:
@@ -62,13 +62,19 @@ def entry_of(module: str) -> str:
 def layering_problems(trees: dict) -> list:
     problems = [f"{module} is in no layer of the list" for module in sorted(trees) if entry_of(module) not in LAYERS]
     for module, targets in imports(trees).items():
-        if entry_of(module) not in LAYERS or LAYERS[entry_of(module)] == "top":
+        if entry_of(module) not in LAYERS:
             continue
+        layer = LAYERS[entry_of(module)]
         for target in sorted(targets):
             if not target.startswith(PACKAGE + ".") and target != PACKAGE:
                 continue
             owner = max((name for name in trees if target == name or target.startswith(name + ".")), key=len)
-            if entry_of(owner) != entry_of(module) and LAYERS.get(entry_of(owner)) not in MAY_IMPORT[LAYERS[entry_of(module)]]:
+            if entry_of(owner) == entry_of(module):
+                continue
+            owner_layer = LAYERS.get(entry_of(owner))
+            if owner_layer == "lessons" and entry_of(module) != "cli":
+                problems.append(f"{module} imports {target}")
+            elif layer != "top" and owner_layer not in MAY_IMPORT[layer]:
                 problems.append(f"{module} imports {target}")
     return problems
 
@@ -99,6 +105,32 @@ def test_layering_finds_a_relative_import_of_another_track_a_package_in_no_layer
     plant(root, {"hypotrail/stray.py": ""})
     assert layering_problems(parse_all(root)) == ["hypotrail.extra is in no layer of the list", "hypotrail.stray is in no layer of the list"]
 
+
+
+def test_only_the_cli_can_import_lessons_and_the_lessons_layer_imports_only_core(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/cli.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/c.py": "",
+        "hypotrail/lessons/__init__.py": "",
+        "hypotrail/lessons/loader.py": "from hypotrail.core import c\n",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/m.py": "",
+    })
+    assert layering_problems(parse_all(root)) == []
+    plant(root, {
+        "hypotrail/__init__.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/core/c.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/lessons/loader.py": "from hypotrail.ml import m\n",
+        "hypotrail/ml/m.py": "from hypotrail.lessons import loader\n",
+    })
+    assert sorted(layering_problems(parse_all(root))) == [
+        "hypotrail imports hypotrail.lessons.loader",
+        "hypotrail.core.c imports hypotrail.lessons.loader",
+        "hypotrail.lessons.loader imports hypotrail.ml.m",
+        "hypotrail.ml.m imports hypotrail.lessons.loader",
+    ]
 
 # --- rule 3: the write protocol is called from the Study-write module only ------------------------------------------------------
 
@@ -257,6 +289,7 @@ THIRD_PARTY = {
     "core": {"jsonschema"},
     "ml": {"jsonschema", "numpy", "scipy", "sklearn"},
     "report": set(),
+    "lessons": {"jsonschema"},
     "cli": set(),
     "__init__": set(),
     "__main__": set(),
