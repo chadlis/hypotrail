@@ -47,6 +47,8 @@ Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candi
 
 A `chinook_prose` Study takes prose answers with `usage`, `metadata` and `settings` on each line, then `assess --scorer text_facts_v1`; it is not part of the path above: `import agent --study runs/chinook-prose --source examples/chinook_prose/fixtures/answers-concise.jsonl --population population.json --request-id import-prose`, after `init --workload chinook_prose --study runs/chinook-prose`.
 
+Check a lesson pack without a Study with `python -m hypotrail lesson check PACK_DIR --kept clients/vscode/test/cli`.
+
 `spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR [--examples-dir DIR]`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
