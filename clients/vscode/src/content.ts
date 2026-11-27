@@ -237,7 +237,10 @@ export function escaped(text: string): string {
 }
 
 const text = (value: unknown): string => escaped(value === undefined || value === null ? "" : String(value));
-const value = (content: unknown, attrs = ""): string => `<span${attrs}>${text(content)}</span>`;
+const value = (content: unknown, attrs = ""): string => {
+  const displayed = text(content);
+  return `<span${displayed === "" ? "" : attrs}>${displayed}</span>`;
+};
 const marked = (content: unknown, tag = "span", attrs = ""): string => `<${tag} data-text${attrs}>${text(content)}</${tag}>`;
 const list = (content: unknown): Entry[] => (Array.isArray(content) ? content.filter((each) => typeof each === "object" && each !== null) : []);
 const record = (content: unknown): Entry => (typeof content === "object" && content !== null && !Array.isArray(content) ? (content as Entry) : {});
@@ -290,7 +293,7 @@ const ATTEMPT_COUNT_KEYS = new Map([
 ]);
 
 // Cards stand after Record, and list a key path only when the page already renders its value.
-function cardsOf(lesson: Entry | undefined, body: string): string {
+export function cardsOf(lesson: Entry | undefined, body: string): string {
   const cards = list(lesson?.cards).map((card) => {
     const items = list(card.key_paths).flatMap((path) => {
       if (typeof path.read !== "string" || typeof path.path !== "string") return [];
@@ -382,7 +385,7 @@ function toHandleListOf(object: Entry | undefined): string {
   if (ids.length === 0) return "";
   const rows = ids.map((id) => {
     const attempt = list(object?.attempts).find((each) => each.attempt_id === id);
-    return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status)} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
+    return `<li>${label("attempt")} ${value(id)} ${value(attempt?.technical_status, lessonValue("status attempts[].technical_status"))} ${markOf("!", "recoverable")} <span>${label("recoverByTerminal")}</span></li>`;
   });
   // The list opens on its own heading, "Everything to handle", other than the compact line's "To handle", so that no two headings of the
   // page share a text (D-161 addendum 2, #75 comment 7197719288), and above the level of the Control's and the Candidate's, so that it
@@ -400,7 +403,7 @@ function lookAgainOf(object: Entry, step: Entry): string[] {
     const decision = decisions[index];
     const change = record(decision.evidence_change);
     const state = "state" in change ? ` <span>${phrase(change.state)}</span>` : "";
-    return [`<p data-element="look-again"><a href="${HREF.decision}${index}">${marked(decision.option, "strong", lessonValue("status decisions[].option"))}</a> <span>${text(APPLIES.get(String(decision.applies)) ?? "")}</span>${state}</p>`];
+    return [`<p data-element="look-again"><a href="${HREF.decision}${index}">${marked(decision.option, "strong", lessonValue("status decisions[].option"))}</a> ${value(APPLIES.get(String(decision.applies)), lessonValue("status decisions[].applies"))}${state}</p>`];
   });
 }
 
@@ -415,7 +418,7 @@ function latestOf(object: Entry): string[] {
   const rule = decision.author === "proxy" ? ` ${markOf("\u25c7", "byRule")}` : "";
   const applies = APPLIES.get(String(decision.applies));
   return [
-    `<p data-element="latest-decision">${label("latestDecision")} ${marked(decision.option, "strong", lessonValue("status decisions[].option"))} ${label("author")} ${value(decision.author, lessonValue("status decisions[].author"))}${rule}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`} <a href="${HREF.decision}${index}">${label("seeDecision")}</a></p>`,
+    `<p data-element="latest-decision">${label("latestDecision")} ${marked(decision.option, "strong", lessonValue("status decisions[].option"))} ${label("author")} ${value(decision.author, lessonValue("status decisions[].author"))}${rule}${applies === undefined ? "" : ` <span${lessonValue("status decisions[].applies")}>${escaped(applies)}</span>`} <a href="${HREF.decision}${index}">${label("seeDecision")}</a></p>`,
   ];
 }
 
@@ -464,7 +467,7 @@ function recordedOf(id: unknown, view: View): string {
   const decisions = view.failure ? [] : list(view.object?.decisions);
   const index = decisions.findIndex((decision) => decision.decision_id === id);
   if (index < 0) return `<p>${label("recordedId")} ${value(id)}</p>`;
-  return `<p>${label("recorded")} <a href="${HREF.decision}${index}" data-recorded>${marked(decisions[index].option, "strong")}</a></p>`;
+  return `<p>${label("recorded")} <a href="${HREF.decision}${index}" data-recorded>${marked(decisions[index].option, "strong", lessonValue("status decisions[].option"))}</a></p>`;
 }
 
 function failureOf(failure: Outcome): string {
@@ -557,7 +560,7 @@ function attemptsStepOf(attempts: Entry[], shown: Shown): string {
     const counts = Object.entries(record(attempt.item_counts)).map(([key, number]) => `${value(key)} ${link("item_counts", cited, number, undefined, lessonValue(ATTEMPT_COUNT_KEYS.get(key) ?? ""))}`);
     return `<li data-part="attempt">${label("attempt")} ${value(attempt.attempt_id)} ${value(attempt.mode, lessonValue("status attempts[].mode"))} ${value(attempt.technical_status, lessonValue("status attempts[].technical_status"))}${mark}${counts.length === 0 ? "" : ` ${counts.join(" ")}`}</li>`;
   });
-  const modes = [...new Set(attempts.map((attempt) => attempt.mode))].map((entry) => value(entry)).join(" ");
+  const modes = [...new Set(attempts.map((attempt) => attempt.mode))].map((entry) => value(entry, lessonValue("status attempts[].mode"))).join(" ");
   const recoverable = attempts.some((attempt) => attempt.recoverable === true) ? markOf("!", "recoverable") : "";
   return stepOf("attempts", modes, `<ul>\n${rows.join("\n")}\n</ul>`, "", "", recoverable);
 }
@@ -593,7 +596,7 @@ function decisionsStepOf(decisions: Entry[], form: string): string {
   const latest = decisions[decisions.length - 1];
   if (latest === undefined) return stepOf("decisions", "", form);
   const applies = APPLIES.get(String(latest.applies));
-  const line = `${marked(latest.option, "strong", lessonValue("status decisions[].option"))}${applies === undefined ? "" : ` <span>${escaped(applies)}</span>`}`;
+  const line = `${marked(latest.option, "strong", lessonValue("status decisions[].option"))}${applies === undefined ? "" : ` <span${lessonValue("status decisions[].applies")}>${escaped(applies)}</span>`}`;
   return stepOf("decisions", line, form, "", "", latest.author === "proxy" ? markOf("\u25c7", "byRule") : "");
 }
 
@@ -679,7 +682,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
     });
     if (choices !== "") {
       lines.push(deltaOf(delta, index, comparison.interval), contextOf(context ?? [], shown), coverageLine);
-      lines.push(`<p data-element="frame">${label("scorer")} ${value(scorerOf(roles[0], shown))} ${status}</p>`, listOf("warnings", warnings));
+      lines.push(`<p data-element="frame">${label("scorer")} ${value(scorerOf(roles[0], shown), lessonValue("status assessments[].scorer.id"))} ${status}</p>`, listOf("warnings", warnings));
       lines.push(`<p data-element="limits">${label("warnings")} ${link("warnings", index, warnings.length)} ${label("limitations")} ${link("limitations", index, limitations.length)} <span>${label("limitationsRule")}</span></p>`, choices);
       const fold = [featuresChartOf(roles, delta, shown), rolesLine, deltaChartOf(delta, index, roles, shown), figures, rest].filter((line) => line !== "");
       if (fold.length > 0) lines.push(['<details data-element="charts">', `<summary>${label("charts")}</summary>`, ...fold, "</details>"].join("\n"));
@@ -708,7 +711,7 @@ function contextOf(ids: unknown[], shown: Shown): string {
       const index = shown.decisions.findIndex((each) => each.decision_id === id);
       if (index < 0) return [];
       const decision = shown.decisions[index];
-      const lines = [`<p data-element="context">${label("earlierDecision")} <a href="${HREF.decision}${index}">${marked(decision.option, "strong", lessonValue("status decisions[].option"))}</a> <span>${text(APPLIES.get(String(decision.applies)) ?? "")}</span></p>`];
+      const lines = [`<p data-element="context">${label("earlierDecision")} <a href="${HREF.decision}${index}">${marked(decision.option, "strong", lessonValue("status decisions[].option"))}</a> ${value(APPLIES.get(String(decision.applies)), lessonValue("status decisions[].applies"))}</p>`];
       const cited = shown.comparisons.findIndex((each) => Array.isArray(decision.cited_ids) && decision.cited_ids.includes(each.comparison_id));
       const delta = record(shown.comparisons[cited]?.delta);
       if (cited >= 0) lines.push(`<p data-element="cited-delta">${label("citedDelta")} ${delta.value === null ? `<span>${escaped(contract.withheld)}</span>` : link("delta", cited, delta.value, undefined, lessonValue("status comparisons[].delta.value"))} ${value(delta.metric)} ${marked(delta.unit)}</p>`);
@@ -759,7 +762,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
   const ends: [number, number] = [five[0]!, five[4]!];
   const edges = bins[0].low === bins[bins.length - 1].high ? [bins[0].low] : [bins[0].low, bins[bins.length - 1].high];
   const marks: [number, string][] = QUARTILES.map(([key, name]) => [number(quartiles[key])!, `<span${key === "median" ? ' data-key="median"' : ""}>${label(name)} ${link("quartile", index, quartiles[key], undefined, lessonValue("figures comparisons[].quartiles"))}</span>`]);
-  marks.push([number(delta.value)!, `<span data-key="delta">${label("delta")} ${link("delta", index, delta.value)}</span>`]);
+  marks.push([number(delta.value)!, `<span data-key="delta">${label("delta")} ${link("delta", index, delta.value, undefined, lessonValue("status comparisons[].delta.value"))}</span>`]);
   if (ends[0] <= 0 && 0 <= ends[1]) marks.push([0, `<span data-key="zero">${label("zero")}</span>`]);
   // In the order of the axis; `sort` keeps the order above between equal numbers.
   marks.sort((a, b) => a[0] - b[0]);
@@ -769,7 +772,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
     [
       "<div data-figures>",
       heading,
-      `<p data-element="caption">${marked(delta.definition)}</p>`,
+      `<p data-element="caption">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`,
       few ? shownDots : "",
       '<div data-figure="histogram">',
       `<table data-element="counts"><caption>${label(agent ? "casesPerBin" : "itemsPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
@@ -859,7 +862,7 @@ function deltaChartOf(delta: Entry, index: number, roles: unknown[], shown: Show
     const metricOf = (id: unknown): Pick<Bar, "shown" | "value"> | undefined => {
       const at = shown.assessments.findIndex((each) => each.assessment_id === id);
       const metric = at < 0 ? undefined : list(shown.assessments[at].metrics).find((each) => each.id === delta.metric);
-      return metric === undefined ? undefined : { shown: link("value", at, metric.value), value: number(metric.value) };
+      return metric === undefined ? undefined : { shown: link("value", at, metric.value, undefined, lessonValue("status assessments[].metrics[].value")), value: number(metric.value) };
     };
     [control, candidate] = roles.map(metricOf);
   }
@@ -968,7 +971,7 @@ function decisionOf(decision: Entry, index: number, linked: boolean, recorded: b
       lines.push(assessmentOf(undefined, id, shown));
     }
   }
-  lines.push(`<p>${label("applies")} ${value(decision.applies)}</p>`);
+  lines.push(`<p>${label("applies")} ${value(decision.applies, lessonValue("status decisions[].applies"))}</p>`);
   // The Assessments of each line stand after the cited Comparison's, so that a role's Assessment has its part under its role.
   if (change) lines.push(...list(change.lines).flatMap((line) => [assessmentOf(undefined, line.assessment_id, shown), assessmentOf(undefined, line.latest_assessment_id, shown)]));
   lines.push("</section>");
@@ -980,7 +983,7 @@ const phrase = (state: unknown): string => text(PHRASES.get(String(state)) ?? st
 // The state of a Decision's evidence, with `revision_changed` beside it when a reason.
 function stateOf(change: Entry, reasons: Entry[]): string {
   const beside = reasons.find((reason) => reason.reason === BESIDE_THE_STATE);
-  return `<p data-element="evidence"><span>${phrase(change.state)}</span>${beside ? ` ${value(beside.reason)}` : ""}</p>`;
+  return `<p data-element="evidence"><span>${phrase(change.state)}</span>${beside ? ` ${value(beside.reason, lessonValue("status decisions[].reasons"))}` : ""}</p>`;
 }
 
 // Each line of a Decision's evidence, with chart 3: each Metric's cited and latest value as two bars on one scale; the line's

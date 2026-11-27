@@ -11,14 +11,14 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { checkoutRoot, newRequestId, readFigures, readLesson, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, usableFigures, usableLesson, type View } from "./content";
+import { bodyOf, cardsOf, usableFigures, usableLesson, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
 // What the document's script posts: the name of a message and, for the control that records, the indexes of the
 // pending decision and of the option selected and the text of its box of words; for a control that opens, the kind of the record's part, its index in its listing and
 // the ref.
-type Message = { message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
+type Message = { lessonReady?: unknown; message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -73,7 +73,12 @@ export const HANDLERS: Record<string, (message: Message) => void> = {
 
 function receive(message: unknown): void {
   if (inFlight || !panel) return;
-  const name = (message as Message | null)?.message;
+  const incoming = message as Message | null;
+  if (typeof incoming?.lessonReady === "string") {
+    postLesson(panel.webview, incoming.lessonReady);
+    return;
+  }
+  const name = incoming?.message;
   if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name](message as Message);
 }
 
@@ -216,7 +221,7 @@ async function read(written?: Outcome): Promise<void> {
   const failure = outcome.outcome === "success" ? undefined : outcome;
   show({ reading: false, object: held, figures, profile, lesson, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   if (object !== undefined) void readProfileOf(opened, object, study, written);
-  if (object !== undefined) void readLessonOf(opened, object, study, written);
+  if (object !== undefined) void readLessonOf(opened, object, study);
 }
 
 // The profile call, made once the document of the status and figures reads is drawn, so that nothing waits for it: its answer is kept for
@@ -229,13 +234,24 @@ async function readProfileOf(opened: vscode.WebviewPanel, object: Record<string,
 }
 
 // The lesson call, made once the document of the status and figures reads is drawn, as the profile call is, so that the Pending decision,
-// its choices and Record never wait for it: only a lesson read usable beside the object it was made beside is kept, and the document is
-// built again with it unless a call is in flight or the panel has read again meanwhile.
-async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string, written?: Outcome): Promise<void> {
+// its choices and Record never wait for it. Keep only a usable lesson beside the same status object, and deliver it to the existing
+// document without replacing the Pending decision's form.
+async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string): Promise<void> {
   const answer = await readLesson(ROOT, study);
   if (panel !== opened || held !== object) return;
   lesson = answer.outcome === "success" ? usableLesson(object, answer.object) : undefined;
-  if (!inFlight && lesson !== undefined) show({ reading: false, object: held, figures, profile, lesson, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  if (!inFlight) postLesson(opened.webview);
+}
+
+// The existing document nonce identifies the read that drew this document. A document that mounts after the read asks once for
+// the same cards, so delivery does not depend on the timing of the webview's script.
+function postLesson(webview: vscode.Webview, ready?: string): void {
+  if (lesson === undefined) return;
+  const document = webview.html;
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(document)?.[1];
+  if (nonce === undefined || (ready !== undefined && ready !== nonce) || document.includes('<div data-part="lesson">')) return;
+  const cards = cardsOf(lesson, document);
+  if (cards !== "") void webview.postMessage({ lesson: cards, nonce });
 }
 
 function show(view: View): void {
@@ -307,12 +323,21 @@ const SCRIPT = [
   "  });",
   "}",
   // Mark every rendered value named by an open card.
-  `const cards = document.querySelectorAll('details[data-element="card"]');`,
   "const mark = () => {",
   `  const paths = new Set([...document.querySelectorAll('details[data-element="card"][open] [data-shows]')].map((item) => item.getAttribute("data-shows")));`,
   '  for (const value of document.querySelectorAll("[data-lesson-value]")) value.toggleAttribute("data-highlighted", paths.has(value.getAttribute("data-lesson-value")));',
   "};",
-  'for (const card of cards) card.addEventListener("toggle", mark);',
+  'document.addEventListener("toggle", (event) => {',
+  `  if (event.target.matches('details[data-element="card"]')) mark();`,
+  '}, true);',
+  "const nonce = document.currentScript.nonce;",
+  'window.addEventListener("message", ({data}) => {',
+  `  if (!data || data.nonce !== nonce || typeof data.lesson !== "string" || document.querySelector('[data-part="lesson"]')) return;`,
+  '  const cards = new DOMParser().parseFromString(data.lesson, "text/html");',
+  `  const part = cards.querySelector('div[data-part="lesson"]');`,
+  `  if (part) document.querySelector('section[data-part="path"]')?.before(part);`,
+  '});',
+  'api.postMessage({lessonReady: nonce});',
   'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
   "else {",
   '  const linked = document.querySelector("[data-linked]");',

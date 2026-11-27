@@ -27,7 +27,7 @@ def test_bike_accompanied_from_the_demonstration_to_record(tmp_path):
             assert resolved(reads[key_path["read"]], key_path["path"]) != [], (card["kind"], key_path)
     assert run_json("status", "--study", study)[1] == status
 
-    # The `lesson` reads the client's tests are built from equal those a fresh run of the demonstration gives, both ways.
+    # The `lesson` reads the client's tests are built from equal those a fresh execution of the demonstration gives, both ways.
     made = lesson_outputs(tmp_path / "lesson-reads")
     names = sorted(path.name for path in LESSON_KEPT.iterdir())
     assert sorted(made) == names

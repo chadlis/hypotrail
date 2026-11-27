@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { kept } from "./kept";
-import { documentFor, elementOf, elementsOf, keptObject, lastDocument, partsOf, settle, success, unescaped } from "./panel-harness";
-import { exit, lesson, type Answer, UNSUPPORTED_LESSON } from "./recorder";
+import { documentFor, elementOf, elementsOf, keptObject, lastDocument, panelOf, partsOf, runCommand, settle, success, unescaped, workspace } from "./panel-harness";
+import { exit, heldRecorder, lesson, type Answer, UNSUPPORTED_LESSON } from "./recorder";
 
 type Entry = Record<string, any>;
 
@@ -160,15 +160,58 @@ test("in a browser, opening the card highlights only delta values including the 
 });
 
 // "The Pending decision, its choices and Record are never held back by this read." (#283)
-test("while the lesson read has not answered, the document of after-compare is drawn with its Pending decision, its choices and Record, and once it answers its cards are added", async (t) => {
+test("a late lesson adds its cards without replacing the Pending decision document", async (t) => {
   const [status, figures, usable] = readsOf("after-compare");
-  const { document } = await documentFor(t, status, figures, { ...usable, delay: 300 });
+  workspace(t, ["bike"]);
+  const held = heldRecorder(t, true);
+  await runCommand();
+  held.answer(status);
+  await settle();
+  held.answer(figures);
+  await settle();
+
+  const document = lastDocument();
+  const before = panelOf().documents.length;
   assert.ok(!document.includes('aria-busy="true"') && document.includes(`<button data-message="${RECORD}"`), "Record is drawn and the panel is not busy");
   assert.ok(document.includes("<fieldset"), "the choices are drawn");
   assert.deepEqual(elementsOf(document, CARD), []);
-  await new Promise((resolve) => setTimeout(resolve, 400));
+
+  held.answer(usable);
   await settle();
+  assert.equal(panelOf().documents.length, before);
   assert.equal(elementsOf(lastDocument(), CARD).length, keptObject("lesson.after-compare").cards.length);
+  const [update] = panelOf().updates as { lesson: string; nonce: string }[];
+  assert.equal(panelOf().updates.length, 1);
+  panelOf().send({ lessonReady: "earlier-document" });
+  assert.equal(panelOf().updates.length, 1);
+  panelOf().send({ lessonReady: update.nonce });
+  assert.deepEqual(panelOf().updates, [update, update]);
+
+  await t.test("the browser keeps the selected option, typed words and enabled Record", { timeout: 60000 }, async (browser) => {
+    if (!hasChrome(browser, "the pending form after a late lesson")) return;
+    const address = await startChrome(browser);
+    if (address === undefined) return browser.skip(`the pending form is skipped: Chrome at ${CHROME} did not start within ${START_MS} ms`);
+    const evaluate = await opened(browser, address, document, 420, 700);
+    await evaluate(`(() => {
+      const option = document.querySelector('input[data-pending]');
+      const words = document.querySelector('textarea[data-words]');
+      words.closest("details").open = true;
+      option.click();
+      words.value = "A decision draft.";
+      words.focus();
+      window.pending = [option, words, document.querySelector('button[data-message="${RECORD}"]')];
+    })()`);
+    for (const nonce of ["earlier-document", update.nonce, update.nonce]) {
+      await evaluate(`window.dispatchEvent(new MessageEvent("message", {data: ${JSON.stringify({ ...update, nonce })}}))`);
+      assert.equal(await evaluate(`document.querySelectorAll('[data-part="lesson"]').length`), Number(nonce === update.nonce));
+    }
+    const keptDraft = await evaluate(`(() => {
+      const [option, words, record] = window.pending;
+      return option.checked && words.value === "A decision draft." && words === document.activeElement
+        && !record.disabled && [option, words, record].every((control) => document.contains(control));
+    })()`);
+    assert.equal(keptDraft, true);
+  });
 });
 
 test("a comparison delta path identifies the numeric element of every rendered entry", async (t) => {
@@ -189,4 +232,21 @@ test("a comparison delta path identifies the numeric element of every rendered e
   for (const tag of partsOf(document).tags.filter((tag) => tag.includes('data-lesson-value="status comparisons[].delta.value"'))) {
     assert.match(tag, /^<a .*data-kind="delta"/);
   }
+});
+
+test("repeated values are marked in their summary, chart label, caption, frame and full Decision part", async (t) => {
+  const before = await shown(t, readsOf("after-compare"));
+  const after = await shown(t, readsOf("after-decide"));
+  const slot = (document: string, prefix: string, path: string, part?: string) => {
+    const scope = part === undefined ? document : elementOf(document, part)!;
+    assert.ok(elementOf(scope, prefix)?.includes(`data-lesson-value="status ${path}"`), `${path} in ${prefix}`);
+  };
+  slot(before, "<summary>", "attempts[].mode", '<details data-step="attempts">');
+  slot(before, '<span data-key="delta">', "comparisons[].delta.value");
+  slot(before, '<p data-element="caption">', "comparisons[].delta.definition");
+  slot(before, '<p data-element="frame">', "assessments[].scorer.id");
+  slot(after, '<p data-element="latest-decision">', "decisions[].applies");
+  slot(after, "<summary>", "decisions[].applies", '<details data-step="decisions">');
+  const [decision] = elementsOf(after, '<section data-part="decision"');
+  assert.equal((decision.match(/data-lesson-value="status decisions\[\]\.applies"/g) ?? []).length, 2);
 });

@@ -123,13 +123,13 @@ export function recorder(t: TestContext, ...answers: Answer[]): RecordedCall[] {
 
 // A recorder whose calls stay in flight until the test answers them, each with the answer the test gives; a profile call and a lesson
 // call are answered at once, as the recorder above answers them when no answer is marked for them.
-export function heldRecorder(t: TestContext) {
+export function heldRecorder(t: TestContext, holdLesson = false) {
   const calls: RecordedCall[] = [];
   const waiting: { args: string[]; callback: (error: unknown, stdout: string, stderr: string) => void }[] = [];
   const answer = answering([]);
   t.mock.method(childProcess, "execFile", (program: string, args: string[], options: Record<string, unknown>, callback: (error: unknown, stdout: string, stderr: string) => void) => {
     calls.push({ program, args: [...args], options: { ...options } });
-    if (isProfile(args) || isLesson(args)) {
+    if (isProfile(args) || (isLesson(args) && !holdLesson)) {
       const given = answer.next(args)!;
       setImmediate(() => reply(callback, given));
     } else waiting.push({ args: [...args], callback });
