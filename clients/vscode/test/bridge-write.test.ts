@@ -46,7 +46,7 @@ test("a success of decide gives back the CLI's object, decision and replayed inc
 });
 
 // Each export of the bridge, marked true when calling it starts a process.
-const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, readLesson: true, recordDecision: true, newRequestId: false, missingInputs: false };
+const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, readLesson: true, readTrackLesson: true, isLessonTrack: false, recordDecision: true, newRequestId: false, missingInputs: false };
 // The starter of the run tool, which starts the arguments the tool built: its commands are those of the tool's own contract.
 const RUN_STARTER = "runCommand";
 
@@ -56,7 +56,12 @@ test("the bridge's exports are the test's list and the run tool's starter, both 
   const exported = bridge as unknown as Record<string, (...args: unknown[]) => unknown>;
   for (const [name, starts] of Object.entries(EXPORTS)) {
     const before = calls.length;
-    await exported[name](ROOT, STUDY, DECISION);
+    if (name === "readTrackLesson") {
+      await exported[name](ROOT, "temporal_regression");
+      assert.deepEqual(calls[before].args, [...FIRST, "lesson", "--track=temporal_regression", "--json"]);
+    } else {
+      await exported[name](ROOT, STUDY, DECISION);
+    }
     assert.equal(calls.length - before, starts ? 1 : 0, name);
   }
   const commands = new Set(calls.map((call) => call.args[call.args.indexOf("hypotrail") + 1]));

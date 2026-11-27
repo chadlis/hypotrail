@@ -51,7 +51,7 @@ export function readLesson(root: string, study: string): Promise<Outcome> {
   return start(root, args, contract.read_timeout_ms);
 }
 
-export const LESSON_TRACKS = ["temporal_regression", "tool_using_agent"] as const;
+const LESSON_TRACKS = ["temporal_regression", "tool_using_agent"] as const;
 export type LessonTrack = (typeof LESSON_TRACKS)[number];
 
 export function isLessonTrack(track: unknown): track is LessonTrack {
