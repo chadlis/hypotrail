@@ -22,8 +22,10 @@ Exposure, whatever its revision, is the one that counts (Tightened C).
 - every Attempt, Assessment and Comparison that uses a Configuration whose digest is not in the freeze record
   written before the first Exposure (Tightened E2). A Configuration changed after the first Exposure is a new
   revision of that Configuration, identified by its new digest; it is not refused. An Import has no
-  Configuration digest, so it is never marked through this rule, and its producer's exposure to `public_check`
-  stays `unknown`.
+  Configuration digest, so it is never marked through this rule;
+- an Import Attempt written after the Study's first Exposure (`import_mark`), read under the writer lock when the
+  Import is written. The mark says when the Import came, not what its producer saw: the producer's exposure to
+  `public_check` stays `unknown`. What uses a marked Import is marked through `marks`, as for any marked record.
 
 A Study with no entry has recorded no Exposure *in this Study*; that says nothing about what the user or an
 Import's producer saw elsewhere (SPEC §2), and no record here claims that `public_check` was never seen.
@@ -126,6 +128,14 @@ def is_informed(study, configuration_digest) -> bool:
         return False
     first = first_freeze(study)
     return first is not None and configuration_digest not in first["configuration_digests"].values()
+
+
+def import_mark(study) -> dict:
+    """`{"check_informed": True}` for an Import written once the Study's journal holds an entry, `{}` otherwise.
+
+    The caller holds the Study's writer lock, so the journal read here is the one the Import is written after.
+    """
+    return {"check_informed": True} if entries(study) else {}
 
 
 def marks(study, manifests=(), assessments=()) -> dict:

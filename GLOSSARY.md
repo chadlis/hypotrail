@@ -22,6 +22,7 @@ _Avoid_: revision
 **Decision**:
 One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
 Clarification, 2026-11-26: a Decision may also hold the ids the core supplies for its question and its option (`question_id`, `option_id`) and the person's `words`: their own sentences, verbatim, with the channel they came through (`panel`, `choice` or `chat_relayed`) and a declared `by`; `authenticated` is false, and the agent's own wording is never `words`, it is the `source` (D-148 and D-149 on chadlis/hypotrail#75; built by chadlis/hypotrail#244).
+Clarification, 2026-11-26: the `words` may also come through `file_relayed`: the caller read them from a file a person wrote and relays them. The `source` of such a Decision names the outside act the file comes from, a pull request citation or the job's run and its account, never the file's path or digest, and `decide` refuses it without one. `authenticated` stays false: a cited pull request raises only the level that `status` derives when it reads the Study (ADR 0006; D-168 and D-172 on chadlis/hypotrail#75; built by chadlis/hypotrail#276).
 _Avoid_: note, verdict, conclusion
 
 **Declared deviation**:
@@ -60,6 +61,7 @@ _Avoid_: fact, finding, domain claim
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
 Clarification, 2026-11-21: a live view of artifacts already recorded is not a "report": such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
+Clarification, 2026-11-27: an Import written after the Study's first Exposure, whatever its revision, is marked `check_informed` too, and so is what uses it; the mark says when the Import came, not what its producer saw, whose exposure to `public_check` stays `unknown` (D-166 on chadlis/hypotrail#75; ticket chadlis/hypotrail#294).
 _Avoid_: use, peek, leak
 
 **Partition**:

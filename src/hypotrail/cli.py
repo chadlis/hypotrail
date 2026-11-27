@@ -12,7 +12,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from hypotrail.core.errors import (
-    EXIT_INFRASTRUCTURE,
     EXIT_OK,
     HypotrailError,
     InvalidInputError,
@@ -381,9 +380,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     decide.add_argument(
         "--channel",
-        choices=["panel", "choice", "chat_relayed"],
+        choices=["panel", "choice", "chat_relayed", "file_relayed"],
         help="how the words reached the caller, as the caller declares it: chat_relayed when words are given without it; "
-        "choice records the text of --option-id and takes no text",
+        "choice records the text of --option-id and takes no text; file_relayed, words the caller read from a file, needs --source",
     )
     decide.add_argument("--by", metavar="LABEL", help="a declared label of who gave the words, recorded as given")
     decide.add_argument("--json", action="store_true", help="print one JSON object")
@@ -1018,9 +1017,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handler(args)
     except Exception as error:
         failure = coded_error(error)
-        if isinstance(error, OSError) and not isinstance(error, HypotrailError) and handler is not _run_agent:
-            # every other command keeps its earlier report (#81): only `run agent` reports an OS error by its type alone
-            failure = HypotrailError("INFRASTRUCTURE_FAILURE", f"{type(error).__name__}: {error}", stage="infrastructure", exit_code=EXIT_INFRASTRUCTURE)
     return _report(failure, getattr(args, "json", False))
 
 

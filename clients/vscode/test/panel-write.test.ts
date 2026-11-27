@@ -201,7 +201,7 @@ for (const name of KEPT_WRITES) {
     record(0, 0);
     await settle();
     await settle();
-    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide", "status", "figures"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "profile", "decide", "status", "figures", "profile"]);
   });
 }
 
@@ -336,10 +336,10 @@ for (const [cause, answer] of NO_ANSWERS) {
     assert.deepEqual(controls(document).filter((name) => name !== RECORD && name !== OPEN), [READ_AGAIN, SEND_AGAIN]);
     const radios = partsOf(document).tags.filter((tag) => tag.startsWith("<input "));
     assert.ok(radios.length > 0 && radios.every((tag) => /\sdisabled(\s|>)/.test(tag)), "no option can be selected while an id is held");
-    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "profile", "decide"]);
     record(0, 1);
     await settle();
-    assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "profile", "decide"]);
     send(SEND_AGAIN);
     await settle();
     const decides = decideCalls(calls);
@@ -420,7 +420,7 @@ test("a write the bridge refuses starts nothing, its notice names the missing in
   const { calls, made } = await opened(t, changed, success(keptObject("status-success")), keptAnswer("decide-success"));
   record(0, 0);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "figures"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "profile"]);
   const document = lastDocument();
   assert.match(notice(document), new RegExp(`${MISSING}\\s+question(\\s|$)`));
   assert.ok(!controls(document).includes(SEND_AGAIN));
@@ -446,7 +446,7 @@ test("two messages of the second action before the answer give one decide call, 
   record(0, 0);
   record(0, 1);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "figures", "decide"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "profile", "decide"]);
   assert.ok(notice(lastDocument()).includes(RECORDING));
   assert.ok(!/<input [^>]*data-option(?![^>]*\sdisabled)[^>]*>/.test(lastDocument()), "no radio input can be selected");
 });
@@ -512,7 +512,7 @@ test("while a second sending is in flight the request id is still held: the docu
   await settle();
   send(SEND_AGAIN);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "figures", "decide", "decide"]);
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "profile", "decide", "decide"]);
   const document = lastDocument();
   assert.ok(notice(document).includes(RECORDING));
   assert.ok(notice(document).includes(contract.write_no_answer_words));
@@ -549,7 +549,7 @@ test("Record with words over the limit of contract.json starts no process, its n
   const { calls } = await opened(t, keptObject("status-success"), keptAnswer("decide-success"));
   record(0, 0, words);
   await settle();
-  assert.deepEqual(commandsOf(calls), ["status", "figures"], "no decide started");
+  assert.deepEqual(commandsOf(calls), ["status", "figures", "profile"], "no decide started");
   const document = lastDocument();
   assert.match(notice(document), new RegExp(`${MISSING}\\s+words(\\s|$)`));
   const box = /<textarea data-words="0"[^>]*>([^<]*)<\/textarea>/.exec(document)?.[1];

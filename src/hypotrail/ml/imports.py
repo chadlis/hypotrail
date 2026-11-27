@@ -34,7 +34,7 @@ import math
 import re
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
@@ -371,5 +371,6 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         input_refs=study_refs,
         produce=produce,
         started_at=import_time,
+        marks=exposure.import_mark(study),
     )
     return terminal, False

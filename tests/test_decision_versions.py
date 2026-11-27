@@ -37,7 +37,7 @@ def test_a_decision_1_record_is_listed_as_stored_replays_conflicts_on_words_and_
     code, listing, err = run_json("status", "--study", study)
     assert code == 0, (listing, err)
     [row] = listing["decisions"]
-    assert {key: value for key, value in row.items() if key not in ("applies", "reasons", "evidence_change")} == RECORD
+    assert {key: value for key, value in row.items() if key not in ("applies", "reasons", "evidence_change", "level")} == RECORD
     assert "words" not in row and RECORD["schema_version"] == "decision/1"
 
     code, payload, err = kept_decide(study)

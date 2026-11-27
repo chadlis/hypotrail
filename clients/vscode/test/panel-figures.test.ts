@@ -55,9 +55,9 @@ const idle = (document: string): boolean => !document.includes("aria-busy") && d
 // After each status read.
 type Way = [string, (study: string) => Promise<void>, Answer[], string[]];
 const WAYS: Way[] = [
-  ["the command", () => runCommand(), [status("status-success"), figures("status-success")], ["status", "figures"]],
-  ["a link of the first form", (study) => followLink(0, study), [status("status-success"), figures("status-success")], ["status", "figures"]],
-  ["a link of the second form", (study) => followLink(1, study), [status("status-success"), figures("status-success")], ["status", "figures"]],
+  ["the command", () => runCommand(), [status("status-success"), figures("status-success")], ["status", "figures", "profile"]],
+  ["a link of the first form", (study) => followLink(0, study), [status("status-success"), figures("status-success")], ["status", "figures", "profile"]],
+  ["a link of the second form", (study) => followLink(1, study), [status("status-success"), figures("status-success")], ["status", "figures", "profile"]],
   [
     "Read again",
     async () => {
@@ -66,7 +66,7 @@ const WAYS: Way[] = [
       panelOf().send(READ_AGAIN);
     },
     [status("status-success"), figures("status-success")],
-    ["status", "figures", "status", "figures"],
+    ["status", "figures", "profile", "status", "figures", "profile"],
   ],
   [
     "an answered write",
@@ -76,7 +76,7 @@ const WAYS: Way[] = [
       panelOf().send({ message: RECORD, pending: 0, option: 0 });
     },
     [status("status-success"), figures("status-success"), exit(0, kept("decide-success.out")), status("status-decided"), figures("status-success")],
-    ["status", "figures", "decide", "status", "figures"],
+    ["status", "figures", "profile", "decide", "status", "figures", "profile"],
   ],
 ];
 
@@ -184,7 +184,7 @@ for (const [name, object] of NOT_USABLE) {
   test(`a figures call that answers an object that is not usable is a failed figures call: ${name}`, async (t) => {
     const answers = name === "the status object itself" ? [status("status-success")] : [status("status-success"), success(object)];
     const { document, calls } = await opened(t, ...answers);
-    assert.deepEqual(commandsOf(calls), ["status", "figures"]);
+    assert.deepEqual(commandsOf(calls), ["status", "figures", "profile"]);
     labelPlaces(document);
     const failed = (await opened(t, status("status-success"), REFUSED)).document;
     assert.equal(comparable(document), comparable(failed));
@@ -272,7 +272,9 @@ for (const [way, open] of HELD_WAYS) {
     await settle();
     assert.equal(held.calls.length, calls, "a message received while the figures call is in flight is dropped");
     await answer(figures("status-success"));
-    assert.equal(panelOf().documents.length, statusDocuments + 1);
+    // The document of the two answers, out of flight; the profile call's answer, which follows, may add one more.
+    assert.ok([statusDocuments + 1, statusDocuments + 2].includes(panelOf().documents.length), String(panelOf().documents.length));
+    assert.ok(idle(panelOf().documents[statusDocuments]), panelOf().documents[statusDocuments]);
     assert.ok(idle(lastDocument()), lastDocument());
   });
 }

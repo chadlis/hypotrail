@@ -426,6 +426,23 @@ def test_the_dated_lines_hold_one_line_for_the_panels_read_with_since_quoting_it
         assert name in line, name
 
 
+# --- the dated line of the panel's third read, `profile` ---------------------------------------------------------------------------
+
+PROFILE_TICKET_SENTENCE = "`contract.json` gains `profile_arguments` `[\"profile\", \"--study={path}\", \"--json\"]` and `profile_key_paths` (the paths the panel draws), and `reads` becomes `[\"status\", \"figures\", \"profile\"]`."
+OPEN_READ_LINE = "A client reads through `status --json` and `figures --json`"
+
+
+def test_the_dated_lines_hold_one_line_for_the_profile_read_that_quotes_its_ticket_and_widens_the_read_line_to_three_reads():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#262" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert PROFILE_TICKET_SENTENCE in line
+    assert f"the earlier line it widens: \"{OPEN_READ_LINE}\"" in line
+    assert "`profile --study=DIR --json`" in line and "takes no lock" in line and "writes nothing" in line
+
+
 # --- the dated line of the panel's words box ------------------------------------------------------------------------------------------
 
 PANEL_WORDS_SENTENCE = (
@@ -520,3 +537,49 @@ def test_the_dated_lines_hold_one_line_citing_d_159_for_the_import_identity_the_
         assert name in line, name
     assert "the earlier line it overrides: none" in line, line
 
+
+
+# --- the dated lines of the channel `file_relayed` and of `decisions[].level` (#276) ---------------------------------------------------
+
+FILE_RELAYED_TICKET_SENTENCE = "`decide --channel file_relayed` is accepted with `--words-file` or `--words`."
+LEVEL_TICKET_SENTENCE = "the level is derived at read (`relayed`, or `pr` when `source` cites a merged pull request)."
+
+
+def test_the_dated_lines_hold_one_line_for_the_channel_file_relayed_and_one_for_the_level_each_quoting_its_ticket():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "chadlis/hypotrail#276" in line]
+    assert len(found) == 2, found
+    channel, level = found
+    assert f'"{FILE_RELAYED_TICKET_SENTENCE}"' in channel and "the earlier line it widens" in channel, channel
+    for name in ("`--channel`", "`file_relayed`", "`--source`", "`INVALID_ARGUMENTS`", "`authenticated` always false", "D-172 on chadlis/hypotrail#75"):
+        assert name in channel, name
+    assert f'"{LEVEL_TICKET_SENTENCE}"' in level and "the earlier line it overrides: none" in level, level
+    for name in ("`status --json`", "`level`", "`pr`", "`panel`", "`relayed`", "`undeclared`", "`proxy`", "never stored", "ADR 0006"):
+        assert name in level, name
+
+
+def adr_0006() -> str:
+    [found] = sorted(ADR_DIR.glob("0006-*.md"))
+    return found.read_text(encoding="utf-8")
+
+
+def test_adr_0006_holds_a_dated_line_that_records_the_refusal_of_a_file_relayed_decision_without_source_citing_d_172():
+    lines = [line for line in section(adr_0006(), "Dated lines").splitlines() if re.match(r"- [0-9]{4}-[0-9]{2}-[0-9]{2}: ", line)]
+    found = [line for line in lines if "`file_relayed`" in line]
+    assert len(found) == 1, lines
+    [line] = found
+    for name in ("without `source`", "`INVALID_ARGUMENTS`", "exit 2", "before the lock", "nothing is written", "D-172 on chadlis/hypotrail#75", "chadlis/hypotrail#276"):
+        assert name in line, name
+
+
+def test_the_channels_the_parser_offers_are_the_cores_and_the_contract_schemas_and_the_handbook_names_each():
+    from hypotrail.cli import build_parser
+    from hypotrail.core import contracts
+    from hypotrail.core.decisions import CHANNELS
+
+    decide = build_parser()._subparsers._group_actions[0].choices["decide"]
+    [channel] = [action for action in decide._actions if "--channel" in action.option_strings]
+    enum = contracts.schema()["$defs"]["DecisionRecordV2"]["properties"]["words"]["properties"]["channel"]["enum"]
+    assert list(channel.choices) == list(CHANNELS) == enum == ["panel", "choice", "chat_relayed", "file_relayed"]
+    chapter = (ROOT / "docs" / "handbook" / "chapters" / "17-decisions.html").read_text(encoding="utf-8")
+    assert "<code>--channel panel|choice|chat_relayed|file_relayed</code>" in chapter

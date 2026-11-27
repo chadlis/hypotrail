@@ -1,7 +1,7 @@
 {
   "name": "hypotrail",
   "displayName": "Hypotrail",
-  "description": "A client of the Hypotrail CLI: it reads a Study through status --json and figures --json and writes only through the CLI.",
+  "description": "A client of the Hypotrail CLI: it reads a Study through status --json, figures --json and profile --json and writes only through the CLI.",
   "version": "0.0.1",
   "publisher": "hypotrail-local",
   "private": true,
