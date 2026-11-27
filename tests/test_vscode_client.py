@@ -536,7 +536,17 @@ def test_no_licence_file_no_licence_key_in_the_manifest_and_the_readme_licence_s
 def test_no_client_file_but_the_lockfile_holds_copyright_or_license_and_the_lockfile_root_entry_has_no_license_key():
     files = tracked("clients/vscode")
     assert "clients/vscode/package-lock.json" in files
-    holding = [f for f in files if f != "clients/vscode/package-lock.json" and re.search(r"copyright|license", (ROOT / f).read_text(encoding="utf-8"), re.I)]
+    def repo_licence_text(path):
+        text = (ROOT / path).read_text(encoding="utf-8")
+        if path in {
+            "clients/vscode/test/cli/lesson/with-pack-bike.out",
+            "clients/vscode/test/lesson-packs-panel.test.ts",
+        }:
+            # Exact data values of the synthetic pack. The VS Code client itself has no licence declaration.
+            return re.sub(r'(?<=licence: ")unlicensed(?=")|(?<="licence": ")unlicensed(?=")', "", text)
+        return text
+
+    holding = [f for f in files if f != "clients/vscode/package-lock.json" and re.search(r"copyright|license", repo_licence_text(f), re.I)]
     assert holding == []
     assert "license" not in read_json(CLIENT / "package-lock.json")["packages"][""]
 
@@ -730,9 +740,12 @@ def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_r
 # --- the panel and deep links ---------------------------------------------------------------------------------------------------
 
 
-def test_the_manifest_contributes_exactly_the_one_command_and_its_title():
+def test_the_manifest_contributes_the_study_and_stations_commands_and_their_titles():
     commands = read_json(CLIENT / "package.json").get("contributes", {}).get("commands")
-    assert commands == [{"command": "hypotrail.openPanel", "title": "Hypotrail: Open the Study panel"}]
+    assert commands == [
+        {"command": "hypotrail.openPanel", "title": "Hypotrail: Open the Study panel"},
+        {"command": "hypotrail.showStations", "title": "Hypotrail: Show stations"},
+    ]
 
 
 # --- the Copilot tools ----------------------------------------------------------------------------------------------------------
@@ -741,7 +754,10 @@ def test_the_manifest_contributes_exactly_the_one_command_and_its_title():
 TOOLS = {
     "hypotrail_read_study": {
         "toolReferenceName": "hypotrailStudy",
-        "properties": {"study": {"type": "string"}},
+        "properties": {
+            "study": {"type": "string"},
+            "track": {"type": "string", "enum": ["temporal_regression", "tool_using_agent"]},
+        },
         "required": [],
     },
     "hypotrail_decide": {

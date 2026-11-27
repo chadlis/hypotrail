@@ -32,7 +32,7 @@ import {
   withFigures,
   profileAt,
 } from "./panel-harness";
-import { KEPT_LESSONS, exit, profile, recorder, type Answer } from "./recorder";
+import { KEPT_LESSONS, exit, lesson, profile, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const [, RECORD, , OPEN] = contract.messages;
@@ -363,6 +363,13 @@ const fixedWordsOf = (document: string): string =>
 test("every entry of labels is printed outside a marked text by one of the documents the panel builds", async (t) => {
   const printed: string[] = [];
   for (const [, build] of DOCUMENTS) printed.push(fixedWordsOf((await build(t)).document));
+  const status = keptObject("journey.04-pending.status");
+  const figures = keptObject("journey.04-pending.figures");
+  const pack = keptObject("lesson.with-pack-bike");
+  pack.write_sequence = status.write_sequence;
+  pack.stations.find((station: { id: string }) => station.id === "iterate").has_records = false;
+  const withPack = await documentFor(t, success(status), success(figures), lesson(success(pack)));
+  printed.push(fixedWordsOf(withPack.document));
   const unprinted = contract.labels.filter((label) => !printed.some((words) => words.includes(` ${label.split(/\s+/).join(" ")} `)));
   assert.deepEqual(unprinted, []);
 });

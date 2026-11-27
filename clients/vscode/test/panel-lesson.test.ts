@@ -21,9 +21,9 @@ const words = (html: string): string => unescaped(partsOf(html).between.split(/\
 // workspace, each written as one fixed text.
 const fixed = (document: string): string =>
   document.replace(/nonce-[0-9a-f]+/g, "nonce-N").replace(/nonce="[0-9a-f]+"/g, 'nonce="N"').replace(/hypotrail-read 7 &lt;b&gt;-[A-Za-z0-9]+/g, "WORKSPACE");
-// The document with the part that holds the cards removed.
-const withoutCards = (document: string): string => {
-  const [part] = elementsOf(document, '<div data-part="lesson">');
+// The document with only the pack and Track-card area removed.
+const withoutLesson = (document: string): string => {
+  const part = elementOf(document, '<div data-part="lesson">') ?? elementOf(document, '<div data-part="lesson-pending">');
   return part === undefined ? document : document.replace(`${part}\n`, "");
 };
 
@@ -92,7 +92,9 @@ for (const [name, answer] of UNUSABLE) {
     assert.deepEqual(elementsOf(document, CARD), []);
     const usableDocument = await shown(t, [status, figures, usable]);
     assert.ok(elementsOf(usableDocument, CARD).length > 0, "the usable read draws its cards");
-    assert.equal(document, withoutCards(usableDocument));
+    assert.ok(document.includes("Lesson packs: availability unknown"));
+    assert.ok(usableDocument.includes("Lesson packs: none"));
+    assert.equal(withoutLesson(document), withoutLesson(usableDocument));
   });
 }
 
@@ -107,7 +109,9 @@ test("with UNSUPPORTED_CAPABILITY of the lesson read on a Chinook Study, the doc
   const usable = { ...keptObject("lesson.after-compare"), write_sequence: keptObject("status-chinook-pending").write_sequence };
   const usableDocument = await shown(t, [status, figures, lesson(success(usable))]);
   assert.ok(elementsOf(usableDocument, CARD).length > 0, "the usable read draws its cards");
-  assert.equal(document, withoutCards(usableDocument));
+  assert.ok(document.includes("Lesson packs: availability unknown"));
+  assert.ok(usableDocument.includes("Lesson packs: none"));
+  assert.equal(withoutLesson(document), withoutLesson(usableDocument));
 });
 
 // "The value at a key path is linked or highlighted where the panel already shows it. It is never written into the card's text." (#283)
@@ -303,7 +307,9 @@ test("a lesson delivered to the visible webview survives a hide and reveal", asy
   panel.setVisible(true);
   await settle();
   assert.equal(elementsOf(cached, CARD).length, keptObject("lesson.after-compare").cards.length);
-  assert.equal(withoutCards(cached), document, "only the cards were added to the cached document");
+  assert.ok(cached.includes("Lesson packs: none"));
+  assert.ok(document.includes("Lesson packs: availability unknown"));
+  assert.equal(withoutLesson(cached), withoutLesson(document), "only the lesson area changed in the cached document");
   assert.equal(panel.webview.html, cached);
   assert.equal(panel.documents.length, documents, "reveal assigns no document");
   assert.equal(panel.updates.length, 1, "visibility sends no message");

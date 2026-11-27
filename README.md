@@ -67,7 +67,7 @@ The VS Code client shows a Study on one page: a band with the Write sequence and
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
-The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_study` reads the Study and its lesson cards, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_study` reads the Study with its Track cards and pack lessons, or the stations of a selected Track before a Study exists, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
 `hypotrail_run` can run `run`, `assess`, `compare`, `profile` and `report` on the Study once you confirm it. It refuses other commands, the paid Mode `llm_live` and reads of `public_check` Items. The CLI checks the Partition again under the Study's lock before opening the payloads of a guarded Assessment, Comparison or report. See `clients/vscode/run-tool.contract.md` for the command and refusal lists.
 
 ## Give Claude Code the Study at every prompt
@@ -77,6 +77,8 @@ The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_st
 ## Give Copilot the rule for a Study
 
 `clients/vscode/copilot-instructions.md` is a template of Copilot's instructions file. It tells Copilot chat to read the Study with `hypotrail_read_study` at the start of each turn, to pass the `write_sequence` it read as `read_sequence` on every write, to record a Decision only through `hypotrail_decide`, to record an answer chosen by a stated rule with `author` `proxy` and a `source` that names the rule, and, when the user states the choice, to pass the user's own messages as `words` with `question_id` and `option_id`. Copy it to `.github/copilot-instructions.md` in the workspace that holds the Study; this repository's own `.github/` holds none. The handbook's chapter on the client gives the detail.
+
+To load method lessons, set `HYPOTRAIL_LESSON_PACKS` to the installed pack directories, separated by your platform's path separator, before starting VS Code. In a Study, open **Stations and lessons** after the Track cards. Before creating a Study, use **Hypotrail: Show stations** and pick a Track. Find packs in [hypotrail-lessons](https://github.com/chadlis/hypotrail-lessons).
 
 For guided use, copy [the Hypotrail Guide agent](clients/vscode/hypotrail-guide.agent.md) into the workspace's `.github/agents/` and select **Hypotrail Guide** in Copilot Chat. It uses the Study's lesson cards and directs you to Record in the panel for your Decision.
 

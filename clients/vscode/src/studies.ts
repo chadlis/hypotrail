@@ -39,11 +39,13 @@ export function workspaceFolders(): string[] {
   return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 }
 
-// With one Study, that Study; with several, the one the user picks; with none, the message and nothing else.
-export async function chooseStudy(): Promise<string | undefined> {
+// With one Study, that Study; with several, the one the user picks; with none, the message and a way to open the stations.
+export async function chooseStudy(showStationsPanel?: () => void): Promise<string | undefined> {
   const studies = await findStudies(workspaceFolders());
   if (studies.length === 0) {
-    void vscode.window.showInformationMessage(contract.no_study_message);
+    const showStations = "Show stations";
+    const selected = await vscode.window.showInformationMessage(contract.no_study_message, showStations);
+    if (selected === showStations) showStationsPanel?.();
     return undefined;
   }
   if (studies.length === 1) return studies[0];

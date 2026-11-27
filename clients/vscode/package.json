@@ -1,7 +1,7 @@
 {
   "name": "hypotrail",
   "displayName": "Hypotrail",
-  "description": "A client of the Hypotrail CLI: it reads a Study through status --json, figures --json and profile --json and writes only through the CLI.",
+  "description": "A client of the Hypotrail CLI: it reads a Study and lesson packs and writes only through the CLI.",
   "version": "0.0.1",
   "publisher": "hypotrail-local",
   "private": true,
@@ -20,6 +20,10 @@
       {
         "command": "hypotrail.openPanel",
         "title": "Hypotrail: Open the Study panel"
+      },
+      {
+        "command": "hypotrail.showStations",
+        "title": "Hypotrail: Show stations"
       }
     ],
     "languageModelTools": [
@@ -27,8 +31,8 @@
         "name": "hypotrail_read_study",
         "toolReferenceName": "hypotrailStudy",
         "displayName": "Read a Hypotrail Study",
-        "userDescription": "Reads a Hypotrail Study of this workspace. The read writes nothing.",
-        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. Beside it, it gives the object that `lesson --study=DIR --json` prints: the cards that explain each kind of step the Study shows, to explain a step with the same text as the panel; a Track that serves no cards refuses that read. It starts those two reads alone, which write nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
+        "userDescription": "Reads a Hypotrail Study or the lessons for a selected Track. The read writes nothing.",
+        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. Beside it, it gives the object that `lesson --study=DIR --json` prints: the Track cards and stations and method lessons from the installed pack; a Track that serves no cards refuses that read. It starts those two reads alone, which write nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. Before a Study exists, give track alone to read the Track pack through lesson --track. When no single Study is found and track is omitted, the answer names the Studies found and nothing is read.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -36,6 +40,11 @@
             "study": {
               "type": "string",
               "description": "The absolute path of the folder of the Study to read. Needed only when the workspace holds several Studies."
+            },
+            "track": {
+              "type": "string",
+              "enum": ["temporal_regression", "tool_using_agent"],
+              "description": "Read the selected Track's pack before a Study exists. Omit study when using track."
             }
           }
         }

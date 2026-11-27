@@ -658,10 +658,20 @@ section[data-linked], section[data-recorded] { border-left-color: var(--focus); 
 // A rule whose every selector names a button of the class of the controls that open, with pseudo-classes only.
 const ofTheControls = (rule: string): boolean => rule.slice(0, rule.indexOf("{")).split(",").every((selector) => /^\s*button\.open(:[a-z-]+(\([^()]*\))?)*\s*$/.test(selector));
 
-test("each rule of the panel's style is a rule it held before the controls that open, or a rule of the class of those controls", async (t) => {
+const PACK_STYLE = `
+[data-element="lesson-packs"], [data-element="pack-station"] { margin: 0.4em 0; padding: 0.15em 0.55em; border-left: 2px solid var(--line2); }
+[data-element="pack-lesson"] { margin: 0.45em 0; padding: 0.4em 0.65em; border: 1px solid var(--cardline); background: var(--paperbg), var(--card); color: var(--cardink); }
+[data-element="pack-lesson"] > summary { color: var(--cardink); }
+[data-element="pack-lesson"] dt { margin-top: 0.5em; font-weight: 650; }
+[data-element="pack-lesson"] dd { margin: 0; }
+[data-element="pack-lesson"] dd ul { padding-left: 1.35em; }
+[id^="lesson-figure-"] { display: block; min-height: 1px; }
+`.trim().split("\n");
+
+test("every panel style rule is a kept rule, an opening control rule or an approved lesson rule", async (t) => {
   const { style } = partsOf((await documentFor(t, success(keptObject("status-success")))).document);
-  for (const rule of style.split("\n")) assert.ok(KEPT_STYLE.includes(rule) || ofTheControls(rule), rule);
-  for (const rule of KEPT_STYLE) assert.ok(style.split("\n").includes(rule), `kept: ${rule}`);
+  for (const rule of style.split("\n")) assert.ok(KEPT_STYLE.includes(rule) || ofTheControls(rule) || PACK_STYLE.includes(rule), rule);
+  for (const rule of [...KEPT_STYLE, ...PACK_STYLE]) assert.ok(style.split("\n").includes(rule), `kept: ${rule}`);
 });
 
 test("a planted rule on body is neither a kept rule nor a rule of the class of the controls that open", () => {

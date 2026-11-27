@@ -561,6 +561,10 @@ test("the key paths the function reads from the lesson read over every kept less
   for (const [status, lesson] of Object.entries(KEPT_LESSONS)) {
     bodyOf({ reading: false, object: keptObject(status), lesson: recording(keptObject(lesson), "", read) as Entry });
   }
+  bodyOf({
+    reading: false, object: keptObject("demonstration.after-decide.status"),
+    lesson: recording(keptObject("lesson.with-pack-bike"), "", read) as Entry,
+  });
   assert.deepEqual(leaves(read), [...contract.lesson_key_paths].sort());
 });
 

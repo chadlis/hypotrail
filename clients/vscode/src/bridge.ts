@@ -51,6 +51,18 @@ export function readLesson(root: string, study: string): Promise<Outcome> {
   return start(root, args, contract.read_timeout_ms);
 }
 
+const LESSON_TRACKS = ["temporal_regression", "tool_using_agent"] as const;
+export type LessonTrack = (typeof LESSON_TRACKS)[number];
+
+export function isLessonTrack(track: unknown): track is LessonTrack {
+  return LESSON_TRACKS.some((value) => value === track);
+}
+
+export function readTrackLesson(root: string, track: LessonTrack): Promise<Outcome> {
+  const args = contract.lesson_track_arguments.map((argument) => argument.replace("{track}", track));
+  return start(root, args, contract.read_timeout_ms);
+}
+
 function start(root: string, args: string[], timeout: number, env?: NodeJS.ProcessEnv): Promise<Outcome> {
   return new Promise((resolve) => {
     execFile(contract.program, [...contract.first_arguments, ...args], { cwd: root, timeout, maxBuffer: contract.max_buffer_bytes, env }, (error, stdout) => {

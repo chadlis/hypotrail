@@ -158,6 +158,19 @@ const LABEL = {
   measure: 121,
   items: 122,
   columns: 123,
+  packSource: 89,
+  packWhy: 124,
+  packDo: 125,
+  packRead: 126,
+  packPitfalls: 127,
+  packList: 128,
+  packUnknown: 129,
+  packNone: 130,
+  packHasRecords: 131,
+  packNoRecords: 132,
+  packFigure: 133,
+  packSection: 134,
+  packUnavailable: 135,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -265,7 +278,7 @@ const anchor = (part: string, index: number): string => ` id="${HREF[part].slice
 // `figures` holds the entries of the figures read, none when it cannot stand beside the status read; `inert` is the attribute of a
 // control that is inert while a call is in flight, `paths` how many paths beside a control the document shows, and `files` the entries
 // of `record_files`.
-type Shown = { comparisons: Entry[]; assessments: Entry[]; decisions: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number; files: Entry[] };
+type Shown = { comparisons: Entry[]; devObservations: Set<unknown>; assessments: Entry[]; decisions: Entry[]; parts: Set<Entry>; options: number; figures: Entry[] | undefined; inert: string; paths: number; files: Entry[] };
 
 // The object of the figures read when it is usable beside the status read: the same Write sequence, and one entry with its five keys
 // for each Comparison the status read lists. Otherwise there is none, and the figures call counts as failed.
@@ -292,6 +305,62 @@ const ATTEMPT_COUNT_KEYS = new Map([
   ["missing", "status attempts[].item_counts.missing"],
 ]);
 
+function packLessonOf(lesson: Entry): string {
+  const items = (value: unknown): string => Array.isArray(value) ? `<ul>${value.map((item) => marked(item, "li")).join("")}</ul>` : "";
+  return [
+    '<details data-element="pack-lesson">',
+    `<summary>${marked(lesson.title)}</summary>`,
+    `<p>${label("packSource")} · ${marked(lesson.source)}</p>`,
+    '<dl>',
+    `<dt>${label("packWhy")}</dt>${marked(lesson.why_this_step, "dd")}`,
+    `<dt>${label("packDo")}</dt><dd>${items(lesson.how_to_do_it)}</dd>`,
+    `<dt>${label("packRead")}</dt>${marked(lesson.how_to_read, "dd")}`,
+    `<dt>${label("packPitfalls")}</dt><dd>${items(lesson.pitfalls)}</dd>`,
+    '</dl>',
+    ...(typeof lesson.question === "string" ? [marked(lesson.question, "p")] : []),
+    '</details>',
+  ].join("\n");
+}
+
+// The pack text is displayed verbatim. Pack-supplied key paths are not used to read values.
+export function packStationsOf(lesson: Entry, figure?: string): string {
+  const packs = list(lesson.packs);
+  const metadata = packs.length ? [
+    `<p>${label("packList")}</p><ul>`,
+    ...packs.map((pack) => pack.valid === true
+      ? `<li>${marked(pack.title)} · ${marked(pack.id)} @ ${marked(pack.version)} · ${marked(pack.language)} · ${marked(pack.licence)}</li>`
+      : `<li>${(pack.id == null ? label("packUnknown") : marked(pack.id))} · ${marked(pack.reason)}</li>`),
+    '</ul>',
+  ].join("\n") : `<p>${label("packNone")}</p>`;
+  const packLessons = list(lesson.lessons);
+  const stations = list(lesson.stations).map((station) => {
+    const mark = station.has_records === true ? ` · ${label("packHasRecords")}`
+      : station.has_records === false ? ` · ${label("packNoRecords")}` : "";
+    const methods = station.chat === true
+      ? packLessons.filter((method) => method.station === station.id).map(packLessonOf)
+      : [];
+    return [
+      '<details data-element="pack-station">',
+      `<summary>${marked(station.title)}${mark}</summary>`,
+      marked(station.where, "p"),
+      marked(station.purpose, "p"),
+      ...(station.id === "compare_decide" && figure !== undefined
+        ? [`<p><a data-pack-figure href="#${figure}">${label("packFigure")}</a></p>`] : []),
+      ...methods,
+      '</details>',
+    ].join("\n");
+  });
+  return [metadata, ...stations].join("\n");
+}
+
+export function pendingLessonPart(): string {
+  return `<div data-part="lesson-pending">
+<details data-element="lesson-packs"><summary>${label("packSection")}</summary>
+<p>${label("packUnavailable")}</p>
+</details>
+</div>`;
+}
+
 // Cards stand after Record, and list a key path only when the page already renders its value.
 export function cardsOf(lesson: Entry | undefined, body: string): string {
   const cards = list(lesson?.cards).map((card) => {
@@ -302,7 +371,12 @@ export function cardsOf(lesson: Entry | undefined, body: string): string {
     });
     return ['<details data-element="card">', `<summary>${marked(card.title)}</summary>`, marked(card.text, "p"), ...(items.length === 0 ? [] : [`<ul>\n${items.join("\n")}\n</ul>`]), "</details>"].join("\n");
   });
-  return cards.length === 0 ? "" : ['<div data-part="lesson">', ...cards, "</div>"].join("\n");
+  if (lesson === undefined) return "";
+  const figures = [...body.matchAll(/id="(lesson-figure-[0-9]+)"/g)];
+  const now = /id="(lesson-figure-[0-9]+)" data-lesson-figure="now"/.exec(body);
+  const figure = now?.[1] ?? (figures.length === 1 ? figures[0][1] : undefined);
+  const stations = `<details data-element="lesson-packs"><summary>${label("packSection")}</summary>\n${packStationsOf(lesson, figure)}\n</details>`;
+  return ['<div data-part="lesson">', ...cards, stations, "</div>"].join("\n");
 }
 
 export function bodyOf(view: View): string {
@@ -328,6 +402,7 @@ export function bodyOf(view: View): string {
   // The cards stand between the two, and name the places of either that show a value of their key paths.
   const cards = cardsOf(view.object ? usableLesson(view.object, view.lesson) : undefined, `${parts.join("\n")}\n${after}`);
   if (cards !== "") parts.push(cards);
+  else if (view.object !== undefined) parts.push(pendingLessonPart());
   parts.push(after);
   return parts.join("\n");
 }
@@ -487,7 +562,11 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const locked = busy || held;
-  const shown: Shown = { comparisons: list(object.comparisons), assessments: list(object.assessments), decisions: list(object.decisions), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
+  const devObservations = new Set(
+    list(object.attempts).filter((attempt) => attempt.partition === "dev").map((attempt) => attempt.observation_set_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  const shown: Shown = { comparisons: list(object.comparisons), devObservations, assessments: list(object.assessments), decisions: list(object.decisions), parts: new Set(), options: 0, figures, inert: busy ? " disabled" : "", paths: 0, files: list(object.record_files) };
   const step = record(object.next_step);
   const context = Array.isArray(step.context) ? step.context : [];
   // The pending decision the first id of `next_step` names is Now, the others wait in their order; each keeps its place in
@@ -675,7 +754,11 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
     const listOf = (kind: "warnings" | "limitations", items: string[]): string =>
       [`<div data-part="${kind}"${first ? anchor(kind, index) : ""}>`, `<h4>${label(kind)}</h4>`, `<ul>\n${items.join("\n")}\n</ul>`, "</div>"].join("\n");
     const status = `${label("comparabilityStatus")} ${value(record(comparison.comparability).status, lessonValue("status comparisons[].comparability.status"))}`;
-    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first);
+    const methodFigure = first && roles.length === 2 && roles.every((role) => {
+      const assessment = shown.assessments.find((each) => each.assessment_id === role);
+      return assessment !== undefined && shown.devObservations.has(assessment.observation_set_id);
+    });
+    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first, methodFigure, context !== undefined);
     const paths = [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]].flatMap(([ref, output]) => {
       const path = record(output).path;
       return typeof path === "string" ? [`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref as string, path, shown)}</p>`] : [];
@@ -744,7 +827,7 @@ function featuresChartOf(roles: unknown[], delta: Entry, shown: Shown): string {
 // the count of each above its column and the ends of the axis under it, then a box plot of the five numbers on that axis with the mark
 // of the Comparison's delta, a zero mark through both, and a key of the marks in the order of the axis; then the dots of its Items or
 // Cases, first when there are few, otherwise at the end of the part, with a link to them where the part is the Comparison's first.
-function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean): [string, string] {
+function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean, methodFigure: boolean, now: boolean): [string, string] {
   if (delta.value === null) return ["", ""];
   const heading = `<h4>${label("pairedDeltas")} (${marked(delta.unit)})</h4>`;
   const failed = [heading, `<p data-element="figures-failed">${label("failed")} <a href="${TOP}">${label("figuresUnavailable")}</a></p>`].join("\n");
@@ -775,6 +858,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
       `<p data-element="caption">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`,
       few ? shownDots : "",
       '<div data-figure="histogram">',
+      methodFigure ? `<span id="lesson-figure-${index}"${now ? ' data-lesson-figure="now"' : ""} role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>` : "",
       `<table data-element="counts"><caption>${label(agent ? "casesPerBin" : "itemsPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
       histogram(counts as number[], ends),
       `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(` ${marked(delta.unit)} `)}</p>`,

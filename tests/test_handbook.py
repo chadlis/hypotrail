@@ -5353,6 +5353,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "figures-read": " ".join(contract["figures_arguments"]),
         "profile-read": " ".join(contract["profile_arguments"]),
         "lesson-read": " ".join(contract["lesson_arguments"]),
+        "lesson-track-read": " ".join(contract["lesson_track_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }
@@ -5799,7 +5800,7 @@ def test_the_copilot_tools_table_of_chapter_18_equals_the_manifest_both_ways(pag
     tools = {(row["data-tool"], row["data-reference"], row["data-activation"]) for row in rows if "data-reference" in row}
     inputs = {(row["data-tool"], row["data-input"], row["data-required"]) for row in rows if "data-input" in row}
     expected_tools, expected_inputs = copilot_rows_of_the_manifest()
-    assert len(expected_tools) == 3 and len(expected_inputs) == 16
+    assert len(expected_tools) == 3 and len(expected_inputs) == 17
     assert sorted(tools - expected_tools) == [] and sorted(expected_tools - tools) == []
     assert sorted(inputs - expected_inputs) == [] and sorted(expected_inputs - inputs) == []
     assert len(rows) == len(tools) + len(inputs)

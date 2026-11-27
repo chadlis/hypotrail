@@ -10,8 +10,8 @@ import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readFigures, readLesson, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, cardsOf, usableFigures, usableLesson, type View } from "./content";
+import { checkoutRoot, isLessonTrack, newRequestId, readFigures, readLesson, readProfile, readStudy, readTrackLesson, recordDecision, type DecisionInput, type LessonTrack, type Outcome } from "./bridge";
+import { bodyOf, cardsOf, packStationsOf, pendingLessonPart, usableFigures, usableLesson, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
@@ -32,10 +32,10 @@ let figures: Record<string, unknown> | undefined;
 let profile: Outcome | undefined;
 let lesson: Record<string, unknown> | undefined;
 
-export function openPanel(next: Target): void {
+function panelFor(next: Target | undefined): boolean {
   if (panel && (inFlight || unanswered)) {
     panel.reveal();
-    return;
+    return false;
   }
   target = next;
   held = undefined;
@@ -59,7 +59,57 @@ export function openPanel(next: Target): void {
       inFlight = false;
     });
   }
-  void read();
+  return true;
+}
+
+export function openPanel(next: Target): void {
+  if (panelFor(next)) void read();
+}
+
+export function openStationsPanel(): void {
+  if (panelFor(undefined)) {
+    setDocument(stationsDocument(newNonce(), undefined, '<p>Choose a Track to see its stations.</p>'));
+  }
+}
+
+async function readStationSelection(opened: vscode.WebviewPanel, message: { nonce?: unknown; track?: unknown } | null): Promise<void> {
+  const activeNonce = /<script nonce="([a-f0-9]+)">/.exec(opened.webview.html)?.[1];
+  if (activeNonce === undefined || message?.nonce !== activeNonce || !isLessonTrack(message.track)) return;
+  const track = message.track, nonce = newNonce();
+  const awaiting = stationsDocument(nonce, track, '<p role="status">Reading lesson packs…</p>');
+  setDocument(awaiting);
+  const result = await readTrackLesson(ROOT, track);
+  if (panel !== opened || target !== undefined || opened.webview.html !== awaiting) return;
+  const content = result.outcome === "success" && result.object.track === track
+    ? packStationsOf(result.object)
+    : '<p role="status">The lesson read did not return content. Select a Track to try again.</p>';
+  setDocument(stationsDocument(nonce, track, content));
+}
+
+function stationsDocument(nonce: string, selected: LessonTrack | undefined, content: string): string {
+  const button = (track: LessonTrack, label: string): string =>
+    `<button type="button" data-track="${track}" aria-pressed="${track === selected}">${label}</button>`;
+  const policy = contract.csp_directives.map((directive) => directive.replace("{nonce}", nonce)).join("; ");
+  return [
+    '<!doctype html>',
+    '<html lang="en"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    `<meta http-equiv="Content-Security-Policy" content="${policy}">`,
+    `<style nonce="${nonce}">${STYLE}</style></head><body><main>`,
+    '<h1>Hypotrail Stations</h1>',
+    '<div aria-label="Track">',
+    button("temporal_regression", "Temporal regression"),
+    button("tool_using_agent", "Tool-using agent"),
+    '</div>',
+    content,
+    '</main>',
+    `<script nonce="${nonce}">`,
+    "const vscode = acquireVsCodeApi();",
+    'for (const button of document.querySelectorAll("button[data-track]")) {',
+    `  button.addEventListener("click", () => vscode.postMessage({ nonce: "${nonce}", track: button.dataset.track }));`,
+    "}",
+    '</script></body></html>',
+  ].join("\n");
 }
 
 // The handler of each message the document's script posts, by the message's name.
@@ -74,6 +124,10 @@ export const HANDLERS: Record<string, (message: Message) => void> = {
 
 function receive(message: unknown): void {
   if (inFlight || !panel) return;
+  if (target === undefined) {
+    void readStationSelection(panel, message as { nonce?: unknown; track?: unknown } | null);
+    return;
+  }
   const name = (message as Message | null)?.message;
   if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name](message as Message);
 }
@@ -257,8 +311,8 @@ function cacheLessonWhenHidden(opened: vscode.WebviewPanel): void {
   if (panel !== opened || opened.visible || inFlight) return;
   const document = opened.webview.html;
   const cards = newLessonCards(document);
-  const path = '<section data-part="path">';
-  if (cards !== "") setDocument(document.replace(path, () => `${cards}\n${path}`));
+  const pending = pendingLessonPart();
+  if (cards !== "") setDocument(document.replace(pending, () => cards));
 }
 
 function show(view: View): void {
@@ -325,7 +379,7 @@ const SCRIPT = [
   '  for (let fold = element.closest("details"); fold !== null; fold = fold.parentElement.closest("details")) fold.open = true;',
   "  element.scrollIntoView();",
   "};",
-  'for (const anchor of document.querySelectorAll(\'a[href^="#"]\')) {',
+  'for (const anchor of document.querySelectorAll(\'a[href^="#"]:not([data-pack-figure])\')) {',
   '  anchor.addEventListener("click", (event) => {',
   '    const target = document.getElementById(anchor.getAttribute("href").slice(1));',
   "    if (target === null) return;",
@@ -333,6 +387,15 @@ const SCRIPT = [
   "    reveal(target);",
   "  });",
   "}",
+  'document.addEventListener("click", (event) => {',
+  '  const anchor = event.target.closest?.("a[data-pack-figure]");',
+  '  if (!anchor) return;',
+  '  const target = document.getElementById(anchor.getAttribute("href").slice(1));',
+  '  if (!target) return;',
+  '  event.preventDefault();',
+  '  reveal(target);',
+  '  target.focus({ preventScroll: true });',
+  '});',
   // Mark every rendered value named by an open card.
   "const mark = () => {",
   `  const paths = new Set([...document.querySelectorAll('details[data-element="card"][open] [data-shows]')].map((item) => item.getAttribute("data-shows")));`,
@@ -346,7 +409,14 @@ const SCRIPT = [
   `  if (!data || data.nonce !== nonce || typeof data.lesson !== "string" || document.querySelector('[data-part="lesson"]')) return;`,
   '  const cards = new DOMParser().parseFromString(data.lesson, "text/html");',
   `  const part = cards.querySelector('div[data-part="lesson"]');`,
-  `  if (part) document.querySelector('section[data-part="path"]')?.before(part);`,
+  `  const pending = document.querySelector('[data-part="lesson-pending"]');`,
+  '  if (!pending || !part) return;',
+  `  const before = pending.querySelector('details[data-element="lesson-packs"]');`,
+  `  const fold = part.querySelector('details[data-element="lesson-packs"]');`,
+  '  const focused = pending.contains(document.activeElement);',
+  '  fold.open = before.open;',
+  '  pending.replaceWith(part);',
+  '  if (focused) fold.querySelector("summary").focus({ preventScroll: true });',
   '});',
   'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
   "else {",
@@ -506,6 +576,13 @@ const STYLE = [
   '[data-applies="no"] { color: inherit; background: transparent; border: 1px solid var(--coral); }',
   '[data-element="question"] { color: var(--chalk2); }',
   '[data-element="evidence"] { font-weight: 600; }',
+  '[data-element="lesson-packs"], [data-element="pack-station"] { margin: 0.4em 0; padding: 0.15em 0.55em; border-left: 2px solid var(--line2); }',
+  '[data-element="pack-lesson"] { margin: 0.45em 0; padding: 0.4em 0.65em; border: 1px solid var(--cardline); background: var(--paperbg), var(--card); color: var(--cardink); }',
+  '[data-element="pack-lesson"] > summary { color: var(--cardink); }',
+  '[data-element="pack-lesson"] dt { margin-top: 0.5em; font-weight: 650; }',
+  '[data-element="pack-lesson"] dd { margin: 0; }',
+  '[data-element="pack-lesson"] dd ul { padding-left: 1.35em; }',
+  '[id^="lesson-figure-"] { display: block; min-height: 1px; }',
 ].join("\n");
 
 // Every document the client gives to a webview is built here.
