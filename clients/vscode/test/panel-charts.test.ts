@@ -3,7 +3,8 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { barLength, scaleTop } from "../src/charts";
-import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, success } from "./panel-harness";
+import { JOURNEY } from "./kept";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, keptObject, markedTexts, partsOf, profileAt, success } from "./panel-harness";
 
 type Entry = Record<string, any>;
 
@@ -54,7 +55,20 @@ const SVG_DOCUMENTS: [string, (t: TestContext) => Promise<string>][] = [
     `${name} with ${KEPT_FIGURES[name]}`,
     async (t) => (await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])))).document,
   ]),
+  // "Every `svg` of the step holds only `rect` elements, no text and no colour or style attribute." (chadlis/hypotrail#262): the
+  // step drawn from the kept profile read, beside the kept Bike read, and its band and target over time open in Now at state 01.
+  ["status-success with figures-success and profile-bike", async (t) => profileDocument(t, "status-success")],
+  [`${JOURNEY}01-init.status with profile-bike`, async (t) => profileDocument(t, `${JOURNEY}01-init.status`)],
 ];
+
+async function profileDocument(t: TestContext, name: string): Promise<string> {
+  const object = keptObject(name);
+  const figures = KEPT_FIGURES[name] === undefined ? [] : [success(keptObject(KEPT_FIGURES[name]))];
+  const { document } = await documentFor(t, success(object), ...figures, profileAt(object.write_sequence));
+  const step = elementOf(document, '<details data-part="profile"')!;
+  assert.ok(step && elementsOf(step, "<svg ").length >= 4, "the step draws its figures");
+  return document;
+}
 
 for (const [name, documentOfName] of SVG_DOCUMENTS) {
   test(`each svg holds rect elements only, carries aria-hidden and no xmlns, holds no text, and no tag holds a colour or style attribute: ${name}`, async (t) => {
@@ -93,8 +107,8 @@ for (const name of KEPT_READS) {
   });
 }
 
-test("the script of the document builds and changes no chart", async (t) => {
-  const { script } = partsOf(await documentOf(t, keptObject("status-success")));
+test("the script of the document builds and changes no chart, the document of the Data profile included", async (t) => {
+  const { script } = partsOf(await profileDocument(t, "status-success"));
   for (const name of ["svg", "rect", "createElement", "setAttribute"]) assert.ok(!script.includes(name), name);
 });
 

@@ -2,11 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, readStudy, type Outcome } from "../src/bridge";
+import { checkoutRoot, readProfile, readStudy, type Outcome } from "../src/bridge";
 import { kept } from "./kept";
 import { panelOf, runCommand, settle, withFigures, workspace } from "./panel-harness";
 import { PATHS } from "./paths";
-import { exit, recorder, type Answer } from "./recorder";
+import { exit, profile, recorder, type Answer } from "./recorder";
 
 const ROOT = "/checkout";
 const STUDY = "/work/runs/bike";
@@ -131,4 +131,26 @@ test("a second read starts the CLI again and gives back what it printed the seco
   const outcome = await readStudy(ROOT, STUDY);
   assert.equal(calls.length, 2);
   assert.deepEqual(outcome, { outcome: "success", object: second });
+});
+
+// The third read: "The bridge's profile read is `profile --study=<path> --json`, with the contract's program, first arguments and limits."
+// (chadlis/hypotrail#262)
+test("a profile read starts uv with the first arguments and profile --study={path} --json alone, in the checkout root, with the read's limits and no shell key", async (t) => {
+  const calls = recorder(t, profile(exit(0, kept("profile-bike.out"))));
+  const outcome = await readProfile(ROOT, STUDY);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].program, contract.program);
+  assert.deepEqual(contract.profile_arguments, ["profile", "--study={path}", "--json"]);
+  assert.deepEqual(calls[0].args, [...contract.first_arguments, "profile", `--study=${STUDY}`, "--json"]);
+  assert.equal(calls[0].options.cwd, ROOT);
+  assert.equal(calls[0].options.timeout, contract.read_timeout_ms);
+  assert.equal(calls[0].options.maxBuffer, contract.max_buffer_bytes);
+  assert.equal("shell" in calls[0].options, false);
+  assert.deepEqual(outcome, { outcome: "success", object: JSON.parse(kept("profile-bike.out")) });
+});
+
+test("a profile read refused by the CLI gives back its refusal with the error as printed", async (t) => {
+  recorder(t, profile(exit(Number(kept("profile-chinook.exit")), kept("profile-chinook.out"))));
+  const outcome = await readProfile(ROOT, STUDY);
+  assert.deepEqual(outcome, { outcome: "refusal", exit_code: Number(kept("profile-chinook.exit")), error: JSON.parse(kept("profile-chinook.out")).error });
 });

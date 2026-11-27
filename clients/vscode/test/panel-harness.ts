@@ -8,9 +8,8 @@ import type { TestContext } from "node:test";
 import contract from "../contract.json";
 import { activate } from "../src/extension";
 import { kept } from "./kept";
-import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
+import { NO_PROFILE, exit, heldRecorder, profile, recorder, type Answer, type RecordedCall } from "./recorder";
 import * as stub from "./vscode-stub";
-import childProcess = require("node:child_process");
 
 // The root of every workspace holds a digit, a space and markup, so that each document shows such a path in its heading.
 export function workspace(t: TestContext, names: string[]): string[] {
@@ -42,7 +41,7 @@ export async function followLink(form: number, study: string, decision = "c53337
 
 // Lets the recorder's answers arrive and the panel assign the documents that follow them.
 export async function settle(): Promise<void> {
-  for (let turn = 0; turn < 3; turn += 1) await new Promise((resolve) => setImmediate(resolve));
+  for (let turn = 0; turn < 5; turn += 1) await new Promise((resolve) => setImmediate(resolve));
 }
 
 export function panelOf() {
@@ -109,6 +108,19 @@ export function keptObject(name: string): Record<string, any> {
 
 export function success(object: unknown): Answer {
   return exit(0, JSON.stringify(object));
+}
+
+// The answer of a profile call with the kept Bike profile read, its Write sequence set to `sequence`: the profile of a Bike Study reads
+// only its `train` data, so that the same Study gives it at every Write sequence (tests/_client_helpers.py makes it at that of status-success).
+export function profileAt(sequence: number, changes: Record<string, unknown> = {}): Answer {
+  return profile(success({ ...keptObject("profile-bike"), write_sequence: sequence, ...changes }));
+}
+
+// The answer of a profile call beside a status read `object`: the kept Bike profile read at its Write sequence on a Bike Study, and the kept
+// refusal of a Study the profile does not cover otherwise.
+export function profileFor(object: Record<string, any>): Answer {
+  if (object.study?.workload === "bike_day") return profileAt(object.write_sequence);
+  return profile(exit(Number(kept(`${NO_PROFILE}.exit`)), kept(`${NO_PROFILE}.out`), kept(`${NO_PROFILE}.err`)));
 }
 
 // The answer of a figures call that fails, which leaves the document of its status read with the label of a failed figures call.
@@ -191,23 +203,8 @@ export function elementsOf(document: string, opening: string): string[] {
   }
 }
 
-// A recorder whose calls stay in flight until the test answers them, each with `answer`.
-export function heldRecorder(t: TestContext) {
-  const calls: RecordedCall[] = [];
-  const waiting: ((error: unknown, stdout: string, stderr: string) => void)[] = [];
-  t.mock.method(childProcess, "execFile", (program: string, args: string[], options: Record<string, unknown>, callback: (error: unknown, stdout: string, stderr: string) => void) => {
-    calls.push({ program, args: [...args], options: { ...options } });
-    waiting.push(callback);
-    return {};
-  });
-  return {
-    calls,
-    answer(answer: Answer): void {
-      const error = answer.error ? Object.assign(new Error("recorded"), answer.error) : null;
-      for (const callback of waiting.splice(0)) callback(error, answer.stdout ?? "", answer.stderr ?? "");
-    },
-  };
-}
+// A recorder whose calls stay in flight until the test answers them, and the recorder (`recorder.ts`).
+export { heldRecorder, recorder as recorderOf };
 
 // What makes a document break the policy, by patterns, with no parser. The patterns of an attribute read the tags of
 // the document, not the text between them, and a remote address is looked for in the tags and in the texts of the

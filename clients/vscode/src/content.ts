@@ -5,9 +5,10 @@
 // sign of the paired delta the figures read holds.
 import contract from "../contract.json";
 import type { Outcome } from "./bridge";
-import { bars, boxPlot, dots, histogram, partBar, type Bar, type Dot, type Five } from "./charts";
+import { bars, boxPlot, boxes, columns, dayOf, dots, histogram, matrix, partBar, scatter, timeline, type Bar, type Cell, type Dot, type Five } from "./charts";
 
-// `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `failure`
+// `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `profile` the
+// answer of the profile call made after it, `failure`
 // the outcome of a read that failed, `written` the answer of the
 // write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option, words and cited
 // ids of the write in flight or held; `decision` is the id a link of the second form names; `unopened` says that the document follows a
@@ -24,6 +25,7 @@ export type View = {
   sent?: { question: unknown; option: unknown; cited_ids: unknown; words?: unknown };
   decision?: string;
   unopened?: boolean;
+  profile?: Outcome;
 };
 
 // An object of the read, whatever its keys.
@@ -134,6 +136,27 @@ const LABEL = {
   noDecisionWaits: 100,
   pendingOne: 101,
   everythingToHandle: 102,
+  dataProfile: 103,
+  days: 104,
+  profileFailed: 105,
+  profileDiffers: 106,
+  targetOverTime: 107,
+  distributions: 108,
+  notAvailable: 109,
+  associations: 110,
+  flaggedAt: 111,
+  againstTarget: 112,
+  drawnFrom: 113,
+  partition: 114,
+  firstDay: 115,
+  lastDay: 116,
+  value: 117,
+  count: 118,
+  from: 119,
+  to: 120,
+  measure: 121,
+  items: 122,
+  columns: 123,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -157,6 +180,7 @@ const HREF: Record<string, string> = {
   choices: "#choices-",
   dots: "#dots-",
   since: "#since-",
+  profile: "#profile-",
 };
 // The `href` of the document's top, where Read again stands: the `id` of its `main` element.
 const TOP = "#study";
@@ -265,8 +289,9 @@ export function bodyOf(view: View): string {
   // The controls that record are inert while a call is in flight or a write that got no answer is held.
   const recorded = view.written?.outcome === "success" ? record(view.written.object.decision).decision_id : undefined;
   const figures = view.object ? usableFigures(view.object, view.figures) : undefined;
-  const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons)) : undefined;
-  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
+  const profile = view.object ? profileOf(view.object, view.profile, inert) : undefined;
+  const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons), profile?.step ?? "") : undefined;
+  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? "", profile?.now ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
   if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
   parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []));
   parts.push("</section>", toolsOf(inert));
@@ -366,7 +391,7 @@ function latestOf(object: Entry): string[] {
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
 // id names, whose question is Now's line; with `look_again`, its text; with no kind, the label that no decision waits for the person.
 // Without an object read, Now holds nothing.
-function nowOf(object: Entry | undefined, pending: string, count = ""): string {
+function nowOf(object: Entry | undefined, pending: string, count = "", frame = ""): string {
   const lines = [`<section data-part="now" id="now">`, `<div data-element="now-heading"><h2>${label("now")}</h2>${count === "" ? "" : ` ${count}`}</div>`];
   if (object) {
     const step = record(object.next_step);
@@ -375,6 +400,7 @@ function nowOf(object: Entry | undefined, pending: string, count = ""): string {
     // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists (D-161 addendum, #75 comment
     // 7197277304), then the latest Decision (D-159).
     else lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`, ...latestOf(object));
+    if (frame !== "") lines.push(frame);
   }
   lines.push("</section>");
   return lines.join("\n");
@@ -422,8 +448,8 @@ function failureOf(failure: Outcome): string {
 // `busy` says that a call is in flight and `held` that a write with no answer is held; `recorded` is the id of the Decision the write this
 // document follows recorded, `sent` the write in flight or held.
 // The parts of the object read under three headings: `now`, the first pending decision when `next_step` says one is Now; `waiting`, each
-// other one in a closed fold whose summary is its question; and `path`, the Study so far.
-function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined): { count: string; now: string; waiting: string; path: string } {
+// other one in a closed fold whose summary is its question; and `path`, the Study so far, whose first step is `profile` when there is one.
+function studyOf(object: Entry, linked: string | undefined, busy: boolean, held: boolean, recorded: unknown, sent: View["sent"], figures: Entry[] | undefined, profile = ""): { count: string; now: string; waiting: string; path: string } {
   const study = record(object.study);
   const pending = list(object.pending_decisions);
   const locked = busy || held;
@@ -459,7 +485,7 @@ function studyOf(object: Entry, linked: string | undefined, busy: boolean, held:
   // addendum 2, #75 comment 7197719288).
   const count = pending.length === 0 ? "" : `<span data-element="count">\u00b7 ${link("pending_decisions", 0, pending.length)} ${label(pending.length === 1 ? "pendingOne" : "pendingCount")}</span>`;
   return { count, now: parts[0] ?? "", waiting: waiting.join("\n"), path: [
-    momentOf("frame", [stepOf("study", value(study.study_id), studyPart)]),
+    momentOf("frame", [...(profile === "" ? [] : [profile]), stepOf("study", value(study.study_id), studyPart)]),
     momentOf("produce", produce),
     momentOf("assessAndCompare", assess),
     momentOf("decideAndFollow", decideAndFollow),
@@ -959,4 +985,144 @@ function deviationsOf(deviations: Entry[], shown: Shown): string {
     return `<li data-part="deviation">${value(deviation.declared_deviation_id)} ${marked(deviation.text)} ${mark}${label("withdrawn")} ${value(deviation.withdrawn)}${file === "" ? "" : ` ${file}`}</li>`;
   });
   return `<ul>\n${lines.join("\n")}\n</ul>`;
+}
+
+// --- the data profile ------------------------------------------------------------------------------------------------------------
+
+// The code of a refusal of a Study the profile does not cover: the document then holds nothing of the profile.
+const NOT_COVERED = "UNSUPPORTED_CAPABILITY";
+// The value of `workload_protocol` when the Workload as declared now no longer gives the Study's Protocol.
+const DIFFERS = "differs";
+// The keys of the five numbers of a profile's figures, in their order.
+const FIVE = QUARTILES.map(([key]) => key);
+
+// The object of the profile read when it is usable beside the status read: `ok` true and the same Write sequence.
+export function usableProfile(object: Entry | undefined, profile: Entry | undefined): Entry | undefined {
+  return object !== undefined && profile !== undefined && profile.ok === true && profile.write_sequence === object.write_sequence ? profile : undefined;
+}
+
+// A number of the profile, as a link to its step.
+const linked = (number: unknown): string => link("profile", 0, number);
+
+// The Data profile, from the answer of the profile call: `step`, the first step of the Study so far, and `now`, the band and the target
+// over time, which Now shows open when the read lists no Attempt. A refusal of a Study the profile does not cover gives neither. Any other
+// refusal gives a step that holds the fixed sentence of a failure with its code, and a call with no answer or a read that cannot stand
+// beside the status read the sentence alone, each with Read again.
+function profileOf(object: Entry, answer: Outcome | undefined, inert: string): { step: string; now: string } {
+  if (answer === undefined) return { step: "", now: "" };
+  const code = answer.outcome === "refusal" ? record(answer.error).code : undefined;
+  if (code === NOT_COVERED) return { step: "", now: "" };
+  const profile = answer.outcome === "success" ? usableProfile(object, answer.object) : undefined;
+  const open = `<details data-part="profile" data-step="profile"${anchor("profile", 0)}>`;
+  const name = `<span data-element="step">${label("dataProfile")}</span>`;
+  if (profile === undefined) {
+    const failed = `<span data-element="profile-failed">${label("profileFailed")}</span>${code === undefined ? "" : ` ${value(code)}`}`;
+    return { step: [open, `<summary>${name} ${failed}</summary>`, `<div data-element="form">`, `<p><button data-message="${contract.messages[0]}"${inert}>${label("readAgain")}</button></p>`, "</div>", "</details>"].join("\n"), now: "" };
+  }
+  const target = targetOf(profile);
+  const form = [
+    ...(profile.workload_protocol === DIFFERS ? [`<p data-element="differs">${label("profileDiffers")}</p>`] : []),
+    target,
+    distributionsOf(profile),
+    matrixOf(profile),
+    againstOf(profile),
+  ];
+  const step = [open, `<summary>${name} · ${linked(profile.items)} ${marked(profile.partition)} ${label("days")}</summary>`, `<div data-element="form">\n${form.join("\n")}\n</div>`, "</details>"].join("\n");
+  return { step, now: list(object.attempts).length === 0 ? target : "" };
+}
+
+// A closed fold of the numbers a figure is drawn from.
+const numbersOf = (body: string): string => [`<details data-element="numbers">`, `<summary>${label("drawnFrom")}</summary>`, body, "</details>"].join("\n");
+const table = (heads: (keyof typeof LABEL)[], rows: string[][]): string =>
+  `<table data-element="profile-numbers"><tr>${heads.map((head) => `<th>${label(head)}</th>`).join("")}</tr>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</table>`;
+const fiveOf = (figures: unknown): string[] => FIVE.map((key) => linked(record(record(figures).quartiles)[key] ?? null));
+const fiveNumbers = (figures: unknown): Five | null => {
+  const five = FIVE.map((key) => number(record(record(figures).quartiles)[key]));
+  return five.includes(null) ? null : (five as Five);
+};
+
+// The band and the target over time: one column per `train` day under the band, the band's spans named in its order, then in a fold
+// the spans' days and the target's five numbers; the days themselves get no table.
+function targetOf(profile: Entry): string {
+  const band = list(profile.band);
+  const target = record(profile.target);
+  const spans = band.map((span) => ({ first: dayOf(String(span.first)), last: dayOf(String(span.last)), kind: span.name === profile.partition ? "band-read" : "band" }));
+  const days = list(target.series).flatMap((day): [number, number][] => (number(day.value) === null ? [] : [[dayOf(String(day.date)), number(day.value)!]]));
+  const key = band.map((span) => `<span data-key="${span.name === profile.partition ? "band-read" : "band"}">${marked(span.name)}</span>`).join(" ");
+  const rows = band.map((span) => [marked(span.name), marked(span.first), marked(span.last)]);
+  const quartiles = QUARTILES.map(([, name], at) => `<span>${label(name)} ${fiveOf(target.figures)[at]}</span>`).join(" ");
+  return [
+    '<div data-figure="profile-target">',
+    `<h4>${label("targetOverTime")} (${marked(target.column)}, ${marked(target.unit)})</h4>`,
+    timeline(spans, days),
+    `<p data-element="band-key">${key}</p>`,
+    numbersOf([table(["partition", "firstDay", "lastDay"], rows), `<p data-element="quartiles">${quartiles}</p>`].join("\n")),
+    "</div>",
+  ].join("\n");
+}
+
+const availability = (column: Entry): string => (column.available === false ? ` <span data-element="unavailable">${label("notAvailable")}</span>` : "");
+
+// One closed fold per profiled column: its name and kind, marked when it is not available at prediction time, then its counts or bins
+// drawn as columns beside the numbers they are drawn from.
+function distributionsOf(profile: Entry): string {
+  const folds = list(profile.columns).map((column) => {
+    const distribution = record(column.distribution);
+    const counts = list(distribution.counts);
+    const bins = list(distribution.histogram);
+    const body =
+      distribution.counts !== null && distribution.counts !== undefined
+        ? [columns(counts.map((each) => number(each.count) ?? 0)), table(["value", "count"], counts.map((each) => [marked(each.value), linked(each.count)]))]
+        : distribution.histogram !== null && distribution.histogram !== undefined
+          ? [columns(bins.map((bin) => number(bin.count) ?? 0)), table(["from", "to", "count"], bins.map((bin) => [linked(bin.low), linked(bin.high), linked(bin.count)]))]
+          : [`<p>${marked(distribution.unavailable)}</p>`];
+    return ['<details data-element="distribution">', `<summary>${marked(column.name)} ${marked(column.kind)}${availability(column)}</summary>`, ...body, "</details>"].join("\n");
+  });
+  return ['<div data-figure="profile-distributions">', `<h4>${label("distributions")}</h4>`, ...folds, "</div>"].join("\n");
+}
+
+// The matrix of the columns in clustering order: each pair a mark in its two places, as wide as its absolute value of its place, the
+// class of a flagged pair or of a pair with no value from the read; the columns in that order, each marked when it is not available at
+// prediction time; the flagged pairs with their value; and in a fold every pair with its measure and value.
+function matrixOf(profile: Entry): string {
+  const associations = record(profile.associations);
+  const order = (Array.isArray(associations.order) ? associations.order : []).map(String);
+  const columnsByName = new Map(list(profile.columns).map((column) => [String(column.name), column]));
+  const pairs = list(associations.pairs);
+  const cells = pairs.flatMap((pair): Cell[] => {
+    const [a, b] = [order.indexOf(String(pair.a)), order.indexOf(String(pair.b))];
+    if (a < 0 || b < 0) return [];
+    const size = number(pair.value) === null ? 1 : Math.abs(number(pair.value)!);
+    const kind = number(pair.value) === null ? "no-value" : pair.flagged === true ? "flagged" : "cell";
+    return [{ row: a, column: b, size, kind }, { row: b, column: a, size, kind }];
+  });
+  const names = order.map((name) => `<li>${marked(name)}${availability(columnsByName.get(name) ?? {})}</li>`);
+  const flagged = pairs.filter((pair) => pair.flagged === true).map((pair) => `<li>${marked(pair.a)} ${marked(pair.b)} ${marked(pair.measure)} ${linked(pair.value)}</li>`);
+  const rows = pairs.map((pair) => [`${marked(pair.a)} ${marked(pair.b)}`, marked(pair.measure), `${linked(pair.value)}${pair.reason === null || pair.reason === undefined ? "" : ` ${marked(pair.reason)}`}`]);
+  return [
+    '<div data-figure="profile-matrix">',
+    `<h4>${label("associations")}</h4>`,
+    matrix(order.length, cells),
+    `<ol data-element="order">\n${names.join("\n")}\n</ol>`,
+    `<p data-element="level">${label("flaggedAt")} ${linked(associations.level)}</p>`,
+    `<ul data-element="flagged">\n${flagged.join("\n")}\n</ul>`,
+    numbersOf(table(["columns", "measure", "value"], rows)),
+    "</div>",
+  ].join("\n");
+}
+
+// The target against each allowed feature: its name, kind, measure and value over its `train` Items; the points of a numeric feature,
+// with no table; for a categorical one, a box of the target per value beside its count and five numbers in a fold.
+function againstOf(profile: Entry): string {
+  const entries = list(profile.against_target).map((entry) => {
+    const line = `<p>${marked(entry.name)} ${marked(entry.kind)} ${marked(entry.measure)} ${linked(entry.value)} ${linked(entry.rows)} ${label("items")}${entry.reason === null || entry.reason === undefined ? "" : ` ${marked(entry.reason)}`}</p>`;
+    if (entry.values === null || entry.values === undefined) {
+      const points = list(entry.points).flatMap((point): [number, number][] => (number(point.feature) === null || number(point.target) === null ? [] : [[number(point.feature)!, number(point.target)!]]));
+      return ['<div data-element="against">', line, scatter(points), "</div>"].join("\n");
+    }
+    const values = list(entry.values);
+    const rows = values.map((each) => [marked(each.value), linked(each.count), ...fiveOf(each.figures)]);
+    return ['<div data-element="against">', line, boxes(values.map((each) => fiveNumbers(each.figures))), numbersOf(table(["value", "count", ...QUARTILES.map(([, name]) => name)], rows)), "</div>"].join("\n");
+  });
+  return ['<div data-figure="profile-against">', `<h4>${label("againstTarget")}</h4>`, ...entries, "</div>"].join("\n");
 }
