@@ -2,13 +2,14 @@
 
 A `SCORER_ID` is a key of `REGISTRY`, looked up as a string. Nothing is imported, evaluated or
 looked up by name from the given text, so no Python can be loaded through it. It registers the two
-Scorers of the temporal regression Track and `chinook_contract_v1` of the agent Track (#68). A Scorer
-carries the `domain` of the Observation sets it can score and a `config` that is hashed into
-`config_digest`. A regression Scorer has one Criterion and the pure function that aggregates it into
-its Metric; `chinook_contract_v1` has four Criteria and no aggregation of its own: the shares of an
-agent Assessment are counted from the states of its Criteria, and the one scoring function stays in
-`hypotrail.core.chinook_contract` (ADR 0001). The module needs the standard library and, for that
-Scorer's name and version, `hypotrail.core.chinook_contract`.
+Scorers of the temporal regression Track and the two of the agent Track, `chinook_contract_v1` (#68)
+and `text_facts_v1` (#265). A Scorer carries the `domain` of the Observation sets it can score and a
+`config` that is hashed into `config_digest`. A regression Scorer has one Criterion and the pure
+function that aggregates it into its Metric. An agent Scorer has its Criteria, its per-Episode
+function (`episode`) and the role of the Study artifact that function reads (`reads`: the answer
+schema or the scoring config), and no aggregation of its own: the shares of an agent Assessment are
+counted from the states of its Criteria. Each scoring function stays in its own module of the core
+(ADR 0001): `hypotrail.core.chinook_contract` and `hypotrail.core.text_facts`.
 """
 
 import math
@@ -19,11 +20,14 @@ from hypotrail.core import canonical
 from hypotrail.core.chinook_contract import CRITERIA as CHINOOK_CRITERIA
 from hypotrail.core.chinook_contract import SCORER_NAME as CHINOOK_SCORER
 from hypotrail.core.chinook_contract import SCORER_VERSION as CHINOOK_VERSION
+from hypotrail.core import chinook_contract, text_facts
 from hypotrail.core.errors import InvalidInputError
 
 REGRESSION = "regression"
 AGENTIC = "agentic"
 ABSOLUTE_ERROR = "absolute_error"
+ANSWER_SCHEMA = "answer_schema"
+SCORING_CONFIG = "scoring_config"
 
 
 def mean_absolute_error(absolute_errors: list) -> float:
@@ -44,9 +48,15 @@ class Scorer:
     metric_id: str | None
     aggregate: Callable[[list], float] | None
     criteria: tuple = ()
+    # agent Scorers: the function of one Episode, (answer text, Reference record or None, what `reads` names, normalized entry) -> {"criteria": [...]}
+    episode: Callable | None = None
+    reads: str | None = None
+    limitations: tuple = ()
 
     @property
     def config(self) -> dict:
+        if self.domain == AGENTIC and self.reads == SCORING_CONFIG:
+            return {"criteria": list(self.criteria), "answer_shape": "text", "reads": SCORING_CONFIG}
         if self.domain == AGENTIC:
             return {"criteria": list(self.criteria), "answer_schema": "table-answer/1"}
         return {"criterion": self.criterion, "metric": self.metric_id, "direction": "lower_is_better"}
@@ -55,13 +65,46 @@ class Scorer:
     def config_digest(self) -> str:
         return canonical.digest(self.config)
 
+    def config_digest_for(self, scoring_config_sha256: str | None) -> str:
+        """The digest an Assessment records: the registry config, together with the Study's scoring config for a Scorer that reads one."""
+        if self.reads != SCORING_CONFIG:
+            return self.config_digest
+        return canonical.digest({"registry": self.config, "scoring_config_sha256": scoring_config_sha256})
+
+
+def _chinook_episode(text, reference, schema, entry):
+    return chinook_contract.apply_scorer(chinook_contract.score_episode, text, reference, schema, entry["trace"])
+
+
+def _text_facts_episode(text, reference, config, entry):
+    return text_facts.apply(text, reference, config, entry.get("outcome"))
+
+
+TEXT_FACTS_LIMITATIONS = (
+    "The Repeats of a Case are not independent samples, nor are the paraphrases of a group: the shares carry no confidence interval and no significance claim.",
+    "The Criteria read identifiers, numbers, dates, texts and phrases in the answer; they do not judge whether the rest of the prose is right.",
+    "The shares describe the Cases of this Workload, not assistants in general.",
+)
+
 
 REGISTRY: dict[str, Scorer] = {
     scorer.id: scorer
     for scorer in (
         Scorer("regression_mae_v1", "1", REGRESSION, ABSOLUTE_ERROR, "mae", mean_absolute_error),
         Scorer("regression_rmse_v1", "1", REGRESSION, ABSOLUTE_ERROR, "rmse", root_mean_squared_error),
-        Scorer(CHINOOK_SCORER, CHINOOK_VERSION, AGENTIC, None, None, None, criteria=CHINOOK_CRITERIA),
+        Scorer(CHINOOK_SCORER, CHINOOK_VERSION, AGENTIC, None, None, None, criteria=CHINOOK_CRITERIA, episode=_chinook_episode, reads=ANSWER_SCHEMA),
+        Scorer(
+            text_facts.SCORER_NAME,
+            text_facts.SCORER_VERSION,
+            AGENTIC,
+            None,
+            None,
+            None,
+            criteria=text_facts.CRITERIA,
+            episode=_text_facts_episode,
+            reads=SCORING_CONFIG,
+            limitations=TEXT_FACTS_LIMITATIONS,
+        ),
     )
 }
 

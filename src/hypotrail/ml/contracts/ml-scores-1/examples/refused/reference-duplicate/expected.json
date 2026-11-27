@@ -1,0 +1,7 @@
+{
+  "contract": "ranking-reference/1",
+  "code": null,
+  "exit": 2,
+  "caught_by": "import",
+  "why": "12346@2011-01-01 has two rows. Its code is M1's to name"
+}

@@ -480,7 +480,7 @@ STEPS = [
         "actions": [
             {"copy": "{checkout}/examples", "to": COPY},
             {
-                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "cli": ["data", "verify", "--examples-dir", COPY, "--workload", "bike_day", "--workload", "chinook", "--json"],
                 "print": ["datasets[*].workload", "datasets[*].status", "datasets[*].sha256"],
                 "expect": {
                     "exit": 0,
@@ -781,7 +781,7 @@ STEPS = [
                 "expect": {"exit": 0, "lines": ["day: 2012-12-31", "registered: 2290 -> 2390", "cnt: 2729 -> 2829"]},
             },
             {
-                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "cli": ["data", "verify", "--examples-dir", COPY, "--workload", "bike_day", "--workload", "chinook", "--json"],
                 "print": ["datasets[*].status", "datasets[0].sha256"],
                 "expect": {
                     "exit": 0,
@@ -866,7 +866,7 @@ STEPS = [
                 "expect": {"exit": 0, "lines": ["day: 2012-03-15", "registered: 5187 -> 5287", "cnt: 6192 -> 6292"]},
             },
             {
-                "cli": ["data", "verify", "--examples-dir", COPY, "--json"],
+                "cli": ["data", "verify", "--examples-dir", COPY, "--workload", "bike_day", "--workload", "chinook", "--json"],
                 "print": ["datasets[*].status", "datasets[0].sha256"],
                 "expect": {
                     "exit": 0,

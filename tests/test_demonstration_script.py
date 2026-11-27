@@ -219,11 +219,16 @@ def as_section_18(text: str) -> str:
 def section_18_form(action) -> tuple | None:
     """One action of the step list as section 18 writes it; None for the two reads of a kept state, which are the reads kept for the
     client's tests and no command of section 18. `--json` only chooses the form of what a command prints, so it is left out on both sides
-    of the comparison."""
+    of the comparison. The script's `data verify` also names `--workload bike_day --workload chinook`, which section 18 does not: with a
+    third Workload in `examples/` (`chinook_prose`, chadlis/hypotrail#264) it keeps what the step verifies the two Workloads it verified;
+    those four parts are left out of the comparison too."""
     if "keep" in action:
         return None
     if "cli" in action:
-        return ("hypotrail", *(as_section_18(part) for part in action["cli"] if part != "--json"))
+        parts = action["cli"]
+        if parts[:2] == ["data", "verify"]:
+            parts = [part for part in parts if part not in ("--workload", "bike_day", "chinook")]
+        return ("hypotrail", *(as_section_18(part) for part in parts if part != "--json"))
     if "program" in action:
         return (*action.get("interpreter", ["python"]), action["program"], *(as_section_18(part) for part in action["args"]))
     if "copy" in action:

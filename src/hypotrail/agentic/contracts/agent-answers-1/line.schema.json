@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/agentic/contracts/agent-answers-1/line.schema.json",
+  "title": "agent-answers/1: one line of answers.jsonl",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "repeat", "observation_status"],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "repeat": {"type": "integer", "minimum": 0},
+    "observation_status": {"enum": ["produced", "failed", "missing"]},
+    "raw_answer": {"type": "string"},
+    "final_answer": {"type": "object"},
+    "trace": {"type": "array", "items": {"type": "object", "required": ["kind"]}},
+    "outcome": {"enum": ["answered", "needs_clarification", "not_answerable"]},
+    "origin": {"type": "string"},
+    "mode": {"type": "string"},
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {"type": "string"},
+        "generation_time": {"type": "string"},
+        "historical_protocol": {"type": "string"},
+        "tool_use": {"type": "string"}
+      }
+    },
+    "usage": {
+      "type": "object",
+      "propertyNames": {"minLength": 1},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tokens", "latency_seconds", "cost_usd"],
+        "properties": {
+          "tokens": {"type": ["integer", "null"], "minimum": 0},
+          "latency_seconds": {"type": ["number", "null"], "minimum": 0},
+          "cost_usd": {"type": ["number", "null"], "minimum": 0}
+        }
+      }
+    },
+    "metadata": {"type": "object"},
+    "settings": {
+      "type": "object",
+      "propertyNames": {"minLength": 1},
+      "additionalProperties": {"type": ["string", "number", "boolean", "null"]}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"observation_status": {"const": "produced"}}},
+      "then": {"oneOf": [{"required": ["raw_answer"]}, {"required": ["final_answer"]}]}
+    }
+  ]
+}

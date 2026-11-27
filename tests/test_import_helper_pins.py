@@ -286,7 +286,7 @@ def test_import_agent_records_each_producer_field_every_line_declares_alike_as_d
     assert provenance["saw_public_check"] == UNKNOWN_ENTRY
     assert provenance["file_origin"] == {"value": "elsewhere", "origin": "declared"}
     assert provenance["file_mode"] == {"value": "batch", "origin": "declared"}
-    assert record["unknown_fields"] == ["saw_public_check"]
+    assert record["unknown_fields"] == ["saw_public_check", "settings"]  # #266: no line declares `settings`
 
 
 def test_import_agent_records_each_producer_field_no_line_declares_or_the_lines_declare_differently_as_unknown(tmp_path, chinook):
@@ -303,7 +303,7 @@ def test_import_agent_records_each_producer_field_no_line_declares_or_the_lines_
     assert provenance["saw_public_check"] == UNKNOWN_ENTRY
     assert provenance["file_origin"] == UNKNOWN_ENTRY
     assert provenance["file_mode"] == UNKNOWN_ENTRY
-    assert record["unknown_fields"] == ["model", "generation_time", "historical_protocol", "tool_use", "saw_public_check", "file_origin", "file_mode"]
+    assert record["unknown_fields"] == ["model", "generation_time", "historical_protocol", "tool_use", "saw_public_check", "file_origin", "file_mode", "settings"]
 
 
 def log_with_empty_system_text(tmp_path):
@@ -340,7 +340,7 @@ def test_import_agent_records_what_a_log_header_states_as_declared_and_an_empty_
     assert stated["inspect_version"] == {"value": "0.3.287", "origin": "declared"}
     assert stated["log_format_version"] == {"value": 2, "origin": "declared"}
     assert stated["log_status"] == {"value": "success", "origin": "declared"}
-    assert record["unknown_fields"] == ["historical_protocol", "tool_use", "saw_public_check", "file_origin", "log.system_text"]
+    assert record["unknown_fields"] == ["historical_protocol", "tool_use", "saw_public_check", "file_origin", "settings", "log.system_text"]
 
 
 # --- the usage of an Episode imported from an Inspect log ---------------------------------------------------------------------

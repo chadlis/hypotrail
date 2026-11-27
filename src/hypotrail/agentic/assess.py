@@ -1,23 +1,27 @@
-"""`assess` for the tool-using agent Track: `chinook_contract_v1` applied to one kept Observation set.
+"""`assess` for the tool-using agent Track: an agent Scorer of the registry applied to one kept Observation set.
 
 Assessing runs no model and no tool, opens no database and reads no Workload file: the frozen
-References, the answer schema and the Observation set the Study keeps are enough (RES-01, T10). This
-module imports neither Inspect, scikit-learn nor NumPy, and neither the runner nor the log projection.
-The one scoring function stays in `hypotrail.core.chinook_contract` (ADR 0001); the Criteria of an
-Episode without an answer come from `hypotrail.agentic.unproduced`, the same rule that rescores a
-kept log.
+References, the Study artifact the Scorer reads (the answer schema for `chinook_contract_v1`, the
+scoring config for `text_facts_v1`) and the Observation set the Study keeps are enough (RES-01, T10).
+This module imports neither Inspect, scikit-learn nor NumPy, and neither the runner nor the log
+projection. The per-Episode function and the Criteria are the Scorer's registry entry
+(`hypotrail.core.scorers`; each scoring function stays in its module of the core, ADR 0001); the
+Criteria of an Episode without an answer come from `hypotrail.agentic.unproduced`, the same rule that
+rescores a kept log, applied to the Scorer's Criteria.
 
 The order is fixed, and nothing is written before the checks that precede it:
 
-1. the Observation set and the References set are found in the Study, and the Scorer must belong to
-   the Observation set's domain (`UNSUPPORTED_CAPABILITY`, exit 2);
+1. the Observation set and the References set are found in the Study, the Scorer must belong to
+   the Observation set's domain (`UNSUPPORTED_CAPABILITY`, exit 2), the Study's primary Criterion must be one of
+   the Scorer's (`PRIMARY_CRITERION_NOT_OF_SCORER`, exit 2), and the Study must keep the artifact the Scorer reads
+   (`ANSWER_SCHEMA_NOT_KEPT` or `SCORING_CONFIG_NOT_KEPT`, exit 2);
 2. every artifact read (raw answers, normalized Observations, population, References, answer
    schema) is read back against its digest (`ARTIFACT_INTEGRITY`, exit 3);
 3. the Partition of the Episodes is `dev` or `public_check` (`ASSESSMENT_PARTITION_NOT_DEV` otherwise). An Assessment of
    `public_check` Episodes is an Exposure: once the structure of the Observation set has passed, and before any
    Episode is scored, the Study's freeze record is written if the revision has none and one journal entry is
    appended (`hypotrail.core.exposure`; `PROTOCOL_CHANGED`, exit 3, when the Workload's Protocol is no longer the revision's);
-4. every expected Episode gets a state for each of the four Criteria, with a Reason for every
+4. every expected Episode gets a state for each of the Scorer's Criteria, with a Reason for every
    non-score: an answer is scored (a `final_answer` object as its canonical JSON text), a `failed`
    Episode is `unscored` with `execution_failed`, a `missing` one with `observation_missing`;
 5. the counters of each Criterion are counted from those states (CMP-03) and the two named rates
@@ -42,7 +46,6 @@ from hypotrail.agentic.unproduced import criteria_of_unproduced
 from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
-from hypotrail.core.chinook_contract import CRITERIA, apply_scorer, score_episode
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.agentic.study import live_basis as _live_basis
 from hypotrail.agentic.partitions import requires_exposure
@@ -95,12 +98,12 @@ def _rates(counts: dict) -> list:
     ]
 
 
-def _verdict(entry, key, references, schema) -> dict:
+def _verdict(entry, key, references, scorer, read) -> dict:
     case_id, repeat = key
     status = entry["status"] if entry is not None else "missing"  # absent from the outputs
     if status == "produced" and entry["answer_given_as"] is not None:
         text = entry["raw_answer"] if entry["answer_given_as"] == "raw_answer" else canonical.dumps(entry["final_answer"]).decode("utf-8")
-        result = apply_scorer(score_episode, text, references.get(case_id), schema, entry["trace"])
+        result = scorer.episode(text, references.get(case_id), read, entry)
         return {
             "case_id": case_id,
             "repeat": repeat,
@@ -116,7 +119,7 @@ def _verdict(entry, key, references, schema) -> dict:
         "answer_given_as": None,
         "answer_read_from": None,
         # the Reason an import kept for the Episode (a limit, the output cap), the same rule as the rescoring of a log
-        "criteria": criteria_of_unproduced({"status": status, "reason": entry.get("reason") if entry is not None else None}),
+        "criteria": criteria_of_unproduced({"status": status, "reason": entry.get("reason") if entry is not None else None}, scorer.criteria),
     }
 
 
@@ -183,8 +186,19 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
             scorer_domain=scorer.domain,
             observation_set_domain=observation_set["domain"],
         )
-    schema_ref = next((e["ref"] for e in spec["artifacts"] if e["ref"]["role"] == "answer_schema"), None)
-    if schema_ref is None:
+    primary = spec["primary_metric"]["id"]
+    if primary not in scorer.criteria:
+        raise _refuse(
+            "PRIMARY_CRITERION_NOT_OF_SCORER",
+            f"the Study's primary Criterion {primary!r} is not one of the Criteria of Scorer {scorer.id}",
+            scorer=scorer.id,
+            primary_criterion=primary,
+            criteria=list(scorer.criteria),
+        )
+    read_ref = next((e["ref"] for e in spec["artifacts"] if e["ref"]["role"] == scorer.reads), None)
+    if read_ref is None and scorer.reads == scorers.SCORING_CONFIG:
+        raise _refuse("SCORING_CONFIG_NOT_KEPT", "the Study keeps no scoring config to score against", study=str(study))
+    if read_ref is None:
         raise _refuse("ANSWER_SCHEMA_NOT_KEPT", "the Study keeps no answer schema to score against", study=str(study))
 
     for ref in observation_set["raw_refs"]:
@@ -192,7 +206,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
     normalized = artifacts.read_verified(study, observation_set["normalized_ref"])
     population = artifacts.read_verified(study, observation_set["population_ref"])
     references_bytes = artifacts.read_verified(study, references)
-    schema = json.loads(artifacts.read_verified(study, schema_ref))
+    read = json.loads(artifacts.read_verified(study, read_ref))
 
     partition = observation_set["provenance"].get("partition")
     if partition is None:
@@ -212,13 +226,17 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
     if stray:
         raise _refuse("OBSERVATIONS_INVALID", f"{stray[0]} is not an Episode of the population", problem="unexpected_item", case_id=stray[0][0], repeat=stray[0][1])
     assessment_id = str(uuid.uuid4())
+    scorer_record = {
+        "id": scorer.id,
+        "version": scorer.version,
+        "config_digest": scorer.config_digest_for(read_ref["sha256"] if scorer.reads == scorers.SCORING_CONFIG else None),
+    }
     if exposed:  # before any Episode is scored
         exposure.record(study, write, spec, _live_basis(examples_dir), attempt_ids=[manifest["attempt_id"]], assessment_ids=[assessment_id])
     reference_of = {record["case_id"]: record for record in _lines(references_bytes)}
 
-    verdicts = [_verdict(observed.get(key), key, reference_of, schema) for key in expected]  # a fixed order, whatever the file order
+    verdicts = [_verdict(observed.get(key), key, reference_of, scorer, read) for key in expected]  # a fixed order, whatever the file order
 
-    primary = spec["primary_metric"]["id"]
     counts = _counts(verdicts, primary)
     non_scores = Counter(
         criterion["reason"]
@@ -227,7 +245,7 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         if criterion["name"] == primary and criterion["state"] != "scored"
     )
     statuses = [verdict["status"] for verdict in verdicts]
-    secondary = [name for name in CRITERIA if name != primary]
+    secondary = [name for name in scorer.criteria if name != primary]
     detailed = {
         "primary_criterion": primary,
         "criteria": {name: {"counts": _counts(verdicts, name), "metrics": _rates(_counts(verdicts, name))} for name in secondary},
@@ -256,18 +274,18 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
         "assessment_id": assessment_id,
         "observation_set_id": observation_set["observation_set_id"],
         "references_ref": references,
-        "scorer": {"id": scorer.id, "version": scorer.version, "config_digest": scorer.config_digest},
+        "scorer": scorer_record,
         "counts": counts,
         "per_item_ref": per_item_ref,
         "metrics": _rates(counts),
-        "limitations": list(LIMITATIONS),
+        "limitations": list(scorer.limitations or LIMITATIONS),
         "study_revision": revisions.identity(spec),
         **exposure.marks(study, [manifest]),
         "recorded_at": now(),
         "rescoring": rescoring.describe(
             study,
             observation_set_id=observation_set["observation_set_id"],
-            scorer={"id": scorer.id, "version": scorer.version, "config_digest": scorer.config_digest},
+            scorer=scorer_record,
             references_ref=references,
             per_item=per_item,
         ),

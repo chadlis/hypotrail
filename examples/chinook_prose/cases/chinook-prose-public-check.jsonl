@@ -1,0 +1,6 @@
+{"case_id": "P01", "family": "lookup", "group": "track-1-album", "question": "On which album is track 1, and by which artist? Give the album id, the album title and the artist name."}
+{"case_id": "P02", "family": "lookup", "group": "track-1-album", "question": "Track 1 appears on what album? I need the album id and title, and the name of its artist."}
+{"case_id": "P03", "family": "lookup", "group": "track-1-album", "question": "Give the album id, album title and artist name for track 1."}
+{"case_id": "P04", "family": "aggregate", "group": "germany-invoices-2012", "question": "How many invoices were billed to Germany in 2012?"}
+{"case_id": "P05", "family": "aggregate", "group": "germany-invoices-2012", "question": "What is the number of invoices with Germany as the billing country and an invoice date in 2012?"}
+{"case_id": "P06", "family": "aggregate", "group": "germany-invoices-2012", "question": "Count the 2012 invoices whose billing country is Germany."}

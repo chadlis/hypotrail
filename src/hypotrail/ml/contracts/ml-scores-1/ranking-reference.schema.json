@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/ml/contracts/ml-scores-1/ranking-reference.schema.json",
+  "title": "ranking-reference/1",
+  "type": "object",
+  "required": ["columns", "rows"],
+  "properties": {
+    "columns": {"const": ["item_id", "label"]},
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_id", "label"],
+        "properties": {
+          "item_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+@[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+          "label": {"enum": ["0", "1"]}
+        }
+      }
+    }
+  }
+}

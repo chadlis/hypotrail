@@ -1,0 +1,7 @@
+{
+  "contract": "ml-scores/1",
+  "code": "ROW_ID_DUPLICATE",
+  "exit": 2,
+  "caught_by": "import",
+  "why": "12346@2011-01-01 has two rows"
+}

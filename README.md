@@ -27,7 +27,7 @@ uv run python -m hypotrail init --workload chinook --study runs/chinook
 uv run python -m hypotrail run agent --study runs/chinook --mode scripted_fixture --config plain --request-id fixture-a    # the scenarios: mock model, no key
 uv run python -m hypotrail run agent --study runs/chinook --mode llm_live --config plain --partition dev --cases D03 --cases D05 --repeats 1 --model anthropic/<model> --request-id live-a    # opt-in, paid, needs the key
 uv run python -m hypotrail import agent --study runs/chinook --source docs/handbook/traces/run-agent-live-plain/inspect/2026-11-20T21-46-56-00-00_chinook-plain_e5SoHDfMBV3vBUjsjaQWVu.eval --population population.json --request-id import-b   # the kept Inspect log; or --source answers.jsonl, agent answers
-uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID
+uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATION_SET_ID --scorer chinook_contract_v1 --references REFERENCES_ID    # a chinook_prose Study takes --scorer text_facts_v1
 uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID --candidate ASSESSMENT_ID
 uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html    # one HTML page, outside the Study
 uv run python -m hypotrail report --study runs/chinook --out runs/chinook-report.html    # the same page for a Chinook Study
@@ -45,9 +45,13 @@ A Comparison carries an interval on its delta, resampled over the unit its Workl
 
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 
+A `chinook_prose` Study takes prose answers with `usage`, `metadata` and `settings` on each line, then `assess --scorer text_facts_v1`; it is not part of the path above: `import agent --study runs/chinook-prose --source examples/chinook_prose/fixtures/answers-concise.jsonl --population population.json --request-id import-prose`, after `init --workload chinook_prose --study runs/chinook-prose`.
+
 `spike live` is opt-in and paid, never part of the tests, and records nothing in a Study (it writes under `--out`): `python -m hypotrail spike live --config plain|verify --model anthropic/<model> --out DIR [--examples-dir DIR]`, with the key in `HYPOTRAIL_ANTHROPIC_API_KEY` (see the handbook). The live Episodes kept in `docs/handbook/traces/` (`live-l12-*` of 2026-11-06 and `live-l12b-*` of 2026-11-07: Cases D03 and D05, one Repeat each, per Configuration, on `anthropic/claude-sonnet-5-5`) come from it and are not scored against References. The owner reviewed the References of D07, D08, E11 and E12 on 2026-11-06, before them (chadlis/hypotrail#8).
 
 The one paid `run agent` Attempt (2026-11-20, `plain`, D03 and D05) is kept whole in `docs/handbook/traces/run-agent-live-plain/`. The live Campaign (2026-11-21, 72 Episodes on `public_check`: `plain` and `verify`, their Assessments, the Comparison and the report) is kept whole in `docs/handbook/traces/campaign-public-check/`.
+
+A third Workload, `examples/chinook_prose`, is a data assistant that answers in prose about the same Chinook bytes, which it declares by a data manifest of digests (`data-manifest.json`) and never opens: it is evaluated only through `import agent`, and `run agent` refuses it.
 
 The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose References two writers wrote apart (the review record is `examples/chinook/references/chinook-references-2.review.jsonl`), and 12 `public_check` Cases. The live Campaign on `dev` (2026-11-26, `plain` and `verify`, one Repeat each, its plan, ceiling, captures, estimated spend and report) is kept whole in `docs/handbook/traces/campaign-chinook-dev/`, its Study in `docs/handbook/traces/campaign-chinook-dev/study/`. The demonstration, in `docs/demo/`, compares and decides again on a copy of that Study, offline, then gives the copy a new revision whose Workload declares its resampling and compares with an interval over Cases. The handbook's chapter on the larger Chinook Workload gives the detail.
 
@@ -85,6 +89,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
+- `src/hypotrail/ml/contracts/` and `src/hypotrail/agentic/contracts/`: the file formats that chadlis/mlkit and chadlis/agentkit write for `import ml` and `import agent` (JSON Schemas, examples, refused cases), with their changes in [`docs/contracts/CHANGELOG.md`](docs/contracts/CHANGELOG.md). `ml-scores/1` is a draft until the ranking Track's contract accepts it.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.
 - [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, the selected milestones L2 and L3, later options and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.

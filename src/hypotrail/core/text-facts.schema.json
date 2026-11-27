@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/core/text-facts.schema.json",
+  "title": "The scoring config of text_facts_v1 (scoring/text-facts.json of a Workload)",
+  "description": "text-facts-config/1: the identifier kinds, each a regular expression with one capture group and the normalisation of the value it captures, and the casefolded phrases that recognise a clarification and a no-data answer. The patterns are data (ADR 0002).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "identifier_kinds",
+    "outcome_phrases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "text-facts-config/1"
+    },
+    "identifier_kinds": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pattern",
+          "strip_leading_zeros",
+          "separators",
+          "casefold"
+        ],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "minLength": 1
+          },
+          "strip_leading_zeros": {
+            "type": "boolean"
+          },
+          "separators": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "casefold": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "outcome_phrases": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needs_clarification": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "not_answerable": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

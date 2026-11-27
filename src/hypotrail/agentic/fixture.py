@@ -27,6 +27,7 @@ from inspect_ai.model import ModelOutput
 
 from hypotrail.agentic import counts, limits as limits_module, projection, rescore, runner
 from hypotrail.agentic.declaration import SCENARIOS, check_document, database_changed, load_workload, read_json
+from hypotrail.core import chinook_contract, scorers
 from hypotrail.core.attempts import SCENARIO_BANNER, SCENARIO_MODE
 from hypotrail.core.data import sha256_file
 from hypotrail.core.errors import InvalidInputError
@@ -124,7 +125,8 @@ def run_fixture(
     verdicts = rescore.rescore_episodes(episodes, references, schema=schema, workload=workload)
     for verdict in verdicts:
         verdict["scenario_id"] = scenario_of[verdict["case_id"]]
-    tally = counts.tally(verdicts, workload=workload)
+    # `rescore` scores the scenarios with chinook_contract_v1, so its registry entry's Criteria are counted.
+    tally = counts.tally(verdicts, criteria=scorers.get(chinook_contract.SCORER_NAME).criteria, workload=workload)
     log = read_eval_log(location, header_only=True)
     effective = limits_module.read_back(location)
 

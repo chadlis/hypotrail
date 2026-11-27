@@ -73,6 +73,7 @@ _Avoid_: row, sample, example
 
 **Case**:
 One question of an agentic Track, with its requested columns and unit; it carries no expected answer.
+Clarification, 2026-11-26: a text Case states its question with no requested columns or unit, and may carry a `group` (its paraphrases), a `family` and a `history` of frozen prior turns (D-154 on chadlis/hypotrail#75, item 7).
 _Avoid_: task, prompt, question item
 
 **Episode**:
@@ -119,6 +120,7 @@ _Avoid_: results, predictions (as a generic term), log
 
 **Reference**:
 The frozen expected outcome for an Item, versioned as a whole set and never shown to the system being evaluated.
+Clarification, 2026-11-26: the Reference of the Case being answered is never shown; a later turn may receive a scripted history built from earlier turns' Reference texts, declared by the Protocol (D-154 on chadlis/hypotrail#75, item 1). The expected facts of a text Reference (`text-reference/1`) are part of the Reference, not Claims.
 _Avoid_: ground truth, gold, label, oracle
 
 **Scorer**:
