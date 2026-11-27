@@ -823,8 +823,9 @@ def test_a_chinook_prose_comparison_holds_an_interval_over_its_groups_with_the_c
     assert stored["limitations"][0].startswith("The interval is a percentile bootstrap over groups of Cases")
 
 
-def test_the_same_chinook_prose_comparison_made_again_on_dev_holds_the_same_bounds(tmp_path):
+def test_the_same_chinook_prose_comparison_made_again_on_dev_holds_the_same_interval(tmp_path):
     study, (control, candidate), first = prose_comparison(tmp_path, "dev")
+    # The fixtures' per-Case deltas are 0 and -1: over 10 groups the bounds do not move with the seed, so the seed is checked beside them.
     code, payload, err = compare(study, control, candidate)
     assert code == 0, (payload, err)
     again = payload["comparison"]["interval"]
