@@ -1,0 +1,85 @@
+{
+  "cards": [
+    {
+      "kind": "study",
+      "title": "Study",
+      "text": "A Study is the record of one investigation of one Workload of the agent Track: its Cases, Partitions, References and Scorer are frozen in a Protocol, one per revision, and every record below names the revision it was made in. Read the Workload, the revision and the Write sequence of the Study before the records of each step below.",
+      "key_paths": [
+        {"read": "status", "path": "study.workload"},
+        {"read": "status", "path": "study.revision_number"},
+        {"read": "status", "path": "study.protocol_digest"},
+        {"read": "status", "path": "write_sequence"}
+      ]
+    },
+    {
+      "kind": "attempts",
+      "title": "Attempts",
+      "text": "An Attempt is one execution or one import of one Configuration on a population of Episodes, each Episode being one Case answered once. Its mode says how its outputs came to exist, and its technical status whether it completed. Its counts say how many Episodes it produced, how many stopped with no output, and how many an import lacks; an import keeps the original files and marks as unknown what it cannot establish. Read the mode and the technical status before the counts, and the failed and missing Episodes beside the produced ones.",
+      "key_paths": [
+        {"read": "status", "path": "attempts[].request_id"},
+        {"read": "status", "path": "attempts[].operation"},
+        {"read": "status", "path": "attempts[].mode"},
+        {"read": "status", "path": "attempts[].technical_status"},
+        {"read": "status", "path": "attempts[].outcome_unknown"},
+        {"read": "status", "path": "attempts[].item_counts.produced"},
+        {"read": "status", "path": "attempts[].item_counts.failed"},
+        {"read": "status", "path": "attempts[].item_counts.missing"}
+      ]
+    },
+    {
+      "kind": "assessments",
+      "title": "Assessments",
+      "text": "An Assessment applies one version of a Scorer to the Observation set of one Attempt and to the References of the Study's revision. The Scorer checks each Criterion on each Episode, and the primary Criterion gives the Metrics, each with its value, its denominator and the direction that is better. A Criterion left unscored or errored is an instrument failure: it is counted apart, with its Reasons, and never held against the agent. Read the unscored and errored counts and their Reasons beside each Metric.",
+      "key_paths": [
+        {"read": "status", "path": "assessments[].observation_set_id"},
+        {"read": "status", "path": "assessments[].scorer.id"},
+        {"read": "status", "path": "assessments[].scorer.version"},
+        {"read": "status", "path": "assessments[].primary_criterion"},
+        {"read": "status", "path": "assessments[].counts.expected"},
+        {"read": "status", "path": "assessments[].counts.scored"},
+        {"read": "status", "path": "assessments[].counts.correct"},
+        {"read": "status", "path": "assessments[].counts.incorrect"},
+        {"read": "status", "path": "assessments[].unknowns.unscored"},
+        {"read": "status", "path": "assessments[].unknowns.errored"},
+        {"read": "status", "path": "assessments[].unknowns.reasons"},
+        {"read": "status", "path": "assessments[].metrics[].id"},
+        {"read": "status", "path": "assessments[].metrics[].value"},
+        {"read": "status", "path": "assessments[].metrics[].denominator"},
+        {"read": "status", "path": "assessments[].metrics[].direction"}
+      ]
+    },
+    {
+      "kind": "comparisons",
+      "title": "Comparisons",
+      "text": "A Comparison sets two Assessments of the same Episodes side by side, aligned Episode by Episode: one side is the Control, the other the Candidate, and the factor declared to differ between them is named. Its delta is the Candidate's primary Metric minus the Control's, and its definition states which sign means the Candidate is better. It also records whether the two sides are comparable, how many Episodes it paired, its warnings, and what each side used in tokens, cost and time; the figures give its paired deltas, one per Case, and their spread. Read the comparability, the coverage and the warnings before the delta, and the spread of the paired deltas beside it.",
+      "key_paths": [
+        {"read": "status", "path": "comparisons[].roles.control_assessment_id"},
+        {"read": "status", "path": "comparisons[].roles.candidate_assessment_id"},
+        {"read": "status", "path": "comparisons[].declared_factor"},
+        {"read": "status", "path": "comparisons[].comparability.status"},
+        {"read": "status", "path": "comparisons[].coverage.paired"},
+        {"read": "status", "path": "comparisons[].delta.value"},
+        {"read": "status", "path": "comparisons[].delta.definition"},
+        {"read": "status", "path": "comparisons[].warnings"},
+        {"read": "status", "path": "comparisons[].descriptive.control"},
+        {"read": "status", "path": "comparisons[].descriptive.candidate"},
+        {"read": "figures", "path": "comparisons[].paired_deltas"},
+        {"read": "figures", "path": "comparisons[].quartiles"}
+      ]
+    },
+    {
+      "kind": "decisions",
+      "title": "Decisions",
+      "text": "A Decision records the option chosen for a question about this Study, with its author, its source and the ids of the records it cites. It is written once by decide and never changed. It stops applying when the Study no longer holds an id it cites, when the Study's revision is no longer the one it was recorded in, or when an Assessment it cites, or one that a cited Comparison compares, is superseded by a later one; its reasons then say which. Read whether each Decision still applies, and its reasons when it does not.",
+      "key_paths": [
+        {"read": "status", "path": "decisions[].question"},
+        {"read": "status", "path": "decisions[].option"},
+        {"read": "status", "path": "decisions[].author"},
+        {"read": "status", "path": "decisions[].source"},
+        {"read": "status", "path": "decisions[].cited_ids"},
+        {"read": "status", "path": "decisions[].applies"},
+        {"read": "status", "path": "decisions[].reasons"}
+      ]
+    }
+  ]
+}

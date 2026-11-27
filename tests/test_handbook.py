@@ -2678,6 +2678,10 @@ def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
     """#77 AC2: what is left of the word in chapters 01 and 03 is the generic line, the two commands that record an Attempt in a Study and the row that says a spike live execution is not one."""
     assert "Attempt" not in plain_chapter("01-feasibility-spike.html")
     text = plain_chapter("03-agentic-track.html")
+    # The lesson cards explain the records of a Study, its Attempts among them: their section is left out of the count.
+    before, cards = text.split("The lesson cards", 1)
+    assert "Where the decisions are" in cards
+    text = before + cards.split("Where the decisions are", 1)[1]
     contexts = [text[max(0, m.start() - 30) : m.end() + 30] for m in re.finditer("Attempt", text)]
     assert len(contexts) == 5, contexts
     assert "to be checked on an Attempt." in contexts[0]  # the generic line
@@ -5255,6 +5259,30 @@ def test_chapter_02_names_the_five_card_kinds_and_the_refusal_of_a_track_with_no
     prose = " ".join(plain_text(prose_of(chapter_text("02-temporal-regression-track.html"))).split())
     assert all(kind in prose for kind in lesson.KINDS)
     assert "lesson" in prose and "UNSUPPORTED_CAPABILITY" in prose
+
+
+AGENTIC_LESSON_DATA = ROOT / "src" / "hypotrail" / "agentic" / "lesson.json"
+
+
+def agentic_lesson_rows(table_id):
+    """The data attributes of each row of one table of chapter 03's section on the lesson cards, in order."""
+    return [row["attrs"] for row in parse(chapter_text("03-agentic-track.html")).tables.get(table_id, []) if any(k.startswith("data-") for k in row["attrs"])]
+
+
+def test_the_card_and_key_path_tables_of_chapter_03_equal_the_agentic_lesson_json_both_ways():
+    cards = json.loads(AGENTIC_LESSON_DATA.read_text(encoding="utf-8"))["cards"]
+    assert [(row["data-kind"], row["data-title"]) for row in agentic_lesson_rows("agentic-lesson-cards")] == [(card["kind"], card["title"]) for card in cards]
+    assert [(row["data-kind"], row["data-read"], row["data-path"]) for row in agentic_lesson_rows("agentic-lesson-key-paths")] == [
+        (card["kind"], key_path["read"], key_path["path"]) for card in cards for key_path in card["key_paths"]
+    ]
+
+
+def test_chapter_03_names_the_five_card_kinds_the_free_text_workload_and_the_refusal_of_a_track_with_no_cards():
+    from hypotrail.agentic import lesson
+
+    prose = " ".join(plain_text(prose_of(chapter_text("03-agentic-track.html"))).split())
+    assert all(f"<code>{kind}</code>" in chapter_text("03-agentic-track.html") for kind in lesson.KINDS)
+    assert "chinook_prose" in prose and "UNSUPPORTED_CAPABILITY" in prose and "lesson" in prose
 
 
 def test_the_readme_names_lesson():
