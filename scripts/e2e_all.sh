@@ -276,7 +276,7 @@ fi
 step "C6 model-free Guide contract and dev tools" \
     at "$product" uv run --frozen python -m pytest -q tests/test_guide_agent.py || true
 step "C6 Guide pack read and declared held-out boundary" journey test_guide_pack_tool || true
-skip "C6 actual Guide reply at the held-out station: owner G6 model gate"
+skip "C6 actual Guide reply at the held-out station: owner D-235/G6 model gate"
 
 # Pytest exits zero for a suite of skipped or expected-failing tests. Require
 # actual passes for the explicit C7 round trips. Only the aggregate terminal
