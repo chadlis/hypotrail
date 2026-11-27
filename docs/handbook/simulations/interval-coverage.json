@@ -3,12 +3,12 @@
   "resamples": 2000,
   "method": "percentile_bootstrap",
   "seed": 238,
-  "commit": "e8d0a19",
+  "commit": "9403115",
   "settings": {
     "case": "Control rate uniform on [0.2, 0.8], Candidate rate + 0.1; the Repeats of a Case share its rates and the two sides of an Episode share one uniform draw",
     "item": "independent Item deltas, exponential of mean 1 minus 0.8",
     "days": "daily deltas of mean 0: independent standard normal; x[t] = phi x[t-1] + e[t] with phi 0.5 and 0.9, from the stationary distribution; sin(2 pi (t + phase) / 7) with a random phase plus standard normal noise",
-    "group": "each group draws a Control rate uniform on [0.2, 0.75] and an effect uniform on [0.0, 0.2] that its Cases share, each Case moving the rate by a uniform draw on [-0.05, 0.05]; the Candidate's rate is the Control's plus the group's effect, and the Repeats and the two sides of an Episode are drawn as for Cases"
+    "group": "each group draws a Control rate uniform on [0.35, 0.45] and an effect uniform on [-0.35, 0.55] that its Cases share; the Candidate's rate is the Control's plus the group's effect, and the Repeats and the two sides of an Episode are drawn as for Cases"
   },
   "sizes": [
     {
@@ -142,8 +142,8 @@
       "repeats": 1,
       "replications": 1000,
       "true_delta": 0.1,
-      "group_coverage": 0.952,
-      "case_coverage": 0.95
+      "group_coverage": 0.91,
+      "case_coverage": 0.883
     },
     {
       "unit": "group",
@@ -152,8 +152,8 @@
       "repeats": 3,
       "replications": 1000,
       "true_delta": 0.1,
-      "group_coverage": 0.909,
-      "case_coverage": 0.922
+      "group_coverage": 0.91,
+      "case_coverage": 0.809
     },
     {
       "unit": "group",
@@ -162,14 +162,14 @@
       "repeats": 1,
       "replications": 1000,
       "true_delta": 0.1,
-      "group_coverage": 0.38,
-      "case_coverage": 0.434
+      "group_coverage": 0.441,
+      "case_coverage": 0.469
     }
   ],
   "timing": {
     "units": 3000,
     "resamples": 2000,
-    "seconds": 2.67,
+    "seconds": 1.24,
     "python": "3.13.18"
   },
   "optimal_block_length": {
