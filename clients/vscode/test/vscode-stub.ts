@@ -34,6 +34,7 @@ export const calls: Call[] = [];
 export const state = {
   folders: [] as string[],
   pick: (items: readonly string[]): string | undefined => items[0],
+  informationChoice: undefined as string | undefined,
   commands: new Map<string, (...args: unknown[]) => unknown>(),
   uriHandlers: [] as { handleUri(uri: unknown): unknown }[],
   panels: [] as StubPanel[],
@@ -46,6 +47,7 @@ export function reset(): void {
   calls.length = 0;
   state.folders = [];
   state.pick = (items) => items[0];
+  state.informationChoice = undefined;
   state.commands.clear();
   state.uriHandlers.length = 0;
   state.panels.length = 0;
@@ -138,7 +140,7 @@ function makePanel(viewType: string, options: unknown): StubPanel {
 export const window = {
   showInformationMessage(...args: unknown[]) {
     record("showInformationMessage", args);
-    return Promise.resolve(undefined);
+    return Promise.resolve(state.informationChoice);
   },
   showWarningMessage(...args: unknown[]) {
     record("showWarningMessage", args);
