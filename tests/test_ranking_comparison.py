@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from hypotrail import cli
-from hypotrail.core import artifacts, comparison, contracts, figures, write_journal
+from hypotrail.core import artifacts, comparison, contracts, figures, lock, write_journal
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.report import command as report, gather, markup
 
@@ -20,6 +20,7 @@ METRIC = "recall_at_top_fraction"
 def _ranking_side(role, first, second, value):
     return {
         "role": role,
+        "study_spec": {"domain": "ranking", "artifacts": []},
         "assessment": {
             "assessment_id": str(uuid.uuid4()),
             "references_ref": {"sha256": "1" * 64},
@@ -132,7 +133,9 @@ def test_ranking_requires_dev_in_both_records_before_reading_its_artifact(tmp_pa
     ("study_domain", "observation_domain", "partition"), [("ranking", "regression", "held_out"), ("regression", "ranking", "dev")],
 )
 def test_ranking_domain_mismatch_is_refused_before_reading_any_payload(tmp_path, monkeypatch, study_domain, observation_domain, partition):
-    monkeypatch.setattr(comparison.layout, "read_spec", lambda _: {"domain": study_domain})
+    monkeypatch.setattr(comparison.layout, "read_spec", lambda study: {
+        "domain": study_domain if lock.is_held(study) else observation_domain,
+    })
     monkeypatch.setattr(comparison.layout, "find_assessment", lambda *args: {"observation_set_id": "synthetic", "per_item_ref": {}})
     monkeypatch.setattr(
         comparison.layout, "find_observation_set",

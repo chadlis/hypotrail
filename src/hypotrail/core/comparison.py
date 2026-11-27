@@ -129,7 +129,7 @@ def _population_identity(study: Path, observation_set: dict) -> tuple[str, list 
     return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": expected})), expected
 
 
-def _side(study: Path, role: str, assessment_id: str, *, expected_domain: str, run_tool: bool = False) -> dict:
+def _side(study: Path, role: str, assessment_id: str, *, study_spec: dict | None = None, run_tool: bool = False) -> dict:
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
         raise _not_found(
@@ -144,6 +144,9 @@ def _side(study: Path, role: str, assessment_id: str, *, expected_domain: str, r
             observation_set_id=assessment["observation_set_id"],
         )
     observation_set, manifest = found
+    if study_spec is None:
+        study_spec = layout.read_spec(study)
+    expected_domain = study_spec["domain"]
     domain = observation_set["domain"]
     if domain != expected_domain and RANKING in (domain, expected_domain):
         raise _not_found(
@@ -163,6 +166,7 @@ def _side(study: Path, role: str, assessment_id: str, *, expected_domain: str, r
     digest, expected = _population_identity(study, observation_set)
     return {
         "role": role,
+        "study_spec": study_spec,
         "assessment": assessment,
         "observation_set": observation_set,
         "manifest": manifest,
@@ -396,17 +400,16 @@ def _paired_deltas(study: Path, folder: str, pairs: list) -> dict:
 
 
 def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis, *, run_tool: bool = False) -> dict:
-    spec = layout.read_spec(study)
-    expected_domain = spec["domain"]
-    control = _side(study, "control", control_id, expected_domain=expected_domain, run_tool=run_tool)
-    candidate = _side(study, "candidate", candidate_id, expected_domain=expected_domain, run_tool=run_tool)
+    control = _side(study, "control", control_id, run_tool=run_tool)
+    spec = control["study_spec"]
+    candidate = _side(study, "candidate", candidate_id, study_spec=spec, run_tool=run_tool)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
         return agent_comparison.compare_sides(study, write, control, candidate, factor, live_basis)
 
-    ranking = expected_domain == RANKING
+    ranking = spec["domain"] == RANKING
     checks = []
 
     def passed(check, ok, reason=None):
