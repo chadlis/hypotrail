@@ -91,12 +91,22 @@ python_suite() {
         -n 8 --dist loadfile -q -p no:cacheprovider -rE
 }
 
+client_suite() {
+    local chrome="${HYPOTRAIL_CHROME:-/usr/bin/google-chrome}"
+    [[ -x "$chrome" ]] || return 1
+    at "$product/clients/vscode" timeout 5m npm test 2>&1 | awk '
+        /^(#|ℹ)[[:space:]]+pass[[:space:]]+[1-9][0-9]*[[:space:]]*$/ { passed=1 }
+        /^(#|ℹ)[[:space:]]+skip(ped)?[[:space:]]+0[[:space:]]*$/ { no_skips=1 }
+        END { exit !(passed && no_skips) }
+    '
+}
+
 if step "C1 install and compile Hypotrail" product_setup; then
     # A retry runs immediately after the other setup work, without another active suite.
     if ! step "C2 Hypotrail suite, first run" python_suite; then
         step "C2 Hypotrail suite, isolated retry" python_suite || true
     fi
-    step "C2 VS Code client suite (five-minute limit)" at "$product/clients/vscode" timeout 5m npm test || true
+    step "C2 VS Code client suite (five-minute limit)" client_suite || true
     ready[product-build]=1
 fi
 
@@ -194,7 +204,7 @@ actual_passes() {
 }
 
 gate=0
-(at "$mlkit" uv run --locked mlkit gate) >/dev/null 2>&1 || gate=$?
+(at "$mlkit" uv run --locked --no-sync mlkit gate) >/dev/null 2>&1 || gate=$?
 if [[ $gate == 7 ]]; then
     skip "C7 MLkit run and Hypotrail ranking round trip: owner framing gate (mlkit gate exit 7)"
 elif [[ $gate == 0 && ${ready[mlkit-e2e]:-0} == 1 ]]; then
