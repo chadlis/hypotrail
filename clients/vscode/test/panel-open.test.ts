@@ -668,10 +668,21 @@ const PACK_STYLE = `
 [id^="lesson-figure-"] { display: block; min-height: 1px; }
 `.trim().split("\n");
 
+const VISUAL_STYLE = `
+[data-element="pack-illustration"], [data-element="development-interval"] { margin: 0.65em 0; padding: 0.45em 0.65em; background: var(--paperbg), var(--card); color: var(--cardink); border: 1px solid var(--cardline); }
+[data-element="pack-illustration"] ol { display: flex; flex-wrap: wrap; gap: 0.35em; list-style: none; margin: 0 0 0.45em; padding: 0; }
+[data-element="pack-illustration"] li { display: flex; align-items: center; gap: 0.35em; flex: 1 1 6em; min-width: 0; }
+[data-element="pack-illustration"] li [data-text] { flex: 1; border: 1px solid var(--pen); color: var(--pen); padding: 0.25em; text-align: center; overflow-wrap: anywhere; }
+[data-element="development-interval"] a { color: var(--pen); }
+[data-element="development-interval"] svg { width: 100%; height: 2.2em; display: block; }
+[data-element="development-interval"] svg :is(.whisker, .cap, .delta) { fill: var(--pen); }
+[data-element="development-interval"] svg .zero { fill: var(--cardmuted); }
+`.trim().split("\n");
+
 test("every panel style rule is a kept rule, an opening control rule or an approved lesson rule", async (t) => {
   const { style } = partsOf((await documentFor(t, success(keptObject("status-success")))).document);
-  for (const rule of style.split("\n")) assert.ok(KEPT_STYLE.includes(rule) || ofTheControls(rule) || PACK_STYLE.includes(rule), rule);
-  for (const rule of [...KEPT_STYLE, ...PACK_STYLE]) assert.ok(style.split("\n").includes(rule), `kept: ${rule}`);
+  for (const rule of style.split("\n")) assert.ok(KEPT_STYLE.includes(rule) || ofTheControls(rule) || PACK_STYLE.includes(rule) || VISUAL_STYLE.includes(rule), rule);
+  for (const rule of [...KEPT_STYLE, ...PACK_STYLE, ...VISUAL_STYLE]) assert.ok(style.split("\n").includes(rule), `kept: ${rule}`);
 });
 
 test("a planted rule on body is neither a kept rule nor a rule of the class of the controls that open", () => {
