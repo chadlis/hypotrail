@@ -72,6 +72,9 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <p>On a ranking Study, <code>compare</code> requires two development Assessments of the same Items and References. A positive <code>delta</code> means the Candidate recovered a higher share of the positive Items in the top fraction of the rankings. Only the aggregate change and interval are recorded.</p>
 <p>The <code>entity</code> interval uses the same draws of whole entities for the Control and Candidate. It keeps repeated entities in the rankings, recalculates both rankings for every draw, and omits dates with no positive Item in that draw. <code>usable_resamples</code> counts draws with at least one usable date. <code>omitted_dates</code> counts date omissions across all draws. The interval is unavailable when no draw is usable. The command and the aggregate ranking report both show the counts.</p>
 </div>
+<div class="tblwrap"><table class="tbl" id="ranking-comparison-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="COMPARISON_DOMAIN_MISMATCH" data-exit="2" data-stage="compare" data-details="study_domain observation_domain"><td><code>COMPARISON_DOMAIN_MISMATCH</code></td><td>The domains recorded by the Study and an Observation set differ, and one is <code>ranking</code>. The refusal precedes that side's per-Item read.</td><td>2</td><td><code>compare</code></td><td><code>study_domain</code>, <code>observation_domain</code></td></tr>
+</tbody></table></div>
 
 <p class="sub2" id="interval-days-section">The interval on the delta, over days in blocks</p>
 <div class="prose" id="interval-days">
