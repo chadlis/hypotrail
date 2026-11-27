@@ -1047,6 +1047,7 @@
       },
       "interval": {
         "block_length": 7,
+        "cases": null,
         "level": 0.95,
         "lower": 33.969181219064296,
         "method": "percentile_bootstrap",
@@ -1176,6 +1177,7 @@
       },
       "interval": {
         "block_length": 7,
+        "cases": null,
         "level": 0.95,
         "lower": 33.969181219064296,
         "method": "percentile_bootstrap",
@@ -1305,6 +1307,7 @@
       },
       "interval": {
         "block_length": 7,
+        "cases": null,
         "level": 0.95,
         "lower": 33.969181219064296,
         "method": "percentile_bootstrap",
