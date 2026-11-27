@@ -2,7 +2,7 @@
 
 For each of the four Attempt writers and each Mode it has, through the command line: the keys of the `running`, terminal and `failed` manifests and of
 the Observation set record; the fixed values those records hold; the Reason a `failed` manifest gives for an OS error, a Hypotrail error and any other
-error, and that the text of an OS error reaches neither the Study nor stderr; the order of the keys of the Attempt the command prints; and the keys of a normalized Observation. An Attempt's IDs and timestamps differ at
+error, and that the text of an OS error reaches neither the Study, nor stderr, nor the `--json` output; the order of the keys of the Attempt the command prints; and the keys of a normalized Observation. An Attempt's IDs and timestamps differ at
 each call, so these compare keys and fixed values, not whole files.
 
 The `running` and the `failed` manifests are reached through a patched `artifacts.replace_bytes`, as `tests/test_handbook.py` does: every manifest it is
@@ -206,7 +206,7 @@ SECRET_TEXT = "sk-ant-secret"
 
 
 @pytest.mark.parametrize("row", ROWS)
-def test_an_os_error_whose_text_holds_a_key_leaves_a_failed_attempt_with_the_coded_reason_and_its_text_in_no_file_of_the_study_and_not_on_stderr(
+def test_an_os_error_whose_text_holds_a_key_leaves_a_failed_attempt_with_the_coded_reason_and_its_text_in_no_file_of_the_study_nor_on_stderr_nor_stdout(
     row, tmp_path, monkeypatch
 ):
     study = study_of(row, tmp_path, monkeypatch)
@@ -215,6 +215,7 @@ def test_an_os_error_whose_text_holds_a_key_leaves_a_failed_attempt_with_the_cod
     assert code == 4 and written[-1]["technical_status"] == "failed", (payload, err)
     assert written[-1]["reason"] == "INFRASTRUCTURE_FAILURE: OSError"
     assert payload["error"]["code"] == "INFRASTRUCTURE_FAILURE"
+    assert SECRET_TEXT not in json.dumps(payload)
     holding = [str(path.relative_to(study)) for path in study.rglob("*") if path.is_file() and SECRET_TEXT.encode() in path.read_bytes()]
     assert holding == []
     assert SECRET_TEXT not in err
