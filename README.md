@@ -76,6 +76,8 @@ The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_st
 
 `clients/vscode/copilot-instructions.md` is a template of Copilot's instructions file. It tells Copilot chat to read the Study with `hypotrail_read_study` at the start of each turn, to pass the `write_sequence` it read as `read_sequence` on every write, to record a Decision only through `hypotrail_decide`, to record an answer chosen by a stated rule with `author` `proxy` and a `source` that names the rule, and, when the user states the choice, to pass the user's own messages as `words` with `question_id` and `option_id`. Copy it to `.github/copilot-instructions.md` in the workspace that holds the Study; this repository's own `.github/` holds none. The handbook's chapter on the client gives the detail.
 
+For guided use, copy [the Hypotrail Guide agent](clients/vscode/hypotrail-guide.agent.md) into the workspace's `.github/agents/` and select **Hypotrail Guide** in Copilot Chat. It uses the Study's lesson cards and directs you to Record in the panel for your Decision.
+
 ## Where to look
 
 - [`docs/handbook/`](docs/handbook/): the English handbook, built into [`handbook.html`](docs/handbook/handbook.html) with `python docs/handbook/build.py`.
