@@ -21,7 +21,8 @@ set and no Attempt:
 4. for a new request, the Protocol of the Workload must still be the Study's (`PROTOCOL_CHANGED`);
 5. the population, then the lines of the source, are checked (exit 2): the expected keys are the
    (case_id, repeat) pairs the population file lists, all Cases of one Partition of the Protocol, and
-   the source must hold exactly one line for each, a `failed` or `missing` line included;
+   the source must hold exactly one line for each, a `failed` or `missing` line included.
+   Unknown top-level keys and malformed legacy `unknown_fields` declarations are refused after those checks.
 6. the manifest is written `running`; the original files, the validation report, the normalized
    Observations and the Observation set record are published atomically; the manifest is replaced by
    the terminal one, last. An error inside the live process leaves a `failed` Attempt.
@@ -31,8 +32,9 @@ A line is a JSON object: `case_id`, `repeat`, `observation_status` (`produced`, 
 (an already-parsed JSON object, scored as its canonical JSON text); an optional `trace` is a list of
 the projected steps the Scorer reads (plain records with a `kind`). The optional `origin`, `mode` and
 `producer` (`model`, `generation_time`, `historical_protocol`, `tool_use`) say what the file claims. An optional
-`outcome` (`answered`, `needs_clarification` or `not_answerable`) declares the answer's outcome; it is kept in the
-normalized entry, and `text_facts_v1` reads it.
+`outcome` (`answered`, `needs_clarification` or `not_answerable`) declares the answer's outcome. It is kept in the
+normalized entry, and `text_facts_v1` reads it. The legacy `unknown_fields` list belongs to the original source.
+The importer derives the Observation set's provenance independently.
 
 What the import cannot establish is recorded as `unknown`; what the file claims is `declared`, and
 only when every line says the same. Nothing is `verified`, and no record says the producer worked
@@ -87,6 +89,7 @@ LINE_KEYS = {
     "origin": OPTIONAL,
     "mode": OPTIONAL,
     "producer": OPTIONAL,
+    "unknown_fields": OPTIONAL,
     "outcome": OPTIONAL,
     "usage": OPTIONAL,
     "metadata": OPTIONAL,
@@ -365,10 +368,11 @@ def problem_outside_population(case_id: str, partition: str, partition_of: dict,
 
 
 def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partition_of: dict):
-    """(entries by key, claims of every line): the lines of the source, each checked, joined to the population by key."""
+    """Validate the source against its population and collect the entries and declared fields."""
     expected = set(keys)
     cases_listed = {case_id for case_id, _ in keys}
     entries, claims, settings, count = {}, [], [], 0
+    line_key_error = None
     for number, text in enumerate(_decoded(raw, source_path).splitlines(), start=1):
         if not text.strip():
             continue
@@ -379,6 +383,14 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             raise _refuse("LINE_NOT_JSON", f"line {number} of the source is not JSON", line=number) from None
         if not isinstance(line, dict):
             raise _refuse("LINE_NOT_AN_OBJECT", f"line {number} of the source is not a JSON object", line=number)
+        if line_key_error is None:
+            legacy_unknown = line.get("unknown_fields", [])
+            if not line.keys() <= LINE_KEYS.keys():
+                line_key_error = _refuse("LINE_KEY_UNKNOWN", f"line {number} holds an unknown top-level key", line=number)
+            elif not isinstance(legacy_unknown, list) or any(not isinstance(field, str) for field in legacy_unknown):
+                line_key_error = _refuse(
+                    "LINE_FIELD_INVALID", f'line {number} requires an array of strings for "unknown_fields"', line=number, field="unknown_fields"
+                )
         case_id = _field(line, number, "case_id", str, nullable=False)
         repeat = line.get("repeat")
         if type(repeat) is not int or repeat < 0:
@@ -449,6 +461,8 @@ def _checked_lines(raw: bytes, source_path, partition: str, keys: list, partitio
             repeat=absent[0][1],
             absent=len(absent),
         )
+    if line_key_error is not None:
+        raise line_key_error
     return entries, claims, count, settings
 
 

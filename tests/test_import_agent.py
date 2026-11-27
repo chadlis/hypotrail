@@ -109,6 +109,33 @@ def test_a_json_line_that_is_not_an_object_is_refused(tmp_path, study):
     assert (code, error_of(payload)["code"]) == (2, "LINE_NOT_AN_OBJECT")
 
 
+def test_an_unknown_line_key_reports_the_first_physical_line_without_echoing_source_text(tmp_path, study):
+    lines = fixture_lines()
+    lines[0]["private fixture key"] = "private fixture value"
+    lines[1]["other extra key"] = None
+    source = tmp_path / "answers.jsonl"
+    source.write_text("\n" + "".join(json.dumps(line) + "\n" for line in lines), encoding="utf-8")
+    code, payload, err = import_agent(study, source, fixture_population(tmp_path), "imp")
+    assert code == 2
+    error = error_of(payload)
+    assert (error["code"], error["stage"], error["details"]) == ("LINE_KEY_UNKNOWN", "import", {"line": 2})
+    assert "private fixture" not in json.dumps(error) + err
+
+
+def test_existing_source_refusals_take_precedence_over_an_unknown_line_key(tmp_path, study):
+    lines = fixture_lines()
+    lines[0]["extra"] = None
+    source = tmp_path / "answers.jsonl"
+    population = fixture_population(tmp_path)
+    for bad_lines, expected in [
+        ([lines[0], {**lines[1], "repeat": "0"}, *lines[2:]], "LINE_FIELD_INVALID"),
+        (lines[:-1], "POPULATION_EPISODE_ABSENT"),
+        (lines, "LINE_KEY_UNKNOWN"),
+    ]:
+        code, payload, _ = import_agent(study, write_lines(source, bad_lines), population, "imp")
+        assert (code, payload.get("error", {}).get("code")) == (2, expected)
+
+
 def test_a_non_finite_number_in_a_line_is_not_json_and_is_refused(tmp_path, study):
     source = tmp_path / "answers.jsonl"
     source.write_text('{"case_id": "D01", "repeat": 0, "observation_status": "failed", "x": NaN}\n', encoding="utf-8")

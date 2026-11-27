@@ -25,6 +25,11 @@
         "tool_use": {"type": "string"}
       }
     },
+    "unknown_fields": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "The legacy producer's advisory list, kept in the original source. The importer derives Observation set provenance independently."
+    },
     "usage": {
       "type": "object",
       "propertyNames": {"minLength": 1},

@@ -44,6 +44,7 @@ def agent_import_refusals(tmp_path):
     with_first({"repeat": "0"}, "f1.jsonl")
     with_first({"observation_status": "done"}, "f2.jsonl")
     with_first({"raw_answer": "{}"}, "f3.jsonl")
+    with_first({"unexpected": None}, "unknown-key.jsonl")
     without = [{k: v for k, v in lines[0].items() if k != "final_answer"}, *lines[1:]]
     record(import_agent(study, write_lines(tmp_path / "f4.jsonl", without), population, "r"))
     record(import_agent(study, write_lines(tmp_path / "f5.jsonl", [*lines, {**lines[0], "case_id": "Z99"}]), population, "r"))
