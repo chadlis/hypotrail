@@ -546,11 +546,10 @@ def test_an_error_inside_the_process_leaves_a_failed_attempt_with_a_reason(tmp_p
     assert code == 4 and payload["error"]["code"] == "INFRASTRUCTURE_FAILURE"
     (folder,) = (study / "attempts").iterdir()
     manifest = json.loads((folder / "attempt.json").read_text())
-    assert manifest["technical_status"] == "failed" and "disk full" in manifest["reason"]
+    assert manifest["technical_status"] == "failed" and manifest["reason"] == "INFRASTRUCTURE_FAILURE: OSError"
 
 
-def test_the_cli_reports_an_os_error_of_import_ml_as_it_always_did_by_type_and_message(tmp_path, study, monkeypatch):
-    """R5-03, #81 keeps the other commands: only `run agent` reports an OS error by its type alone."""
+def test_the_cli_reports_an_os_error_of_import_ml_by_its_type_alone(tmp_path, study, monkeypatch):
     from hypotrail.core import artifacts
 
     source, mapping, population, _ = ready(tmp_path)
@@ -564,7 +563,7 @@ def test_the_cli_reports_an_os_error_of_import_ml_as_it_always_did_by_type_and_m
     monkeypatch.setattr(artifacts, "publish_record", broken_record)
     code, payload, _ = import_ml(study, source, mapping, population, "imp")
     assert code == 4 and payload["error"]["code"] == "INFRASTRUCTURE_FAILURE"
-    assert payload["error"]["message"] == "OSError: disk full" and payload["error"]["details"] == {}
+    assert payload["error"]["message"] == "OSError" and payload["error"]["details"] == {"type": "OSError"}
 
 
 def test_without_json_the_human_line_goes_to_stdout_and_a_refusal_to_stderr(tmp_path, study):
