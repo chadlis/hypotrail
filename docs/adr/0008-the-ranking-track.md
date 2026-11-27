@@ -23,3 +23,5 @@ D-167 on chadlis/hypotrail#75 has chadlis/mlkit write "a score file per (entity,
 One dated line per version change of a contract this Track reads (D-172 on chadlis/hypotrail#75, rule 5).
 
 - 2026-11-27: `ml-scores/1`, `ranking-items/1` and `ranking-reference/1` accepted at version 1; `ranking-build/1` first written; the five References and population refusal codes named.
+
+- 2026-11-27: M1 reads the accepted version 1 formats. In a development Study, `data verify --build-dir` verifies the bytes in the private directory explicitly supplied by the caller. Manifest-only verification remains available. The ranking Study freezes its development Partition and its References. Source: [D-232](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7225276774).

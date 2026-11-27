@@ -42,16 +42,17 @@ add it (`declared_deviation_warnings`).
 
 A refused check raises its own code (exit 3) whose details carry the `check`, its Reason code, the
 values of both sides and the checks evaluated so far, and writes no Comparison. `delta` is the Metric of
-the Candidate minus the Metric of the Control: a positive value means the Candidate is worse (lower is
-better). The command holds the Study's writer lock for its whole execution.
+the Candidate minus the Metric of the Control. A positive ranking delta means the Candidate has higher
+recall. The command holds the Study's writer lock for its whole execution.
 """
 
 import csv
 import io
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, intervals, study_write
+from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, intervals, ranking_intervals, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -60,8 +61,10 @@ DEV = "dev"
 PUBLIC_CHECK = "public_check"
 EXTERNAL_MODE = "external_unknown"
 AGENTIC = "agentic"
+RANKING = "ranking"
 PAIRED_COLUMNS = ["row_id", "control_abs_error", "candidate_abs_error", "delta_abs_error"]
 DELTA_DEFINITION = "Metric(Candidate) - Metric(Control); positive means the Candidate is worse (the Metric is lower-is-better)"
+RANKING_DELTA_DEFINITION = "Recall(Candidate) - Recall(Control); positive means the Candidate is better (the Metric is higher-is-better)"
 
 # The comparability checks, in the order they run, with the code of the refusal and the Reason of the failure.
 CHECKS = ("population", "references", "scorer", "unit", "items", "mode", "coverage")
@@ -99,6 +102,9 @@ LIMITATION_BLOCKS = (
     "Daily observations are dependent: the interval resamples blocks of {length} consecutive days, which assumes that the dependence "
     "beyond {length} days is weak, and it can be too narrow under strong dependence; the delta carries no significance claim."
 )
+LIMITATION_ENTITIES = (
+    "The ranking interval resamples paired entity histories. It describes the scored population and dates, with no significance claim."
+)
 
 
 def _not_found(code, message, **details):
@@ -109,20 +115,21 @@ def _rows(data: bytes) -> list:
     return list(csv.DictReader(io.StringIO(data.decode("utf-8"), newline="")))
 
 
-def _population_digest(study: Path, observation_set: dict) -> str:
-    """What identifies the population of a side: the Partition and the expected Items for the regression Track.
+def _population_identity(study: Path, observation_set: dict) -> tuple[str, list | None]:
+    """The digest and expected Items of a side's population.
 
     An Import's population file and the Study's memberships name the same population when they expect the same
     Items, so the artifact's bytes are not compared (the agent Track compares its Cases, `agent_comparison`).
     """
     ref = observation_set["population_ref"]
     if observation_set["domain"] == AGENTIC:
-        return ref["sha256"]
+        return ref["sha256"], None
     partition = observation_set["provenance"].get("partition")
-    return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": layout.expected_row_ids(study, ref, partition)}))
+    expected = layout.expected_row_ids(study, ref, partition)
+    return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": expected})), expected
 
 
-def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False) -> dict:
+def _side(study: Path, role: str, assessment_id: str, *, study_spec: dict | None = None, run_tool: bool = False) -> dict:
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
         raise _not_found(
@@ -137,16 +144,35 @@ def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False)
             observation_set_id=assessment["observation_set_id"],
         )
     observation_set, manifest = found
+    if study_spec is None:
+        study_spec = layout.read_spec(study)
+    expected_domain = study_spec["domain"]
+    domain = observation_set["domain"]
+    if domain != expected_domain and RANKING in (domain, expected_domain):
+        raise _not_found(
+            "COMPARISON_DOMAIN_MISMATCH", "the Observation set's domain differs from the ranking Comparison's Study domain",
+            study_domain=expected_domain, observation_domain=domain,
+        )
+    partition = observation_set["provenance"].get("partition")
+    declared_partition = manifest["effective_config"].get("partition")
     if run_tool:
-        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"), observation_set["provenance"].get("partition"))
+        exposure.refuse_public_check(PUBLIC_CHECK, declared_partition, partition)
+    if expected_domain == RANKING and (partition != DEV or declared_partition != DEV):
+        raise _not_found(
+            "COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison requires dev in both the Attempt and Observation set",
+            partition=partition, declared_partition=declared_partition,
+        )
     per_item = _rows(artifacts.read_verified(study, assessment["per_item_ref"]))
+    digest, expected = _population_identity(study, observation_set)
     return {
         "role": role,
+        "study_spec": study_spec,
         "assessment": assessment,
         "observation_set": observation_set,
         "manifest": manifest,
-        "partition": observation_set["provenance"].get("partition"),
-        "population_sha256": _population_digest(study, observation_set),
+        "partition": partition,
+        "population_sha256": digest,
+        "expected_items": expected,
         "per_item": per_item,
         "metric": assessment["metrics"][0],
     }
@@ -344,17 +370,46 @@ def record_exposure(study: Path, write, control: dict, candidate: dict, comparis
     )
 
 
+def _ranking_items_match(control: dict, candidate: dict) -> bool:
+    fields = ("entity_id", "as_of", "label")
+    for side in (control, candidate):
+        if len(side["items"]) != len(side["per_item"]) or sorted(side["items"]) != side["expected_items"]:
+            return False
+    return all(
+        all(c[key] == candidate["items"][item_id][key] for key in fields)
+        for item_id, c in control["items"].items()
+    )
+
+
+def _ranking_pair(control: dict, candidate: dict) -> ranking_intervals.RankingPair:
+    return ranking_intervals.RankingPair(
+        control["item_id"], control["entity_id"], control["as_of"], control["label"] == "1",
+        Decimal(control["score"]), Decimal(candidate["score"]),
+    )
+
+
+def _paired_deltas(study: Path, folder: str, pairs: list) -> dict:
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(PAIRED_COLUMNS)
+    for row_id, c_error, d_error in pairs:
+        writer.writerow([row_id, repr(c_error), repr(d_error), repr(d_error - c_error)])
+    return artifacts.publish_bytes(
+        study, f"{folder}/paired_deltas.csv", out.getvalue().encode("utf-8"), media_type="text/csv", role="paired_deltas"
+    )
+
+
 def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis, *, run_tool: bool = False) -> dict:
     control = _side(study, "control", control_id, run_tool=run_tool)
-    candidate = _side(study, "candidate", candidate_id, run_tool=run_tool)
+    spec = control["study_spec"]
+    candidate = _side(study, "candidate", candidate_id, study_spec=spec, run_tool=run_tool)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
         return agent_comparison.compare_sides(study, write, control, candidate, factor, live_basis)
 
-    for side in (control, candidate):
-        side["items"] = {row["row_id"]: row for row in side["per_item"]}
+    ranking = spec["domain"] == RANKING
     checks = []
 
     def passed(check, ok, reason=None):
@@ -377,6 +432,9 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     ca, da = control["assessment"], candidate["assessment"]
     check_assessments(control, candidate, checks)
 
+    for side in (control, candidate):
+        key = "item_id" if side["observation_set"]["domain"] == RANKING else "row_id"
+        side["items"] = {row[key]: row for row in side["per_item"]}
     only_control = sorted(set(control["items"]) - set(candidate["items"]))
     only_candidate = sorted(set(candidate["items"]) - set(control["items"]))
     if only_control or only_candidate:
@@ -387,6 +445,14 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
             {"items": len(candidate["items"]), "only_here": len(only_candidate)},
             f"the Control has {len(control['items'])} Items and the Candidate {len(candidate['items'])}; "
             f"{len(only_control)} and {len(only_candidate)} are on one side only: no paired Comparison, and no intersection is computed",
+        )
+    if ranking and not _ranking_items_match(control, candidate):
+        raise _refuse(
+            "items",
+            [*checks, {"check": "items", "passed": False, "reason": REFUSALS["items"][1]}],
+            {"items": len(control["items"])},
+            {"items": len(candidate["items"])},
+            "ranking Assessments must record each expected Item once with the same entity, date and Reference on both sides",
         )
     passed("items", True)
 
@@ -413,6 +479,11 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     scored = {"control": 0, "candidate": 0}
     for row_id in row_ids:
         c, d = control["items"][row_id], candidate["items"][row_id]
+        if ranking:  # The ranking importer requires one finite score for every expected Item.
+            paired.append(_ranking_pair(c, d))
+            scored["control"] += 1
+            scored["candidate"] += 1
+            continue
         scored["control"] += c["state"] == "scored"
         scored["candidate"] += d["state"] == "scored"
         if c["state"] == "scored" and d["state"] == "scored":
@@ -436,17 +507,20 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     control_metric, candidate_metric = control["metric"]["value"], candidate["metric"]["value"]
     delta = None if control_metric is None or candidate_metric is None else candidate_metric - control_metric
 
-    spec = layout.read_spec(study)
-    resampling = spec.get("resampling")
-    ordered = None if resampling is None or delta is None else date_order(study, spec, control["partition"], row_ids)
-    differences = {row_id: d_error - c_error for row_id, c_error, d_error in paired}
-    interval = intervals.record(
-        resampling,
-        None if ordered is None else [differences[row_id] for row_id in ordered],
-        missing=intervals.DELTA_WITHHELD if delta is None else intervals.SERIES_NOT_CONTIGUOUS,
-    )
+    if ranking:
+        interval = ranking_intervals.record(paired, control["population_sha256"])
+        first = LIMITATION_ENTITIES
+    else:
+        resampling = spec.get("resampling")
+        ordered = None if resampling is None or delta is None else date_order(study, spec, control["partition"], row_ids)
+        differences = {row_id: d_error - c_error for row_id, c_error, d_error in paired}
+        interval = intervals.record(
+            resampling,
+            None if ordered is None else [differences[row_id] for row_id in ordered],
+            missing=intervals.DELTA_WITHHELD if delta is None else intervals.SERIES_NOT_CONTIGUOUS,
+        )
+        first = LIMITATION_DEPENDENCE if interval["reason"] is not None else LIMITATION_BLOCKS.format(length=interval["block_length"])
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
-    first = LIMITATION_DEPENDENCE if interval["reason"] is not None else LIMITATION_BLOCKS.format(length=interval["block_length"])
     limitations = [first, environment_sentence]
     warnings = []
     descriptive = bool(external)
@@ -473,14 +547,13 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     write.begin()  # a Comparison of dev Items writes nothing before this; an Exposure began the command already
     population_ref = artifacts.publish_record(study, f"{folder}/population.json", population, role="comparison_population")
     write.wrote(study_write.COMPARISON, comparison_id)
-    out = io.StringIO()
-    writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(PAIRED_COLUMNS)
-    for row_id, c_error, d_error in paired:
-        writer.writerow([row_id, repr(c_error), repr(d_error), repr(d_error - c_error)])
-    paired_ref = artifacts.publish_bytes(
-        study, f"{folder}/paired_deltas.csv", out.getvalue().encode("utf-8"), media_type="text/csv", role="paired_deltas"
-    )
+    paired_ref = None if ranking else _paired_deltas(study, folder, paired)
+    delta_record = {
+        "metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"],
+        "definition": RANKING_DELTA_DEFINITION if ranking else DELTA_DEFINITION,
+    }
+    if ranking and delta is None:
+        delta_record["reason"] = control["metric"].get("reason") or candidate["metric"].get("reason") or intervals.DELTA_WITHHELD
     record = {
         "kind": "comparison",
         "schema_version": "comparison/1",
@@ -492,7 +565,7 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         "population_ref": population_ref,
         "paired_deltas_ref": paired_ref,
         "coverage": coverage,
-        "delta": {"metric": control["metric"]["id"], "value": delta, "unit": control["metric"]["unit"], "definition": DELTA_DEFINITION},
+        "delta": delta_record,
         "interval": interval,
         **exposure.marks(study, [control["manifest"], candidate["manifest"]], [ca, da]),
         "code_environment": environment,

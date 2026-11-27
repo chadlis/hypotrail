@@ -3,7 +3,7 @@
 A `SCORER_ID` is a key of `REGISTRY`, looked up as a string. Nothing is imported, evaluated or
 looked up by name from the given text, so no Python can be loaded through it. It registers the two
 Scorers of the temporal regression Track and the two of the agent Track, `chinook_contract_v1` (#68)
-and `text_facts_v1` (#265). A Scorer carries the `domain` of the Observation sets it can score and a
+and `text_facts_v1` (#265), and the ranking Scorer. A Scorer carries the `domain` of the Observation sets it can score and a
 `config` that is hashed into `config_digest`. A regression Scorer has one Criterion and the pure
 function that aggregates it into its Metric. An agent Scorer has its Criteria, its per-Episode
 function (`episode`) and the role of the Study artifact that function reads (`reads`: the answer
@@ -25,6 +25,9 @@ from hypotrail.core.errors import InvalidInputError
 
 REGRESSION = "regression"
 AGENTIC = "agentic"
+RANKING = "ranking"
+RANKING_SCORER = "ranking_recall_at_top_v1"
+RANKING_METRIC = "recall_at_top_fraction"
 ABSOLUTE_ERROR = "absolute_error"
 ANSWER_SCHEMA = "answer_schema"
 SCORING_CONFIG = "scoring_config"
@@ -59,6 +62,8 @@ class Scorer:
             return {"criteria": list(self.criteria), "answer_shape": "text", "reads": SCORING_CONFIG}
         if self.domain == AGENTIC:
             return {"criteria": list(self.criteria), "answer_schema": "table-answer/1"}
+        if self.domain == RANKING:
+            return {"metric": self.metric_id, "direction": "higher_is_better", "fraction": "0.1", "tie_break": "item_id"}
         return {"criterion": self.criterion, "metric": self.metric_id, "direction": "lower_is_better"}
 
     @property
@@ -92,6 +97,7 @@ REGISTRY: dict[str, Scorer] = {
     for scorer in (
         Scorer("regression_mae_v1", "1", REGRESSION, ABSOLUTE_ERROR, "mae", mean_absolute_error),
         Scorer("regression_rmse_v1", "1", REGRESSION, ABSOLUTE_ERROR, "rmse", root_mean_squared_error),
+        Scorer(RANKING_SCORER, "1", RANKING, None, RANKING_METRIC, None),
         Scorer(CHINOOK_SCORER, CHINOOK_VERSION, AGENTIC, None, None, None, criteria=CHINOOK_CRITERIA, episode=_chinook_episode, reads=ANSWER_SCHEMA),
         Scorer(
             text_facts.SCORER_NAME,

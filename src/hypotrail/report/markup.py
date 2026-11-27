@@ -52,8 +52,9 @@ INTERVAL_REASONS = {
     "resampling_not_declared": "no interval: the Workload of the Study's revision declares no resampling",
     "series_not_contiguous": "no interval: the population lists fewer days than its Partition, so the days are not one series",
     "too_few_units": "no interval: fewer than two units",
+    "no_usable_resamples": "no interval",
 }
-INTERVAL_UNITS = {"case": "Cases", "item": "Items", "group": "groups"}
+INTERVAL_UNITS = {"case": "Cases", "item": "Items", "group": "groups", "entity": "entities"}
 
 
 def interval(record: dict) -> Safe:
@@ -64,10 +65,13 @@ def interval(record: dict) -> Safe:
     if entry["reason"] == "delta_withheld":
         return esc("withheld")
     if entry["lower"] is None:
-        return esc(INTERVAL_REASONS[entry["reason"]])
-    parts = [number(entry["lower"]), " to ", number(entry["upper"]), f", level {entry['level']:g}, over {entry['units']} {INTERVAL_UNITS[entry['unit']]}"]
-    if entry["block_length"] is not None:
-        parts.append(f", {entry['variant']} blocks of {entry['block_length']} days")
+        parts = [INTERVAL_REASONS[entry["reason"]]]
+    else:
+        parts = [number(entry["lower"]), " to ", number(entry["upper"]), f", level {entry['level']:g}, over {entry['units']} {INTERVAL_UNITS[entry['unit']]}"]
+        if entry["block_length"] is not None:
+            parts.append(f", {entry['variant']} blocks of {entry['block_length']} days")
+    if entry["unit"] == "entity":
+        parts.append(f", {entry['usable_resamples']}/{entry['resamples']} usable draws, {entry['omitted_dates']} date omissions")
     return join(parts)
 
 

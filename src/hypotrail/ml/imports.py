@@ -32,12 +32,15 @@ import csv
 import io
 import math
 import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, requests, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
+from hypotrail.ml import ranking_study
 from hypotrail.ml.declaration import load_declaration
 from hypotrail.ml.run import OBSERVATIONS_COLUMNS
 from hypotrail.ml.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, protocol_content
@@ -60,6 +63,8 @@ MAPPING_KEYS = {
 }
 COLUMN_KEYS = ("row_id", "y_pred", "y_pred_raw")
 CLAIM_KEYS = ("model", "generated_at", "historical_protocol", "tool_use")
+RANKING_MAPPING_KEYS = {key: required for key, required in MAPPING_KEYS.items() if key != "y_pred_raw"} | {"settings": False}
+RANKING_SCORE = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 # The producer fields of the provenance, and the mapping key each is declared by (none for the last).
 PRODUCER_FIELDS = {
     "model": "model",
@@ -87,7 +92,8 @@ def _partition_or_none(population, partition_of: dict):
     return partitions.pop() if len(partitions) == 1 and None not in partitions else None
 
 
-def _checked_mapping(raw: bytes, mapping_path) -> dict:
+def _checked_mapping(raw: bytes, mapping_path, *, ranking=False) -> dict:
+    allowed = RANKING_MAPPING_KEYS if ranking else MAPPING_KEYS
     try:
         mapping = canonical.loads(raw)
     except InvalidInputError:
@@ -95,14 +101,21 @@ def _checked_mapping(raw: bytes, mapping_path) -> dict:
     if not isinstance(mapping, dict):
         raise _refuse("MAPPING_INVALID", "the mapping must be a JSON object", mapping=str(mapping_path), problem="not_an_object")
     for key in mapping:
-        if key not in MAPPING_KEYS:
+        if key not in allowed:
             raise _refuse(
-                "MAPPING_KEY_UNKNOWN", f"the mapping holds a key that is not one of its keys: {key!r}", key=key, allowed=sorted(MAPPING_KEYS)
+                "MAPPING_KEY_UNKNOWN", f"the mapping holds a key that is not one of its keys: {key!r}", key=key, allowed=sorted(allowed)
             )
-    for key, required in MAPPING_KEYS.items():
+    for key, required in allowed.items():
         if required and key not in mapping:
-            raise _refuse("MAPPING_KEY_MISSING", f"the mapping has no {key!r}", key=key, required=sorted(k for k, r in MAPPING_KEYS.items() if r))
+            raise _refuse("MAPPING_KEY_MISSING", f"the mapping has no {key!r}", key=key, required=sorted(k for k, r in allowed.items() if r))
     for key, value in mapping.items():
+        if ranking and key == "settings":
+            if not isinstance(value, dict) or any(
+                not name or (item is not None and not isinstance(item, (str, bool, int, float)))
+                for name, item in value.items()
+            ):
+                raise _refuse("MAPPING_VALUE_INVALID", "settings must be an object of named scalar values", key=key)
+            continue
         if not isinstance(value, str) or not value.strip():
             raise _refuse("MAPPING_VALUE_INVALID", f"the mapping value of {key!r} must be a non-empty string", key=key)
         if key in COLUMN_KEYS and _EXECUTABLE.search(value):
@@ -111,6 +124,10 @@ def _checked_mapping(raw: bytes, mapping_path) -> dict:
                 f"the mapping value of {key!r} names a callable or a module, not a column; nothing in an import is executed",
                 key=key,
             )
+    if ranking:
+        for key, value in (("row_id", "item_id"), ("y_pred", "score")):
+            if mapping[key] != value:
+                raise _refuse("MAPPING_VALUE_INVALID", f"ranking requires {key} to name {value!r}", key=key)
     if not _SHA256.fullmatch(mapping["dataset_sha256"]):
         raise _refuse("MAPPING_VALUE_INVALID", "dataset_sha256 must be 64 lowercase hexadecimal digits", key="dataset_sha256")
     return mapping
@@ -140,8 +157,8 @@ def _checked_source(raw: bytes, source_path, mapping: dict):
     return header, rows
 
 
-def _checked_population(raw: bytes, population_path, partition_of: dict):
-    """(partition, Item IDs) of the population file, every ID taken from one Partition of the Protocol."""
+def _population_ids(raw: bytes, population_path):
+    """Read the requested Item IDs in the population file, before checking membership."""
     name = str(population_path)
     try:
         document = canonical.loads(raw)
@@ -156,6 +173,12 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
         raise _refuse("POPULATION_INVALID", f"{POPULATION_KEY} must be a non-empty list of Item IDs", population=name, problem="bad_items")
     if len(set(items)) != len(items):
         raise _refuse("POPULATION_INVALID", "the population lists an Item twice", population=name, problem="duplicate_item")
+    return items
+
+
+def _checked_population(raw: bytes, population_path, partition_of: dict):
+    """(partition, Item IDs) of the population file, every ID taken from one Partition of the Protocol."""
+    items = _population_ids(raw, population_path)
     for item in items:
         if item not in partition_of:
             raise _refuse("POPULATION_ITEM_UNKNOWN", f"{item} is not an Item of any Partition of the Study's Protocol", row_id=item)
@@ -163,6 +186,38 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
     if len(partitions) != 1:
         raise _refuse("POPULATION_MIXED_PARTITIONS", "the population mixes Items of several Partitions", partitions=partitions)
     return partitions[0], sorted(items)
+
+
+def _ranking_population(raw, population_path, partition_of, dataset):
+    items = _population_ids(raw, population_path)
+    try:
+        dates = [ranking_study.item_date(item) for item in items]
+    except ValueError:
+        raise _refuse("POPULATION_INVALID", "a ranking population Item needs an entity and an ISO date", problem="bad_item_id") from None
+    cutoff = date.fromisoformat(dataset["label_cutoff"])
+    if any((cutoff - as_of).days < dataset["horizon_days"] for as_of in dates):
+        raise _refuse("POPULATION_ITEM_IMMATURE", "the population contains an immature Item")
+
+    known_other = set(dataset["other_partition_items"])
+    outside = set(items) - set(partition_of)
+    known = {item for item in outside if ranking_study.item_digest(item) in known_other}
+    if known and len(outside) != len(items):
+        raise _refuse("POPULATION_MIXED_PARTITIONS", "the ranking population mixes development and other Items")
+    if outside:
+        raise _refuse("POPULATION_ITEM_UNKNOWN", "the ranking population contains an Item outside the Study's development Partition")
+    return ranking_study.DEV, sorted(items)
+
+
+def _ranking_preflight(write, request_id, path, partition_of, dataset):
+    raw = read_input(path, "POPULATION_NOT_FOUND", "population")
+    try:
+        return raw, _ranking_population(raw, path, partition_of, dataset)
+    except InvalidInputError:
+        def refuse_reused_request(recorded):
+            raise requests.conflict(request_id, recorded["attempt_id"], ["input_digests"])
+
+        write.replay_attempt(refuse_reused_request)
+        raise
 
 
 def _finite(cell):
@@ -175,7 +230,17 @@ def _finite(cell):
     return value if math.isfinite(value) else None
 
 
-def _joined(rows: list, mapping: dict, items: list):
+def _ranking_score(cell):
+    if cell is not None and RANKING_SCORE.fullmatch(cell):
+        try:
+            if Decimal(cell).is_finite():
+                return cell
+        except InvalidOperation:
+            return None
+    return None
+
+
+def _joined(rows: list, mapping: dict, items: list, *, ranking=False):
     """{row_id: (y_pred_raw, y_pred)} for every Item of the population; the file is joined by ID, never by position."""
     expected = set(items)
     found = {}
@@ -186,8 +251,11 @@ def _joined(rows: list, mapping: dict, items: list):
         if row_id in found:
             raise _refuse("ROW_ID_DUPLICATE", f"{row_id} appears twice in the source", row_id=row_id)
         if row_id not in expected:
+            if ranking:
+                raise _refuse("ROW_ID_OUTSIDE_POPULATION", "the ranking score file has a row outside its development population", line=number)
             raise _refuse("ROW_ID_OUTSIDE_POPULATION", f"{row_id} is not an Item of the population", row_id=row_id)
-        value = _finite(row[mapping["y_pred"]])
+        cell = row[mapping["y_pred"]]
+        value = _ranking_score(cell) if ranking else _finite(cell)
         if value is None:
             raise _refuse(
                 "PREDICTION_NOT_FINITE",
@@ -196,29 +264,32 @@ def _joined(rows: list, mapping: dict, items: list):
                 column=mapping["y_pred"],
             )
         raw = row[mapping["y_pred_raw"]] if "y_pred_raw" in mapping else ""
-        found[row_id] = ((raw or "").strip(), repr(value))
+        found[row_id] = ((raw or "").strip(), value if ranking else repr(value))
     absent = sorted(expected - set(found))
     if absent:
         raise _refuse("POPULATION_ITEM_ABSENT", f"{absent[0]} is an Item of the population and is absent from the source", row_id=absent[0], absent=len(absent))
     return found
 
 
-def _normalized(items: list, joined: dict) -> bytes:
+def _normalized(items: list, joined: dict, *, ranking=False) -> bytes:
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(OBSERVATIONS_COLUMNS)
+    writer.writerow(("item_id", "score") if ranking else OBSERVATIONS_COLUMNS)
     for row_id in items:
         raw, value = joined[row_id]
-        writer.writerow([row_id, "produced", "", raw, value])
+        writer.writerow((row_id, value) if ranking else (row_id, "produced", "", raw, value))
     return out.getvalue().encode("utf-8")
 
 
 def _producer(mapping: dict) -> dict:
     """What the import says about how the outputs were made: `declared` by the mapping, otherwise `unknown`."""
-    return {field: producer_entry(mapping[key].strip() if key is not None and key in mapping else None) for field, key in PRODUCER_FIELDS.items()}
+    producer = {field: producer_entry(mapping[key].strip() if key is not None and key in mapping else None) for field, key in PRODUCER_FIELDS.items()}
+    if "settings" in mapping:
+        producer["settings"] = producer_entry(mapping["settings"])
+    return producer
 
 
-def _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition) -> dict:
+def _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition, *, ranking=False) -> dict:
     return {
         "report": "import_validation/1",
         "source_sha256": source_ref["sha256"],
@@ -237,7 +308,7 @@ def _report(source_ref, mapping_ref, population_ref, header, mapping, rows, item
                 "mapping_keys_and_values",
                 "mapped_columns_present",
                 "population_items_in_one_partition_of_the_protocol",
-                "dataset_digest_equals_the_workload_lock",
+                "dataset_digest_equals_ranking_items" if ranking else "dataset_digest_equals_the_workload_lock",
                 "row_ids_non_empty_and_unique",
                 "row_ids_within_the_population",
                 "population_covered",
@@ -267,23 +338,34 @@ def import_ml(
 
 def _import_locked(study, write, source, mapping_path, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
-    layout.require_domain(spec, DOMAIN, COMMAND)
-    examples = data.resolve_examples_dir(examples_dir)
+    domain = spec["domain"]
+    ranking = domain == ranking_study.TRACK
     workload = spec["workload"]
-    data.verify_workloads(examples, [workload])
-    study_refs = [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]
-    for ref in study_refs:
-        artifacts.read_verified(study, ref)
     by_role = {entry["ref"]["role"]: entry["ref"] for entry in spec["artifacts"]}
-    workload_dir = examples / workload
-    declaration = load_declaration(workload_dir)
-    dataset_sha = data.sha256_file(workload_dir / declaration.data_file)
+    study_refs = [*spec["dataset_refs"], *by_role.values()]
+    if ranking:
+        dataset, memberships = ranking_study.read_dataset(study, spec)
+        artifacts.read_verified(study, by_role["references"])
+        dataset_sha = dataset["items_sha256"]
+        partition_of = {item_id: row["partition"] for item_id, row in memberships.items()}
+    else:
+        layout.require_domain(spec, DOMAIN, COMMAND)
+        examples = data.resolve_examples_dir(examples_dir)
+        data.verify_workloads(examples, [workload])
+        for ref in study_refs:
+            artifacts.read_verified(study, ref)
+        workload_dir = examples / workload
+        declaration = load_declaration(workload_dir)
+        dataset_sha = data.sha256_file(workload_dir / declaration.data_file)
+        memberships = artifacts.read_verified(study, by_role["memberships"])
+        partition_of = layout.partition_of(memberships, "row_id")
 
+    if ranking:
+        population_bytes, (partition, items) = _ranking_preflight(write, request_id, population_path, partition_of, dataset)
     source_bytes = read_input(source, "SOURCE_NOT_FOUND", "source")
     mapping_bytes = read_input(mapping_path, "MAPPING_NOT_FOUND", "mapping")
-    population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
-    memberships = artifacts.read_verified(study, by_role["memberships"])
-    partition_of = layout.partition_of(memberships, "row_id")
+    if not ranking:
+        population_bytes = read_input(population_path, "POPULATION_NOT_FOUND", "population")
 
     mapping_json_or_none = strict_json_or_none(mapping_bytes)
     model = mapping_json_or_none.get("model") if isinstance(mapping_json_or_none, dict) else None
@@ -309,26 +391,29 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
     if recorded is not None:
         return recorded, True
 
-    protocol = protocol_content(
-        declaration,
-        dataset_sha256=dataset_sha,
-        memberships_sha256=by_role["memberships"]["sha256"],
-        references_sha256=by_role["references"]["sha256"],
-    )
-    protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
+    if not ranking:
+        protocol = protocol_content(
+            declaration,
+            dataset_sha256=dataset_sha,
+            memberships_sha256=by_role["memberships"]["sha256"],
+            references_sha256=by_role["references"]["sha256"],
+        )
+        protocol_check.require_unchanged(spec, canonical.digest(protocol), message=PROTOCOL_CHANGED_MESSAGE, stage="request")
 
-    mapping = _checked_mapping(mapping_bytes, mapping_path)
+    mapping = _checked_mapping(mapping_bytes, mapping_path, ranking=ranking)
     header, rows = _checked_source(source_bytes, source, mapping)
-    partition, items = _checked_population(population_bytes, population_path, partition_of)
+    if not ranking:
+        partition, items = _checked_population(population_bytes, population_path, partition_of)
     if mapping["dataset_sha256"] != dataset_sha:
         raise IntegrityError(
             "DATASET_DIGEST_MISMATCH",
-            "the dataset digest the mapping declares is not the Workload lock's digest of the data file",
+            "the mapping digest differs from the Study's ranking Items digest" if ranking
+            else "the dataset digest the mapping declares is not the Workload lock's digest of the data file",
             stage=STAGE,
             details={"declared_sha256": mapping["dataset_sha256"], "locked_sha256": dataset_sha},
         )
-    joined = _joined(rows, mapping, items)
-    normalized = _normalized(items, joined)
+    joined = _joined(rows, mapping, items, ranking=ranking)
+    normalized = _normalized(items, joined, ranking=ranking)
     effective_config = {**effective_config, "partition": partition}
 
     producer = _producer(mapping)
@@ -343,7 +428,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         population_ref = writes.publish(f"{folder}/population.json", population_bytes, media_type="application/json", role="import_population")
         report_ref = writes.publish_record(
             f"{folder}/validation_report.json",
-            _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition),
+            _report(source_ref, mapping_ref, population_ref, header, mapping, rows, items, partition, ranking=ranking),
             role="validation_report",
         )
         recording.observations(
@@ -351,7 +436,7 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
             normalized,
             ["produced"] * len(items),
             media_type="text/csv",
-            domain=DOMAIN,
+            domain=domain,
             origin="imported",
             population_ref=population_ref,
             raw_refs=[source_ref],

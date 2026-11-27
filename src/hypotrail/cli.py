@@ -90,6 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    verify.add_argument("--build-dir", type=Path, metavar="DIR", help="verify the bytes of one private ranking build; a manifest alone remains declared")
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
@@ -122,6 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    init.add_argument("--build-dir", type=Path, metavar="DIR", help="private build outside Git, required for a ranking Study")
     _add_read_sequence(init)
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
@@ -209,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_ = commands.add_parser("import", help="adopt outputs produced elsewhere as an Import Attempt of a Study")
     import_commands = import_.add_subparsers(dest="import_command", metavar="TRACK")
     import_ml = import_commands.add_parser(
-        "ml", help="import a complete predictions CSV of the temporal regression Track (from a program that never imports hypotrail)"
+        "ml", help="import complete observations of a temporal regression or ranking Study from a CSV"
     )
     import_ml.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Import in")
     import_ml.add_argument("--source", required=True, type=Path, metavar="CSV", help="the predictions file (UTF-8 CSV), kept as it is")
@@ -495,7 +497,14 @@ def _data_verify(args) -> int:
     from hypotrail.core import data
 
     examples = data.resolve_examples_dir(args.examples_dir)
-    reports = data.verify_workloads(examples, args.workload)
+    if args.build_dir is None:
+        reports = data.verify_workloads(examples, args.workload)
+    else:
+        from hypotrail.ml import ranking_study
+
+        if args.workload is None or len(args.workload) != 1:
+            raise InvalidInputError("RANKING_BUILD_NEEDS_WORKLOAD", "--build-dir needs exactly one --workload", stage="config")
+        reports = ranking_study.verify(examples, args.workload[0], args.build_dir)
     lines = [
         f"{r['workload']}: {r['dataset_id']} verified "
         f"({r['file']}, sha256 {r['sha256'][:12]}..., licence {r['license']})"
@@ -541,12 +550,18 @@ def _init(args) -> int:
             details={"command": "hypotrail init"},
         )
     examples = data.resolve_examples_dir(args.examples_dir)
-    if declared_track(Path(examples) / args.workload) == "tool_using_agent":
+    track = declared_track(Path(examples) / args.workload)
+    build = {}
+    if args.build_dir is not None:
+        if track != "ranking":
+            raise InvalidInputError("RANKING_BUILD_UNSUPPORTED", "--build-dir is for ranking Workloads", stage="config")
+        build["build_dir"] = args.build_dir
+    if track == "tool_using_agent":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
 
-    spec = study.init_study(args.workload, args.study, examples)
+    spec = study.init_study(args.workload, args.study, examples, **build)
     references = _references_id(spec)
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
@@ -578,12 +593,17 @@ def _new_revision(args) -> int:
             details={"command": "hypotrail init", "workload": args.workload},
         )
     domain = layout.read_spec(args.study)["domain"]
+    build = {}
+    if args.build_dir is not None:
+        if domain != "ranking":
+            raise InvalidInputError("RANKING_BUILD_UNSUPPORTED", "--build-dir is for ranking Workloads", stage="config")
+        build["build_dir"] = args.build_dir
     if domain == "agentic":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
 
-    spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence)
+    spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence, **build)
     references = _references_id(spec)
     human = (
         f"Study {args.study} is at revision {revisions.revision_number(spec)}: Workload {spec['workload']}, "
@@ -656,13 +676,14 @@ def _run_agent(args) -> int:
 
 
 def _import_ml(args) -> int:
-    from hypotrail.core import attempts
+    from hypotrail.core import attempts, scorers
     from hypotrail.ml import imports
 
     manifest, replayed = imports.import_ml(
         args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
     )
-    observation_set_id = attempts.observation_set_id(args.study, manifest)
+    observation_set = attempts.read_observation_set(args.study, manifest)
+    observation_set_id = observation_set["observation_set_id"] if observation_set is not None else None
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
@@ -670,7 +691,10 @@ def _import_ml(args) -> int:
         + (" (recorded earlier: nothing was read again)" if replayed else "")
         + _observation_set_note(observation_set_id)
     )
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}, args.json, human)
+    reply = {"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}
+    if observation_set is not None and observation_set["domain"] == scorers.RANKING:
+        reply["dataset_sha256"] = manifest["effective_config"]["input_digests"]["dataset"]
+    _emit(reply, args.json, human)
     return EXIT_OK
 
 
@@ -782,7 +806,7 @@ def _profile_read(examples_dir):
 
 
 def _compare(args) -> int:
-    from hypotrail.core import agent_comparison, comparison
+    from hypotrail.core import agent_comparison, comparison, intervals
 
     record = comparison.compare(
         args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, run_tool=_from_run_tool()
@@ -793,11 +817,16 @@ def _compare(args) -> int:
         value += f" ({delta['reason']})"
     interval = record.get("interval") or {}
     if interval.get("lower") is not None:
-        units = {"case": "Cases", "item": "Items", "group": "groups"}[interval["unit"]]
+        units = {"case": "Cases", "item": "Items", "group": "groups", "entity": "entities"}[interval["unit"]]
         value += f", {interval['level']:g} interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over {interval['units']} {units}"
         if interval["block_length"] is not None:
             value += f" in blocks of {interval['block_length']} days"
-    direction = "better" if record.get("primary_criterion") else "worse"
+    ranking = interval.get("unit") == intervals.ENTITY
+    if ranking:
+        if interval["lower"] is None:
+            value += ", interval unavailable"
+        value += f", {interval['usable_resamples']}/{interval['resamples']} usable draws, {interval['omitted_dates']} date omissions"
+    direction = "better" if ranking or record.get("primary_criterion") else "worse"
     unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
     status = record["comparability"]["status"]
     deviations = [w["code"] for w in record["warnings"] if w["code"] in comparison.DEVIATIONS + agent_comparison.DEVIATIONS]

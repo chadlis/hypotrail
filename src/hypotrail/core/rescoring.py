@@ -39,6 +39,9 @@ def verdicts_of(per_item: bytes) -> dict:
     for row in csv.DictReader(io.StringIO(per_item.decode("utf-8"), newline="")):
         if "row_id" in row:  # a numeric loss: the score is the value
             item, score = row["row_id"], (float(row["value"]) if row["value"] != "" else None)
+        elif "item_id" in row:  # ranking records the binary Reference used in the date's recall
+            out[(row["item_id"], "reference_label")] = {"state": "scored", "score": int(row["label"]), "reason": None}
+            continue
         else:  # an Episode: the score is a boolean
             item, score = f"{row['case_id']}#{row['repeat']}", {"true": True, "false": False, "": None}[row["score"]]
         out[(item, row["criterion"])] = {"state": row["state"], "score": score, "reason": row["reason"] or None}
