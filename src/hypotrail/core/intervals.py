@@ -29,17 +29,18 @@ def block_indices(n: int, length: int, generator: random.Random) -> list:
     return [(start + offset) % n for start in starts for offset in range(length)][:n]
 
 
-def _percentiles(means: list, level: float) -> dict:
+def percentile_bounds(estimates: list, level: float) -> dict:
+    """Interpolate the two percentile bounds over a non-empty list of bootstrap estimates."""
     from hypotrail.core import figures  # figures imports both comparison modules, which import this one
 
-    means = sorted(means)
+    estimates = sorted(estimates)
     tail = (1 - level) / 2
 
     def percentile(p):
-        position = figures.quantile_position(len(means), p)
+        position = figures.quantile_position(len(estimates), p)
         lower = int(position)
-        upper = min(lower + 1, len(means) - 1)
-        return figures.quantile_value(means[lower], means[upper], position - lower)
+        upper = min(lower + 1, len(estimates) - 1)
+        return figures.quantile_value(estimates[lower], estimates[upper], position - lower)
 
     return {"lower": percentile(tail), "upper": percentile(1 - tail), "reason": None}
 
@@ -51,7 +52,7 @@ def _interval(deltas: list, length: int, seed: int, resamples: int, level: float
     if all(delta == deltas[0] for delta in deltas):
         return {"lower": deltas[0], "upper": deltas[0], "reason": None}
     generator = random.Random(seed)
-    return _percentiles([sum(deltas[i] for i in block_indices(n, length, generator)) / n for _ in range(resamples)], level)
+    return percentile_bounds([sum(deltas[i] for i in block_indices(n, length, generator)) / n for _ in range(resamples)], level)
 
 
 def percentile_interval(deltas: list, *, seed: int, resamples: int = RESAMPLES, level: float = LEVEL) -> dict:
@@ -91,7 +92,7 @@ def cluster_interval(deltas: list, groups: list, *, seed: int, resamples: int = 
     if all(delta == deltas[0] for delta in deltas):
         return {"lower": deltas[0], "upper": deltas[0], "reason": None}
     generator = random.Random(seed)
-    return _percentiles([pooled_mean(totals, block_indices(count, 1, generator)) for _ in range(resamples)], level)
+    return percentile_bounds([pooled_mean(totals, block_indices(count, 1, generator)) for _ in range(resamples)], level)
 
 
 def record(resampling: dict | None, deltas: list | None, *, groups: list | None = None, missing: str = DELTA_WITHHELD) -> dict:
