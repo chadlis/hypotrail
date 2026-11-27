@@ -355,7 +355,8 @@ async function noStudyGivenTo(tool: string): Promise<string> {
   return `${tool} needs study, the absolute path of the folder of the Study. Call ${tool} again with study set to one of the Studies found: ${json(found)}.`;
 }
 
-const refusalText = (refusal: Refusal): string => `Refused (${refusal.code}): ${refusal.reason} ${NOTHING_STARTED}`;
+// A refusal of the Study already says that nothing was started.
+const refusalText = (refusal: Refusal): string => `Refused (${refusal.code}): ${refusal.reason}${refusal.reason.includes(NOTHING_STARTED) ? "" : ` ${NOTHING_STARTED}`}`;
 
 function runAnswer(args: string[], outcome: Outcome): string {
   const line = json(args);

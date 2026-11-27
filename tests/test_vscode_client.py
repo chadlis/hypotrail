@@ -72,7 +72,8 @@ def test_the_manifest_contributes_no_setting():
 
 # --- CI --------------------------------------------------------------------------------------------------------------------------
 
-# The job `pytest` as it stood at `main` 62b8c8d, its pytest step since run across workers by pytest-xdist.
+# The job `pytest` as it stood at `main` 62b8c8d, its pytest step since run across workers by pytest-xdist, and since chadlis/hypotrail#285
+# with Node 22, pinned as the client job pins it, and the compiled client, which the run tool's end-to-end test drives.
 PYTEST_JOB_AT_THE_BASE = """\
   pytest:
     runs-on: ubuntu-latest
@@ -82,6 +83,12 @@ PYTEST_JOB_AT_THE_BASE = """\
         with:
           python-version: "3.13"
       - run: uv sync --locked --all-extras
+      # The run tool's end-to-end test drives the compiled VS Code client with Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci && npm run compile
+        working-directory: clients/vscode
       # Offline: the suite blocks outbound network in every test. No secret is
       # passed, so no live model call can run here (AGENTS.md).
       - run: uv run --locked --all-extras pytest -n auto --dist loadfile

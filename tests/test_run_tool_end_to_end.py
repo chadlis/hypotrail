@@ -1,13 +1,13 @@
 """The run tool's corpus on the real CLI (chadlis/hypotrail#285, its end-to-end test under D-170 on chadlis/hypotrail#75).
 
-`clients/vscode/test/tools-run.test.ts` shows, with the process stubbed, that the tool builds each allowed case's argument list as the corpus
-gives it and starts no command for a refused case. This test runs those argument lists through the real CLI, as separate processes started
-from the checkout root without the live key, on the demonstration's first Bike Study: `init`, `seasonal_7` and `ridge_v1` on dev, their two
-Assessments and their Comparison, as its steps L1.2 to L1.5 make them. A second Study is a copy of it to which a person, through the CLI,
-added `seasonal_7` on public_check and its Assessment.
-
-Stated limit: the tool itself runs in Node, which this job does not have; for a refused case this test checks the one process the tool may
-start, the read of the Study, and that the read gives the Partition the tool refuses on.
+Each case of the corpus is given to the real tool, `hypotrail_run`, compiled in `clients/vscode/out/` and called as Copilot calls it by
+`clients/vscode/test/run-tool-e2e.ts`, with Node, on the `vscode` stub and with the real `execFile`. The tool builds the arguments, refuses or starts the real CLI through
+its bridge, from the checkout root, without the live key. The Studies are the demonstration's first Bike Study (`init`, `seasonal_7` and
+`ridge_v1` on dev, their two Assessments and their Comparison, as its steps L1.2 to L1.5 make them) and a copy of it to which a person,
+through the CLI, added `seasonal_7` on public_check and its Assessment. For an allowed case, the one command started is the argument list
+the corpus gives and the CLI answers as the corpus says; for a refused case, the tool gives the corpus's code, starts nothing but the read
+of the Study, and the Study's bytes and Write sequence are the same before and after. It needs Node and the compiled client
+(`npm ci && npm run compile` in `clients/vscode`), and fails when either is missing.
 """
 
 import json
@@ -17,11 +17,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _study_helpers import run_cli
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = ROOT / "clients" / "vscode" / "test" / "run-tool-corpus" / "cases.jsonl"
-CONTRACT = json.loads((ROOT / "clients" / "vscode" / "contract.json").read_text(encoding="utf-8"))
+CLIENT = ROOT / "clients" / "vscode"
+HARNESS = CLIENT / "out" / "test" / "run-tool-e2e.js"
 LIVE_KEY = "HYPOTRAIL_ANTHROPIC_API_KEY"
 
 
@@ -67,47 +68,85 @@ def public_check_copy(study: Path, ids: dict, tmp_path: Path) -> tuple:
 
 def filled(value, values: dict):
     if isinstance(value, str):
+        if value == "{READ_SEQUENCE}":
+            return values["READ_SEQUENCE"]
         for name, each in values.items():
             value = value.replace("{" + name + "}", str(each))
         return value
-    return [filled(each, values) for each in value]
+    if isinstance(value, list):
+        return [filled(each, values) for each in value]
+    if isinstance(value, dict):
+        return {key: filled(each, values) for key, each in value.items()}
+    return value
 
 
-def written_id(args: list, payload: dict):
+def the_tool(folder: Path, given: dict) -> dict:
+    """What the run tool gave back for `given` (`text`) and the argument list of each process it started (`calls`), from the harness."""
+    node = shutil.which("node")
+    if node is None or not HARNESS.is_file():
+        pytest.fail(f"the run tool's end-to-end test needs Node and the compiled client: run `npm ci && npm run compile` in {CLIENT} (node: {node})")
+    env = {key: value for key, value in os.environ.items() if key != LIVE_KEY}
+    done = subprocess.run(
+        [node, str(HARNESS)], input=json.dumps({"folder": str(folder), "input": given}), cwd=CLIENT, env=env,
+        capture_output=True, text=True, timeout=300,
+    )
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+def after(text: str, marker: str) -> dict:
+    return json.loads(text.split(marker, 1)[1])
+
+
+def written_id(command: str, payload: dict):
     """The id of the record an allowed command wrote, by its command, or None for a command that writes no record of a listing."""
-    return {"run": lambda: payload["attempt"]["attempt_id"], "assess": lambda: payload["assessment"]["assessment_id"], "compare": lambda: payload["comparison"]["comparison_id"]}.get(args[0], lambda: None)()
+    return {"run": lambda: payload["attempt"]["attempt_id"], "assess": lambda: payload["assessment"]["assessment_id"], "compare": lambda: payload["comparison"]["comparison_id"]}.get(command, lambda: None)()
 
 
 def test_the_run_tool_corpus_on_the_real_cli(tmp_path):
     cases = [json.loads(line) for line in CORPUS.read_text(encoding="utf-8").splitlines() if line]
-    dev, ids = demonstration_bike_study(tmp_path)
-    public, public_ids = public_check_copy(dev, ids, tmp_path)
+    folder = (tmp_path / "workspace").resolve()
+    folder.mkdir()
+    dev, ids = demonstration_bike_study(folder)
+    public, public_ids = public_check_copy(dev, ids, folder)
     out_dir = tmp_path / "out"
     out_dir.mkdir()
     studies = {"dev": dev, "public_check": public}
     values = {**ids, **public_ids, "OUT_DIR": out_dir}
+    assert {each["input"]["command"] for each in cases if each["expected"] == "allowed"} == {"run", "assess", "compare", "profile", "report"}
+    assert len([each for each in cases if each["expected"] != "allowed"]) >= 80
 
-    allowed = [each for each in cases if each["expected"] == "allowed"]
-    assert {each["input"]["command"] for each in allowed} == {"run", "assess", "compare", "profile", "report"}
-    for each in allowed:
+    for each in cases:
         study = studies[each["state"]]
-        before = status(study)
-        args = filled(each["argv"], {**values, "STUDY": study, "READ_SEQUENCE": before["write_sequence"]})
-        assert args[0] == each["input"]["command"], each["id"]
-        code, payload = cli(*args)
-        if each["cli"] == "ok":
-            assert code == 0 and payload["ok"] is True, (each["id"], payload)
-            after = status(study)
-            record = written_id(args, payload)
-            listed = {"run": [a["attempt_id"] for a in after["attempts"]], "assess": [a["assessment_id"] for a in after["assessments"]], "compare": [c["comparison_id"] for c in after["comparisons"]]}
-            if record is not None:
-                assert record in listed[args[0]], each["id"]
-            if args[0] == "profile":
-                assert after["write_sequence"] == before["write_sequence"], each["id"]
-            if args[0] == "report":
-                assert Path(args[[a.startswith("--out=") for a in args].index(True)][len("--out="):]).is_file(), each["id"]
-        else:
-            assert code != 0 and payload["error"]["code"] == each["cli"], (each["id"], payload)
+        before, sequence = study_bytes(study), status(study)["write_sequence"]
+        here = {**values, "STUDY": study, "READ_SEQUENCE": sequence}
+        answer = the_tool(folder, filled(each["input"], here))
+        text = answer["text"]
+        read = ["status", f"--study={study}", "--json"]
+        commands = [call for call in answer["calls"] if call != read]
+        if each["expected"] != "allowed":
+            assert status(study)["write_sequence"] == sequence, each["id"]
+            assert study_bytes(study) == before, each["id"]
+            assert commands == [], (each["id"], commands)
+            assert text.startswith(f"Refused ({each['expected']}):"), (each["id"], text)
+            continue
+        assert commands == [filled(each["argv"], here)], (each["id"], commands)
+        command = commands[0][0]
+        if each["cli"] != "ok":
+            assert text.startswith("The CLI refused"), (each["id"], text)
+            assert after(text, "Its error, as printed:\n")["code"] == each["cli"], (each["id"], text)
+            continue
+        assert text.startswith("The CLI ran"), (each["id"], text)
+        payload = after(text, "It printed:\n")
+        shown = status(study)
+        listed = {"run": [a["attempt_id"] for a in shown["attempts"]], "assess": [a["assessment_id"] for a in shown["assessments"]], "compare": [c["comparison_id"] for c in shown["comparisons"]]}
+        record = written_id(command, payload)
+        if record is not None:
+            assert record in listed[command], each["id"]
+        if command == "profile":
+            assert shown["write_sequence"] == sequence, each["id"]
+        if command == "report":
+            assert Path(payload["report"]["out"]).is_file(), each["id"]
 
     # The read the tool makes before assess, compare and report gives the Partition it refuses on, in each Study.
     public_status, dev_status = status(public), status(dev)
@@ -115,14 +154,3 @@ def test_the_run_tool_corpus_on_the_real_cli(tmp_path):
     assert [a["observation_set_id"] for a in on_public] == [public_ids["OBS_PUBLIC"]]
     assert {a["assessment_id"]: a["observation_set_id"] for a in public_status["assessments"]}[public_ids["A_PUBLIC"]] == public_ids["OBS_PUBLIC"]
     assert [a["partition"] for a in dev_status["attempts"] if a["partition"] != "dev"] == []
-
-    refused = [each for each in cases if each["expected"] != "allowed"]
-    assert len(refused) >= 80 and all("argv" not in each for each in refused)
-    read = [argument for argument in CONTRACT["read_arguments"] if "{n}" not in argument]
-    status_sequences = {state: status(study)["write_sequence"] for state, study in studies.items()}
-    for each in refused:  # in process: the CLI's own entry point, which each process above starts
-        study = studies[each["state"]]
-        before = study_bytes(study)
-        code, payload, err = run_cli(*[argument.replace("{path}", str(study)) for argument in read])
-        assert code == 0 and json.loads(payload)["write_sequence"] == status_sequences[each["state"]], (each["id"], err)
-        assert study_bytes(study) == before, each["id"]
