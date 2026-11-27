@@ -1,7 +1,8 @@
 // The one module through which the client talks to the CLI. Each call starts at most one process, with `execFile` and
 // a list of arguments, and gives back one of four outcomes: what the CLI printed (`success`, `refusal`), or the
 // client's own account of a call that got no usable answer (`no_answer`) or that it did not start (`client_refusal`).
-// The client reads only through `status`, `figures` and `profile` and writes only through `decide` (contract.json, `reads` and `writes`).
+// The panel reads through `status`, `figures` and `profile` and writes through `decide` (contract.json, `reads` and `writes`).
+// The run tool starts the commands of its own contract, `run-tool.contract.md`.
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
@@ -44,9 +45,9 @@ export function readProfile(root: string, study: string): Promise<Outcome> {
   return start(root, args, contract.read_timeout_ms);
 }
 
-function start(root: string, args: string[], timeout: number): Promise<Outcome> {
+function start(root: string, args: string[], timeout: number, env?: NodeJS.ProcessEnv): Promise<Outcome> {
   return new Promise((resolve) => {
-    execFile(contract.program, [...contract.first_arguments, ...args], { cwd: root, timeout, maxBuffer: contract.max_buffer_bytes }, (error, stdout) => {
+    execFile(contract.program, [...contract.first_arguments, ...args], { cwd: root, timeout, maxBuffer: contract.max_buffer_bytes, env }, (error, stdout) => {
       resolve(outcomeOf(error as ExecError, String(stdout)));
     });
   });
@@ -124,6 +125,13 @@ export async function recordDecision(root: string, study: string, decision: Deci
     "--json",
   ];
   const outcome = await start(root, args, contract.write_timeout_ms);
+  return outcome.outcome === "no_answer" ? { ...outcome, note: contract.write_no_answer_words } : outcome;
+}
+
+// Starts one command of the run tool, with the arguments the tool built after the first ones, and the write's limits. One call starts at
+// most one process, whatever its outcome: the bridge never starts a command again.
+export async function runCommand(root: string, args: string[]): Promise<Outcome> {
+  const outcome = await start(root, args, contract.write_timeout_ms, { ...process.env, HYPOTRAIL_RUN_TOOL: "1" });
   return outcome.outcome === "no_answer" ? { ...outcome, note: contract.write_no_answer_words } : outcome;
 }
 

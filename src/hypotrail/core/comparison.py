@@ -122,7 +122,7 @@ def _population_digest(study: Path, observation_set: dict) -> str:
     return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": layout.expected_row_ids(study, ref, partition)}))
 
 
-def _side(study: Path, role: str, assessment_id: str) -> dict:
+def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False) -> dict:
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
         raise _not_found(
@@ -137,6 +137,8 @@ def _side(study: Path, role: str, assessment_id: str) -> dict:
             observation_set_id=assessment["observation_set_id"],
         )
     observation_set, manifest = found
+    if run_tool:
+        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"), observation_set["provenance"].get("partition"))
     per_item = _rows(artifacts.read_verified(study, assessment["per_item_ref"]))
     return {
         "role": role,
@@ -277,7 +279,10 @@ def declared_deviation_warnings(study: Path, control: dict, candidate: dict) -> 
     return warnings
 
 
-def compare(study, control_id: str, candidate_id: str, factor: str | None = None, *, live_basis=None, read_sequence: int | None = None) -> dict:
+def compare(
+    study, control_id: str, candidate_id: str, factor: str | None = None, *,
+    live_basis=None, read_sequence: int | None = None, run_tool: bool = False,
+) -> dict:
     """Write and return a Comparison of the Assessment `control_id` (Control) and `candidate_id` (Candidate).
 
     `factor` is the factor the request declares as the intentional one (agent Track only). Holds the Study's
@@ -297,7 +302,7 @@ def compare(study, control_id: str, candidate_id: str, factor: str | None = None
         )
     with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence) as write:
         write.require_current()
-        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis)
+        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis, run_tool=run_tool)
 
 
 def date_order(study: Path, spec: dict, partition: str, row_ids: list):
@@ -339,9 +344,9 @@ def record_exposure(study: Path, write, control: dict, candidate: dict, comparis
     )
 
 
-def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis) -> dict:
-    control = _side(study, "control", control_id)
-    candidate = _side(study, "candidate", candidate_id)
+def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis, *, run_tool: bool = False) -> dict:
+    control = _side(study, "control", control_id, run_tool=run_tool)
+    candidate = _side(study, "candidate", candidate_id, run_tool=run_tool)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only

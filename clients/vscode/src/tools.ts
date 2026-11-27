@@ -1,11 +1,12 @@
-// The two language-model tools Copilot chat calls: a read of the Study, with no side effect, and the write of a Decision.
-// Each starts at most one process, through the bridge, and holds nothing between calls. The read takes the Study the
-// walk finds, or the folder given as `study` when the walk finds it; the write takes only the folder given as `study`,
-// when the walk finds it. Otherwise they refuse and start nothing.
+// The three language-model tools Copilot chat calls: a read of the Study, with no side effect, the write of a Decision, and
+// the run tool, which starts one command of its contract (`run-tool.contract.md`) and may write records, never an act.
+// Each starts its processes through the bridge and holds nothing between calls. The read takes the Study the walk finds,
+// or the folder given as `study` when the walk finds it; the write and the run tool take only the folder given as
+// `study`, when the walk finds it. Otherwise they refuse and start nothing.
 import * as vscode from "vscode";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, missingInputs, newRequestId, readStudy, recordDecision, type Outcome } from "./bridge";
+import { checkoutRoot, missingInputs, newRequestId, readStudy, recordDecision, runCommand, type Outcome } from "./bridge";
 import { findStudies, workspaceFolders } from "./studies";
 
 type ReadInput = { study?: unknown };
@@ -206,5 +207,191 @@ export const decideTool: vscode.LanguageModelTool<DecideInput> = {
       read_sequence: input.read_sequence as number,
     });
     return answer(writeAnswer(resolved.study, outcome));
+  },
+};
+
+
+// --- The run tool ---------------------------------------------------------------------------------------------------------------
+
+const RUN = "hypotrail_run";
+
+type RunInput = { study?: unknown; command?: unknown; arguments?: unknown; read_sequence?: unknown };
+
+// The commands of the contract, each with the options the chat gives it and whether the Write sequence read is passed.
+export const RUN_COMMANDS = [
+  { command: "run", track: "ml", options: ["--config", "--partition", "--request-id", "--retry-of"], read_sequence: true },
+  { command: "run", track: "agent", options: ["--mode", "--config", "--request-id", "--retry-of"], read_sequence: true },
+  { command: "assess", track: null, options: ["--observations", "--scorer", "--references"], read_sequence: true },
+  { command: "compare", track: null, options: ["--control", "--candidate", "--factor"], read_sequence: true },
+  { command: "profile", track: null, options: [], read_sequence: false },
+  { command: "report", track: null, options: ["--out"], read_sequence: true },
+];
+
+// The refusal codes of each rule, in the order the rules are checked.
+export const RUN_REFUSALS = [
+  ["STUDY_NOT_FOUND"],
+  ["COMMAND_NOT_ALLOWED"],
+  ["IMPORT_REFUSED"],
+  ["ARGUMENTS_NOT_VALID"],
+  ["LIVE_MODE_REFUSED"],
+  ["PUBLIC_CHECK_REFUSED"],
+  ["ARGUMENTS_NOT_VALID"],
+  ["ARGUMENTS_NOT_VALID", "OPTION_NOT_ALLOWED"],
+  ["OPTION_REPEATED"],
+  ["READ_SEQUENCE_MISSING"],
+  ["STATUS_UNREADABLE"],
+  ["PUBLIC_CHECK_REFUSED"],
+];
+
+const COMMANDS = ["run", "import", "assess", "compare", "profile", "report"];
+// The options that only the Mode llm_live of `run agent` takes, and the one Mode the tool passes.
+const LIVE_ONLY = ["--partition", "--repeats", "--model", "--cases", "--episode-cost-limit-usd", "--price-list"];
+const FIXTURE = "scripted_fixture";
+// The commands whose touched Attempts are read from `status --json` before they start.
+const READ_FIRST = ["assess", "compare", "report"];
+
+type Refusal = { code: string; reason: string };
+type Built = { args: string[] } | { refusal: Refusal };
+
+// An argument with its case, white space, "-" and "_" taken away, as the two scans read it.
+const bare = (text: string): string => text.toLowerCase().replace(/[\s_-]/g, "");
+const nameOf = (argument: string): string => (argument.includes("=") ? argument.slice(0, argument.indexOf("=")) : argument);
+const refused = (code: string, reason: string): { refusal: Refusal } => ({ refusal: { code, reason } });
+
+// The options as given, each with its value: read in their order, the first that fails gives its code, and a repeat is refused after.
+function parsed(list: string[], allowed: string[]): { options: [string, string][] } | { refusal: Refusal } {
+  const options: [string, string][] = [];
+  for (let index = 0; index < list.length; index += 1) {
+    const argument = list[index];
+    if (!argument.startsWith("-")) return refused("ARGUMENTS_NOT_VALID", `${json(argument)} stands where no value is taken.`);
+    const name = nameOf(argument);
+    if (!allowed.includes(name)) return refused("OPTION_NOT_ALLOWED", `${json(name)} is not an option this command takes from the chat: ${json(allowed)}.`);
+    const value = argument.includes("=") ? argument.slice(name.length + 1) : list[(index += 1)];
+    if (value === undefined || (!argument.includes("=") && value.startsWith("--"))) return refused("ARGUMENTS_NOT_VALID", `${json(name)} has no value.`);
+    options.push([name, value]);
+  }
+  const repeated = options.find(([name], index) => options.findIndex(([other]) => other === name) !== index);
+  if (repeated) return refused("OPTION_REPEATED", `${json(repeated[0])} is given more than once.`);
+  return { options };
+}
+
+// The values given to --mode, in either form, whatever else the arguments hold.
+const modes = (list: string[]): string[] =>
+  list.flatMap((argument, index) => (argument === "--mode" ? [list[index + 1] ?? ""] : argument.startsWith("--mode=") ? [argument.slice("--mode=".length)] : []));
+
+// The checks of the contract that need no read, in its order, and the arguments the command would be started with.
+function built(study: string, input: RunInput): Built {
+  const command = input.command;
+  if (typeof command !== "string" || !COMMANDS.includes(command)) {
+    return refused("COMMAND_NOT_ALLOWED", `${json(command)} is not a command of this tool: ${json(COMMANDS)}. decide and deviation record acts, which the chat only prepares and relays.`);
+  }
+  if (command === "import") return refused("IMPORT_REFUSED", "an Import is run by a person through the CLI: no read gives the Partition of its population before it is recorded.");
+  const list = input.arguments;
+  if (!Array.isArray(list) || !list.every((argument) => typeof argument === "string")) return refused("ARGUMENTS_NOT_VALID", "arguments must be a list of strings.");
+  const agent = command === "run" && list[0] === "agent";
+  const row = RUN_COMMANDS.find((each) => each.command === command && (each.track === null || each.track === list[0]));
+  const names = (row?.options ?? []) as string[];
+  for (const argument of list as string[]) {
+    const name = nameOf(argument.trim()).toLowerCase();
+    const live = agent && argument.startsWith("-") && !names.includes(nameOf(argument)) && LIVE_ONLY.some((option) => option.startsWith(name));
+    if (bare(argument).includes("llmlive") || live) return refused("LIVE_MODE_REFUSED", `${json(argument)} asks for a paid live run (llm_live), which this tool never starts.`);
+  }
+  if (agent && modes(list as string[]).some((mode) => mode !== FIXTURE)) return refused("LIVE_MODE_REFUSED", `the only Mode this tool starts is ${FIXTURE}.`);
+  if (list.some((argument) => bare(argument).includes("publiccheck"))) return refused("PUBLIC_CHECK_REFUSED", "a public_check read is the held-out pass, where the chat has no place.");
+  if (row === undefined) return refused("ARGUMENTS_NOT_VALID", `run takes the Track ml or agent first, not ${json(list[0])}.`);
+  const options = parsed(row.track === null ? list : list.slice(1), names);
+  if ("refusal" in options) return options;
+  const sequence = input.read_sequence;
+  const valid = typeof sequence === "number" && Number.isInteger(sequence) && sequence >= 0;
+  if (row.read_sequence && !valid) return refused("READ_SEQUENCE_MISSING", "read_sequence, the write_sequence of the Study as last read, must be an integer of 0 or more.");
+  return {
+    args: [
+      command,
+      ...(row.track === null ? [] : [row.track]),
+      `--study=${study}`,
+      ...options.options.map(([name, value]) => `${name}=${value}`),
+      ...(row.read_sequence ? [`--read-sequence=${sequence}`] : []),
+      "--json",
+    ],
+  };
+}
+
+const id = (value: unknown): string => (typeof value === "string" ? value.trim().toLowerCase() : "");
+const valueOf = (args: string[], name: string): string => id(args.find((argument) => argument.startsWith(`${name}=`))?.slice(name.length + 1));
+
+// The Attempts on public_check that the built command would touch, as the Study's read gives them.
+function publicTouched(args: string[], read: Record<string, unknown>): string[] {
+  const attempts = (Array.isArray(read.attempts) ? read.attempts : []) as Record<string, unknown>[];
+  const assessments = (Array.isArray(read.assessments) ? read.assessments : []) as Record<string, unknown>[];
+  const sets =
+    args[0] === "assess"
+      ? [valueOf(args, "--observations")]
+      : args[0] === "compare"
+        ? assessments.filter((each) => [valueOf(args, "--control"), valueOf(args, "--candidate")].includes(id(each.assessment_id))).map((each) => id(each.observation_set_id))
+        : undefined;
+  return attempts
+    .filter((each) => each.partition === "public_check" && (sets === undefined || sets.includes(id(each.observation_set_id))))
+    .map((each) => String(each.attempt_id));
+}
+
+// Every check of the contract, in its order: the Study, the input, and for assess, compare and report a read of the Study. Otherwise
+// the arguments the command is started with.
+async function runChecked(input: RunInput): Promise<{ study: string; args: string[] } | { refusal: Refusal }> {
+  const resolved = typeof input.study === "string" && input.study !== "" ? await studyOf(input.study, RUN) : { refusal: await noStudyGivenTo(RUN) };
+  if ("refusal" in resolved) return refused("STUDY_NOT_FOUND", resolved.refusal);
+  const result = built(resolved.study, input);
+  if ("refusal" in result) return result;
+  if (!READ_FIRST.includes(result.args[0])) return { study: resolved.study, args: result.args };
+  const read = await readStudy(ROOT, resolved.study);
+  if (read.outcome !== "success") return refused("STATUS_UNREADABLE", `the read of the Study did not succeed (${read.outcome}), so what the command would touch is not known.`);
+  const touched = publicTouched(result.args, read.object);
+  if (touched.length > 0) return refused("PUBLIC_CHECK_REFUSED", `the command would touch Attempts on public_check, the held-out pass, where the chat has no place: ${json(touched)}.`);
+  return { study: resolved.study, args: result.args };
+}
+
+async function noStudyGivenTo(tool: string): Promise<string> {
+  const found = await findStudies(workspaceFolders());
+  if (found.length === 0) return noStudy(tool);
+  return `${tool} needs study, the absolute path of the folder of the Study. Call ${tool} again with study set to one of the Studies found: ${json(found)}.`;
+}
+
+// A refusal of the Study already says that nothing was started.
+const refusalText = (refusal: Refusal): string => `Refused (${refusal.code}): ${refusal.reason}${refusal.reason.includes(NOTHING_STARTED) ? "" : ` ${NOTHING_STARTED}`}`;
+
+function runAnswer(args: string[], outcome: Outcome): string {
+  const line = json(args);
+  switch (outcome.outcome) {
+    case "success":
+      return `The CLI ran ${line}. It printed:\n${json(outcome.object)}`;
+    case "refusal":
+      return `The CLI refused ${line}, with exit code ${outcome.exit_code}. This tool does not start it again. ${READ_AGAIN} Its error, as printed:\n${json(outcome.error)}`;
+    case "no_answer":
+      return `The CLI gave no usable answer to ${line} (${outcome.cause}): ${contract.write_no_answer_words}. The command may have written, and this tool does not start it again. ${READ_AGAIN} What the bridge holds of the call:\n${json(outcome)}`;
+    case "client_refusal":
+      return notSent(RUN, outcome.missing);
+  }
+}
+
+export const runTool: vscode.LanguageModelTool<RunInput> = {
+  // Runs the checks, with the read of the Study they may need, and starts no command. A refusal is thrown, so that no confirmation is
+  // asked for a command that would not start.
+  async prepareInvocation(options) {
+    const checked = await runChecked(options.input);
+    if ("refusal" in checked) throw new Error(refusalText(checked.refusal));
+    const message = [
+      `Study folder: ${json(checked.study)}`,
+      "Arguments, each as one string:",
+      ...checked.args.map(json),
+      "",
+      "Continue: the CLI runs this command, which may write records to the Study and advance its Write sequence.",
+      "Cancel: nothing is run.",
+    ].join("\n");
+    return { confirmationMessages: { title: "Run this command on the Hypotrail Study?", message } };
+  },
+  // Runs the checks again, whether or not a confirmation came first, then starts the command once.
+  async invoke(options) {
+    const checked = await runChecked(options.input);
+    if ("refusal" in checked) return answer(refusalText(checked.refusal));
+    return answer(runAnswer(checked.args, await runCommand(ROOT, checked.args)));
   },
 };
