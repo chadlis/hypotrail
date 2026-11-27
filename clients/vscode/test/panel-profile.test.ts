@@ -5,8 +5,8 @@ import contract from "../contract.json";
 import { written } from "../src/content";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { BELOW_AA, THEMES, themed } from "./themes";
-import { KEPT_FIGURES, documentFor, elementOf, elementsOf, keptObject, partsOf, samePath, success } from "./panel-harness";
-import { exit, profile, type Answer } from "./recorder";
+import { KEPT_FIGURES, documentFor, lastDocument, panelOf, runCommand, settle, workspace, recorderOf, elementOf, elementsOf, keptObject, partsOf, samePath, success } from "./panel-harness";
+import { delayedProfile, exit, profile, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
 
@@ -149,4 +149,30 @@ test("in each of the four themes at 420 and 900 px, every text of the step on th
       assert.deepEqual(await evaluate(BELOW_AA), [], `${theme} at ${width} px`);
     }
   }
+});
+
+// "The Pending decision, its choices and Record are never held back by the profile read." (chadlis/hypotrail#262)
+test("while the profile read takes as long as the read's time limit, Now, its choices and an active Record are drawn, and its timeout then draws the failure sentence in the step", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  workspace(t, ["bike"]);
+  const status = keptObject(STATUS);
+  const timeout = { error: { code: null, killed: true, signal: "SIGTERM" } };
+  recorderOf(t, success(status), success(keptObject(KEPT_FIGURES[STATUS])), delayedProfile(timeout, contract.read_timeout_ms));
+  await runCommand();
+  await settle();
+  const before = lastDocument();
+  assert.ok(!before.includes("aria-busy"), "out of flight");
+  const now = elementOf(before, '<section data-part="now"')!;
+  assert.ok(elementOf(now, "<fieldset "), "the choices in Now");
+  assert.match(now, new RegExp(`<button data-message="${contract.messages[1]}" data-pending="0" aria-describedby="[^"]*" disabled>`), "Record, waiting for a choice");
+  const radios = now.match(/<input type="radio"[^>]*>/g) ?? [];
+  assert.ok(radios.length > 0 && radios.every((input) => !/ disabled[\s>]/.test(input)), "the choices are not inert");
+  assert.ok(!before.includes(STEP), "no step before the profile read answers");
+  const drawn = panelOf().documents.length;
+  t.mock.timers.tick(contract.read_timeout_ms);
+  await settle();
+  const after = lastDocument();
+  assert.equal(words(elementOf(elementOf(after, STEP)!, "<summary>")), `Data profile ${FAILED}`);
+  assert.equal(restOf(after), restOf(before));
+  assert.equal(panelOf().documents.length, drawn + 1, "one document more, when the profile read answers");
 });

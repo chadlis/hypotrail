@@ -2,7 +2,7 @@
 // opened on, the last object a read gave back with `success`, the arguments of a write that got no answer until that
 // call is answered, whether a call is in flight, the last figures read and the answer of the last profile read. It reads the Study
 // through the bridge when it is opened, after each write the CLI answered and on the control "Read again", and at no other time,
-// each status read that succeeds followed by the figures call, then the profile call; it writes only through `recordDecision`, on the control that records and on
+// each status read that succeeds followed by the figures call, then, once its document is drawn, the profile call; it writes only through `recordDecision`, on the control that records and on
 // "Send again". On a control that opens, it shows in the editor, read-only, a file of the Study whose path the object held names.
 import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
@@ -191,8 +191,8 @@ async function write(input: DecisionInput): Promise<void> {
 }
 
 // `written` is the answer of the write this read follows, if any. The panel stays in flight, with no new document, until the
-// figures call and the profile call that follow a successful status read have answered; only a figures read usable beside that
-// status read is kept, and the profile call's answer is kept whatever it is, for the document to say whether it can stand beside it.
+// figures call that follows a successful status read has answered; only a figures read usable beside that status read is kept. The
+// profile call follows, out of flight.
 async function read(written?: Outcome): Promise<void> {
   const opened = panel!;
   const study = target!.study;
@@ -204,14 +204,22 @@ async function read(written?: Outcome): Promise<void> {
   const object = outcome.outcome === "success" ? outcome.object : undefined;
   const answer = object === undefined ? undefined : await readFigures(ROOT, study);
   if (panel !== opened) return;
-  const profiled = object === undefined ? undefined : await readProfile(ROOT, study);
-  if (panel !== opened) return;
   inFlight = false;
   held = object;
   figures = answer?.outcome === "success" ? usableFigures(object, answer.object) : undefined;
-  profile = profiled;
+  profile = undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
   show({ reading: false, object: held, figures, profile, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  if (object !== undefined) void readProfileOf(opened, object, study, written);
+}
+
+// The profile call, made once the document of the status and figures reads is drawn, so that nothing waits for it: its answer is kept for
+// the object it was made beside, and the document is built again with it unless a call is in flight or the panel has read again meanwhile.
+async function readProfileOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string, written?: Outcome): Promise<void> {
+  const answer = await readProfile(ROOT, study);
+  if (panel !== opened || held !== object) return;
+  profile = answer;
+  if (!inFlight) show({ reading: false, object: held, figures, profile, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
 }
 
 function show(view: View): void {

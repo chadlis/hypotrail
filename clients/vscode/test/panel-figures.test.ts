@@ -272,7 +272,9 @@ for (const [way, open] of HELD_WAYS) {
     await settle();
     assert.equal(held.calls.length, calls, "a message received while the figures call is in flight is dropped");
     await answer(figures("status-success"));
-    assert.equal(panelOf().documents.length, statusDocuments + 1);
+    // The document of the two answers, out of flight; the profile call's answer, which follows, may add one more.
+    assert.ok([statusDocuments + 1, statusDocuments + 2].includes(panelOf().documents.length), String(panelOf().documents.length));
+    assert.ok(idle(panelOf().documents[statusDocuments]), panelOf().documents[statusDocuments]);
     assert.ok(idle(lastDocument()), lastDocument());
   });
 }

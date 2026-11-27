@@ -203,8 +203,8 @@ export function elementsOf(document: string, opening: string): string[] {
   }
 }
 
-// A recorder whose calls stay in flight until the test answers them (`recorder.ts`).
-export { heldRecorder };
+// A recorder whose calls stay in flight until the test answers them, and the recorder (`recorder.ts`).
+export { heldRecorder, recorder as recorderOf };
 
 // What makes a document break the policy, by patterns, with no parser. The patterns of an attribute read the tags of
 // the document, not the text between them, and a remote address is looked for in the tags and in the texts of the

@@ -10,7 +10,7 @@ import type { TestContext } from "node:test";
 import contract from "../contract.json";
 import { kept } from "./kept";
 
-export type Answer = { error?: Record<string, unknown> | null; stdout?: string; stderr?: string; profile?: true };
+export type Answer = { error?: Record<string, unknown> | null; stdout?: string; stderr?: string; profile?: true; delay?: number };
 
 export type RecordedCall = { program: string; args: string[]; options: Record<string, unknown> };
 
@@ -22,6 +22,11 @@ export function exit(code: number, stdout = "", stderr = ""): Answer {
 // `answer` given to a profile call.
 export function profile(answer: Answer): Answer {
   return { ...answer, profile: true };
+}
+
+// `answer` given to a profile call `ms` milliseconds after it starts, on the timer `setTimeout`.
+export function delayedProfile(answer: Answer, ms: number): Answer {
+  return { ...profile(answer), delay: ms };
 }
 
 // The kept profile read made beside each kept status read that has one, by the status read's name (tests/_client_helpers.py).
@@ -71,7 +76,8 @@ export function recorder(t: TestContext, ...answers: Answer[]): RecordedCall[] {
     recorded.push({ program, args: [...args], options: { ...options } });
     const given = answer.next(args) ?? exit(0, "{}");
     answer.seen(args, given);
-    setImmediate(() => reply(callback, given));
+    if (given.delay !== undefined) setTimeout(() => reply(callback, given), given.delay);
+    else setImmediate(() => reply(callback, given));
     return {};
   });
   return recorded;
