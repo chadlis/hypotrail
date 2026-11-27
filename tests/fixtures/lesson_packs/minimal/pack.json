@@ -1,0 +1,70 @@
+{
+  "schema_version": "lesson-pack/1",
+  "id": "minimal",
+  "version": "1.0.0",
+  "title": "Minimal lesson pack",
+  "language": "en",
+  "licence": "unlicensed",
+  "tracks": [
+    "temporal_regression"
+  ],
+  "hypotrail": "2feb77c74dc3d0baa7a43cbb9a4cee2d0f8e92f1",
+  "stations": [
+    {
+      "id": "intake",
+      "title": "Identify the intended use",
+      "purpose": "Name who needs the result and what they will do with it.",
+      "where": "chat",
+      "chat": true
+    },
+    {
+      "id": "framing",
+      "title": "Frame the comparison",
+      "purpose": "Agree on the quantity to predict and the evidence that would change the Decision.",
+      "where": "chat",
+      "chat": true
+    },
+    {
+      "id": "data",
+      "title": "Inspect the available data",
+      "purpose": "Separate what is available at prediction time from what is known later.",
+      "where": "panel",
+      "chat": true
+    },
+    {
+      "id": "baseline",
+      "title": "Establish the baseline",
+      "purpose": "Measure the simplest useful alternative.",
+      "where": "panel",
+      "chat": true
+    },
+    {
+      "id": "iterate",
+      "title": "Develop a Candidate",
+      "purpose": "Change a declared part of the Configuration and assess it on dev.",
+      "where": "panel",
+      "chat": true
+    },
+    {
+      "id": "compare_decide",
+      "title": "Compare and decide",
+      "purpose": "Read the Comparison and decide what to retain.",
+      "where": "panel",
+      "chat": true
+    },
+    {
+      "id": "held_out",
+      "title": "Held-out pass",
+      "purpose": "Leave the final measurement to the evaluator.",
+      "where": "evaluator",
+      "chat": false
+    },
+    {
+      "id": "deliver",
+      "title": "Hand over the result",
+      "purpose": "Explain how to operate and monitor the retained Configuration.",
+      "where": "outside",
+      "chat": true
+    }
+  ]
+}

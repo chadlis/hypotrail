@@ -100,6 +100,32 @@ def test_layering_finds_a_relative_import_of_another_track_a_package_in_no_layer
     assert layering_problems(parse_all(root)) == ["hypotrail.extra is in no layer of the list", "hypotrail.stray is in no layer of the list"]
 
 
+
+def test_only_the_cli_can_import_lessons_and_the_lessons_layer_imports_only_core(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/__init__.py": "",
+        "hypotrail/cli.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/core/__init__.py": "",
+        "hypotrail/core/c.py": "",
+        "hypotrail/lessons/__init__.py": "",
+        "hypotrail/lessons/loader.py": "from hypotrail.core import c\n",
+        "hypotrail/ml/__init__.py": "",
+        "hypotrail/ml/m.py": "",
+    })
+    assert layering_problems(parse_all(root)) == []
+    plant(root, {
+        "hypotrail/__init__.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/core/c.py": "from hypotrail.lessons import loader\n",
+        "hypotrail/lessons/loader.py": "from hypotrail.ml import m\n",
+        "hypotrail/ml/m.py": "from hypotrail.lessons import loader\n",
+    })
+    assert sorted(layering_problems(parse_all(root))) == [
+        "hypotrail imports hypotrail.lessons.loader",
+        "hypotrail.core.c imports hypotrail.lessons.loader",
+        "hypotrail.lessons.loader imports hypotrail.ml.m",
+        "hypotrail.ml.m imports hypotrail.lessons.loader",
+    ]
+
 # --- rule 3: the write protocol is called from the Study-write module only ------------------------------------------------------
 
 STUDY_WRITE = "hypotrail.core.study_write"
