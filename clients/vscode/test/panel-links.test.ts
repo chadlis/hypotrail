@@ -256,8 +256,15 @@ for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
     const object = keptObject(name);
     object.comparisons[0].interval = S2_INTERVAL;
     const { document } = await documentFor(t, success(object));
-    const links = linksOf(document).filter((link) => link.kind === kind);
+    const summary = elementOf(document, '<span data-element="interval">');
+    assert.ok(summary);
+    const links = linksOf(summary, document).filter((link) => link.kind === kind);
     assert.deepEqual(links.map((link) => link.text), [S2_INTERVAL.level, S2_INTERVAL.lower, S2_INTERVAL.upper].map(written));
+    const plot = elementOf(document, '<figure data-element="development-interval">');
+    assert.ok(plot);
+    const plotLinks = linksOf(plot, document);
+    assert.deepEqual(plotLinks.filter((link) => link.kind === kind).map((link) => link.text), [S2_INTERVAL.lower, S2_INTERVAL.upper].map(written));
+    assert.ok(plotLinks.some((link) => link.kind === "delta" && link.text === written(object.comparisons[0].delta.value)));
     for (const link of links) assert.ok(partKind(link.target) === "comparison" && firstId(link.target) === object.comparisons[0].comparison_id, link.href);
     assertLinksAndIds(document, object, `${name} with an injected interval`);
   });
@@ -564,6 +571,10 @@ test("the key paths the function reads from the lesson read over every kept less
   bodyOf({
     reading: false, object: keptObject("demonstration.after-decide.status"),
     lesson: recording(keptObject("lesson.with-pack-bike"), "", read) as Entry,
+  });
+  bodyOf({
+    reading: false, object: keptObject("demonstration.after-decide.status"),
+    lesson: recording(keptObject("lesson.with-illustration-bike"), "", read) as Entry,
   });
   assert.deepEqual(leaves(read), [...contract.lesson_key_paths].sort());
 });

@@ -34,3 +34,9 @@ With a Study, the station marks come from `status`: at least one dev Assessment 
 - Packs as code plugins. Code running in the CLI could access the Study across the held-out boundary.
 - Agent-side files only. Their content would escape the pack checks and be invisible to the panel.
 - A French pack. ADR 0007 keeps teaching content served by the product in English.
+
+## Amendment — 2026-11-27
+
+D-209 adds teaching figures to the accompanied journey. The panel can show the interval of an eligible development Comparison using the stored estimate and bounds. The renderer owns the chart and its text equivalent, and pack key paths do not select its data. When the interval is unavailable, the lesson can lead to the existing aggregate distribution.
+
+`lesson-pack/2` extends the base schema by accepting an optional `illustration` object on a lesson. It carries a layout, labels and a caption. A flow takes two to four labels and a comparison takes two. Each label has at most sixty-four characters and a caption has at most two hundred and forty. These fields use plain single-line text without digits. The extension schema is `src/hypotrail/lessons/lesson-pack-illustration.schema.json`. The first format still accepts the original fields. Diagrams share the panel's theme and work before a Study exists.

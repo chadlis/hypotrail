@@ -113,6 +113,15 @@ export function boxPlot([min, q1, median, q3, max]: Five, delta: number | null):
 // that joins them: `favours-control` or `favours-candidate` for the side it favours, or `between` when the two values are equal.
 export type Dot = { id: string; control: number; candidate: number; joint: string };
 
+export function intervalPlot(lower: number, upper: number, estimate: number): string {
+  const min = Math.min(0, lower, estimate), max = Math.max(0, upper, estimate);
+  const from = (value: number): number => axisPosition(value, min, max);
+  const whisker = rect("whisker", from(lower), 6.5, from(upper) - from(lower), 1);
+  const caps = [lower, upper].map((value) => rect("cap", centred(from(value), 0.5), 4, 0.5, 6));
+  const middle = rect("delta", centred(from(estimate), 1.2), 3, 1.2, 8);
+  return `<svg viewbox="0 0 100 14" preserveaspectratio="none" aria-hidden="true">${whisker}${caps.join("")}${zeroMark(min, max, 14)}${middle}</svg>`;
+}
+
 // The dots of a Comparison, one row per Item or Case, on one scale from the smallest to the largest of all their values. In a row,
 // the Control's mark is a tall narrow bar and the Candidate's a shorter one across its middle, both of one width, so that a mark
 // stays inside the track as the others do; a thin bar of the row's `joint` class joins the two.

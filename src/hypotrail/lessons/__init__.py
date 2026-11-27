@@ -71,9 +71,17 @@ def _https(value):
         return False
 
 
+def _schema_file(name):
+    return canonical.loads(resources.files(__package__).joinpath(name).read_bytes())
+
+
 @cache
-def _validator():
-    schema = canonical.loads(resources.files(__package__).joinpath("lesson-pack.schema.json").read_bytes())
+def _validator(illustrated=False):
+    schema = _schema_file("lesson-pack.schema.json")
+    if illustrated:
+        definitions = schema["$defs"]
+        definitions["manifest"]["properties"]["schema_version"]["const"] = "lesson-pack/2"
+        definitions["lesson"]["properties"]["illustration"] = _schema_file("lesson-pack-illustration.schema.json")
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema, format_checker=_READING)
 
@@ -102,7 +110,8 @@ def _identifier(value, pattern):
 
 def _schema_errors(manifest, content):
     errors = []
-    for error in _validator().iter_errors({"manifest": manifest, "content": content}):
+    illustrated = isinstance(manifest, dict) and manifest.get("schema_version") == "lesson-pack/2"
+    for error in _validator(illustrated).iter_errors({"manifest": manifest, "content": content}):
         at = list(error.absolute_path)
         filename, *path = at
         lesson_id = None
@@ -169,6 +178,9 @@ def _check_rules(manifest, lessons, kept=None):
         for key in ("title", "why_this_step", "how_to_do_it", "how_to_read", "pitfalls", "question"):
             if key in lesson:
                 errors.extend(_text_errors(lesson[key], f"{at}.{key}", lesson_id))
+        if "illustration" in lesson:
+            for key in ("labels", "caption"):
+                errors.extend(_text_errors(lesson["illustration"][key], f"{at}.illustration.{key}", lesson_id))
         for path_index, entry in enumerate(lesson["key_paths"]):
             read, path = entry["read"], entry["path"]
             location = f"{at}.key_paths.{path_index}.path"

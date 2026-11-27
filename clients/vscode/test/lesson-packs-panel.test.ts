@@ -107,9 +107,25 @@ test("the Comparison lesson links only to an existing aggregate development figu
   const link = /<a data-pack-figure href="(#lesson-figure-\d+)">/.exec(document);
   assert.ok(link);
   assert.ok(document.includes(`id="${link[1].slice(1)}"`));
-  assert.doesNotMatch(bodyOf({ ...view, figures: undefined }), /data-pack-figure/);
+  const withoutInterval = { ...object, comparisons: object.comparisons.map((comparison: object) => ({ ...comparison, interval: undefined })) };
+  assert.doesNotMatch(bodyOf({ ...view, object: withoutInterval, figures: undefined }), /data-pack-figure/);
   const unknown = { ...object, attempts: object.attempts.map((attempt: object) => ({ ...attempt, partition: null })) };
   assert.doesNotMatch(bodyOf({ ...view, object: unknown }), /data-pack-figure/);
+});
+
+test("the development figure plots the stored interval with a text equivalent", () => {
+  const object = keptObject("journey.04-pending.status");
+  const figures = keptObject("journey.04-pending.figures");
+  const lesson = { ...packRead, write_sequence: object.write_sequence };
+  const view = { study: "bike", reading: false, object, figures, lesson };
+  const html = bodyOf(view);
+  const plot = elementOf(html, '<figure data-element="development-interval">');
+  assert.ok(plot);
+  assert.match(plot, /<svg/);
+  assert.match(words(plot), /Interval/);
+  assert.match(words(plot), /Estimate/);
+  const unknown = { ...object, attempts: object.attempts.map((attempt: object) => ({ ...attempt, partition: null })) };
+  assert.doesNotMatch(bodyOf({ ...view, object: unknown }), /<figure data-element="development-interval">/);
 });
 
 test("a legacy lesson read with no configured pack still draws the pack status", () => {
@@ -237,3 +253,53 @@ for (const sentence of [
     assert.ok(guide.includes(sentence));
   });
 }
+
+const illustratedLesson = {
+  ...method,
+  illustration: {
+    layout: "flow",
+    labels: ["Set a goal & agree on a baseline", "Review the difference"],
+    caption: "Use the same Protocol for the baseline & the alternative.",
+  },
+};
+const illustratedPackRead = { ...packRead, lessons: [illustratedLesson] };
+
+function assertIllustration(document: string): void {
+  const figures = [...document.matchAll(/<figure\b[^>]*>[\s\S]*?<\/figure>/g)];
+  const teachingFigure = figures.find(([figure]) => figure.includes("agree on a baseline"));
+  assert.ok(teachingFigure, "the teaching illustration should be a semantic figure");
+  const markup = teachingFigure[0];
+  const caption = /<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/.exec(markup)?.[0];
+  assert.ok(caption, "the illustration should have a text caption");
+  assert.equal(words(caption), illustratedLesson.illustration.caption);
+  assert.ok(markup.includes("Set a goal &amp; agree on a baseline"));
+  const first = words(markup).indexOf(illustratedLesson.illustration.labels[0]);
+  const second = words(markup).indexOf(illustratedLesson.illustration.labels[1]);
+  assert.ok(first >= 0 && second > first, "the labels should appear in their original order");
+}
+
+test("a Study renders a v2 teaching illustration within its lesson and gives it a text equivalent", () => {
+  const document = bodyOf({ study: "synthetic-study", reading: false, object: study, lesson: illustratedPackRead });
+  const [section] = foldsNamed(document, "Stations and lessons");
+  const [rendered] = foldsNamed(section, illustratedLesson.title);
+  assert.ok(rendered);
+  assertIllustration(rendered);
+});
+
+test("the selected Track renders a v2 teaching illustration before a Study exists", async (t) => {
+  workspace(t, []);
+  const withoutStudy = { ...illustratedPackRead, cards: [] };
+  recorder(t, lesson(success(withoutStudy)));
+  const showStations = stub.state.commands.get("hypotrail.showStations");
+  assert.ok(showStations);
+  await showStations();
+  await settle();
+  const panel = stub.state.panels[0];
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(panel.webview.html)?.[1];
+  assert.ok(nonce);
+  panel.send({ nonce, track: "temporal_regression" });
+  await settle();
+  const [rendered] = foldsNamed(panel.webview.html, illustratedLesson.title);
+  assert.ok(rendered);
+  assertIllustration(rendered);
+});

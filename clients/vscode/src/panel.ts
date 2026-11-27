@@ -583,6 +583,14 @@ const STYLE = [
   '[data-element="pack-lesson"] dd { margin: 0; }',
   '[data-element="pack-lesson"] dd ul { padding-left: 1.35em; }',
   '[id^="lesson-figure-"] { display: block; min-height: 1px; }',
+  '[data-element="pack-illustration"], [data-element="development-interval"] { margin: 0.65em 0; padding: 0.45em 0.65em; background: var(--paperbg), var(--card); color: var(--cardink); border: 1px solid var(--cardline); }',
+  '[data-element="pack-illustration"] ol { display: flex; flex-wrap: wrap; gap: 0.35em; list-style: none; margin: 0 0 0.45em; padding: 0; }',
+  '[data-element="pack-illustration"] li { display: flex; align-items: center; gap: 0.35em; flex: 1 1 6em; min-width: 0; }',
+  '[data-element="pack-illustration"] li [data-text] { flex: 1; border: 1px solid var(--pen); color: var(--pen); padding: 0.25em; text-align: center; overflow-wrap: anywhere; }',
+  '[data-element="development-interval"] a { color: var(--pen); }',
+  '[data-element="development-interval"] svg { width: 100%; height: 2.2em; display: block; }',
+  '[data-element="development-interval"] svg :is(.whisker, .cap, .delta) { fill: var(--pen); }',
+  '[data-element="development-interval"] svg .zero { fill: var(--cardmuted); }',
 ].join("\n");
 
 // Every document the client gives to a webview is built here.
