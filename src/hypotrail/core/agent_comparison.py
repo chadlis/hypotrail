@@ -39,8 +39,7 @@ Episode. With full coverage (every Episode scored on both sides), each Criterion
 (its share of Repeats scored true) and every Case weighs the same; the main delta is that of the primary Criterion
 (owner decision 1A on chadlis/hypotrail#9), the others are secondary. Without full coverage the value is null with a
 Reason, and the rates of coverage and the two named rates of each side (CMP-04) stand beside it. No interval is computed over Episodes:
-the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`),
-whole groups of Cases at a time, from the `group` column of the revision's memberships, when it declares the unit `group`. Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
+the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`), by whole groups (the `group` column of its memberships) under the unit `group`. Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
 """
 
 import csv

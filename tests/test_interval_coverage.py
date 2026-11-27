@@ -45,7 +45,7 @@ def test_the_kept_file_names_the_sizes_the_settings_the_seed_the_replications_th
     advised = kept["optimal_block_length"]
     assert advised["partition"] == "train" and advised["declared"] == 7 and isinstance(advised["agreement"], bool) and advised["computed_on"]
     assert (kept["level"], kept["resamples"], kept["method"]) == (0.95, 2000, "percentile_bootstrap")
-    assert isinstance(kept["seed"], int) and kept["commit"] and set(kept["settings"]) == {"case", "item", "days"}
+    assert isinstance(kept["seed"], int) and kept["commit"] and set(kept["settings"]) == {"case", "item", "days", "group"}
     assert all(size["replications"] >= 300 and "true_delta" in size and "coverage" in size for size in kept["sizes"])
     assert set(kept["timing"]) == {"units", "resamples", "seconds", "python"} and kept["timing"]["units"] == 3000
 
