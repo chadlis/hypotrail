@@ -7,16 +7,14 @@ import os
 import re
 import shutil
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from _assess_helpers import assess, construct
-from _compare_helpers import compare
-from _demonstration_helpers import Recorder, demonstration
-from _import_helpers import FIELDS, import_ml, ready, rows_of, write_rows
-from _study_helpers import ROOT, init_study, run_cli, run_json
+from _assess_helpers import construct, fresh_study
+from _demonstration_helpers import Recorder, demonstration, study_of
+from _study_helpers import ROOT, run_cli, run_json
 from test_run_tool_end_to_end import the_tool
 
 PACK_VARIABLE = "HYPOTRAIL_LESSON_PACKS"
-PACK_KEYS = ("packs", "stations", "lessons")
 STATIONS = ("intake", "framing", "data", "baseline", "iterate", "compare_decide", "held_out", "deliver")
 WALL_WORDS = re.compile(r"reference|per_item|public_check", re.IGNORECASE)
 GUIDE_LINES = (
@@ -53,6 +51,12 @@ def capture(study, track, with_pack, without_pack):
     status = state(study)
     assert status["pending_decisions"], "capture before the synthetic Decision"
     assert status["attempts"] and all(attempt["partition"] == "dev" for attempt in status["attempts"])
+    if track == "bike":
+        kept = ROOT / "clients/vscode/test/cli/demonstration/after-compare.status.out"
+        attempts = json.loads(kept.read_bytes())["attempts"]
+        assert {attempt["request_id"] for attempt in status["attempts"]} == {attempt["request_id"] for attempt in attempts}, (
+            "the Bike proof must replay the kept development attempts"
+        )
     observations = {attempt["observation_set_id"] for attempt in status["attempts"]}
     observations.discard(None)
     assert all(assessment["observation_set_id"] in observations for assessment in status["assessments"])
@@ -108,7 +112,7 @@ def test_bike_journey(tmp_path, monkeypatch):
         assert snapshot(current) == before
         assert_station_sequence(obj, marks)
         scan(raw)
-        return obj
+        return raw, obj
 
     with monkeypatch.context() as isolated:
         isolated.chdir(tmp_path)
@@ -120,49 +124,67 @@ def test_bike_journey(tmp_path, monkeypatch):
         assert sorted(tmp_path.iterdir()) == before
         scan(no_study)
 
-    study, initial = init_study(tmp_path)
+    # Prepare a synthetic public-check Attempt from a development-only donor.
+    # It exists even when the replay has only initialized the Study.
+    donor, attempts = fresh_study(tmp_path / "probe-donor", "seasonal_7")
+    observation = construct(donor, attempts["seasonal_7"], lambda rows: rows, provenance={"partition": "public_check"})
+    [public_attempt] = [
+        row["attempt_id"] for row in state(donor)["attempts"]
+        if row["observation_set_id"] == observation and row["partition"] == "public_check"
+    ]
+    fixture = donor / "attempts" / public_attempt
+
+    work = tmp_path / "replay"
+    study = work / "bike"
+    # A5 uses a copy of the examples. Copy only the public Bike Workload.
+    shutil.copytree(ROOT / "examples/bike_day", work / "demo-examples/bike_day")
+    module = demonstration()
+    [step] = [step for step in module.STEPS if step["id"] == "A5"]
+    recorder = Recorder(module)
     marks = dict.fromkeys(("baseline", "iterate", "compare_decide"), False)
-    read(study, marks)
+    replayed = []
 
-    # The Import is the documented development-only exporter; a deterministic
-    # shift creates a second Configuration's synthetic forecasts for comparison.
-    source, mapping, population, _digest = ready(tmp_path)
-    shifted = []
-    for row in rows_of(source):
-        shifted.append({
-            **row,
-            "forecast_rentals": str(int(row["forecast_rentals"]) + 100),
-            "forecast_unrounded": str(float(row["forecast_unrounded"]) + 100),
-        })
-    candidate = write_rows(tmp_path / "candidate.csv", shifted, FIELDS)
-    observations = []
-    for name, file in (("control", source), ("candidate", candidate)):
-        observations.append(payload(import_ml(study, file, mapping, population, name)))
-        read(study, marks)
-
-    assessments = []
-    for attempt, mark in zip(observations, ("baseline", "iterate"), strict=True):
-        assessed = payload(assess(study, attempt["observation_set_id"], "regression_mae_v1", initial["references_id"]))
-        assessments.append(assessed["assessment"]["assessment_id"])
-        marks[mark] = True
-        read(study, marks)
-        if mark == "baseline":
-            # Construct only a synthetic Attempt from a development artifact.
-            # No actual public-check prediction or protected labels are read.
-            copy = tmp_path / "study-public-fixture"
-            shutil.copytree(study, copy)
-            dev = read(study, marks)
-            synthetic = construct(copy, observations[0]["attempt"], lambda rows: rows, provenance={"partition": "public_check"})
+    def paired_read():
+        dev, lesson = read(study, marks)
+        with TemporaryDirectory(dir=tmp_path) as scratch:
+            copy = Path(scratch) / "study"
+            # Use hard links for the study files. The read opens no protected payload.
+            shutil.copytree(study, copy, copy_function=os.link)
+            shutil.copytree(fixture, copy / "attempts" / public_attempt, copy_function=os.link)
             assert any(
-                row["observation_set_id"] == synthetic and row["partition"] == "public_check"
+                row["observation_set_id"] == observation and row["partition"] == "public_check"
                 for row in state(copy)["attempts"]
             )
-            with_public = read(copy, marks)
-            assert json.dumps({key: with_public[key] for key in PACK_KEYS}) == json.dumps({key: dev[key] for key in PACK_KEYS})
+            with_public, _ = read(copy, marks)
+            assert with_public.encode("utf-8") == dev.encode("utf-8"), (
+                "the public-check fixture changed the lesson read"
+            )
+        return lesson
 
-    comparison = payload(compare(study, *assessments))["comparison"]["comparison_id"]
-    marks["compare_decide"] = True
-    pending = read(study, marks)
+    def start(argv, env, cwd, text=None):
+        prefix = recorder.prefix
+        assert list(argv[:len(prefix)]) == prefix, "A5 must use only the CLI"
+        args = argv[len(prefix):]
+        assert study_of(args) == study
+        command = args[0]
+        assert command in {"init", "run", "assess", "compare", "status", "figures"}
+        if command == "run":
+            assert args[1] == "ml" and args[args.index("--partition") + 1] == "dev"
+        code, stdout, stderr = recorder(argv, env, cwd, text)
+        if code == 0 and command in {"init", "run", "assess", "compare"}:
+            replayed.append(command)
+            if command == "assess":
+                marks["iterate" if marks["baseline"] else "baseline"] = True
+            elif command == "compare":
+                marks["compare_decide"] = True
+            paired_read()
+        return code, stdout, stderr
+
+    outcome = module.run(work, start=start, out=io.StringIO(), steps=[step])
+    assert outcome.code == 0, "the kept Bike development replay failed"
+    assert replayed == ["init", "run", "run", "assess", "assess", "compare"]
+    comparison = outcome.captures["L2_COMPARISON"]
+    _, pending = read(study, marks)
     monkeypatch.delenv(PACK_VARIABLE)
     before, seq = snapshot(study), state(study)["write_sequence"]
     legacy = raw_lesson("--study", study)
@@ -174,11 +196,12 @@ def test_bike_journey(tmp_path, monkeypatch):
         capture(study, "bike", pending, json.loads(legacy))
     monkeypatch.setenv(PACK_VARIABLE, pack_path)
 
-    answer = the_tool(tmp_path, {"words": "Synthetic words from the manual panel proof."}, panel_record=True)
+    # The old Task 3 command claims a human author. Use the fixture panel channel.
+    answer = the_tool(work, {"words": "Synthetic words from the manual panel proof."}, panel_record=True)
     [record] = [call for call in answer["calls"] if call[0] == "decide"]
     assert "--channel=panel" in record and f"--artifact={comparison}" in record
     assert len(state(study)["decisions"]) == 1
-    read(study, marks)
+    paired_read()
     (read_files() / "bike-wall-count.txt").write_text(f"{rejected}\n", encoding="utf-8")
 
 
@@ -221,36 +244,19 @@ def test_chinook_journey(tmp_path, monkeypatch):
     assert snapshot(study) == before
 
 
-def scripted_turn(station, read_pack):
-    """One transparent, model-free caller of the Guide's real read tool."""
-    if station == "held_out":
-        return "The held-out pass runs at the evaluator, and I cannot discuss it."
-    lesson = next(item for item in read_pack()["lessons"] if item["station"] == station)
-    return f'{lesson["why_this_step"]}\nSource: {lesson["source"]}'
-
-
-def test_scripted_guide(tmp_path):
+def test_guide_pack_tool(tmp_path):
     instructions = (ROOT / "clients/vscode/hypotrail-guide.agent.md").read_text(encoding="utf-8")
     assert all(line in instructions.splitlines() for line in GUIDE_LINES)
     before = tuple(tmp_path.iterdir())
     cli = json.loads(raw_lesson("--track", "temporal_regression"))
-    for station in ("framing", "data", "compare_decide", "held_out"):
-        calls = []
-
-        def read_pack():
-            answer = the_tool(tmp_path, {"track": "temporal_regression"}, tool="hypotrail_read_study")
-            calls.extend(answer["calls"])
-            _, notice, text = answer["text"].partition("\n")
-            assert notice
-            return json.loads(text)
-
-        reply = scripted_turn(station, read_pack)
-        if station == "held_out":
-            assert reply == "The held-out pass runs at the evaluator, and I cannot discuss it."
-            assert calls == []
-        else:
-            assert calls == [["lesson", "--track=temporal_regression", "--json"]]
-            expected = next(item for item in cli["lessons"] if item["station"] == station)
-            assert reply.splitlines() == [expected["why_this_step"], f'Source: {expected["source"]}']
-        assert not any("public_check" in argument for call in calls for argument in call)
+    answer = the_tool(tmp_path, {"track": "temporal_regression"}, tool="hypotrail_read_study")
+    assert answer["calls"] == [["lesson", "--track=temporal_regression", "--json"]]
+    _, notice, text = answer["text"].partition("\n")
+    assert notice
+    pack = json.loads(text)
+    assert pack == cli
+    assert {"framing", "data", "compare_decide"} <= {item["station"] for item in pack["lessons"]}
+    [wall] = [station for station in pack["stations"] if station["id"] == "held_out"]
+    assert wall["chat"] is False
+    assert not any(item["station"] == "held_out" for item in pack["lessons"])
     assert tuple(tmp_path.iterdir()) == before

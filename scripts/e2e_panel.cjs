@@ -11,9 +11,15 @@ const from = (file) => require(path.join(client, file));
 const { lastDocument, runCommand, settle, success, workspace } = from("out/test/panel-harness.js");
 const { lesson, recorder } = from("out/test/recorder.js");
 const { pageOf, startChrome } = from("out/test/chrome.js");
-const { themed } = from("out/test/themes.js");
+const { BELOW_AA, themed } = from("out/test/themes.js");
 const [, record] = from("contract.json").messages;
 const themes = ["light", "dark", "hc", "hcl"];
+// The question, first evidence and Record tops in the accepted C5 capture.
+// https://github.com/chadlis/hypotrail/issues/306#issuecomment-7222056726
+const keptPositions = {
+    bike: { 420: [121, 184, 622], 900: [121, 164, 532] },
+    chinook: { 420: [121, 184, 657], 900: [121, 164, 548] },
+};
 
 const checks = `(() => {
     const section = document.querySelector('details[data-element="lesson-packs"]');
@@ -84,7 +90,7 @@ test("the real Bike and Chinook reads render under each theme, with and without 
     fs.mkdirSync(output);
     const documents = new Map();
     const captures = [];
-    for (const track of ["bike", "chinook"]) {
+    for (const track of Object.keys(keptPositions)) {
         const file = path.join(process.env.HYPOTRAIL_E2E_READS, `${track}-panel.json`);
         const data = JSON.parse(fs.readFileSync(file, "utf8"));
         for (const kind of ["with_pack", "without_pack"]) {
@@ -107,11 +113,12 @@ test("the real Bike and Chinook reads render under each theme, with and without 
     assert.ok(browser, "Chromium is required for the manual proof");
     for (const theme of themes) {
         for (const width of [420, 900]) {
-            for (const track of ["bike", "chinook"]) {
-                let baseline;
+            for (const track of Object.keys(keptPositions)) {
+                const origin = `http://127.0.0.1:${local.address().port}`;
+                const baseline = keptPositions[track][width];
                 let keyboard;
                 for (const kind of ["without_pack", "with_pack"]) {
-                    const page = await documentAt(t, browser, `http://127.0.0.1:${local.address().port}/${track}-${kind}`, theme, width);
+                    const page = await documentAt(t, browser, `${origin}/${track}-${kind}`, theme, width);
                     const seen = await page.evaluate(checks);
                     const installed = kind === "with_pack";
                     assert.equal(seen.statusLine, installed ? "Lesson packs" : "Lesson packs: none");
@@ -119,18 +126,22 @@ test("the real Bike and Chinook reads render under each theme, with and without 
                     assert.ok(seen.folded && seen.belowRecord, `${track} ${theme} ${width}`);
                     assert.doesNotMatch(seen.content, /[0-9]/, "lesson content contains a number");
                     assert.equal(seen.illustrationCount, track === "bike" && kind === "with_pack" ? 7 : 0);
-                    if (baseline) assert.deepEqual(seen.position, baseline, "installing a pack changes the first screen");
-                    else baseline = seen.position;
                     const name = `${track}-${theme}-${width}-${kind}`;
+                    assert.deepEqual(seen.position, baseline, `the first screen differs from its kept baseline for ${name}`);
+                    assert.equal((await page.evaluate(BELOW_AA)).length, 0, `text below AA contrast for ${name}`);
                     const screenshot = await page.send("Page.captureScreenshot", { format: "png" });
                     fs.writeFileSync(path.join(output, `${name}.png`), screenshot.data, "base64");
-                    const captured = { name, width, position: seen.position };
+                    const captured = { name, width, position: seen.position, keptPosition: baseline };
                     captures.push(captured);
                     assert.ok(seen.position[2] >= 0 && seen.position[2] < 700, `Record is outside the first screen for ${name}`);
                     const keys = await reachesRecord(page);
                     captured.recordTabStops = keys.length;
                     if (keyboard) assert.deepEqual(keys, keyboard, "installing a pack changes the keyboard path");
                     else keyboard = keys;
+                    if (installed && track === "bike") {
+                        await page.evaluate(`document.querySelectorAll('details[data-element="lesson-packs"], details[data-element="lesson-packs"] details').forEach((details) => { details.open = true; })`);
+                        assert.equal((await page.evaluate(BELOW_AA)).length, 0, `open lesson text below AA contrast for ${name}`);
+                    }
                     await page.send("Page.close");
                 }
             }

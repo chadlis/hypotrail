@@ -120,7 +120,7 @@ step "C2 Agentkit CI suite" kit_suite "$agentkit" || true
 
 # Test on the workflow's cache-hit path. The file must already exist before
 # mlkit fetch is called, so that command only checks the workbook digest.
-mlkit_e2e() {
+mlkit_prepare() {
     [[ ${ready[mlkit-pin]:-0} == 1 ]] || return 1
     local member
     member=$(python3 - "$mlkit/data.lock.json" <<'PY'
@@ -139,9 +139,57 @@ PY
     mkdir -p "$mlkit/data" || return 1
     cp -- "$twin" "$mlkit/data/$member" || return 1
     at "$mlkit" uv run --locked mlkit fetch || return 1
-    at "$mlkit" uv pip install ./hypotrail || return 1
+    at "$mlkit" uv pip install ./hypotrail
+}
+
+mlkit_gate_state() {
+    local status=0 state
+    state=$(at "$mlkit" uv run --locked --no-sync mlkit gate --json) || status=$?
+    python3 -c '
+import json
+import re
+import sys
+
+status = int(sys.argv[1])
+reply = json.load(sys.stdin)
+if status == 0 and reply["ok"] is True:
+    details = reply
+elif status == 7 and reply["code"] == "GATE_BLOCKED":
+    details = reply["details"]
+else:
+    raise SystemExit(1)
+if {"run", "export"} <= set(details["open"]):
+    print("open")
+elif status == 7 and re.fullmatch(r"[a-z_]+", details["phase"]):
+    print("blocked:" + details["phase"])
+else:
+    raise SystemExit(1)
+' "$status" <<<"$state"
+}
+
+mlkit_e2e() {
+    local gate=$1
     at "$mlkit" env MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail \
-        uv run --locked --no-sync pytest tests/e2e -rxX
+        uv run --locked --no-sync pytest -q tests/e2e -rsxX 2>&1 | python3 -c '
+import re
+import sys
+
+lines = [line for line in sys.stdin.read().splitlines() if line.strip()]
+if not lines:
+    raise SystemExit(1)
+summary = re.fullmatch(r"([1-9][0-9]*) passed(?:, ([0-9]+) skipped)? in [0-9.]+s(?: \([^\n]+\))?", lines[-1].strip(" ="))
+if summary is None:
+    raise SystemExit(1)
+skipped = int(summary[2] or "0")
+if sys.argv[1] == "open":
+    raise SystemExit(skipped != 0)
+phase = re.escape(sys.argv[1].removeprefix("blocked:"))
+gated = [
+    int(match[1]) for line in lines
+    if (match := re.match(r"^SKIPPED \[([0-9]+)\] .*: blocked: the gate is closed \(phase " + phase + r"\b", line))
+]
+raise SystemExit(not skipped or sum(gated) != skipped)
+' "$gate"
 }
 
 agentkit_e2e() {
@@ -166,8 +214,19 @@ check_packs() {
 
 if [[ ! -f "$twin" || ! -r "$twin" ]]; then
     fail "C2 MLkit pinned workflow: readable public twin cache required"
-elif step "C2 MLkit pinned workflow on the local public twin" mlkit_e2e; then
-    ready[mlkit-e2e]=1
+elif step "C2 prepare the pinned MLkit workflow on the public twin" mlkit_prepare; then
+    ready[mlkit-ready]=1
+    if phase=$(mlkit_gate_state 2>/dev/null); then
+        if [[ $phase == open ]]; then
+            if step "C2 MLkit pinned workflow on the local public twin" mlkit_e2e "$phase"; then
+                ready[mlkit-e2e]=1
+            fi
+        elif step "C2 MLkit pinned workflow checks independent of the owner gate" mlkit_e2e "$phase"; then
+            skip "C2 MLkit pinned run and export tests: owner ${phase#blocked:} gate"
+        fi
+    else
+        fail "C2 MLkit run and export gate could not be verified"
+    fi
 fi
 step "C2 Agentkit pinned workflow" agentkit_e2e || true
 step "C2 lesson-pack pinned fixture and published packs" check_packs || true
@@ -210,7 +269,8 @@ if step "C5 Study panel in Chromium with the actual journey reads" \
 fi
 step "C6 model-free Guide contract and dev tools" \
     at "$product" uv run --frozen python -m pytest -q tests/test_guide_agent.py || true
-step "C6 scripted Guide turns and held-out boundary" journey test_scripted_guide || true
+step "C6 Guide pack read and declared held-out boundary" journey test_guide_pack_tool || true
+skip "C6 actual Guide reply at the held-out station: owner G6 model gate"
 
 # Pytest exits zero for a suite of skipped or expected-failing tests. Require
 # actual passes for the explicit C7 round trips. Only the aggregate terminal
@@ -222,16 +282,18 @@ actual_passes() {
     '
 }
 
-gate=0
-(at "$mlkit" uv run --locked --no-sync mlkit gate) >/dev/null 2>&1 || gate=$?
-if [[ $gate == 7 ]]; then
-    skip "C7 MLkit run and Hypotrail ranking round trip: owner framing gate (mlkit gate exit 7)"
-elif [[ $gate == 0 && ${ready[mlkit-e2e]:-0} == 1 ]]; then
+gate=invalid
+if [[ ${ready[mlkit-ready]:-0} == 1 ]]; then
+    gate=$(mlkit_gate_state 2>/dev/null) || gate=invalid
+fi
+if [[ $gate == blocked:* ]]; then
+    skip "C7 MLkit run and Hypotrail ranking round trip: owner ${gate#blocked:} gate"
+elif [[ $gate == open && ${ready[mlkit-e2e]:-0} == 1 ]]; then
     step "C7 MLkit build, reference run, export, import, Assessment and Comparison" \
         actual_passes at "$mlkit" env MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail \
             uv run --locked --no-sync pytest -q tests/e2e/test_dev_end_to_end.py -rxX || true
 else
-    fail "C7 MLkit gate or prerequisite (gate exit $gate)"
+    fail "C7 MLkit needs a passed pinned workflow and a verified run and export gate"
 fi
 step "C7 Agentkit dev loop, Hypotrail import and Assessment, synthetic evaluator and aggregate boundary" \
     actual_passes agentkit_e2e -q tests/e2e/test_dev_end_to_end.py tests/e2e/test_evaluate.py tests/e2e/test_conduct.py || true
