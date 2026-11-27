@@ -448,7 +448,8 @@
             ]
           }
         ]
-      }
+      },
+      "level": "undeclared"
     },
     {
       "author": "proxy",
@@ -470,7 +471,8 @@
       "write_sequence": 29,
       "applies": true,
       "reasons": [],
-      "evidence_change": null
+      "evidence_change": null,
+      "level": null
     }
   ],
   "declared_deviations": [

@@ -79,3 +79,7 @@ Hypotrail seals nothing: "Any future holdout mechanism needs its own explicit pr
 - **What leaves the wall before the final Decision**: an aggregate report with no question or answer text, or nothing.
 - **Any spending on the wall**: the owner's.
 - **The owner's read of this ADR** comes before any private Study fixes its record format. Public twins do not wait for it.
+
+## Dated lines
+
+- 2026-11-26: the open point on a `file_relayed` Decision without `source` is settled by its first answer: `decide` refuses it with `INVALID_ARGUMENTS`, exit 2, before the lock, and nothing is written; an empty `source` is refused the same way (D-172 on chadlis/hypotrail#75, as the amendment of chadlis/hypotrail#276 records it; built by chadlis/hypotrail#276). The same ticket derives the level of point 4 as the key `level` of each Decision in `status --json`.
