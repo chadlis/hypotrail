@@ -11,6 +11,8 @@ import math
 
 from hypotrail.core import artifacts, canonical, contracts, exposure, revisions, state, write_journal
 from hypotrail.core import study as layout
+from hypotrail.core.attempts import SCENARIO_MODE
+from hypotrail.core.errors import InvalidInputError
 
 PUBLIC_CHECK = "public_check"
 REGRESSION = "regression"
@@ -101,8 +103,48 @@ def comparisons_of(study, reader: Reader) -> list:
     return comparisons
 
 
-def load(study) -> dict:
+def _unverified_scope(kind: str, record_id: str) -> InvalidInputError:
+    return InvalidInputError(
+        "REPORT_SCOPE_UNVERIFIED",
+        "the run tool cannot establish the report's Partition from the Study records",
+        stage="report",
+        details={"kind": kind, "record_id": record_id},
+    )
+
+
+def _verify_report_scope(study) -> None:
+    manifests = [layout.read_manifest(study, attempt_id) for attempt_id in layout.attempt_ids(study)]
+    for manifest in manifests:
+        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"))
+    observation_ids = set()
+    for manifest in manifests:
+        declared = manifest["effective_config"].get("partition")
+        refs = layout.observation_set_refs(manifest)
+        fixture = manifest["mode"] == SCENARIO_MODE
+        if not refs and declared is None and not fixture:
+            raise _unverified_scope("attempt", manifest["attempt_id"])
+        for ref in refs:
+            observation_set = layout.read_record(study, ref["path"])
+            recorded = partition_of(manifest, observation_set)
+            exposure.refuse_public_check(PUBLIC_CHECK, recorded)
+            if recorded is None and declared is None and not fixture:
+                raise _unverified_scope("attempt", manifest["attempt_id"])
+            observation_ids.add(observation_set["observation_set_id"])
+    assessment_ids = set()
+    for assessment in layout.assessment_records(study):
+        if assessment["observation_set_id"] not in observation_ids:
+            raise _unverified_scope("assessment", assessment["assessment_id"])
+        assessment_ids.add(assessment["assessment_id"])
+    for comparison in layout.comparison_records(study):
+        roles = comparison["roles"]
+        if {roles["control_assessment_id"], roles["candidate_assessment_id"]} - assessment_ids:
+            raise _unverified_scope("comparison", comparison["comparison_id"])
+
+
+def load(study, *, guarded: bool = False, profile=None) -> dict:
     """The model of the page: every record of the Study the page shows, verified, in a fixed order."""
+    if guarded:
+        _verify_report_scope(study)
     spec = layout.read_spec(study)
     reader = Reader(study)
     for ref in [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]:
@@ -111,7 +153,10 @@ def load(study) -> dict:
         from hypotrail.report import gather_agent
 
         return gather_agent.load(study, spec, reader)
-    return _load_regression(study, spec, reader)
+    model = _load_regression(study, spec, reader)
+    if profile is not None:
+        model["profile"] = profile(study)
+    return model
 
 
 def _load_regression(study, spec: dict, reader: Reader) -> dict:

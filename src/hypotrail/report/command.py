@@ -41,23 +41,6 @@ def check_output(study: Path, out: Path) -> None:
         raise _refuse("REPORT_OUTPUT_INVALID", f"the folder of --out {out} does not exist", out=str(out), reason="no_folder")
 
 
-def _restricted_report(study, out, read_sequence, profile) -> dict:
-    """Authorize and render a run-tool report on one Study state."""
-    with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
-        write.require_current()
-        manifests = [layout.read_manifest(study, attempt_id) for attempt_id in layout.attempt_ids(study)]
-        for manifest in manifests:
-            exposure.refuse_public_check(gather.PUBLIC_CHECK, manifest["effective_config"].get("partition"))
-        for manifest in manifests:
-            for ref in layout.observation_set_refs(manifest):
-                observation_set = layout.read_record(study, ref["path"])
-                exposure.refuse_public_check(gather.PUBLIC_CHECK, gather.partition_of(manifest, observation_set))
-        model = gather.load(study)
-        model["profile"] = profile(study) if profile is not None and model["spec"]["domain"] == gather.REGRESSION else None
-        artifacts.replace_atomically(out, render.render(model, render.Links(study, out)).encode("utf-8"))
-        return _result(out, model["spec"], model, None)
-
-
 def _result(out, spec, model, entry) -> dict:
     return {
         "out": str(out),
@@ -72,24 +55,29 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
     `live_basis` is what `exposure.record` calls to digest the Workload; the command passes it, the package imports no Track.
     `profile` is what the page of a regression Study draws in its Data profile section: a function of the Study's folder that
     returns the Track's read (`ok` true) or its refusal's code (`ok` false); the command passes it, and it is called once.
-    `read_sequence` is compared with the Study's write sequence only when the page records an Exposure (#108 Tightened F).
+    Direct CLI reports check `read_sequence` only when the page records an Exposure (#108 Tightened F). A guarded report
+    checks the sequence and establishes its scope under the writer lock before gathering.
     """
     study, out = Path(study), Path(out)
     study_write.check_read_sequence(study_write.REPORT, read_sequence)
     spec = layout.read_spec(study)
     check_output(study, out)
-    if run_tool:
-        return _restricted_report(study, out, read_sequence, profile)
-    model = gather.load(study)
-    shown = gather.touched(model)
-    drawn = profile(study) if profile is not None and spec["domain"] == gather.REGRESSION else None
-    model["profile"] = drawn
     entry = None
     links = render.Links(study, out)
-    if any(shown.values()):
-        with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
-            write.require_current()
-            model = gather.load(study)  # again, under the lock: what the page shows is what the entry names
+    drawn = None
+    if not run_tool:
+        model = gather.load(study)
+        shown = gather.touched(model)
+        drawn = profile(study) if profile is not None and spec["domain"] == gather.REGRESSION else None
+        model["profile"] = drawn
+        if not any(shown.values()):
+            artifacts.replace_atomically(out, render.render(model, links).encode("utf-8"))
+            return _result(out, spec, model, entry)
+
+    with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
+        write.require_current()
+        model = gather.load(study, guarded=run_tool, profile=profile if run_tool else None)
+        if not run_tool:
             model["profile"] = drawn
             shown = gather.touched(model)
             entry = exposure.record(
@@ -102,7 +90,5 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
                 comparison_ids=shown["comparisons"],
             )
             model["exposure"] = gather.exposure_of(study)  # the count includes this report's own entry
-            artifacts.replace_atomically(out, render.render(model, links, entry).encode("utf-8"))
-    else:
-        artifacts.replace_atomically(out, render.render(model, links).encode("utf-8"))
-    return _result(out, spec, model, entry)
+        artifacts.replace_atomically(out, render.render(model, links, entry).encode("utf-8"))
+    return _result(out, model["spec"] if run_tool else spec, model, entry)

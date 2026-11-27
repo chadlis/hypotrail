@@ -23,6 +23,7 @@ from _report_helpers import constructed_attempt, edit_manifest, tree
 from _study_helpers import init_study, run_json, run_ml
 
 from hypotrail.core import artifacts, lock
+from hypotrail.core import study as layout
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = ROOT / "clients" / "vscode" / "test" / "run-tool-corpus" / "cases.jsonl"
@@ -202,6 +203,48 @@ def test_the_run_tool_guards_the_real_report_when_status_has_no_partition(tmp_pa
         "read_sequence": current["write_sequence"],
     })
     assert after(answer["text"], "Its error, as printed:\n")["code"] == "PUBLIC_CHECK_REFUSED"
+    assert not out.exists()
+    assert tree(study) == before
+
+
+def test_guarded_report_holds_the_study_lock_through_payload_reads(tmp_path, monkeypatch):
+    study, _ = init_study(tmp_path)
+    out = tmp_path / "report.html"
+    sequence = run_json("status", "--study", study)[1]["write_sequence"]
+    seen = []
+    read_verified = artifacts.read_verified
+
+    def locked_read(folder, ref):
+        assert lock.is_held(study)
+        seen.append(ref["role"])
+        return read_verified(folder, ref)
+
+    monkeypatch.setenv("HYPOTRAIL_RUN_TOOL", "1")
+    monkeypatch.setattr(artifacts, "read_verified", locked_read)
+    code, payload, err = run_json("report", "--study", study, "--out", out, "--read-sequence", sequence)
+    assert code == 0, (payload, err)
+    assert seen and out.is_file()
+    assert not payload["report"]["exposure"]["recorded"]
+    assert run_json("status", "--study", study)[1]["write_sequence"] == sequence
+
+
+def test_guarded_report_refuses_an_assessment_with_no_attempt_before_opening_artifacts(tmp_path, monkeypatch):
+    study, initial = init_study(tmp_path)
+    code, attempt, err = run_ml(study, "seasonal_7", "public_check", "public-attempt")
+    assert code == 0, err
+    code, _, err = run_json(
+        "assess", "--study", study, "--observations", attempt["observation_set_id"],
+        "--scorer", "regression_mae_v1", "--references", initial["references_id"],
+    )
+    assert code == 0, err
+    (study / layout.attempt_manifest_path(attempt["attempt"]["attempt_id"])).unlink()
+    sequence = run_json("status", "--study", study)[1]["write_sequence"]
+    before = tree(study)
+    out = tmp_path / "report.html"
+    monkeypatch.setenv("HYPOTRAIL_RUN_TOOL", "1")
+    monkeypatch.setattr(artifacts, "read_verified", lambda *_: pytest.fail("guarded report opened an artifact"))
+    code, payload, _ = run_json("report", "--study", study, "--out", out, "--read-sequence", sequence)
+    assert (code, payload["error"]["code"]) == (2, "REPORT_SCOPE_UNVERIFIED")
     assert not out.exists()
     assert tree(study) == before
 
