@@ -582,6 +582,7 @@ const STYLE = [
   '[data-element="pack-lesson"] dt { margin-top: 0.5em; font-weight: 650; }',
   '[data-element="pack-lesson"] dd { margin: 0; }',
   '[data-element="pack-lesson"] dd ul { padding-left: 1.35em; }',
+  '[id^="lesson-figure-"] { display: block; min-height: 1px; }',
 ].join("\n");
 
 // Every document the client gives to a webview is built here.
