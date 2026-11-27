@@ -61,6 +61,7 @@ _Avoid_: fact, finding, domain claim
 **Exposure**:
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
 Clarification, 2026-11-21: a live view of artifacts already recorded is not a "report": such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
+Clarification, 2026-11-27: an Import written after the Study's first Exposure, whatever its revision, is marked `check_informed` too, and so is what uses it; the mark says when the Import came, not what its producer saw, whose exposure to `public_check` stays `unknown` (D-166 on chadlis/hypotrail#75; ticket chadlis/hypotrail#294).
 _Avoid_: use, peek, leak
 
 **Partition**:
