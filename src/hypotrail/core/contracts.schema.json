@@ -1707,7 +1707,8 @@
               "enum": [
                 "panel",
                 "choice",
-                "chat_relayed"
+                "chat_relayed",
+                "file_relayed"
               ]
             },
             "by": {
