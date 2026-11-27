@@ -28,7 +28,7 @@ from _study_helpers import examples_copy, init_study, run_json, run_ml
 
 from hypotrail.agentic import counts, rescore
 from hypotrail.agentic.declaration import load_workload
-from hypotrail.core import artifacts, canonical, chinook_contract, contracts, lock
+from hypotrail.core import artifacts, canonical, chinook_contract, contracts, exposure, lock
 from hypotrail.core.errors import HypotrailError
 from hypotrail.ml import comparison as ml_comparison
 from hypotrail.ml import metrics
@@ -285,13 +285,15 @@ def test_nothing_is_marked_before_the_first_exposure(tmp_path):
     assert status_of(study)["check_informed"] == []
 
 
-def test_an_import_has_no_configuration_digest_and_is_never_marked_through_a_configuration(tmp_path):
+def test_an_import_has_no_configuration_digest_and_is_marked_only_for_being_written_after_the_first_exposure(tmp_path):
     study, _ = init_chinook(tmp_path)
-    assert assess_agent(study, import_public(tmp_path, study, "first"))[0] == 0
+    first = import_public(tmp_path, study, "first")
+    assert assess_agent(study, first)[0] == 0
     attempt = import_public(tmp_path, study, "second", public_lines(wrong={("E02", 0)}))
+    assert exposure.configuration_digest_of(attempt) is None and not exposure.is_informed(study, exposure.configuration_digest_of(attempt))
     code, payload, _ = assess_agent(study, attempt)
-    assert code == 0 and "check_informed" not in attempt and "check_informed" not in payload["assessment"]
-    assert status_of(study)["check_informed"] == []
+    assert code == 0 and attempt.get("check_informed") is True and payload["assessment"].get("check_informed") is True
+    assert ("attempt", first["attempt_id"]) not in {(mark["kind"], mark["id"]) for mark in status_of(study)["check_informed"]}
 
 
 # --- AC4, Tightened B4: a Protocol change is a new revision -------------------------------------------------------------------
