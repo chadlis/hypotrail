@@ -40,7 +40,7 @@ from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring,
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
-from hypotrail.ml import single_features
+from hypotrail.ml import ranking_assess, single_features
 from hypotrail.ml.partitions import PUBLIC_CHECK, requires_exposure
 from hypotrail.ml.study import live_basis as _live_basis
 
@@ -147,6 +147,8 @@ def assess(
 def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list, run_tool: bool) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
+    if spec["domain"] == scorers.RANKING:
+        return ranking_assess.assess_locked(study, write, spec, observation_set_id, scorer, references_id)
 
     found = layout.find_observation_set(study, observation_set_id)
     if found is None:

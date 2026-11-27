@@ -3,7 +3,7 @@
 A `SCORER_ID` is a key of `REGISTRY`, looked up as a string. Nothing is imported, evaluated or
 looked up by name from the given text, so no Python can be loaded through it. It registers the two
 Scorers of the temporal regression Track and the two of the agent Track, `chinook_contract_v1` (#68)
-and `text_facts_v1` (#265). A Scorer carries the `domain` of the Observation sets it can score and a
+and `text_facts_v1` (#265), and the ranking Scorer. A Scorer carries the `domain` of the Observation sets it can score and a
 `config` that is hashed into `config_digest`. A regression Scorer has one Criterion and the pure
 function that aggregates it into its Metric. An agent Scorer has its Criteria, its per-Episode
 function (`episode`) and the role of the Study artifact that function reads (`reads`: the answer

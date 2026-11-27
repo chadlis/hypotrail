@@ -1,5 +1,6 @@
 <!-- chapter: id=import; kicker=Core; title=Importing predictions made elsewhere; accent=teal -->
 <p class="lead"><code>import ml</code> adopts a complete CSV of daily predictions, written by a program that never imports Hypotrail, as an Import Attempt of the Study that already holds the native Attempts. The original file, the mapping and a validation report are kept. Everything the import cannot establish about how the file was made is <code>unknown</code>; what the mapping claims is <code>declared</code>, never <code>verified</code>. <code>assess</code> then scores the Import like any Observation set (<a href="#assessments">chapter 05</a>). This chapter describes what exists: the temporal regression Track (the bike Workload), complete files only.</p>
+<p>A ranking Study also uses <code>import ml</code>. Its mapping joins <code>item_id</code> to <code>score</code>, and <code>dataset_sha256</code> names the frozen digest of <code>items.csv</code>. The Import accepts a population of mature development Items. Producer settings from the ranking mapping remain declared, and the original score file is kept with the Attempt.</p>
 
 <p class="sub2">The stand-in exporter</p>
 <div class="prose">

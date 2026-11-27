@@ -8,6 +8,8 @@ The first milestone runs two public Workloads end to end: a daily bike-rental re
 
 The [acceptance grid](docs/handbook/handbook.html#acceptance-grid) holds acceptance, test by test (T01–T24). `OFFLINE_ACCEPTED` reached. `LIVE_ACCEPTED` conditional: References E01–E10 reviewed by proxy, owner review pending. The 2026-11-21 Campaign (T20 holds) did not alternate its Configurations, against AG-12 of the L1 specification (`SPEC-LOT-1.md`, linked from chadlis/hypotrail#1; chapter 16). `USABILITY_REVIEW_PENDING` open: only an agent walked the README path; no third-party usability is claimed until another reader has. L2 was demonstrated on 2026-11-25 (D-132 on chadlis/hypotrail#75).
 
+The ranking Track verifies an explicit private development build, then imports and assesses external scores with mean recall at the top fraction. See the [ranking contract](docs/contracts/ranking-track.md).
+
 ## Install
 
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.13.

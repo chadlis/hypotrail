@@ -628,6 +628,15 @@
             "minLength": 1
           }
         },
+        "ranking_dates": {
+          "type": "object",
+          "required": ["scored", "omitted_no_positives"],
+          "properties": {
+            "scored": {"type": "integer", "minimum": 0},
+            "omitted_no_positives": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
         "rescoring": {
           "anyOf": [
             {
