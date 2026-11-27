@@ -3826,6 +3826,13 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-item="destination" data-value=".github/copilot-instructions.md"><td>Where a user copies it, in the workspace opened in VS Code</td><td><code>.github/copilot-instructions.md</code></td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="copilot-guide-agent">The Hypotrail Guide agent</p>
+<div class="prose">
+<p>Copy <code>clients/vscode/hypotrail-guide.agent.md</code> into <code>.github/agents/</code> in the workspace that holds the Study, then select "Hypotrail Guide" in Copilot Chat. Its tool list contains VS Code's <code>read</code> and <code>search</code>, plus <code>hypotrail_read_study</code> and <code>hypotrail_run</code>. The file uses the VS Code aliases <code>hypotrailStudy</code> and <code>hypotrailRun</code> for the Hypotrail tools.</p>
+<p>The guide reads at the start of each turn. It uses the card the Study returns to explain a step and points to the panel for values from records. It links to the pinned learning booklet for concepts. It leaves the act of recording a Decision to the person using Record in the panel. Its instructions forbid held-out reads and calls to paid live models.</p>
+<p>For kits, it reads command hints from available C6 <code>kit-status/1</code> output. Agentkit currently offers a text summary and lacks a C6 document. The guide has no terminal, edit or Decision tool. A real-client check of whether VS Code enforces this list as a hard limit is tracked in J0-a.</p>
+</div>
+
 <p class="sub2">Reuse of the earlier companion</p>
 <div class="prose">
 <p id="ported-passages">Five passages of the earlier companion (hypotrail/hypotrail at <code>4ef4925</code>) are ported into the client's charts, rewritten in TypeScript, each with its note: the length of a bar clamped to its track (clients/vscode-companion/media/components/bars.js:21-23), the top of a scale (clients/vscode-companion/media/components/bars.js:59-60), the layout of a bar as a name, a track and a value (clients/vscode-companion/media/components/bars.js:81-86), the top of the axis of a histogram (clients/vscode-companion/media/components/histogram.js:16-21), and the axis of a box plot (clients/vscode-companion/media/components/boxplot.js:39-41), whose range of zero puts every number at the middle of the axis where the companion widened it of one, and which halves each number before it takes a difference; the dots place their marks on that axis.</p>

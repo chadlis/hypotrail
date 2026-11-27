@@ -5857,6 +5857,7 @@ def test_the_run_tool_tables_of_chapter_18_equal_its_contracts_tables_in_order(p
 INSTRUCTIONS_TABLE = "copilot-instructions"
 INSTRUCTIONS_SECTION = '<p class="sub2" id="copilot-instructions-section">'
 DESTINATION = ".github/copilot-instructions.md"
+GUIDE_PATH = "clients/vscode/hypotrail-guide.agent.md"
 
 
 def tracked_files(*pathspecs: str) -> list:
@@ -5884,8 +5885,16 @@ def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_rep
 def test_the_table_of_the_template_gives_the_one_tracked_markdown_file_of_the_client_and_the_destination(page):
     rows = client_items(page, INSTRUCTIONS_TABLE)
     assert set(rows) == {"path", "destination"}, rows
-    assert [rows["path"]] == [name for name in tracked_files("clients/vscode") if name.endswith(".md") and name != RUN_CONTRACT_PATH]
+    assert [rows["path"]] == [name for name in tracked_files("clients/vscode") if name.endswith(".md") and name not in {RUN_CONTRACT_PATH, GUIDE_PATH}]
     assert rows["destination"] == DESTINATION
+
+
+def test_chapter_18_and_readme_show_how_to_install_the_guide_and_what_it_can_call():
+    chapter = chapter_text(CLIENT_CHAPTER)
+    section = chapter.split('<p class="sub2" id="copilot-guide-agent">', 1)[1].split('<p class="sub2"', 1)[0]
+    for value in (GUIDE_PATH, ".github/agents/", "hypotrail_read_study", "hypotrail_run", "read", "search"):
+        assert f"<code>{value}</code>" in section
+    assert GUIDE_PATH in (ROOT / "README.md").read_text(encoding="utf-8")
 
 
 def test_the_prose_of_the_template_section_restates_no_row_of_its_table(page):
