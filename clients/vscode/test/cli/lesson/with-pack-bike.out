@@ -1,0 +1,204 @@
+{
+  "ok": true,
+  "write_sequence": 14,
+  "track": "temporal_regression",
+  "cards": [
+    {
+      "kind": "comparisons",
+      "title": "Comparisons",
+      "text": "A Comparison sets two Assessments of the same Items side by side: one side is the Control, the other the Candidate. Its delta is the Candidate's Metric minus the Control's, and its definition states which sign means the Candidate is better. It also records whether the two sides are comparable, how many Items it paired, and its limitations and warnings; the figures give its paired deltas, one per Item, and their spread. Read the comparability, the coverage and the limitations before the delta, and the spread of the paired deltas beside it.",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "comparisons[].roles.control_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].roles.candidate_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].comparability.status"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].coverage.paired"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.value"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.definition"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].limitations"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].warnings"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].paired_deltas"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].quartiles"
+        }
+      ]
+    },
+    {
+      "kind": "decisions",
+      "title": "Decisions",
+      "text": "A Decision records the option chosen for a question, with its author, its source and the ids of the records it cites. It is written once by decide and never changed. It stops applying when the Study no longer holds an id it cites, when the Study's revision is no longer the one it was recorded in, or when an Assessment it cites, or one that a cited Comparison compares, is superseded by a later one; its reasons then say which. Read whether each Decision still applies, and its reasons when it does not.",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "decisions[].question"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].option"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].author"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].source"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].cited_ids"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].applies"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].reasons"
+        }
+      ]
+    }
+  ],
+  "packs": [
+    {
+      "id": "minimal",
+      "version": "1.0.0",
+      "title": "Minimal lesson pack",
+      "language": "en",
+      "licence": "unlicensed",
+      "valid": true,
+      "reason": null
+    },
+    {
+      "id": null,
+      "version": null,
+      "title": null,
+      "language": null,
+      "licence": null,
+      "valid": false,
+      "reason": "NOT_A_DIRECTORY"
+    }
+  ],
+  "stations": [
+    {
+      "id": "intake",
+      "title": "Identify the intended use",
+      "purpose": "Name who needs the result and what they will do with it.",
+      "where": "chat",
+      "chat": true,
+      "has_records": null
+    },
+    {
+      "id": "framing",
+      "title": "Frame the comparison",
+      "purpose": "Agree on the quantity to predict and the evidence that would change the Decision.",
+      "where": "chat",
+      "chat": true,
+      "has_records": null
+    },
+    {
+      "id": "data",
+      "title": "Inspect the available data",
+      "purpose": "Separate what is available at prediction time from what is known later.",
+      "where": "panel",
+      "chat": true,
+      "has_records": null
+    },
+    {
+      "id": "baseline",
+      "title": "Establish the baseline",
+      "purpose": "Measure the simplest useful alternative.",
+      "where": "panel",
+      "chat": true,
+      "has_records": true
+    },
+    {
+      "id": "iterate",
+      "title": "Develop a Candidate",
+      "purpose": "Change a declared part of the Configuration and assess it on dev.",
+      "where": "panel",
+      "chat": true,
+      "has_records": true
+    },
+    {
+      "id": "compare_decide",
+      "title": "Compare and decide",
+      "purpose": "Read the Comparison and decide what to retain.",
+      "where": "panel",
+      "chat": true,
+      "has_records": true
+    },
+    {
+      "id": "held_out",
+      "title": "Held-out pass",
+      "purpose": "Leave the final measurement to the evaluator.",
+      "where": "evaluator",
+      "chat": false,
+      "has_records": null
+    },
+    {
+      "id": "deliver",
+      "title": "Hand over the result",
+      "purpose": "Explain how to operate and monitor the retained Configuration.",
+      "where": "outside",
+      "chat": true,
+      "has_records": null
+    }
+  ],
+  "lessons": [
+    {
+      "id": "read-the-delta",
+      "station": "compare_decide",
+      "track": "temporal_regression",
+      "title": "Read the paired difference",
+      "why_this_step": "Measure the change on the same units before choosing a Configuration.",
+      "how_to_do_it": [
+        "Check that both Assessments cover the same units.",
+        "Find the sign of the paired difference."
+      ],
+      "how_to_read": "Relate the sign to the direction in which the Metric improves.",
+      "pitfalls": [
+        "Reversing the Comparison sides changes the sign and reverses which side appears to improve."
+      ],
+      "question": "Which side would you favour if the error fell?",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "comparisons[].delta.value"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].quartiles.median"
+        }
+      ],
+      "source": "minimal@1.0.0"
+    }
+  ]
+}

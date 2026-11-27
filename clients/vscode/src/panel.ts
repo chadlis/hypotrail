@@ -10,8 +10,8 @@ import { randomBytes } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, newRequestId, readFigures, readLesson, readProfile, readStudy, recordDecision, type DecisionInput, type Outcome } from "./bridge";
-import { bodyOf, cardsOf, usableFigures, usableLesson, type View } from "./content";
+import { checkoutRoot, isLessonTrack, newRequestId, readFigures, readLesson, readProfile, readStudy, readTrackLesson, recordDecision, type DecisionInput, type LessonTrack, type Outcome } from "./bridge";
+import { bodyOf, cardsOf, packStationsOf, usableFigures, usableLesson, type View } from "./content";
 
 export type Target = { study: string; decision?: string };
 
@@ -60,6 +60,57 @@ export function openPanel(next: Target): void {
     });
   }
   void read();
+}
+
+let stationsPanel: vscode.WebviewPanel | undefined;
+
+export function openStationsPanel(): void {
+  if (stationsPanel) {
+    stationsPanel.reveal();
+    return;
+  }
+  const opened = vscode.window.createWebviewPanel("hypotrail.stations", "Hypotrail Stations", vscode.ViewColumn.Active, panelOptions());
+  stationsPanel = opened;
+  const nonce = randomBytes(16).toString("hex");
+  let request = 0;
+  opened.webview.html = stationsDocument(nonce, undefined, '<p>Choose a Track to see its stations.</p>');
+  opened.onDidDispose(() => { stationsPanel = undefined; });
+  opened.webview.onDidReceiveMessage(async (message: { nonce?: unknown; track?: unknown } | null) => {
+    if (stationsPanel !== opened || message?.nonce !== nonce || !isLessonTrack(message.track)) return;
+    const track = message.track;
+    const current = ++request;
+    opened.webview.html = stationsDocument(nonce, track, '<p role="status">Reading lesson packs…</p>');
+    const result = await readTrackLesson(ROOT, track);
+    if (stationsPanel !== opened || request !== current) return;
+    const content = result.outcome === "success" && result.object.track === track
+      ? packStationsOf(result.object)
+      : '<p role="status">The lesson read did not return content. Select a Track to try again.</p>';
+    opened.webview.html = stationsDocument(nonce, track, content);
+  });
+}
+
+function stationsDocument(nonce: string, selected: LessonTrack | undefined, content: string): string {
+  const button = (track: LessonTrack, label: string): string =>
+    `<button type="button" data-track="${track}" aria-pressed="${track === selected}">${label}</button>`;
+  return [
+    '<!doctype html>',
+    '<html lang="en"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'">`,
+    `<style nonce="${nonce}">${STYLE}</style></head><body>`,
+    '<h1>Hypotrail Stations</h1>',
+    '<div aria-label="Track">',
+    button("temporal_regression", "Temporal regression"),
+    button("tool_using_agent", "Tool-using agent"),
+    '</div>',
+    content,
+    `<script nonce="${nonce}">`,
+    "const vscode = acquireVsCodeApi();",
+    'for (const button of document.querySelectorAll("button[data-track]")) {',
+    `  button.addEventListener("click", () => vscode.postMessage({ nonce: "${nonce}", track: button.dataset.track }));`,
+    "}",
+    '</script></body></html>',
+  ].join("\n");
 }
 
 // The handler of each message the document's script posts, by the message's name.
@@ -325,7 +376,7 @@ const SCRIPT = [
   '  for (let fold = element.closest("details"); fold !== null; fold = fold.parentElement.closest("details")) fold.open = true;',
   "  element.scrollIntoView();",
   "};",
-  'for (const anchor of document.querySelectorAll(\'a[href^="#"]\')) {',
+  'for (const anchor of document.querySelectorAll(\'a[href^="#"]:not([data-pack-figure])\')) {',
   '  anchor.addEventListener("click", (event) => {',
   '    const target = document.getElementById(anchor.getAttribute("href").slice(1));',
   "    if (target === null) return;",
@@ -333,6 +384,15 @@ const SCRIPT = [
   "    reveal(target);",
   "  });",
   "}",
+  'document.addEventListener("click", (event) => {',
+  '  const anchor = event.target.closest?.("a[data-pack-figure]");',
+  '  if (!anchor) return;',
+  '  const target = document.getElementById(anchor.getAttribute("href").slice(1));',
+  '  if (!target) return;',
+  '  event.preventDefault();',
+  '  reveal(target);',
+  '  target.focus({ preventScroll: true });',
+  '});',
   // Mark every rendered value named by an open card.
   "const mark = () => {",
   `  const paths = new Set([...document.querySelectorAll('details[data-element="card"][open] [data-shows]')].map((item) => item.getAttribute("data-shows")));`,
@@ -506,6 +566,11 @@ const STYLE = [
   '[data-applies="no"] { color: inherit; background: transparent; border: 1px solid var(--coral); }',
   '[data-element="question"] { color: var(--chalk2); }',
   '[data-element="evidence"] { font-weight: 600; }',
+  '[data-element="lesson-packs"], [data-element="pack-station"] { margin: 0.4em 0; padding: 0.15em 0.55em; border-left: 2px solid var(--line2); }',
+  '[data-element="pack-lesson"] { margin: 0.45em 0; padding: 0.4em 0.65em; border: 1px solid var(--cardline); background: var(--paperbg), var(--card); color: var(--cardink); }',
+  '[data-element="pack-lesson"] dt { margin-top: 0.5em; font-weight: 650; }',
+  '[data-element="pack-lesson"] dd { margin: 0; }',
+  '[data-element="pack-lesson"] dd ul { padding-left: 1.35em; }',
 ].join("\n");
 
 // Every document the client gives to a webview is built here.

@@ -6,10 +6,10 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import contract from "../contract.json";
-import { checkoutRoot, missingInputs, newRequestId, readLesson, readStudy, recordDecision, runCommand, type Outcome } from "./bridge";
+import { checkoutRoot, isLessonTrack, missingInputs, newRequestId, readLesson, readStudy, readTrackLesson, recordDecision, runCommand, type Outcome } from "./bridge";
 import { findStudies, workspaceFolders } from "./studies";
 
-type ReadInput = { study?: unknown };
+type ReadInput = { study?: unknown; track?: unknown };
 
 type DecideInput = {
   question?: unknown;
@@ -171,7 +171,17 @@ function confirmation(study: string, input: DecideInput): string {
 
 export const readTool: vscode.LanguageModelTool<ReadInput> = {
   async invoke(options) {
-    const resolved = await studyOf(options.input.study, READ);
+    const { study, track } = options.input;
+    if (track !== undefined) {
+      if (study !== undefined || !isLessonTrack(track)) {
+        return answer("To read without a Study, give track as temporal_regression or tool_using_agent and omit study.");
+      }
+      const outcome = await readTrackLesson(ROOT, track);
+      return answer(outcome.outcome === "success"
+        ? `The stations and lessons for ${track}, as the CLI printed them:\n${json(outcome.object)}`
+        : lessonAnswer(outcome));
+    }
+    const resolved = await studyOf(study, READ);
     if ("refusal" in resolved) return answer(resolved.refusal);
     const outcome = await readStudy(ROOT, resolved.study);
     if (outcome.outcome !== "success") return answer(readAnswer(resolved.study, outcome));
@@ -219,7 +229,7 @@ export const decideTool: vscode.LanguageModelTool<DecideInput> = {
 function lessonAnswer(outcome: Outcome): string {
   switch (outcome.outcome) {
     case "success":
-      return `The lesson cards of the Study, as the CLI's lesson read printed them; each explains a kind of step the Study shows:\n${json(outcome.object)}`;
+      return `The Study's Track cards and any lesson packs, as the CLI's lesson read printed them:\n${json(outcome.object)}`;
     case "refusal":
       return `The CLI refused the lesson read, with exit code ${outcome.exit_code}: the Study has no cards to explain with. Its error, as printed:\n${json(outcome.error)}`;
     case "no_answer":

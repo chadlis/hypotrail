@@ -6,8 +6,10 @@ Each output is kept as three files, `NAME.exit`, `NAME.out` and `NAME.err`, with
 """
 
 import json
+import os
 import re
 from pathlib import Path
+from unittest.mock import patch
 
 from _compare_helpers import assessed, compare
 from _study_helpers import run_cli, run_json
@@ -547,11 +549,22 @@ def lesson_outputs(tmp_path) -> dict:
         for part in ("exit", "out", "err"):
             text = (work / module.KEPT / f"{name}.lesson.{part}").read_text(encoding="utf-8")
             made[f"{name}.{part}"] = replaced(text) if part == "out" else text
+    made.update(lesson_pack_outputs(work / "bike"))
     (tmp_path / CHINOOK_LESSON).mkdir()
     study = chinook_pending_study(tmp_path / CHINOOK_LESSON)
     code, out, err = run_cli("lesson", f"--study={study}", "--json")
     made.update({f"{CHINOOK_LESSON}.exit": f"{code}\n", f"{CHINOOK_LESSON}.out": out.replace(str(study), "SCRATCH"), f"{CHINOOK_LESSON}.err": err.replace(str(study), "SCRATCH")})
     return made
+
+
+def lesson_pack_outputs(study):
+    """The demonstration's dev Bike read with one valid fixture and one unavailable pack."""
+    fixture = ROOT / "tests" / "fixtures" / "lesson_packs" / "minimal"
+    pack_list = os.pathsep.join((str(fixture), str(study.parent / "unavailable-pack")))
+    with patch.dict(os.environ, {"HYPOTRAIL_LESSON_PACKS": pack_list}):
+        code, out, err = run_cli("lesson", f"--study={study}", "--json")
+    assert code == 0, err
+    return {"with-pack-bike.exit": f"{code}\n", "with-pack-bike.out": replaced(out), "with-pack-bike.err": err}
 
 
 def write_lesson_kept(tmp_path) -> None:

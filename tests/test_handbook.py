@@ -5353,6 +5353,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "figures-read": " ".join(contract["figures_arguments"]),
         "profile-read": " ".join(contract["profile_arguments"]),
         "lesson-read": " ".join(contract["lesson_arguments"]),
+        "lesson-track-read": " ".join(contract["lesson_track_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }

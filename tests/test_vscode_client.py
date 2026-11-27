@@ -730,9 +730,12 @@ def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_r
 # --- the panel and deep links ---------------------------------------------------------------------------------------------------
 
 
-def test_the_manifest_contributes_exactly_the_one_command_and_its_title():
+def test_the_manifest_contributes_the_study_and_stations_commands_and_their_titles():
     commands = read_json(CLIENT / "package.json").get("contributes", {}).get("commands")
-    assert commands == [{"command": "hypotrail.openPanel", "title": "Hypotrail: Open the Study panel"}]
+    assert commands == [
+        {"command": "hypotrail.openPanel", "title": "Hypotrail: Open the Study panel"},
+        {"command": "hypotrail.showStations", "title": "Hypotrail: Show stations"},
+    ]
 
 
 # --- the Copilot tools ----------------------------------------------------------------------------------------------------------
@@ -741,7 +744,10 @@ def test_the_manifest_contributes_exactly_the_one_command_and_its_title():
 TOOLS = {
     "hypotrail_read_study": {
         "toolReferenceName": "hypotrailStudy",
-        "properties": {"study": {"type": "string"}},
+        "properties": {
+            "study": {"type": "string"},
+            "track": {"type": "string", "enum": ["temporal_regression", "tool_using_agent"]},
+        },
         "required": [],
     },
     "hypotrail_decide": {

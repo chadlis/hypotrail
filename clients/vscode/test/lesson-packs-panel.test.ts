@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
-import { documentFor, elementOf, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
+import { documentFor, elementOf, keptObject, partsOf, runCommand, settle, success, workspace } from "./panel-harness";
 import { lesson, recorder } from "./recorder";
 import { invoke } from "./tools-harness";
 import * as stub from "./vscode-stub";
@@ -98,6 +98,20 @@ test("pack lessons are folded and render their four parts and source as escaped 
   assert.notEqual(words(unknown), words(section), "a definite record mark must differ from an unknown one");
 });
 
+test("the Comparison lesson links only to an existing aggregate development figure", () => {
+  const object = keptObject("journey.04-pending.status");
+  const figures = keptObject("journey.04-pending.figures");
+  const pack = { ...packRead, write_sequence: object.write_sequence };
+  const view = { study: "bike", reading: false, object, figures, lesson: pack };
+  const document = bodyOf(view);
+  const link = /<a data-pack-figure href="(#lesson-figure-\d+)">/.exec(document);
+  assert.ok(link);
+  assert.ok(document.includes(`id="${link[1].slice(1)}"`));
+  assert.doesNotMatch(bodyOf({ ...view, figures: undefined }), /data-pack-figure/);
+  const unknown = { ...object, attempts: object.attempts.map((attempt: object) => ({ ...attempt, partition: null })) };
+  assert.doesNotMatch(bodyOf({ ...view, object: unknown }), /data-pack-figure/);
+});
+
 test("a legacy lesson read with no configured pack still draws the pack status", () => {
   const document = bodyOf({ study: "synthetic-study", reading: false, object: study, lesson: withoutPack });
   const [section] = foldsNamed(document, "Stations and lessons");
@@ -142,9 +156,11 @@ test("choosing Show stations opens the Track document from the empty workspace n
 
 test("the stations command opens a document offering both Tracks with no Study", async (t) => {
   workspace(t, []);
-  const calls = recorder(t, lesson(success({
-    ok: true, track: packRead.track, cards: [], packs: [manifest], stations: [station, evaluator], lessons: [method],
-  })));
+  const calls = recorder(
+    t,
+    lesson(success({ ok: true, track: packRead.track, cards: [], packs: [manifest], stations: [station, evaluator], lessons: [method] })),
+    lesson(success({ ok: true, track: "tool_using_agent", cards: [], packs: [], stations: [], lessons: [] })),
+  );
   const showStations = stub.state.commands.get("hypotrail.showStations");
   assert.ok(showStations, "the stations command is registered");
   await showStations();
@@ -155,7 +171,20 @@ test("the stations command opens a document offering both Tracks with no Study",
   const buttons = elementsNamedButton(markup).map(words);
   assert.ok(buttons.includes("Temporal regression"));
   assert.ok(buttons.includes("Tool-using agent"));
-  assert.ok(calls.every((call) => call.args.includes("lesson") && call.args.some((arg) => arg.startsWith("--track="))));
+  assert.equal(calls.length, 0);
+  const opened = stub.state.panels[0];
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(markup)?.[1];
+  assert.ok(nonce);
+  opened.send({ nonce, track: "temporal_regression" });
+  await settle();
+  assert.ok(words(opened.webview.html).includes(method.title));
+  opened.send({ nonce, track: "tool_using_agent" });
+  await settle();
+  assert.match(words(opened.webview.html), /Lesson packs: none/);
+  assert.deepEqual(calls.map(({ args }) => args.slice(contract.first_arguments.length)), [
+    ["lesson", "--track=temporal_regression", "--json"],
+    ["lesson", "--track=tool_using_agent", "--json"],
+  ]);
 });
 
 function elementsNamedButton(markup: string): string[] {
