@@ -233,7 +233,7 @@ export const RUN_REFUSALS = [
   ["COMMAND_NOT_ALLOWED"],
   ["IMPORT_REFUSED"],
   ["ARGUMENTS_NOT_VALID"],
-  ["LIVE_RUN_REFUSED"],
+  ["LIVE_MODE_REFUSED"],
   ["PUBLIC_CHECK_REFUSED"],
   ["ARGUMENTS_NOT_VALID"],
   ["ARGUMENTS_NOT_VALID", "OPTION_NOT_ALLOWED"],
@@ -294,9 +294,9 @@ function built(study: string, input: RunInput): Built {
   for (const argument of list as string[]) {
     const name = nameOf(argument.trim()).toLowerCase();
     const live = agent && argument.startsWith("-") && !names.includes(nameOf(argument)) && LIVE_ONLY.some((option) => option.startsWith(name));
-    if (bare(argument).includes("llmlive") || live) return refused("LIVE_RUN_REFUSED", `${json(argument)} asks for a paid live run (llm_live), which this tool never starts.`);
+    if (bare(argument).includes("llmlive") || live) return refused("LIVE_MODE_REFUSED", `${json(argument)} asks for a paid live run (llm_live), which this tool never starts.`);
   }
-  if (agent && modes(list as string[]).some((mode) => mode !== FIXTURE)) return refused("LIVE_RUN_REFUSED", `the only Mode this tool starts is ${FIXTURE}.`);
+  if (agent && modes(list as string[]).some((mode) => mode !== FIXTURE)) return refused("LIVE_MODE_REFUSED", `the only Mode this tool starts is ${FIXTURE}.`);
   if (list.some((argument) => bare(argument).includes("publiccheck"))) return refused("PUBLIC_CHECK_REFUSED", "a public_check read is the held-out pass, where the chat has no place.");
   if (row === undefined) return refused("ARGUMENTS_NOT_VALID", `run takes the Track ml or agent first, not ${json(list[0])}.`);
   const options = parsed(row.track === null ? list : list.slice(1), names);

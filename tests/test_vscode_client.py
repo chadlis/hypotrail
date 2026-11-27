@@ -862,7 +862,7 @@ RUN_CONTRACT = CLIENT / "run-tool.contract.md"
 ADR_0004 = ROOT / "docs" / "adr" / "0004-panel-cli-contract.md"
 
 
-def test_the_run_tools_manifest_schema_is_the_json_schema_of_its_contract():
+def test_the_manifest_schema_of_the_run_tool_is_the_json_schema_of_its_contract():
     schema = json.loads(RUN_CONTRACT.read_text(encoding="utf-8").split("```json\n", 1)[1].split("\n```", 1)[0])
     assert manifest_tools()["hypotrail_run"]["inputSchema"] == schema
 
