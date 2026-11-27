@@ -806,7 +806,7 @@ def _profile_read(examples_dir):
 
 
 def _compare(args) -> int:
-    from hypotrail.core import agent_comparison, comparison
+    from hypotrail.core import agent_comparison, comparison, intervals
 
     record = comparison.compare(
         args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, run_tool=_from_run_tool()
@@ -817,11 +817,16 @@ def _compare(args) -> int:
         value += f" ({delta['reason']})"
     interval = record.get("interval") or {}
     if interval.get("lower") is not None:
-        units = {"case": "Cases", "item": "Items", "group": "groups"}[interval["unit"]]
+        units = {"case": "Cases", "item": "Items", "group": "groups", "entity": "entities"}[interval["unit"]]
         value += f", {interval['level']:g} interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over {interval['units']} {units}"
         if interval["block_length"] is not None:
             value += f" in blocks of {interval['block_length']} days"
-    direction = "better" if record.get("primary_criterion") else "worse"
+    ranking = interval.get("unit") == intervals.ENTITY
+    if ranking:
+        if interval["lower"] is None:
+            value += ", interval unavailable"
+        value += f", {interval['usable_resamples']}/{interval['resamples']} usable draws, {interval['omitted_dates']} date omissions"
+    direction = "better" if ranking or record.get("primary_criterion") else "worse"
     unit = "paired Episodes" if record.get("primary_criterion") else "paired Items"
     status = record["comparability"]["status"]
     deviations = [w["code"] for w in record["warnings"] if w["code"] in comparison.DEVIATIONS + agent_comparison.DEVIATIONS]

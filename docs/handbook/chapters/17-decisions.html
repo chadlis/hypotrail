@@ -267,6 +267,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="figures-reasons"><thead><tr><th>Reason, in the order they are looked for</th><th>When</th></tr></thead><tbody>
 <tr data-reason="delta_withheld"><td><code>delta_withheld</code></td><td>The Comparison record's main delta has a null value; its file is not opened.</td></tr>
+<tr data-reason="no_item_level_ranking_delta"><td><code>no_item_level_ranking_delta</code></td><td>The ranking recall is computed across dates. Read the stored interval in the Comparison record.</td></tr>
 <tr data-reason="artifact_missing"><td><code>artifact_missing</code></td><td>The recorded paired-deltas file is absent.</td></tr>
 <tr data-reason="artifact_integrity"><td><code>artifact_integrity</code></td><td>The file's bytes do not match the digest or the size the record holds for it.</td></tr>
 <tr data-reason="artifact_malformed"><td><code>artifact_malformed</code></td><td>Its header is not its Track's columns, a line has another number of cells than the header, a value cell is not parsed by Python's <code>float()</code>, or it has no line of data. An id cell is not parsed: an empty id, or one given twice, is carried as recorded.</td></tr>

@@ -43,6 +43,8 @@ Every command that writes to an existing Study takes `--read-sequence N`, the wr
 
 A Comparison carries an interval on its delta, resampled over the unit its Workload declares: Cases for Chinook, days in circular blocks of 7 for Bike, whole groups of paraphrased Cases for `chinook_prose` ("over N groups"); a Study made before that declaration gets none until `init --new-revision`. An agent Comparison of Imports also lists each setting the two sides declare as `equal`, `different` or `unknown`, without changing its comparability.
 
+The ranking Track compares two development Assessments of the same Items. The Comparison and the aggregate report give the recall difference, the interval over paired entity histories and the counts of usable draws and date omissions.
+
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 
 A `chinook_prose` Study takes prose answers with `usage`, `metadata` and `settings` on each line, then `assess --scorer text_facts_v1`; it is not part of the path above: `import agent --study runs/chinook-prose --source examples/chinook_prose/fixtures/answers-concise.jsonl --population population.json --request-id import-prose`, after `init --workload chinook_prose --study runs/chinook-prose`.

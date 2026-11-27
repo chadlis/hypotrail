@@ -32,10 +32,14 @@ REGRESSION_ONLY = ("data-profile",)
 
 def sections_of(domain: str) -> tuple:
     """The sections of the page of a Study of `domain`, in their order."""
-    return SECTIONS if domain == gather.REGRESSION else tuple(s for s in SECTIONS if s[0] not in REGRESSION_ONLY)
+    if domain == gather.REGRESSION:
+        return SECTIONS
+    hidden = REGRESSION_ONLY + ("individual-errors",) if domain == gather.RANKING else REGRESSION_ONLY
+    return tuple(section for section in SECTIONS if section[0] not in hidden)
 
 
 DELTA_SENTENCE = "A positive delta means the Candidate is worse: the delta is the Metric of the Candidate minus the Metric of the Control, and the Metric is lower-is-better."
+RANKING_DELTA_SENTENCE = "A positive delta means the Candidate has higher recall. The delta is the recall of the Candidate minus the recall of the Control."
 DENIAL = "This report does not state that any output, Configuration or Study is production-ready, safe or independent."
 CHARTER_STYLE = """
 :root{--bg:#FFFCF7;--bg2:#F4EEE4;--ink:#15111C;--ink2:#3E3749;--faint:#7A7187;--line:rgba(21,17,28,.10);--line2:rgba(21,17,28,.20);
@@ -212,7 +216,10 @@ def _coverage(model) -> list:
         if rows
         else paragraph("No Assessment is recorded."),
     ]
-    reason_rows = [[a["record"]["assessment_id"], *[(x if x is not None else "none") for x in entry[:3]], number(entry[3])] for a in model["assessments"] for entry in gather.reasons(a)]
+    reason_rows = [] if model["domain"] == gather.RANKING else [
+        [a["record"]["assessment_id"], *[(x if x is not None else "none") for x in entry[:3]], number(entry[3])]
+        for a in model["assessments"] for entry in gather.reasons(a)
+    ]
     if reason_rows:
         out += [sub("Criteria, states and Reasons"), table("reasons", ["Assessment", "Criterion", "State", "Reason", "Items"], reason_rows, numeric=(4,))]
     return out + (render_agent.self_checks(model) if model["domain"] == gather.AGENTIC else [])
@@ -230,6 +237,7 @@ def _single_feature_check(record, unit) -> str:
 
 def _metrics(model) -> list:
     out = []
+    ranking = model["domain"] == gather.RANKING
     memberships = model["memberships"]
     for index, a in enumerate(model["assessments"]):
         r = a["record"]
@@ -238,7 +246,6 @@ def _metrics(model) -> list:
         rows = [
             ["Metric", metric["id"]],
             ["Value", join([number(metric["value"]), f" {metric['unit']}" if metric["value"] is not None else ""])],
-            ["Single-feature check", _single_feature_check(r, metric["unit"])],
             ["Direction", metric["direction"]],
             ["Denominator", number(metric["denominator"])],
             ["Status", metric["status"]],
@@ -246,21 +253,24 @@ def _metrics(model) -> list:
             ["Revision", number(revision.get("number"))],
             ["References set", join([r["references_ref"]["sha256"]])],
         ]
+        if not ranking:
+            rows.insert(2, ["Single-feature check", _single_feature_check(r, metric["unit"])])
         body = [tag("p", join([tag("b", "Assessment "), r["assessment_id"]])), table(f"assessment-{index}", ["Field", "Value"], rows)]
         if r.get("rescoring"):
             body.append(rescoring_note(r["rescoring"]))
-        body += [
-            sub(f"By month, Assessment {r['assessment_id']}"),
-            table(
-                f"monthly-{index}",
-                ["Month", "Items", "Scored", "Mean absolute error"],
-                [[month or UNKNOWN, number(items), number(scored), number(mean)] for month, items, scored, mean in gather.monthly(a, memberships)],
-                numeric=(1, 2, 3),
-            ),
-        ]
+        if not ranking:
+            body += [
+                sub(f"By month, Assessment {r['assessment_id']}"),
+                table(
+                    f"monthly-{index}",
+                    ["Month", "Items", "Scored", "Mean absolute error"],
+                    [[month or UNKNOWN, number(items), number(scored), number(mean)] for month, items, scored, mean in gather.monthly(a, memberships)],
+                    numeric=(1, 2, 3),
+                ),
+            ]
         out.append(tag("div", join(body), class_="card"))
     out.append(sub("Comparisons"))
-    out.append(paragraph(DELTA_SENTENCE))
+    out.append(paragraph(RANKING_DELTA_SENTENCE if ranking else DELTA_SENTENCE))
     if not model["comparisons"]:
         out.append(paragraph("No Comparison is recorded."))
     for index, c in enumerate(model["comparisons"]):
@@ -324,6 +334,9 @@ def _limits(model) -> list:
 
 
 def _origin(model, links) -> list:
+    if model["domain"] == gather.RANKING:
+        return [paragraph("The Study records the digests of its artifacts. This page shows aggregate ranking measures.")]
+
     def rows_of(refs):
         return [[links.artifact(ref), ref["sha256"], number(ref["size_bytes"]), ref["role"]] for ref in refs]
 
@@ -386,15 +399,21 @@ def _exposure(model, recorded) -> list:
 def render(model: dict, links: Links, recorded=None) -> str:
     """The page for `model`; `recorded` is the journal entry this report appended, or None."""
     agent = model["domain"] == gather.AGENTIC
+    regression = model["domain"] == gather.REGRESSION
+    errors = None
+    if agent:
+        errors = render_agent.errors(model, links)
+    elif regression:
+        errors = _errors(model, links)
     bodies = {
         "question-mode": _question(model),
         "data-licences": _data(model),
         "protocol-partitions": render_agent.protocol(model) if agent else _protocol(model),
-        "data-profile": None if agent else render_profile.section(model.get("profile")),
+        "data-profile": render_profile.section(model.get("profile")) if regression else None,
         "configurations": render_agent.configurations(model) if agent else _configurations(model),
         "coverage-statuses": _coverage(model),
         "metrics-differences": render_agent.metrics(model) if agent else _metrics(model),
-        "individual-errors": render_agent.errors(model, links) if agent else _errors(model, links),
+        "individual-errors": errors,
         "limits": _limits(model),
         "artifact-origin": _origin(model, links),
         "exposure": _exposure(model, recorded),
@@ -408,7 +427,7 @@ def render(model: dict, links: Links, recorded=None) -> str:
                 tag("p", join(["Hypotrail ", tag("b", "·"), " Report"]), class_="org"),
                 tag("p", "Study report", class_="kick"),
                 tag("h1", f"Study {spec['study_id']}"),
-                tag("p", "Rendered from the records of the Study" + ("" if agent else " and its data profile") + ". Nothing is computed when this page is opened.", class_="sub"),
+                tag("p", "Rendered from the records of the Study" + (" and its data profile" if regression else "") + ". Nothing is computed when this page is opened.", class_="sub"),
             ]
         ),
         class_="hero",
@@ -428,8 +447,8 @@ def render(model: dict, links: Links, recorded=None) -> str:
         [
             Safe('<!doctype html><html lang="en" data-mode="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'),
             tag("title", f"Hypotrail report, Study {spec['study_id']}"),
-            Safe(f"<style>{CHARTER_STYLE}{'' if agent else render_profile.STYLE}</style></head><body>"),
-            tag("div", join([hero, banner, sections, tag("footer", "Hypotrail · report · the Study's records" + ("" if agent else " and its data profile") + " are the source; this page is rebuilt, never stored as one.")]), class_="page"),
+            Safe(f"<style>{CHARTER_STYLE}{render_profile.STYLE if regression else ''}</style></head><body>"),
+            tag("div", join([hero, banner, sections, tag("footer", "Hypotrail · report · the Study's records" + (" and its data profile" if regression else "") + " are the source; this page is rebuilt, never stored as one.")]), class_="page"),
             Safe("</body></html>\n"),
         ]
     )

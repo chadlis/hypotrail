@@ -1585,6 +1585,15 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <tr data-path="comparisons/COMPARISON_ID/comparison.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/comparison.json</code></td><td><code>compare</code>, last</td><td>The Comparison record. A folder without it is not a Comparison.</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="ranking-comparison">The ranking Comparison</p>
+<div class="prose">
+<p>On a ranking Study, <code>compare</code> requires two development Assessments of the same Items and References. A positive <code>delta</code> means the Candidate recovered a higher share of the positive Items in the top fraction of the rankings. Only the aggregate change and interval are recorded.</p>
+<p>The <code>entity</code> interval uses the same draws of whole entities for the Control and Candidate. It keeps repeated entities in the rankings, recalculates both rankings for every draw, and omits dates with no positive Item in that draw. <code>usable_resamples</code> counts draws with at least one usable date. <code>omitted_dates</code> counts date omissions across all draws. The interval is unavailable when no draw is usable. The command and the aggregate ranking report both show the counts.</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="ranking-comparison-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>
+<tr data-code="COMPARISON_DOMAIN_MISMATCH" data-exit="2" data-stage="compare" data-details="study_domain observation_domain"><td><code>COMPARISON_DOMAIN_MISMATCH</code></td><td>The domains recorded by the Study and an Observation set differ, and one is <code>ranking</code>. The refusal precedes that side's per-Item read.</td><td>2</td><td><code>compare</code></td><td><code>study_domain</code>, <code>observation_domain</code></td></tr>
+</tbody></table></div>
+
 <p class="sub2" id="interval-days-section">The interval on the delta, over days in blocks</p>
 <div class="prose" id="interval-days">
 <p>A Comparison holds <code>interval</code>, the paired resampling interval on its main delta (<code>hypotrail.core.intervals</code>, standard library only). Its level, 0.95, its count of resamples, 2,000, and its method, <code>percentile_bootstrap</code>, are fixed in the core; the unit, the blocks and the seed are declared by the Workload under <code>resampling</code>, are part of the Protocol digest only when declared, and are copied into the StudySpec. The Bike Workload declares <code>{"unit": "item", "block": {"variant": "circular", "length": 7}, "seed": 241}</code>: the length is <code>period_k</code>, fixed before any delta was read.</p>
@@ -3102,6 +3111,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="figures-reasons"><thead><tr><th>Reason, in the order they are looked for</th><th>When</th></tr></thead><tbody>
 <tr data-reason="delta_withheld"><td><code>delta_withheld</code></td><td>The Comparison record's main delta has a null value; its file is not opened.</td></tr>
+<tr data-reason="no_item_level_ranking_delta"><td><code>no_item_level_ranking_delta</code></td><td>The ranking recall is computed across dates. Read the stored interval in the Comparison record.</td></tr>
 <tr data-reason="artifact_missing"><td><code>artifact_missing</code></td><td>The recorded paired-deltas file is absent.</td></tr>
 <tr data-reason="artifact_integrity"><td><code>artifact_integrity</code></td><td>The file's bytes do not match the digest or the size the record holds for it.</td></tr>
 <tr data-reason="artifact_malformed"><td><code>artifact_malformed</code></td><td>Its header is not its Track's columns, a line has another number of cells than the header, a value cell is not parsed by Python's <code>float()</code>, or it has no line of data. An id cell is not parsed: an empty id, or one given twice, is carried as recorded.</td></tr>

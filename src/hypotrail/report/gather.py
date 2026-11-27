@@ -14,9 +14,11 @@ from hypotrail.core import study as layout
 from hypotrail.core.attempts import SCENARIO_MODE
 from hypotrail.core.errors import InvalidInputError
 
+DEV = "dev"
 PUBLIC_CHECK = "public_check"
 REGRESSION = "regression"
 AGENTIC = "agentic"
+RANKING = "ranking"
 TOP_ERRORS = 10
 
 
@@ -73,19 +75,25 @@ def partition_of(manifest: dict, observation_set):
     return manifest["effective_config"].get("partition")
 
 
-def attempts_of(study, reader: Reader) -> list:
-    """Every Attempt of the Study with its Observation set, in a fixed order; every artifact it references is read back against its digest."""
+def attempts_of(study, reader: Reader, *, ranking: bool = False) -> list:
+    """Every Attempt with its verified Observation set, in a fixed order. The aggregate ranking report uses metadata files."""
     attempts = []
     for attempt_id in layout.attempt_ids(study):
         manifest = layout.read_manifest(study, attempt_id)
-        for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
-            reader.bytes_of(ref)
+        if ranking and manifest["effective_config"].get("partition") != DEV:
+            raise _ranking_scope("attempt", attempt_id)
+        if not ranking:
+            for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
+                reader.bytes_of(ref)
         observation_set = observation_set_of(reader, manifest)
+        partition = partition_of(manifest, observation_set)
+        if ranking and (observation_set is None or partition != DEV):
+            raise _ranking_scope("attempt", attempt_id)
         attempts.append(
             {
                 "manifest": manifest,
                 "observation_set": observation_set,
-                "partition": partition_of(manifest, observation_set),
+                "partition": partition,
                 "licence_notice": _licence_notice(reader, manifest),
             }
         )
@@ -108,6 +116,13 @@ def _unverified_scope(kind: str, record_id: str) -> InvalidInputError:
         "REPORT_SCOPE_UNVERIFIED",
         "the run tool cannot establish the report's Partition from the Study records",
         stage="report",
+        details={"kind": kind, "record_id": record_id},
+    )
+
+
+def _ranking_scope(kind: str, record_id: str) -> InvalidInputError:
+    return InvalidInputError(
+        "REPORT_SCOPE_UNVERIFIED", "the ranking report requires a development population", stage="report",
         details={"kind": kind, "record_id": record_id},
     )
 
@@ -152,6 +167,8 @@ def load(study, *, guarded: bool = False, profile=None) -> dict:
         _verify_report_scope(study)
     spec = layout.read_spec(study)
     reader = Reader(study)
+    if spec["domain"] == RANKING:
+        return _load_ranking(study, spec, reader)
     for ref in [*spec["dataset_refs"], *(entry["ref"] for entry in spec["artifacts"])]:
         reader.bytes_of(ref)
     if spec["domain"] == AGENTIC:
@@ -162,6 +179,39 @@ def load(study, *, guarded: bool = False, profile=None) -> dict:
     if profile is not None:
         model["profile"] = profile(study)
     return model
+
+
+def _load_ranking(study, spec: dict, reader: Reader) -> dict:
+    attempts = attempts_of(study, reader, ranking=True)
+    by_observation = {a["observation_set"]["observation_set_id"]: a for a in attempts if a["observation_set"] is not None}
+    assessments = []
+    for record in layout.assessment_records(study):
+        attempt = by_observation.get(record["observation_set_id"])
+        if attempt is None:
+            raise _ranking_scope("assessment", record["assessment_id"])
+        assessments.append({"record": record, "attempt": attempt})
+    order = write_journal.assessment_order(study)
+    assessments.sort(key=lambda a: order(a["record"]))
+    assessment_ids = {entry["record"]["assessment_id"] for entry in assessments}
+    comparisons = layout.comparison_records(study)
+    for record in comparisons:
+        if set(record["roles"].values()) - assessment_ids:
+            raise _ranking_scope("comparison", record["comparison_id"])
+
+    memberships_ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
+    members = _rows(reader.bytes_of(memberships_ref))
+    if any(row["partition"] != DEV for row in members):
+        raise _ranking_scope("study", spec["study_id"])
+    return {
+        "domain": RANKING,
+        "spec": spec,
+        "revision_number": revisions.revision_number(spec),
+        "memberships": {row["item_id"]: {"date": row["as_of"], "partition": row["partition"]} for row in members},
+        "attempts": attempts,
+        "assessments": assessments,
+        "comparisons": comparisons,
+        "exposure": exposure_of(study),
+    }
 
 
 def _load_regression(study, spec: dict, reader: Reader) -> dict:

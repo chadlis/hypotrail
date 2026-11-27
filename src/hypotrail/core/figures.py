@@ -14,18 +14,19 @@ import math
 from bisect import bisect_right
 from pathlib import Path
 
-from hypotrail.core import artifacts, state
+from hypotrail.core import artifacts, intervals, state
 from hypotrail.core.agent_comparison import PAIRED_COLUMNS as CASE_COLUMNS
 from hypotrail.core.comparison import PAIRED_COLUMNS as ITEM_COLUMNS
 from hypotrail.core.errors import IntegrityError
 
 DELTA_WITHHELD = "delta_withheld"
+NO_ITEM_LEVEL_RANKING_DELTA = "no_item_level_ranking_delta"
 ARTIFACT_MISSING = "artifact_missing"
 ARTIFACT_INTEGRITY = "artifact_integrity"
 ARTIFACT_MALFORMED = "artifact_malformed"
 VALUE_NOT_FINITE = "value_not_finite"
 # The reasons an entry holds no figures, in the order they are looked for: an entry holds the first that applies.
-REASONS = (DELTA_WITHHELD, ARTIFACT_MISSING, ARTIFACT_INTEGRITY, ARTIFACT_MALFORMED, VALUE_NOT_FINITE)
+REASONS = (DELTA_WITHHELD, NO_ITEM_LEVEL_RANKING_DELTA, ARTIFACT_MISSING, ARTIFACT_INTEGRITY, ARTIFACT_MALFORMED, VALUE_NOT_FINITE)
 
 QUARTILES = {"q1": 0.25, "median": 0.5, "q3": 0.75}
 # The functions that state the definitions of the numbers; handbook chapter 17 gives each with its expression, its docstring.
@@ -132,6 +133,8 @@ def _paired_lines(study: Path, record: dict) -> tuple:
     """(the reason the Comparison's lines cannot be given, or None; its lines; the column of its paired deltas)."""
     if record["delta"]["value"] is None:
         return DELTA_WITHHELD, None, None
+    if (record.get("interval") or {}).get("unit") == intervals.ENTITY:
+        return NO_ITEM_LEVEL_RANKING_DELTA, None, None
     ref = record.get("paired_deltas_ref")
     if ref is None:
         return ARTIFACT_MISSING, None, None
