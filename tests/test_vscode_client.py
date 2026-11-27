@@ -717,6 +717,16 @@ TOOLS = {
         },
         "required": ["question", "option", "author", "cited_ids", "read_sequence", "study"],
     },
+    "hypotrail_run": {
+        "toolReferenceName": "hypotrailRun",
+        "properties": {
+            "study": {"type": "string"},
+            "command": {"type": "string", "enum": ["run", "import", "assess", "compare", "profile", "report"]},
+            "arguments": {"type": "array", "items": {"type": "string"}},
+            "read_sequence": {"type": "integer", "minimum": 0},
+        },
+        "required": ["study", "command", "arguments"],
+    },
 }
 
 
@@ -725,10 +735,10 @@ def manifest_tools() -> dict:
     return {entry.get("name"): entry for entry in read_json(CLIENT / "package.json").get("contributes", {}).get("languageModelTools", [])}
 
 
-def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_and_activation_events_and_no_other():
+def test_the_manifest_contributes_the_three_copilot_tools_their_reference_names_and_activation_events_and_no_other():
     manifest = read_json(CLIENT / "package.json")
     tools = manifest_tools()
-    assert len(manifest.get("contributes", {}).get("languageModelTools", [])) == 2
+    assert len(manifest.get("contributes", {}).get("languageModelTools", [])) == 3
     assert set(tools) == set(TOOLS)
     for name, expected in TOOLS.items():
         assert tools[name]["name"] == name
@@ -736,8 +746,9 @@ def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_an
         assert tools[name]["canBeReferencedInPrompt"] is True, name
         assert tools[name]["inputSchema"]["type"] == "object", name
     events = manifest.get("activationEvents", [])
-    assert sorted(events) == sorted(["onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"])
-    for event in ("onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"):
+    expected = ["onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide", "onLanguageModelTool:hypotrail_run"]
+    assert sorted(events) == sorted(expected)
+    for event in expected:
         assert event in events, event
 
 
@@ -843,3 +854,39 @@ def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under
     assert set(AVOID_EXEMPT) <= set(labels)
     phrases = [entry.split("=", 1)[1] for entry in contract["applies_phrases"]]
     assert avoided_in(labels + phrases, words) == []
+
+
+# --- the run tool's contract and its dated lines in ADR 0004 ---------------------------------------------------------------------------
+
+RUN_CONTRACT = CLIENT / "run-tool.contract.md"
+ADR_0004 = ROOT / "docs" / "adr" / "0004-panel-cli-contract.md"
+
+
+def test_the_run_tools_manifest_schema_is_the_json_schema_of_its_contract():
+    schema = json.loads(RUN_CONTRACT.read_text(encoding="utf-8").split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert manifest_tools()["hypotrail_run"]["inputSchema"] == schema
+
+
+def dated_lines() -> list:
+    section = ADR_0004.read_text(encoding="utf-8").split("## Dated lines\n", 1)[1]
+    return [line for line in section.splitlines() if line.startswith("- ")]
+
+
+def test_adr_0004_holds_one_dated_line_for_the_run_tool_and_its_list_quoting_the_ticket_and_adr_0006():
+    found = [line for line in dated_lines() if "`hypotrail_run`" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert "chadlis/hypotrail#285" in line and '"The chat prepares and relays."' in line and "the run tool's contract" in line
+    for command in ("`run`", "`assess`", "`compare`", "`profile`", "`report`", "`decide`", "`deviation`", "`import`", "`llm_live`", "`public_check`"):
+        assert command in line, command
+    assert "the earlier line it narrows: the 2026-11-23 line" in line
+
+
+def test_adr_0004_holds_one_dated_line_for_the_partition_of_attempts_quoting_d_175_and_overriding_none():
+    found = [line for line in dated_lines() if "D-175" in line and "gains `partition`" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert '"`status --json` gains `attempts[].partition`, read from the Observation set\'s `provenance.partition` (null when there is none)"' in line
+    assert "the earlier line it overrides: none" in line
