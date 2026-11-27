@@ -129,7 +129,7 @@ def _population_identity(study: Path, observation_set: dict) -> tuple[str, list 
     return canonical.sha256_hex(canonical.dumps({"partition": partition, "row_ids": expected})), expected
 
 
-def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False) -> dict:
+def _side(study: Path, role: str, assessment_id: str, *, expected_domain: str, run_tool: bool = False) -> dict:
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
         raise _not_found(
@@ -144,11 +144,17 @@ def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False)
             observation_set_id=assessment["observation_set_id"],
         )
     observation_set, manifest = found
+    domain = observation_set["domain"]
+    if domain != expected_domain and RANKING in (domain, expected_domain):
+        raise _not_found(
+            "COMPARISON_DOMAIN_MISMATCH", "the Observation set's domain differs from the ranking Comparison's Study domain",
+            study_domain=expected_domain, observation_domain=domain,
+        )
     partition = observation_set["provenance"].get("partition")
     declared_partition = manifest["effective_config"].get("partition")
     if run_tool:
         exposure.refuse_public_check(PUBLIC_CHECK, declared_partition, partition)
-    if observation_set["domain"] == RANKING and (partition != DEV or declared_partition != DEV):
+    if expected_domain == RANKING and (partition != DEV or declared_partition != DEV):
         raise _not_found(
             "COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison requires dev in both the Attempt and Observation set",
             partition=partition, declared_partition=declared_partition,
@@ -390,15 +396,17 @@ def _paired_deltas(study: Path, folder: str, pairs: list) -> dict:
 
 
 def _compare_locked(study: Path, write, control_id: str, candidate_id: str, factor: str | None, live_basis, *, run_tool: bool = False) -> dict:
-    control = _side(study, "control", control_id, run_tool=run_tool)
-    candidate = _side(study, "candidate", candidate_id, run_tool=run_tool)
+    spec = layout.read_spec(study)
+    expected_domain = spec["domain"]
+    control = _side(study, "control", control_id, expected_domain=expected_domain, run_tool=run_tool)
+    candidate = _side(study, "candidate", candidate_id, expected_domain=expected_domain, run_tool=run_tool)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
 
         return agent_comparison.compare_sides(study, write, control, candidate, factor, live_basis)
 
-    ranking = control["observation_set"]["domain"] == RANKING
+    ranking = expected_domain == RANKING
     checks = []
 
     def passed(check, ok, reason=None):
@@ -500,7 +508,6 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
         interval = ranking_intervals.record(paired, control["population_sha256"])
         first = LIMITATION_ENTITIES
     else:
-        spec = layout.read_spec(study)
         resampling = spec.get("resampling")
         ordered = None if resampling is None or delta is None else date_order(study, spec, control["partition"], row_ids)
         differences = {row_id: d_error - c_error for row_id, c_error, d_error in paired}

@@ -110,6 +110,7 @@ def test_ranking_comparison_publishes_counts_when_all_draws_are_undefined(tmp_pa
 
 @pytest.mark.parametrize(("observed", "declared"), [("held_out", "dev"), ("dev", "held_out"), ("dev", None), (None, "dev")])
 def test_ranking_requires_dev_in_both_records_before_reading_its_artifact(tmp_path, monkeypatch, observed, declared):
+    monkeypatch.setattr(comparison.layout, "read_spec", lambda _: {"domain": "ranking"})
     monkeypatch.setattr(comparison.layout, "find_assessment", lambda *args: {"observation_set_id": "protected", "per_item_ref": {}})
     provenance = {"partition": observed} if observed is not None else {}
     effective_config = {"partition": declared} if declared is not None else {}
@@ -123,8 +124,32 @@ def test_ranking_requires_dev_in_both_records_before_reading_its_artifact(tmp_pa
 
     monkeypatch.setattr(artifacts, "read_verified", unread)
     with pytest.raises(InvalidInputError) as error:
-        comparison._side(tmp_path, "control", "synthetic")
+        comparison.compare(tmp_path, "control", "candidate")
     assert error.value.code == "COMPARISON_PARTITION_NOT_DEV"
+
+
+@pytest.mark.parametrize(
+    ("study_domain", "observation_domain", "partition"), [("ranking", "regression", "held_out"), ("regression", "ranking", "dev")],
+)
+def test_ranking_domain_mismatch_is_refused_before_reading_any_payload(tmp_path, monkeypatch, study_domain, observation_domain, partition):
+    monkeypatch.setattr(comparison.layout, "read_spec", lambda _: {"domain": study_domain})
+    monkeypatch.setattr(comparison.layout, "find_assessment", lambda *args: {"observation_set_id": "synthetic", "per_item_ref": {}})
+    monkeypatch.setattr(
+        comparison.layout, "find_observation_set",
+        lambda *args: (
+            {"domain": observation_domain, "provenance": {"partition": partition}},
+            {"effective_config": {"partition": partition}},
+        ),
+    )
+
+    def unread(*_):
+        pytest.fail("A mismatched ranking artifact was read")
+
+    monkeypatch.setattr(artifacts, "read_verified", unread)
+    with pytest.raises(InvalidInputError) as error:
+        comparison.compare(tmp_path, "control", "candidate")
+    assert error.value.code == "COMPARISON_DOMAIN_MISMATCH"
+    assert write_journal.write_sequence(tmp_path) == 0
 
 
 def test_cli_and_interval_read_show_the_ranking_direction_and_omission_counts(tmp_path, sides, capsys):
