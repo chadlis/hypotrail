@@ -16,6 +16,7 @@ unset HYPOTRAIL_LESSON_PACKS HYPOTRAIL_ANTHROPIC_API_KEY ANTHROPIC_API_KEY OPENA
 unset PYTEST_ADDOPTS
 export GIT_TERMINAL_PROMPT=0 NPM_CONFIG_AUDIT=false NPM_CONFIG_FUND=false
 export XDG_DATA_HOME="$scratch/data" XDG_STATE_HOME="$scratch/state" XDG_CONFIG_HOME="$scratch/config"
+export NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$scratch/npm-cache}" UV_CACHE_DIR="${UV_CACHE_DIR:-$scratch/uv-cache}"
 mkdir -p "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CONFIG_HOME"
 
 passed=0 failures=0 skipped=0
