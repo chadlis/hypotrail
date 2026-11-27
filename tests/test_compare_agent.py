@@ -152,6 +152,7 @@ def test_a_full_coverage_comparison_holds_an_interval_over_its_cases_from_the_de
         "level": 0.95,
         "method": "percentile_bootstrap",
         "seed": declared_seed(study),
+        "cases": None,
         "variant": None,
         "block_length": None,
         "reason": None,
@@ -751,3 +752,108 @@ def test_the_declared_deviation_code_is_one_of_the_deviations_both_comparison_mo
 
     assert "COMPARISON_DEVIATION_DECLARED" in agent_comparison.DEVIATIONS
     assert "COMPARISON_DEVIATION_DECLARED" in comparison.DEVIATIONS
+
+
+# --- the interval over groups: chinook_prose -------------------------------------------------------------------------------------
+
+PROSE = Path(__file__).resolve().parent.parent / "examples" / "chinook_prose"
+
+
+def prose_jsonl(path) -> list:
+    return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def prose_groups(partition) -> dict:
+    """{case_id: group} of one Partition of chinook_prose, as its Cases file declares them."""
+    name = {"dev": "chinook-prose-dev.jsonl", "public_check": "chinook-prose-public-check.jsonl"}[partition]
+    return {case["case_id"]: case["group"] for case in prose_jsonl(PROSE / "cases" / name)}
+
+
+def prose_sides(partition) -> tuple:
+    """(Control lines, Candidate lines): S1's two fixture files on `dev`; on `public_check`, one Repeat whose Candidate gives the
+    reference text of the first group's Cases and the Control a refusal everywhere, so the two groups have different deltas."""
+    if partition == "dev":
+        return tuple(prose_jsonl(PROSE / "fixtures" / f"answers-{name}.jsonl") for name in ("concise", "verbose"))
+    texts = {r["case_id"]: r["reference_text"] for r in prose_jsonl(PROSE / "references" / "chinook-prose-references.jsonl") if "reference_text" in r}
+    groups = prose_groups(partition)
+    first = sorted(set(groups.values()))[0]
+
+    def line(case_id, text):
+        return {"case_id": case_id, "repeat": 0, "observation_status": "produced", "raw_answer": text}
+
+    control = [line(case_id, "I could not find that in the data.") for case_id in groups]
+    candidate = [line(case_id, texts[case_id] if group == first else "I could not find that in the data.") for case_id, group in groups.items()]
+    return control, candidate
+
+
+def prose_comparison(tmp_path, partition, sides=None):
+    """(Study, the two Assessments, the Comparison as stored) of two assessed Imports of chinook_prose on `partition`: `sides`, or
+    `prose_sides`, which give full coverage."""
+    study = Path(tmp_path) / f"prose-{partition}"
+    code, payload, err = run_json("init", "--workload", "chinook_prose", "--study", study)
+    assert code == 0, (payload, err)
+    references = payload["references_id"]
+    assessed = []
+    for side, lines in zip(("control", "candidate"), sides or prose_sides(partition)):
+        source = write_lines(Path(tmp_path) / f"prose-{partition}-{side}.jsonl", lines)
+        population = episodes_file(tmp_path, [(item["case_id"], item["repeat"]) for item in lines], name=f"prose-{partition}-{side}-population.json")
+        code, payload, err = import_agent(study, source, population, f"prose-{partition}-{side}")
+        assert code == 0, (payload, err)
+        code, payload, err = run_json("assess", "--study", study, "--observations", payload["observation_set_id"], "--scorer", "text_facts_v1", "--references", references)
+        assert code == 0, (payload, err)
+        assessed.append(payload["assessment"])
+    code, payload, err = compare(study, *assessed)
+    assert code == 0, (payload, err)
+    return study, assessed, json.loads((Path(study) / "comparisons" / payload["comparison"]["comparison_id"] / "comparison.json").read_text())
+
+
+@pytest.mark.parametrize(("partition", "groups", "cases"), [("dev", 10, 30), ("public_check", 2, 6)])
+def test_a_chinook_prose_comparison_holds_an_interval_over_its_groups_with_the_count_of_cases_and_the_declared_seed(tmp_path, partition, groups, cases):
+    study, _, stored = prose_comparison(tmp_path, partition)
+    interval = stored["interval"]
+    assert stored["coverage"]["complete"] is True
+    assert (interval["unit"], interval["units"], interval["cases"]) == ("group", groups, cases)
+    assert len(set(prose_groups(partition).values())) == groups and len(prose_groups(partition)) == cases
+    assert interval["seed"] == declared_seed(study) == json.loads((PROSE / "workload.json").read_text())["resampling"]["seed"]
+    assert interval["reason"] is None and interval["lower"] is not None and interval["upper"] is not None
+    shares = {row["case_id"]: float(row["delta_share"]) for row in rows_of(Path(study) / stored["paired_deltas_ref"]["path"])}
+    by_group = prose_groups(partition)
+    bounds = intervals.cluster_interval(list(shares.values()), [by_group[case_id] for case_id in shares], seed=declared_seed(study))
+    assert (interval["lower"], interval["upper"]) == (bounds["lower"], bounds["upper"])
+    assert stored["limitations"][0].startswith("The interval is a percentile bootstrap over groups of Cases")
+
+
+def test_the_same_chinook_prose_comparison_made_again_on_dev_holds_the_same_bounds(tmp_path):
+    study, (control, candidate), first = prose_comparison(tmp_path, "dev")
+    code, payload, err = compare(study, control, candidate)
+    assert code == 0, (payload, err)
+    again = payload["comparison"]["interval"]
+    assert payload["comparison"]["comparison_id"] != first["comparison_id"]
+    keys = ("lower", "upper", "units", "cases", "seed")
+    assert [again[key] for key in keys] == [first["interval"][key] for key in keys]
+
+
+def with_d05_failed(lines) -> list:
+    return [{"case_id": "D05", "repeat": 0, "observation_status": "failed"} if line["case_id"] == "D05" else line for line in lines]
+
+
+@pytest.mark.parametrize("state", ["bounds", "delta withheld"])
+def test_the_compare_line_and_the_report_page_give_an_interval_over_n_groups_and_a_withheld_delta_no_bounds(tmp_path, state):
+    from _report_helpers import doc_of, report
+
+    control, candidate = prose_sides("dev")
+    sides = (control, candidate) if state == "bounds" else (with_d05_failed(control), candidate)
+    study, (control, candidate), stored = prose_comparison(tmp_path, "dev", sides)
+    code, out, err = run_cli("compare", "--study", study, "--control", control["assessment_id"], "--candidate", candidate["assessment_id"])
+    assert code == 0, (out, err)
+    page = tmp_path / "page.html"
+    assert report(study, page)[0] == 0
+    cells = [{r[0]: r[1] for r in doc_of(page).body(f"comparison-{i}")} for i in range(2)]
+    interval = stored["interval"]
+    if state == "bounds":
+        assert f", 0.95 interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over 10 groups (Candidate minus Control" in out
+        assert [c["Interval"] for c in cells] == [f"{interval['lower']:.6g} to {interval['upper']:.6g}, level 0.95, over 10 groups"] * 2
+    else:
+        assert (stored["delta"]["reason"], interval["reason"], interval["lower"]) == ("coverage_incomplete", "delta_withheld", None)
+        assert "interval" not in out and "[" not in out and "groups" not in out
+        assert [c["Interval"] for c in cells] == ["withheld"] * 2

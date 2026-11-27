@@ -158,7 +158,8 @@
             "unit": {
               "enum": [
                 "case",
-                "item"
+                "item",
+                "group"
               ]
             },
             "block": {
@@ -1060,10 +1061,18 @@
               "enum": [
                 "case",
                 "item",
+                "group",
                 null
               ]
             },
             "units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cases": {
               "type": [
                 "integer",
                 "null"
