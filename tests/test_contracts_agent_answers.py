@@ -1,8 +1,7 @@
 """Consumer conformance of `agent-answers/1` (C3 of D-172 on chadlis/hypotrail#75).
 
-The examples are accepted by the schemas and each refused case is refused by them. The line schema agrees with `LINE_KEYS`,
-`USAGE_FIELDS` and `OUTCOMES`, and `import agent` reads the examples as `expected.json` says, the one known difference
-included: an unknown key, which the schema refuses and the import ignores (chadlis/hypotrail#278). No model is called.
+The schemas and `import agent` accept the examples and refuse each invalid case as `expected.json` says. The line schema
+agrees with `LINE_KEYS`, `USAGE_FIELDS` and `OUTCOMES`. No model is called.
 """
 
 import json
@@ -10,6 +9,7 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from _assess_helpers import snapshot
 from _chinook_helpers import import_agent
 from _study_helpers import run_json
 
@@ -62,6 +62,7 @@ def test_each_refused_case_is_refused_by_the_line_schema(case):
 
 def test_the_line_schema_agrees_with_line_keys_usage_fields_and_outcomes():
     loaded = schema("line.schema.json")
+    assert loaded["additionalProperties"] is False
     assert set(loaded["properties"]) == set(imports.LINE_KEYS)
     assert set(loaded["required"]) == {key for key, when in imports.LINE_KEYS.items() if when == imports.ALWAYS}
     assert {key for key, when in imports.LINE_KEYS.items() if when == imports.WHEN_PRODUCED} == {"raw_answer", "final_answer"}
@@ -82,23 +83,27 @@ def test_import_agent_accepts_the_example_lines_and_population(tmp_path):
 
 
 @pytest.mark.parametrize("case", REFUSED, ids=[path.name for path in REFUSED])
-def test_import_agent_refuses_each_refused_case_with_the_code_expected_json_names_or_accepts_it_when_that_code_is_null(tmp_path, case):
-    """A null `code` is the known difference of chadlis/hypotrail#278: the schema refuses the case and the import accepts it."""
+def test_import_agent_refuses_each_refused_case_with_the_code_expected_json_names(tmp_path, case):
     expected = json.loads((case / "expected.json").read_text(encoding="utf-8"))
     study = chinook_prose_study(tmp_path)
+    before = snapshot(study)
     code, payload, err = import_agent(study, case / "answers.jsonl", case / "population.json", "refused")
-    if expected["code"] is None:
-        assert code == 0, (payload, err)
-        [observations] = study.glob("attempts/*/observations.jsonl")
-        lines = [json.loads(text) for text in (case / "answers.jsonl").read_text(encoding="utf-8").splitlines() if text.strip()]
-        unknown = {key for line in lines for key in line} - set(imports.LINE_KEYS)
-        entries = [json.loads(text) for text in observations.read_text(encoding="utf-8").splitlines() if text.strip()]
-        assert unknown and not any(unknown & set(entry) for entry in entries), (unknown, entries)
-    else:
-        assert (code, payload.get("error", {}).get("code")) == (expected["exit"], expected["code"]), (payload, err)
+    assert (code, payload.get("error", {}).get("code")) == (expected["exit"], expected["code"]), (payload, err)
+    assert snapshot(study) == before
 
 
-def test_the_unknown_key_case_is_the_only_refused_case_the_import_accepts():
-    """The disagreement chadlis/hypotrail#278 settles stays pinned: a second case the import accepts is a second difference."""
-    accepted = [path.name for path in REFUSED if json.loads((path / "expected.json").read_text(encoding="utf-8"))["code"] is None]
-    assert accepted == ["unknown-key"]
+def test_import_agent_replays_a_historical_import_with_an_unknown_line_key_without_writing(tmp_path, monkeypatch):
+    study = chinook_prose_study(tmp_path)
+    case = EXAMPLES / "refused" / "unknown-key"
+    files = (case / "answers.jsonl", case / "population.json")
+    with monkeypatch.context() as patch:
+        patch.setattr(imports, "LINE_KEYS", {**imports.LINE_KEYS, "reference": imports.OPTIONAL})
+        code, original, err = import_agent(study, *files, "legacy")
+        assert code == 0, (original, err)
+
+    before = snapshot(study)
+    code, replay, err = import_agent(study, *files, "legacy")
+    assert code == 0 and replay == {**original, "replayed": True}, (replay, err)
+    refused, payload, _ = import_agent(study, *files, "new")
+    assert (refused, payload.get("error", {}).get("code")) == (2, "LINE_KEY_UNKNOWN")
+    assert snapshot(study) == before

@@ -1,7 +1,7 @@
 {
   "contract": "agent-answers/1",
-  "code": null,
+  "code": "LINE_KEY_UNKNOWN",
   "exit": 2,
   "caught_by": "schema",
-  "why": "line 1 holds the key 'reference', which is not a key of a line. `import agent` ignores an unknown key (chadlis/hypotrail#278); the schema refuses it"
+  "why": "Line 1 holds the key \"reference\", which the line schema and `import agent` refuse."
 }
