@@ -865,10 +865,30 @@ def _profile(args) -> int:
     return EXIT_OK
 
 
-def _lesson(args) -> int:
-    from hypotrail.ml import lesson
+def _lesson_track(domain: str):
+    """The module of the Track that serves the `lesson` read of a Study of `domain`, or None when that Track serves no cards."""
+    if domain == "agentic":
+        from hypotrail.agentic import lesson
+    elif domain == "regression":
+        from hypotrail.ml import lesson
+    else:
+        return None
+    return lesson
 
-    read = lesson.lesson(args.study)
+
+def _lesson(args) -> int:
+    from hypotrail.core import study as layout
+
+    domain = layout.read_spec(args.study)["domain"]
+    track = _lesson_track(domain)
+    if track is None:
+        raise InvalidInputError(
+            "UNSUPPORTED_CAPABILITY",
+            f"`lesson` reads the cards of a Study's Track; the Track of this Study's {domain!r} domain serves none",
+            stage="study",
+            details={"command": "lesson", "study_domain": domain},
+        )
+    read = track.lesson(args.study)
     lines = [f"{card['title']}: {card['text']}" for card in read["cards"]]
     _emit({"ok": True, **read}, args.json, "\n".join(lines) or "no card applies to this Study yet")
     return EXIT_OK

@@ -15,7 +15,18 @@ from _review_helpers import decide
 from _study_helpers import ROOT, init_study, run_cli
 
 KEPT = ROOT / "clients" / "vscode" / "test" / "cli" / "demonstration"
+CLIENT_KEPT = KEPT.parent
 DATA = ROOT / "src" / "hypotrail" / "ml" / "lesson.json"
+AGENTIC_DATA = ROOT / "src" / "hypotrail" / "agentic" / "lesson.json"
+# The cards of each Track, by the name of its module under `hypotrail`.
+TRACK_DATA = {"ml": DATA, "agentic": AGENTIC_DATA}
+# The kept reads of the client's Chinook Studies: each kept `status` read, with the kept `figures` read of the same Study when one is kept.
+CHINOOK_KEPT = {
+    "status-chinook-pending": "figures-chinook-pending",
+    "status-chinook-decided": None,
+    "status-chinook-withheld": "figures-chinook-withheld",
+    "status-chinook-spread": "figures-chinook-spread",
+}
 STUDY = "{work}/bike"
 LESSON_READ = {"cli": [LESSON, "--study", STUDY, "--json"], "expect": {"exit": 0}}
 # The kept states of the demonstration's second Bike Study, each with the step that keeps it.
@@ -49,18 +60,40 @@ def test_every_key_path_of_every_card_resolves_on_the_kept_reads(walked):
                 assert resolved(kept_read(state, key_path["read"]), key_path["path"]) != [], (state, card["kind"], key_path)
 
 
+def kept_option_texts() -> set:
+    """The text of every option that a kept `status` read of the client or of the demonstration offers for a Pending decision."""
+    texts = set()
+    for path in [*CLIENT_KEPT.glob("status-*.out"), *KEPT.glob("*.status.out")]:
+        read = json.loads(path.read_text(encoding="utf-8"))
+        texts |= {option["text"] for pending in read.get("pending_decisions", []) for option in pending["options"]}
+    return texts
+
+
 def test_no_card_text_holds_a_number(walked):
     reads, _ = walked
     served = [card for read in reads.values() for card in read["cards"]]
-    declared = json.loads(DATA.read_text(encoding="utf-8"))["cards"]
-    assert served and declared
-    assert [(card["kind"], part) for card in served + declared for part in ("title", "text") if re.search(r"\d", card[part])] == []
+    declared = {track: json.loads(path.read_text(encoding="utf-8"))["cards"] for track, path in TRACK_DATA.items()}
+    assert served and all(declared.values())
+    every = served + [card for cards in declared.values() for card in cards]
+    assert [(card["kind"], part) for card in every for part in ("title", "text") if re.search(r"\d", card[part])] == []
+    options = kept_option_texts()
+    assert options
+    assert [(card["kind"], option) for card in every for option in options if option.casefold() in card["text"].casefold()] == []
 
 
-def test_the_schema_refuses_a_planted_card():
-    from hypotrail.ml import lesson as module
+@pytest.mark.parametrize("track", sorted(TRACK_DATA))
+def test_each_card_text_holds_at_most_one_sentence_on_how_to_read_it(track):
+    for card in json.loads(TRACK_DATA[track].read_text(encoding="utf-8"))["cards"]:
+        sentences = re.split(r"(?<=\.) ", card["text"])
+        assert len([sentence for sentence in sentences if sentence.startswith("Read ")]) <= 1, card["kind"]
 
-    data = json.loads(DATA.read_text(encoding="utf-8"))
+
+@pytest.mark.parametrize("track", sorted(TRACK_DATA))
+def test_the_schema_refuses_a_planted_card(track):
+    import importlib
+
+    module = importlib.import_module(f"hypotrail.{track}.lesson")
+    data = json.loads(TRACK_DATA[track].read_text(encoding="utf-8"))
     module.validator().validate(data)
     card = data["cards"][0]
     planted = [
@@ -73,13 +106,41 @@ def test_the_schema_refuses_a_planted_card():
             module.validator().validate({**data, "cards": [*data["cards"], wrong]})
 
 
-def test_a_track_with_no_cards_refuses(tmp_path):
+def test_a_track_with_no_cards_refuses(tmp_path, monkeypatch):
+    from hypotrail import cli
+
     study, _ = init_chinook(tmp_path)
+    # A planted dispatch in which the agent Track serves no cards: both Tracks serve cards now.
+    monkeypatch.setattr(cli, "_lesson_track", lambda domain: None)
     code, refused, _ = lesson(study)
-    profile_code, profile_out, _ = run_cli("profile", f"--study={study}", "--json")
-    expected = json.loads(profile_out.replace("`profile`", f"`{LESSON}`").replace('"command": "profile"', f'"command": "{LESSON}"'))
-    assert (code, refused.get("error", {}).get("code")) == (profile_code, "UNSUPPORTED_CAPABILITY")
-    assert refused == expected
+    assert code == 2
+    assert refused["error"]["code"] == "UNSUPPORTED_CAPABILITY"
+    assert refused["error"]["details"] == {"command": LESSON, "study_domain": "agentic"}
+
+
+def test_every_agentic_key_path_resolves_on_the_kept_chinook_reads(tmp_path):
+    from _client_helpers import STUDIES
+
+    from hypotrail.agentic import lesson as module
+
+    assert [card["kind"] for card in module.cards()] == list(module.KINDS)
+    for name, figures in CHINOOK_KEPT.items():
+        (tmp_path / name).mkdir()
+        study = STUDIES[name](tmp_path / name)
+        status = json.loads((CLIENT_KEPT / f"{name}.out").read_text(encoding="utf-8"))
+        kept = {"status": status, "figures": None if figures is None else json.loads((CLIENT_KEPT / f"{figures}.out").read_text(encoding="utf-8"))}
+        live = {read: run_cli(read, f"--study={study}", "--json") for read in ("status", "figures")}
+        assert all(code == 0 for code, _, _ in live.values()), name
+        code, read, err = lesson(study)
+        assert code == 0, (name, err)
+        assert (read["track"], read["write_sequence"]) == ("tool_using_agent", status["write_sequence"]), name
+        assert [card["kind"] for card in read["cards"]] == [kind for kind in module.KINDS if status.get(kind)], name
+        assert read["cards"][-1]["kind"] == ("decisions" if status["decisions"] else "comparisons"), name
+        for card in read["cards"]:
+            assert card["key_paths"], (name, card["kind"])
+            for key_path in card["key_paths"]:
+                where = kept[key_path["read"]] or json.loads(live[key_path["read"]][1])
+                assert resolved(where, key_path["path"]) != [], (name, card["kind"], key_path)
 
 
 def test_the_read_writes_nothing(tmp_path):
