@@ -14,7 +14,8 @@ own `write_sequence`, the position of the `begin` entry of the command that reco
 `decision/2` (`DecisionRecordV2`), which holds three keys more, always present: `question_id` and `option_id`, the ids of the pending question
 and of the option chosen, checked against `PENDING_QUESTION` and `PENDING_OPTIONS`; and `words`, the person's texts kept whole with the
 channel and `by` label its caller declared and `authenticated` false, never read by a check. Each is null when not given. A `decision/1`
-record stays as it was written.
+record stays as it was written. Words with the channel `file_relayed` need a `source` that is not empty, which names the outside act the
+file comes from; nothing checks it.
 
 `decide` takes its steps in the order that `hypotrail.core.study_write` gives a writer that has a `request_id` (the checks of the other writers are listed in handbook chapter 04): the arguments and the Study before the lock, then the lock. The arguments (the read sequence value is the library's first argument check, then
 `REQUEST_ID_EMPTY`, the author, that `--read-sequence` is given, that `--artifact` is given, `DECISION_FIELD_EMPTY`, then the ids and the words); `STUDY_NOT_FOUND`. Under the lock: the request identity; the stale sequence (`Write.replay_decision` runs both); then `CITED_ID_NOT_FOUND`. A refusal appends nothing to
@@ -45,12 +46,16 @@ otherwise; a later Assessment counts only when its `rescoring.earlier_assessment
 `state` of `evidence_change` is the strongest of its lines. A line shows the Metric values of the anchor and of the latest later Assessment as their
 records hold them, and no difference of the two.
 
+Each decision also gets `level`, computed when the Study is read and never stored (`level`): `pr` when a `human` decision's `source` has the
+form of a pull request citation, else `panel`, `relayed` or `undeclared` by the channel of its words, and null for a `proxy` decision.
+
 `status` also lists the pending decisions (`pending`): a Comparison is pending when both its Assessments are of the current revision, neither has
 a later Assessment, and no decision that applies cites it. Each comes with the one question and the three options of `PENDING_QUESTION` and
 `PENDING_OPTIONS`, each option with its consequence text. Without `--question-id` and `--option-id`, `decide` records a question and an option as given and checks neither against them.
 """
 
 import contextlib
+import re
 import uuid
 from pathlib import Path
 
@@ -66,8 +71,15 @@ AUTHORS = ("human", "proxy")
 IDENTITY_FIELDS = ("question", "option", "author", "source", "cited_ids", "question_id", "option_id", "words")
 SCHEMA_VERSION = "decision/2"
 # who declared where the words come from; `authenticated` is false whatever the channel
-CHANNELS = ("panel", "choice", "chat_relayed")
-CHOICE, CHAT_RELAYED = "choice", "chat_relayed"
+CHANNELS = ("panel", "choice", "chat_relayed", "file_relayed")
+CHOICE, CHAT_RELAYED, FILE_RELAYED = "choice", "chat_relayed", "file_relayed"
+# The levels of a `human` Decision, strongest first (ADR 0006, point 4), derived when the Study is read and never stored; a `proxy` Decision
+# has none. `pr` is when "`source` cites a merged pull request", which is "written in `source` as
+# `https://github.com/<owner>/<repo>/pull/<n>@<40-hex merge commit>`. Hypotrail checks only its form, offline, and never asks the forge."
+# (ADR 0006, points 4 and 5)
+LEVELS = ("pr", "panel", "relayed", "undeclared")
+LEVEL_OF_CHANNEL = {"panel": "panel", "choice": "panel", "chat_relayed": "relayed", "file_relayed": "relayed"}
+PULL_REQUEST_CITATION = re.compile(r"https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/pull/[1-9][0-9]*@[0-9a-f]{40}")
 CITED_ID_NOT_HELD, REVISION_CHANGED, ASSESSMENT_SUPERSEDED = "cited_id_not_held", "revision_changed", "assessment_superseded"
 COMPARED_ASSESSMENT_SUPERSEDED, COMPARED_ASSESSMENT_NOT_HELD = "compared_assessment_superseded", "compared_assessment_not_held"
 # "A constant in `core/decisions.py` lists the reason codes." (D-078 on chadlis/hypotrail#75, item 4)
@@ -129,6 +141,16 @@ def held_ids(study) -> set:
     found |= {record["decision_id"] for record in records(study)}
     found |= {record["declared_deviation_id"] for record in deviations.records(study)}
     return found
+
+
+def level(record: dict) -> str | None:
+    """The level of a Decision (`LEVELS`), or None for a `proxy` Decision, which is off the scale."""
+    if record["author"] != "human":
+        return None
+    if record["source"] is not None and PULL_REQUEST_CITATION.fullmatch(record["source"]):
+        return "pr"
+    words = record.get("words")
+    return "undeclared" if words is None else LEVEL_OF_CHANNEL[words["channel"]]
 
 
 def _later(assessment: dict, assessments: dict, order) -> list:
@@ -249,7 +271,7 @@ def history(study) -> list:
     rows = []
     for record in recorded:
         reasons = _reasons(record, **shared)
-        rows.append({**record, "applies": not reasons, "reasons": reasons, "evidence_change": _evidence_change(record, **shared)})
+        rows.append({**record, "applies": not reasons, "reasons": reasons, "evidence_change": _evidence_change(record, **shared), "level": level(record)})
     return rows
 
 
@@ -307,7 +329,7 @@ def _read_words_file(path) -> str:
         raise _invalid(f"--words-file {str(path)!r} is not UTF-8 text") from None
 
 
-def _words(words: list, *, author: str, option: str, option_id, channel, by) -> dict | None:
+def _words(words: list, *, author: str, option: str, option_id, channel, by, source) -> dict | None:
     """The `words` of the record, or None: `words` lists `("text", TEXT)` and `("file", PATH)` in the order given."""
     texts = [value if kind == "text" else _read_words_file(value) for kind, value in words]
     if channel == CHOICE:
@@ -322,6 +344,8 @@ def _words(words: list, *, author: str, option: str, option_id, channel, by) -> 
         return None
     if channel is not None and channel not in CHANNELS:
         raise _invalid(f"the channel of the words is one of {', '.join(CHANNELS)}, not {channel!r}")
+    if channel == FILE_RELAYED and not source:
+        raise _invalid("--channel file_relayed relays words read from a file: --source names the outside act the file comes from, and is not empty")
     if author != "human":
         raise _invalid("the words on a decision are the words of a human: they need --author human")
     if any(not text for text in texts):
@@ -378,7 +402,7 @@ def decide(
         if not value:
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
     _check_ids(question, option, question_id, option_id)
-    recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by)
+    recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     wanted = {
         "question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids)),

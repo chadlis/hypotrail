@@ -220,6 +220,48 @@ uv run python -m hypotrail profile --study runs/bike --json</pre>
 <tr data-measure="eta" data-description="the correlation ratio of the numeric column&#x27;s ranks across the categories (a numeric and a categorical column; from 0 to 1)"><td><code>eta</code></td><td>the correlation ratio of the numeric column&#x27;s ranks across the categories (a numeric and a categorical column; from 0 to 1)</td><td>the module's own <code>eta</code> on <code>scipy.stats.rankdata</code> (tied values share their mean rank).</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="lesson-cards-read">The lesson cards</p>
+<div class="prose">
+<p><code>lesson</code> reads a Study of this Track and gives the cards the Track serves for it (<a href="../adr/0007-lesson-content-per-track.md">ADR 0007</a>). A card explains one kind of step that the Study shows, in the order of the steps: <code>study</code>, <code>attempts</code>, <code>assessments</code>, <code>comparisons</code> and <code>decisions</code>. It says what the step is and how to read it; it does not teach a concept, measure a learning or recommend an option. A card is given only for a kind of which <code>status</code> holds a record, so an empty list means that the Track serves cards and none applies to this Study yet. This Track serves two cards, Comparisons and Decisions. Each card names key paths of the <code>status</code> and <code>figures</code> reads, and its text holds no number of the Study: a client may point to a value, never write it into the card.</p>
+<p>The cards are data of the Track, <code>src/hypotrail/ml/lesson.json</code>, in English, checked against <code>src/hypotrail/ml/lesson.schema.json</code> beside it; a card with an unknown kind, without key paths or with a key the schema does not name fails the check. It is a read, as <code>profile</code> is: it takes no lock, writes nothing, records no Exposure and leaves the Write sequence where it was. A Study of a Track that serves no cards, the Agent Track for now, is refused with <code>UNSUPPORTED_CAPABILITY</code>, as <code>profile</code> refuses it.</p>
+<p>With <code>--json</code>, stdout holds one object whose key paths are those of the first table below. Without it, the read prints one line per card, its title and its text.</p>
+</div>
+<pre class="code"><span class="cm"># the cards of a Bike Study, read only</span>
+uv run python -m hypotrail lesson --study runs/bike --json</pre>
+<div class="tblwrap"><table class="tbl" id="lesson-object"><thead><tr><th>Key path</th><th>Value</th></tr></thead><tbody>
+<tr data-path="ok"><td><code>ok</code></td><td>True: the read answered.</td></tr>
+<tr data-path="write_sequence"><td><code>write_sequence</code></td><td>The Study's Write sequence, as <code>status --json</code> shows it; the read leaves it where it was.</td></tr>
+<tr data-path="track"><td><code>track</code></td><td><code>temporal_regression</code>, the Track that serves the cards.</td></tr>
+<tr data-path="cards[].kind"><td><code>cards[].kind</code></td><td>The kind of step the card explains: one of <code>study</code>, <code>attempts</code>, <code>assessments</code>, <code>comparisons</code> and <code>decisions</code>.</td></tr>
+<tr data-path="cards[].title"><td><code>cards[].title</code></td><td>The card's title.</td></tr>
+<tr data-path="cards[].text"><td><code>cards[].text</code></td><td>A few sentences: what the step is and how to read it. It holds no number.</td></tr>
+<tr data-path="cards[].key_paths[].read"><td><code>cards[].key_paths[].read</code></td><td>The read that holds the value: <code>status</code> or <code>figures</code>.</td></tr>
+<tr data-path="cards[].key_paths[].path"><td><code>cards[].key_paths[].path</code></td><td>A key path of that read, <code>.</code> between keys and <code>[]</code> for each entry of a list.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="lesson-cards"><thead><tr><th>Kind</th><th>Title</th><th>When</th></tr></thead><tbody>
+<tr data-kind="comparisons" data-title="Comparisons"><td><code>comparisons</code></td><td>Comparisons</td><td>Served when <code>status</code> holds an entry in <code>comparisons</code>.</td></tr>
+<tr data-kind="decisions" data-title="Decisions"><td><code>decisions</code></td><td>Decisions</td><td>Served when <code>status</code> holds an entry in <code>decisions</code>.</td></tr>
+</tbody></table></div>
+<div class="tblwrap"><table class="tbl" id="lesson-key-paths"><thead><tr><th>Card</th><th>Read</th><th>Key path</th></tr></thead><tbody>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].roles.control_assessment_id"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].roles.control_assessment_id</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].roles.candidate_assessment_id"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].roles.candidate_assessment_id</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].comparability.status"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].comparability.status</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].coverage.paired"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].coverage.paired</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].delta.value"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].delta.value</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].delta.definition"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].delta.definition</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].limitations"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].limitations</code></td></tr>
+<tr data-kind="comparisons" data-read="status" data-path="comparisons[].warnings"><td><code>comparisons</code></td><td><code>status</code></td><td><code>comparisons[].warnings</code></td></tr>
+<tr data-kind="comparisons" data-read="figures" data-path="comparisons[].paired_deltas"><td><code>comparisons</code></td><td><code>figures</code></td><td><code>comparisons[].paired_deltas</code></td></tr>
+<tr data-kind="comparisons" data-read="figures" data-path="comparisons[].quartiles"><td><code>comparisons</code></td><td><code>figures</code></td><td><code>comparisons[].quartiles</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].question"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].question</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].option"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].option</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].author"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].author</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].source"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].source</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].cited_ids"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].cited_ids</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].applies"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].applies</code></td></tr>
+<tr data-kind="decisions" data-read="status" data-path="decisions[].reasons"><td><code>decisions</code></td><td><code>status</code></td><td><code>decisions[].reasons</code></td></tr>
+</tbody></table></div>
+
 <p class="sub2">Limits</p>
 <div class="grid2">
 <div class="card" style="--c:var(--coral)"><h3>Study</h3><p>A Study, the Attempt manifest, the Observation set and the <code>request_id</code> identity exist and are driven by <code>init</code> and <code>run ml</code> (<a href="#study-and-attempts">chapter 04</a>). The library functions of this chapter write plain files and know nothing of a Study. Assessments and Comparisons in a Study are <a href="#assessments">chapter 05</a> and <a href="#comparison">chapter 07</a>.</p></div>

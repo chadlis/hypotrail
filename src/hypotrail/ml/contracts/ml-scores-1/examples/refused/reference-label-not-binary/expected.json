@@ -1,0 +1,7 @@
+{
+  "contract": "ranking-reference/1",
+  "code": null,
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "a label is 2. Its code is M1's to name"
+}

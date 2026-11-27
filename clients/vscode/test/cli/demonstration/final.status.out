@@ -326,7 +326,8 @@
             ]
           }
         ]
-      }
+      },
+      "level": "undeclared"
     },
     {
       "author": "proxy",
@@ -348,7 +349,8 @@
       "write_sequence": 31,
       "applies": true,
       "reasons": [],
-      "evidence_change": null
+      "evidence_change": null,
+      "level": null
     }
   ],
   "declared_deviations": [

@@ -309,9 +309,13 @@ def test_the_glossary_defines_plan_claim_and_validation_without_the_words_other_
     # "The Decision entry is followed by one line that starts "Clarification, 2026-" and names `question_id`, `option_id` and `words`, with the
     # three channels of this slice and the sentence that `authenticated` is false."
     decision = entries["Decision"]
-    assert decision[2].startswith("Clarification, 2026-") and decision[3] == "_Avoid_: note, verdict, conclusion", decision
+    assert len(decision) == 5 and decision[2].startswith("Clarification, 2026-") and decision[4] == "_Avoid_: note, verdict, conclusion", decision
     clarification = decision[2]
     assert all(f"`{name}`" in clarification for name in ("question_id", "option_id", "words", "panel", "choice", "chat_relayed", "by")), clarification
     assert "`authenticated` is false" in clarification and "verbatim" in clarification and "`source`" in clarification, clarification
+    # ADR 0006, Consequences: "GLOSSARY, **Decision**, gains a dated clarification for `file_relayed`."
+    relayed = decision[3]
+    assert relayed.startswith("Clarification, 2026-") and "`file_relayed`" in relayed and "`source`" in relayed, relayed
+    assert "`authenticated` stays false" in relayed and "ADR 0006" in relayed and "chadlis/hypotrail#276" in relayed, relayed
     # ""data profile" named in lower case, with no entry of its own"
     assert "data profile" in text and not re.search(r"^\*\*data profile\*\*", text, re.I | re.M)

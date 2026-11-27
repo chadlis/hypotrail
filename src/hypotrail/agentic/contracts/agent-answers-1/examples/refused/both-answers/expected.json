@@ -1,0 +1,7 @@
+{
+  "contract": "agent-answers/1",
+  "code": "ANSWER_AMBIGUOUS",
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "line 1 is produced and holds both 'raw_answer' and 'final_answer'"
+}

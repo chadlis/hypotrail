@@ -1,0 +1,7 @@
+{
+  "contract": "agent-answers/1",
+  "code": "LINE_FIELD_INVALID",
+  "exit": 2,
+  "caught_by": "schema",
+  "why": "line 1 declares -1 tokens for 'planner'"
+}

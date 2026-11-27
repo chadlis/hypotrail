@@ -210,7 +210,8 @@
       "write_sequence": 13,
       "applies": true,
       "reasons": [],
-      "evidence_change": null
+      "evidence_change": null,
+      "level": null
     },
     {
       "author": "human",
@@ -232,7 +233,8 @@
       "write_sequence": 17,
       "applies": true,
       "reasons": [],
-      "evidence_change": null
+      "evidence_change": null,
+      "level": "undeclared"
     }
   ],
   "declared_deviations": [],

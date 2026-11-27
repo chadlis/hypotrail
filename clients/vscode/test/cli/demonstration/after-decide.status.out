@@ -183,7 +183,8 @@
       "write_sequence": 13,
       "applies": true,
       "reasons": [],
-      "evidence_change": null
+      "evidence_change": null,
+      "level": "undeclared"
     }
   ],
   "declared_deviations": [],

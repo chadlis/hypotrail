@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/chadlis/hypotrail/src/hypotrail/ml/contracts/ml-scores-1/ranking-items.schema.json",
+  "title": "ranking-items/1: items.csv, as a table",
+  "type": "object",
+  "required": ["columns", "rows"],
+  "properties": {
+    "columns": {"const": ["item_id", "entity_id", "as_of", "partition", "mature"]},
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item_id", "entity_id", "as_of", "partition", "mature"],
+        "properties": {
+          "item_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+@[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+          "entity_id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+          "as_of": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+          "partition": {"type": "string"},
+          "mature": {"enum": ["true", "false"]}
+        },
+        "if": {"properties": {"mature": {"const": "false"}}},
+        "then": {"properties": {"partition": {"const": ""}}}
+      }
+    }
+  }
+}
