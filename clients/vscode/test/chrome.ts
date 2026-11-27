@@ -2,10 +2,11 @@
 // it reached with Node's own WebSocket, and a document opened in that page at a given size.
 import type { TestContext } from "node:test";
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
+import { createServer } from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 
 // The path of Chrome; a test run sets another one to see the tests that need it skip.
 export const CHROME = process.env.HYPOTRAIL_CHROME ?? "/usr/bin/google-chrome";
@@ -80,18 +81,39 @@ export async function pageOf(t: TestContext, address: string): Promise<Session> 
 // An expression evaluated in a page, its value returned.
 export type Evaluate = (expression: string) => Promise<any>;
 
-// `document` opened from a file in a new page of the browser at `address`, `width` by `height`, with `acquireVsCodeApi` defined for
-// its script; `before` runs in the page before the document's own script.
-export async function opened(t: TestContext, address: string, document: string, width: number, height: number, before = ""): Promise<Evaluate> {
+// Serve only the generated document on a temporary loopback listener. No files are exposed by the server.
+export async function openDocument(t: TestContext, address: string, document: string, width: number, height: number, before = ""): Promise<Session> {
   const page = await pageOf(t, address);
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-layout-")), "panel.html");
-  t.after(() => fs.rmSync(path.dirname(file), { recursive: true, force: true }));
-  fs.writeFileSync(file, document);
+  const route = `/${randomUUID()}`;
+  const server = createServer((request, response) => {
+    if (request.method !== "GET" || request.url !== route) {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }).end(document);
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  t.after(() => new Promise<void>((resolve, reject) => {
+    server.close((error) => error === undefined ? resolve() : reject(error));
+    server.closeAllConnections();
+  }));
+  const bound = server.address();
+  if (bound === null || typeof bound === "string") throw new Error("Expected a loopback TCP listener");
   await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
   await page.send("Page.enable");
   await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `window.acquireVsCodeApi = () => ({ postMessage() {}, getState() {}, setState() {} });${before}` });
-  await page.send("Page.navigate", { url: pathToFileURL(file).href });
+  const navigation = await page.send("Page.navigate", { url: `http://127.0.0.1:${bound.port}${route}` });
+  if (navigation.errorText) throw new Error(`Could not open the generated document: ${navigation.errorText}`);
   while (!page.events.some((event) => event.method === "Page.loadEventFired")) await new Promise((resolve) => setTimeout(resolve, 20));
+  return page;
+}
+
+// Evaluate expressions in the generated webview after its document loads.
+export async function opened(t: TestContext, address: string, document: string, width: number, height: number, before = ""): Promise<Evaluate> {
+  const page = await openDocument(t, address, document, width, height, before);
   return async (expression: string) => {
     const answer = await page.send("Runtime.evaluate", { expression, returnByValue: true });
     if (answer.exceptionDetails) throw new Error(`${expression}: ${answer.exceptionDetails.exception?.description ?? answer.exceptionDetails.text}`);
