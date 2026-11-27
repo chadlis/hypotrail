@@ -171,17 +171,7 @@ function confirmation(study: string, input: DecideInput): string {
 
 export const readTool: vscode.LanguageModelTool<ReadInput> = {
   async invoke(options) {
-    const { study, track } = options.input;
-    if (track !== undefined) {
-      if (study !== undefined || !isLessonTrack(track)) {
-        return answer("To read without a Study, give track as temporal_regression or tool_using_agent and omit study.");
-      }
-      const outcome = await readTrackLesson(ROOT, track);
-      return answer(outcome.outcome === "success"
-        ? `The stations and lessons for ${track}, as the CLI printed them:\n${json(outcome.object)}`
-        : lessonAnswer(outcome));
-    }
-    const resolved = await studyOf(study, READ);
+    const resolved = await studyOf(options.input.study, READ);
     if ("refusal" in resolved) return answer(resolved.refusal);
     const outcome = await readStudy(ROOT, resolved.study);
     if (outcome.outcome !== "success") return answer(readAnswer(resolved.study, outcome));
@@ -219,6 +209,20 @@ export const decideTool: vscode.LanguageModelTool<DecideInput> = {
       read_sequence: input.read_sequence as number,
     });
     return answer(writeAnswer(resolved.study, outcome));
+  },
+};
+
+export const packReadTool: vscode.LanguageModelTool<ReadInput> = {
+  async invoke(options, token) {
+    const { study, track } = options.input;
+    if (track === undefined) return readTool.invoke(options, token);
+    if (study !== undefined || !isLessonTrack(track)) {
+      return answer("To read without a Study, give track as temporal_regression or tool_using_agent and omit study.");
+    }
+    const outcome = await readTrackLesson(ROOT, track);
+    return answer(outcome.outcome === "success"
+      ? `The stations and lessons for ${track}, as the CLI printed them:\n${json(outcome.object)}`
+      : lessonAnswer(outcome));
   },
 };
 

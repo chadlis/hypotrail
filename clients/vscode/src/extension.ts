@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { handleLink } from "./links";
 import { openPanel, openStationsPanel } from "./panel";
 import { chooseStudy } from "./studies";
-import { decideTool, readTool, runTool } from "./tools";
+import { decideTool, packReadTool as readTool, runTool } from "./tools";
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(

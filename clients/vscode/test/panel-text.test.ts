@@ -108,7 +108,11 @@ for (const name of PLANTED_READS) {
     assert.deepEqual(cspProblems(document), []);
     const { between } = partsOf(document);
     // A record the panel does not show, such as an Assessment no reference names, holds planted texts that stand nowhere.
-    for (const path of new Set(at)) assert.ok(texts.some((text, index) => at[index] === path && between.includes(text)), path);
+    for (const path of new Set(at)) {
+      const displayed = texts.some((text, index) => at[index] === path && between.includes(text));
+      // The Partition is a guard for development figures. It does not become panel text.
+      assert.equal(displayed, path !== "attempts[].partition", path);
+    }
   });
 }
 
