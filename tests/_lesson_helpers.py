@@ -35,12 +35,13 @@ def resolved(payload, path: str) -> list:
     return values
 
 
-def demonstration_until(work, last_step: str, *, after=None):
-    """The demonstration's step list carried out in `work` up to `last_step`, included, under the network guard. `after` maps a step id
-    to the actions added at its end, so that a read is made at that state of the Study."""
+def demonstration_until(work, last_step: str, *, after=None, first_step=None):
+    """The demonstration's step list carried out in `work` from `first_step` (the first step when None) up to `last_step`, both included,
+    under the network guard. `after` maps a step id to the actions added at its end, so that a read is made at that state of the Study."""
     module = demonstration()
     ids = [step["id"] for step in module.STEPS]
-    steps = copy.deepcopy(module.STEPS[: ids.index(last_step) + 1])
+    start = 0 if first_step is None else ids.index(first_step)
+    steps = copy.deepcopy(module.STEPS[start : ids.index(last_step) + 1])
     for step in steps:
         step["actions"].extend((after or {}).get(step["id"], []))
     guard = NetworkGuard()

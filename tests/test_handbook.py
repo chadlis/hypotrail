@@ -2690,6 +2690,10 @@ def test_chapters_01_and_03_name_an_attempt_only_where_a_study_records_it():
     """#77 AC2: what is left of the word in chapters 01 and 03 is the generic line, the two commands that record an Attempt in a Study and the row that says a spike live execution is not one."""
     assert "Attempt" not in plain_chapter("01-feasibility-spike.html")
     text = plain_chapter("03-agentic-track.html")
+    # The lesson cards explain the records of a Study, its Attempts among them: their section is left out of the count.
+    before, cards = text.split("The lesson cards", 1)
+    assert "Where the decisions are" in cards
+    text = before + cards.split("Where the decisions are", 1)[1]
     contexts = [text[max(0, m.start() - 30) : m.end() + 30] for m in re.finditer("Attempt", text)]
     assert len(contexts) == 5, contexts
     assert "to be checked on an Attempt." in contexts[0]  # the generic line
@@ -5269,6 +5273,30 @@ def test_chapter_02_names_the_five_card_kinds_and_the_refusal_of_a_track_with_no
     assert "lesson" in prose and "UNSUPPORTED_CAPABILITY" in prose
 
 
+AGENTIC_LESSON_DATA = ROOT / "src" / "hypotrail" / "agentic" / "lesson.json"
+
+
+def agentic_lesson_rows(table_id):
+    """The data attributes of each row of one table of chapter 03's section on the lesson cards, in order."""
+    return [row["attrs"] for row in parse(chapter_text("03-agentic-track.html")).tables.get(table_id, []) if any(k.startswith("data-") for k in row["attrs"])]
+
+
+def test_the_card_and_key_path_tables_of_chapter_03_equal_the_agentic_lesson_json_both_ways():
+    cards = json.loads(AGENTIC_LESSON_DATA.read_text(encoding="utf-8"))["cards"]
+    assert [(row["data-kind"], row["data-title"]) for row in agentic_lesson_rows("agentic-lesson-cards")] == [(card["kind"], card["title"]) for card in cards]
+    assert [(row["data-kind"], row["data-read"], row["data-path"]) for row in agentic_lesson_rows("agentic-lesson-key-paths")] == [
+        (card["kind"], key_path["read"], key_path["path"]) for card in cards for key_path in card["key_paths"]
+    ]
+
+
+def test_chapter_03_names_the_five_card_kinds_the_free_text_workload_and_the_refusal_of_a_track_with_no_cards():
+    from hypotrail.agentic import lesson
+
+    prose = " ".join(plain_text(prose_of(chapter_text("03-agentic-track.html"))).split())
+    assert all(f"<code>{kind}</code>" in chapter_text("03-agentic-track.html") for kind in lesson.KINDS)
+    assert "chinook_prose" in prose and "UNSUPPORTED_CAPABILITY" in prose and "lesson" in prose
+
+
 def test_the_readme_names_lesson():
     assert "`lesson`" in (ROOT / "README.md").read_text(encoding="utf-8")
 
@@ -5318,6 +5346,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "first-arguments": " ".join(contract["first_arguments"]),
         "read": " ".join(contract["read_arguments"]),
         "figures-read": " ".join(contract["figures_arguments"]),
+        "profile-read": " ".join(contract["profile_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }
@@ -5547,6 +5576,7 @@ PANEL_LINK_TABLES = {
     "panel-statuses": lambda contract: contract["statuses"],
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
+    "panel-profile-key-paths": lambda contract: contract["profile_key_paths"],
     "panel-open-refs": lambda contract: contract["open_refs"],
 }
 
@@ -5626,6 +5656,15 @@ def test_each_key_path_the_panel_reads_from_the_figures_read_is_a_row_of_the_key
     """An entry is a row of the table, or a container whose leaves the table lists: a prefix of one or more rows followed by `[]` or `.`."""
     rows = [row["data-path"] for row in figures_rows(page, "figures-key-paths")]
     entries = client_contract()["figures_key_paths"]
+    assert rows and entries
+    found = {entry: entry in rows or any(row.startswith(f"{entry}[]") or row.startswith(f"{entry}.") for row in rows) for entry in entries}
+    assert [entry for entry, held in found.items() if not held] == []
+
+
+def test_each_key_path_the_panel_reads_from_the_profile_read_is_a_row_of_the_key_path_table_of_chapter_02_or_a_prefix_of_its_rows():
+    """An entry is a row of the table, or a container whose leaves the table lists: a prefix of one or more rows followed by `[]` or `.`."""
+    rows = [row["data-path"] for row in profile_rows("profile-key-paths")]
+    entries = client_contract()["profile_key_paths"]
     assert rows and entries
     found = {entry: entry in rows or any(row.startswith(f"{entry}[]") or row.startswith(f"{entry}.") for row in rows) for entry in entries}
     assert [entry for entry, held in found.items() if not held] == []
@@ -6600,6 +6639,16 @@ def test_chapters_7_and_11_print_each_simulated_coverage_of_the_kept_file_beside
     advised = re.search(r'<span id="interval-advised-length" data-circular="([^"]+)">([^<]+)</span>', page)
     assert advised and (float(advised[1]), advised[2]) == (kept["optimal_block_length"]["circular"], f"{kept['optimal_block_length']['circular']:.1f}")
     assert f"seed {kept['seed']}, commit <code>{kept['commit']}</code>" in chapter_text("07-comparison.html")
+
+
+def test_chapter_11_prints_the_group_and_case_coverage_of_each_group_size_of_the_kept_file(page):
+    kept = json.loads(COVERAGE_KEPT.read_text(encoding="utf-8"))
+    expected = [(str(s["groups"]), str(s["cases_per_group"]), str(s["repeats"]), str(s["replications"]), s["group_coverage"], s["case_coverage"]) for s in kept["group_sizes"]]
+    rows = [row for row in parse(page).tables["interval-coverage-groups"] if "data-group-coverage" in row["attrs"]]
+    printed = [(a["data-groups"], a["data-cases"], a["data-repeats"], a["data-replications"], float(a["data-group-coverage"]), float(a["data-case-coverage"])) for a in (r["attrs"] for r in rows)]
+    assert printed == expected
+    assert [[cell["text"].strip() for cell in row["cells"][-2:]] for row in rows] == [[f"{g:.3f}", f"{c:.3f}"] for *_, g, c in expected]
+    assert f"seed {kept['seed']}, commit <code>{kept['commit']}</code>" in chapter_text("11-agent-comparison.html")
 
 
 INTERVAL_TEXTS = {

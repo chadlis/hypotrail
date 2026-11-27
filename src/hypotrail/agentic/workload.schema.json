@@ -45,12 +45,12 @@
     },
     "scenarios": {"$ref": "#/$defs/name"},
     "resampling": {
-      "description": "The resampling unit and seed of the paired interval on the delta of a Comparison; the level and the count of resamples are the core's (hypotrail.core.intervals). Optional: a Workload without it gets no interval.",
+      "description": "The resampling unit and seed of the paired interval on the delta of a Comparison: `case` draws Cases, `group` draws whole groups of Cases, and every Case then declares its `group`. The level and the count of resamples are the core's (hypotrail.core.intervals). Optional: a Workload without it gets no interval.",
       "type": "object",
       "additionalProperties": false,
       "required": ["unit", "seed"],
       "properties": {
-        "unit": {"enum": ["case"]},
+        "unit": {"enum": ["case", "group"]},
         "seed": {"type": "integer", "minimum": 0}
       }
     },

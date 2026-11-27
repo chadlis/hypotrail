@@ -2,7 +2,7 @@
 
 `init_study` verifies the Workload's data against its lock, keeps a copy of the database in the Study
 (an artifact referenced by its digest) and publishes three Study artifacts with an ID each: the
-memberships (which Partition each Case belongs to), the References set exactly as the Workload
+memberships (which Partition each Case belongs to, and its group when a Case declares one), the References set exactly as the Workload
 declares it, and the answer schema the Scorer checks answers against. The StudySpec is written last,
 so a Study that was interrupted before that has no `study.json`. The Workload stays where it is
 declared: its Configurations can change after the Study exists.
@@ -35,7 +35,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import Workload, load_workload, read_json
 from hypotrail.agentic.partitions import ROLES
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write, text_facts
+from hypotrail.core import artifacts, canonical, contracts, data, exposure, intervals, revisions, study_write, text_facts
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -160,14 +160,39 @@ def check_scoring_config(workload: Workload) -> None:
         )
 
 
+def _all_cases(workload: Workload) -> list:
+    """(Case, Partition) of every Case of the Workload, Partition by Partition."""
+    return [(case, role) for role in ROLES if role in workload.declaration["cases"] for case in workload.cases(role)]
+
+
 def memberships_bytes(workload: Workload) -> bytes:
-    """The Partition of every Case of the Workload, one line per Case in ID order."""
-    rows = sorted((case["case_id"], role) for role in ROLES if role in workload.declaration["cases"] for case in workload.cases(role))
+    """The Partition of every Case of the Workload, one line per Case in ID order, with its `group` when a Case declares one.
+
+    Without any `group` the file has its two columns and the bytes it always had; with one, a third column `group`, empty for a Case
+    that declares none.
+    """
+    cases = _all_cases(workload)
+    grouped = any("group" in case for case, _ in cases)
+    rows = sorted([case["case_id"], role, *([case.get("group", "")] if grouped else [])] for case, role in cases)
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(["case_id", "partition"])
+    writer.writerow(["case_id", "partition", *(["group"] if grouped else [])])
     writer.writerows(rows)
     return out.getvalue().encode("utf-8")
+
+
+def check_groups(workload: Workload) -> None:
+    """Refuse, under the `group` resampling unit, a Case that declares no `group` (CASE_GROUP_MISSING), before anything is written."""
+    if workload.declaration.get("resampling", {}).get("unit") != intervals.GROUP:
+        return
+    for case, _ in _all_cases(workload):
+        if "group" not in case:
+            raise InvalidInputError(
+                "CASE_GROUP_MISSING",
+                f"Case {case['case_id']} declares no group, and the Workload resamples by group",
+                stage="declaration",
+                details={"case_id": case["case_id"]},
+            )
 
 
 def references_path(workload: Workload) -> Path:
@@ -373,6 +398,7 @@ def init_study(workload_name: str, study: Path, examples_dir: Path | None = None
     workload = load_workload(examples / workload_name)
     require_declared(workload, *required_by_init(workload))
     check_histories(workload)
+    check_groups(workload)
     check_scoring_config(workload)
 
     study.mkdir(parents=True, exist_ok=True)
@@ -401,5 +427,6 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
         workload = load_workload(examples / workload_name)
         require_declared(workload, *required_by_init(workload))
         check_histories(workload)
+        check_groups(workload)
         check_scoring_config(workload)
         return _write_spec(study, workload_name, workload, previous, write)

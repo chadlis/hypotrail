@@ -388,7 +388,7 @@ def test_an_infrastructure_failure_inside_a_live_execution_leaves_the_attempt_fa
     manifest = manifest_of(study, folder.name)
     contracts.validate(manifest)
     assert manifest["technical_status"] == "failed" and manifest["finished_at"]
-    assert "No space left" in manifest["reason"]
+    assert manifest["reason"] == "INFRASTRUCTURE_FAILURE: OSError"
     assert (folder / "predictions.csv").is_file() and not (folder / "observations.csv").exists()
     monkeypatch.undo()
     _, listing, _ = status(study)
