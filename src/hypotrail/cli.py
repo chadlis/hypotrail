@@ -90,6 +90,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    verify.add_argument("--build-dir", type=Path, metavar="DIR", help="verify the bytes of one private ranking build; a manifest alone remains declared")
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
@@ -122,6 +123,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
+    init.add_argument("--build-dir", type=Path, metavar="DIR", help="private build outside Git, required for a ranking Study")
     _add_read_sequence(init)
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
@@ -495,7 +497,14 @@ def _data_verify(args) -> int:
     from hypotrail.core import data
 
     examples = data.resolve_examples_dir(args.examples_dir)
-    reports = data.verify_workloads(examples, args.workload)
+    if args.build_dir is None:
+        reports = data.verify_workloads(examples, args.workload)
+    else:
+        from hypotrail.ml import ranking_study
+
+        if args.workload is None or len(args.workload) != 1:
+            raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir needs exactly one --workload", stage="config")
+        reports = ranking_study.verify(examples, args.workload[0], args.build_dir)
     lines = [
         f"{r['workload']}: {r['dataset_id']} verified "
         f"({r['file']}, sha256 {r['sha256'][:12]}..., licence {r['license']})"
@@ -541,12 +550,20 @@ def _init(args) -> int:
             details={"command": "hypotrail init"},
         )
     examples = data.resolve_examples_dir(args.examples_dir)
-    if declared_track(Path(examples) / args.workload) == "tool_using_agent":
+    track = declared_track(Path(examples) / args.workload)
+    build = {}
+    if track == "ranking":
+        from hypotrail.ml import ranking_study as study
+
+        build["build_dir"] = args.build_dir
+    elif args.build_dir is not None:
+        raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir is for ranking Workloads", stage="config")
+    elif track == "tool_using_agent":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
 
-    spec = study.init_study(args.workload, args.study, examples)
+    spec = study.init_study(args.workload, args.study, examples, **build)
     references = _references_id(spec)
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
@@ -578,12 +595,19 @@ def _new_revision(args) -> int:
             details={"command": "hypotrail init", "workload": args.workload},
         )
     domain = layout.read_spec(args.study)["domain"]
-    if domain == "agentic":
+    build = {}
+    if domain == "ranking":
+        from hypotrail.ml import ranking_study as study
+
+        build["build_dir"] = args.build_dir
+    elif args.build_dir is not None:
+        raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir is for ranking Workloads", stage="config")
+    elif domain == "agentic":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
 
-    spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence)
+    spec = study.new_revision(args.study, args.examples_dir, read_sequence=args.read_sequence, **build)
     references = _references_id(spec)
     human = (
         f"Study {args.study} is at revision {revisions.revision_number(spec)}: Workload {spec['workload']}, "

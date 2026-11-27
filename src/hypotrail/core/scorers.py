@@ -25,6 +25,9 @@ from hypotrail.core.errors import InvalidInputError
 
 REGRESSION = "regression"
 AGENTIC = "agentic"
+RANKING = "ranking"
+RANKING_SCORER = "ranking_recall_at_top_v1"
+RANKING_METRIC = "recall_at_top_fraction"
 ABSOLUTE_ERROR = "absolute_error"
 ANSWER_SCHEMA = "answer_schema"
 SCORING_CONFIG = "scoring_config"
@@ -59,6 +62,8 @@ class Scorer:
             return {"criteria": list(self.criteria), "answer_shape": "text", "reads": SCORING_CONFIG}
         if self.domain == AGENTIC:
             return {"criteria": list(self.criteria), "answer_schema": "table-answer/1"}
+        if self.domain == RANKING:
+            return {"metric": self.metric_id, "direction": "higher_is_better", "fraction": "0.1", "tie_break": "item_id"}
         return {"criterion": self.criterion, "metric": self.metric_id, "direction": "lower_is_better"}
 
     @property
@@ -92,6 +97,7 @@ REGISTRY: dict[str, Scorer] = {
     for scorer in (
         Scorer("regression_mae_v1", "1", REGRESSION, ABSOLUTE_ERROR, "mae", mean_absolute_error),
         Scorer("regression_rmse_v1", "1", REGRESSION, ABSOLUTE_ERROR, "rmse", root_mean_squared_error),
+        Scorer(RANKING_SCORER, "1", RANKING, None, RANKING_METRIC, None),
         Scorer(CHINOOK_SCORER, CHINOOK_VERSION, AGENTIC, None, None, None, criteria=CHINOOK_CRITERIA, episode=_chinook_episode, reads=ANSWER_SCHEMA),
         Scorer(
             text_facts.SCORER_NAME,

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Declaration of a ranking Workload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["track", "horizon_days", "question", "objective", "limitations"],
+  "properties": {
+    "track": {"const": "ranking"},
+    "horizon_days": {"type": "integer", "minimum": 1},
+    "question": {"type": "string", "minLength": 1},
+    "objective": {"type": "string", "minLength": 1},
+    "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}

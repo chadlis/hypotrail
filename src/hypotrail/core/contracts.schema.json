@@ -60,7 +60,8 @@
         "domain": {
           "enum": [
             "regression",
-            "agentic"
+            "agentic",
+            "ranking"
           ]
         },
         "objective": {
@@ -397,7 +398,8 @@
         "domain": {
           "enum": [
             "regression",
-            "agentic"
+            "agentic",
+            "ranking"
           ]
         },
         "origin": {

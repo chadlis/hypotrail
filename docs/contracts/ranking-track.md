@@ -52,6 +52,21 @@ The ranking Workload declares each file of the build as a `data-manifest/1` sour
 - `import ml` compares `dataset_sha256` with the manifest's digest of `items.csv`, and refuses another with `DATASET_DIGEST_MISMATCH`, exit 3.
 
 A later build, with a later cutoff, gives a new `items.csv`, a new digest and a follow-up Study. It never rewrites a Reference.
+**M1 development build.** A ranking Workload declares `track: "ranking"`, a positive
+`horizon_days`, its `question`, `objective` and `limitations` in `workload.json`.
+Its manifest names `items.csv`, `references-dev.csv` and `build.json` by file name.
+The first two entries match `build.json.files`, and the manifest also binds
+`build.json` itself to its digest and size. Supply the private build directory
+outside Git with `--build-dir` to `data verify`, `init` or `init --new-revision`.
+The byte check does not parse the CSVs. Without the directory, `data verify`
+continues to report a manifest's sources as `declared`. The development Study
+freezes its development memberships and References, the source digest and
+the maturity rule. An Item outside the development Partition leaves no clear
+Item ID in those Study artifacts. No held-out References file is a development
+input.
+
+Source: [D-232, dated 2026-11-27](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7225276774).
+
 
 Sources: D-172 on chadlis/hypotrail#75, C1 ("`dataset_sha256` is the digest of the C2 `items.csv` the scores were made for") and C2 ("`build.json` and the manifest must agree, digest for digest"); D-180 on chadlis/hypotrail#75, item 3 ("`data verify` checks bytes only, exit 3").
 
