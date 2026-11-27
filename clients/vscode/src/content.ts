@@ -170,6 +170,7 @@ const LABEL = {
   packNoRecords: 132,
   packFigure: 133,
   packSection: 134,
+  packUnavailable: 135,
 } as const;
 
 // An entry `name=value` of a list of contract.json, as its two texts.
@@ -352,6 +353,14 @@ export function packStationsOf(lesson: Entry, figure?: string): string {
   return [metadata, ...stations].join("\n");
 }
 
+export function pendingLessonPart(): string {
+  return `<div data-part="lesson-pending">
+<details data-element="lesson-packs"><summary>${label("packSection")}</summary>
+<p>${label("packUnavailable")}</p>
+</details>
+</div>`;
+}
+
 // Cards stand after Record, and list a key path only when the page already renders its value.
 export function cardsOf(lesson: Entry | undefined, body: string): string {
   const cards = list(lesson?.cards).map((card) => {
@@ -364,7 +373,8 @@ export function cardsOf(lesson: Entry | undefined, body: string): string {
   });
   if (lesson === undefined) return "";
   const figures = [...body.matchAll(/id="(lesson-figure-[0-9]+)"/g)];
-  const figure = figures.length === 1 ? figures[0][1] : undefined;
+  const now = /id="(lesson-figure-[0-9]+)" data-lesson-figure="now"/.exec(body);
+  const figure = now?.[1] ?? (figures.length === 1 ? figures[0][1] : undefined);
   const stations = `<details data-element="lesson-packs"><summary>${label("packSection")}</summary>\n${packStationsOf(lesson, figure)}\n</details>`;
   return ['<div data-part="lesson">', ...cards, stations, "</div>"].join("\n");
 }
@@ -392,6 +402,7 @@ export function bodyOf(view: View): string {
   // The cards stand between the two, and name the places of either that show a value of their key paths.
   const cards = cardsOf(view.object ? usableLesson(view.object, view.lesson) : undefined, `${parts.join("\n")}\n${after}`);
   if (cards !== "") parts.push(cards);
+  else if (view.object !== undefined) parts.push(pendingLessonPart());
   parts.push(after);
   return parts.join("\n");
 }
@@ -747,7 +758,7 @@ function comparisonOf(id: unknown, shown: Shown, roles: unknown[], choices = "",
       const assessment = shown.assessments.find((each) => each.assessment_id === role);
       return assessment !== undefined && shown.devObservations.has(assessment.observation_set_id);
     });
-    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first, methodFigure);
+    const [figures, rest] = figuresOf(shown.figures, id, index, delta, first, methodFigure, context !== undefined);
     const paths = [[PAIRED_DELTAS, comparison.paired_deltas_ref], [POPULATION, comparison.population_ref]].flatMap(([ref, output]) => {
       const path = record(output).path;
       return typeof path === "string" ? [`<p data-element="output">${label("outputPath")} ${opening("comparison", index, ref as string, path, shown)}</p>`] : [];
@@ -816,7 +827,7 @@ function featuresChartOf(roles: unknown[], delta: Entry, shown: Shown): string {
 // the count of each above its column and the ends of the axis under it, then a box plot of the five numbers on that axis with the mark
 // of the Comparison's delta, a zero mark through both, and a key of the marks in the order of the axis; then the dots of its Items or
 // Cases, first when there are few, otherwise at the end of the part, with a link to them where the part is the Comparison's first.
-function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean, methodFigure: boolean): [string, string] {
+function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, delta: Entry, first: boolean, methodFigure: boolean, now: boolean): [string, string] {
   if (delta.value === null) return ["", ""];
   const heading = `<h4>${label("pairedDeltas")} (${marked(delta.unit)})</h4>`;
   const failed = [heading, `<p data-element="figures-failed">${label("failed")} <a href="${TOP}">${label("figuresUnavailable")}</a></p>`].join("\n");
@@ -847,7 +858,7 @@ function figuresOf(entries: Entry[] | undefined, id: unknown, index: number, del
       `<p data-element="caption">${marked(delta.definition, "span", lessonValue("status comparisons[].delta.definition"))}</p>`,
       few ? shownDots : "",
       '<div data-figure="histogram">',
-      methodFigure ? `<span id="lesson-figure-${index}" role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>` : "",
+      methodFigure ? `<span id="lesson-figure-${index}"${now ? ' data-lesson-figure="now"' : ""} role="group" tabindex="-1" aria-label="${label("packFigure")}"></span>` : "",
       `<table data-element="counts"><caption>${label(agent ? "casesPerBin" : "itemsPerBin")}</caption><tr>${bins.map((bin) => `<td>${link("bin_count", index, bin.count)}</td>`).join("")}</tr></table>`,
       histogram(counts as number[], ends),
       `<p data-element="axis">${edges.map((edge) => link("bin_edge", index, edge)).join(` ${marked(delta.unit)} `)}</p>`,

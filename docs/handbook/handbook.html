@@ -3266,11 +3266,12 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 
 <p class="sub2">The panel and its content security policy</p>
 <div class="prose">
-<p>The extension contributes one command. It finds the Studies of the workspace as above and opens one webview panel on the Study found or picked; with no Study it creates no panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document shows what the Study holds, as the section below says.</p>
+<p>The Study command finds the Studies of the workspace and opens the panel on the Study found or picked. If the walk finds none, its notification offers the stations document. The stations command opens that document in the same panel. A second run while the panel is open reveals that panel and creates none; once the panel is closed, the command creates one again. The panel holds what it was opened on in memory only, for as long as it is open. Its document shows what the Study holds, as the section below says.</p>
 <p>The panel is created in one place, with the options below, and every document the client gives to a webview is built in one function. The document holds exactly one content security policy, in a <code>meta</code> element, whose directives are those below, in this order, joined with a semicolon and a space, with one nonce made for each document of letters and digits. It holds exactly one script and one style element, each with that nonce, no style attribute and no inline event handler. No element or attribute of the document holds a remote address, and a text of a Study is shown as text, whatever it holds. The colours come from the panel's palettes, one per kind of VS Code theme, and the script sets no style, as the section on the panel's style says.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="client-command"><thead><tr><th>Command</th><th>Title</th></tr></thead><tbody>
 <tr data-command="hypotrail.openPanel" data-title="Hypotrail: Open the Study panel"><td><code>hypotrail.openPanel</code></td><td>Hypotrail: Open the Study panel</td></tr>
+<tr data-command="hypotrail.showStations" data-title="Hypotrail: Show stations"><td><code>hypotrail.showStations</code></td><td>Hypotrail: Show stations</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="client-panel-options"><thead><tr><th>Option of the panel</th></tr></thead><tbody>
 <tr data-option="enableScripts=true"><td><code>enableScripts=true</code></td></tr>
@@ -3583,8 +3584,8 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 
 <p class="sub2" id="panel-lesson-packs">Stations and method lessons</p>
 <div class="prose">
-<p>The panel reads the installed packs through <code>lesson --study=DIR --json</code>. In the Study panel, open <strong>Stations and lessons</strong> after the Track cards. It lists the configured packs and their status. Each station opens to the method lessons for that Track, with each lesson's source and exact text. For a single eligible development Comparison, the comparison station links to the aggregate distribution the panel already draws.</p>
-<p>Before creating a Study, use <strong>Hypotrail: Show stations</strong> and pick a Track. This calls <code>lesson --track=TRACK --json</code> and reads no Study. The Copilot read tool accepts the chosen <code>track</code> without a <code>study</code>.</p>
+<p>The Study variant of the <a href="#client-read">lesson read</a> also gives the installed packs. The folded section after the Track cards lists each configured pack and its availability. Each station opens to the method lessons for that Track, with each lesson's source and exact text. For a single eligible development Comparison, the comparison station links to the aggregate distribution the panel already draws.</p>
+<p>Before creating a Study, use the stations command from <a href="#client-command">the command table</a> and pick a Track. This runs the Track variant of the lesson read. The Copilot read tool can also take a Track before a Study exists.</p>
 <p>Set <code>HYPOTRAIL_LESSON_PACKS</code> before starting VS Code. The extension's child processes inherit it. The setting lists pack directories with the platform's path separator.</p>
 </div>
 
@@ -3751,6 +3752,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="No matching records"><td>No matching records</td></tr>
 <tr data-entry="See the aggregate development figure"><td>See the aggregate development figure</td></tr>
 <tr data-entry="Stations and lessons"><td>Stations and lessons</td></tr>
+<tr data-entry="Lesson packs: availability unknown"><td>Lesson packs: availability unknown</td></tr>
 </tbody></table></div>
 <div class="prose">
 <p>The heading of the full list of Attempts to handle has a label of its own, other than the compact line's, so that no two headings of the page share a text; the count of pending decisions on the line of the heading of "Now" takes its singular label for one (the second addendum to D-161, on chadlis/hypotrail#75).</p>

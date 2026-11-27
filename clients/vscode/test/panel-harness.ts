@@ -56,8 +56,8 @@ export function lastDocument(): string {
   const nonce = /<script nonce="([a-f0-9]+)">/.exec(document)?.[1];
   // The document receives a lesson section by message without a new assignment of its HTML.
   const lesson = (updates as { lesson: string; nonce: string }[]).find((update) => update.nonce === nonce)?.lesson;
-  return lesson === undefined ? document : document.replace('<section data-part="path">', () => `${lesson}
-<section data-part="path">`);
+  const pending = elementOf(document, '<div data-part="lesson-pending">');
+  return lesson === undefined || pending === undefined ? document : document.replace(pending, () => lesson);
 }
 
 // The kept status reads, the nine states the demonstration kept last, in the order it went through them: seven of the second Bike

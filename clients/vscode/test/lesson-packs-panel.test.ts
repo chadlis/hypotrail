@@ -119,6 +119,25 @@ test("a legacy lesson read with no configured pack still draws the pack status",
   assert.match(words(section), /Lesson packs: none/);
 });
 
+test("a Study panel with an unavailable lesson read still shows the pack availability", () => {
+  const document = bodyOf({ study: "synthetic-study", reading: false, object: study });
+  const [section] = foldsNamed(document, "Stations and lessons");
+  assert.ok(section);
+  assert.match(words(section), /Lesson packs: availability unknown/);
+  assert.doesNotMatch(words(section), /Lesson packs: none/);
+});
+
+test("the method link chooses Now when the Study holds older development figures", () => {
+  const object = keptObject("journey.09-new-compare.status");
+  const figures = keptObject("journey.09-new-compare.figures");
+  const pack = { ...packRead, write_sequence: object.write_sequence };
+  const document = bodyOf({ study: "bike", reading: false, object, figures, lesson: pack });
+  const link = /<a data-pack-figure href="#(lesson-figure-[0-9]+)">/.exec(document);
+  assert.ok(link);
+  const now = elementOf(document, '<section data-part="now" id="now">');
+  assert.ok(now?.includes(`id="${link[1]}"`));
+});
+
 test("the lesson response adds the pack section to the existing Study panel", async (t) => {
   const { document, calls } = await documentFor(t, success(study), success({
     ok: true, write_sequence: study.write_sequence, comparisons: [],
@@ -178,7 +197,9 @@ test("the stations command opens a document offering both Tracks with no Study",
   opened.send({ nonce, track: "temporal_regression" });
   await settle();
   assert.ok(words(opened.webview.html).includes(method.title));
-  opened.send({ nonce, track: "tool_using_agent" });
+  const activeNonce = /<script nonce="([a-f0-9]+)">/.exec(opened.webview.html)?.[1];
+  assert.ok(activeNonce);
+  opened.send({ nonce: activeNonce, track: "tool_using_agent" });
   await settle();
   assert.match(words(opened.webview.html), /Lesson packs: none/);
   assert.deepEqual(calls.map(({ args }) => args.slice(contract.first_arguments.length)), [

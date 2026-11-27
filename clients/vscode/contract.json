@@ -176,7 +176,8 @@
     "Records present",
     "No matching records",
     "See the aggregate development figure",
-    "Stations and lessons"
+    "Stations and lessons",
+    "Lesson packs: availability unknown"
   ],
   "evidence_phrases": ["result_changed=result changed", "evidence_rescored=evidence rescored", "repeated=repeated, nothing changed"],
   "applies_phrases": ["true=applies", "false=does not apply"],
