@@ -48,7 +48,7 @@ from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.agentic.study import live_basis as _live_basis
-from hypotrail.agentic.partitions import requires_exposure
+from hypotrail.agentic.partitions import PUBLIC_CHECK, requires_exposure
 
 STAGE = "assess"
 SCENARIO_MODE = "scripted_fixture"
@@ -139,7 +139,10 @@ def _per_item_csv(verdicts: list) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: str, *, examples_dir: Path | None = None, read_sequence: int | None = None) -> dict:
+def assess(
+    study: Path, observation_set_id: str, scorer_id: str, references_id: str, *,
+    examples_dir: Path | None = None, read_sequence: int | None = None, run_tool: bool = False,
+) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
     Holds the Study's writer lock for the whole command: a second writer is refused at once. `examples_dir` is
@@ -150,10 +153,10 @@ def assess(study: Path, observation_set_id: str, scorer_id: str, references_id: 
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
         write.require_current()
-        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir)
+        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, run_tool)
 
 
-def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir) -> dict:
+def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, run_tool: bool) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -163,6 +166,8 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
             "OBSERVATION_SET_NOT_FOUND", f"the Study keeps no Observation set {observation_set_id!r}", observation_set_id=str(observation_set_id)
         )
     observation_set, manifest = found
+    if run_tool:
+        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"), observation_set["provenance"].get("partition"))
     if observation_set["mode"] == SCENARIO_MODE:  # the first check once the Observation set is found: before any check on its content
         raise _refuse(
             "UNSUPPORTED_CAPABILITY",

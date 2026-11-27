@@ -65,7 +65,8 @@ The VS Code client shows a Study on one page: a band with the Write sequence and
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
-The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study and its lesson cards, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_study` reads the Study and its lesson cards, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+`hypotrail_run` can run `run`, `assess`, `compare`, `profile` and `report` on the Study once you confirm it. It refuses other commands, the paid Mode `llm_live` and reads of `public_check` Items. The CLI checks the Partition again under the Study's lock before opening the payloads of a guarded Assessment, Comparison or report. See `clients/vscode/run-tool.contract.md` for the command and refusal lists.
 
 ## Give Claude Code the Study at every prompt
 
@@ -85,6 +86,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`docs/demo/edit_copy.py`](docs/demo/edit_copy.py): the script that makes each edit of task 6 of the L2 demonstration in a Workload copy and rewrites the copy's lock (the handbook's chapter on the L2 demonstration).
 - `src/hypotrail/` (`core/`, `agentic/`, `ml/`, `report/`) and `examples/` (declarative Workloads and their data, such as `examples/bike_day`, and `examples/external/`, programs that stand in for someone else's and never import `hypotrail`); `tests/`.
 - [`clients/vscode/`](clients/vscode/): the VS Code client (the extension, its CLI bridge, the Study panel and the Copilot tools).
+- [`clients/vscode/run-tool.contract.md`](clients/vscode/run-tool.contract.md): the contract of the Copilot run tool, with its case corpus under `clients/vscode/test/run-tool-corpus/`.
 - [`clients/vscode/copilot-instructions.md`](clients/vscode/copilot-instructions.md): the template of Copilot's instructions file, copied to `.github/copilot-instructions.md` in a workspace that holds a Study.
 - [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.

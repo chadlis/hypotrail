@@ -6,6 +6,7 @@ stderr. Every error has `code`, `message`, `stage` and `details`.
 
 import argparse
 import json
+import os
 import re
 import sys
 from collections.abc import Sequence
@@ -18,6 +19,10 @@ from hypotrail.core.errors import (
     coded_error,
 )
 from hypotrail.core.factors import FACTORS
+
+
+def _from_run_tool() -> bool:
+    return os.environ.get("HYPOTRAIL_RUN_TOOL") == "1"
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -704,7 +709,7 @@ def _assess(args) -> int:
 
     notes = []
     record = assess.assess(
-        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, notes=notes
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, notes=notes, run_tool=_from_run_tool()
     )
     for note in notes:
         print(note, file=sys.stderr)
@@ -722,7 +727,7 @@ def _assess_agent(args) -> int:
     from hypotrail.agentic import assess
 
     record = assess.assess(
-        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence
+        args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, run_tool=_from_run_tool()
     )
     counts = record["counts"]
     quality, share = record["metrics"]
@@ -775,7 +780,7 @@ def _compare(args) -> int:
     from hypotrail.core import agent_comparison, comparison
 
     record = comparison.compare(
-        args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence
+        args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, run_tool=_from_run_tool()
     )
     delta, coverage = record["delta"], record["coverage"]
     value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
@@ -809,7 +814,7 @@ def _report_command(args) -> int:
     from hypotrail.report import command
 
     result = command.report(
-        args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, profile=_profile_read(args.examples_dir)
+        args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, profile=_profile_read(args.examples_dir), run_tool=_from_run_tool()
     )
     recorded = result["exposure"]
     human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")

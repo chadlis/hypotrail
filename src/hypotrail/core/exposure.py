@@ -54,6 +54,17 @@ EARLIER_EXPOSURE_STATEMENT = (
 )
 
 
+def refuse_public_check(protected: str, *partitions: str | None) -> None:
+    """Refuse protected inputs to the run tool before opening their payloads."""
+    if protected in partitions:
+        raise InvalidInputError(
+            "PUBLIC_CHECK_REFUSED",
+            "the run tool cannot read public_check Items",
+            stage="run_tool",
+            details={"partition": protected},
+        )
+
+
 def freeze_path(number: int) -> str:
     return f"{REVISIONS_DIR}/{number}/{FREEZE_NAME}"
 
