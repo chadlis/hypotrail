@@ -89,7 +89,7 @@ The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_stud
 - [`clients/claude-code/`](clients/claude-code/): the Claude Code `UserPromptSubmit` hook template (the script and the settings fragment that registers it).
 - [`GLOSSARY.md`](GLOSSARY.md): the domain vocabulary.
 - [`docs/adr/`](docs/adr/): architecture decisions and why they were made.
-- `src/hypotrail/ml/contracts/` and `src/hypotrail/agentic/contracts/`: the file formats that chadlis/mlkit and chadlis/agentkit write for `import ml` and `import agent` (JSON Schemas, examples, refused cases), with their changes in [`docs/contracts/CHANGELOG.md`](docs/contracts/CHANGELOG.md). `ml-scores/1` is a draft until the ranking Track's contract accepts it.
+- `src/hypotrail/ml/contracts/` and `src/hypotrail/agentic/contracts/`: the file formats that chadlis/mlkit and chadlis/agentkit write for `import ml` and `import agent` (JSON Schemas, examples, refused cases), with their changes in [`docs/contracts/CHANGELOG.md`](docs/contracts/CHANGELOG.md). The ranking Track's contract, [`docs/contracts/ranking-track.md`](docs/contracts/ranking-track.md), says what the ranking Track will read from chadlis/mlkit.
 - [`docs/product/PRODUCT.md`](docs/product/PRODUCT.md): product direction: users, journeys and product boundaries.
 - [`docs/product/ROADMAP.md`](docs/product/ROADMAP.md): milestone direction: current work, the selected milestones L2 and L3, later options and legacy reuse.
 - [`docs/product/PACKAGE-CANDIDATES.md`](docs/product/PACKAGE-CANDIDATES.md): package candidates: research leads to examine when a milestone needs them.
