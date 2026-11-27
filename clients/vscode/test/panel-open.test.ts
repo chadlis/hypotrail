@@ -5,9 +5,8 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 import contract from "../contract.json";
-import { CHROME, START_MS, hasChrome, pageOf, startChrome } from "./chrome";
+import { CHROME, START_MS, hasChrome, openDocument, startChrome } from "./chrome";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, withFigures, workspace, FIGURES_FAILED } from "./panel-harness";
 import { exit, recorder, type RecordedCall } from "./recorder";
 import { themed } from "./themes";
@@ -152,15 +151,7 @@ async function keyboardPage(t: TestContext, document: string): Promise<Keys | un
     t.skip(`the controls that open, reached by the keyboard, are skipped: Chrome at ${CHROME} did not start, or its debugging port did not open within ${START_MS} ms`);
     return undefined;
   }
-  const page = await pageOf(t, address);
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-open-")), "panel.html");
-  t.after(() => fs.rmSync(path.dirname(file), { recursive: true, force: true }));
-  fs.writeFileSync(file, document);
-  await page.send("Emulation.setDeviceMetricsOverride", { width: 420, height: 700, deviceScaleFactor: 1, mobile: false });
-  await page.send("Page.enable");
-  await page.send("Page.addScriptToEvaluateOnNewDocument", { source: "window.posted = []; window.acquireVsCodeApi = () => ({ postMessage: (message) => window.posted.push(message), getState() {}, setState() {} });" });
-  await page.send("Page.navigate", { url: pathToFileURL(file).href });
-  while (!page.events.some((event) => event.method === "Page.loadEventFired")) await new Promise((resolve) => setTimeout(resolve, 20));
+  const page = await openDocument(t, address, document, 420, 700, "window.posted = []; window.acquireVsCodeApi = () => ({ postMessage: (message) => window.posted.push(message), getState() {}, setState() {} });");
   const KEYS = { Tab: { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 }, Enter: { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" } };
   const evaluate = async (expression: string) => {
     const answer = await page.send("Runtime.evaluate", { expression, returnByValue: true });

@@ -7,12 +7,10 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 import contract from "../contract.json";
 import * as bridge from "../src/bridge";
-import { CHROME, START_MS, pageOf, startChrome } from "./chrome";
+import { CHROME, START_MS, openDocument, startChrome } from "./chrome";
 import { DEMONSTRATION, KEPT, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, unescaped, workspace } from "./panel-harness";
 import { exit, lesson, recorder, type Answer, type RecordedCall } from "./recorder";
@@ -409,15 +407,7 @@ type Keys = { key: (name: "Tab" | "Space" | "Enter") => Promise<void>; type: (te
 
 // `document` opened in a page of the browser at 420 by 700 px, the messages its script posts kept in `window.posted`, and its keys.
 async function keyboardPage(t: TestContext, address: string, document: string): Promise<Keys> {
-  const page = await pageOf(t, address);
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-keys-")), "panel.html");
-  t.after(() => fs.rmSync(path.dirname(file), { recursive: true, force: true }));
-  fs.writeFileSync(file, document);
-  await page.send("Emulation.setDeviceMetricsOverride", { width: 420, height: 700, deviceScaleFactor: 1, mobile: false });
-  await page.send("Page.enable");
-  await page.send("Page.addScriptToEvaluateOnNewDocument", { source: "window.posted = []; window.acquireVsCodeApi = () => ({ postMessage: (message) => window.posted.push(message), getState() {}, setState() {} });" });
-  await page.send("Page.navigate", { url: pathToFileURL(file).href });
-  while (!page.events.some((event) => event.method === "Page.loadEventFired")) await new Promise((resolve) => setTimeout(resolve, 20));
+  const page = await openDocument(t, address, document, 420, 700, "window.posted = []; window.acquireVsCodeApi = () => ({ postMessage: (message) => window.posted.push(message), getState() {}, setState() {} });");
   const KEYS = { Tab: { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9 }, Space: { key: " ", code: "Space", windowsVirtualKeyCode: 32, text: " " }, Enter: { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" } };
   return {
     key: async (name) => {
