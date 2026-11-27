@@ -108,9 +108,15 @@ def test_ranking_comparison_publishes_counts_when_all_draws_are_undefined(tmp_pa
     assert "0/2000 usable draws, 4000 date omissions" in markup.interval(record)
 
 
-def test_ranking_rejects_a_protected_side_before_reading_its_artifact(tmp_path, monkeypatch):
+@pytest.mark.parametrize(("observed", "declared"), [("held_out", "dev"), ("dev", "held_out"), ("dev", None), (None, "dev")])
+def test_ranking_requires_dev_in_both_records_before_reading_its_artifact(tmp_path, monkeypatch, observed, declared):
     monkeypatch.setattr(comparison.layout, "find_assessment", lambda *args: {"observation_set_id": "protected", "per_item_ref": {}})
-    monkeypatch.setattr(comparison.layout, "find_observation_set", lambda *args: ({"domain": "ranking", "provenance": {"partition": "held_out"}}, {}))
+    provenance = {"partition": observed} if observed is not None else {}
+    effective_config = {"partition": declared} if declared is not None else {}
+    monkeypatch.setattr(
+        comparison.layout, "find_observation_set",
+        lambda *args: ({"domain": "ranking", "provenance": provenance}, {"effective_config": effective_config}),
+    )
 
     def unread(*_):
         pytest.fail("The protected ranking artifact was read")
@@ -173,10 +179,18 @@ def test_report_publishes_ranking_aggregates_without_opening_references_or_item_
     assert "Individual errors" not in content and "no-item-file.csv" not in content and "no-reference-file.csv" not in content
 
 
-def test_report_refuses_a_protected_ranking_attempt_before_any_payload_read(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("observed", "declared"), [("held_out", "dev"), ("dev", "held_out"), ("dev", None), (None, "dev"), (None, "held_out")],
+)
+def test_report_requires_dev_in_both_records_before_reading_any_payload(tmp_path, monkeypatch, observed, declared):
     monkeypatch.setattr(gather.layout, "attempt_ids", lambda _: ["synthetic"])
-    monkeypatch.setattr(gather.layout, "read_manifest", lambda *args: {"effective_config": {"partition": "held_out"}})
-    monkeypatch.setattr(gather.layout, "observation_set_refs", lambda _: [])
+    effective_config = {"partition": declared} if declared is not None else {}
+    monkeypatch.setattr(gather.layout, "read_manifest", lambda *args: {
+        "effective_config": effective_config, "input_refs": [{"role": "workload_declaration"}],
+    })
+    monkeypatch.setattr(
+        gather, "observation_set_of", lambda *_: {"provenance": {"partition": observed}} if observed is not None else None,
+    )
 
     def unread(*_):
         pytest.fail("The protected ranking artifact was read")

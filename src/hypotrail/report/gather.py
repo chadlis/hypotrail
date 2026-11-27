@@ -14,6 +14,7 @@ from hypotrail.core import study as layout
 from hypotrail.core.attempts import SCENARIO_MODE
 from hypotrail.core.errors import InvalidInputError
 
+DEV = "dev"
 PUBLIC_CHECK = "public_check"
 REGRESSION = "regression"
 AGENTIC = "agentic"
@@ -79,12 +80,14 @@ def attempts_of(study, reader: Reader, *, ranking: bool = False) -> list:
     attempts = []
     for attempt_id in layout.attempt_ids(study):
         manifest = layout.read_manifest(study, attempt_id)
+        if ranking and manifest["effective_config"].get("partition") != DEV:
+            raise _ranking_scope("attempt", attempt_id)
         if not ranking:
             for ref in [*manifest["input_refs"], *manifest.get("output_refs", [])]:
                 reader.bytes_of(ref)
         observation_set = observation_set_of(reader, manifest)
         partition = partition_of(manifest, observation_set)
-        if ranking and partition != "dev":
+        if ranking and (observation_set is None or partition != DEV):
             raise _ranking_scope("attempt", attempt_id)
         attempts.append(
             {
@@ -197,7 +200,7 @@ def _load_ranking(study, spec: dict, reader: Reader) -> dict:
 
     memberships_ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
     members = _rows(reader.bytes_of(memberships_ref))
-    if any(row["partition"] != "dev" for row in members):
+    if any(row["partition"] != DEV for row in members):
         raise _ranking_scope("study", spec["study_id"])
     return {
         "domain": RANKING,

@@ -81,7 +81,8 @@ def test_paired_rankings_match_explicit_entity_copies_for_a_seeded_irregular_pan
 
 
 def test_ranking_interval_agrees_with_scipys_independent_paired_bootstrap():
-    stats = pytest.importorskip("scipy.stats", reason="the interval oracle needs SciPy (the ml extra)")
+    from scipy.stats import bootstrap
+
     histories = (
         (pair("a", FIRST, True, 2, 1), pair("a", SECOND, False, 1, 2)),
         (pair("b", FIRST, False, 1, 2), pair("b", SECOND, True, 2, 1)),
@@ -104,7 +105,7 @@ def test_ranking_interval_agrees_with_scipys_independent_paired_bootstrap():
     # Both customers in a draw give -1; drawing just one twice gives zero on its usable date.
     # Each endpoint has ample probability mass under either seeded resampling stream.
     entities = range(len(histories))
-    oracle = stats.bootstrap(
+    oracle = bootstrap(
         (entities, entities), delta, paired=True, vectorized=False,
         method="percentile", n_resamples=2000, confidence_level=0.95, rng=172,
     )

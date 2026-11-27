@@ -145,10 +145,14 @@ def _side(study: Path, role: str, assessment_id: str, *, run_tool: bool = False)
         )
     observation_set, manifest = found
     partition = observation_set["provenance"].get("partition")
+    declared_partition = manifest["effective_config"].get("partition")
     if run_tool:
-        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"), partition)
-    if observation_set["domain"] == RANKING and partition != DEV:
-        raise _not_found("COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison is computed on dev only", partition=partition)
+        exposure.refuse_public_check(PUBLIC_CHECK, declared_partition, partition)
+    if observation_set["domain"] == RANKING and (partition != DEV or declared_partition != DEV):
+        raise _not_found(
+            "COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison requires dev in both the Attempt and Observation set",
+            partition=partition, declared_partition=declared_partition,
+        )
     per_item = _rows(artifacts.read_verified(study, assessment["per_item_ref"]))
     digest, expected = _population_identity(study, observation_set)
     return {
