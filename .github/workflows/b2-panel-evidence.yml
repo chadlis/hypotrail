@@ -1,0 +1,53 @@
+name: B2 development panel evidence
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/b2-panel-evidence.yml
+      - scripts/b2_panel.cjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contact-sheet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: chadlis/hypotrail-lessons
+          ref: 06b1bcae88a5882ea62ab35c7aab9b92d5b0e150
+          path: evidence-packs
+          persist-credentials: false
+          sparse-checkout: packs/forecasting-en
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - run: uv sync --locked
+      - run: npm ci && npm run compile
+        working-directory: clients/vscode
+      - name: Capture the compiled panel on development inputs
+        run: |
+          reads="$RUNNER_TEMP/b2-reads"
+          mkdir "$reads"
+          env -u HYPOTRAIL_LESSON_PACKS uv run --locked python -m hypotrail lesson --track temporal_regression --json > "$reads/no-pack.json"
+          export HYPOTRAIL_LESSON_PACKS="$GITHUB_WORKSPACE/evidence-packs/packs/forecasting-en"
+          for track in temporal_regression tool_using_agent; do
+            uv run --locked python -m hypotrail lesson --track "$track" --json > "$reads/$track.json"
+          done
+          node scripts/b2_panel.cjs "$reads" "$RUNNER_TEMP/b2-sheet"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b2-development-panel-contact-sheet
+          path: |
+            ${{ runner.temp }}/b2-sheet/index.html
+            ${{ runner.temp }}/b2-sheet/*.png
+          if-no-files-found: error
