@@ -82,6 +82,41 @@ def test_import_agent_accepts_the_example_lines_and_population(tmp_path):
     assert code == 0, (payload, err)
 
 
+@pytest.mark.parametrize(
+    ("status", "fields", "accepted"),
+    [
+        pytest.param("produced", {"raw_answer": "An authored answer."}, True, id="raw-answer"),
+        pytest.param("produced", {"final_answer": {"summary": "An authored answer."}}, True, id="structured-answer"),
+        pytest.param("produced", {}, False, id="answer-required"),
+        pytest.param("missing", {}, True, id="missing-without-answer"),
+        pytest.param("failed", {"trace": [{"kind": "tool"}]}, True, id="failed-with-trace"),
+        pytest.param("failed", {"trace": [{}]}, False, id="trace-kind-required"),
+        pytest.param("produced", {"raw_answer": "A study answer.", "outcome": "answered"}, True, id="declared-outcome"),
+        pytest.param("produced", {"raw_answer": "A study answer.", "outcome": "other"}, False, id="unknown-outcome"),
+        pytest.param("missing", {"usage": {"model": {"tokens": None, "latency_seconds": 1.5, "cost_usd": 0}}}, True, id="nullable-measure"),
+        pytest.param("missing", {"usage": {"model": {"tokens": True, "latency_seconds": 1.5, "cost_usd": 0}}}, False, id="boolean-tokens"),
+        pytest.param("missing", {"metadata": {"details": {"route": "fixture"}}}, True, id="nested-metadata"),
+        pytest.param("missing", {"metadata": None}, False, id="metadata-object"),
+    ],
+)
+def test_the_line_schema_and_import_agent_agree_on_synthetic_line_variants(tmp_path, status, fields, accepted):
+    episode = {"case_id": "D01", "repeat": 0}
+    line = {**episode, "observation_status": status, **fields}
+    source = write_lines(tmp_path / "answers.jsonl", [line])
+    population = tmp_path / "population.json"
+    population.write_text(json.dumps({"episodes": [episode]}), encoding="utf-8")
+    study = chinook_prose_study(tmp_path)
+
+    schema_accepts = jsonschema.Draft202012Validator(schema("line.schema.json")).is_valid(line)
+    before = snapshot(study)
+    code, payload, err = import_agent(study, source, population, "agreement")
+    assert schema_accepts == (code == 0), (payload, err)
+    assert schema_accepts is accepted
+    if not accepted:
+        assert code == 2 and payload["ok"] is False
+        assert snapshot(study) == before
+
+
 def test_legacy_unknown_fields_are_accepted_as_source_data_without_changing_provenance(tmp_path):
     lines = [json.loads(text) for text in (EXAMPLES / "answers.jsonl").read_text(encoding="utf-8").splitlines()]
     lines[0]["unknown_fields"] = ["settings", "fixture-only-provenance-key"]
