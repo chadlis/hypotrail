@@ -180,3 +180,27 @@ def test_three_authored_versions_at_three_repeats_compared_over_groups(tmp_path)
     assert {row["attempt_id"] for row in status["attempts"]} == set(imports)
     assert {row["assessment_id"] for row in status["assessments"]} == set(assessments)
     assert {row["comparison_id"] for row in status["comparisons"]} == set(comparisons)
+
+
+def test_chinook_prose_from_init_to_a_comparison_over_groups_with_its_settings(tmp_path):
+    study = tmp_path / "s2-study"
+    references = ok(run_json("init", "--workload", "chinook_prose", "--study", study))["references_id"]
+    control = assessed(study, imported(tmp_path, study, CONCISE, "slice-concise"), references)
+    candidate = assessed(study, imported(tmp_path, study, VERBOSE, "slice-verbose"), references)
+    comparison = ok(run_json(
+        "compare", "--study", study,
+        "--control", control["assessment_id"], "--candidate", candidate["assessment_id"],
+    ))["comparison"]
+    interval = comparison["interval"]
+    assert (interval["unit"], interval["units"], interval["cases"]) == ("group", 10, 30)
+    assert {row["key"]: row["state"] for row in comparison["settings"]["keys"]} == {
+        "configuration": "different", "data_snapshot": "equal", "history_source": "equal",
+        "model": "equal", "seed": "equal", "streaming": "different", "temperature": "different",
+    }
+    assert ok(run_json("status", "--study", study))["comparisons"] == [comparison]
+    out = tmp_path / "s2-report.html"
+    report = ok(run_json("report", "--study", study, "--out", out))["report"]
+    page = out.read_text(encoding="utf-8")
+    assert "over 10 groups" in page
+    assert "temperature" in page and "data_snapshot" in page
+    assert not report["exposure"]["recorded"]
