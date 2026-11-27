@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from _chinook_helpers import episodes_file, import_agent, write_lines
-from _study_helpers import EXAMPLES, run_json
+from _study_helpers import EXAMPLES, run_cli, run_json
 
 PROSE = EXAMPLES / "chinook_prose"
 CONCISE = PROSE / "fixtures" / "answers-concise.jsonl"
@@ -64,3 +64,21 @@ def test_an_import_written_after_the_first_public_check_assessment_is_listed_che
         ("comparison", comparison["comparison_id"]),
     }
     assert ("attempt", first_dev["attempt"]["attempt_id"]) not in listed
+
+
+def test_chinook_prose_compare_holds_an_interval_over_ten_groups(tmp_path):
+    study = tmp_path / "s2g-study"
+    references = ok(run_json("init", "--workload", "chinook_prose", "--study", study))["references_id"]
+    control = assessed(study, imported(tmp_path, study, CONCISE, "s2g-concise"), references)
+    candidate = assessed(study, imported(tmp_path, study, VERBOSE, "s2g-verbose"), references)
+    code, line, err = run_cli("compare", "--study", study, "--control", control["assessment_id"], "--candidate", candidate["assessment_id"])
+    assert code == 0, (line, err)
+    assert " over 10 groups (Candidate minus Control" in line
+    [stored_path] = (study / "comparisons").glob("*/comparison.json")
+    stored = json.loads(stored_path.read_text(encoding="utf-8"))
+    seed = json.loads((PROSE / "workload.json").read_text(encoding="utf-8"))["resampling"]["seed"]
+    interval = stored["interval"]
+    assert (interval["unit"], interval["units"], interval["cases"], interval["seed"]) == ("group", 10, 30, seed)
+    assert interval["lower"] is not None and interval["upper"] is not None
+    [listed] = ok(run_json("status", "--study", study))["comparisons"]
+    assert listed == stored

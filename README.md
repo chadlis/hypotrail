@@ -41,7 +41,7 @@ Every command that writes to an existing Study takes `--read-sequence N`, the wr
 
 `decide` records one decision in a Study and requires `--read-sequence`: `decide --study runs/bike --question TEXT --option TEXT --author human --artifact ASSESSMENT_ID --request-id decide-a --read-sequence N` (`--author human|proxy`, `--artifact` repeatable, `--source TEXT` optional; `--question-id` and `--option-id` name the pending decision answered, and `--words-file FILE` or `--words TEXT`, with `--channel` and `--by`, record a human's own words whole on the Decision). It is not part of the path above: that path is the one walked for T24.
 
-A Comparison carries an interval on its delta, resampled over the unit its Workload declares: Cases for Chinook, days in circular blocks of 7 for Bike; a Study made before that declaration gets none until `init --new-revision`.
+A Comparison carries an interval on its delta, resampled over the unit its Workload declares: Cases for Chinook, days in circular blocks of 7 for Bike, whole groups of paraphrased Cases for `chinook_prose` ("over N groups"); a Study made before that declaration gets none until `init --new-revision`.
 
 Chinook `compare` (`compare --study runs/chinook --control ASSESSMENT_ID --candidate ASSESSMENT_ID [--factor model]`) needs two agent Assessments over the same Cases; the path above makes none, so it is not part of it.
 

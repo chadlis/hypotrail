@@ -6629,6 +6629,16 @@ def test_chapters_7_and_11_print_each_simulated_coverage_of_the_kept_file_beside
     assert f"seed {kept['seed']}, commit <code>{kept['commit']}</code>" in chapter_text("07-comparison.html")
 
 
+def test_chapter_11_prints_the_group_and_case_coverage_of_each_group_size_of_the_kept_file(page):
+    kept = json.loads(COVERAGE_KEPT.read_text(encoding="utf-8"))
+    expected = [(str(s["groups"]), str(s["cases_per_group"]), str(s["repeats"]), str(s["replications"]), s["group_coverage"], s["case_coverage"]) for s in kept["group_sizes"]]
+    rows = [row for row in parse(page).tables["interval-coverage-groups"] if "data-group-coverage" in row["attrs"]]
+    printed = [(a["data-groups"], a["data-cases"], a["data-repeats"], a["data-replications"], float(a["data-group-coverage"]), float(a["data-case-coverage"])) for a in (r["attrs"] for r in rows)]
+    assert printed == expected
+    assert [[cell["text"].strip() for cell in row["cells"][-2:]] for row in rows] == [[f"{g:.3f}", f"{c:.3f}"] for *_, g, c in expected]
+    assert f"seed {kept['seed']}, commit <code>{kept['commit']}</code>" in chapter_text("11-agent-comparison.html")
+
+
 INTERVAL_TEXTS = {
     "07-comparison.html": ("interval-days-section", '<p class="sub2">Refusals</p>'),
     "11-agent-comparison.html": ("interval-cases-section", '<p class="sub2">The rates, and what is only described</p>'),

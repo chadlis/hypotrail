@@ -783,7 +783,7 @@ def _compare(args) -> int:
         value += f" ({delta['reason']})"
     interval = record.get("interval") or {}
     if interval.get("lower") is not None:
-        units = {"case": "Cases", "item": "Items"}[interval["unit"]]
+        units = {"case": "Cases", "item": "Items", "group": "groups"}[interval["unit"]]
         value += f", {interval['level']:g} interval [{interval['lower']:+.6g}, {interval['upper']:+.6g}] over {interval['units']} {units}"
         if interval["block_length"] is not None:
             value += f" in blocks of {interval['block_length']} days"
