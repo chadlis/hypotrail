@@ -86,14 +86,14 @@ def filled(value, values: dict):
     return value
 
 
-def the_tool(folder: Path, given: dict) -> dict:
-    """What the run tool gave back for `given` (`text`) and the argument list of each process it started (`calls`), from the harness."""
+def the_tool(folder: Path, given: dict, *, tool="hypotrail_run", panel_record=False) -> dict:
+    """The harness's response text and the argument lists of the real processes it started."""
     node = shutil.which("node")
     if node is None or not HARNESS.is_file():
         pytest.fail(f"the run tool's end-to-end test needs Node and the compiled client: run `npm ci && npm run compile` in {CLIENT} (node: {node})")
     env = {key: value for key, value in os.environ.items() if key != LIVE_KEY}
     done = subprocess.run(
-        [node, str(HARNESS)], input=json.dumps({"folder": str(folder), "input": given}), cwd=CLIENT, env=env,
+        [node, str(HARNESS)], input=json.dumps({"folder": str(folder), "input": given, "tool": tool, "panelRecord": panel_record}), cwd=CLIENT, env=env,
         capture_output=True, text=True, timeout=300,
     )
     assert done.returncode == 0, done.stderr

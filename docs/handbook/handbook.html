@@ -1804,6 +1804,12 @@ uv run python -m hypotrail assess --study runs/chinook --observations OBSERVATIO
 <div class="prose">
 <p>The Workload <code>examples/chinook_prose</code> is a data assistant that answers in prose, outside Hypotrail: it is evaluated only through <code>import agent</code>, and its data is declared by a manifest (<a href="#feasibility-spike">chapter 01</a>). Its 30 <code>dev</code> Cases are 10 groups of three paraphrases, six of them follow-up turns, and its 6 <code>public_check</code> Cases are 2 groups. A text Case states its question with no requested columns; the keys below are type-checked when present, when a Workload is read, and nothing else of a Case is.</p>
 </div>
+<p class="prose">The deltas between these authored fixtures are invented, not measured. Each of the three JSONL files in <code>examples/chinook_prose/fixtures/repeats/</code> covers all 30 <code>dev</code> Cases over three Repeats. The route under <code>metadata.route</code> is a declared label. <code>instability.json</code> names the Cases whose Repeats disagree on <code>text_facts_success</code>.</p>
+<div class="tblwrap"><table class="tbl" id="authored-repeats-files"><thead><tr><th>File</th><th>Routes</th><th>Cases with disagreeing Repeats</th></tr></thead><tbody>
+<tr data-file="concise.jsonl" data-routes="concise_answer fallback" data-instability="D01 D02"><td><code>concise.jsonl</code></td><td><code>concise_answer</code>, <code>fallback</code></td><td>D01, D02</td></tr>
+<tr data-file="detailed.jsonl" data-routes="detailed_answer fallback" data-instability="D04"><td><code>detailed.jsonl</code></td><td><code>detailed_answer</code>, <code>fallback</code></td><td>D04</td></tr>
+<tr data-file="routed.jsonl" data-routes="concise_answer detailed_answer fallback" data-instability="D07 D08"><td><code>routed.jsonl</code></td><td><code>concise_answer</code>, <code>detailed_answer</code>, <code>fallback</code></td><td>D07, D08</td></tr>
+</tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="text-case-keys"><thead><tr><th>Key of a Case</th><th>Holds</th></tr></thead><tbody>
 <tr data-key="group"><td><code>group</code></td><td>A non-empty string: the Cases that are paraphrases of one question share it. Under the resampling unit <code>group</code> every Case declares one.</td></tr>
 <tr data-key="family"><td><code>family</code></td><td>A non-empty string; <code>chinook_prose</code> uses <code>lookup</code>, <code>aggregate</code>, <code>clarification</code>, <code>no_data</code> and <code>follow_up</code>.</td></tr>
@@ -3821,6 +3827,13 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-item="path" data-value="clients/vscode/copilot-instructions.md"><td>The template, in this repository</td><td><code>clients/vscode/copilot-instructions.md</code></td></tr>
 <tr data-item="destination" data-value=".github/copilot-instructions.md"><td>Where a user copies it, in the workspace opened in VS Code</td><td><code>.github/copilot-instructions.md</code></td></tr>
 </tbody></table></div>
+
+<p class="sub2" id="copilot-guide-agent">The Hypotrail Guide agent</p>
+<div class="prose">
+<p>Copy <code>clients/vscode/hypotrail-guide.agent.md</code> into <code>.github/agents/</code> in the workspace that holds the Study, then select "Hypotrail Guide" in Copilot Chat. Its tool list contains VS Code's <code>read</code> and <code>search</code>, plus <code>hypotrail_read_study</code> and <code>hypotrail_run</code>. The file uses the VS Code aliases <code>hypotrailStudy</code> and <code>hypotrailRun</code> for the Hypotrail tools.</p>
+<p>The guide reads at the start of each turn. It uses the card the Study returns to explain a step and points to the panel for values from records. It links to the pinned learning booklet for concepts. It leaves the act of recording a Decision to the person using Record in the panel. Its instructions forbid held-out reads and calls to paid live models.</p>
+<p>For kits, it reads command hints from available C6 <code>kit-status/1</code> output. Agentkit currently offers a text summary and lacks a C6 document. The guide has no terminal, edit or Decision tool. A real-client check of whether VS Code enforces this list as a hard limit is tracked in J0-a.</p>
+</div>
 
 <p class="sub2">Reuse of the earlier companion</p>
 <div class="prose">
