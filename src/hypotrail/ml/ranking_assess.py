@@ -11,7 +11,7 @@ from fractions import Fraction
 from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
-from hypotrail.core.errors import InvalidInputError
+from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.ml import ranking_study
 
 COLUMNS = ("item_id", "entity_id", "as_of", "score", "label")
@@ -76,9 +76,17 @@ def assess_locked(study, write, spec, observation_set_id, scorer, references_id)
     if observation_set["provenance"].get("partition") != ranking_study.DEV:
         raise _refuse("ASSESSMENT_PARTITION_NOT_DEV", "the ranking Study assesses only its development Partition")
 
+    dataset, memberships = ranking_study.read_dataset(study, spec)
+    imported_digest = manifest["effective_config"]["input_digests"]["dataset"]
+    if imported_digest != dataset["items_sha256"]:
+        raise IntegrityError(
+            "DATASET_DIGEST_MISMATCH",
+            "the ranking Observation set belongs to another build of the Items",
+            stage="assess",
+            details={"declared_sha256": imported_digest, "locked_sha256": dataset["items_sha256"]},
+        )
     for ref in observation_set["raw_refs"]:
         artifacts.read_verified(study, ref)
-    _, memberships = ranking_study.read_dataset(study, spec)
     entries = _entries(study, observation_set, memberships, references)
     recalls, omitted, scored_items = _measure(entries, Fraction(scorer.config["fraction"]))
     value = float(sum(recalls) / len(recalls)) if recalls else None

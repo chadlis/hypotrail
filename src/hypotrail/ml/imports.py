@@ -251,6 +251,8 @@ def _joined(rows: list, mapping: dict, items: list, *, ranking=False):
         if row_id in found:
             raise _refuse("ROW_ID_DUPLICATE", f"{row_id} appears twice in the source", row_id=row_id)
         if row_id not in expected:
+            if ranking:
+                raise _refuse("ROW_ID_OUTSIDE_POPULATION", "the ranking score file has a row outside its development population", line=number)
             raise _refuse("ROW_ID_OUTSIDE_POPULATION", f"{row_id} is not an Item of the population", row_id=row_id)
         cell = row[mapping["y_pred"]]
         value = _ranking_score(cell) if ranking else _finite(cell)

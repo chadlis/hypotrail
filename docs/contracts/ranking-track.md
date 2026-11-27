@@ -52,6 +52,8 @@ The ranking Workload declares each file of the build as a `data-manifest/1` sour
 - `import ml` compares `dataset_sha256` with the manifest's digest of `items.csv`, and refuses another with `DATASET_DIGEST_MISMATCH`, exit 3.
 
 A later build, with a later cutoff, gives a new `items.csv`, a new digest and a follow-up Study. It never rewrites a Reference.
+`assess` checks the imported Items digest against the current revision before opening ranking outcomes or References.
+A References-only revision with unchanged Items still permits rescoring an earlier Observation set.
 **M1 development build.** A ranking Workload declares `track: "ranking"`, a positive
 `horizon_days`, its `question`, `objective` and `limitations` in `workload.json`.
 Its manifest names `items.csv`, `references-dev.csv` and `build.json` by file name.

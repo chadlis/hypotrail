@@ -87,7 +87,10 @@ def test_a_scorer_not_in_the_registry_is_refused_and_nothing_is_imported_from_th
     study, _, obs = kept
     before = snapshot(study)
     error = refused(assess(study, obs, scorer, references_id(study)), "SCORER_NOT_REGISTERED", EXIT_INVALID_INPUT)
-    assert error["stage"] == "assess" and error["details"]["registered"] == ["chinook_contract_v1", "regression_mae_v1", "regression_rmse_v1", "text_facts_v1"]
+    assert error["stage"] == "assess"
+    assert error["details"]["registered"] == [
+        "chinook_contract_v1", "ranking_recall_at_top_v1", "regression_mae_v1", "regression_rmse_v1", "text_facts_v1",
+    ]
     assert "planted_scorer" not in sys.modules
     assert snapshot(study) == before and not (study / "assessments").exists()
 
