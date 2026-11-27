@@ -457,10 +457,10 @@ def declared_settings(settings: list) -> dict:
 
     D-155 on chadlis/hypotrail#75, item 1: "in each line, declared only when every line agrees, as `producer` already is
     (`agentic/imports.py:368-376`). A line set that disagrees has `settings` unknown, and the Comparison shows it as unknown."
-    The map is compared whole, not key by key.
+    The map is compared whole, not key by key, by its canonical JSON bytes, so lines holding `1`, `1.0` and `true` disagree.
     """
     first = settings[0] if settings else None
-    if first is None or any(other != first for other in settings):
+    if first is None or any(canonical.dumps(other) != canonical.dumps(first) for other in settings):
         return {"value": None, "origin": UNKNOWN}
     return {"value": first, "origin": DECLARED}
 

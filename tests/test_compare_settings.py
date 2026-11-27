@@ -106,6 +106,12 @@ def test_compare_lists_each_declared_setting_with_both_values_and_its_state(tmp_
     assert record.get("settings") == expected
 
 
+@pytest.mark.parametrize("other", [True, 1.0], ids=["true", "1.0"])
+def test_a_side_whose_lines_differ_only_by_type_is_unknown_and_not_equal_to_a_side_that_declares_1(tmp_path, other):
+    record = compared(tmp_path, lines_with({"seed": 1}), lines_with({"seed": 1}, {"seed": other}))
+    assert record.get("settings") == {"control": "declared", "candidate": "unknown", "keys": [key("seed", 1, None, "unknown")]}
+
+
 def test_a_comparison_where_neither_side_declares_settings_holds_no_settings_key(tmp_path):
     record = compared(tmp_path, lines_with(None), scripted_log(tmp_path, CASES))
     assert "settings" not in record
