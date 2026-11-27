@@ -81,3 +81,31 @@ def test_an_undefined_ranking_metric_and_a_revised_reference_count_are_explicit(
     assert second["assessment"]["metrics"][0]["value"] == 1
     assert second["assessment"]["ranking_dates"] == {"scored": 1, "omitted_no_positives": 0}
     assert second["assessment"]["rescoring"]["cause"] == "references_version"
+
+
+def test_ranking_scores_stay_bound_to_their_build_across_revisions(tmp_path, monkeypatch):
+    from hypotrail.core import artifacts
+
+    rows = [("A", "2011-01-01", 1, 1)]
+    examples, build = write_panel(tmp_path, rows)
+    paths = (examples, build, tmp_path / "study")
+    code, initialized, err = initialize(paths)
+    assert code == 0, (initialized, err)
+    code, imported, err = import_scores(paths, tmp_path, {"A@2011-01-01": 1})
+    assert code == 0, (imported, err)
+
+    # The same imported Item remains a valid subset of the next build.
+    write_panel(tmp_path, [*rows, ("B", "2011-01-01", 1, 0)])
+    code, revised, err = initialize(paths, new_revision=True)
+    assert code == 0, (revised, err)
+    read_verified = artifacts.read_verified
+
+    def refuse_read_before_build_check(study, ref):
+        if ref["role"] in ("observations", "import_source", "references"):
+            pytest.fail("a ranking outcome or Reference was read before verifying build identity")
+        return read_verified(study, ref)
+
+    monkeypatch.setattr(artifacts, "read_verified", refuse_read_before_build_check)
+    code, refused, _ = assessment(paths, imported["observation_set_id"], revised["references_id"])
+    assert (code, refused["error"]["code"]) == (3, "DATASET_DIGEST_MISMATCH")
+    assert not (paths[2] / "assessments").exists()

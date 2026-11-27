@@ -102,3 +102,14 @@ def test_import_rejects_a_non_dev_population_before_opening_the_score_file(ranki
     monkeypatch.setattr(Path, "read_bytes", checked_read)
     code, refused, _ = import_scores(ranking_paths, folder=case)
     assert (code, refused["error"]["code"]) == (2, "POPULATION_MIXED_PARTITIONS")
+
+
+def test_an_outside_score_row_is_refused_without_printing_its_item_id(ranking_paths, tmp_path):
+    assert initialize(ranking_paths)[0] == 0
+    sentinel = "synthetic-outside-sentinel@2011-01-01"
+    source = tmp_path / "scores.csv"
+    source.write_bytes((CONTRACT / "scores.csv").read_bytes() + f"{sentinel},1\n".encode())
+    code, refused, err = import_scores(ranking_paths, scores=source)
+    assert (code, refused["error"]["code"]) == (2, "ROW_ID_OUTSIDE_POPULATION")
+    assert sentinel not in json.dumps(refused)
+    assert sentinel not in err

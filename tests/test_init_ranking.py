@@ -1,6 +1,7 @@
 """The private development build is verified and its dev References are frozen."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,15 @@ def test_init_needs_an_explicit_build_and_never_opens_a_held_out_reference(ranki
             pytest.fail("rank development tried to open a protected References file")
         return original(path, *args, **kwargs)
 
+    open_descriptor = os.open
+
+    def checking_descriptor(path, *args, **kwargs):
+        if path in (sentinel, str(sentinel)):
+            pytest.fail("rank development tried to open a protected References file")
+        return open_descriptor(path, *args, **kwargs)
+
     monkeypatch.setattr(Path, "open", checking_open)
+    monkeypatch.setattr(os, "open", checking_descriptor)
     code, initialized, err = initialize(ranking_paths)
     assert code == 0, (initialized, err)
     spec = initialized["study"]
@@ -100,8 +109,6 @@ def test_each_refused_references_file_is_refused_by_init_with_its_code(case, tmp
 
 
 def test_data_verify_refuses_a_hard_link_or_a_symbolic_replacement_before_reading(ranking_paths, monkeypatch):
-    import os
-
     examples, build_dir, _ = ranking_paths
     source = build_dir / "references-dev.csv"
     alias_target = build_dir.parent / "synthetic-reference.csv"
