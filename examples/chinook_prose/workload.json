@@ -11,7 +11,8 @@
     "A follow-up Case whose history quotes a Case of another group leaves a dependence between the two groups, which the interval over groups does not take into account.",
     "The assistant runs outside Hypotrail and is evaluated only through `import agent`: the Study holds what the Import declares of it, and its data is declared by a manifest of digests, never opened.",
     "A follow-up Case receives a scripted history built from an earlier Case's reference text: it measures a turn after an ideal history, not a conversation.",
-    "The Criteria read identifiers, facts and phrases in the text; they do not judge whether the prose is otherwise correct."
+    "The Criteria read identifiers, facts and phrases in the text; they do not judge whether the prose is otherwise correct.",
+    "The deltas between these authored fixtures are invented, not measured."
   ],
   "primary_criterion": "text_facts_success",
   "cases": {
