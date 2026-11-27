@@ -46,7 +46,7 @@ from pathlib import Path
 
 from hypotrail.agentic.declaration import load_workload
 from hypotrail.agentic.study import DOMAIN, PROTOCOL_CHANGED_MESSAGE, dataset_sha256, protocol_content
-from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, protocol_check, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import ITEM_STATUSES, now
 from hypotrail.core.errors import EXIT_CAPABILITY_UNAVAILABLE, HypotrailError, InvalidInputError
@@ -636,6 +636,5 @@ def _import_locked(study, write, source, population_path, request_id, *, example
         input_refs=study_refs,
         produce=produce,
         started_at=import_time,
-        marks=exposure.import_mark(study),
     )
     return terminal, False

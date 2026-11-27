@@ -1,7 +1,7 @@
 // The one module through which the client talks to the CLI. Each call starts at most one process, with `execFile` and
 // a list of arguments, and gives back one of four outcomes: what the CLI printed (`success`, `refusal`), or the
 // client's own account of a call that got no usable answer (`no_answer`) or that it did not start (`client_refusal`).
-// The client reads only through `status`, `figures` and `profile` and writes only through `decide` (contract.json, `reads` and `writes`).
+// The client reads only through `status`, `figures`, `profile` and `lesson` and writes only through `decide` (contract.json, `reads` and `writes`).
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
@@ -41,6 +41,12 @@ export function readFigures(root: string, study: string): Promise<Outcome> {
 // The third read: the data profile of the Study's `train` Items, with the read's limits.
 export function readProfile(root: string, study: string): Promise<Outcome> {
   const args = contract.profile_arguments.map((argument) => argument.replace("{path}", study));
+  return start(root, args, contract.read_timeout_ms);
+}
+
+// The fourth read: the lesson cards the Study's Track serves, with the read's limits. It takes no lock and writes nothing either.
+export function readLesson(root: string, study: string): Promise<Outcome> {
+  const args = contract.lesson_arguments.map((argument) => argument.replace("{path}", study));
   return start(root, args, contract.read_timeout_ms);
 }
 

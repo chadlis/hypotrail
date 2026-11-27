@@ -57,7 +57,7 @@ The Chinook Workload holds 100 `dev` Cases, the 8 of the kit and 92 whose Refere
 
 ## Use the VS Code panel
 
-The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`: the first pending decision, whole, with its evidence, including figures of its Comparison's paired deltas, and each other pending decision under "Waiting", folded to its question. "The Study so far" follows, in moments ("Frame", "Produce", "Assess and compare", "Decide and follow") with one line per step, which folds open to its review form, then its chart, then its limitation; on a Bike Study its first step is "Data profile", the `profile` read of the `train` data drawn as figures; then "Tools". It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
+The VS Code client shows a Study on one page: a band with the Write sequence and the number of writes since its last read, then "Now", which says what waits, from the core's `next_step`: the first pending decision, whole, with its evidence, including figures of its Comparison's paired deltas, and each other pending decision under "Waiting", folded to its question. "The Study so far" follows, in moments ("Frame", "Produce", "Assess and compare", "Decide and follow") with one line per step, which folds open to its review form, then its chart, then its limitation; on a Bike Study its first step is "Data profile", the `profile` read of the `train` data drawn as figures; then "Tools". Between "Waiting" and "The Study so far" stand the lesson cards the Study's Track serves (`lesson --json`), each a closed fold that explains a kind of step shown and, while open, outlines where the panel shows the values it speaks of. It records a Decision through the CLI. A control beside each output path it shows, and beside the path of each record's own file, opens that file in the editor, read-only. From a checkout:
 
 1. `uv sync --locked --all-extras` at the checkout root.
 2. `npm ci && npm run compile` in `clients/vscode/`.
@@ -65,7 +65,7 @@ The VS Code client shows a Study on one page: a band with the Write sequence and
 
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
-The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
+The extension also gives Copilot chat in VS Code two tools: `hypotrail_read_study` reads the Study and its lesson cards, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
 
 ## Give Claude Code the Study at every prompt
 

@@ -32,7 +32,7 @@ import {
   withFigures,
   profileAt,
 } from "./panel-harness";
-import { exit, profile, recorder, type Answer } from "./recorder";
+import { KEPT_LESSONS, exit, profile, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const [, RECORD, , OPEN] = contract.messages;
@@ -61,6 +61,7 @@ async function afterWrite(t: TestContext, ...answers: Answer[]): Promise<Built> 
 }
 
 const read = (name: string): Answer => success(keptObject(name));
+const lessonOf = (name: string): Answer[] => (name in KEPT_LESSONS ? [read(KEPT_LESSONS[name])] : []);
 const withoutQuestion = (): Answer => {
   const object = keptObject("status-success");
   object.pending_decisions[0].question.text = "";
@@ -69,12 +70,13 @@ const withoutQuestion = (): Answer => {
 
 // Every document the tests of the panel build, by the case it shows.
 const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
-  ...KEPT_READS.map((name): [string, (t: TestContext) => Promise<Built>] => [name, async (t) => ({ document: (await documentFor(t, read(name))).document, answers: [read(name)] })]),
+  // The recorder answers the lesson call beside a kept status read with the lesson read kept beside it, whose texts the document shows.
+  ...KEPT_READS.map((name): [string, (t: TestContext) => Promise<Built>] => [name, async (t) => ({ document: (await documentFor(t, read(name))).document, answers: [read(name), ...lessonOf(name)] })]),
   ...Object.keys(KEPT_FIGURES).map((name): [string, (t: TestContext) => Promise<Built>] => [
     `${name} with ${KEPT_FIGURES[name]}`,
     async (t) => {
       const answers = [read(name), read(KEPT_FIGURES[name])];
-      return { document: (await documentFor(t, ...answers)).document, answers };
+      return { document: (await documentFor(t, ...answers)).document, answers: [...answers, ...lessonOf(name)] };
     },
   ]),
   [

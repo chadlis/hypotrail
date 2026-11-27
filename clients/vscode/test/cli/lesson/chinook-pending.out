@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "error": {
+    "code": "UNSUPPORTED_CAPABILITY",
+    "message": "`lesson` works on a Study of the 'regression' domain; this Study is 'agentic'",
+    "stage": "study",
+    "details": {
+      "command": "lesson",
+      "study_domain": "agentic",
+      "command_domain": "regression"
+    }
+  }
+}

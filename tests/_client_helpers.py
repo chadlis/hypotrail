@@ -517,3 +517,45 @@ def write_panel_writes_kept(tmp_path) -> None:
     for name, parts in panel_write_outputs(tmp_path)[0].items():
         for part, text in parts.items():
             (KEPT / f"{name}.{part}").write_text(text, encoding="utf-8")
+
+
+# The kept `lesson` reads, under `clients/vscode/test/cli/lesson/`, by name: the read made at the end of a step of the demonstration's step
+# list on its second Bike Study, at the state the demonstration keeps there, and the refusal of a Chinook Study, whose Track serves no cards.
+LESSON_KEPT = KEPT / "lesson"
+LESSON_STATES = {"after-compare": "A5", "after-decide": "task 3"}
+LESSON_REFUSED = "chinook-pending"
+
+
+def lesson_outputs(tmp_path) -> dict:
+    """{file name: text} of each kept `lesson` read, made again: the demonstration's step list carried out to its last step that
+    `LESSON_STATES` names, with a `lesson --json` read of the second Bike Study added at the end of each of those steps, then the read of a
+    Study of `chinook_pending_study`; each `.out` replaced as `replaced` replaces it, the scratch folder named `SCRATCH`."""
+    from _demonstration_helpers import demonstration
+    from _lesson_helpers import demonstration_until
+
+    module = demonstration()
+    ids = [step["id"] for step in module.STEPS]
+    last = max(LESSON_STATES.values(), key=ids.index)
+    reads = {
+        step: [{"cli": ["lesson", "--study", module.L2_BIKE, "--json"], "kept": f"{name}.lesson", "expect": {"exit": 0, "values": {"ok": True}}}]
+        for name, step in LESSON_STATES.items()
+    }
+    work = tmp_path / "work"
+    demonstration_until(work, last, after=reads)
+    made = {}
+    for name in LESSON_STATES:
+        for part in ("exit", "out", "err"):
+            text = (work / module.KEPT / f"{name}.lesson.{part}").read_text(encoding="utf-8")
+            made[f"{name}.{part}"] = replaced(text) if part == "out" else text
+    (tmp_path / LESSON_REFUSED).mkdir()
+    study = chinook_pending_study(tmp_path / LESSON_REFUSED)
+    code, out, err = run_cli("lesson", f"--study={study}", "--json")
+    made.update({f"{LESSON_REFUSED}.exit": f"{code}\n", f"{LESSON_REFUSED}.out": out.replace(str(study), "SCRATCH"), f"{LESSON_REFUSED}.err": err.replace(str(study), "SCRATCH")})
+    return made
+
+
+def write_lesson_kept(tmp_path) -> None:
+    """Writes the files of `lesson_outputs` under `LESSON_KEPT`; used by hand, when the demonstration or the cards change."""
+    LESSON_KEPT.mkdir(parents=True, exist_ok=True)
+    for name, text in lesson_outputs(tmp_path).items():
+        (LESSON_KEPT / name).write_text(text, encoding="utf-8")

@@ -8,7 +8,7 @@ import type { Outcome } from "./bridge";
 import { bars, boxPlot, boxes, columns, dayOf, dots, histogram, matrix, partBar, scatter, timeline, type Bar, type Cell, type Dot, type Five } from "./charts";
 
 // `study` is the string the panel was opened with, `figures` the object of the figures read made after the status read, `profile` the
-// answer of the profile call made after it, `failure`
+// answer of the profile call made after it, `lesson` the object of the lesson read made after it, `failure`
 // the outcome of a read that failed, `written` the answer of the
 // write the document follows, `unanswered` whether a write that got no answer is held, and `sent` the question, option, words and cited
 // ids of the write in flight or held; `decision` is the id a link of the second form names; `unopened` says that the document follows a
@@ -19,6 +19,7 @@ export type View = {
   writing?: boolean;
   object?: Record<string, unknown>;
   figures?: Record<string, unknown>;
+  lesson?: Record<string, unknown>;
   failure?: Outcome;
   written?: Outcome;
   unanswered?: boolean;
@@ -274,6 +275,51 @@ export function usableFigures(object: Entry | undefined, figures: Entry | undefi
   return complete && matched ? figures : undefined;
 }
 
+// The object of the lesson read when it is usable beside the status read: `ok` true and the same Write sequence. Otherwise there is
+// none, and the document draws no card and no failure text.
+export function usableLesson(object: Entry | undefined, lesson: Entry | undefined): Entry | undefined {
+  return object !== undefined && lesson !== undefined && lesson.ok === true && lesson.write_sequence === object.write_sequence ? lesson : undefined;
+}
+
+// Where the document shows the value at each key path a card may name, by the read and the path: the attribute of the element that shows
+// it, the first one found in the document winning. A key path that is not listed, or whose elements the document does not hold, gets nothing.
+const SHOWN: [string, string[]][] = [
+  ["status comparisons[].roles.control_assessment_id", ['data-role="control"']],
+  ["status comparisons[].roles.candidate_assessment_id", ['data-role="candidate"']],
+  ["status comparisons[].comparability.status", ['data-element="frame"', 'data-part="comparison"']],
+  ["status comparisons[].coverage.paired", ['data-element="coverage"']],
+  ["status comparisons[].delta.value", ['data-element="delta"']],
+  ["status comparisons[].delta.definition", ['data-element="definition"']],
+  ["status comparisons[].limitations", ['data-part="limitations"']],
+  ["status comparisons[].warnings", ['data-part="warnings"']],
+  ["figures comparisons[].paired_deltas", ['data-figure="dots"']],
+  ["figures comparisons[].quartiles", ['data-figure="box"']],
+  ["status decisions[].question", ['data-element="question"']],
+  ["status decisions[].option", ['data-part="decision"']],
+  ["status decisions[].author", ['data-part="decision"']],
+  ["status decisions[].source", ['data-part="decision"']],
+  ["status decisions[].cited_ids", ['data-element="cited"']],
+  ["status decisions[].applies", ["data-applies"]],
+  ["status decisions[].reasons", ['data-element="reasons"']],
+];
+// The attributes of `SHOWN`, each once, in order: the script highlights the first element outside the cards that holds the attribute of
+// the place an item of an open card names.
+export const SHOWN_ATTRIBUTES = [...new Set(SHOWN.flatMap(([, attributes]) => attributes))];
+
+// The cards of a usable lesson read, in its order, after Now and the pending decisions that wait, and so after every Record: each a
+// closed fold whose summary is its title, holding its text, then one item for each of its key paths whose value `body` shows, its key
+// path as text and as its attribute the place of the element that shows it in `SHOWN_ATTRIBUTES`. A card holds no value of the Study.
+function cardsOf(lesson: Entry | undefined, body: string): string {
+  const cards = list(lesson?.cards).map((card) => {
+    const items = list(card.key_paths).flatMap((path) => {
+      const shown = SHOWN.find(([key]) => key === `${String(path.read)} ${String(path.path)}`)?.[1].find((attribute) => body.includes(` ${attribute}`));
+      return shown === undefined ? [] : [`<li data-shows="${SHOWN_ATTRIBUTES.indexOf(shown)}">${marked(path.path, "code")}</li>`];
+    });
+    return ['<details data-element="card">', `<summary>${marked(card.title)}</summary>`, marked(card.text, "p"), ...(items.length === 0 ? [] : [`<ul>\n${items.join("\n")}\n</ul>`]), "</details>"].join("\n");
+  });
+  return cards.length === 0 ? "" : ['<div data-part="lesson">', ...cards, "</div>"].join("\n");
+}
+
 export function bodyOf(view: View): string {
   const parts: string[] = [marked(view.study, "h1")];
   // While a call is in flight every control is inert.
@@ -293,8 +339,11 @@ export function bodyOf(view: View): string {
   const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons), profile?.step ?? "") : undefined;
   parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? "", profile?.now ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
   if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
-  parts.push('<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []));
-  parts.push("</section>", toolsOf(inert));
+  const after = ['<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []), "</section>", toolsOf(inert)].join("\n");
+  // The cards stand between the two, and name the places of either that show a value of their key paths.
+  const cards = cardsOf(view.object ? usableLesson(view.object, view.lesson) : undefined, `${parts.join("\n")}\n${after}`);
+  if (cards !== "") parts.push(cards);
+  parts.push(after);
   return parts.join("\n");
 }
 

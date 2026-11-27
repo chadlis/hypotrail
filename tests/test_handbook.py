@@ -5307,6 +5307,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "read": " ".join(contract["read_arguments"]),
         "figures-read": " ".join(contract["figures_arguments"]),
         "profile-read": " ".join(contract["profile_arguments"]),
+        "lesson-read": " ".join(contract["lesson_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }
@@ -5537,6 +5538,7 @@ PANEL_LINK_TABLES = {
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
     "panel-profile-key-paths": lambda contract: contract["profile_key_paths"],
+    "panel-lesson-key-paths": lambda contract: contract["lesson_key_paths"],
     "panel-open-refs": lambda contract: contract["open_refs"],
 }
 

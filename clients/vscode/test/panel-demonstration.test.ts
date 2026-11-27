@@ -15,7 +15,7 @@ import * as bridge from "../src/bridge";
 import { CHROME, START_MS, pageOf, startChrome } from "./chrome";
 import { DEMONSTRATION, KEPT, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, unescaped, workspace } from "./panel-harness";
-import { exit, recorder, type Answer, type RecordedCall } from "./recorder";
+import { exit, lesson, recorder, type Answer, type RecordedCall } from "./recorder";
 
 type Entry = Record<string, any>;
 type Seen = { document: string; read: Entry; figures: Entry };
@@ -625,4 +625,27 @@ test("the function of blocker 11 finds nothing in the document of after-compare,
   const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)">([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
   assert.ok(expected.length > 0, "numbers lead to the first Assessment's part");
   assert.deepEqual(found.numbers, expected, "each number whose record part has no control");
+});
+
+// The cards of the demonstration's two kept lesson reads, after compare and after decide, beside the status and figures reads of the same
+// state (tests/_client_helpers.py, `lesson_outputs`): the Comparisons card from the first, the Comparisons and Decisions cards from the second.
+test("the demonstration panel draws the Comparisons and Decisions cards folded after Record", async (t) => {
+  const drawn: Record<string, string[]> = {};
+  for (const state of ["after-compare", "after-decide"]) {
+    const read = keptJson(`lesson.${state}`);
+    const { document } = await documentFor(t, keptAnswer(readOf(state)), keptAnswer(figuresOf(state)), lesson(keptAnswer(`lesson.${state}`)));
+    const cards = elementsOf(document, '<details data-element="card"');
+    assert.equal(cards.length, read.cards.length, state);
+    const nowEnd = document.indexOf("</section>", document.indexOf('<section data-part="now"'));
+    const records = [...document.matchAll(new RegExp(`<button data-message="${RECORD}"`, "g"))].map((match) => match.index!);
+    for (const card of cards) {
+      assert.ok(!/^<details[^>]*\sopen[\s>]/.test(card), `${state}: a closed fold`);
+      assert.ok(document.indexOf(card) > Math.max(nowEnd, ...records), `${state}: the card after Record and Now`);
+      assert.doesNotMatch(words(card), /\d/, `${state}: no digit in the card`);
+    }
+    drawn[state] = cards.map((card) => unescaped(markedTexts(card)[0]));
+    assert.deepEqual(cards.map((card) => markedTexts(card).slice(0, 2)), read.cards.map((card: Entry) => [card.title, card.text]), state);
+    if (state === "after-compare") assert.ok(records.length > 0, "after compare, Record stands in Now");
+  }
+  assert.deepEqual(drawn, { "after-compare": ["Comparisons"], "after-decide": ["Comparisons", "Decisions"] });
 });

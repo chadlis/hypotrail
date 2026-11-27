@@ -64,9 +64,10 @@ export const CALLERS: [string, typeof invoke][] = [
   ["by invoke alone", invokeAlone],
 ];
 
-// The JSON a text gives after its first line.
-export function jsonAfterFirstLine(text: string): any {
-  return JSON.parse(text.slice(text.indexOf("\n") + 1));
+// The JSON a text gives on its second line: the object of a call, after the line that says what the call gave. The read tool's text
+// gives the lesson read's object on its fourth line.
+export function jsonOfSecondLine(text: string): any {
+  return JSON.parse(text.split("\n")[1]);
 }
 
 // Inputs of the write tool that the bridge accepts, with no Study named: a test adds `study`.

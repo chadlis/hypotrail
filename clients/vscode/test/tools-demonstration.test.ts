@@ -6,7 +6,7 @@ import contract from "../contract.json";
 import { DEMONSTRATION, kept } from "./kept";
 import { KEPT_READS, keptObject, panelOf, runCommand, settle, workspace as panelWorkspace } from "./panel-harness";
 import { recorder, type RecordedCall } from "./recorder";
-import { FIRST, invoke, jsonAfterFirstLine, keptAnswer, READ_TOOL, workspace, WRITE_TOOL } from "./tools-harness";
+import { FIRST, invoke, jsonOfSecondLine, keptAnswer, READ_TOOL, workspace, WRITE_TOOL } from "./tools-harness";
 
 type Entry = Record<string, any>;
 
@@ -51,8 +51,8 @@ for (const state of STATES) {
     workspace(t, ["bike"]);
     const calls = recorder(t, keptAnswer(readOf(state)));
     const text = await invoke(READ_TOOL, {});
-    assert.equal(calls.length, 1);
-    assert.deepEqual(jsonAfterFirstLine(text), keptObject(readOf(state)));
+    assert.deepEqual(calls.map((call) => call.args[FIRST.length]), ["status", contract.lesson_arguments[0]]);
+    assert.deepEqual(jsonOfSecondLine(text), keptObject(readOf(state)));
   });
 }
 
@@ -74,5 +74,5 @@ test("the write tool given the first option of before-the-refused-write, answere
   const text = await invoke(WRITE_TOOL, firstOption(keptObject(readOf("before-the-refused-write")), studies[0]));
   assert.equal(decides(calls).length, 1, "one decide call");
   assert.ok(decides(calls)[0].args.includes("--read-sequence=28"));
-  assert.equal(jsonAfterFirstLine(text).code, "STUDY_CHANGED");
+  assert.equal(jsonOfSecondLine(text).code, "STUDY_CHANGED");
 });

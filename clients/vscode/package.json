@@ -27,7 +27,7 @@
         "toolReferenceName": "hypotrailStudy",
         "displayName": "Read a Hypotrail Study",
         "userDescription": "Reads a Hypotrail Study of this workspace. The read writes nothing.",
-        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. It starts that read alone, which writes nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
+        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. Beside it, it gives the object that `lesson --study=DIR --json` prints: the cards that explain each kind of step the Study shows, to explain a step with the same text as the panel; a Track that serves no cards refuses that read. It starts those two reads alone, which write nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
