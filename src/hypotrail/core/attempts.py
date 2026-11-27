@@ -56,8 +56,8 @@ def record_failure(study: Path, manifest_path: str, running: dict, error: Except
         pass
 
 
-def observation_set_id(study: Path, manifest: dict) -> str | None:
-    """The ID of the Observation set an Attempt manifest names in its `output_refs`, read from that record; None when it names none.
+def read_observation_set(study: Path, manifest: dict) -> dict | None:
+    """Read the published Observation set named by the Attempt manifest, if it names one.
 
     A terminal manifest names the one the recorder published; a `running`, `failed` or `interrupted` manifest names none, even when the record
     was published before the Attempt stopped.
@@ -65,7 +65,13 @@ def observation_set_id(study: Path, manifest: dict) -> str | None:
     refs = layout.observation_set_refs(manifest)
     if not refs:
         return None
-    return layout.read_record(study, refs[0]["path"])["observation_set_id"]
+    return layout.read_record(study, refs[0]["path"])
+
+
+def observation_set_id(study: Path, manifest: dict) -> str | None:
+    """The ID of the published Observation set, if the Attempt manifest names one."""
+    record = read_observation_set(study, manifest)
+    return record["observation_set_id"] if record is not None else None
 
 
 def observation_set_partition(study: Path, manifest: dict) -> str | None:

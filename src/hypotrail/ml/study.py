@@ -32,6 +32,7 @@ from hypotrail.core.study import (
     declared_track,
     media_type_of,
 )
+from hypotrail.ml import ranking_study
 from hypotrail.ml.declaration import Declaration, load_declaration, plain, require_keys
 from hypotrail.ml.memberships import MEMBERSHIPS_NAME, write_memberships
 from hypotrail.ml.metrics import DIRECTION, PRIMARY
@@ -195,35 +196,44 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
     return spec
 
 
-def init_study(workload: str, study: Path, examples_dir: Path | None = None) -> dict:
+def init_study(workload: str, study: Path, examples_dir: Path | None = None, *, build_dir: Path | None = None) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
     examples = data.resolve_examples_dir(examples_dir)
     if (study / STUDY_FILE).exists():
         with study_write.locked(study, study_write.INIT):  # a Study that has a writer answers with the lock first
             raise _exists(study)
-    # Nothing is created before the bytes match the lock (T01 at this entry point).
-    data.verify_workloads(examples, [workload])
+    # Nothing is created before the bytes match the lock or the ranking manifest.
     source = examples / workload
     track = declared_track(source)
-    if track != TRACK:
-        raise InvalidInputError(
-            "WORKLOAD_TRACK_NOT_SUPPORTED",
-            f"Workload {workload!r} declares the Track {track!r}; `init` creates Studies of the {TRACK!r} and 'tool_using_agent' Tracks only",
-            stage="study",
-            details={"workload": workload, "track": track, "supported": sorted([TRACK, "tool_using_agent"])},
-        )
-    declaration = load_declaration(source)
-    require_keys(declaration, "data_file", "question", "objective", "limitations")
+    frozen = None
+    if track == ranking_study.TRACK:
+        frozen = ranking_study.freeze(examples, workload, build_dir)
+    else:
+        data.verify_workloads(examples, [workload])
+        if track != TRACK:
+            supported = sorted([TRACK, "tool_using_agent"])
+            raise InvalidInputError(
+                "WORKLOAD_TRACK_NOT_SUPPORTED",
+                f"Workload {workload!r} declares the Track {track!r}; `init` without a private ranking build supports {', '.join(supported)}",
+                stage="study",
+                details={"workload": workload, "track": track, "supported": supported},
+            )
+        declaration = load_declaration(source)
+        require_keys(declaration, "data_file", "question", "objective", "limitations")
 
     study.mkdir(parents=True, exist_ok=True)
     with study_write.locked(study, study_write.INIT) as write:
         if (study / STUDY_FILE).exists():
             raise _exists(study)
+        if frozen is not None:
+            return ranking_study.publish(study, workload, frozen, None, write)
         return _write_spec(study, workload, source, declaration, None, write)
 
 
-def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence: int | None = None) -> dict:
+def new_revision(
+    study: Path, examples_dir: Path | None = None, *, read_sequence: int | None = None, build_dir: Path | None = None,
+) -> dict:
     """Add a revision to the Study `study`: the Protocol its Workload declares now; return the new StudySpec.
 
     The Workload is the one the Study names, read again from `examples_dir`. A Protocol equal to the
@@ -235,9 +245,13 @@ def new_revision(study: Path, examples_dir: Path | None = None, *, read_sequence
     with study_write.locked(study, study_write.INIT_NEW_REVISION, read_sequence=read_sequence) as write:
         write.require_current()
         previous = layout.read_spec(study)
-        layout.require_domain(previous, DOMAIN, study_write.INIT_NEW_REVISION)
+        rank = previous["domain"] == ranking_study.TRACK
+        layout.require_domain(previous, ranking_study.TRACK if rank else DOMAIN, study_write.INIT_NEW_REVISION)
         examples = data.resolve_examples_dir(examples_dir)
         workload = previous["workload"]
+        if rank:
+            frozen = ranking_study.freeze(examples, workload, build_dir)
+            return ranking_study.publish(study, workload, frozen, previous, write)
         data.verify_workloads(examples, [workload])  # T01 at this entry point: before anything is written
         source = examples / workload
         declaration = load_declaration(source)

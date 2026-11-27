@@ -60,7 +60,8 @@
         "domain": {
           "enum": [
             "regression",
-            "agentic"
+            "agentic",
+            "ranking"
           ]
         },
         "objective": {
@@ -397,7 +398,8 @@
         "domain": {
           "enum": [
             "regression",
-            "agentic"
+            "agentic",
+            "ranking"
           ]
         },
         "origin": {
@@ -625,6 +627,15 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "ranking_dates": {
+          "type": "object",
+          "required": ["scored", "omitted_no_positives"],
+          "properties": {
+            "scored": {"type": "integer", "minimum": 0},
+            "omitted_no_positives": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
         },
         "rescoring": {
           "anyOf": [

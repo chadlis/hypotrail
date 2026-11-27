@@ -4,8 +4,8 @@ Status: accepted, 2026-11-27 (M0). The Track's decision record is [ADR 0008](../
 
 The ranking Track evaluates a score per (entity, as-of date) that a kit writes outside Hypotrail. Each Item is one entity at one as-of date. Its Reference is whether the event happened within the horizon after that date. Hypotrail imports the score file (`hypotrail import ml`), assesses it against the References, and compares two Assessments.
 
-This page writes none of that code. It fixes the file formats and the rules the code will follow:
-- M1 imports and assesses;
+This page fixes the file formats and the rules for the ranking Track:
+- M1 verifies the private build, initializes a development Study, and imports and assesses scores;
 - M2 compares, and builds the interval's estimator;
 - M3 compares two populations.
 
@@ -39,7 +39,7 @@ An Item needs nothing more than its ID to be joined: its entity and its date are
 
 Extra columns of `scores.csv` are tolerated and reported as `unmapped_columns`. A population holds the Items of one Partition, and it may be smaller than its Partition.
 
-`settings` is recorded `declared`. Until M1 accepts it in a mapping, `import ml` refuses a mapping that holds it with `MAPPING_KEY_UNKNOWN`.
+`settings` in a ranking mapping is recorded as `declared` producer provenance. Each named setting is a JSON scalar. The ranking Import validates the population before reading its score file.
 
 Sources: D-172 on chadlis/hypotrail#75, C1 and answer 1 ("Wrong if M0 finds that the Track cannot keep the `row_id` / `y_pred` / `dataset_sha256` mapping"); `src/hypotrail/ml/imports.py` at `865aa4e` (`MAPPING_KEYS`, the join by ID, `unmapped_columns`, one Partition per population).
 
@@ -49,9 +49,30 @@ Sources: D-172 on chadlis/hypotrail#75, C1 and answer 1 ("Wrong if M0 finds that
 
 The ranking Workload declares each file of the build as a `data-manifest/1` source (`dataset_id`, `sha256`, `size_bytes`, `as_of`, `license`, `notice`, `notice_sha256`). `build.json` and the manifest must agree, digest for digest:
 - `data verify` checks the bytes only, and a mismatch exits 3;
-- `import ml` compares `dataset_sha256` with the manifest's digest of `items.csv`, and refuses another with `DATASET_DIGEST_MISMATCH`, exit 3.
+- `import ml` compares `dataset_sha256` with the manifest's digest of `items.csv`, and refuses another with `DATASET_DIGEST_MISMATCH`, exit 3. Its successful JSON reply, including replay, names the verified `dataset_sha256` from the recorded Attempt.
 
 A later build, with a later cutoff, gives a new `items.csv`, a new digest and a follow-up Study. It never rewrites a Reference.
+`assess` checks the imported Items digest against the current revision before opening ranking outcomes or References.
+A References-only revision with unchanged Items still permits rescoring an earlier Observation set.
+**M1 development build.** A ranking Workload declares `track: "ranking"`, a positive
+`horizon_days`, its `question`, `objective` and `limitations` in `workload.json`.
+Its manifest names `items.csv`, `references-dev.csv` and `build.json` by file name.
+The first two entries match `build.json.files`, and the manifest also binds
+`build.json` itself to its digest and size. Supply the private build directory
+outside Git with `--build-dir` to `data verify`, `init` or `init --new-revision`.
+The byte check does not parse the CSVs. Without the directory, `data verify`
+continues to report a manifest's sources as `declared`. The development Study
+freezes its development memberships and References, the source digest and
+the maturity rule. A private frozen artifact also carries SHA-256 digests
+of Item IDs from other named Partitions, solely to recognize a mixed-Partition
+request without storing those Item IDs. An Import refusal gives a code without
+disclosing an outside Item ID, and the Study's read commands do not return
+the index. Keep the Study in a private workspace because a reader with file
+access can try guesses against these digests. No held-out References file is
+a development input.
+
+Source: [D-232, dated 2026-11-27](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7225276774).
+
 
 Sources: D-172 on chadlis/hypotrail#75, C1 ("`dataset_sha256` is the digest of the C2 `items.csv` the scores were made for") and C2 ("`build.json` and the manifest must agree, digest for digest"); D-180 on chadlis/hypotrail#75, item 3 ("`data verify` checks bytes only, exit 3").
 
@@ -65,7 +86,7 @@ The Metric is `recall_at_top_fraction`, with `fraction` 0.1. It is computed per 
 4. A date with no positive Item has no recall and is left out.
 5. The Metric is the mean of the dates' recalls.
 
-The Assessment states how many dates were left out. When every date is left out, the Metric has no value.
+Scorer `ranking_recall_at_top_v1` records the date counts in the Assessment's `ranking_dates` field as `scored` and `omitted_no_positives`. When every date is left out, the Metric has no value.
 
 The interval resamples entities, so all the Items of one `entity_id` are drawn together. It uses S2-1's constants: percentile, 0.95, 2,000 resamples. M0 fixes only the unit and those constants. The estimator is M2's, because recall in a top fraction is not a mean per Item.
 
