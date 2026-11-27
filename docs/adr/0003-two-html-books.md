@@ -20,3 +20,7 @@ Delivery slices keep concise notes and links. They do not automatically create l
 ## Amendment — 2026-11-26
 
 Explaining a step that the product shows is not teaching a concept. A lesson card that a Track serves says what a step of a Study is and how to read it (ADR 0007), and the handbook rule "never teaches concepts" stands.
+
+## Amendment — 2026-11-27
+
+D-203 returns method lesson authorship to a separate repository. The product serves English method lessons from data packs under ADR 0009. The handbook remains a reference and teaches no concept.
