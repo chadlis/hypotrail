@@ -10,6 +10,7 @@ of the Study, and the Study's bytes and Write sequence are the same before and a
 (`npm ci && npm run compile` in `clients/vscode`), and fails when either is missing.
 """
 
+import contextlib
 import json
 import os
 import shutil
@@ -18,6 +19,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from _report_helpers import constructed_attempt, edit_manifest, tree
+from _study_helpers import init_study, run_json, run_ml
+
+from hypotrail.core import artifacts, lock
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = ROOT / "clients" / "vscode" / "test" / "run-tool-corpus" / "cases.jsonl"
@@ -154,3 +159,74 @@ def test_the_run_tool_corpus_on_the_real_cli(tmp_path):
     assert [a["observation_set_id"] for a in on_public] == [public_ids["OBS_PUBLIC"]]
     assert {a["assessment_id"]: a["observation_set_id"] for a in public_status["assessments"]}[public_ids["A_PUBLIC"]] == public_ids["OBS_PUBLIC"]
     assert [a["partition"] for a in dev_status["attempts"] if a["partition"] != "dev"] == []
+
+
+@pytest.mark.parametrize("state", ["changed after status", "manifest only", "writer active"])
+def test_guarded_report_refuses_before_opening_artifacts(tmp_path, monkeypatch, state):
+    study, _ = init_study(tmp_path)
+    stale = run_json("status", "--study", study)[1]["write_sequence"]
+    if state == "changed after status":
+        code, _, err = run_ml(study, "seasonal_7", "public_check", "later-attempt")
+        assert code == 0, err
+    if state == "manifest only":
+        attempt = constructed_attempt(study, "interrupted", outcome_unknown=True)
+        edit_manifest(study, attempt, lambda record: record["effective_config"].update(partition="public_check"))
+        assert run_json("status", "--study", study)[1]["attempts"][0]["partition"] is None
+
+    out = tmp_path / "report.html"
+    args = ("report", "--study", study, "--out", out, "--read-sequence", str(stale))
+    monkeypatch.setenv("HYPOTRAIL_RUN_TOOL", "1")
+    # The guard may read Study records. It must refuse before gathering payload artifacts.
+    monkeypatch.setattr(artifacts, "read_verified", lambda *_: pytest.fail("guarded report opened an artifact"))
+    with lock.writer_lock(study) if state == "writer active" else contextlib.nullcontext():
+        before = tree(study)
+        code, payload, _ = run_json(*args)
+        assert tree(study) == before
+    expected = {"changed after status": (6, "STUDY_CHANGED"), "manifest only": (2, "PUBLIC_CHECK_REFUSED"), "writer active": (6, "STUDY_LOCKED")}
+    assert (code, payload["error"]["code"]) == expected[state]
+    assert not out.exists()
+
+
+def test_the_run_tool_guards_the_real_report_when_status_has_no_partition(tmp_path):
+    study, _ = init_study(tmp_path)
+    attempt = constructed_attempt(study, "interrupted", outcome_unknown=True)
+    edit_manifest(study, attempt, lambda record: record["effective_config"].update(partition="public_check"))
+    current = status(study)
+    assert current["attempts"][0]["partition"] is None
+    before = tree(study)
+    out = tmp_path / "report.html"
+    answer = the_tool(tmp_path, {
+        "study": str(study),
+        "command": "report",
+        "arguments": [f"--out={out}"],
+        "read_sequence": current["write_sequence"],
+    })
+    assert after(answer["text"], "Its error, as printed:\n")["code"] == "PUBLIC_CHECK_REFUSED"
+    assert not out.exists()
+    assert tree(study) == before
+
+
+@pytest.mark.parametrize("command", ["assess", "compare"])
+def test_guarded_commands_refuse_protected_inputs_before_reading_payloads(tmp_path, monkeypatch, command):
+    study, initial = init_study(tmp_path)
+    code, attempt, err = run_ml(study, "seasonal_7", "public_check", "public-attempt")
+    assert code == 0, err
+    assess_args = ("--observations", attempt["observation_set_id"], "--scorer", "regression_mae_v1", "--references", initial["references_id"])
+    code, assessed, err = run_json("assess", "--study", study, *assess_args)
+    assert code == 0, err
+    assessment_id = assessed["assessment"]["assessment_id"]
+    args = assess_args if command == "assess" else ("--control", assessment_id, "--candidate", assessment_id)
+    sequence = run_json("status", "--study", study)[1]["write_sequence"]
+    before = tree(study)
+    read_verified = artifacts.read_verified
+
+    def records_only(folder, ref):
+        if ref["role"] != "observation_set":
+            pytest.fail("guarded command opened a protected payload")
+        return read_verified(folder, ref)
+
+    monkeypatch.setenv("HYPOTRAIL_RUN_TOOL", "1")
+    monkeypatch.setattr(artifacts, "read_verified", records_only)
+    code, payload, _ = run_json(command, "--study", study, "--read-sequence", sequence, *args)
+    assert (code, payload["error"]["code"]) == (2, "PUBLIC_CHECK_REFUSED")
+    assert tree(study) == before

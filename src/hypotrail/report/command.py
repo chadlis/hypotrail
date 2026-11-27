@@ -41,7 +41,32 @@ def check_output(study: Path, out: Path) -> None:
         raise _refuse("REPORT_OUTPUT_INVALID", f"the folder of --out {out} does not exist", out=str(out), reason="no_folder")
 
 
-def report(study, out, *, live_basis=None, read_sequence: int | None = None, profile=None) -> dict:
+def _restricted_report(study, out, read_sequence, profile) -> dict:
+    """Authorize and render a run-tool report on one Study state."""
+    with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
+        write.require_current()
+        manifests = [layout.read_manifest(study, attempt_id) for attempt_id in layout.attempt_ids(study)]
+        for manifest in manifests:
+            exposure.refuse_public_check(gather.PUBLIC_CHECK, manifest["effective_config"].get("partition"))
+        for manifest in manifests:
+            for ref in layout.observation_set_refs(manifest):
+                observation_set = layout.read_record(study, ref["path"])
+                exposure.refuse_public_check(gather.PUBLIC_CHECK, gather.partition_of(manifest, observation_set))
+        model = gather.load(study)
+        model["profile"] = profile(study) if profile is not None and model["spec"]["domain"] == gather.REGRESSION else None
+        artifacts.replace_atomically(out, render.render(model, render.Links(study, out)).encode("utf-8"))
+        return _result(out, model["spec"], model, None)
+
+
+def _result(out, spec, model, entry) -> dict:
+    return {
+        "out": str(out),
+        "sections": [section_id for section_id, _ in render.sections_of(spec["domain"])],
+        "exposure": {"recorded": entry is not None, "entry_id": entry["entry_id"] if entry else None, "journal_entries": len(model["exposure"]["entries"])},
+    }
+
+
+def report(study, out, *, live_basis=None, read_sequence: int | None = None, profile=None, run_tool: bool = False) -> dict:
     """Render the page of `study` at `out`; return what was done (`out`, `sections`, `exposure`).
 
     `live_basis` is what `exposure.record` calls to digest the Workload; the command passes it, the package imports no Track.
@@ -53,6 +78,8 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
     study_write.check_read_sequence(study_write.REPORT, read_sequence)
     spec = layout.read_spec(study)
     check_output(study, out)
+    if run_tool:
+        return _restricted_report(study, out, read_sequence, profile)
     model = gather.load(study)
     shown = gather.touched(model)
     drawn = profile(study) if profile is not None and spec["domain"] == gather.REGRESSION else None
@@ -78,8 +105,4 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
             artifacts.replace_atomically(out, render.render(model, links, entry).encode("utf-8"))
     else:
         artifacts.replace_atomically(out, render.render(model, links).encode("utf-8"))
-    return {
-        "out": str(out),
-        "sections": [section_id for section_id, _ in render.sections_of(spec["domain"])],
-        "exposure": {"recorded": entry is not None, "entry_id": entry["entry_id"] if entry else None, "journal_entries": len(model["exposure"]["entries"])},
-    }
+    return _result(out, spec, model, entry)

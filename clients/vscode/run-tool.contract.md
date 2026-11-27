@@ -72,6 +72,8 @@ The tool takes the facts below from the arguments. For `assess`, `compare` and `
 
 Ids are compared without their surrounding white space and without regard to case. An id that the read does not hold touches no Attempt, and the CLI then refuses it.
 
+The tool's `status` check gives early feedback. The bridge also sets `HYPOTRAIL_RUN_TOOL=1` in the command's child environment. For `assess`, `compare` and `report`, the CLI checks the Write sequence and the Partition under the Study's writer lock before opening the payloads. It uses the Attempt manifest as well as any Observation set, so `report` also refuses a protected Attempt with no Observation set. A guarded report gathers and renders while holding the same lock. If this check discovers a `public_check` Attempt, the CLI returns `PUBLIC_CHECK_REFUSED`. Direct CLI use follows its usual contract.
+
 ## What is refused before any command starts
 
 A refusal starts no command: nothing is written, and the Write sequence does not move. The tool checks the rules in the order of the table below and gives the code of the first rule that refuses. A row with two codes gives the one its text names. Only the checks after the read in the order start the read.

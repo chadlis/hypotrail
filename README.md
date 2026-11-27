@@ -66,7 +66,7 @@ The VS Code client shows a Study on one page: a band with the Write sequence and
 Then open the checkout, or a Study's folder, and run the command "Hypotrail: Open the Study panel". The handbook's chapter on the client gives the detail.
 
 The extension also gives Copilot chat in VS Code three tools: `hypotrail_read_study` reads the Study, and `hypotrail_decide` records a Decision through `decide` once you confirm it in VS Code (unless you chose "Always Allow" for the tool). Given your own messages as `words`, it records them whole on the Decision as relayed by Copilot (`chat_relayed`), and its confirmation shows them.
-`hypotrail_run` runs one of the CLI's `run`, `assess`, `compare`, `profile` and `report` on the Study once you confirm it, and may write records. It refuses, before anything starts, every other command (`decide` included), `import`, the paid Mode `llm_live` and any `public_check` read; `clients/vscode/run-tool.contract.md` lists its commands and refusal codes.
+`hypotrail_run` can run `run`, `assess`, `compare`, `profile` and `report` on the Study once you confirm it. It refuses other commands, the paid Mode `llm_live` and reads of `public_check` Items. The CLI checks the Partition again under the Study's lock before opening the payloads of a guarded Assessment, Comparison or report. See `clients/vscode/run-tool.contract.md` for the command and refusal lists.
 
 ## Give Claude Code the Study at every prompt
 

@@ -45,9 +45,9 @@ export function readProfile(root: string, study: string): Promise<Outcome> {
   return start(root, args, contract.read_timeout_ms);
 }
 
-function start(root: string, args: string[], timeout: number): Promise<Outcome> {
+function start(root: string, args: string[], timeout: number, env?: NodeJS.ProcessEnv): Promise<Outcome> {
   return new Promise((resolve) => {
-    execFile(contract.program, [...contract.first_arguments, ...args], { cwd: root, timeout, maxBuffer: contract.max_buffer_bytes }, (error, stdout) => {
+    execFile(contract.program, [...contract.first_arguments, ...args], { cwd: root, timeout, maxBuffer: contract.max_buffer_bytes, env }, (error, stdout) => {
       resolve(outcomeOf(error as ExecError, String(stdout)));
     });
   });
@@ -131,7 +131,7 @@ export async function recordDecision(root: string, study: string, decision: Deci
 // Starts one command of the run tool, with the arguments the tool built after the first ones, and the write's limits. One call starts at
 // most one process, whatever its outcome: the bridge never starts a command again.
 export async function runCommand(root: string, args: string[]): Promise<Outcome> {
-  const outcome = await start(root, args, contract.write_timeout_ms);
+  const outcome = await start(root, args, contract.write_timeout_ms, { ...process.env, HYPOTRAIL_RUN_TOOL: "1" });
   return outcome.outcome === "no_answer" ? { ...outcome, note: contract.write_no_answer_words } : outcome;
 }
 
