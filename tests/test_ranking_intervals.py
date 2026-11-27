@@ -80,6 +80,39 @@ def test_paired_rankings_match_explicit_entity_copies_for_a_seeded_irregular_pan
     assert paired_interval(rows, seed=38) == expected
 
 
+def test_ranking_interval_agrees_with_scipys_independent_paired_bootstrap():
+    stats = pytest.importorskip("scipy.stats", reason="the interval oracle needs SciPy (the ml extra)")
+    histories = (
+        (pair("a", FIRST, True, 2, 1), pair("a", SECOND, False, 1, 2)),
+        (pair("b", FIRST, False, 1, 2), pair("b", SECOND, True, 2, 1)),
+    )
+
+    def recall(draw, score):
+        rows = [row for entity in draw for row in histories[entity]]
+        recalls = []
+        for day in (FIRST, SECOND):
+            ordered = sorted((row for row in rows if row.as_of == day), key=lambda row: (-getattr(row, score), row.item_id))
+            positives = sum(row.label for row in ordered)
+            if positives:
+                top = math.ceil(Fraction(len(ordered), 10))
+                recalls.append(sum(row.label for row in ordered[:top]) / positives)
+        return sum(recalls) / len(recalls)
+
+    def delta(control, candidate):
+        return recall(candidate, "candidate_score") - recall(control, "control_score")
+
+    # Both customers in a draw give -1; drawing just one twice gives zero on its usable date.
+    # Each endpoint has ample probability mass under either seeded resampling stream.
+    entities = range(len(histories))
+    oracle = stats.bootstrap(
+        (entities, entities), delta, paired=True, vectorized=False,
+        method="percentile", n_resamples=2000, confidence_level=0.95, rng=172,
+    )
+    ours = paired_interval([row for history in histories for row in history], seed=81)
+    assert tuple(oracle.confidence_interval) == (-1.0, 0.0)
+    assert (ours["lower"], ours["upper"]) == pytest.approx(oracle.confidence_interval)
+
+
 def test_identical_rankings_share_every_draw_even_when_a_date_or_draw_is_undefined():
     rows = [pair("a", FIRST, True, 1, 1), pair("b", FIRST, False, 2, 2), pair("b", SECOND, False, 2, 2)]
     deltas, omitted = _oracle(rows, seed=13, resamples=9)
