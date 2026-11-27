@@ -139,10 +139,11 @@ def test_validation_does_not_change_the_record():
 
 # The property names and `required` lists of five record definitions, written from the schema at `7db697f`, and of the `decision/2` definition added after it:
 # "The Decision, Assessment and Comparison records, the write journal and the contract schema stay as they are" (chadlis/hypotrail#159, "Out of scope").
+# M1 appends the optional ranking_dates property for the ranking contract at #341. The required list is unchanged.
 RECORD_DEFINITIONS_AT_7DB697F = {
     "Assessment": (
         "assessment_id check_informed counts detailed_metrics_ref kind limitations metrics observation_set_id operational_errors per_item_ref primary_criterion "
-        "recorded_at references_ref rescoring schema_version scorer single_feature_check study_revision unknowns",
+        "ranking_dates recorded_at references_ref rescoring schema_version scorer single_feature_check study_revision unknowns",
         "kind schema_version assessment_id observation_set_id references_ref scorer counts per_item_ref metrics limitations",
     ),
     "Comparison": (
