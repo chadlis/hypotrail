@@ -163,6 +163,6 @@ At mlkit `main` (`9b0dba3af7480703bdcfb5e6ff4ed337a52dc958`), `mlkit build` give
 
 **Validation.** The export, `items.csv` and `references-dev.csv` are valid against `mapping.schema.json`, `population.schema.json`, `scores.schema.json`, `ranking-items.schema.json` and `ranking-reference.schema.json`. `build.json` is not yet valid against `ranking-build.schema.json` (chadlis/mlkit#18).
 
-**The reference run.** r-0001, the recency rule, has `recall_at_top_fraction` 0.1610428251347026 over the 10 dev dates. No date was left out, and the per-date recall runs from 0.1300 (2010-10-01) to 0.2076 (2011-01-01).
+**The reference run.** r-0001, the recency rule, has `recall_at_top_fraction` 0.1610428251347026 over the 10 dev dates. No date was left out.
 
 Sources: D-172 on chadlis/hypotrail#75, SP2 ("M0 accepted, with K1's real export beside it"); D-180 on chadlis/hypotrail#75, item 4 ("M0 keeps the made-up set. The page records the real export by kit commit, digests, counts and the r-0001 value"); chadlis/mlkit#3; chadlis/mlkit#11.
