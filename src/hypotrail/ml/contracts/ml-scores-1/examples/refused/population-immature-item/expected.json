@@ -1,7 +1,7 @@
 {
   "contract": "ml-scores/1",
-  "code": null,
+  "code": "POPULATION_ITEM_IMMATURE",
   "exit": 2,
   "caught_by": "import",
-  "why": "12346@2011-10-01 is immature: it is in no Partition. Its code is M1's to name"
+  "why": "12346@2011-10-01 is immature: it is in no Partition. The import refuses it before POPULATION_ITEM_UNKNOWN"
 }
