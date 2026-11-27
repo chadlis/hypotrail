@@ -676,13 +676,14 @@ def _run_agent(args) -> int:
 
 
 def _import_ml(args) -> int:
-    from hypotrail.core import attempts
+    from hypotrail.core import attempts, scorers
     from hypotrail.ml import imports
 
     manifest, replayed = imports.import_ml(
         args.study, args.source, args.mapping, args.population, args.request_id, examples_dir=args.examples_dir, read_sequence=args.read_sequence
     )
-    observation_set_id = attempts.observation_set_id(args.study, manifest)
+    observation_set = attempts.read_observation_set(args.study, manifest)
+    observation_set_id = observation_set["observation_set_id"] if observation_set is not None else None
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
@@ -690,7 +691,10 @@ def _import_ml(args) -> int:
         + (" (recorded earlier: nothing was read again)" if replayed else "")
         + _observation_set_note(observation_set_id)
     )
-    _emit({"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}, args.json, human)
+    reply = {"ok": True, "replayed": replayed, "attempt": manifest, "observation_set_id": observation_set_id}
+    if observation_set is not None and observation_set["domain"] == scorers.RANKING:
+        reply["dataset_sha256"] = manifest["effective_config"]["input_digests"]["dataset"]
+    _emit(reply, args.json, human)
     return EXIT_OK
 
 

@@ -483,6 +483,7 @@ def test_the_same_request_returns_the_recorded_import_and_validates_reads_and_wr
     code, again, err = import_ml(study, source, mapping, population, "imp")
     assert code == 0, (again, err)
     assert again["replayed"] is True and again["attempt"] == first["attempt"]
+    assert set(again) == set(first) == {"ok", "replayed", "attempt", "observation_set_id"}
     assert snapshot(study) == before
 
 

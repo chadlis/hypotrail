@@ -113,3 +113,16 @@ def test_an_outside_score_row_is_refused_without_printing_its_item_id(ranking_pa
     assert (code, refused["error"]["code"]) == (2, "ROW_ID_OUTSIDE_POPULATION")
     assert sentinel not in json.dumps(refused)
     assert sentinel not in err
+
+
+@pytest.mark.parametrize("repeated", [False, True], ids=["fresh", "replayed"])
+def test_ranking_import_reply_includes_the_verified_items_digest(ranking_paths, repeated):
+    assert initialize(ranking_paths)[0] == 0
+    if repeated:
+        assert import_scores(ranking_paths)[0] == 0
+    code, reply, err = import_scores(ranking_paths)
+    assert code == 0, (reply, err)
+    assert reply["replayed"] is repeated
+    expected = json.loads((CONTRACT / "mapping.json").read_bytes())["dataset_sha256"]
+    assert reply["dataset_sha256"] == reply["attempt"]["effective_config"]["input_digests"]["dataset"] == expected
+    assert set(reply) == {"ok", "replayed", "attempt", "observation_set_id", "dataset_sha256"}
