@@ -17,6 +17,7 @@ RESAMPLES = 2000
 METHOD = "percentile_bootstrap"
 CIRCULAR = "circular"
 GROUP = "group"
+ENTITY = "entity"
 TOO_FEW_UNITS = "too_few_units"
 NOT_DECLARED = "resampling_not_declared"
 DELTA_WITHHELD = "delta_withheld"

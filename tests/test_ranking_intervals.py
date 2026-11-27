@@ -3,12 +3,13 @@
 import math
 import random
 from collections import defaultdict
+from decimal import Decimal
 from fractions import Fraction
 
 import pytest
 
 from hypotrail.core import intervals
-from hypotrail.ml.ranking_intervals import RankingPair, paired_interval
+from hypotrail.core.ranking_intervals import RankingPair, paired_interval
 
 
 FIRST = "2025-01-01"
@@ -124,6 +125,14 @@ def test_tied_scores_rank_by_the_original_item_id(monkeypatch):
     rows = [pair("a", FIRST, True, 7, 4), pair("b", FIRST, False, 7, 9)]
     result = _one_draw(rows, [1, 0], monkeypatch)
     assert (result["lower"], result["upper"]) == (-1, -1)
+
+
+def test_precision_beyond_the_decimal_context_does_not_create_an_item_id_tie(monkeypatch):
+    first = Decimal("0.123456789012345678901234567801")
+    second = Decimal("0.123456789012345678901234567802")
+    rows = [pair("a", FIRST, True, first, second), pair("b", FIRST, False, second, first)]
+    result = _one_draw(rows, [1, 0], monkeypatch)
+    assert (result["lower"], result["upper"]) == (1, 1)
 
 
 def test_top_tenth_uses_the_ceiling_of_the_resampled_date_size(monkeypatch):

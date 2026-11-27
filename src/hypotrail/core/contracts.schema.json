@@ -1073,6 +1073,7 @@
                 "case",
                 "item",
                 "group",
+                "entity",
                 null
               ]
             },
@@ -1107,6 +1108,14 @@
               "type": "integer",
               "minimum": 1
             },
+            "usable_resamples": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "omitted_dates": {
+              "type": "integer",
+              "minimum": 0
+            },
             "seed": {
               "type": [
                 "integer",
@@ -1119,7 +1128,8 @@
                 "resampling_not_declared",
                 "delta_withheld",
                 "too_few_units",
-                "series_not_contiguous"
+                "series_not_contiguous",
+                "no_usable_resamples"
               ]
             }
           },
@@ -1146,6 +1156,27 @@
           "else": {
             "properties": {"cases": {"type": "null"}}
           },
+          "allOf": [
+            {
+              "if": {"properties": {"unit": {"const": "entity"}}},
+              "then": {
+                "required": ["usable_resamples", "omitted_dates"],
+                "properties": {
+                  "reason": {"enum": [null, "no_usable_resamples"]},
+                  "resamples": {"const": 2000},
+                  "variant": {"type": "null"},
+                  "block_length": {"type": "null"}
+                }
+              },
+              "else": {
+                "properties": {
+                  "usable_resamples": false,
+                  "omitted_dates": false,
+                  "reason": {"not": {"const": "no_usable_resamples"}}
+                }
+              }
+            }
+          ],
           "additionalProperties": false
         },
         "settings": {

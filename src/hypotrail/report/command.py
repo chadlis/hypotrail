@@ -4,7 +4,7 @@ The order (nothing is written before the checks that precede it):
 
 1. the Study is read (`STUDY_NOT_FOUND`, exit 2, when there is none), of either Track; `--out` must not be inside the Study, nor a directory, and its folder must exist
    (`REPORT_OUTPUT_INVALID`, exit 2);
-2. the records are read, each artifact against its digest (`ARTIFACT_INTEGRITY`, exit 3);
+2. the records are read, each file the page uses against its digest (`ARTIFACT_INTEGRITY`, exit 3); the ranking page uses aggregates;
 3. a page that shows `public_check` Items is an Exposure (GLOSSARY): under the Study's writer lock (`STUDY_LOCKED`,
    exit 6), `--read-sequence` is compared with the Study's write sequence (`STUDY_CHANGED`, exit 6, or `WRITE_SEQUENCE_AHEAD`, exit 2;
    a page of `dev` Items only is written as without the option), then the freeze record is written first if the revision has none, then one journal entry names the Attempts,

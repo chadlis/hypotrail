@@ -67,6 +67,12 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 <tr data-path="comparisons/COMPARISON_ID/comparison.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/comparison.json</code></td><td><code>compare</code>, last</td><td>The Comparison record. A folder without it is not a Comparison.</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="ranking-comparison">The ranking Comparison</p>
+<div class="prose">
+<p>On a ranking Study, <code>compare</code> requires two development Assessments of the same Items and References. A positive <code>delta</code> means the Candidate recovered a higher share of the positive Items in the top fraction of the rankings. Only the aggregate change and interval are recorded.</p>
+<p>The <code>entity</code> interval uses the same draws of whole entities for the Control and Candidate. It keeps repeated entities in the rankings, recalculates both rankings for every draw, and omits dates with no positive Item in that draw. <code>usable_resamples</code> counts draws with at least one usable date. <code>omitted_dates</code> counts date omissions across all draws. The interval is unavailable when no draw is usable. The command and the aggregate ranking report both show the counts.</p>
+</div>
+
 <p class="sub2" id="interval-days-section">The interval on the delta, over days in blocks</p>
 <div class="prose" id="interval-days">
 <p>A Comparison holds <code>interval</code>, the paired resampling interval on its main delta (<code>hypotrail.core.intervals</code>, standard library only). Its level, 0.95, its count of resamples, 2,000, and its method, <code>percentile_bootstrap</code>, are fixed in the core; the unit, the blocks and the seed are declared by the Workload under <code>resampling</code>, are part of the Protocol digest only when declared, and are copied into the StudySpec. The Bike Workload declares <code>{"unit": "item", "block": {"variant": "circular", "length": 7}, "seed": 241}</code>: the length is <code>period_k</code>, fixed before any delta was read.</p>

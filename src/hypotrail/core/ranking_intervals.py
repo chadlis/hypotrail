@@ -3,6 +3,7 @@
 import random
 from collections import defaultdict
 from collections.abc import Iterable
+from decimal import Decimal
 from typing import NamedTuple
 
 from hypotrail.core import intervals
@@ -15,8 +16,8 @@ class RankingPair(NamedTuple):
     entity_id: str
     as_of: str
     label: bool
-    control_score: float
-    candidate_score: float
+    control_score: Decimal
+    candidate_score: Decimal
 
 
 class _DateRanking(NamedTuple):
@@ -33,13 +34,14 @@ def _rank_dates(rows: list[RankingPair], entities: dict[str, int]) -> list[_Date
 
     rankings = []
     for day in sorted(grouped):
-        items = grouped[day]
+        items = sorted(grouped[day], key=lambda row: row.item_id)
         indexes = tuple(entities[row.entity_id] for row in items)
         if len(set(indexes)) != len(items):
             raise ValueError("A ranking Comparison requires one Item per entity and date")
-        # Removing or repeating entities leaves the relative score and Item-id order intact.
-        control = sorted(items, key=lambda row: (-row.control_score, row.item_id))
-        candidate = sorted(items, key=lambda row: (-row.candidate_score, row.item_id))
+        # Stable sorts preserve the Item ID tie break and compare Decimal scores at full precision.
+        # Removing or repeating entities leaves the relative ranking intact.
+        control = sorted(items, key=lambda row: row.control_score, reverse=True)
+        candidate = sorted(items, key=lambda row: row.candidate_score, reverse=True)
         rankings.append(
             _DateRanking(
                 indexes,
@@ -105,3 +107,19 @@ def paired_interval(
         "lower": None, "upper": None, "reason": "no_usable_resamples",
     }
     return {**bounds, "units": len(entities), "usable_resamples": len(estimates), "omitted_dates": omitted_dates}
+
+
+def record(rows: Iterable[RankingPair], population_sha256: str) -> dict:
+    """A ranking Comparison's interval on the shared population, with a reproducible seed."""
+    seed = int(population_sha256[:8], 16)
+    return {
+        "level": intervals.LEVEL,
+        "method": intervals.METHOD,
+        "unit": intervals.ENTITY,
+        "variant": None,
+        "block_length": None,
+        "resamples": intervals.RESAMPLES,
+        "seed": seed,
+        "cases": None,
+        **paired_interval(rows, seed=seed),
+    }
