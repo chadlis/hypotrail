@@ -419,6 +419,18 @@ def test_the_allow_list_table_equals_the_allowed_functions_and_no_other_chapter_
     assert "eleven functions" not in BUILT.read_text(encoding="utf-8")
 
 
+def test_the_group_rule_row_of_the_agentic_refusal_table_equals_the_code_exit_stage_and_details_of_the_refusal(page, tmp_path):
+    from test_group_partition_rule import MOVED, load, prose_copy
+
+    with pytest.raises(InvalidInputError) as caught:
+        load(prose_copy(tmp_path, rule="disjoint", groups=MOVED))
+    error = caught.value
+    rows = attrs_of(page, "agentic-refusals", "data-code")
+    assert error.code in rows
+    row = rows[error.code]
+    assert (int(row["data-exit"]), row["data-stage"], words(row["data-details"])) == (error.exit_code, error.stage, set(error.details))
+
+
 def test_the_agentic_chapter_describes_the_five_token_fields_of_the_run_record(page):
     chapter = CHAPTER_03.read_text(encoding="utf-8")
     from hypotrail.agentic.live import TOKEN_FIELDS
