@@ -116,14 +116,14 @@ export type Dot = { id: string; control: number; candidate: number; joint: strin
 // The dots of a Comparison, one row per Item or Case, on one scale from the smallest to the largest of all their values. In a row,
 // the Control's mark is a tall narrow bar and the Candidate's a shorter one across its middle, both of one width, so that a mark
 // stays inside the track as the others do; a thin bar of the row's `joint` class joins the two.
-export function dots(list: Dot[], [min, max]: [number, number]): string {
+export function dots(list: Dot[], [min, max]: [number, number], valueAttrs: string): string {
   const width = 1.4;
   const at = (value: number): number => centred(axisPosition(value, min, max), width);
   return list
     .map(({ id, control, candidate, joint }) => {
       const [from, to] = [at(control), at(candidate)].sort((a, b) => a - b);
       const marks = [rect(joint, from + width / 2, 4.5, to - from, 1), rect("control", at(control), 0, width, 10), rect("candidate", at(candidate), 2.5, width, 5)];
-      return `<div data-dot><span data-text>${id}</span><svg viewbox="0 0 100 10" preserveaspectratio="none" aria-hidden="true">${marks.join("")}</svg></div>`;
+      return `<div data-dot><span data-text>${id}</span><svg viewbox="0 0 100 10" preserveaspectratio="none" aria-hidden="true"${valueAttrs}>${marks.join("")}</svg></div>`;
     })
     .join("\n");
 }

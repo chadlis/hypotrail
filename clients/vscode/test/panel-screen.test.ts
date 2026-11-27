@@ -10,6 +10,7 @@ import * as path from "node:path";
 import { DEMONSTRATION, JOURNEY, KEPT } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED, profileFor } from "./panel-harness";
 import { BELOW_AA, THEMES, themed } from "./themes";
+import { KEPT_LESSONS } from "./recorder";
 
 type Entry = Record<string, any>;
 
@@ -183,7 +184,7 @@ function assertDecisionOrder(document: string, object: Entry): void {
   object.decisions.forEach((decision: Entry, index: number) => {
     const part = parts[index];
     const heading = elementOf(part, "<h3>")!;
-    assert.match(heading, /^<h3><strong data-text>/);
+    assert.match(heading, /^<h3><strong data-text(?: data-lesson-value="[^"]*")?>/);
     assert.equal(words(heading), `${decision.option} ${PHRASES.get(String(decision.applies))}`);
     const places = [part.indexOf(heading), part.indexOf(decision.decision_id), part.indexOf(`<span data-text>${decision.question}</span>`)];
     if (decision.evidence_change !== null) places.push(part.indexOf('<p data-element="evidence">'));
@@ -253,8 +254,8 @@ for (const name of PENDING_READS) {
       const counted = comparison.limitations.filter((limitation: string) => !messages.includes(limitation));
       assert.equal(words(line), `${WARNINGS} ${comparison.warnings.length} ${LIMITATIONS} ${counted.length} ${RULE}`, line);
       const [warnings, limitations] = linkTo(line).map(([target]) => elementWithId(document, target) ?? "");
-      assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li>").length === comparison.warnings.length, warnings);
-      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text>").length === counted.length, limitations);
+      assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li").length === comparison.warnings.length, warnings);
+      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text").length === counted.length, limitations);
     });
   });
 
@@ -331,6 +332,17 @@ const FIRST_SCREEN_READS = [
   ...["04-pending", "09-new-compare", "11-study-changed"].map((state) => `${JOURNEY}${state}.status`),
   "status-several-pending",
 ];
+
+// "At 420 px, the question, the delta, any warning, the limitations line, the options and Record stay in the first screen with the cards
+// present" (#283): the documents the first-screen tests measure hold the folded cards wherever a lesson read is kept beside the state.
+for (const name of [...FIRST_SCREEN_READS, ...DEMONSTRATION_READS].filter((read, at, all) => all.indexOf(read) === at && read in KEPT_LESSONS)) {
+  test(`the document the first-screen tests measure holds the closed cards of the lesson read kept beside the state: ${name}`, async (t) => {
+    const document = await demonstrationDocument(t, name);
+    const cards = elementsOf(document, '<details data-element="card"');
+    assert.equal(cards.length, keptObject(KEPT_LESSONS[name]).cards.length);
+    assert.ok(cards.length > 0 && cards.every((card) => !/^<details[^>]*\sopen[\s>]/.test(card)), name);
+  });
+}
 
 // The browser, or a skip when it is missing or does not start.
 async function chromeOrSkip(t: TestContext, what: string): Promise<string | undefined> {

@@ -23,6 +23,10 @@ function profileArguments(study: string): string[] {
   return [...contract.first_arguments, ...contract.profile_arguments.map((argument) => argument.replace("{path}", study))];
 }
 
+function lessonArguments(study: string): string[] {
+  return [...contract.first_arguments, ...contract.lesson_arguments.map((argument) => argument.replace("{path}", study))];
+}
+
 const WAYS: [string, (study: string) => Promise<void>][] = [
   ["the command", () => runCommand()],
   ["a link of the first form", (study) => followLink(0, study)],
@@ -35,10 +39,10 @@ for (const [way, open] of WAYS) {
     const calls = recorder(t, exit(0, STATUS));
     await open(study);
     await settle();
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 4);
     assert.equal(calls[0].program, contract.program);
     assert.deepEqual(calls[0].args, readArguments(study));
-    assert.deepEqual(calls.filter((call) => !call.args.includes("status")).map((call) => call.args), [figuresArguments(study), profileArguments(study)]);
+    assert.deepEqual(calls.filter((call) => !call.args.includes("status")).map((call) => call.args), [figuresArguments(study), profileArguments(study), lessonArguments(study)]);
   });
 }
 
@@ -49,9 +53,9 @@ test("the message of Read again on a read that succeeded starts one more status 
   await settle();
   panelOf().send(READ_AGAIN);
   await settle();
-  assert.equal(calls.length, 6);
-  assert.deepEqual(calls[3].args, readArguments(study, JSON.parse(STATUS).write_sequence));
-  assert.deepEqual(calls[3].args.filter((argument) => !argument.startsWith("--since=")), calls[0].args.filter((argument) => !argument.startsWith("--since=")));
+  assert.equal(calls.length, 8);
+  assert.deepEqual(calls[4].args, readArguments(study, JSON.parse(STATUS).write_sequence));
+  assert.deepEqual(calls[4].args.filter((argument) => !argument.startsWith("--since=")), calls[0].args.filter((argument) => !argument.startsWith("--since=")));
 });
 
 test("while a read is in flight the document holds the line for a read in flight, and a message of Read again starts no call", async (t) => {
@@ -68,7 +72,7 @@ test("while a read is in flight the document holds the line for a read in flight
   assert.equal(calls.length, 2);
   answer(exit(0, STATUS));
   await settle();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
   assert.ok(!partsOf(lastDocument()).between.includes(READING));
 });
 

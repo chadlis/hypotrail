@@ -5,7 +5,7 @@ import { bodyOf } from "../src/content";
 import { JOURNEY, kept } from "./kept";
 import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, profileAt, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
-import { exit, recorder, type Answer } from "./recorder";
+import { KEPT_LESSONS, exit, recorder, type Answer } from "./recorder";
 
 type Entry = Record<string, any>;
 
@@ -32,7 +32,7 @@ function withoutMarked(document: string): string {
   return document
     .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, "$1$2")
     .replace(/(<style[^>]*>)[\s\S]*?(<\/style>)/, "$1$2")
-    .replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "");
+    .replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "");
 }
 
 // Each link of the document: its href, its kind, its text and the element its href names.
@@ -553,6 +553,15 @@ test("the key paths the function reads from the profile read, on the kept Bike r
     for (const path of paths) read.add(path);
   }
   assert.deepEqual(leaves(read), [...contract.profile_key_paths].sort());
+});
+
+// The key paths the function reads from the object of the lesson read, beside the kept status read of the same state.
+test("the key paths the function reads from the lesson read over every kept lesson read beside its status read are the entries of lesson_key_paths, both ways", () => {
+  const read = new Set<string>();
+  for (const [status, lesson] of Object.entries(KEPT_LESSONS)) {
+    bodyOf({ reading: false, object: keptObject(status), lesson: recording(keptObject(lesson), "", read) as Entry });
+  }
+  assert.deepEqual(leaves(read), [...contract.lesson_key_paths].sort());
 });
 
 // "its id and its Observation set's id are plain text, never links" (D-143, correction 1): the Attempt's id stands as text only.

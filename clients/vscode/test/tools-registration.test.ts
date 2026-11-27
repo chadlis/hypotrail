@@ -31,7 +31,16 @@ test("the write tool's code, its manifest entry and its registration are byte fo
   const from = source.indexOf("type DecideInput");
   const end = source.indexOf("\n};\n", source.indexOf("export const decideTool")) + "\n};\n".length;
   assert.ok(from >= 0 && end > from);
-  assert.equal(sha256(source.slice(from, end)), DECIDE_CODE_SHA256);
+  // #283 changes the read tool inside this interval. Hash the original write and shared code with only that new read restored.
+  const lessonRead = [
+    '    const outcome = await readStudy(ROOT, resolved.study);',
+    '    if (outcome.outcome !== "success") return answer(readAnswer(resolved.study, outcome));',
+    '    return answer(`${readAnswer(resolved.study, outcome)}\\n${lessonAnswer(await readLesson(ROOT, resolved.study))}`);',
+  ].join("\n");
+  const priorRead = "    return answer(readAnswer(resolved.study, await readStudy(ROOT, resolved.study)));";
+  const checked = source.slice(from, end);
+  assert.equal(checked.split(lessonRead).length, 2);
+  assert.equal(sha256(checked.replace(lessonRead, priorRead)), DECIDE_CODE_SHA256);
   const entry = MANIFEST.contributes.languageModelTools.find((tool: { name: string }) => tool.name === "hypotrail_decide");
   assert.equal(sha256(JSON.stringify(entry)), DECIDE_ENTRY_SHA256);
   const extension = fs.readFileSync(path.join(__dirname, "..", "..", "src", "extension.ts"), "utf8");

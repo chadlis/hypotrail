@@ -1,0 +1,54 @@
+{
+  "ok": true,
+  "write_sequence": 12,
+  "track": "temporal_regression",
+  "cards": [
+    {
+      "kind": "comparisons",
+      "title": "Comparisons",
+      "text": "A Comparison sets two Assessments of the same Items side by side: one side is the Control, the other the Candidate. Its delta is the Candidate's Metric minus the Control's, and its definition states which sign means the Candidate is better. It also records whether the two sides are comparable, how many Items it paired, and its limitations and warnings; the figures give its paired deltas, one per Item, and their spread. Read the comparability, the coverage and the limitations before the delta, and the spread of the paired deltas beside it.",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "comparisons[].roles.control_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].roles.candidate_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].comparability.status"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].coverage.paired"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.value"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.definition"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].limitations"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].warnings"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].paired_deltas"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].quartiles"
+        }
+      ]
+    }
+  ]
+}

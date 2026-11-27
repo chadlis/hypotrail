@@ -46,7 +46,7 @@ test("a success of decide gives back the CLI's object, decision and replayed inc
 });
 
 // Each export of the bridge, marked true when calling it starts a process.
-const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, recordDecision: true, newRequestId: false, missingInputs: false };
+const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, readLesson: true, recordDecision: true, newRequestId: false, missingInputs: false };
 // The starter of the run tool, which starts the arguments the tool built: its commands are those of the tool's own contract.
 const RUN_STARTER = "runCommand";
 
