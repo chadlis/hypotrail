@@ -2,7 +2,8 @@
 
 "run" is not the noun for an Attempt or for an execution anywhere in the corpus: `src/`, `tests/`, the handbook chapters and
 `README.md`. What is let through is an explicit allow-list: the command names (`run agent`, `run ml`, `spike live`), the file
-`run.json` (`run_json` in an identifier), the name "run record", the words "run command" and "run subcommand" (the command and its parser), and the verb.
+`run.json` (`run_json` in an identifier), the name "run record", the words "run command" and "run subcommand" (the command and its parser), the name "run tool" (the Copilot tool
+`hypotrail_run`, as chadlis/hypotrail#285 names it and its end-to-end test), and the verb.
 The noun is found after a determiner or an adjective that only a noun takes, with a noun between the adjective and "run" allowed
 ("a live model run"). An identifier is read as words (`_` separates them), a `.py` file is read as text (its `<` and `>` are
 operators, not tags), and only a chapter is read as its reader reads it (tags stripped). This file is the one file of the corpus left out of the scan, because its sentences quote the noun on purpose.
@@ -29,8 +30,9 @@ ADJECTIVES = (
 MODE_ADJECTIVES = r"llmlive|scriptedfixture"
 # A noun that sits between an adjective and the noun "run" ("a live model run"); after a determiner alone it is a subject ("the model runs").
 MODIFIERS = r"model|llm|provider|agent|ml|study"
-# Names that contain the word without using it as the noun: `run agent`, `run ml`, `run record`, `run command`, `run subcommand` and `run.json`.
-ALLOWED_AFTER = r"(?!\.json|\s+(?:json|agent|ml|record|command|subcommand)\b)"
+# Names that contain the word without using it as the noun: `run agent`, `run ml`, `run record`, `run command`, `run subcommand`, `run tool` and
+# `run.json`.
+ALLOWED_AFTER = r"(?!\.json|\s+(?:json|agent|ml|record|command|subcommand|tool)\b)"
 NOUN = re.compile(
     rf"\b(?:(?:{DETERMINERS})\s+(?:(?:{ADJECTIVES}|{MODE_ADJECTIVES})\s+)*|(?:{ADJECTIVES})\s+(?:(?:{ADJECTIVES})\s+)*(?:(?:{MODIFIERS})\s+)*)runs?\b{ALLOWED_AFTER}(?:'s)?",
     re.IGNORECASE,
