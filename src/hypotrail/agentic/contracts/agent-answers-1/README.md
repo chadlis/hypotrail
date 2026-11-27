@@ -4,7 +4,7 @@ Owner: chadlis/hypotrail. Copy: chadlis/agentkit, `contracts/agent-answers-1/`, 
 
 A kit writes `answers.jsonl` and `population.json`; `hypotrail import agent` reads them. Until now the contract was `LINE_KEYS` in `agentic/imports.py` and section 2.1 of agentkit's design; this directory writes it down.
 
-**Status.** The consumer has accepted `outcome`, `usage`, `metadata` and `settings` since S1 (`04b5806`). `tests/test_contracts_agent_answers.py` compares this schema with `LINE_KEYS`, `USAGE_FIELDS` and `OUTCOMES` and calls `import agent` on the examples. A new Import with an unknown top-level line key is refused with `LINE_KEY_UNKNOWN` (chadlis/hypotrail#278). An existing request with unchanged inputs can still replay its recorded Import. Copies move through contract-pin pull requests.
+**Status.** The consumer has accepted `outcome`, `usage`, `metadata` and `settings` since S1 (`04b5806`). `tests/test_contracts_agent_answers.py` compares this schema with `LINE_KEYS`, `USAGE_FIELDS` and `OUTCOMES` and calls `import agent` on the examples. A new Import with an unknown top-level line key is refused with `LINE_KEY_UNKNOWN` (chadlis/hypotrail#278). An existing request with an unchanged request identity can still replay its recorded Import. Copies move through contract-pin pull requests.
 
 ## Files
 
