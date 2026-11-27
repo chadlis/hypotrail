@@ -52,6 +52,58 @@ def test_a_single_workload_can_be_verified():
     assert [d["workload"] for d in json.loads(out)["datasets"]] == ["bike_day"]
 
 
+@pytest.mark.parametrize(
+    ("notice_state", "error_code"),
+    [("intact", None), ("missing", "LICENCE_NOTICE_MISSING"), ("changed", "LICENCE_NOTICE_CHANGED")],
+)
+def test_data_verify_checks_a_declared_ranking_manifests_notices(tmp_path, monkeypatch, notice_state, error_code):
+    workload = tmp_path / "ranking-metadata-probe"
+    workload.mkdir()
+    sources = []
+    for filename, synthetic_content in (
+        ("items.csv", b"item_id,entity_id,as_of\ntest@2026-01-01,test,2026-01-01\n"),
+        ("references-dev.csv", b"item_id,label\ntest@2026-01-01,1\n"),
+    ):
+        notice = workload / f"{filename}.NOTICE"
+        notice.write_text(f"Synthetic fixture for {filename}.\n", encoding="utf-8")
+        sources.append({
+            "dataset_id": filename,
+            "sha256": hashlib.sha256(synthetic_content).hexdigest(),
+            "size_bytes": len(synthetic_content),
+            "as_of": "2026-01-01",
+            "license": "Synthetic test fixture",
+            "notice": notice.name,
+            "notice_sha256": sha256(notice),
+        })
+    manifest = {"schema_version": "data-manifest/1", "sources": sources}
+    (workload / "data-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    affected = workload / sources[-1]["notice"]
+    if notice_state == "missing":
+        affected.unlink()
+    elif notice_state == "changed":
+        affected.write_text("Changed notice.\n", encoding="utf-8")
+
+    def unexpected_dataset_read(*args, **kwargs):
+        pytest.fail("declared data verification tried to verify source payloads")
+
+    monkeypatch.setattr(data, "_verify_bytes", unexpected_dataset_read)
+    monkeypatch.setattr(data, "_check_content", unexpected_dataset_read)
+    code, out, err = run_cli("data", "verify", "--workload", workload.name, "--examples-dir", str(tmp_path), "--json")
+    payload = json.loads(out)
+    if error_code is not None:
+        assert code == 3 and payload["ok"] is False, (payload, err)
+        error = payload["error"]
+        assert (error["code"], error["stage"]) == (error_code, "licence")
+        assert error["details"]["file"] == affected.name
+        return
+
+    assert code == 0 and payload["ok"] is True, (payload, err)
+    assert payload["datasets"] == [
+        {"workload": workload.name, "status": "declared", **{key: value for key, value in source.items() if key != "notice_sha256"}}
+        for source in sources
+    ]
+
+
 def test_plain_output_is_human_readable_and_stdout_is_not_json_without_the_flag():
     code, out, _ = run_cli("data", "verify")
     assert code == 0
