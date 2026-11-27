@@ -47,6 +47,7 @@ export function openPanel(next: Target): void {
   } else {
     panel = vscode.window.createWebviewPanel("hypotrail.study", "Hypotrail", vscode.ViewColumn.Active, panelOptions());
     panel.webview.onDidReceiveMessage(receive);
+    panel.onDidChangeViewState(({ webviewPanel }) => cacheLessonWhenHidden(webviewPanel));
     panel.onDidDispose(() => {
       panel = undefined;
       target = undefined;
@@ -216,7 +217,7 @@ async function read(written?: Outcome): Promise<void> {
   const failure = outcome.outcome === "success" ? undefined : outcome;
   show({ reading: false, object: held, figures, profile, lesson, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   if (object !== undefined) void readProfileOf(opened, object, study, written);
-  if (object !== undefined) void readLessonOf(opened, object, study, written);
+  if (object !== undefined) void readLessonOf(opened, object, study);
 }
 
 // The profile call, made once the document of the status and figures reads is drawn, so that nothing waits for it: its answer is kept for
@@ -231,26 +232,41 @@ async function readProfileOf(opened: vscode.WebviewPanel, object: Record<string,
 // The lesson call, made once the document of the status and figures reads is drawn, as the profile call is, so that the Pending decision,
 // its choices and Record never wait for it. Keep only a usable lesson beside the same status object, and deliver it to the existing
 // document without replacing the Pending decision's form.
-async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string, written?: Outcome): Promise<void> {
+async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string): Promise<void> {
   const answer = await readLesson(ROOT, study);
   if (panel !== opened || held !== object) return;
   lesson = answer.outcome === "success" ? usableLesson(object, answer.object) : undefined;
   if (inFlight || lesson === undefined) return;
 
+  if (!opened.visible) {
+    cacheLessonWhenHidden(opened);
+    return;
+  }
   const document = opened.webview.html;
   const nonce = /<script nonce="([a-f0-9]+)">/.exec(document)?.[1];
-  if (nonce === undefined || document.includes('<div data-part="lesson">')) return;
-  const cards = cardsOf(lesson, document);
-  if (cards === "" || await opened.webview.postMessage({ lesson: cards, nonce })) return;
+  const cards = newLessonCards(document);
+  if (nonce !== undefined && cards !== "") void opened.webview.postMessage({ lesson: cards, nonce });
+}
 
-  // A hidden webview can have no live document. Save the full rendering for its next mount without replacing a visible form.
-  if (panel === opened && held === object && !inFlight && !opened.visible && opened.webview.html === document) {
-    show({ reading: false, object, figures, profile, lesson, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
-  }
+function newLessonCards(document: string): string {
+  return document.includes('<div data-part="lesson">') ? "" : cardsOf(usableLesson(held, lesson), document);
+}
+
+// A hidden webview can be recreated from the HTML assigned by the extension. Add only the lesson to that cached document.
+function cacheLessonWhenHidden(opened: vscode.WebviewPanel): void {
+  if (panel !== opened || opened.visible || inFlight) return;
+  const document = opened.webview.html;
+  const cards = newLessonCards(document);
+  const path = '<section data-part="path">';
+  if (cards !== "") setDocument(document.replace(path, () => `${cards}\n${path}`));
 }
 
 function show(view: View): void {
-  panel!.webview.html = documentFor(newNonce(), view);
+  setDocument(documentFor(newNonce(), view));
+}
+
+function setDocument(document: string): void {
+  panel!.webview.html = document;
 }
 
 // Each entry of `panel_options` is `name=value`, the value written as JSON.

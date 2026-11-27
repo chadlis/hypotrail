@@ -278,3 +278,34 @@ test("a lesson that arrives while the view has no live document is in the HTML f
   assert.equal(panel.updates.length, 0);
   assert.equal(elementsOf(panel.webview.html, CARD).length, keptObject("lesson.after-compare").cards.length);
 });
+
+test("a lesson delivered to the visible webview survives a hide and reveal", async (t) => {
+  const [status, figures, usable] = readsOf("after-compare");
+  workspace(t, ["bike"]);
+  const held = heldRecorder(t, true);
+  await runCommand();
+  held.answer(status);
+  await settle();
+  held.answer(figures);
+  await settle();
+
+  const panel = panelOf();
+  const document = panel.webview.html;
+  held.answer(usable);
+  await settle();
+  assert.equal(panel.webview.html, document, "delivery leaves the active form's document assigned");
+  assert.equal(panel.updates.length, 1);
+  const processes = held.calls.length;
+
+  panel.setVisible(false);
+  const cached = panel.webview.html;
+  const documents = panel.documents.length;
+  panel.setVisible(true);
+  await settle();
+  assert.equal(elementsOf(cached, CARD).length, keptObject("lesson.after-compare").cards.length);
+  assert.equal(withoutCards(cached), document, "only the cards were added to the cached document");
+  assert.equal(panel.webview.html, cached);
+  assert.equal(panel.documents.length, documents, "reveal assigns no document");
+  assert.equal(panel.updates.length, 1, "visibility sends no message");
+  assert.equal(held.calls.length, processes, "visibility starts no CLI process");
+});

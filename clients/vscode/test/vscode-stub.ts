@@ -15,6 +15,8 @@ export type StubPanel = {
   // Sends a message as the document's script would.
   send(message: unknown): void;
   reveal(): void;
+  setVisible(visible: boolean): void;
+  onDidChangeViewState(listener: (event: { webviewPanel: StubPanel }) => void): { dispose(): void };
   onDidDispose(listener: () => void): { dispose(): void };
   dispose(): void;
 };
@@ -76,6 +78,7 @@ export const workspace = {
 function makePanel(viewType: string, options: unknown): StubPanel {
   const listeners: (() => void)[] = [];
   const receivers: ((message: unknown) => void)[] = [];
+  const viewStates: ((event: { webviewPanel: StubPanel }) => void)[] = [];
   let html = "";
   const panel: StubPanel = {
     viewType,
@@ -110,6 +113,15 @@ function makePanel(viewType: string, options: unknown): StubPanel {
     reveal() {
       record("reveal", []);
       panel.reveals += 1;
+    },
+    setVisible(visible) {
+      if (panel.visible === visible) return;
+      panel.visible = visible;
+      for (const listener of viewStates) listener({ webviewPanel: panel });
+    },
+    onDidChangeViewState(listener) {
+      viewStates.push(listener);
+      return disposable;
     },
     onDidDispose(listener) {
       listeners.push(listener);
