@@ -227,7 +227,7 @@ for (const name of DRAWN) {
       if (entry.unavailable !== null) continue;
       // The histogram and the box plot; the dots, whose numbers are values of the entry's paired deltas, have their own test.
       const shown = [histogramOf(part), boxOf(part)].join("\n");
-      const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)">([^<]*)<\/a>/g)];
+      const links = [...shown.matchAll(/<a href="#comparison-(\d+)" data-kind="([a-z_]+)"(?: data-lesson-value="[^"]*")?>([^<]*)<\/a>/g)];
       assert.ok(links.length >= entry.histogram.length + FIVE.length, `${links.length} links`);
       for (const [, index, kind, text] of links) {
         assert.ok(numbersOf(entry, comparison).has(text), `${text} is a number of the entry of ${entry.comparison_id}`);

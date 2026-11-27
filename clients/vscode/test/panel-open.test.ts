@@ -387,7 +387,7 @@ const RECORD_PARTS: Record<string, [string, string, string]> = {
 };
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 // The id a part shows first, outside its marked texts.
-const firstId = (html: string): string | undefined => partsOf(html.replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "")).between.match(UUID)?.[0];
+const firstId = (html: string): string | undefined => partsOf(html.replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "")).between.match(UUID)?.[0];
 const partsOfKind = (document: string, kind: string): string[] => [...document.matchAll(new RegExp(`<([a-z0-9]+) data-part="${kind}"[^>]*>`, "g"))].map((match) => elementOf(document.slice(match.index), match[0])!);
 const withoutParts = (html: string, kind: string): string => partsOfKind(html, kind).reduce((rest, part) => rest.replace(part, ""), html);
 

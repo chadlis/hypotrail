@@ -148,12 +148,14 @@ test("in a browser, opening the card highlights only delta values including the 
   const targets = await evaluate('document.querySelectorAll(\'[data-lesson-value="status comparisons[].delta.value"]\').length');
   const highlighted = 'JSON.stringify([...document.querySelectorAll("[data-highlighted]")].map((element) => element.getAttribute("data-kind") + " " + (element.closest(\'section[data-part="now"]\') !== null)))';
   assert.equal(await evaluate(highlighted), "[]");
-  await evaluate('document.querySelector(\'details[data-element="card"]\').open = true; new Promise((resolve) => setTimeout(resolve, 50))');
+  await evaluate('document.querySelector(\'details[data-element="card"]\').open = true');
+  await new Promise((resolve) => setTimeout(resolve, 50));
   const open = JSON.parse(await evaluate(highlighted));
   assert.equal(open.length, targets);
   assert.ok(open.includes("delta true"));
   assert.ok(open.every((target: string) => target.startsWith("delta ")));
-  await evaluate('document.querySelector(\'details[data-element="card"]\').open = false; new Promise((resolve) => setTimeout(resolve, 50))');
+  await evaluate('document.querySelector(\'details[data-element="card"]\').open = false');
+  await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(await evaluate(highlighted), "[]");
 });
 

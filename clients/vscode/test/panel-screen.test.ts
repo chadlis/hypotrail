@@ -184,7 +184,7 @@ function assertDecisionOrder(document: string, object: Entry): void {
   object.decisions.forEach((decision: Entry, index: number) => {
     const part = parts[index];
     const heading = elementOf(part, "<h3>")!;
-    assert.match(heading, /^<h3><strong data-text>/);
+    assert.match(heading, /^<h3><strong data-text(?: data-lesson-value="[^"]*")?>/);
     assert.equal(words(heading), `${decision.option} ${PHRASES.get(String(decision.applies))}`);
     const places = [part.indexOf(heading), part.indexOf(decision.decision_id), part.indexOf(`<span data-text>${decision.question}</span>`)];
     if (decision.evidence_change !== null) places.push(part.indexOf('<p data-element="evidence">'));
@@ -254,8 +254,8 @@ for (const name of PENDING_READS) {
       const counted = comparison.limitations.filter((limitation: string) => !messages.includes(limitation));
       assert.equal(words(line), `${WARNINGS} ${comparison.warnings.length} ${LIMITATIONS} ${counted.length} ${RULE}`, line);
       const [warnings, limitations] = linkTo(line).map(([target]) => elementWithId(document, target) ?? "");
-      assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li>").length === comparison.warnings.length, warnings);
-      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text>").length === counted.length, limitations);
+      assert.ok(warnings.includes(`<h4>${WARNINGS}</h4>`) && elementsOf(warnings, "<li").length === comparison.warnings.length, warnings);
+      assert.ok(limitations.includes(`<h4>${LIMITATIONS}</h4>`) && elementsOf(limitations, "<li data-text").length === counted.length, limitations);
     });
   });
 

@@ -81,7 +81,7 @@ function leftOf(document: string, answers: Answer[]): string {
   let left = unescaped(
     body
       .replace(/<script[^>]*>[\s\S]*?<\/script>/, "\n")
-      .replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "\n")
+      .replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "\n")
       .split(/<[^>]*>/)
       .join("\n"),
   );
@@ -267,7 +267,7 @@ test("on state 09 the cited Comparison's delta and the new delta both stand in N
   const interval = freshComparison.interval;
   assert.ok(interval.lower !== null && interval.upper !== null, "state 09's read holds an interval with bounds");
   const intervalNumbers = [interval.level, interval.lower, interval.upper].map(written);
-  const deltas = [...now.matchAll(/<a href="#comparison-\d+" data-kind="delta">([^<]*)<\/a>/g)].map((match) => match[1]);
+  const deltas = [...now.matchAll(/<a href="#comparison-\d+" data-kind="delta"(?: data-lesson-value="[^"]*")?>([^<]*)<\/a>/g)].map((match) => match[1]);
   assert.deepEqual(deltas.slice(0, 2), [written(fresh), written(cited)], "the new delta in the delta line, then the cited one beside it");
   assert.ok(words(elementOf(now, '<p data-element="cited-delta">')).includes(written(cited)), "the cited delta in its line");
   assert.ok(words(elementOf(now, '<p data-element="context">')).includes(earlier.option), "the earlier Decision's option");
@@ -377,7 +377,7 @@ test("on state 12 the document holds no link to the Attempt no Assessment cites 
   const thirteen = readOf("13-exposure");
   const later = (await built(t, "13-exposure")).document;
   const row = elementsOf(elementOf(later, '<details data-step="attempts">')!, '<li data-part="attempt">').find((each) => each.includes(check.attempt_id));
-  assert.ok(row && /<a [^>]*data-kind="item_counts">184<\/a>/.test(row), "its counts show once an Assessment cites it");
+  assert.ok(row && /<a [^>]*data-kind="item_counts"(?: data-lesson-value="[^"]*")?>184<\/a>/.test(row), "its counts show once an Assessment cites it");
   assert.ok(thirteen.assessments.some((assessment: Record<string, any>) => assessment.observation_set_id === check.observation_set_id));
 });
 

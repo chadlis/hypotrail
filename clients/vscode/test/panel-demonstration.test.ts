@@ -116,7 +116,7 @@ function assertPending({ document, read, figures }: Seen): Entry {
   assert.ok(warning, "the read holds the warning");
   const warnings = elementOf(part, '<div data-part="warnings"')!;
   assert.ok(warnings.includes(`<h4>${label("Warnings of the Comparison")}</h4>`));
-  assert.ok(elementsOf(warnings, "<li>").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
+  assert.ok(elementsOf(warnings, "<li").map(words).includes(`${warning.code} ${warning.message}`), "the message of the warning");
   const limitations = elementOf(part, '<div data-part="limitations"')!;
   assert.ok(limitations.includes(`<h4>${label("Limitations of the Comparison")}</h4>`));
   // "Now counts and lists only the limitations that are no warning's message, and states that rule." (D-151, answer 8)
@@ -560,7 +560,7 @@ function unled(document: string, read: Entry): { fileNames: string[]; numbers: s
     elements.filter((element) => which(element) && element.start <= at && at < element.end).sort((a, b) => a.end - a.start - (b.end - b.start))[0];
   const inside = (element: Element): string => body.slice(element.start, element.end);
   const fileNames: string[] = [];
-  for (const match of body.matchAll(/<([a-z0-9]+) data-text>([^<]*)<\/\1>/g)) {
+  for (const match of body.matchAll(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>([^<]*)<\/\1>/g)) {
     const text = unescaped(match[2]);
     if (!paths.has(text)) continue;
     const part = around(match.index, (element) => element.part !== undefined);
@@ -622,7 +622,7 @@ test("the function of blocker 11 finds nothing in the document of after-compare,
   assert.notEqual(changed, document, "a control was removed");
   const found = unled(changed, read);
   assert.deepEqual(found.fileNames, [read.assessments[index].per_item_ref.path], "the output path with no control");
-  const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)">([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
+  const expected = [...document.matchAll(new RegExp(`<a href="#assessment-${index}" data-kind="([^"]*)"[^>]*>([^<]*)</a>`, "g"))].map((match) => `${match[1]} ${unescaped(match[2])}`);
   assert.ok(expected.length > 0, "numbers lead to the first Assessment's part");
   assert.deepEqual(found.numbers, expected, "each number whose record part has no control");
 });

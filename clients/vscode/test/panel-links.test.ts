@@ -32,7 +32,7 @@ function withoutMarked(document: string): string {
   return document
     .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/, "$1$2")
     .replace(/(<style[^>]*>)[\s\S]*?(<\/style>)/, "$1$2")
-    .replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "");
+    .replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "");
 }
 
 // Each link of the document: its href, its kind, its text and the element its href names.

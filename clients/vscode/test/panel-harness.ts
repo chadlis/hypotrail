@@ -171,7 +171,7 @@ export function partsOf(document: string): { script: string; style: string; tags
 
 // The unescaped texts of the elements that carry the marker attribute of a marked text.
 export function markedTexts(document: string): string[] {
-  return [...document.matchAll(/<([a-z0-9]+) data-text>([^<]*)<\/\1>/g)].map((match) => unescaped(match[2]));
+  return [...document.matchAll(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>([^<]*)<\/\1>/g)].map((match) => unescaped(match[2]));
 }
 
 // The HTML of the first element that opens with `opening` and closes with `</tag>`, nested elements of the same tag

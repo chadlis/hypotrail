@@ -305,7 +305,7 @@ function leftOf(built: Built): string {
   let left = unescaped(
     body
       .replace(/<script[^>]*>[\s\S]*?<\/script>/, "\n")
-      .replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "\n")
+      .replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "\n")
       .split(/<[^>]*>/)
       .join("\n"),
   );
@@ -358,7 +358,7 @@ for (const [name, build] of DOCUMENTS) {
 
 // The text between the tags of a document, its script, style and marked texts removed, as one line of words.
 const fixedWordsOf = (document: string): string =>
-  ` ${partsOf(document.replace(/<([a-z0-9]+) data-text>[^<]*<\/\1>/g, "")).between.split(/\s+/).filter(Boolean).join(" ")} `;
+  ` ${partsOf(document.replace(/<([a-z0-9]+) data-text(?: data-lesson-value="[^"]*")?>[^<]*<\/\1>/g, "")).between.split(/\s+/).filter(Boolean).join(" ")} `;
 
 test("every entry of labels is printed outside a marked text by one of the documents the panel builds", async (t) => {
   const printed: string[] = [];
