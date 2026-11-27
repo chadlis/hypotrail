@@ -97,3 +97,29 @@ def test_each_refused_references_file_is_refused_by_init_with_its_code(case, tmp
         assert (code, refused["error"]["code"]) == (expected["exit"], expected["code"])
     assert not new_study.exists()
     assert (study / "study.json").read_bytes() == earlier
+
+
+def test_data_verify_refuses_a_hard_link_or_a_symbolic_replacement_before_reading(ranking_paths, monkeypatch):
+    import os
+
+    examples, build_dir, _ = ranking_paths
+    source = build_dir / "references-dev.csv"
+    alias_target = build_dir.parent / "synthetic-reference.csv"
+    source.rename(alias_target)
+    source.hardlink_to(alias_target)
+    code, refused, _ = verify(examples, "--build-dir", build_dir)
+    assert (code, refused["error"]["code"]) == (3, "DATA_MISSING")
+    source.unlink()
+    alias_target.rename(source)
+
+    real_open = os.open
+
+    def exchange_before_open(path, flags, *args, **kwargs):
+        if path == source:
+            source.rename(alias_target)
+            source.symlink_to(alias_target)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", exchange_before_open)
+    code, refused, _ = verify(examples, "--build-dir", build_dir)
+    assert (code, refused["error"]["code"]) == (3, "DATA_MISSING")

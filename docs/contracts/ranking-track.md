@@ -4,8 +4,8 @@ Status: accepted, 2026-11-27 (M0). The Track's decision record is [ADR 0008](../
 
 The ranking Track evaluates a score per (entity, as-of date) that a kit writes outside Hypotrail. Each Item is one entity at one as-of date. Its Reference is whether the event happened within the horizon after that date. Hypotrail imports the score file (`hypotrail import ml`), assesses it against the References, and compares two Assessments.
 
-This page writes none of that code. It fixes the file formats and the rules the code will follow:
-- M1 imports and assesses;
+This page fixes the file formats and the rules for the ranking Track:
+- M1 verifies the private build, initializes a development Study, and imports and assesses scores;
 - M2 compares, and builds the interval's estimator;
 - M3 compares two populations.
 
@@ -39,7 +39,7 @@ An Item needs nothing more than its ID to be joined: its entity and its date are
 
 Extra columns of `scores.csv` are tolerated and reported as `unmapped_columns`. A population holds the Items of one Partition, and it may be smaller than its Partition.
 
-`settings` is recorded `declared`. Until M1 accepts it in a mapping, `import ml` refuses a mapping that holds it with `MAPPING_KEY_UNKNOWN`.
+`settings` in a ranking mapping is recorded as `declared` producer provenance. Each named setting is a JSON scalar. The ranking Import validates the population before reading its score file.
 
 Sources: D-172 on chadlis/hypotrail#75, C1 and answer 1 ("Wrong if M0 finds that the Track cannot keep the `row_id` / `y_pred` / `dataset_sha256` mapping"); `src/hypotrail/ml/imports.py` at `865aa4e` (`MAPPING_KEYS`, the join by ID, `unmapped_columns`, one Partition per population).
 
@@ -61,9 +61,13 @@ outside Git with `--build-dir` to `data verify`, `init` or `init --new-revision`
 The byte check does not parse the CSVs. Without the directory, `data verify`
 continues to report a manifest's sources as `declared`. The development Study
 freezes its development memberships and References, the source digest and
-the maturity rule. An Item outside the development Partition leaves no clear
-Item ID in those Study artifacts. No held-out References file is a development
-input.
+the maturity rule. A private frozen artifact also carries SHA-256 digests
+of Item IDs from other named Partitions, solely to recognize a mixed-Partition
+request without storing those Item IDs. An Import refusal gives a code without
+disclosing an outside Item ID, and the Study's read commands do not return
+the index. Keep the Study in a private workspace because a reader with file
+access can try guesses against these digests. No held-out References file is
+a development input.
 
 Source: [D-232, dated 2026-11-27](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7225276774).
 
@@ -80,7 +84,7 @@ The Metric is `recall_at_top_fraction`, with `fraction` 0.1. It is computed per 
 4. A date with no positive Item has no recall and is left out.
 5. The Metric is the mean of the dates' recalls.
 
-The Assessment states how many dates were left out. When every date is left out, the Metric has no value.
+Scorer `ranking_recall_at_top_v1` records the date counts in the Assessment's `ranking_dates` field as `scored` and `omitted_no_positives`. When every date is left out, the Metric has no value.
 
 The interval resamples entities, so all the Items of one `entity_id` are drawn together. It uses S2-1's constants: percentile, 0.95, 2,000 resamples. M0 fixes only the unit and those constants. The estimator is M2's, because recall in a top fraction is not a mean per Item.
 

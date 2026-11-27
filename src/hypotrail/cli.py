@@ -211,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_ = commands.add_parser("import", help="adopt outputs produced elsewhere as an Import Attempt of a Study")
     import_commands = import_.add_subparsers(dest="import_command", metavar="TRACK")
     import_ml = import_commands.add_parser(
-        "ml", help="import a complete predictions CSV of the temporal regression Track (from a program that never imports hypotrail)"
+        "ml", help="import complete observations of a temporal regression or ranking Study from a CSV"
     )
     import_ml.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to record the Import in")
     import_ml.add_argument("--source", required=True, type=Path, metavar="CSV", help="the predictions file (UTF-8 CSV), kept as it is")
@@ -503,7 +503,7 @@ def _data_verify(args) -> int:
         from hypotrail.ml import ranking_study
 
         if args.workload is None or len(args.workload) != 1:
-            raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir needs exactly one --workload", stage="config")
+            raise InvalidInputError("RANKING_BUILD_NEEDS_WORKLOAD", "--build-dir needs exactly one --workload", stage="config")
         reports = ranking_study.verify(examples, args.workload[0], args.build_dir)
     lines = [
         f"{r['workload']}: {r['dataset_id']} verified "
@@ -552,13 +552,11 @@ def _init(args) -> int:
     examples = data.resolve_examples_dir(args.examples_dir)
     track = declared_track(Path(examples) / args.workload)
     build = {}
-    if track == "ranking":
-        from hypotrail.ml import ranking_study as study
-
+    if args.build_dir is not None:
+        if track != "ranking":
+            raise InvalidInputError("RANKING_BUILD_UNSUPPORTED", "--build-dir is for ranking Workloads", stage="config")
         build["build_dir"] = args.build_dir
-    elif args.build_dir is not None:
-        raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir is for ranking Workloads", stage="config")
-    elif track == "tool_using_agent":
+    if track == "tool_using_agent":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study
@@ -596,13 +594,11 @@ def _new_revision(args) -> int:
         )
     domain = layout.read_spec(args.study)["domain"]
     build = {}
-    if domain == "ranking":
-        from hypotrail.ml import ranking_study as study
-
+    if args.build_dir is not None:
+        if domain != "ranking":
+            raise InvalidInputError("RANKING_BUILD_UNSUPPORTED", "--build-dir is for ranking Workloads", stage="config")
         build["build_dir"] = args.build_dir
-    elif args.build_dir is not None:
-        raise InvalidInputError("INVALID_ARGUMENTS", "--build-dir is for ranking Workloads", stage="config")
-    elif domain == "agentic":
+    if domain == "agentic":
         from hypotrail.agentic import study
     else:
         from hypotrail.ml import study

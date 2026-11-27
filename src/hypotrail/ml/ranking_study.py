@@ -3,7 +3,9 @@
 import csv
 import io
 import json
+import os
 import re
+import stat
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -16,16 +18,16 @@ from jsonschema import Draft202012Validator
 from hypotrail.core import artifacts, canonical, contracts, data, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
+from hypotrail.ml.partitions import DEV
 
-TRACK = "ranking"
-DEV = "dev"
+TRACK = scorers.RANKING
 BUILD = "build.json"
 ITEMS = "items.csv"
 REFERENCES = "references-dev.csv"
 DEV_FILES = {ITEMS, REFERENCES}
-item_id_pattern = re.compile(r"([A-Za-z0-9_-]+)@([0-9]{4}-[0-9]{2}-[0-9]{2})")
-item_columns = ("item_id", "entity_id", "as_of", "partition", "mature")
-reference_columns = ("item_id", "label")
+ITEM_ID_PATTERN = re.compile(r"([A-Za-z0-9_-]+)@([0-9]{4}-[0-9]{2}-[0-9]{2})")
+ITEM_COLUMNS = ("item_id", "entity_id", "as_of", "partition", "mature")
+REFERENCE_COLUMNS = ("item_id", "label")
 
 
 def _refuse(code, message, **details):
@@ -69,9 +71,15 @@ def _read_source(folder, source):
     name = source["dataset_id"]
     path = folder / name
     try:
-        if path.is_symlink() or not path.is_file():
+        entry = path.lstat()
+        if not stat.S_ISREG(entry.st_mode) or entry.st_nlink != 1:
             raise OSError
-        raw = path.read_bytes()
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        with os.fdopen(os.open(path, flags), "rb") as handle:
+            opened = os.fstat(handle.fileno())
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1 or not os.path.samestat(entry, opened):
+                raise OSError
+            raw = handle.read()
     except OSError:
         raise IntegrityError("DATA_MISSING", f"private build file missing or unreadable: {name}", stage="integrity", details={"file": name}) from None
     digest = canonical.sha256_hex(raw)
@@ -93,8 +101,8 @@ def _read_source(folder, source):
 
 def _verified_build(examples, workload, build_dir):
     folder = _private_directory(build_dir)
-    reports = data.verify_workloads(examples, [workload])
     declaration = _declaration(examples, workload)
+    reports = data.verify_workloads(examples, [workload])
     names = [report["dataset_id"] for report in reports]
     if set(names) != DEV_FILES | {BUILD} or len(names) != len(set(names)) or any(report["status"] != "declared" for report in reports):
         raise _refuse(
@@ -131,7 +139,7 @@ def verify(examples, workload, build_dir):
 
 
 def item_date(item_id):
-    match = item_id_pattern.fullmatch(item_id)
+    match = ITEM_ID_PATTERN.fullmatch(item_id)
     if match is None:
         raise ValueError("invalid Item ID")
     return date.fromisoformat(match[2])
@@ -154,7 +162,7 @@ def _table(raw, columns, code):
 
 def _items(raw, cutoff, horizon):
     items = {}
-    for row in _table(raw, item_columns, "RANKING_ITEMS_INVALID"):
+    for row in _table(raw, ITEM_COLUMNS, "RANKING_ITEMS_INVALID"):
         item_id = row["item_id"]
         try:
             as_of = item_date(item_id)
@@ -175,7 +183,7 @@ def _items(raw, cutoff, horizon):
 
 def _verify_references(raw, items):
     seen = set()
-    for row in _table(raw, reference_columns, "RANKING_REFERENCES_INVALID"):
+    for row in _table(raw, REFERENCE_COLUMNS, "RANKING_REFERENCES_INVALID"):
         item_id = row["item_id"]
         if item_id in seen:
             raise _refuse("REFERENCE_ROW_DUPLICATE", "the development References list an Item twice")
@@ -195,7 +203,7 @@ def _verify_references(raw, items):
 
 def _dev_memberships(items):
     out = io.StringIO()
-    columns = item_columns[:-1]
+    columns = ITEM_COLUMNS[:-1]
     writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
     writer.writeheader()
     writer.writerows(items[item_id] for item_id in sorted(items) if items[item_id]["partition"] == DEV)
@@ -210,7 +218,7 @@ class FrozenBuild:
     references: bytes
 
 
-def _freeze(examples, workload, build_dir):
+def freeze(examples, workload, build_dir):
     declaration, raw, build, cutoff, _ = _verified_build(examples, workload, build_dir)
     horizon = declaration["horizon_days"]
     items = _items(raw[ITEMS], cutoff, horizon)
@@ -231,11 +239,11 @@ def read_dataset(study, spec):
     """Read the frozen metadata and dev memberships through their Study digests."""
     dataset = canonical.loads(artifacts.read_verified(study, layout.dataset_ref(spec)))
     ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
-    members = _table(artifacts.read_verified(study, ref), item_columns[:-1], "RANKING_ITEMS_INVALID")
+    members = _table(artifacts.read_verified(study, ref), ITEM_COLUMNS[:-1], "RANKING_ITEMS_INVALID")
     return dataset, {row["item_id"]: row for row in members}
 
 
-def _publish(study, workload, frozen, previous, write):
+def publish(study, workload, frozen, previous, write):
     config = frozen.declaration
     protocol = canonical.digest({
         "workload": workload,
@@ -286,29 +294,3 @@ def _publish(study, workload, frozen, previous, write):
         revisions.publish(study, previous, spec)
     write.wrote(study_write.REVISION, spec["revision"])
     return spec
-
-
-def init_study(workload, study, examples, build_dir):
-    study = Path(study)
-    if (study / layout.STUDY_FILE).exists():
-        with study_write.locked(study, study_write.INIT):
-            raise _refuse("STUDY_EXISTS", f"Study already exists: {study}", study=str(study))
-    frozen = _freeze(examples, workload, build_dir)
-    study.mkdir(parents=True, exist_ok=True)
-    with study_write.locked(study, study_write.INIT) as write:
-        if (study / layout.STUDY_FILE).exists():
-            raise _refuse("STUDY_EXISTS", f"Study already exists: {study}", study=str(study))
-        return _publish(study, workload, frozen, None, write)
-
-
-def new_revision(study, examples_dir, build_dir, *, read_sequence=None):
-    study = Path(study)
-    study_write.check_read_sequence(study_write.INIT, read_sequence)
-    layout.read_spec(study)
-    with study_write.locked(study, study_write.INIT_NEW_REVISION, read_sequence=read_sequence) as write:
-        write.require_current()
-        previous = layout.read_spec(study)
-        layout.require_domain(previous, TRACK, study_write.INIT_NEW_REVISION)
-        workload = previous["workload"]
-        frozen = _freeze(data.resolve_examples_dir(examples_dir), workload, build_dir)
-        return _publish(study, workload, frozen, previous, write)
