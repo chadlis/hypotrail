@@ -96,7 +96,7 @@ if step "C1 install and compile Hypotrail" product_setup; then
     if ! step "C2 Hypotrail suite, first run" python_suite; then
         step "C2 Hypotrail suite, isolated retry" python_suite || true
     fi
-    step "C2 VS Code client suite" at "$product/clients/vscode" npm test || true
+    step "C2 VS Code client suite (five-minute limit)" at "$product/clients/vscode" timeout 5m npm test || true
     ready[product-build]=1
 fi
 

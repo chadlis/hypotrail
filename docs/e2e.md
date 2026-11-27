@@ -1,6 +1,6 @@
 # Whole-system proof
 
-Run this manual proof from a Hypotrail checkout with Bash, Git, uv, Python 3.13, Node 22 or later, npm and Chromium. Set `HYPOTRAIL_CHROME` when Chromium is installed somewhere other than `/usr/bin/google-chrome`.
+Run this manual proof from a Hypotrail checkout with Bash, Git, uv, Python 3.13, Node 22 or later, npm, Chromium and GNU `timeout`. Set `HYPOTRAIL_CHROME` when Chromium is installed somewhere other than `/usr/bin/google-chrome`.
 
 ```sh
 scripts/e2e_all.sh /path/to/writable/scratch /path/to/cached/online_retail_II.xlsx
@@ -13,8 +13,8 @@ The script creates a new private scratch directory. It uses private package cach
 | Step | What it checks |
 | --- | --- |
 | C1 | Fresh clones, explicit pins, the frozen product environment and the compiled VS Code client. |
-| C2 | The full product and client suites, each kit's CI and pinned end-to-end workflow, and validation of the pinned example and published packs. The MLkit workflow uses its cache-hit path. |
-| C3 | The published pack before any Study, the Bike development Import, Assessment, Comparison and synthetic panel Decision, every station-mark transition, and read-only behaviour. A synthetic public-check Attempt tests that the three pack keys are identical. A separate literal token check rejects forbidden words without printing the matches. The old serializer is checked byte for byte over the scratch Study's actual identifiers. The kept-read suite in C2 covers the pre-pack captures. |
+| C2 | The full product and client suites, each kit's CI and pinned end-to-end workflow, and validation of the pinned example and published packs. The MLkit workflow uses its cache-hit path. The client suite has a five-minute limit and needs Chromium to load local files. |
+| C3 | The published pack before any Study, the Bike development Import, Assessment, Comparison and synthetic panel Decision, every station-mark transition, and read-only behaviour. A synthetic public-check Attempt tests that the three pack keys are identical. A separate literal token check rejects forbidden words without printing the matches. The pack-off read matches its unchanged pre-pack capture byte for byte. |
 | C4 | The kept Chinook development Campaign replayed in a scratch Study and a pack unavailable for that Track. |
 | C5 | The compiled panel draws the actual Bike and Chinook development reads with and without the pack, at both widths in the four default themes. The renderer checks panel order, first-screen positions and keyboard access to Record. The contact sheet uses the client's document harness, Chrome driver and theme injections. The stock `verify-panel` command cannot take these Studies or select only development reads, so the manual proof supplies its own safe input driver. |
 | C6 | The existing Guide suite and a scripted four-station walk using the real registered read tool. The held-out turn in this model-free script has the single boundary answer and no call. This proves the script, instructions and available tools. The Guide's behaviour with a model in the actual VS Code host is outside this proof. |

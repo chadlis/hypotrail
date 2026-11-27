@@ -13,7 +13,6 @@ from _compare_helpers import compare
 from _demonstration_helpers import Recorder, demonstration
 from _import_helpers import FIELDS, import_ml, ready, rows_of, write_rows
 from _study_helpers import ROOT, init_study, run_cli, run_json
-from hypotrail.ml import lesson as bike_cards
 from test_run_tool_end_to_end import the_tool
 
 PACK_VARIABLE = "HYPOTRAIL_LESSON_PACKS"
@@ -49,12 +48,24 @@ def read_files():
     return Path(os.environ["HYPOTRAIL_E2E_READS"])
 
 
-def capture(study, prefix, with_pack):
+def capture(study, track, with_pack, without_pack):
     """Pass only these development Study reads to the local panel harness."""
-    data = {name: payload(run_json(name, "--study", study)) for name in ("status", "figures")}
-    data["without_pack"] = json.loads(raw_lesson("--study", study))
-    data["with_pack"] = with_pack
-    (read_files() / f"{prefix}-panel.json").write_text(json.dumps(data), encoding="utf-8")
+    status = state(study)
+    assert status["pending_decisions"], "capture before the synthetic Decision"
+    assert status["attempts"] and all(attempt["partition"] == "dev" for attempt in status["attempts"])
+    observations = {attempt["observation_set_id"] for attempt in status["attempts"]}
+    observations.discard(None)
+    assert all(assessment["observation_set_id"] in observations for assessment in status["assessments"])
+    assessment_ids = {assessment["assessment_id"] for assessment in status["assessments"]}
+    for comparison in status["comparisons"]:
+        roles = comparison["roles"]
+        assert {roles["control_assessment_id"], roles["candidate_assessment_id"]} <= assessment_ids
+    assert with_pack["write_sequence"] == without_pack["write_sequence"] == status["write_sequence"]
+    figures = payload(run_json("figures", "--study", study))
+    comparisons = {value["comparison_id"] for value in status["comparisons"]}
+    assert all(value["comparison_id"] in comparisons for value in figures["comparisons"])
+    data = {"status": status, "figures": figures, "with_pack": with_pack, "without_pack": without_pack}
+    (read_files() / f"{track}-panel.json").write_text(json.dumps(data), encoding="utf-8")
 
 
 def snapshot(study):
@@ -83,8 +94,11 @@ def assert_station_sequence(lesson, marks):
 
 def test_bike_journey(tmp_path, monkeypatch):
     pack_path = os.environ[PACK_VARIABLE]
-    study, initial = init_study(tmp_path)
-    seen = []
+    rejected = 0
+
+    def scan(raw):
+        nonlocal rejected
+        rejected += WALL_WORDS.search(raw) is not None
 
     def read(current, marks):
         before, seq = snapshot(current), state(current)["write_sequence"]
@@ -93,7 +107,7 @@ def test_bike_journey(tmp_path, monkeypatch):
         assert obj["write_sequence"] == state(current)["write_sequence"] == seq
         assert snapshot(current) == before
         assert_station_sequence(obj, marks)
-        seen.append(raw)
+        scan(raw)
         return obj
 
     with monkeypatch.context() as isolated:
@@ -104,8 +118,9 @@ def test_bike_journey(tmp_path, monkeypatch):
         assert obj["track"] == "temporal_regression" and not obj["cards"]
         assert_station_sequence(obj, {})
         assert sorted(tmp_path.iterdir()) == before
-        seen.append(no_study)
+        scan(no_study)
 
+    study, initial = init_study(tmp_path)
     marks = dict.fromkeys(("baseline", "iterate", "compare_decide"), False)
     read(study, marks)
 
@@ -150,13 +165,13 @@ def test_bike_journey(tmp_path, monkeypatch):
     pending = read(study, marks)
     monkeypatch.delenv(PACK_VARIABLE)
     before, seq = snapshot(study), state(study)["write_sequence"]
-    # Compare strict bytes with the original serializer over this Study's
-    # dynamic identifiers. The kept-read test separately verifies normalization.
     legacy = raw_lesson("--study", study)
-    assert legacy == json.dumps({"ok": True, **bike_cards.lesson(study)}, indent=2) + "\n"
+    kept = ROOT / "clients/vscode/test/cli/lesson/after-compare.out"
+    assert legacy.encode("utf-8") == kept.read_bytes(), "the legacy read changed from its pre-pack capture"
     assert snapshot(study) == before and state(study)["write_sequence"] == seq
-    seen.append(legacy)
-    capture(study, "bike", pending)
+    scan(legacy)
+    if rejected == 0:
+        capture(study, "bike", pending, json.loads(legacy))
     monkeypatch.setenv(PACK_VARIABLE, pack_path)
 
     answer = the_tool(tmp_path, {"words": "Synthetic words from the manual panel proof."}, panel_record=True)
@@ -164,35 +179,46 @@ def test_bike_journey(tmp_path, monkeypatch):
     assert "--channel=panel" in record and f"--artifact={comparison}" in record
     assert len(state(study)["decisions"]) == 1
     read(study, marks)
-    (read_files() / "bike-lessons.json").write_text(json.dumps(seen), encoding="utf-8")
+    (read_files() / "bike-wall-count.txt").write_text(f"{rejected}\n", encoding="utf-8")
 
 
 def test_literal_wall():
-    reads = json.loads((read_files() / "bike-lessons.json").read_text(encoding="utf-8"))
-    count = sum(WALL_WORDS.search(raw) is not None for raw in reads)
+    count = int((read_files() / "bike-wall-count.txt").read_text(encoding="utf-8"))
     assert count == 0, f"{count} Bike lesson reads contain a token rejected by C3"
 
 
 def test_chinook_journey(tmp_path, monkeypatch):
-    pack = os.environ[PACK_VARIABLE]
     work = tmp_path / "campaign"
+    study = work / "chinook-campaign"
     module = demonstration()
     [step] = [step for step in module.STEPS if step["id"] == "CAMPAIGN"]
     recorder = Recorder(module)
-    outcome = module.run(work, start=recorder, out=io.StringIO(), steps=[step])
-    assert outcome.code == 0, "expected the kept development Campaign to run"
-    study = work / "chinook-campaign"
+    captured = False
+
+    def start(argv, env, cwd, text=None):
+        nonlocal captured
+        prefix = recorder.prefix
+        if list(argv[:len(prefix)]) == prefix and "--request-id=demo-campaign-decide" in argv:
+            assert not captured
+            before, sequence = snapshot(study), state(study)["write_sequence"]
+            packed = json.loads(raw_lesson("--study", study))
+            assert packed["track"] == "tool_using_agent" and packed["cards"]
+            assert packed["packs"] and packed["stations"] == packed["lessons"] == []
+            with monkeypatch.context() as without_pack:
+                without_pack.delenv(PACK_VARIABLE)
+                plain = json.loads(raw_lesson("--study", study))
+            assert snapshot(study) == before and state(study)["write_sequence"] == sequence
+            capture(study, "chinook", packed, plain)
+            captured = True
+        return recorder(argv, env, cwd, text)
+
+    outcome = module.run(work, start=start, out=io.StringIO(), steps=[step])
+    assert outcome.code == 0 and captured, "expected the full kept development Campaign"
     before = snapshot(study)
-    without = json.loads(raw_lesson("--track", "tool_using_agent"))
-    assert without["track"] == "tool_using_agent"
-    assert without["packs"] and without["stations"] == without["lessons"] == []
-    content = json.loads(raw_lesson("--study", study))
-    assert content["track"] == "tool_using_agent" and content["cards"]
-    assert content["packs"] and content["stations"] == content["lessons"] == []
-    monkeypatch.delenv(PACK_VARIABLE)
-    capture(study, "chinook", content)
+    track_read = json.loads(raw_lesson("--track", "tool_using_agent"))
+    assert track_read["track"] == "tool_using_agent"
+    assert track_read["packs"] and track_read["stations"] == track_read["lessons"] == []
     assert snapshot(study) == before
-    monkeypatch.setenv(PACK_VARIABLE, pack)
 
 
 def scripted_turn(station, read_pack):

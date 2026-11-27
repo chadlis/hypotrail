@@ -8,8 +8,8 @@ const { test } = require("node:test");
 
 const client = process.cwd();
 const from = (file) => require(path.join(client, file));
-const { documentFor, success } = from("out/test/panel-harness.js");
-const { lesson } = from("out/test/recorder.js");
+const { lastDocument, runCommand, settle, success, workspace } = from("out/test/panel-harness.js");
+const { lesson, recorder } = from("out/test/recorder.js");
 const { pageOf, startChrome } = from("out/test/chrome.js");
 const { themed } = from("out/test/themes.js");
 const [, record] = from("contract.json").messages;
@@ -24,7 +24,7 @@ const checks = `(() => {
         statusLine: section?.querySelector(":scope > p")?.textContent,
         packCount: section?.querySelectorAll(":scope > ul > li").length,
         folded: section?.open === false,
-        belowRecord: !button || !!(button.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING),
+        belowRecord: !!button && !!(button.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING),
         position: [position(now?.querySelector('[data-element="now-question"]')),
             position(now?.querySelector('[data-element="delta"] a, [data-element="delta"] span')),
             position(button)],
@@ -88,8 +88,11 @@ test("the real Bike and Chinook reads render under each theme, with and without 
         const file = path.join(process.env.HYPOTRAIL_E2E_READS, `${track}-panel.json`);
         const data = JSON.parse(fs.readFileSync(file, "utf8"));
         for (const kind of ["with_pack", "without_pack"]) {
-            const { document } = await documentFor(t, success(data.status), success(data.figures), lesson(success(data[kind])));
-            documents.set(`/${track}-${kind}`, document);
+            workspace(t, [track]);
+            recorder(t, success(data.status), success(data.figures), lesson(success(data[kind])));
+            await runCommand();
+            await settle();
+            documents.set(`/${track}-${kind}`, lastDocument());
         }
     }
     // Serve only generated HTML on loopback. There is no external navigation.
@@ -123,13 +126,11 @@ test("the real Bike and Chinook reads render under each theme, with and without 
                     fs.writeFileSync(path.join(output, `${name}.png`), screenshot.data, "base64");
                     const captured = { name, width, position: seen.position };
                     captures.push(captured);
-                    if (track === "bike") {
-                        assert.ok(seen.position[2] >= 0 && seen.position[2] < 700, "Record is on the first screen");
-                        const keys = await reachesRecord(page);
-                        captured.recordTabStops = keys.length;
-                        if (keyboard) assert.deepEqual(keys, keyboard, "installing a pack changes the keyboard path");
-                        else keyboard = keys;
-                    }
+                    assert.ok(seen.position[2] >= 0 && seen.position[2] < 700, `Record is outside the first screen for ${name}`);
+                    const keys = await reachesRecord(page);
+                    captured.recordTabStops = keys.length;
+                    if (keyboard) assert.deepEqual(keys, keyboard, "installing a pack changes the keyboard path");
+                    else keyboard = keys;
                     await page.send("Page.close");
                 }
             }
