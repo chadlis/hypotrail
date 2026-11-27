@@ -1962,6 +1962,11 @@ def test_the_agent_reason_table_equals_the_reasons_the_code_records(page, tmp_pa
         assert rows[reason]["data-passed"] == str(passed).lower(), reason
 
 
+def test_the_settings_state_table_equals_the_three_states_a_comparison_records(page):
+    states = [row["attrs"]["data-state"] for row in parse(page).tables.get("agent-settings-states", []) if "data-state" in row["attrs"]]
+    assert sorted(states) == ["different", "equal", "unknown"]
+
+
 def test_the_agent_coverage_table_equals_the_keys_of_the_coverage_record_and_the_layout_equals_the_files_written(page, tmp_path):
     study, record, _ = _agent_comparison(tmp_path)
     assert set(attrs_of(page, "agent-coverage-keys", "data-key")) == set(record["coverage"])
