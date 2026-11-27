@@ -233,7 +233,9 @@ export const packReadTool: vscode.LanguageModelTool<ReadInput> = {
 function lessonAnswer(outcome: Outcome): string {
   switch (outcome.outcome) {
     case "success":
-      return `The Study's Track cards and any lesson packs, as the CLI's lesson read printed them:\n${json(outcome.object)}`;
+      return Object.hasOwn(outcome.object, "packs")
+        ? `The Study's Track cards and lesson pack content, as the CLI printed them:\n${json(outcome.object)}`
+        : `The lesson cards of the Study, as the CLI's lesson read printed them; each explains a kind of step the Study shows:\n${json(outcome.object)}`;
     case "refusal":
       return `The CLI refused the lesson read, with exit code ${outcome.exit_code}: the Study has no cards to explain with. Its error, as printed:\n${json(outcome.error)}`;
     case "no_answer":
