@@ -71,6 +71,7 @@ REFUSALS = {
     "CASE_FIELD_INVALID group": (lambda cases: cases["D01"].update(group=""), "CASE_FIELD_INVALID", {"field": "group"}),
     "CASE_FIELD_INVALID family": (lambda cases: cases["D01"].update(family=5), "CASE_FIELD_INVALID", {"field": "family"}),
     "CASE_FIELD_INVALID history": (lambda cases: cases["D25"].update(history=[{"role": "system", "content": "x"}]), "CASE_FIELD_INVALID", {"field": "history"}),
+    "CASE_GROUP_MISSING under the group unit": (lambda cases: cases["D02"].pop("group"), "CASE_GROUP_MISSING", {"case_id": "D02"}),
     "HISTORY_SHOWS_OWN_REFERENCE by from_case": (
         lambda cases: _assistant(cases["D25"], from_case="D25", content=reference_text("D25")),
         "HISTORY_SHOWS_OWN_REFERENCE",

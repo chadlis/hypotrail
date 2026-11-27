@@ -291,6 +291,7 @@ def test_a_dev_comparison_holds_an_interval_over_its_182_days_by_circular_blocks
         "method": "percentile_bootstrap",
         "variant": "circular",
         "block_length": 7,
+        "cases": None,
         "seed": declared["seed"],
         "level": 0.95,
         "resamples": 2000,

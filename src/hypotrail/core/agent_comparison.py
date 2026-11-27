@@ -39,7 +39,7 @@ Episode. With full coverage (every Episode scored on both sides), each Criterion
 (its share of Repeats scored true) and every Case weighs the same; the main delta is that of the primary Criterion
 (owner decision 1A on chadlis/hypotrail#9), the others are secondary. Without full coverage the value is null with a
 Reason, and the rates of coverage and the two named rates of each side (CMP-04) stand beside it. No interval is computed over Episodes:
-the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`). Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
+the `interval` of the main delta resamples the per-Case deltas with the seed the Study's current revision declares (`hypotrail.core.intervals`), by whole groups (the `group` column of its memberships) under the unit `group`. Latency and the numbers of calls are descriptive; tokens and cost are null unless observable.
 """
 
 import csv
@@ -101,6 +101,19 @@ LIMITATION_INTERVAL = (
     "The interval is a percentile bootstrap over Cases and every Case weighs the same: the Repeats of a Case are not resampled, and the "
     "Comparison carries no binomial interval over Episodes and no significance claim."
 )
+
+# The first limitation once an interval over groups is computed.
+LIMITATION_GROUP_INTERVAL = (
+    "The interval is a percentile bootstrap over groups of Cases: the Cases of a group are drawn together, the Repeats of a Case are not "
+    "resampled, and the Comparison carries no binomial interval over Episodes and no significance claim; every Case weighs the same."
+)
+
+
+def case_groups(study: Path, spec: dict) -> dict:
+    """{case_id: group} from the `group` column of the memberships of the Study's current revision."""
+    ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
+    rows = csv.DictReader(io.StringIO(artifacts.read_verified(study, ref).decode("utf-8"), newline=""))
+    return {row["case_id"]: row["group"] for row in rows}
 
 
 def _population(study: Path, side: dict) -> dict:
@@ -414,9 +427,17 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
     delta, cases = _delta(primary, side_episodes["control"], side_episodes["candidate"], keys)
     secondary = [_delta(name, side_episodes["control"], side_episodes["candidate"], keys)[0] for name in dict.fromkeys(row["criterion"] for row in control["per_item"]) if name != primary]
 
-    interval = intervals.record(layout.read_spec(study).get("resampling"), None if cases is None else [d - c for _, c, d in cases.values()])
+    spec = layout.read_spec(study)
+    resampling = spec.get("resampling")
+    groups = None
+    if resampling is not None and resampling["unit"] == intervals.GROUP:
+        by_case = case_groups(study, spec)
+        case_ids = populations["control"]["cases"] if cases is None else cases
+        groups = [by_case[case_id] for case_id in case_ids]
+    interval = intervals.record(resampling, None if cases is None else [d - c for _, c, d in cases.values()], groups=groups)
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
-    limitations = [LIMITATION_INTERVAL if interval["reason"] is None else LIMITATIONS[0], *LIMITATIONS[1:], environment_sentence]
+    first = LIMITATIONS[0] if interval["reason"] is not None else LIMITATION_GROUP_INTERVAL if interval["unit"] == intervals.GROUP else LIMITATION_INTERVAL
+    limitations = [first, *LIMITATIONS[1:], environment_sentence]
     warnings = []
     if imports:
         warnings.append(import_scope_warning(imports))

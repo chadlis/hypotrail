@@ -11,13 +11,17 @@ this module imports none of it. The codes:
 - `DECLARATION_VALUE_NOT_ALLOWED`: a value of the right type the schema does not allow;
 - `CONFIGURATION_NOT_DECLARED`: a Configuration extends, or is asked for as, one that is not declared;
 - `CONFIGURATION_CYCLE`: Configurations extend each other in a loop;
-- `PARTITIONS_NOT_DISJOINT`: a Case ID is listed in two Partitions.
+- `PARTITIONS_NOT_DISJOINT`: a Case ID is listed in two Partitions;
+- `GROUP_IN_TWO_PARTITIONS`: the Workload declares `group_partition_rule: disjoint`, and a `group` is
+  carried by Cases of two Partitions.
 
-The last three relate values to each other, so they stay in Track code, next to their use.
-`PARTITIONS_NOT_DISJOINT` is checked when a `Workload` is constructed, which reads each declared
-Cases file once with `cases.load_cases`: an unreadable file or an unparsable line is refused there
-too (`FILE_NOT_FOUND`, `FILE_NOT_JSON`), and so is a Case ID repeated inside one file
-(`CASE_ID_NOT_UNIQUE`; a Case ID in two files is `PARTITIONS_NOT_DISJOINT`).
+The last four relate values to each other, so they stay in Track code, next to their use.
+`PARTITIONS_NOT_DISJOINT` and `GROUP_IN_TWO_PARTITIONS` are checked, in that order, when a `Workload`
+is constructed, which reads each declared Cases file once with `cases.load_cases`: an unreadable file
+or an unparsable line is refused there too (`FILE_NOT_FOUND`, `FILE_NOT_JSON`), and so is a Case ID
+repeated inside one file (`CASE_ID_NOT_UNIQUE`; a Case ID in two files is `PARTITIONS_NOT_DISJOINT`).
+Without the rule a group may sit in every Partition, as an entity does in a panel of entity and
+snapshot dates, so `group` alone implies nothing about Partitions.
 
 Whether a key is required is also Track code. The schema leaves `scenarios`, `answer_schema` and
 each Partition under `cases` optional, and the entry point that reads one refuses its absence:
@@ -196,6 +200,21 @@ def check_configurations(declaration) -> None:
             configuration = configurations[base]
 
 
+def _check_groups_disjoint(carriers: dict[str, dict[str, str]]) -> None:
+    """Refuse the first group, in sorted order, whose Cases are in more than one Partition."""
+    for group in sorted(carriers):
+        cases = carriers[group]
+        if len(set(cases.values())) > 1:
+            raise _refuse(
+                "GROUP_IN_TWO_PARTITIONS",
+                f"the group {group!r} is carried by Cases of two Partitions, which the Workload's group_partition_rule refuses",
+                path="cases",
+                group=group,
+                case_ids=sorted(cases),
+                partitions=sorted(set(cases.values())),
+            )
+
+
 @dataclass(frozen=True)
 class Workload:
     """A validated declaration and the folder its relative paths are read from."""
@@ -205,19 +224,25 @@ class Workload:
     _owner: dict = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
-        """Read each declared Cases file once; refuse an unreadable file, an unparsable line, a shared Case ID.
+        """Read each declared Cases file once; refuse an unreadable file, an unparsable line, a shared Case ID, and,
+        under `group_partition_rule: disjoint`, a group carried by Cases of two Partitions.
 
         No Workload exists with overlapping or unreadable Partitions (GLOSSARY: a Partition is a
         named, disjoint subset), so `partition_of` has no precondition.
         """
         owner: dict[str, str] = {}
         shared: dict[str, set[str]] = {}
+        carriers: dict[str, dict[str, str]] = {}  # group -> {Case ID: Partition}
         for partition, file in self.declaration["cases"].items():
-            for case_id in {case["case_id"] for case in load_cases(self.directory / file)}:
+            cases = load_cases(self.directory / file)
+            for case_id in {case["case_id"] for case in cases}:
                 if case_id in owner:
                     shared.setdefault(case_id, {owner[case_id]}).add(partition)
                 else:
                     owner[case_id] = partition
+            for case in cases:
+                if "group" in case:
+                    carriers.setdefault(case["group"], {})[case["case_id"]] = partition
         if shared:
             raise _refuse(
                 "PARTITIONS_NOT_DISJOINT",
@@ -226,6 +251,8 @@ class Workload:
                 case_ids=sorted(shared),
                 partitions=sorted({role for roles in shared.values() for role in roles}),
             )
+        if self.declaration.get("group_partition_rule") == "disjoint":
+            _check_groups_disjoint(carriers)
         object.__setattr__(self, "_owner", owner)
 
     @property

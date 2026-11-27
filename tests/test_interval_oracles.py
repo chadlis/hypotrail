@@ -1,5 +1,5 @@
 """The intervals of the core against two development-only oracles, which Hypotrail never calls at runtime: Inspect's clustered bootstrap
-for the Case interval, and `arch`'s circular block bootstrap for the interval over days.
+for the Case interval and for the group interval, and `arch`'s circular block bootstrap for the interval over days.
 
 Inspect's `ci(method="bootstrap", cluster=...)` resamples whole clusters and takes the mean of the pooled values, which weighs a cluster by
 its number of samples; with the same number of Repeats in every Case that mean is the mean of the per-Case deltas the core resamples.
@@ -67,6 +67,80 @@ def test_the_case_interval_agrees_with_inspects_clustered_bootstrap_within_the_r
     # Not equal: Inspect draws from NumPy's global generator and the core from `random.Random`, so the two sets of resampled means differ.
     allowed = tolerance(case_deltas)
     assert abs(ours["lower"] - lower) < allowed and abs(ours["upper"] - upper) < allowed, (ours, (lower, upper), allowed)
+
+
+# --- the group interval against Inspect's clustered bootstrap over groups --------------------------------------------------------
+
+
+def grouped_set(groups: int, size: int, repeats: int, seed: int) -> dict:
+    """{(group, case_id): [Candidate minus Control, one per Repeat]}: binary outcomes, the Cases of a group sharing its success rates."""
+    generator = random.Random(seed)
+    episodes = {}
+    for group in range(groups):
+        control_rate = generator.uniform(0.1, 0.9)
+        candidate_rate = min(1.0, control_rate + generator.uniform(-0.1, 0.3))
+        for case in range(size):
+            shift = generator.uniform(-0.05, 0.05)
+            episodes[(f"G{group:02d}", f"G{group:02d}C{case}")] = [
+                float(generator.random() < min(1.0, candidate_rate + shift)) - float(generator.random() < max(0.0, control_rate + shift)) for _ in range(repeats)
+            ]
+    return episodes
+
+
+def inspect_group_bounds(episodes: dict, numpy_seed: int) -> tuple:
+    inspect_scorer = pytest.importorskip("inspect_ai.scorer", reason="the oracle needs the `agent` extra (Inspect)")
+    scores = [
+        inspect_scorer.SampleScore(score=inspect_scorer.Score(value=value), sample_id=f"{case_id}#{repeat}", sample_metadata={"group": group})
+        for (group, case_id), values in episodes.items()
+        for repeat, value in enumerate(values)
+    ]
+    np.random.seed(numpy_seed)
+    result = inspect_scorer.ci(level=LEVEL, method="bootstrap", num_samples=RESAMPLES, cluster="group")(scores)
+    return result["lower"], result["upper"]
+
+
+@pytest.mark.parametrize(
+    ("groups", "size", "repeats", "seed"),
+    [(10, 3, 1, 7), (10, 3, 3, 8), (40, 3, 1, 9)],
+    ids=["10 groups of 3 x 1", "10 groups of 3 x 3", "40 groups of 3 x 1"],
+)
+def test_the_group_interval_agrees_with_inspects_clustered_bootstrap_over_groups_within_the_resampling_error(groups, size, repeats, seed):
+    episodes = grouped_set(groups, size, repeats, seed)
+    case_deltas = [sum(values) / len(values) for values in episodes.values()]
+    ours = intervals.cluster_interval(case_deltas, [group for group, _ in episodes], seed=seed, resamples=RESAMPLES, level=LEVEL)
+    lower, upper = inspect_group_bounds(episodes, numpy_seed=seed)
+    # The resampled unit is the group: the spread is the one of the group means, as the Case oracle's is the one of the Case deltas.
+    group_means = [sum(case_deltas[i * size : (i + 1) * size]) / size for i in range(groups)]
+    allowed = tolerance(group_means)
+    assert abs(ours["lower"] - lower) < allowed and abs(ours["upper"] - upper) < allowed, (ours, (lower, upper), allowed)
+
+
+def strongly_grouped_set(groups: int, size: int, repeats: int, seed: int) -> dict:
+    """As `grouped_set`, with a group effect that dominates: each group's Candidate rate is 0.5 plus an effect uniform on [-0.45, 0.45]
+    over a Control rate of 0.5, and one uniform draw decides both sides of an Episode, so the Cases of a group have close deltas."""
+    generator = random.Random(seed)
+    episodes = {}
+    for group in range(groups):
+        effect = generator.uniform(-0.45, 0.45)
+        for case in range(size):
+            draws = [generator.random() for _ in range(repeats)]
+            episodes[(f"G{group:02d}", f"G{group:02d}C{case}")] = [float(u < 0.5 + effect) - float(u < 0.5) for u in draws]
+    return episodes
+
+
+@pytest.mark.parametrize(("groups", "size", "repeats", "seed"), [(10, 3, 3, 11), (40, 3, 3, 12)], ids=["10 groups of 3 x 3", "40 groups of 3 x 3"])
+def test_under_a_strong_group_effect_inspects_clustered_bootstrap_tells_the_group_interval_from_the_case_interval(groups, size, repeats, seed):
+    episodes = strongly_grouped_set(groups, size, repeats, seed)
+    case_deltas = [sum(values) / len(values) for values in episodes.values()]
+    labels = [group for group, _ in episodes]
+    lower, upper = inspect_group_bounds(episodes, numpy_seed=seed)
+    group_means = [sum(case_deltas[i * size : (i + 1) * size]) / size for i in range(groups)]
+    allowed = tolerance(group_means)
+    by_group = intervals.cluster_interval(case_deltas, labels, seed=seed, resamples=RESAMPLES, level=LEVEL)
+    by_case = intervals.percentile_interval(case_deltas, seed=seed, resamples=RESAMPLES, level=LEVEL)
+    assert abs(by_group["lower"] - lower) < allowed and abs(by_group["upper"] - upper) < allowed, (by_group, (lower, upper), allowed)
+    # The Case interval treats the Cases of a group as independent: it is narrower, by more than the resampling error.
+    assert (upper - lower) - (by_case["upper"] - by_case["lower"]) > 2 * allowed, (by_case, (lower, upper), allowed)
 
 
 # --- the circular block interval against arch's CircularBlockBootstrap ------------------------------------------------------------

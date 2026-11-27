@@ -4,6 +4,7 @@ Every command runs in process through `hypotrail.cli`; `chinook_prose` is evalua
 """
 
 import json
+import shutil
 from pathlib import Path
 
 from _chinook_helpers import episodes_file, import_agent, write_lines
@@ -64,6 +65,40 @@ def test_an_import_written_after_the_first_public_check_assessment_is_listed_che
         ("comparison", comparison["comparison_id"]),
     }
     assert ("attempt", first_dev["attempt"]["attempt_id"]) not in listed
+
+
+def test_chinook_prose_compare_holds_an_interval_over_ten_groups(tmp_path):
+    study = tmp_path / "s2g-study"
+    references = ok(run_json("init", "--workload", "chinook_prose", "--study", study))["references_id"]
+    control = assessed(study, imported(tmp_path, study, CONCISE, "s2g-concise"), references)
+    candidate = assessed(study, imported(tmp_path, study, VERBOSE, "s2g-verbose"), references)
+    code, line, err = run_cli("compare", "--study", study, "--control", control["assessment_id"], "--candidate", candidate["assessment_id"])
+    assert code == 0, (line, err)
+    assert " over 10 groups (Candidate minus Control" in line
+    [stored_path] = (study / "comparisons").glob("*/comparison.json")
+    stored = json.loads(stored_path.read_text(encoding="utf-8"))
+    seed = json.loads((PROSE / "workload.json").read_text(encoding="utf-8"))["resampling"]["seed"]
+    interval = stored["interval"]
+    assert (interval["unit"], interval["units"], interval["cases"], interval["seed"]) == ("group", 10, 30, seed)
+    assert interval["lower"] is not None and interval["upper"] is not None
+    [listed] = ok(run_json("status", "--study", study))["comparisons"]
+    assert listed == stored
+
+
+def test_chinook_prose_declares_disjoint_groups_and_a_moved_group_is_refused_before_init_writes(tmp_path):
+    assert json.loads((PROSE / "workload.json").read_text(encoding="utf-8")).get("group_partition_rule") == "disjoint"
+    ok(run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "s2-rule-prose"))
+
+    examples = tmp_path / "examples"
+    shutil.copytree(EXAMPLES, examples)
+    public = examples / "chinook_prose" / "cases" / "chinook-prose-public-check.jsonl"
+    cases = jsonl(public)
+    cases[0]["group"] = jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl")[0]["group"]
+    write_lines(public, cases)
+    study = tmp_path / "s2-rule-moved"
+    code, payload, err = run_json("init", "--workload", "chinook_prose", "--study", study, "--examples-dir", examples)
+    assert (code, payload.get("error", {}).get("code")) == (2, "GROUP_IN_TWO_PARTITIONS"), (payload, err)
+    assert not study.exists()
 
 
 def test_chinook_prose_compare_lists_the_two_fixture_imports_settings(tmp_path):

@@ -158,7 +158,8 @@
             "unit": {
               "enum": [
                 "case",
-                "item"
+                "item",
+                "group"
               ]
             },
             "block": {
@@ -1060,10 +1061,18 @@
               "enum": [
                 "case",
                 "item",
+                "group",
                 null
               ]
             },
             "units": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cases": {
               "type": [
                 "integer",
                 "null"
@@ -1116,6 +1125,16 @@
             "seed",
             "reason"
           ],
+          "if": {
+            "properties": {"unit": {"const": "group"}}
+          },
+          "then": {
+            "required": ["cases"],
+            "properties": {"cases": {"type": "integer"}}
+          },
+          "else": {
+            "properties": {"cases": {"type": "null"}}
+          },
           "additionalProperties": false
         },
         "settings": {

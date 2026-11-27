@@ -8,7 +8,7 @@ import { CHROME, START_MS, hasChrome, opened, startChrome, type Evaluate } from 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { DEMONSTRATION, JOURNEY, KEPT } from "./kept";
-import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, documentFor, elementOf, elementsOf, heldRecorder, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, FIGURES_FAILED, profileFor } from "./panel-harness";
 import { BELOW_AA, THEMES, themed } from "./themes";
 
 type Entry = Record<string, any>;
@@ -319,9 +319,9 @@ async function demonstrationDocument(t: TestContext, name: string): Promise<stri
   if (name.startsWith(JOURNEY)) {
     const state = name.slice(JOURNEY.length, -".status".length);
     const figures = fs.existsSync(path.join(KEPT, "journey", `${state}.figures.out`)) ? [success(keptObject(`${JOURNEY}${state}.figures`))] : [];
-    return (await documentFor(t, success(keptObject(name)), ...figures)).document;
+    return (await documentFor(t, success(keptObject(name)), ...figures, profileFor(keptObject(name)))).document;
   }
-  return (await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])))).document;
+  return (await documentFor(t, success(keptObject(name)), success(keptObject(KEPT_FIGURES[name])), profileFor(keptObject(name)))).document;
 }
 
 // The kept pending states whose first screen is checked: the demonstration's, and the journey's 04, 09 and 11 and status-several-pending
@@ -385,7 +385,7 @@ for (const state of JOURNEY_CONTRAST) {
   test(`in each of the four themes at 420 and 900 px, every text of the journey's kept state stands at AA contrast against what it is drawn on: ${state}`, { timeout: 120000 }, async (t) => {
     const address = await chromeOrSkip(t, "the drawings of the journey's kept states");
     if (address === undefined) return;
-    const answers = [success(keptObject(`${JOURNEY}${state}.status`))];
+    const answers = [success(keptObject(`${JOURNEY}${state}.status`)), profileFor(keptObject(`${JOURNEY}${state}.status`))];
     if (fs.existsSync(path.join(KEPT, "journey", `${state}.figures.out`))) answers.push(success(keptObject(`${JOURNEY}${state}.figures`)));
     const { document } = await documentFor(t, ...answers);
     for (const theme of Object.keys(THEMES)) {
