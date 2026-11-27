@@ -287,7 +287,7 @@ THIRD_PARTY = {
     # `anyio` is declared in the `agent` extra of `pyproject.toml`, beside `inspect_ai`.
     "agentic": {"anyio", "inspect_ai", "jsonschema"},
     "core": {"jsonschema"},
-    "ml": {"jsonschema", "numpy", "scipy", "sklearn"},
+    "ml": {"jsonschema", "numpy", "sklearn"},
     "report": set(),
     "lessons": {"jsonschema"},
     "cli": set(),
@@ -303,6 +303,8 @@ def third_party_problems(trees: dict) -> list:
         if allowed is None:
             problems.append(f"{module} is in no package of the list")
             continue
+        if module == "hypotrail.ml.profile":
+            allowed = allowed | {"scipy"}
         for top in sorted({target.split(".")[0] for target in targets} - set(sys.stdlib_module_names) - {PACKAGE}):
             if top not in allowed:
                 problems.append(f"{module} imports {top}")
@@ -382,6 +384,20 @@ def test_a_third_party_import_outside_the_list_of_its_package_is_found_through_a
         "hypotrail.core.d imports numpy",
         "hypotrail.ml.m imports inspect_ai",
         "hypotrail.new is in no package of the list",
+    ]
+
+
+def test_only_the_ml_data_profile_can_import_scipy_at_runtime(tmp_path):
+    root = plant(tmp_path, {
+        "hypotrail/ml/profile.py": "from scipy.stats import spearmanr\n",
+        "hypotrail/ml/other.py": "def f():\n    import scipy.sparse\n",
+        "hypotrail/core/study.py": "import scipy as statistics\n",
+        "hypotrail/cli.py": "from scipy import stats\n",
+    })
+    assert third_party_problems(parse_all(root)) == [
+        "hypotrail.cli imports scipy",
+        "hypotrail.core.study imports scipy",
+        "hypotrail.ml.other imports scipy",
     ]
 
 
