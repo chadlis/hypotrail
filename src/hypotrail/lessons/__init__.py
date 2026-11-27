@@ -24,7 +24,7 @@ _SEMVER = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
 )
 _READING = FormatChecker()
-_FORBIDDEN = ("reference", "case", "per_item", "public_check", "held_out")
+_FORBIDDEN_SEGMENT = re.compile(r"reference|case|per_item|public_check|held_out")
 # Exact leaves already shown by the panel, outside the paired per-item rows.
 # P4 serves path text and does not use it to retrieve values.
 _SHARED_PATHS = {
@@ -146,11 +146,12 @@ def _text_errors(text, path, lesson_id=None):
 
 def _check_rules(manifest, lessons, kept=None):
     errors = []
+    evaluator_station = _validator().schema["$defs"]["evaluatorStationId"]["const"]
     for index, station in enumerate(manifest["stations"]):
         path = f"pack.json.stations.{index}"
         for key in ("title", "purpose"):
             errors.extend(_text_errors(station[key], f"{path}.{key}"))
-        if station["chat"] == (station["id"] == "held_out"):
+        if station["chat"] == (station["id"] == evaluator_station):
             errors.append(_diagnostic("CHAT_FLAG", f"{path}.chat"))
 
     seen = set()
@@ -162,7 +163,7 @@ def _check_rules(manifest, lessons, kept=None):
         if lesson_id in seen:
             errors.append(_diagnostic("DUPLICATE_LESSON_ID", f"{at}.id", lesson_id))
         seen.add(lesson_id)
-        if lesson["station"] == "held_out":
+        if lesson["station"] == evaluator_station:
             errors.append(_diagnostic("HELD_OUT_LESSON", f"{at}.station", lesson_id))
         for key in ("title", "why_this_step", "how_to_do_it", "how_to_read", "pitfalls", "question"):
             if key in lesson:
@@ -170,7 +171,7 @@ def _check_rules(manifest, lessons, kept=None):
         for path_index, entry in enumerate(lesson["key_paths"]):
             read, path = entry["read"], entry["path"]
             location = f"{at}.key_paths.{path_index}.path"
-            if any(word in path for word in _FORBIDDEN) or path not in _SAFE_PATHS[track][read]:
+            if _FORBIDDEN_SEGMENT.search(path) or path not in _SAFE_PATHS[track][read]:
                 errors.append(_diagnostic("FORBIDDEN_PATH", location, lesson_id))
             elif kept is not None and not any(_resolved(payload, path) for payload in kept[track, read]):
                 errors.append(_diagnostic("UNRESOLVED_PATH", location, lesson_id))

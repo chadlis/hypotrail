@@ -870,7 +870,7 @@
                 {
                   "properties": {
                     "id": {
-                      "const": "held_out"
+                      "$ref": "#/$defs/evaluatorStationId"
                     },
                     "where": {
                       "const": "evaluator"
@@ -1082,6 +1082,9 @@
           "maxItems": 3
         }
       }
+    },
+    "evaluatorStationId": {
+      "const": "held_out"
     }
   }
 }

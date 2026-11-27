@@ -342,14 +342,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     lesson.add_argument("--study", type=Path, metavar="DIR", help="the Study to read")
     lesson.add_argument("--json", action="store_true", help="print one JSON object")
-    lesson.set_defaults(handler=_lesson)
+    lesson.set_defaults(handler=_lesson, lesson_parser=lesson)
 
     lesson_commands = lesson.add_subparsers(dest="lesson_command")
     lesson_check = lesson_commands.add_parser("check", help="check the files of a lesson pack without opening a Study")
     lesson_check.add_argument("pack_dir", type=Path, metavar="PACK_DIR")
     lesson_check.add_argument("--kept", required=True, type=Path, metavar="DIR", help="kept status and figures reads")
     lesson_check.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="print one JSON object")
-    lesson_check.set_defaults(handler=_lesson_check)
+    lesson_check.set_defaults(handler=_lesson_check, lesson_parser=lesson_check)
 
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
@@ -895,10 +895,7 @@ def _lesson_check(args) -> int:
     from hypotrail.lessons import check
 
     if args.study is not None or not args.kept.is_dir():
-        raise InvalidInputError(
-            "INVALID_ARGUMENTS", "lesson check needs a kept-read directory and no Study",
-            stage="config", details={"command": "hypotrail lesson check"},
-        )
+        args.lesson_parser.error("lesson check needs a kept-read directory and no Study")
     errors = check(args.pack_dir, args.kept)
     if errors:
         message = "the lesson pack failed validation"
@@ -913,10 +910,7 @@ def _lesson_check(args) -> int:
 
 def _lesson(args) -> int:
     if args.study is None:
-        raise InvalidInputError(
-            "INVALID_ARGUMENTS", "the following arguments are required: --study",
-            stage="config", details={"command": "hypotrail lesson"},
-        )
+        args.lesson_parser.error("the following arguments are required: --study")
     from hypotrail.core import study as layout
 
     domain = layout.read_spec(args.study)["domain"]
