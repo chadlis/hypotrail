@@ -332,6 +332,14 @@ def build_parser() -> argparse.ArgumentParser:
     profile.add_argument("--json", action="store_true", help="print one JSON object")
     profile.set_defaults(handler=_profile)
 
+    lesson = commands.add_parser(
+        "lesson",
+        help="show the cards the Study's Track serves, one per kind of step the Study holds a record of: what the step is and how to read it (read only)",
+    )
+    lesson.add_argument("--study", required=True, type=Path, metavar="DIR", help="the Study to read")
+    lesson.add_argument("--json", action="store_true", help="print one JSON object")
+    lesson.set_defaults(handler=_lesson)
+
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
     )
@@ -855,6 +863,15 @@ def _profile(args) -> int:
 
     read = profile.profile(args.study, args.examples_dir)
     _emit({"ok": True, **read}, args.json, "\n".join(_profile_lines(read)))
+    return EXIT_OK
+
+
+def _lesson(args) -> int:
+    from hypotrail.ml import lesson
+
+    read = lesson.lesson(args.study)
+    lines = [f"{card['title']}: {card['text']}" for card in read["cards"]]
+    _emit({"ok": True, **read}, args.json, "\n".join(lines) or "no card applies to this Study yet")
     return EXIT_OK
 
 

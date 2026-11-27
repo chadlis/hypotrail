@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The lesson cards of the temporal regression Track",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cards"],
+  "properties": {
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "title", "text", "key_paths"],
+        "properties": {
+          "kind": {"enum": ["study", "attempts", "assessments", "comparisons", "decisions"]},
+          "title": {"type": "string", "minLength": 1},
+          "text": {"type": "string", "minLength": 1},
+          "key_paths": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["read", "path"],
+              "properties": {
+                "read": {"enum": ["status", "figures"]},
+                "path": {"type": "string", "pattern": "^[a-z_]+(\\[\\])*(\\.[a-z_]+(\\[\\])*)*$"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
