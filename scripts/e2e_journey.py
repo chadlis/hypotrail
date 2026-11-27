@@ -1,0 +1,256 @@
+"""Manual journey checks. The launcher runs these inside the cloned product's test suite."""
+
+import hashlib
+import io
+import json
+import os
+import re
+import shutil
+from pathlib import Path
+
+from _assess_helpers import assess, construct
+from _compare_helpers import compare
+from _demonstration_helpers import Recorder, demonstration
+from _import_helpers import FIELDS, import_ml, ready, rows_of, write_rows
+from _study_helpers import ROOT, init_study, run_cli, run_json
+from test_run_tool_end_to_end import the_tool
+
+PACK_VARIABLE = "HYPOTRAIL_LESSON_PACKS"
+PACK_KEYS = ("packs", "stations", "lessons")
+STATIONS = ("intake", "framing", "data", "baseline", "iterate", "compare_decide", "held_out", "deliver")
+WALL_WORDS = re.compile(r"reference|per_item|public_check", re.IGNORECASE)
+GUIDE_LINES = (
+    "Quote a pack lesson verbatim and name its source.",
+    "Name the station the person names; if they name none, ask which station they are at.",
+    "Ask at most the lesson's question.",
+    "At the held-out station, say only that the held-out pass runs at the evaluator and that you cannot discuss it.",
+    "Before the person opens a Comparison's figures, you may ask what they expect; record nothing.",
+)
+
+
+def payload(result):
+    code, obj, _ = result
+    assert code == 0 and obj["ok"], "expected a successful CLI command"
+    return obj
+
+
+def raw_lesson(*args):
+    code, stdout, stderr = run_cli("lesson", *args, "--json")
+    assert code == 0 and not stderr, "expected a successful lesson read"
+    return stdout
+
+
+def state(study):
+    return payload(run_json("status", "--study", study))
+
+
+def read_files():
+    return Path(os.environ["HYPOTRAIL_E2E_READS"])
+
+
+def capture(study, track, with_pack, without_pack):
+    """Pass only these development Study reads to the local panel harness."""
+    status = state(study)
+    assert status["pending_decisions"], "capture before the synthetic Decision"
+    assert status["attempts"] and all(attempt["partition"] == "dev" for attempt in status["attempts"])
+    observations = {attempt["observation_set_id"] for attempt in status["attempts"]}
+    observations.discard(None)
+    assert all(assessment["observation_set_id"] in observations for assessment in status["assessments"])
+    assessment_ids = {assessment["assessment_id"] for assessment in status["assessments"]}
+    for comparison in status["comparisons"]:
+        roles = comparison["roles"]
+        assert {roles["control_assessment_id"], roles["candidate_assessment_id"]} <= assessment_ids
+    assert with_pack["write_sequence"] == without_pack["write_sequence"] == status["write_sequence"]
+    figures = payload(run_json("figures", "--study", study))
+    comparisons = {value["comparison_id"] for value in status["comparisons"]}
+    assert all(value["comparison_id"] in comparisons for value in figures["comparisons"])
+    data = {"status": status, "figures": figures, "with_pack": with_pack, "without_pack": without_pack}
+    (read_files() / f"{track}-panel.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def snapshot(study):
+    """Fingerprint local records without opening the payload of any Reference or membership."""
+    files = {}
+    for path in sorted(study.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(study)
+        if relative.parts[0] in {"artifacts", "memberships", "references"}:
+            info = path.stat()
+            files[relative] = info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_ino
+        else:
+            files[relative] = hashlib.sha256(path.read_bytes()).digest()
+    return files
+
+
+def assert_station_sequence(lesson, marks):
+    assert tuple(station["id"] for station in lesson["stations"]) == STATIONS
+    assert [station["has_records"] for station in lesson["stations"]] == [
+        marks.get(station) for station in STATIONS
+    ]
+    assert len(lesson["lessons"]) == 28
+    assert not any(item["station"] == "held_out" for item in lesson["lessons"])
+
+
+def test_bike_journey(tmp_path, monkeypatch):
+    pack_path = os.environ[PACK_VARIABLE]
+    rejected = 0
+
+    def scan(raw):
+        nonlocal rejected
+        rejected += WALL_WORDS.search(raw) is not None
+
+    def read(current, marks):
+        before, seq = snapshot(current), state(current)["write_sequence"]
+        raw = raw_lesson("--study", current)
+        obj = json.loads(raw)
+        assert obj["write_sequence"] == state(current)["write_sequence"] == seq
+        assert snapshot(current) == before
+        assert_station_sequence(obj, marks)
+        scan(raw)
+        return obj
+
+    with monkeypatch.context() as isolated:
+        isolated.chdir(tmp_path)
+        before = sorted(tmp_path.iterdir())
+        no_study = raw_lesson("--track", "temporal_regression")
+        obj = json.loads(no_study)
+        assert obj["track"] == "temporal_regression" and not obj["cards"]
+        assert_station_sequence(obj, {})
+        assert sorted(tmp_path.iterdir()) == before
+        scan(no_study)
+
+    study, initial = init_study(tmp_path)
+    marks = dict.fromkeys(("baseline", "iterate", "compare_decide"), False)
+    read(study, marks)
+
+    # The Import is the documented development-only exporter; a deterministic
+    # shift creates a second Configuration's synthetic forecasts for comparison.
+    source, mapping, population, _digest = ready(tmp_path)
+    shifted = []
+    for row in rows_of(source):
+        shifted.append({
+            **row,
+            "forecast_rentals": str(int(row["forecast_rentals"]) + 100),
+            "forecast_unrounded": str(float(row["forecast_unrounded"]) + 100),
+        })
+    candidate = write_rows(tmp_path / "candidate.csv", shifted, FIELDS)
+    observations = []
+    for name, file in (("control", source), ("candidate", candidate)):
+        observations.append(payload(import_ml(study, file, mapping, population, name)))
+        read(study, marks)
+
+    assessments = []
+    for attempt, mark in zip(observations, ("baseline", "iterate"), strict=True):
+        assessed = payload(assess(study, attempt["observation_set_id"], "regression_mae_v1", initial["references_id"]))
+        assessments.append(assessed["assessment"]["assessment_id"])
+        marks[mark] = True
+        read(study, marks)
+        if mark == "baseline":
+            # Construct only a synthetic Attempt from a development artifact.
+            # No actual public-check prediction or protected labels are read.
+            copy = tmp_path / "study-public-fixture"
+            shutil.copytree(study, copy)
+            dev = read(study, marks)
+            synthetic = construct(copy, observations[0]["attempt"], lambda rows: rows, provenance={"partition": "public_check"})
+            assert any(
+                row["observation_set_id"] == synthetic and row["partition"] == "public_check"
+                for row in state(copy)["attempts"]
+            )
+            with_public = read(copy, marks)
+            assert json.dumps({key: with_public[key] for key in PACK_KEYS}) == json.dumps({key: dev[key] for key in PACK_KEYS})
+
+    comparison = payload(compare(study, *assessments))["comparison"]["comparison_id"]
+    marks["compare_decide"] = True
+    pending = read(study, marks)
+    monkeypatch.delenv(PACK_VARIABLE)
+    before, seq = snapshot(study), state(study)["write_sequence"]
+    legacy = raw_lesson("--study", study)
+    kept = ROOT / "clients/vscode/test/cli/lesson/after-compare.out"
+    assert legacy.encode("utf-8") == kept.read_bytes(), "the legacy read changed from its pre-pack capture"
+    assert snapshot(study) == before and state(study)["write_sequence"] == seq
+    scan(legacy)
+    if rejected == 0:
+        capture(study, "bike", pending, json.loads(legacy))
+    monkeypatch.setenv(PACK_VARIABLE, pack_path)
+
+    answer = the_tool(tmp_path, {"words": "Synthetic words from the manual panel proof."}, panel_record=True)
+    [record] = [call for call in answer["calls"] if call[0] == "decide"]
+    assert "--channel=panel" in record and f"--artifact={comparison}" in record
+    assert len(state(study)["decisions"]) == 1
+    read(study, marks)
+    (read_files() / "bike-wall-count.txt").write_text(f"{rejected}\n", encoding="utf-8")
+
+
+def test_literal_wall():
+    count = int((read_files() / "bike-wall-count.txt").read_text(encoding="utf-8"))
+    assert count == 0, f"{count} Bike lesson reads contain a token rejected by C3"
+
+
+def test_chinook_journey(tmp_path, monkeypatch):
+    work = tmp_path / "campaign"
+    study = work / "chinook-campaign"
+    module = demonstration()
+    [step] = [step for step in module.STEPS if step["id"] == "CAMPAIGN"]
+    recorder = Recorder(module)
+    captured = False
+
+    def start(argv, env, cwd, text=None):
+        nonlocal captured
+        prefix = recorder.prefix
+        if list(argv[:len(prefix)]) == prefix and "--request-id=demo-campaign-decide" in argv:
+            assert not captured
+            before, sequence = snapshot(study), state(study)["write_sequence"]
+            packed = json.loads(raw_lesson("--study", study))
+            assert packed["track"] == "tool_using_agent" and packed["cards"]
+            assert packed["packs"] and packed["stations"] == packed["lessons"] == []
+            with monkeypatch.context() as without_pack:
+                without_pack.delenv(PACK_VARIABLE)
+                plain = json.loads(raw_lesson("--study", study))
+            assert snapshot(study) == before and state(study)["write_sequence"] == sequence
+            capture(study, "chinook", packed, plain)
+            captured = True
+        return recorder(argv, env, cwd, text)
+
+    outcome = module.run(work, start=start, out=io.StringIO(), steps=[step])
+    assert outcome.code == 0 and captured, "expected the full kept development Campaign"
+    before = snapshot(study)
+    track_read = json.loads(raw_lesson("--track", "tool_using_agent"))
+    assert track_read["track"] == "tool_using_agent"
+    assert track_read["packs"] and track_read["stations"] == track_read["lessons"] == []
+    assert snapshot(study) == before
+
+
+def scripted_turn(station, read_pack):
+    """One transparent, model-free caller of the Guide's real read tool."""
+    if station == "held_out":
+        return "The held-out pass runs at the evaluator, and I cannot discuss it."
+    lesson = next(item for item in read_pack()["lessons"] if item["station"] == station)
+    return f'{lesson["why_this_step"]}\nSource: {lesson["source"]}'
+
+
+def test_scripted_guide(tmp_path):
+    instructions = (ROOT / "clients/vscode/hypotrail-guide.agent.md").read_text(encoding="utf-8")
+    assert all(line in instructions.splitlines() for line in GUIDE_LINES)
+    before = tuple(tmp_path.iterdir())
+    cli = json.loads(raw_lesson("--track", "temporal_regression"))
+    for station in ("framing", "data", "compare_decide", "held_out"):
+        calls = []
+
+        def read_pack():
+            answer = the_tool(tmp_path, {"track": "temporal_regression"}, tool="hypotrail_read_study")
+            calls.extend(answer["calls"])
+            _, notice, text = answer["text"].partition("\n")
+            assert notice
+            return json.loads(text)
+
+        reply = scripted_turn(station, read_pack)
+        if station == "held_out":
+            assert reply == "The held-out pass runs at the evaluator, and I cannot discuss it."
+            assert calls == []
+        else:
+            assert calls == [["lesson", "--track=temporal_regression", "--json"]]
+            expected = next(item for item in cli["lessons"] if item["station"] == station)
+            assert reply.splitlines() == [expected["why_this_step"], f'Source: {expected["source"]}']
+        assert not any("public_check" in argument for call in calls for argument in call)
+    assert tuple(tmp_path.iterdir()) == before
