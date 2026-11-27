@@ -15,8 +15,8 @@ scoring config is checked against `text-facts.schema.json` and refused `SCORING_
 
 The Protocol digest (`protocol_digest`) is the canonical digest of what binds every Attempt: the
 Cases of each Partition by their bytes, the memberships, the References, the answer schema and the
-database by their bytes, the primary Criterion, and the `resampling` the Workload declares, when it
-declares one. It holds no Configuration. The primary
+database by their bytes, the primary Criterion, and the `resampling` and the `group_partition_rule` the
+Workload declares, each only when it declares it. It holds no Configuration. The primary
 Criterion is declared as data by the Workload (`primary_criterion`, ADR 0002; owner decision 1A on
 chadlis/hypotrail#9) and becomes the Study's `primary_metric`.
 
@@ -206,6 +206,8 @@ def protocol_content(workload: Workload, *, dataset_sha256: str) -> dict:
     content["primary_metric"] = {"id": declaration["primary_criterion"], "direction": PRIMARY_DIRECTION}
     if "resampling" in declaration:  # never a null: a Workload without it keeps the digest it had before the key existed
         content["resampling"] = declaration["resampling"]
+    if "group_partition_rule" in declaration:  # never a null, for the same reason
+        content["group_partition_rule"] = declaration["group_partition_rule"]
     return content
 
 

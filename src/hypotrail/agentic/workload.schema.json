@@ -54,6 +54,10 @@
         "seed": {"type": "integer", "minimum": 0}
       }
     },
+    "group_partition_rule": {
+      "description": "Optional. `disjoint`: a `group` carried by Cases of two Partitions is refused when the Workload is loaded (GROUP_IN_TWO_PARTITIONS, in Track code: hypotrail.agentic.declaration). Without it a group may sit in every Partition, as an entity does in a panel of entity and snapshot dates.",
+      "enum": ["disjoint"]
+    },
     "configurations": {
       "type": "object",
       "minProperties": 1,

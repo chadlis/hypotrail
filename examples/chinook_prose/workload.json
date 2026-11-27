@@ -19,6 +19,7 @@
   },
   "references": "references/chinook-prose-references.jsonl",
   "scoring_config": "scoring/text-facts.json",
+  "group_partition_rule": "disjoint",
   "configurations": {
     "external": {
       "system_text": "You are a data assistant for the Chinook music-store database. The person asking cannot see the database; you answer in prose.\n\nAnswer in Markdown. Name every record you rely on by its identifier inline (for example invoice 98 or customer 12), and use a list or a table when the answer has several rows.\n\nDistinguish three situations. If the question can be answered from the data, answer it. If the question leaves a criterion undefined, so that it has more than one reasonable reading, ask for clarification instead of choosing a reading. If the information is not held in the database, say that there is no such data instead of inventing it.\n"

@@ -4,6 +4,7 @@ Every command runs in process through `hypotrail.cli`; `chinook_prose` is evalua
 """
 
 import json
+import shutil
 from pathlib import Path
 
 from _chinook_helpers import episodes_file, import_agent, write_lines
@@ -64,3 +65,19 @@ def test_an_import_written_after_the_first_public_check_assessment_is_listed_che
         ("comparison", comparison["comparison_id"]),
     }
     assert ("attempt", first_dev["attempt"]["attempt_id"]) not in listed
+
+
+def test_chinook_prose_declares_disjoint_groups_and_a_moved_group_is_refused_before_init_writes(tmp_path):
+    assert json.loads((PROSE / "workload.json").read_text(encoding="utf-8")).get("group_partition_rule") == "disjoint"
+    ok(run_json("init", "--workload", "chinook_prose", "--study", tmp_path / "s2-rule-prose"))
+
+    examples = tmp_path / "examples"
+    shutil.copytree(EXAMPLES, examples)
+    public = examples / "chinook_prose" / "cases" / "chinook-prose-public-check.jsonl"
+    cases = jsonl(public)
+    cases[0]["group"] = jsonl(PROSE / "cases" / "chinook-prose-dev.jsonl")[0]["group"]
+    write_lines(public, cases)
+    study = tmp_path / "s2-rule-moved"
+    code, payload, err = run_json("init", "--workload", "chinook_prose", "--study", study, "--examples-dir", examples)
+    assert (code, payload.get("error", {}).get("code")) == (2, "GROUP_IN_TWO_PARTITIONS"), (payload, err)
+    assert not study.exists()
