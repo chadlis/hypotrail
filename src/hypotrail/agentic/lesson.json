@@ -3,7 +3,7 @@
     {
       "kind": "study",
       "title": "Study",
-      "text": "A Study is the record of one investigation of one Workload of the agent Track: its Cases, Partitions, References and Scorer are frozen in a Protocol, one per revision, and every record below names the revision it was made in. Each write to the Study advances its Write sequence, and a read leaves it where it was. Read the Workload and the revision first, then the records of each step below.",
+      "text": "A Study is the record of one investigation of one Workload of the agent Track: its Cases, Partitions, References and Scorer are frozen in a Protocol, one per revision, and every record below names the revision it was made in. Read the Workload, the revision and the Write sequence of the Study before the records of each step below.",
       "key_paths": [
         {"read": "status", "path": "study.workload"},
         {"read": "status", "path": "study.revision_number"},
