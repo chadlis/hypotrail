@@ -901,9 +901,11 @@ def _lesson_check(args) -> int:
         )
     errors = check(args.pack_dir, args.kept)
     if errors:
+        message = "the lesson pack failed validation"
+        if not args.json:
+            message += "\n" + "\n".join(f"{error['rule']} at {error['path']}" for error in errors)
         raise InvalidInputError(
-            "LESSON_PACK_INVALID", "the lesson pack failed validation",
-            stage="config", details={"errors": errors},
+            "LESSON_PACK_INVALID", message, stage="config", details={"errors": errors},
         )
     _emit({"ok": True}, args.json, "lesson pack valid")
     return EXIT_OK

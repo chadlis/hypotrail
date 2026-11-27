@@ -154,3 +154,48 @@ def test_discovery_marks_both_duplicate_pack_ids_invalid(tmp_path):
         assert Path(entry["path"]) == path
         assert entry["valid"] is False
         assert entry["reason"] == "DUPLICATE_PACK_ID"
+
+
+@pytest.mark.parametrize(
+    ("filename", "field", "value"),
+    [
+        ("pack.json", "id", "minimal\n"),
+        ("pack.json", "version", "01.0.0"),
+        ("pack.json", "licence", "MadeUpLicence"),
+        ("lessons.json", "id", "read-the-delta\n"),
+        ("lessons.json", "links", [{"title": "Guide", "url": "https://example.com:abc"}]),
+    ],
+)
+def test_discovery_rejects_invalid_identifiers_and_formats(tmp_path, filename, field, value):
+    pack = tmp_path / "pack"
+    shutil.copytree(PACKS / "minimal", pack)
+    source = pack / filename
+    data = json.loads(source.read_text(encoding="utf-8"))
+    record = data if filename == "pack.json" else data["lessons"][0]
+    record[field] = value
+    write_json(source, data)
+    entry, = discover(pack)
+    assert entry["reason"] == "SCHEMA"
+
+
+def test_discovery_does_not_refuse_the_read_for_an_inaccessible_directory_name(tmp_path):
+    entry, = discover(tmp_path / ("a" * 256))
+    assert entry["reason"] == "NOT_A_DIRECTORY"
+
+
+def test_the_loader_and_checker_do_not_follow_pack_or_kept_file_links(kept, tmp_path):
+    pack = tmp_path / "pack"
+    shutil.copytree(PACKS / "minimal", pack)
+    content = pack / "lessons.json"
+    content.rename(tmp_path / "external-lessons.json")
+    content.symlink_to(tmp_path / "external-lessons.json")
+    entry, = discover(pack)
+    assert entry["reason"] == "SCHEMA"
+    content.unlink()
+    shutil.copyfile(tmp_path / "external-lessons.json", content)
+    status = kept / "status-bike.out"
+    status.rename(tmp_path / "external-status.out")
+    status.symlink_to(tmp_path / "external-status.out")
+    code, payload, _ = run_json("lesson", "check", pack, "--kept", kept)
+    assert code == 2
+    assert payload["error"]["details"]["errors"][0]["rule"] == "UNRESOLVED_PATH"

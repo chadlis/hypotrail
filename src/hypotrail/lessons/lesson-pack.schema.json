@@ -36,7 +36,7 @@
         },
         "id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9-]{2,40}$"
+          "pattern": "^[a-z][a-z0-9-]{2,40}$(?![\\s\\S])"
         },
         "version": {
           "type": "string",
@@ -771,7 +771,7 @@
           "type": "string",
           "minLength": 40,
           "maxLength": 40,
-          "pattern": "^[A-Fa-f0-9]{40}$"
+          "pattern": "^[A-Fa-f0-9]{40}$(?![\\s\\S])"
         },
         "stations": {
           "type": "array",
@@ -871,6 +871,9 @@
                   "properties": {
                     "id": {
                       "const": "held_out"
+                    },
+                    "where": {
+                      "const": "evaluator"
                     }
                   }
                 }
@@ -972,7 +975,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9-]{2,60}$"
+          "pattern": "^[a-z][a-z0-9-]{2,60}$(?![\\s\\S])"
         },
         "station": {
           "enum": [
@@ -1050,7 +1053,7 @@
               },
               "path": {
                 "type": "string",
-                "pattern": "^[a-z_]+(\\[\\])*(\\.[a-z_]+(\\[\\])*)*$"
+                "pattern": "^[a-z_]+(\\[\\])*(\\.[a-z_]+(\\[\\])*)*$(?![\\s\\S])"
               }
             }
           }

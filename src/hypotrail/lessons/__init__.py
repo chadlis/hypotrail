@@ -2,6 +2,7 @@
 
 import os
 import re
+import stat
 from collections import Counter, defaultdict
 from functools import cache
 from importlib import resources
@@ -59,7 +60,12 @@ def _https(value):
         return False
     try:
         url = urlsplit(value)
-        return value.startswith("https://") and bool(url.hostname) and url.username is None
+        return (
+            value.startswith("https://")
+            and bool(url.hostname)
+            and url.username is None
+            and (url.port is None or url.port > 0)
+        )
     except ValueError:
         return False
 
@@ -73,8 +79,14 @@ def _validator():
 
 def _json(path):
     try:
-        return canonical.loads(path.read_bytes())
-    except (OSError, InvalidInputError):
+        if not stat.S_ISREG(path.lstat().st_mode):
+            return None
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        with os.fdopen(os.open(path, flags), "rb") as file:
+            if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
+                return None
+            return canonical.loads(file.read())
+    except (OSError, InvalidInputError, ValueError):
         return None
 
 
@@ -165,13 +177,22 @@ def _check_rules(manifest, lessons, kept=None):
     return errors
 
 
+def _is_directory(path):
+    try:
+        return path.is_dir()
+    except (OSError, ValueError):
+        return False
+
+
 def _read_pack(directory, kept=None):
     entry = {"id": None, "path": str(directory), "valid": False, "reason": None}
-    if not directory.is_dir():
+    if not _is_directory(directory):
         entry["reason"] = "NOT_A_DIRECTORY"
         return entry, [_diagnostic("SCHEMA", "pack.json")]
     manifest_path = directory / "pack.json"
-    if not manifest_path.is_file():
+    try:
+        manifest_path.lstat()
+    except (OSError, ValueError):
         entry["reason"] = "MANIFEST_MISSING"
         return entry, [_diagnostic("SCHEMA", "pack.json")]
 
