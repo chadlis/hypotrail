@@ -199,3 +199,99 @@ def test_the_loader_and_checker_do_not_follow_pack_or_kept_file_links(kept, tmp_
     code, payload, _ = run_json("lesson", "check", pack, "--kept", kept)
     assert code == 2
     assert payload["error"]["details"]["errors"][0]["rule"] == "UNRESOLVED_PATH"
+
+
+ILLUSTRATION = {
+    "layout": "flow",
+    "labels": ["Choose a baseline", "Test the alternative", "Review the difference"],
+    "caption": "Compare the baseline and the alternative under the same Protocol.",
+}
+
+
+def illustrated_pack(tmp_path, illustration, *, schema_version="lesson-pack/2"):
+    pack = tmp_path / "pack"
+    shutil.copytree(PACKS / "minimal", pack)
+    manifest_file = pack / "pack.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    write_json(manifest_file, {**manifest, "schema_version": schema_version})
+    lessons_file = pack / "lessons.json"
+    content = json.loads(lessons_file.read_text(encoding="utf-8"))
+    if illustration is not None:
+        content["lessons"][0]["illustration"] = illustration
+    write_json(lessons_file, content)
+    return pack
+
+
+@pytest.mark.parametrize(
+    "illustration",
+    [
+        None,
+        ILLUSTRATION,
+        {**ILLUSTRATION, "labels": ["Set a goal", "Get a baseline"]},
+        {**ILLUSTRATION, "layout": "compare", "labels": ["Control", "Candidate"]},
+        {**ILLUSTRATION, "labels": ["Frame", "Measure", "Evaluate", "Decide"]},
+        {**ILLUSTRATION, "labels": ["a", "b" * 64], "caption": "c" * 240},
+    ],
+    ids=["omitted", "flow-three", "flow-two", "compare", "flow-four", "text-bounds"],
+)
+def test_lesson_pack_v2_accepts_plain_bounded_illustrations_and_serves_them_verbatim(
+    tmp_path, kept, monkeypatch, illustration
+):
+    pack = illustrated_pack(tmp_path, illustration)
+    code, _, stderr = run_json("lesson", "check", pack, "--kept", kept)
+    assert code == 0, stderr
+
+    monkeypatch.setenv(ENV_VAR, str(pack))
+    code, payload, stderr = run_json("lesson", "--track", "temporal_regression")
+    assert code == 0, stderr
+    served, = payload["lessons"]
+    if illustration is None:
+        assert "illustration" not in served
+    else:
+        assert served["illustration"] == illustration
+    assert served["source"] == "minimal@1.0.0"
+
+
+def test_lesson_pack_v1_rejects_an_illustration(tmp_path, kept):
+    pack = illustrated_pack(tmp_path, ILLUSTRATION, schema_version="lesson-pack/1")
+    code, payload, _ = run_json("lesson", "check", pack, "--kept", kept)
+    assert code == 2
+    assert payload["error"]["code"] == "LESSON_PACK_INVALID"
+    assert any(error["rule"] == "SCHEMA" for error in payload["error"]["details"]["errors"])
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"layout": "network"},
+        {"labels": ["Frame"]},
+        {"labels": ["Frame", "Measure", "Evaluate", "Decide", "Deliver"]},
+        {"layout": "compare", "labels": ["Measure", "Evaluate", "Decide"]},
+        {"labels": ["", "Measure"]},
+        {"labels": ["a" * 65, "Measure"]},
+        {"labels": ["Frame\nMeasure", "Decide"]},
+        {"labels": ["Frame <b>carefully</b>", "Decide"]},
+        {"labels": ["Step 1", "Measure"]},
+        {"caption": ""},
+        {"caption": "a" * 241},
+        {"caption": "Compare the results.\nExplain the differences."},
+        {"caption": "<img src='some-file'>"},
+        {"caption": "Compare 2 alternatives."},
+        {"url": "https://example.invalid/diagram.svg"},
+    ],
+    ids=[
+        "unsupported-layout", "flow-too-short", "flow-too-long", "compare-arity",
+        "empty-label", "long-label", "label-newline", "label-markup", "label-digit",
+        "empty-caption", "long-caption", "caption-newline", "caption-markup",
+        "caption-digit", "external-url-field",
+    ],
+)
+def test_lesson_pack_v2_rejects_illustrations_outside_the_plain_shape(tmp_path, kept, changes):
+    pack = illustrated_pack(tmp_path, {**ILLUSTRATION, **changes})
+    code, payload, _ = run_json("lesson", "check", pack, "--kept", kept)
+    assert code == 2
+    assert payload["error"]["code"] == "LESSON_PACK_INVALID"
+    assert any(
+        error["lesson_id"] == "read-the-delta" and error["rule"] in {"SCHEMA", "DIGIT"}
+        for error in payload["error"]["details"]["errors"]
+    )

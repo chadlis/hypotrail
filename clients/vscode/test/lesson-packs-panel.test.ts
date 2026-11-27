@@ -237,3 +237,53 @@ for (const sentence of [
     assert.ok(guide.includes(sentence));
   });
 }
+
+const illustratedLesson = {
+  ...method,
+  illustration: {
+    layout: "flow",
+    labels: ["Set a goal & agree on a baseline", "Review the difference"],
+    caption: "Use the same Protocol for the baseline & the alternative.",
+  },
+};
+const illustratedPackRead = { ...packRead, lessons: [illustratedLesson] };
+
+function assertIllustration(document: string): void {
+  const figures = [...document.matchAll(/<figure\b[^>]*>[\s\S]*?<\/figure>/g)];
+  const teachingFigure = figures.find(([figure]) => figure.includes("agree on a baseline"));
+  assert.ok(teachingFigure, "the teaching illustration should be a semantic figure");
+  const markup = teachingFigure[0];
+  const caption = /<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/.exec(markup)?.[0];
+  assert.ok(caption, "the illustration should have a text caption");
+  assert.equal(words(caption), illustratedLesson.illustration.caption);
+  assert.ok(markup.includes("Set a goal &amp; agree on a baseline"));
+  const first = words(markup).indexOf(illustratedLesson.illustration.labels[0]);
+  const second = words(markup).indexOf(illustratedLesson.illustration.labels[1]);
+  assert.ok(first >= 0 && second > first, "the labels should appear in their original order");
+}
+
+test("a Study renders a v2 teaching illustration within its lesson and gives it a text equivalent", () => {
+  const document = bodyOf({ study: "synthetic-study", reading: false, object: study, lesson: illustratedPackRead });
+  const [section] = foldsNamed(document, "Stations and lessons");
+  const [rendered] = foldsNamed(section, illustratedLesson.title);
+  assert.ok(rendered);
+  assertIllustration(rendered);
+});
+
+test("the selected Track renders a v2 teaching illustration before a Study exists", async (t) => {
+  workspace(t, []);
+  const withoutStudy = { ...illustratedPackRead, cards: [] };
+  recorder(t, lesson(success(withoutStudy)));
+  const showStations = stub.state.commands.get("hypotrail.showStations");
+  assert.ok(showStations);
+  await showStations();
+  await settle();
+  const panel = stub.state.panels[0];
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(panel.webview.html)?.[1];
+  assert.ok(nonce);
+  panel.send({ nonce, track: "temporal_regression" });
+  await settle();
+  const [rendered] = foldsNamed(panel.webview.html, illustratedLesson.title);
+  assert.ok(rendered);
+  assertIllustration(rendered);
+});
