@@ -2,7 +2,7 @@
 
 For each of the four Attempt writers and each Mode it has, through the command line: the keys of the `running`, terminal and `failed` manifests and of
 the Observation set record; the fixed values those records hold; the Reason a `failed` manifest gives for an OS error, a Hypotrail error and any other
-error; the order of the keys of the Attempt the command prints; and the keys of a normalized Observation. An Attempt's IDs and timestamps differ at
+error, and that the text of an OS error reaches neither the Study nor stderr; the order of the keys of the Attempt the command prints; and the keys of a normalized Observation. An Attempt's IDs and timestamps differ at
 each call, so these compare keys and fixed values, not whole files.
 
 The `running` and the `failed` manifests are reached through a patched `artifacts.replace_bytes`, as `tests/test_handbook.py` does: every manifest it is
@@ -79,18 +79,11 @@ EXPECTED_VALUES = {
 
 INJECTED = HypotrailError("INJECTED_FAULT", "an injected fault", stage="test")
 FAULTS = {"os": OSError("disk full"), "hypotrail": INJECTED, "other": RuntimeError("a text that is never recorded")}
-# `run agent` records an error as `coded_error` names it; the three other writers as `record_failure` names it.
-AS_RECORD_FAILURE_NAMES_IT = {"os": "OSError: disk full", "hypotrail": "INJECTED_FAULT: an injected fault", "other": "unexpected RuntimeError"}
+# Every writer records an error as `coded_error` names it.
 AS_CODED_ERROR_NAMES_IT = {
     "os": "INFRASTRUCTURE_FAILURE: OSError", "hypotrail": "INJECTED_FAULT: an injected fault", "other": "UNEXPECTED_ERROR: unexpected RuntimeError",
 }
-EXPECTED_REASONS = {
-    RUN_ML: AS_RECORD_FAILURE_NAMES_IT,
-    IMPORT_ML: AS_RECORD_FAILURE_NAMES_IT,
-    RUN_AGENT_FIXTURE: AS_CODED_ERROR_NAMES_IT,
-    RUN_AGENT_LIVE: AS_CODED_ERROR_NAMES_IT,
-    IMPORT_AGENT: AS_RECORD_FAILURE_NAMES_IT,
-}
+EXPECTED_REASONS = {row: AS_CODED_ERROR_NAMES_IT for row in ROWS}
 
 # The keys of the Attempt the command prints with `--json`, in the order it prints them.
 PRINTED_ORDER = [
@@ -207,6 +200,24 @@ def test_the_reason_of_a_failed_manifest_names_an_os_error_a_hypotrail_error_and
     assert reasons["os"] == EXPECTED_REASONS[row]["os"]
     assert reasons["hypotrail"] == EXPECTED_REASONS[row]["hypotrail"]
     assert reasons["other"] == EXPECTED_REASONS[row]["other"]
+
+
+SECRET_TEXT = "sk-ant-secret"
+
+
+@pytest.mark.parametrize("row", ROWS)
+def test_an_os_error_whose_text_holds_a_key_leaves_a_failed_attempt_with_the_coded_reason_and_its_text_in_no_file_of_the_study_and_not_on_stderr(
+    row, tmp_path, monkeypatch
+):
+    study = study_of(row, tmp_path, monkeypatch)
+    manifests = Manifests(monkeypatch)
+    code, payload, err, written = manifests.run(row, study, tmp_path, "secret", OSError(SECRET_TEXT))
+    assert code == 4 and written[-1]["technical_status"] == "failed", (payload, err)
+    assert written[-1]["reason"] == "INFRASTRUCTURE_FAILURE: OSError"
+    assert payload["error"]["code"] == "INFRASTRUCTURE_FAILURE"
+    holding = [str(path.relative_to(study)) for path in study.rglob("*") if path.is_file() and SECRET_TEXT.encode() in path.read_bytes()]
+    assert holding == []
+    assert SECRET_TEXT not in err
 
 
 @pytest.mark.parametrize("row", ROWS)

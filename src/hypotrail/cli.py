@@ -12,7 +12,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from hypotrail.core.errors import (
-    EXIT_INFRASTRUCTURE,
     EXIT_OK,
     HypotrailError,
     InvalidInputError,
@@ -1018,9 +1017,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handler(args)
     except Exception as error:
         failure = coded_error(error)
-        if isinstance(error, OSError) and not isinstance(error, HypotrailError) and handler is not _run_agent:
-            # every other command keeps its earlier report (#81): only `run agent` reports an OS error by its type alone
-            failure = HypotrailError("INFRASTRUCTURE_FAILURE", f"{type(error).__name__}: {error}", stage="infrastructure", exit_code=EXIT_INFRASTRUCTURE)
     return _report(failure, getattr(args, "json", False))
 
 
