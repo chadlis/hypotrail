@@ -82,12 +82,22 @@ uv run python -m hypotrail compare --study runs/chinook --control ASSESSMENT_ID_
 <tr data-key="complete"><td><code>complete</code></td><td>True when every Episode is scored on both sides; only then is there a main delta.</td></tr>
 </tbody></table></div>
 
+<p class="sub2" id="agent-settings-section">Declared settings</p>
+<div class="prose" id="agent-settings">
+<p>An Import declares its settings as a flat map on each line of a JSONL file, and its Observation set records the map only when every line holds the same one; otherwise, and for an Inspect log import, it records them <code>unknown</code> (<a href="#agent-answers">chapter 08</a>). A native Attempt declares none. When at least one side declares settings, the Comparison holds <code>settings</code>: <code>control</code> and <code>candidate</code>, each <code>declared</code> or <code>unknown</code>, and <code>keys</code>, one entry per key either side declares, sorted, with the value of each side as declared (null where that side declares none) and its state. The key is absent when neither side declares settings, as on every Bike Comparison and every Comparison written before it. No check, status, warning or refusal reads <code>settings</code>: two Comparisons whose Imports differ only by their settings have the same <code>comparability</code>, <code>warnings</code> and <code>limitations</code>. The line of <code>compare</code> ends with "settings: N equal, M different, K unknown" when the key is present, and the report shows one row per key (<a href="#report">chapter 14</a>).</p>
+</div>
+<div class="tblwrap"><table class="tbl" id="agent-settings-states"><thead><tr><th>State</th><th>When</th></tr></thead><tbody>
+<tr data-state="equal"><td><code>equal</code></td><td>Both sides declare the key with the same canonical JSON bytes; <code>1</code> and <code>true</code> are not the same bytes.</td></tr>
+<tr data-state="different"><td><code>different</code></td><td>Both sides declare the key, with values whose canonical JSON bytes differ.</td></tr>
+<tr data-state="unknown"><td><code>unknown</code></td><td>One side declares the key and the other does not: its map leaves the key out, or its settings are <code>unknown</code>.</td></tr>
+</tbody></table></div>
+
 <p class="sub2">What is written</p>
 <div class="tblwrap"><table class="tbl" id="agent-comparison-layout"><thead><tr><th>Path</th><th>Written by</th><th>Content</th></tr></thead><tbody>
 <tr data-path="comparisons/COMPARISON_ID/population.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/population.json</code></td><td><code>compare</code>, first</td><td>The Partition, the Cases and the union of the Episodes: <code>partition</code>, <code>count</code>, <code>cases</code>, <code>episodes</code>.</td></tr>
 <tr data-path="comparisons/COMPARISON_ID/matrix.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/matrix.json</code></td><td><code>compare</code></td><td>The Criteria and, for the Control and the Candidate, each Case with each of its Episodes and the state, score and Reason of every Criterion.</td></tr>
 <tr data-path="comparisons/COMPARISON_ID/paired_deltas.csv" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/paired_deltas.csv</code></td><td><code>compare</code>, with full coverage only</td><td>One row per Case: <code>case_id</code>, <code>repeats</code>, <code>control_share</code>, <code>candidate_share</code>, <code>delta_share</code>.</td></tr>
-<tr data-path="comparisons/COMPARISON_ID/comparison.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/comparison.json</code></td><td><code>compare</code>, last</td><td>The Comparison record (chapter 07), with <code>matrix_ref</code>, <code>primary_criterion</code>, <code>delta</code>, <code>secondary_deltas</code>, <code>rates</code>, <code>declared_factor</code> and <code>descriptive</code>.</td></tr>
+<tr data-path="comparisons/COMPARISON_ID/comparison.json" data-written-by="compare"><td><code>comparisons/COMPARISON_ID/comparison.json</code></td><td><code>compare</code>, last</td><td>The Comparison record (chapter 07), with <code>matrix_ref</code>, <code>primary_criterion</code>, <code>delta</code>, <code>secondary_deltas</code>, <code>rates</code>, <code>declared_factor</code>, <code>descriptive</code> and, when a side declares settings, <code>settings</code>.</td></tr>
 </tbody></table></div>
 
 <p class="sub2">Refusals</p>

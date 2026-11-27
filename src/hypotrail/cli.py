@@ -798,6 +798,9 @@ def _compare(args) -> int:
         f"Comparison {record['comparison_id']} ({status}): delta {delta['metric']} {value} "
         f"(Candidate minus Control; positive means the Candidate is {direction}) over {coverage['paired']} of {coverage['expected']} {unit}"
     )
+    if "settings" in record:
+        states = [entry["state"] for entry in record["settings"]["keys"]]
+        human += "; settings: " + ", ".join(f"{states.count(state)} {state}" for state in agent_comparison.SETTING_STATES)
     _print_warnings(record["warnings"])
     _emit({"ok": True, "comparison": record}, args.json, human)
     return EXIT_OK

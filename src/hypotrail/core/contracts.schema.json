@@ -1118,6 +1118,71 @@
           ],
           "additionalProperties": false
         },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "enum": [
+                "declared",
+                "unknown"
+              ]
+            },
+            "candidate": {
+              "enum": [
+                "declared",
+                "unknown"
+              ]
+            },
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "control": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "candidate": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "enum": [
+                      "equal",
+                      "different",
+                      "unknown"
+                    ]
+                  }
+                },
+                "required": [
+                  "key",
+                  "control",
+                  "candidate",
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "control",
+            "candidate",
+            "keys"
+          ],
+          "additionalProperties": false
+        },
         "rates": {
           "type": "object",
           "properties": {

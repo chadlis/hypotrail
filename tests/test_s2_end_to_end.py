@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from _chinook_helpers import episodes_file, import_agent, write_lines
-from _study_helpers import EXAMPLES, run_json
+from _study_helpers import EXAMPLES, run_cli, run_json
 
 PROSE = EXAMPLES / "chinook_prose"
 CONCISE = PROSE / "fixtures" / "answers-concise.jsonl"
@@ -64,3 +64,26 @@ def test_an_import_written_after_the_first_public_check_assessment_is_listed_che
         ("comparison", comparison["comparison_id"]),
     }
     assert ("attempt", first_dev["attempt"]["attempt_id"]) not in listed
+
+
+def test_chinook_prose_compare_lists_the_two_fixture_imports_settings(tmp_path):
+    study = tmp_path / "s2c-prose"
+    references = ok(run_json("init", "--workload", "chinook_prose", "--study", study))["references_id"]
+    control = assessed(study, imported(tmp_path, study, CONCISE, "s2c-concise"), references)
+    candidate = assessed(study, imported(tmp_path, study, VERBOSE, "s2c-verbose"), references)
+    code, out, err = run_cli("compare", "--study", study, "--control", control["assessment_id"], "--candidate", candidate["assessment_id"])
+    assert code == 0, (out, err)
+
+    [record] = ok(run_json("status", "--study", study))["comparisons"]
+    stored = json.loads((study / "comparisons" / record["comparison_id"] / "comparison.json").read_text(encoding="utf-8"))
+    assert record == stored
+    declared = {"control": jsonl(CONCISE)[0]["settings"], "candidate": jsonl(VERBOSE)[0]["settings"]}
+    states = {"configuration": "different", "streaming": "different", "temperature": "different"}
+    states.update(dict.fromkeys(("data_snapshot", "history_source", "model", "seed"), "equal"))
+    assert record.get("settings") == {
+        "control": "declared",
+        "candidate": "declared",
+        "keys": [{"key": key, "control": declared["control"][key], "candidate": declared["candidate"][key], "state": states[key]} for key in sorted(states)],
+    }
+    assert declared["control"]["seed"] is None and declared["candidate"]["seed"] is None
+    assert "settings: 4 equal, 3 different, 0 unknown" in out

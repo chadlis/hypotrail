@@ -83,6 +83,8 @@ CASES_NOT_ESTABLISHED = (
     "not strict."
 )
 PRODUCTION_MODES = ("scripted_fixture", "llm_live")
+SETTING_EQUAL, SETTING_DIFFERENT, SETTING_UNKNOWN = "equal", "different", "unknown"
+SETTING_STATES = (SETTING_EQUAL, SETTING_DIFFERENT, SETTING_UNKNOWN)
 UNIT = "share of Repeats per Case, every Case weighted equally"
 DELTA_DEFINITION = (
     "Share(Candidate) - Share(Control), where Share is the mean over Cases of each Case's share of Repeats scored true; "
@@ -318,6 +320,35 @@ def _measures(study: Path, side: dict) -> dict:
     }
 
 
+def _declared_settings(side: dict):
+    """The flat map of settings the side declares, or None when it declares none (a native side, or an Import's `unknown`)."""
+    if not _is_import(side):
+        return None
+    entry = side["observation_set"]["provenance"].get("settings") or {}
+    return entry["value"] if entry.get("origin") == "declared" else None
+
+
+def settings_of(control: dict, candidate: dict):
+    """The Comparison's `settings`: each key either side declares, with both values (null where undeclared) and its state; None when neither declares.
+
+    An Import's Observation set declares its lines' flat map or leaves it `unknown` (`hypotrail.agentic.imports.declared_settings`); a
+    native side declares none. A key both sides declare with the same canonical JSON bytes is `equal` (so `1` and `true` differ), with
+    other bytes `different`, and `unknown` when a side does not declare it. No check, status, warning or refusal reads it.
+    """
+    declared = {side["role"]: _declared_settings(side) for side in (control, candidate)}
+    if declared["control"] is None and declared["candidate"] is None:
+        return None
+    keys = []
+    for key in sorted(set(declared["control"] or {}) | set(declared["candidate"] or {})):
+        values = {role: (settings or {}).get(key) for role, settings in declared.items()}
+        if all(settings is not None and key in settings for settings in declared.values()):
+            state = SETTING_EQUAL if canonical.dumps(values["control"]) == canonical.dumps(values["candidate"]) else SETTING_DIFFERENT
+        else:
+            state = SETTING_UNKNOWN
+        keys.append({"key": key, **values, "state": state})
+    return {**{role: "unknown" if settings is None else "declared" for role, settings in declared.items()}, "keys": keys}
+
+
 def _rate(scored: int, expected: int):
     return scored / expected if expected else None
 
@@ -450,6 +481,9 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
         "warnings": warnings,
         "limitations": limitations,
     }
+    settings = settings_of(control, candidate)
+    if settings is not None:
+        record["settings"] = settings
     contracts.validate(record)
     artifacts.publish_record(study, f"{folder}/comparison.json", record, role="comparison")
     return record
