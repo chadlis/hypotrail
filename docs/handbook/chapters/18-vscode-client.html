@@ -719,7 +719,7 @@
 <p class="sub2" id="copilot-guide-agent">The Hypotrail Guide agent</p>
 <div class="prose">
 <p>Copy <code>clients/vscode/hypotrail-guide.agent.md</code> into <code>.github/agents/</code> in the workspace that holds the Study, then select "Hypotrail Guide" in Copilot Chat. Its tool list contains VS Code's <code>read</code> and <code>search</code>, plus <code>hypotrail_read_study</code> and <code>hypotrail_run</code>. The file uses the VS Code aliases <code>hypotrailStudy</code> and <code>hypotrailRun</code> for the Hypotrail tools.</p>
-<p>The guide reads at the start of each turn. It uses the card the Study returns to explain a step and points to the panel for values from records. It links to the pinned learning booklet for concepts. It leaves the act of recording a Decision to the person using Record in the panel. Its instructions forbid held-out reads and paid live runs.</p>
+<p>The guide reads at the start of each turn. It uses the card the Study returns to explain a step and points to the panel for values from records. It links to the pinned learning booklet for concepts. It leaves the act of recording a Decision to the person using Record in the panel. Its instructions forbid held-out reads and calls to paid live models.</p>
 <p>For kits, it reads command hints from available C6 <code>kit-status/1</code> output. Agentkit currently offers a text summary and lacks a C6 document. The guide has no terminal, edit or Decision tool. A real-client check of whether VS Code enforces this list as a hard limit is tracked in J0-a.</p>
 </div>
 

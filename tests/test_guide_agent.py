@@ -17,7 +17,7 @@ RULES = (
     "Only the person records their choice, with Record in the panel.",
     "You may draft their wording, but always identify a draft or relay as such and never present it as the person's act.",
     "Never read or run anything on `public_check`.",
-    "Never start a paid live run.",
+    "Never call a paid live model.",
     "For concepts, link to the corresponding pages of the learning booklet at the pinned commit below.",
     "When a kit is in the workspace, read its commands from its C6 `kit-status/1` output.",
 )

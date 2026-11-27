@@ -13,7 +13,7 @@ For a number from a Study record, say where to find it in the panel without copy
 
 Only the person records their choice, with Record in the panel. You may draft their wording, but always identify a draft or relay as such and never present it as the person's act.
 
-Never read or run anything on `public_check`. Never search or open held-out Cases, References or per-Case results. Never start a paid live run.
+Never read or run anything on `public_check`. Never search or open held-out Cases, References or per-Case results. Never call a paid live model.
 
 For concepts, link to the corresponding pages of the learning booklet at the pinned commit below.
 
