@@ -127,3 +127,72 @@ export function dots(list: Dot[], [min, max]: [number, number]): string {
     })
     .join("\n");
 }
+
+// --- the figures of the data profile ---------------------------------------------------------------------------------------------
+
+const svgOf = (width: number, height: number, rects: string[]): string =>
+  `<svg viewbox="0 0 ${width} ${height}" preserveaspectratio="none" aria-hidden="true">${rects.join("")}</svg>`;
+
+// A day as a number of days, from a date of the form YYYY-MM-DD.
+export const dayOf = (date: string): number => Date.parse(`${date}T00:00:00Z`) / 86400000;
+
+// One span of the band: its first and last day, and the class its `rect` takes its colour from.
+export type Span = { first: number; last: number; kind: string };
+
+// The target over time under the Partition band: the days run across the width from the band's first day to its last, each day with a
+// value a column as tall as its value over the largest, and under them one `rect` per span of the band.
+export function timeline(band: Span[], days: [day: number, value: number][]): string {
+  if (band.length === 0) return svgOf(100, 40, []);
+  const first = Math.min(...band.map((span) => span.first));
+  const width = 100 / (Math.max(...band.map((span) => span.last)) - first + 1);
+  const top = scaleTop(days.map(([, value]) => value));
+  const spans = band.map((span) => rect(span.kind, (span.first - first) * width, 36, (span.last - span.first + 1) * width, 4));
+  const columns = days.map(([day, value]) => rect("day", (day - first) * width, 34 - (barLength(value, top) * 34) / 100, width, (barLength(value, top) * 34) / 100));
+  return svgOf(100, 40, [...spans, ...columns]);
+}
+
+// One column per count, side by side, each as tall as its count over the largest.
+export function columns(counts: number[]): string {
+  const top = scaleTop(counts);
+  const step = 100 / Math.max(1, counts.length);
+  return svgOf(100, 30, counts.map((count, at) => rect("column", at * step + step * 0.06, 30 - (barLength(count, top) * 30) / 100, step * 0.88, (barLength(count, top) * 30) / 100)));
+}
+
+// One cell of the matrix: its row and column in the clustering order, the size of its mark from 0 to 1, and its class.
+export type Cell = { row: number; column: number; size: number; kind: string };
+
+// The matrix: a grid of `size` by `size` places, each cell a square mark in its place, as wide as its size of the place.
+export function matrix(size: number, cells: Cell[]): string {
+  const place = 100 / Math.max(1, size);
+  const marks = cells.map(({ row, column, size: part, kind }) => {
+    const side = place * Math.max(0.15, Math.min(1, part)) * 0.92;
+    return rect(kind, column * place + (place - side) / 2, row * place + (place - side) / 2, side, side);
+  });
+  return svgOf(100, 100, marks);
+}
+
+// The points of a feature against the target, each a small square on axes from the smallest to the largest of each.
+export function scatter(points: [x: number, y: number][]): string {
+  if (points.length === 0) return svgOf(100, 50, []);
+  const [xs, ys] = [points.map(([x]) => x), points.map(([, y]) => y)];
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const side = 1.2;
+  return svgOf(100, 50, points.map(([x, y]) => rect("point", centred(axisPosition(x, x0, x1), side), (centred(100 - axisPosition(y, y0, y1), side * 2) * 50) / 100, side, side)));
+}
+
+// One box per value, side by side, on one axis from the smallest of their minima to the largest of their maxima: a whisker from the
+// minimum to the maximum, the box between the quartiles and the median across it; a value with no five numbers has no box.
+export function boxes(fives: (Five | null)[]): string {
+  const known = fives.filter((five): five is Five => five !== null);
+  if (known.length === 0) return svgOf(100, 50, []);
+  const [low, high] = [Math.min(...known.map((five) => five[0])), Math.max(...known.map((five) => five[4]))];
+  const y = (value: number): number => ((100 - axisPosition(value, low, high)) * 50) / 100;
+  const step = 100 / fives.length;
+  const marks = fives.flatMap((five, at) => {
+    if (five === null) return [];
+    const [min, q1, median, q3, max] = five;
+    const x = at * step;
+    return [rect("whisker", x + step / 2 - 0.3, y(max), 0.6, y(min) - y(max)), rect("box", x + step * 0.2, y(q3), step * 0.6, y(q1) - y(q3)), rect("median", x + step * 0.2, Math.max(0, y(median) - 0.4), step * 0.6, 0.8)];
+  });
+  return svgOf(100, 50, marks);
+}
