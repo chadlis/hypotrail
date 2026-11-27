@@ -112,6 +112,11 @@ def _unverified_scope(kind: str, record_id: str) -> InvalidInputError:
     )
 
 
+def _partition_metadata_valid(partition) -> bool:
+    """Accept an absent value or a declared name, including custom regression Partitions."""
+    return partition is None or (isinstance(partition, str) and bool(partition.strip()))
+
+
 def _verify_report_scope(study) -> None:
     manifests = [layout.read_manifest(study, attempt_id) for attempt_id in layout.attempt_ids(study)]
     for manifest in manifests:
@@ -121,13 +126,13 @@ def _verify_report_scope(study) -> None:
         declared = manifest["effective_config"].get("partition")
         refs = layout.observation_set_refs(manifest)
         fixture = manifest["mode"] == SCENARIO_MODE
-        if not refs and declared is None and not fixture:
+        if not _partition_metadata_valid(declared) or (not refs and declared is None and not fixture):
             raise _unverified_scope("attempt", manifest["attempt_id"])
         for ref in refs:
             observation_set = layout.read_record(study, ref["path"])
             recorded = partition_of(manifest, observation_set)
             exposure.refuse_public_check(PUBLIC_CHECK, recorded)
-            if recorded is None and declared is None and not fixture:
+            if not _partition_metadata_valid(recorded) or (recorded is None and declared is None and not fixture):
                 raise _unverified_scope("attempt", manifest["attempt_id"])
             observation_ids.add(observation_set["observation_set_id"])
     assessment_ids = set()

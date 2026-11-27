@@ -162,16 +162,17 @@ def test_the_run_tool_corpus_on_the_real_cli(tmp_path):
     assert [a["partition"] for a in dev_status["attempts"] if a["partition"] != "dev"] == []
 
 
-@pytest.mark.parametrize("state", ["changed after status", "manifest only", "writer active"])
+@pytest.mark.parametrize("state", ["changed after status", "manifest only", "malformed Partition", "writer active"])
 def test_guarded_report_refuses_before_opening_artifacts(tmp_path, monkeypatch, state):
     study, _ = init_study(tmp_path)
     stale = run_json("status", "--study", study)[1]["write_sequence"]
     if state == "changed after status":
         code, _, err = run_ml(study, "seasonal_7", "public_check", "later-attempt")
         assert code == 0, err
-    if state == "manifest only":
+    if state in ("manifest only", "malformed Partition"):
         attempt = constructed_attempt(study, "interrupted", outcome_unknown=True)
-        edit_manifest(study, attempt, lambda record: record["effective_config"].update(partition="public_check"))
+        partition = "public_check" if state == "manifest only" else ""
+        edit_manifest(study, attempt, lambda record: record["effective_config"].update(partition=partition))
         assert run_json("status", "--study", study)[1]["attempts"][0]["partition"] is None
 
     out = tmp_path / "report.html"
@@ -183,7 +184,12 @@ def test_guarded_report_refuses_before_opening_artifacts(tmp_path, monkeypatch, 
         before = tree(study)
         code, payload, _ = run_json(*args)
         assert tree(study) == before
-    expected = {"changed after status": (6, "STUDY_CHANGED"), "manifest only": (2, "PUBLIC_CHECK_REFUSED"), "writer active": (6, "STUDY_LOCKED")}
+    expected = {
+        "changed after status": (6, "STUDY_CHANGED"),
+        "manifest only": (2, "PUBLIC_CHECK_REFUSED"),
+        "malformed Partition": (2, "REPORT_SCOPE_UNVERIFIED"),
+        "writer active": (6, "STUDY_LOCKED"),
+    }
     assert (code, payload["error"]["code"]) == expected[state]
     assert not out.exists()
 
