@@ -150,8 +150,8 @@ def test_a_record_under_the_group_unit_counts_groups_in_units_and_cases_in_cases
     assert (grouped["lower"], grouped["upper"]) == (bounds_of(EQUAL, EQUAL_GROUPS)["lower"], bounds_of(EQUAL, EQUAL_GROUPS)["upper"])
     one = intervals.record({"unit": "group", "seed": SEED}, [0.1, 0.2], groups=["g", "g"])
     assert (one["units"], one["cases"], one["lower"], one["reason"]) == (1, 2, None, "too_few_units")
-    withheld = intervals.record({"unit": "group", "seed": SEED}, None)
-    assert (withheld["units"], withheld["cases"], withheld["reason"]) == (None, None, "delta_withheld")
+    withheld = intervals.record({"unit": "group", "seed": SEED}, None, groups=EQUAL_GROUPS)
+    assert (withheld["units"], withheld["cases"], withheld["reason"]) == (10, 30, "delta_withheld")
     assert intervals.record({"unit": "case", "seed": SEED}, EQUAL)["cases"] is None
     assert intervals.record(None, EQUAL)["cases"] is None
 

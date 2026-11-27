@@ -399,9 +399,10 @@ def compare_sides(study: Path, write, control: dict, candidate: dict, factor: st
     spec = layout.read_spec(study)
     resampling = spec.get("resampling")
     groups = None
-    if resampling is not None and resampling["unit"] == intervals.GROUP and cases is not None:
+    if resampling is not None and resampling["unit"] == intervals.GROUP:
         by_case = case_groups(study, spec)
-        groups = [by_case[case_id] for case_id in cases]
+        case_ids = populations["control"]["cases"] if cases is None else cases
+        groups = [by_case[case_id] for case_id in case_ids]
     interval = intervals.record(resampling, None if cases is None else [d - c for _, c, d in cases.values()], groups=groups)
     environment, environment_sentence = describe_environments(control["manifest"], candidate["manifest"])
     first = LIMITATIONS[0] if interval["reason"] is not None else LIMITATION_GROUP_INTERVAL if interval["unit"] == intervals.GROUP else LIMITATION_INTERVAL

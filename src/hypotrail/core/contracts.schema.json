@@ -1125,6 +1125,16 @@
             "seed",
             "reason"
           ],
+          "if": {
+            "properties": {"unit": {"const": "group"}}
+          },
+          "then": {
+            "required": ["cases"],
+            "properties": {"cases": {"type": "integer"}}
+          },
+          "else": {
+            "properties": {"cases": {"type": "null"}}
+          },
           "additionalProperties": false
         },
         "rates": {

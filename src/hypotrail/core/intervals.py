@@ -97,10 +97,10 @@ def cluster_interval(deltas: list, groups: list, *, seed: int, resamples: int = 
 def record(resampling: dict | None, deltas: list | None, *, groups: list | None = None, missing: str = DELTA_WITHHELD) -> dict:
     """The `interval` key of a Comparison: over `deltas` (one per unit, in order) when the Study declares `resampling` and they exist.
 
-    With no declaration, `unit`, `seed` and `units` are null and `reason` is `resampling_not_declared`. With `deltas` None, `units` is
-    null and `reason` is `missing`: `delta_withheld`, or `series_not_contiguous` for a block declaration over a series with gaps. Under
-    the unit `group`, `groups` gives the group of each delta's Case: `units` counts the groups and `cases` the Cases; `cases` is null
-    under the other units.
+    With no declaration, `unit`, `seed` and `units` are null and `reason` is `resampling_not_declared`. With `deltas` None, the bounds
+    are null and `reason` is `missing`: `delta_withheld`, or `series_not_contiguous` for a block declaration over a series with gaps.
+    Under the unit `group`, `groups` gives the group of each Case in the population, in delta order when deltas exist. `units` counts
+    the groups and `cases` the Cases, even when the delta is withheld. For other units, `cases` is null and `units` needs deltas.
     """
     base = {"level": LEVEL, "method": METHOD, "variant": None, "block_length": None, "resamples": RESAMPLES, "cases": None}
     if resampling is None:
@@ -109,10 +109,11 @@ def record(resampling: dict | None, deltas: list | None, *, groups: list | None 
     declared = {"unit": resampling["unit"], "seed": resampling["seed"]}
     if block is not None:
         declared.update(variant=block["variant"], block_length=block["length"])
-    if deltas is None:
-        return {**base, **declared, "lower": None, "upper": None, "units": None, "reason": missing}
     if resampling["unit"] == GROUP:
-        bounds = cluster_interval(deltas, groups, seed=resampling["seed"])
-        return {**base, **declared, "units": len(set(groups)), "cases": len(deltas), **bounds}
+        declared.update(units=len(set(groups)), cases=len(groups))
+        if deltas is not None:
+            return {**base, **declared, **cluster_interval(deltas, groups, seed=resampling["seed"])}
+    if deltas is None:
+        return {**base, "units": None, **declared, "lower": None, "upper": None, "reason": missing}
     length = 1 if block is None else block["length"]
     return {**base, **declared, "units": len(deltas), **_interval(deltas, length, resampling["seed"], RESAMPLES, LEVEL)}

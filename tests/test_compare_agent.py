@@ -856,5 +856,6 @@ def test_the_compare_line_and_the_report_page_give_an_interval_over_n_groups_and
         assert [c["Interval"] for c in cells] == [f"{interval['lower']:.6g} to {interval['upper']:.6g}, level 0.95, over 10 groups"] * 2
     else:
         assert (stored["delta"]["reason"], interval["reason"], interval["lower"]) == ("coverage_incomplete", "delta_withheld", None)
+        assert (interval["units"], interval["cases"]) == (10, 30)
         assert "interval" not in out and "[" not in out and "groups" not in out
         assert [c["Interval"] for c in cells] == ["withheld"] * 2
