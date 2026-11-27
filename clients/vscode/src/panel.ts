@@ -18,7 +18,7 @@ export type Target = { study: string; decision?: string };
 // What the document's script posts: the name of a message and, for the control that records, the indexes of the
 // pending decision and of the option selected and the text of its box of words; for a control that opens, the kind of the record's part, its index in its listing and
 // the ref.
-type Message = { lessonReady?: unknown; message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
+type Message = { message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -73,12 +73,7 @@ export const HANDLERS: Record<string, (message: Message) => void> = {
 
 function receive(message: unknown): void {
   if (inFlight || !panel) return;
-  const incoming = message as Message | null;
-  if (typeof incoming?.lessonReady === "string") {
-    postLesson(panel.webview, incoming.lessonReady);
-    return;
-  }
-  const name = incoming?.message;
+  const name = (message as Message | null)?.message;
   if (typeof name === "string" && Object.hasOwn(HANDLERS, name)) HANDLERS[name](message as Message);
 }
 
@@ -221,7 +216,7 @@ async function read(written?: Outcome): Promise<void> {
   const failure = outcome.outcome === "success" ? undefined : outcome;
   show({ reading: false, object: held, figures, profile, lesson, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
   if (object !== undefined) void readProfileOf(opened, object, study, written);
-  if (object !== undefined) void readLessonOf(opened, object, study);
+  if (object !== undefined) void readLessonOf(opened, object, study, written);
 }
 
 // The profile call, made once the document of the status and figures reads is drawn, so that nothing waits for it: its answer is kept for
@@ -236,22 +231,22 @@ async function readProfileOf(opened: vscode.WebviewPanel, object: Record<string,
 // The lesson call, made once the document of the status and figures reads is drawn, as the profile call is, so that the Pending decision,
 // its choices and Record never wait for it. Keep only a usable lesson beside the same status object, and deliver it to the existing
 // document without replacing the Pending decision's form.
-async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string): Promise<void> {
+async function readLessonOf(opened: vscode.WebviewPanel, object: Record<string, unknown>, study: string, written?: Outcome): Promise<void> {
   const answer = await readLesson(ROOT, study);
   if (panel !== opened || held !== object) return;
   lesson = answer.outcome === "success" ? usableLesson(object, answer.object) : undefined;
-  if (!inFlight) postLesson(opened.webview);
-}
+  if (inFlight || lesson === undefined) return;
 
-// The existing document nonce identifies the read that drew this document. A document that mounts after the read asks once for
-// the same cards, so delivery does not depend on the timing of the webview's script.
-function postLesson(webview: vscode.Webview, ready?: string): void {
-  if (lesson === undefined) return;
-  const document = webview.html;
+  const document = opened.webview.html;
   const nonce = /<script nonce="([a-f0-9]+)">/.exec(document)?.[1];
-  if (nonce === undefined || (ready !== undefined && ready !== nonce) || document.includes('<div data-part="lesson">')) return;
+  if (nonce === undefined || document.includes('<div data-part="lesson">')) return;
   const cards = cardsOf(lesson, document);
-  if (cards !== "") void webview.postMessage({ lesson: cards, nonce });
+  if (cards === "" || await opened.webview.postMessage({ lesson: cards, nonce })) return;
+
+  // A hidden webview can have no live document. Save the full rendering for its next mount without replacing a visible form.
+  if (panel === opened && held === object && !inFlight && !opened.visible && opened.webview.html === document) {
+    show({ reading: false, object, figures, profile, lesson, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
+  }
 }
 
 function show(view: View): void {
@@ -337,7 +332,6 @@ const SCRIPT = [
   `  const part = cards.querySelector('div[data-part="lesson"]');`,
   `  if (part) document.querySelector('section[data-part="path"]')?.before(part);`,
   '});',
-  'api.postMessage({lessonReady: nonce});',
   'if (document.querySelector("a[data-recorded]") !== null) document.querySelector(\'[data-element="notice"]\')?.focus();',
   "else {",
   '  const linked = document.querySelector("[data-linked]");',

@@ -182,16 +182,14 @@ test("a late lesson adds its cards without replacing the Pending decision docume
   assert.equal(elementsOf(lastDocument(), CARD).length, keptObject("lesson.after-compare").cards.length);
   const [update] = panelOf().updates as { lesson: string; nonce: string }[];
   assert.equal(panelOf().updates.length, 1);
-  panelOf().send({ lessonReady: "earlier-document" });
-  assert.equal(panelOf().updates.length, 1);
-  panelOf().send({ lessonReady: update.nonce });
-  assert.deepEqual(panelOf().updates, [update, update]);
 
   await t.test("the browser keeps the selected option, typed words and enabled Record", { timeout: 60000 }, async (browser) => {
     if (!hasChrome(browser, "the pending form after a late lesson")) return;
     const address = await startChrome(browser);
     if (address === undefined) return browser.skip(`the pending form is skipped: Chrome at ${CHROME} did not start within ${START_MS} ms`);
-    const evaluate = await opened(browser, address, document, 420, 700);
+    const evaluate = await opened(browser, address, document, 420, 700,
+      "window.lessonOutbound = []; window.acquireVsCodeApi = () => ({postMessage: (message) => window.lessonOutbound.push(message)});");
+    assert.deepEqual(await evaluate("window.lessonOutbound"), []);
     await evaluate(`(() => {
       const option = document.querySelector('input[data-pending]');
       const words = document.querySelector('textarea[data-words]');
@@ -249,4 +247,34 @@ test("repeated values are marked in their summary, chart label, caption, frame a
   slot(after, "<summary>", "decisions[].applies", '<details data-step="decisions">');
   const [decision] = elementsOf(after, '<section data-part="decision"');
   assert.equal((decision.match(/data-lesson-value="status decisions\[\]\.applies"/g) ?? []).length, 2);
+});
+
+test("each rendered dot marks the paired values on its own scale inside the existing grid", async (t) => {
+  const document = await shown(t, readsOf("after-compare"));
+  const rows = elementsOf(document, "<div data-dot>");
+  assert.ok(rows.length > 1);
+  assert.ok(document.includes('<div data-element="dots">'));
+  for (const row of rows) {
+    assert.match(row, /<svg [^>]+data-lesson-value="figures comparisons\[\]\.paired_deltas"/);
+  }
+});
+
+test("a lesson that arrives while the view has no live document is in the HTML for the next mount", async (t) => {
+  const [status, figures, usable] = readsOf("after-compare");
+  workspace(t, ["bike"]);
+  const held = heldRecorder(t, true);
+  await runCommand();
+  held.answer(status);
+  await settle();
+  held.answer(figures);
+  await settle();
+  const panel = panelOf();
+  assert.deepEqual(elementsOf(panel.webview.html, CARD), []);
+
+  panel.visible = false;
+  held.answer(usable);
+  await settle();
+  panel.visible = true;
+  assert.equal(panel.updates.length, 0);
+  assert.equal(elementsOf(panel.webview.html, CARD).length, keptObject("lesson.after-compare").cards.length);
 });

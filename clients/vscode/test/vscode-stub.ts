@@ -8,6 +8,7 @@ export type StubPanel = {
   options: unknown;
   documents: string[];
   updates: unknown[];
+  visible: boolean;
   reveals: number;
   disposed: boolean;
   webview: { html: string; cspSource: string; postMessage(message: unknown): Promise<boolean>; onDidReceiveMessage(listener: (message: unknown) => void): { dispose(): void } };
@@ -81,6 +82,7 @@ function makePanel(viewType: string, options: unknown): StubPanel {
     options,
     documents: [],
     updates: [],
+    visible: true,
     reveals: 0,
     disposed: false,
     webview: {
@@ -93,6 +95,7 @@ function makePanel(viewType: string, options: unknown): StubPanel {
       },
       cspSource: "vscode-webview://stub",
       async postMessage(message) {
+        if (!panel.visible) return false;
         panel.updates.push(message);
         return true;
       },

@@ -807,9 +807,9 @@ function dotsOf(pairs: Pair[], index: number, delta: Entry, agent: boolean, few:
     `<h4>${label(agent ? "shares" : "itemErrors")}${few ? "" : ` (${marked(delta.unit)})`}</h4>`,
     `<p data-element="dot-key"><span data-key="control">${label("control")}</span> <span data-key="candidate">${label("candidate")}</span></p>`,
     `<p data-element="dot-order">${label("dotOrder")}</p>`,
-    `<div data-element="dots"${lessonValue("figures comparisons[].paired_deltas")}>`,
+    '<div data-element="dots">',
     printed,
-    dots(ordered, ends),
+    dots(ordered, ends, lessonValue("figures comparisons[].paired_deltas")),
     "</div>",
     "</div>",
   ].join("\n");
