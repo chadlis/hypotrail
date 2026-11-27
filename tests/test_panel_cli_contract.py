@@ -441,6 +441,25 @@ def test_the_dated_lines_hold_one_line_for_the_profile_read_that_quotes_its_tick
     assert PROFILE_TICKET_SENTENCE in line
     assert f"the earlier line it widens: \"{OPEN_READ_LINE}\"" in line
     assert "`profile --study=DIR --json`" in line and "takes no lock" in line and "writes nothing" in line
+# --- the dated line of the `lesson` read ---------------------------------------------------------------------------------------------
+
+LESSON_TICKET_SENTENCE = (
+    "`contract.json` gains `lesson_arguments` `[\"lesson\", \"--study={path}\", \"--json\"]` and `lesson_key_paths`, and `lesson` joins `reads`."
+)
+WIDENED_READ_LINE = "A client reads through `status --json` and `figures --json`"
+
+
+def test_the_dated_lines_hold_one_line_for_the_lesson_read_that_quotes_its_ticket_widens_the_read_line_and_names_its_two_readers():
+    lines = [line for line in section(adr(), "Dated lines").splitlines() if line.startswith("- ")]
+    found = [line for line in lines if "chadlis/hypotrail#283" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert "a client also reads `lesson`" in line
+    assert LESSON_TICKET_SENTENCE in line
+    assert f"the earlier line it widens: \"{WIDENED_READ_LINE}\"" in line
+    assert "`lesson --study=DIR --json`" in line and "takes no lock" in line and "writes nothing" in line
+    assert "`hypotrail_read_study`" in line and "`hypotrail_decide`" in line
 
 
 # --- the dated line of the panel's words box ------------------------------------------------------------------------------------------

@@ -72,7 +72,8 @@ def test_the_manifest_contributes_no_setting():
 
 # --- CI --------------------------------------------------------------------------------------------------------------------------
 
-# The job `pytest` as it stood at `main` 62b8c8d, its pytest step since run across workers by pytest-xdist.
+# The job `pytest` as it stood at `main` 62b8c8d, its pytest step since run across workers by pytest-xdist, and since chadlis/hypotrail#285
+# with Node 22, pinned as the client job pins it, and the compiled client, which the run tool's end-to-end test drives.
 PYTEST_JOB_AT_THE_BASE = """\
   pytest:
     runs-on: ubuntu-latest
@@ -82,6 +83,12 @@ PYTEST_JOB_AT_THE_BASE = """\
         with:
           python-version: "3.13"
       - run: uv sync --locked --all-extras
+      # The run tool's end-to-end test drives the compiled VS Code client with Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci && npm run compile
+        working-directory: clients/vscode
       # Offline: the suite blocks outbound network in every test. No secret is
       # passed, so no live model call can run here (AGENTS.md).
       - run: uv run --locked --all-extras pytest -n auto --dist loadfile
@@ -352,19 +359,20 @@ VSCODE_RUNNERS = ["createTerminal", "sendText", "executeTask", "ShellExecution",
 STATE_NAMES = ["globalState", "workspaceState", "setState", "localStorage"]
 WRITE_NAMES = ["writeFile", "appendFile", "createWriteStream"]
 # The names of a watcher and of a read on visibility or on a timer, and the names that read or open a file.
-WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeViewState", "onDidChangeTextDocument", "setInterval"]
+WATCH_NAMES = ["createFileSystemWatcher", "watch(", "watchFile", "onDidChangeTextDocument", "setInterval"]
 FILE_READ_NAMES = ["readFile", "readFileSync", "createReadStream", "openTextDocument", "showTextDocument", "vscode.open", "workspace.fs"]
 # The names of a call to a language model through VS Code.
 MODEL_NAMES = ["selectChatModels", "sendRequest"]
 EXPECTED_LISTING = {("clients/vscode/src/bridge.ts", "child_process"), ("clients/vscode/src/panel.ts", "showTextDocument")}
 STUDY_FILE_HOLDERS = ["clients/vscode/src/studies.ts"]
 # Names each found exactly once in the client's sources, in the file given: the one call that creates a webview panel,
-# the one assignment of a webview's document, the one receiver of the document's messages, and the one call that shows a file of
-# the Study in the editor.
+# the one assignment of a webview's document, the one receiver of the document's messages, the one visibility callback
+# allowed by #283 to cache an already-read lesson when hidden, and the one call that shows a file of the Study in the editor.
 ONCE_NAMES = {
     "createWebviewPanel": "clients/vscode/src/panel.ts",
     ".html =": "clients/vscode/src/panel.ts",
     "onDidReceiveMessage": "clients/vscode/src/panel.ts",
+    "onDidChangeViewState": "clients/vscode/src/panel.ts",
     "showTextDocument": "clients/vscode/src/panel.ts",
 }
 CHILD_PROCESS_IMPORT = 'import { execFile } from "node:child_process";'
@@ -431,6 +439,8 @@ PLANTED = [
     ("a second panel created in another file", "clients/vscode/src/other.ts", 'vscode.window.createWebviewPanel("x", "x", 1, {});\n'),
     ("a second document assigned", "clients/vscode/src/panel.ts", 'other.webview.html = "<p></p>";\n'),
     ("a second message receiver", "clients/vscode/src/other.ts", "other.webview.onDidReceiveMessage(listen);\n"),
+    ("onDidChangeViewState", "clients/vscode/src/other.ts", "vscode.workspace.onDidChangeViewState(target);\n"),
+    ("a second visibility callback in the panel", "clients/vscode/src/panel.ts", "panel.onDidChangeViewState(listen);\n"),
     ("a second opening of a file in the panel", "clients/vscode/src/panel.ts", "void vscode.window.showTextDocument(other);\n"),
     *[(name, "clients/vscode/src/other.ts", f"vscode.workspace.{name}(target);\n") for name in WATCH_NAMES + FILE_READ_NAMES],
     ("selectChatModels", "clients/vscode/src/tools.ts", "const models = await vscode.lm.selectChatModels();\n"),
@@ -458,6 +468,8 @@ LET_BINDINGS = {
     ("clients/vscode/src/panel.ts", "figures"): "the last figures read",
     # "`panel.ts` makes the read after the figures read and holds its object as it holds `figures`." (chadlis/hypotrail#262)
     ("clients/vscode/src/panel.ts", "profile"): "the answer of the last profile read",
+    # D-178 on chadlis/hypotrail#75, item 2, with the #283 line "`bridge.ts` gains `readLesson`, with the same limits as `readFigures`".
+    ("clients/vscode/src/panel.ts", "lesson"): "the answer of the last lesson read",
 }
 
 
@@ -706,7 +718,7 @@ def test_the_kept_decide_outputs_are_the_clis_own_once_each_uuid_and_the_scratch
 def test_the_client_reads_and_writes_are_leaf_commands_each_write_requires_the_request_id_and_read_sequence_and_no_other_writer_is_listed():
     contract = read_json(CLIENT / "contract.json")
     leaves = leaf_commands()
-    assert contract["reads"] == ["status", "figures", "profile"] and contract["writes"] == ["decide"]
+    assert contract["reads"] == ["status", "figures", "profile", "lesson"] and contract["writes"] == ["decide"]
     for command in contract["reads"] + contract["writes"]:
         assert command in leaves, command
     for command in contract["writes"]:
@@ -749,6 +761,16 @@ TOOLS = {
         },
         "required": ["question", "option", "author", "cited_ids", "read_sequence", "study"],
     },
+    "hypotrail_run": {
+        "toolReferenceName": "hypotrailRun",
+        "properties": {
+            "study": {"type": "string"},
+            "command": {"type": "string", "enum": ["run", "import", "assess", "compare", "profile", "report"]},
+            "arguments": {"type": "array", "items": {"type": "string"}},
+            "read_sequence": {"type": "integer", "minimum": 0},
+        },
+        "required": ["study", "command", "arguments"],
+    },
 }
 
 
@@ -757,10 +779,10 @@ def manifest_tools() -> dict:
     return {entry.get("name"): entry for entry in read_json(CLIENT / "package.json").get("contributes", {}).get("languageModelTools", [])}
 
 
-def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_and_activation_events_and_no_other():
+def test_the_manifest_contributes_the_three_copilot_tools_their_reference_names_and_activation_events_and_no_other():
     manifest = read_json(CLIENT / "package.json")
     tools = manifest_tools()
-    assert len(manifest.get("contributes", {}).get("languageModelTools", [])) == 2
+    assert len(manifest.get("contributes", {}).get("languageModelTools", [])) == 3
     assert set(tools) == set(TOOLS)
     for name, expected in TOOLS.items():
         assert tools[name]["name"] == name
@@ -768,8 +790,9 @@ def test_the_manifest_contributes_the_two_copilot_tools_their_reference_names_an
         assert tools[name]["canBeReferencedInPrompt"] is True, name
         assert tools[name]["inputSchema"]["type"] == "object", name
     events = manifest.get("activationEvents", [])
-    assert sorted(events) == sorted(["onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"])
-    for event in ("onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide"):
+    expected = ["onUri", "onLanguageModelTool:hypotrail_read_study", "onLanguageModelTool:hypotrail_decide", "onLanguageModelTool:hypotrail_run"]
+    assert sorted(events) == sorted(expected)
+    for event in expected:
         assert event in events, event
 
 
@@ -885,3 +908,39 @@ def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under
     assert set(AVOID_EXEMPT) <= set(labels)
     phrases = [entry.split("=", 1)[1] for entry in contract["applies_phrases"]]
     assert avoided_in(labels + phrases, words) == []
+
+
+# --- the run tool's contract and its dated lines in ADR 0004 ---------------------------------------------------------------------------
+
+RUN_CONTRACT = CLIENT / "run-tool.contract.md"
+ADR_0004 = ROOT / "docs" / "adr" / "0004-panel-cli-contract.md"
+
+
+def test_the_manifest_schema_of_the_run_tool_is_the_json_schema_of_its_contract():
+    schema = json.loads(RUN_CONTRACT.read_text(encoding="utf-8").split("```json\n", 1)[1].split("\n```", 1)[0])
+    assert manifest_tools()["hypotrail_run"]["inputSchema"] == schema
+
+
+def dated_lines() -> list:
+    section = ADR_0004.read_text(encoding="utf-8").split("## Dated lines\n", 1)[1]
+    return [line for line in section.splitlines() if line.startswith("- ")]
+
+
+def test_adr_0004_holds_one_dated_line_for_the_run_tool_and_its_list_quoting_the_ticket_and_adr_0006():
+    found = [line for line in dated_lines() if "`hypotrail_run`" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert "chadlis/hypotrail#285" in line and '"The chat prepares and relays."' in line and "the run tool's contract" in line
+    for command in ("`run`", "`assess`", "`compare`", "`profile`", "`report`", "`decide`", "`deviation`", "`import`", "`llm_live`", "`public_check`"):
+        assert command in line, command
+    assert "the earlier line it narrows: the 2026-11-23 line" in line
+
+
+def test_adr_0004_holds_one_dated_line_for_the_partition_of_attempts_quoting_d_175_and_overriding_none():
+    found = [line for line in dated_lines() if "D-175" in line and "gains `partition`" in line]
+    assert len(found) == 1, found
+    [line] = found
+    assert re.match(r"- \d{4}-\d{2}-\d{2}: ", line), line
+    assert '"`status --json` gains `attempts[].partition`, read from the Observation set\'s `provenance.partition` (null when there is none)"' in line
+    assert "the earlier line it overrides: none" in line

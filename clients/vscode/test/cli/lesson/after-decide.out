@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "write_sequence": 14,
+  "track": "temporal_regression",
+  "cards": [
+    {
+      "kind": "comparisons",
+      "title": "Comparisons",
+      "text": "A Comparison sets two Assessments of the same Items side by side: one side is the Control, the other the Candidate. Its delta is the Candidate's Metric minus the Control's, and its definition states which sign means the Candidate is better. It also records whether the two sides are comparable, how many Items it paired, and its limitations and warnings; the figures give its paired deltas, one per Item, and their spread. Read the comparability, the coverage and the limitations before the delta, and the spread of the paired deltas beside it.",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "comparisons[].roles.control_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].roles.candidate_assessment_id"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].comparability.status"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].coverage.paired"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.value"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].delta.definition"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].limitations"
+        },
+        {
+          "read": "status",
+          "path": "comparisons[].warnings"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].paired_deltas"
+        },
+        {
+          "read": "figures",
+          "path": "comparisons[].quartiles"
+        }
+      ]
+    },
+    {
+      "kind": "decisions",
+      "title": "Decisions",
+      "text": "A Decision records the option chosen for a question, with its author, its source and the ids of the records it cites. It is written once by decide and never changed. It stops applying when the Study no longer holds an id it cites, when the Study's revision is no longer the one it was recorded in, or when an Assessment it cites, or one that a cited Comparison compares, is superseded by a later one; its reasons then say which. Read whether each Decision still applies, and its reasons when it does not.",
+      "key_paths": [
+        {
+          "read": "status",
+          "path": "decisions[].question"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].option"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].author"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].source"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].cited_ids"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].applies"
+        },
+        {
+          "read": "status",
+          "path": "decisions[].reasons"
+        }
+      ]
+    }
+  ]
+}

@@ -12,7 +12,8 @@
   "activationEvents": [
     "onUri",
     "onLanguageModelTool:hypotrail_read_study",
-    "onLanguageModelTool:hypotrail_decide"
+    "onLanguageModelTool:hypotrail_decide",
+    "onLanguageModelTool:hypotrail_run"
   ],
   "contributes": {
     "commands": [
@@ -27,7 +28,7 @@
         "toolReferenceName": "hypotrailStudy",
         "displayName": "Read a Hypotrail Study",
         "userDescription": "Reads a Hypotrail Study of this workspace. The read writes nothing.",
-        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. It starts that read alone, which writes nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
+        "modelDescription": "Reads one Hypotrail Study of this workspace and gives the object that `status --study=DIR --json` prints, whole: the Study, its write_sequence, its pending decisions with their questions and options, and its Decisions. Beside it, it gives the object that `lesson --study=DIR --json` prints: the cards that explain each kind of step the Study shows, to explain a step with the same text as the panel; a Track that serves no cards refuses that read. It starts those two reads alone, which write nothing. With one Study in the workspace, leave study out; with several, give study, the absolute path of the folder of one of them. When no single Study is found, the answer names the Studies found and nothing is read.",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -112,6 +113,52 @@
             "cited_ids",
             "read_sequence",
             "study"
+          ]
+        }
+      },
+      {
+        "name": "hypotrail_run",
+        "toolReferenceName": "hypotrailRun",
+        "displayName": "Run a Hypotrail command",
+        "userDescription": "Runs one command of the Hypotrail CLI on a Study of this workspace (run, assess, compare, profile or report), after you confirm it, unless you chose \"Always Allow\" for this tool. It may write records; it never records a Decision.",
+        "modelDescription": "Runs one command of the Hypotrail CLI on a Study of this workspace, once the user has confirmed it in VS Code, unless the user chose \"Always Allow\" for this tool. Give study, the absolute path of the folder of the Study; command, one of run, assess, compare, profile and report; arguments, the arguments after the command, one string each (for run, the Track ml or agent first), without --study, --read-sequence or --json; and read_sequence, the write_sequence of the Study as you last read it, for every command but profile. It may write records and advance the Write sequence. It refuses before any start: any other command, decide and deviation included; import, which a person runs through the CLI; the Mode llm_live and every option only it takes; and any public_check read, including assess, compare and report on an Attempt on public_check. A refusal gives its code and starts nothing. A command the CLI refuses, or that gets no answer, is reported and never started again by this tool: read the Study before any other write.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "study": {
+              "type": "string",
+              "description": "The absolute path of the folder of the Study to run the command on, as a read or a refusal of these tools lists it. Required, even when the workspace holds one Study."
+            },
+            "command": {
+              "type": "string",
+              "enum": [
+                "run",
+                "import",
+                "assess",
+                "compare",
+                "profile",
+                "report"
+              ],
+              "description": "The command of the CLI to run. import is always refused: a person runs an Import through the CLI."
+            },
+            "arguments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The arguments after the command, one string each: for run, the Track (ml or agent) first, then the options, each as --name=value or as --name followed by its value. Leave out --study, --read-sequence and --json: the tool passes them."
+            },
+            "read_sequence": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The write_sequence of the Study as last read. Required for run, assess, compare and report; profile writes nothing and does not take it."
+            }
+          },
+          "required": [
+            "study",
+            "command",
+            "arguments"
           ]
         }
       }

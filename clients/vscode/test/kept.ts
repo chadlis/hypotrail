@@ -11,8 +11,11 @@ export const DEMONSTRATION = "demonstration.";
 // A file kept of the journey the panel mockups show, under `test/cli/journey/` (tests/_journey_states.py), the same way.
 export const JOURNEY = "journey.";
 
+// A kept `lesson` read, under `test/cli/lesson/` (tests/_client_helpers.py, `lesson_outputs`), the same way.
+export const LESSON = "lesson.";
+
 export function kept(name: string): string {
-  const folder = [DEMONSTRATION, JOURNEY].find((prefix) => name.startsWith(prefix));
+  const folder = [DEMONSTRATION, JOURNEY, LESSON].find((prefix) => name.startsWith(prefix));
   const file = folder ? path.join(folder.slice(0, -1), name.slice(folder.length)) : name;
   return fs.readFileSync(path.join(KEPT, file), "utf8");
 }

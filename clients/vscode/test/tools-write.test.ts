@@ -5,7 +5,7 @@ import * as path from "node:path";
 import contract from "../contract.json";
 import { kept } from "./kept";
 import { recorder } from "./recorder";
-import { CALLERS, FIRST, invoke, jsonAfterFirstLine, keptAnswer, NO_ANSWERS, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
+import { CALLERS, FIRST, invoke, jsonOfSecondLine, keptAnswer, NO_ANSWERS, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
 
 type ArgumentList = { name: string; study: string; decision: Record<string, unknown>; arguments: string[] };
 const LISTS: ArgumentList[] = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "test", "decide-arguments.json"), "utf8"));
@@ -29,7 +29,7 @@ for (const list of LISTS) {
     const ids = args.filter((argument) => argument.startsWith("--request-id="));
     assert.equal(ids.length, 1);
     assert.match(ids[0].slice("--request-id=".length), UUID);
-    assert.deepEqual(jsonAfterFirstLine(text), JSON.parse(kept("decide-success.out")));
+    assert.deepEqual(jsonOfSecondLine(text), JSON.parse(kept("decide-success.out")));
   });
 }
 
@@ -92,8 +92,8 @@ for (const [how, call] of CALLERS) {
       const text = await call(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
       assert.equal(calls.length, 1);
       const printed = JSON.parse(kept(`${name}.out`)).error;
-      assert.deepEqual(jsonAfterFirstLine(text), printed);
-      if (printed.code === "STUDY_CHANGED") assert.deepEqual(jsonAfterFirstLine(text).details.writes_since, printed.details.writes_since);
+      assert.deepEqual(jsonOfSecondLine(text), printed);
+      if (printed.code === "STUDY_CHANGED") assert.deepEqual(jsonOfSecondLine(text).details.writes_since, printed.details.writes_since);
     });
   }
 

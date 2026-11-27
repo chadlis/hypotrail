@@ -41,7 +41,7 @@ from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.ml import single_features
-from hypotrail.ml.partitions import requires_exposure
+from hypotrail.ml.partitions import PUBLIC_CHECK, requires_exposure
 from hypotrail.ml.study import live_basis as _live_basis
 
 STAGE = "assess"
@@ -127,6 +127,7 @@ def assess(
     examples_dir: Path | None = None,
     read_sequence: int | None = None,
     notes: list | None = None,
+    run_tool: bool = False,
 ) -> dict:
     """Write and return a new Assessment of the Observation set by the Scorer, against the References set.
 
@@ -140,10 +141,10 @@ def assess(
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
         write.require_current()
-        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, notes if notes is not None else [])
+        return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, notes if notes is not None else [], run_tool)
 
 
-def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list) -> dict:
+def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list, run_tool: bool) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
 
@@ -155,6 +156,8 @@ def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, 
             observation_set_id=str(observation_set_id),
         )
     observation_set, manifest = found
+    if run_tool:
+        exposure.refuse_public_check(PUBLIC_CHECK, manifest["effective_config"].get("partition"), observation_set["provenance"].get("partition"))
     references = next((e["ref"] for e in spec["artifacts"] if e["artifact_id"] == references_id and e["ref"]["role"] == "references"), None)
     if references is None:
         raise _refuse(

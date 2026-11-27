@@ -5352,6 +5352,7 @@ def test_the_client_chapter_tables_equal_contract_json_the_manifest_and_the_work
         "read": " ".join(contract["read_arguments"]),
         "figures-read": " ".join(contract["figures_arguments"]),
         "profile-read": " ".join(contract["profile_arguments"]),
+        "lesson-read": " ".join(contract["lesson_arguments"]),
         "read-limit-ms": str(contract["read_timeout_ms"]),
         "output-limit-bytes": str(contract["max_buffer_bytes"]),
     }
@@ -5582,6 +5583,7 @@ PANEL_LINK_TABLES = {
     "panel-key-paths": lambda contract: contract["key_paths"],
     "panel-figures-key-paths": lambda contract: contract["figures_key_paths"],
     "panel-profile-key-paths": lambda contract: contract["profile_key_paths"],
+    "panel-lesson-key-paths": lambda contract: contract["lesson_key_paths"],
     "panel-open-refs": lambda contract: contract["open_refs"],
 }
 
@@ -5797,7 +5799,7 @@ def test_the_copilot_tools_table_of_chapter_18_equals_the_manifest_both_ways(pag
     tools = {(row["data-tool"], row["data-reference"], row["data-activation"]) for row in rows if "data-reference" in row}
     inputs = {(row["data-tool"], row["data-input"], row["data-required"]) for row in rows if "data-input" in row}
     expected_tools, expected_inputs = copilot_rows_of_the_manifest()
-    assert len(expected_tools) == 2 and len(expected_inputs) == 12
+    assert len(expected_tools) == 3 and len(expected_inputs) == 16
     assert sorted(tools - expected_tools) == [] and sorted(expected_tools - tools) == []
     assert sorted(inputs - expected_inputs) == [] and sorted(expected_inputs - inputs) == []
     assert len(rows) == len(tools) + len(inputs)
@@ -5815,10 +5817,39 @@ def test_the_prose_of_the_copilot_tools_section_restates_no_value_of_its_table(p
     assert found == []
 
 
-def test_the_readme_names_the_two_copilot_tools():
+def test_the_readme_names_the_three_copilot_tools():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for name in ("hypotrail_read_study", "hypotrail_decide"):
+    for name in ("hypotrail_read_study", "hypotrail_decide", "hypotrail_run"):
         assert re.search(rf"`{name}`", readme), name
+
+
+# --- the run tool (chapter 18): its two tables against its contract -------------------------------------------------------------------
+
+# The run tool's contract, the one tracked Markdown file of the client besides the template of Copilot's instructions file.
+RUN_CONTRACT_PATH = "clients/vscode/run-tool.contract.md"
+
+
+def run_contract_table(heading: str) -> list:
+    """The rows of the Markdown table under one heading of the run tool's contract, each as its cells."""
+    section = (ROOT / RUN_CONTRACT_PATH).read_text(encoding="utf-8").split(f"## {heading}\n", 1)[1].split("\n## ", 1)[0]
+    return [[cell.strip() for cell in line[1:-1].split("|")] for line in section.splitlines() if line.startswith("|")][2:]
+
+
+def code_spans(cell: str) -> list:
+    return re.findall(r"`([^`]+)`", cell)
+
+
+def test_the_run_tool_tables_of_chapter_18_equal_its_contracts_tables_in_order(page):
+    commands = [
+        {"data-command": code_spans(command)[0], "data-track": "none" if track == "none" else code_spans(track)[0],
+         "data-options": "" if options == "none" else " ".join(code_spans(options)), "data-read-sequence": read}
+        for command, track, options, read in run_contract_table("The commands")
+    ]
+    assert [{key: row[key] for key in commands[0]} for row in client_rows(page, "run-tool-commands")] == commands
+    refusals = [" ".join(code_spans(code)) for code, _ in run_contract_table("What is refused before any command starts")]
+    assert [row["data-codes"] for row in client_rows(page, "run-tool-refusals")] == refusals
+    texts = [" ".join(row["cells"][1]["text"].split()) for row in parse(page).tables["run-tool-refusals"] if "data-codes" in row["attrs"]]
+    assert texts == [" ".join(when.replace("`", "").split()) for _, when in run_contract_table("What is refused before any command starts")]
 
 
 # --- the template of Copilot's instructions file (chapter 18): where it lives and what it names ---------------------------------------
@@ -5853,7 +5884,7 @@ def test_the_template_is_one_tracked_markdown_file_under_the_client_and_this_rep
 def test_the_table_of_the_template_gives_the_one_tracked_markdown_file_of_the_client_and_the_destination(page):
     rows = client_items(page, INSTRUCTIONS_TABLE)
     assert set(rows) == {"path", "destination"}, rows
-    assert [rows["path"]] == [name for name in tracked_files("clients/vscode") if name.endswith(".md")]
+    assert [rows["path"]] == [name for name in tracked_files("clients/vscode") if name.endswith(".md") and name != RUN_CONTRACT_PATH]
     assert rows["destination"] == DESTINATION
 
 
@@ -5902,10 +5933,15 @@ def test_the_template_names_both_kinds_of_decider(page):
         assert f"`{author}`" in template, author
 
 
-def test_the_tools_the_template_names_are_the_tools_the_manifest_contributes_both_ways(page):
+# The run tool, which the template does not name: the template stays as it was (chadlis/hypotrail#281, "Out of scope": "any change to
+# `hypotrail_decide` or `clients/vscode/copilot-instructions.md`").
+NOT_IN_THE_TEMPLATE = {"hypotrail_run"}
+
+
+def test_the_tools_the_template_names_are_the_tools_the_manifest_contributes_but_the_run_tool_both_ways(page):
     named = set(re.findall(r"hypotrail_[a-z_]+", instructions_template(page)))
     manifest = json.loads((CLIENT / "package.json").read_text(encoding="utf-8"))
-    contributed = {entry["name"] for entry in manifest["contributes"]["languageModelTools"]}
+    contributed = {entry["name"] for entry in manifest["contributes"]["languageModelTools"]} - NOT_IN_THE_TEMPLATE
     assert sorted(named - contributed) == [] and sorted(contributed - named) == []
 
 

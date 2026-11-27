@@ -39,8 +39,9 @@ for (const [tool, how, call] of CALLS) {
       const input = { ...(tool === WRITE_TOOL ? WRITE_INPUT : {}), ...(each.given ? { study: each.given(root) } : {}) };
       const text = await call(tool, input);
       if (takes !== undefined) {
-        assert.equal(calls.length, 1);
-        assert.deepEqual(calls[0].args.filter((argument) => argument.startsWith("--study=")), [`--study=${studies[takes]}`]);
+        // The read tool starts the lesson read on the same Study after its status read.
+        assert.equal(calls.length, tool === READ_TOOL ? 2 : 1);
+        for (const each of calls) assert.deepEqual(each.args.filter((argument) => argument.startsWith("--study=")), [`--study=${studies[takes]}`]);
       } else {
         assert.equal(calls.length, 0);
         assert.match(text, /Nothing was started\./);

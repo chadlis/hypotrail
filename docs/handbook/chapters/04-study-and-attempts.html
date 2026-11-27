@@ -172,6 +172,7 @@
 <tr data-field="item_counts"><td><code>item_counts</code></td><td>The Items by execution status of a completed Attempt, or null.</td></tr>
 <tr data-field="observation_set_id"><td><code>observation_set_id</code></td><td>The id of the Observation set the Attempt produced, read from the Attempt's own record, or null when its record names none (a running, failed or interrupted Attempt); a client matches it with an Assessment's <code>observation_set_id</code> to find the Attempt that Assessment cites (D-157).</td></tr>
 <tr data-field="writer_alive"><td><code>writer_alive</code></td><td>True for a <code>running</code> Attempt while a writer holds the Study.</td></tr>
+<tr data-field="partition"><td><code>partition</code></td><td>The Partition of the Observation set the Attempt produced, read from that record's <code>provenance</code>, or null when the Attempt names no Observation set or the record names no Partition; the Copilot run tool reads it to refuse a <code>public_check</code> read before it starts a command (D-175).</td></tr>
 <tr data-field="recoverable"><td><code>recoverable</code></td><td>True for a <code>running</code> Attempt while no writer holds the Study: <code>recover</code> can record it.</td></tr>
 <tr data-field="artifacts"><td><code>artifacts</code></td><td>Every file published in the Attempt's folder besides its manifest, with the fields below.</td></tr>
 <tr data-field="temporary_files"><td><code>temporary_files</code></td><td>Paths of temporary files a dead writer left (not artifacts).</td></tr>

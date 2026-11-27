@@ -46,10 +46,12 @@ test("a success of decide gives back the CLI's object, decision and replayed inc
 });
 
 // Each export of the bridge, marked true when calling it starts a process.
-const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, recordDecision: true, newRequestId: false, missingInputs: false };
+const EXPORTS: Record<string, boolean> = { checkoutRoot: false, readStudy: true, readFigures: true, readProfile: true, readLesson: true, recordDecision: true, newRequestId: false, missingInputs: false };
+// The starter of the run tool, which starts the arguments the tool built: its commands are those of the tool's own contract.
+const RUN_STARTER = "runCommand";
 
-test("the bridge's exports are the test's list, both ways, and its starters start only the commands of contract.json", async (t) => {
-  assert.deepEqual(Object.keys(bridge).sort(), Object.keys(EXPORTS).sort());
+test("the bridge's exports are the test's list and the run tool's starter, both ways, and its other starters start only the commands of contract.json", async (t) => {
+  assert.deepEqual(Object.keys(bridge).sort(), [...Object.keys(EXPORTS), RUN_STARTER].sort());
   const calls = recorder(t, exit(0, kept("status-success.out")));
   const exported = bridge as unknown as Record<string, (...args: unknown[]) => unknown>;
   for (const [name, starts] of Object.entries(EXPORTS)) {
@@ -59,6 +61,19 @@ test("the bridge's exports are the test's list, both ways, and its starters star
   }
   const commands = new Set(calls.map((call) => call.args[call.args.indexOf("hypotrail") + 1]));
   assert.deepEqual([...commands].sort(), [...contract.reads, ...contract.writes].sort());
+});
+
+test("the run tool's starter starts the arguments it is given whole, after the first ones, with the write's limits, no shell, and once", async (t) => {
+  const calls = recorder(t, { error: { code: null, killed: true, signal: "SIGTERM" } });
+  const args = ["run", "ml", `--study=${STUDY}`, "--config=seasonal_7; rm -rf ~", "--json"];
+  const outcome = await bridge.runCommand(ROOT, args);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, [...FIRST, ...args]);
+  assert.equal(calls[0].options.cwd, ROOT);
+  assert.equal(calls[0].options.timeout, 120000);
+  assert.equal(calls[0].options.maxBuffer, 16777216);
+  assert.equal("shell" in calls[0].options, false);
+  assert.deepEqual(outcome, { outcome: "no_answer", cause: "timeout", exit_code: null, note: "outcome unknown" });
 });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
