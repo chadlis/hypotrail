@@ -48,9 +48,9 @@ def test_the_resolver_finds_the_modules_of_the_subpackages_and_resolves_each_rel
 # --- rule 1: layering ----------------------------------------------------------------------------------------------------------
 
 # Every package and top-level module of `src/hypotrail/`, with its layer: cli is above the Tracks and report, which are above core.
-LAYERS = {"cli": "top", "__init__": "top", "__main__": "top", "agentic": "track", "ml": "track", "report": "report", "core": "core"}
+LAYERS = {"cli": "top", "__init__": "top", "__main__": "top", "agentic": "track", "ml": "track", "report": "report", "lessons": "lessons", "core": "core"}
 # What a layer may import, besides the package that holds the importing module.
-MAY_IMPORT = {"track": {"core"}, "report": {"core"}, "core": set()}
+MAY_IMPORT = {"track": {"core"}, "report": {"core"}, "lessons": {"core"}, "core": set()}
 
 
 def entry_of(module: str) -> str:
@@ -62,13 +62,19 @@ def entry_of(module: str) -> str:
 def layering_problems(trees: dict) -> list:
     problems = [f"{module} is in no layer of the list" for module in sorted(trees) if entry_of(module) not in LAYERS]
     for module, targets in imports(trees).items():
-        if entry_of(module) not in LAYERS or LAYERS[entry_of(module)] == "top":
+        if entry_of(module) not in LAYERS:
             continue
+        layer = LAYERS[entry_of(module)]
         for target in sorted(targets):
             if not target.startswith(PACKAGE + ".") and target != PACKAGE:
                 continue
             owner = max((name for name in trees if target == name or target.startswith(name + ".")), key=len)
-            if entry_of(owner) != entry_of(module) and LAYERS.get(entry_of(owner)) not in MAY_IMPORT[LAYERS[entry_of(module)]]:
+            if entry_of(owner) == entry_of(module):
+                continue
+            owner_layer = LAYERS.get(entry_of(owner))
+            if owner_layer == "lessons" and entry_of(module) != "cli":
+                problems.append(f"{module} imports {target}")
+            elif layer != "top" and owner_layer not in MAY_IMPORT[layer]:
                 problems.append(f"{module} imports {target}")
     return problems
 
@@ -283,6 +289,7 @@ THIRD_PARTY = {
     "core": {"jsonschema"},
     "ml": {"jsonschema", "numpy", "scipy", "sklearn"},
     "report": set(),
+    "lessons": {"jsonschema"},
     "cli": set(),
     "__init__": set(),
     "__main__": set(),
