@@ -16,3 +16,7 @@ Every change is explained in readable HTML, not only in code and ADRs. Because e
 The learning book is organised around selected transferable competencies, not a mandatory chapter per pull request. Existing chapters and links remain valid with their stated revision. A completed lesson is not a product approval or evidence of transfer to another task. Anki provides initial calibration, supplemented by targeted application and observed performance. The two learning stages and deferred recall are defined in the paired drive and hypotrail-study skills. Product documentation continues to cover every behaviour change.
 
 Delivery slices keep concise notes and links. They do not automatically create learning issues. A learning issue is created or reused only when a competency objective is selected during a requested learning session, or explicitly requested by the owner. It can cover several slices and sessions. The tutor manages the objective, while drive enriches already linked objectives without creating one for each delivery. Existing learning issues remain compatible and are not bulk-migrated.
+
+## Amendment — 2026-11-26
+
+Explaining a step that the product shows is not teaching a concept. A lesson card that a Track serves says what a step of a Study is and how to read it (ADR 0007), and the handbook rule "never teaches concepts" stands.
