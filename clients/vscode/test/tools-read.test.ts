@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import contract from "../contract.json";
 import { kept, KEPT } from "./kept";
 import { recorder } from "./recorder";
-import { CHECKOUT, FIRST, invoke, jsonAfterFirstLine, keptAnswer, NO_ANSWERS, READ_TOOL, workspace } from "./tools-harness";
+import { CHECKOUT, FIRST, invoke, jsonAfterFirstLine, keptAnswer, NO_ANSWERS, READ_TOOL, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
 
 const STATUS_READS = fs
   .readdirSync(KEPT)
@@ -51,4 +51,14 @@ for (const [cause, answer] of NO_ANSWERS) {
 
 test("the causes of the read tool's cases are those of contract.json", () => {
   assert.deepEqual(NO_ANSWERS.map(([cause]) => cause), contract.no_answer_causes);
+});
+
+// "The Copilot tools make no profile read." (chadlis/hypotrail#262)
+test("neither Copilot tool starts the profile read: the read tool on a Bike read and the write tool with its read after it", async (t) => {
+  const { studies } = workspace(t, ["bike"]);
+  const calls = recorder(t, keptAnswer("status-success"), keptAnswer("decide-success"), keptAnswer("status-decided"));
+  await invoke(READ_TOOL, {});
+  await invoke(WRITE_TOOL, { ...WRITE_INPUT, study: studies[0] });
+  assert.ok(calls.length >= 2, String(calls.length));
+  assert.deepEqual(calls.map((call) => call.args[FIRST.length]).filter((command) => command === contract.profile_arguments[0]), []);
 });

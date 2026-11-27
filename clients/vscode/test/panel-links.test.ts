@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
 import { JOURNEY, kept } from "./kept";
-import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, profileAt, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { exit, recorder, type Answer } from "./recorder";
 
@@ -232,8 +232,23 @@ for (const [kind, name] of Object.entries(IN_AN_ATTEMPT)) {
   });
 }
 
+// For each pair whose number the step of the Data profile prints, the kept status read the kept profile read is made beside.
+const IN_THE_PROFILE: Record<string, string> = { profile: "status-success" };
+
+for (const [kind, name] of Object.entries(IN_THE_PROFILE)) {
+  test(`each number of the kind ${kind} links to the one part ${PAIRS.get(kind)}, and the document keeps every rule of its links: ${name} with profile-bike`, async (t) => {
+    const object = keptObject(name);
+    const { document } = await documentFor(t, success(object), success(keptObject(KEPT_FIGURES[name])), profileAt(object.write_sequence));
+    const links = linksOf(document).filter((link) => link.kind === kind);
+    assert.ok(links.length > 0, `a link of ${kind}`);
+    for (const link of links) assert.equal(partKind(link.target), PAIRS.get(kind), link.href);
+    assert.equal(partsByKind(document, PAIRS.get(kind)!).length, 1);
+    assertLinksAndIds(document, object, `${name} with profile-bike`);
+  });
+}
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART), ...Object.keys(IN_THE_PROFILE)].sort());
 });
 
 for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
@@ -520,6 +535,24 @@ test("the key paths the function reads from the figures read over every kept fig
   const read = new Set<string>();
   for (const name of Object.keys(KEPT_FIGURES)) for (const path of figuresPathsRead(name)) read.add(path);
   assert.deepEqual(leaves(read), [...contract.figures_key_paths].sort());
+});
+
+// The key paths the function reads from the object of the profile read, beside the kept status read it is made with, and beside a read
+// that lists no Attempt, whose Now shows the band and the target over time: "`contract.json` gains `profile_arguments` [...] and
+// `profile_key_paths` (the paths the panel draws)" (chadlis/hypotrail#262).
+function profilePathsRead(object: Entry, changes: Entry = {}): Set<string> {
+  const read = new Set<string>();
+  const profile = { ...keptObject("profile-bike"), write_sequence: object.write_sequence, ...changes };
+  bodyOf({ reading: false, object, profile: { outcome: "success", object: recording(profile, "", read) as Entry } });
+  return read;
+}
+
+test("the key paths the function reads from the profile read, on the kept Bike read, on it with workload_protocol differs and on state 01, are the entries of profile_key_paths, both ways", () => {
+  const read = new Set<string>();
+  for (const paths of [profilePathsRead(keptObject("status-success")), profilePathsRead(keptObject("status-success"), { workload_protocol: "differs" }), profilePathsRead(keptObject(`${JOURNEY}01-init.status`))]) {
+    for (const path of paths) read.add(path);
+  }
+  assert.deepEqual(leaves(read), [...contract.profile_key_paths].sort());
 });
 
 // "its id and its Observation set's id are plain text, never links" (D-143, correction 1): the Attempt's id stands as text only.

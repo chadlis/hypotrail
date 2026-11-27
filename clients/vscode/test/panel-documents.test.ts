@@ -30,8 +30,9 @@ import {
   S2_INTERVAL,
   holdsTheHeadings,
   withFigures,
+  profileAt,
 } from "./panel-harness";
-import { exit, recorder, type Answer } from "./recorder";
+import { exit, profile, recorder, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const [, RECORD, , OPEN] = contract.messages;
@@ -104,6 +105,24 @@ const DOCUMENTS: [string, (t: TestContext) => Promise<Built>][] = [
       return { document: (await documentFor(t, ...answers)).document, answers };
     },
   ]),
+  ...[
+    ["status-success with figures-success and profile-bike", () => profileAt(keptObject("status-success").write_sequence)],
+    ["status-success with figures-success and profile-bike whose Workload no longer gives the Protocol", () => profileAt(keptObject("status-success").write_sequence, { workload_protocol: "differs" })],
+    ["status-success with figures-success and a refused profile read", () => profile(exit(3, JSON.stringify({ ok: false, error: { code: "DATA_INTEGRITY", message: "The dataset does not match its digest." } })))],
+  ].map(([name, answer]): [string, (t: TestContext) => Promise<Built>] => [
+    name as string,
+    async (t) => {
+      const answers = [read("status-success"), read("figures-success"), (answer as () => Answer)()];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ]),
+  [
+    "journey.01-init.status with its profile, which Now shows open",
+    async (t) => {
+      const answers = [read("journey.01-init.status"), profileAt(keptObject("journey.01-init.status").write_sequence)];
+      return { document: (await documentFor(t, ...answers)).document, answers };
+    },
+  ],
   [
     "journey.17-interrupted.status, with a recoverable Attempt",
     async (t) => {

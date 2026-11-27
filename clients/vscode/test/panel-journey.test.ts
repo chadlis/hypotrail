@@ -22,6 +22,7 @@ import {
   geometryValues,
   heldRecorder,
   holdsTheHeadings,
+  profileFor,
   lastDocument,
   markedTexts,
   panelOf,
@@ -47,7 +48,14 @@ const STATES = fs
 
 const answerOf = (name: string): Answer => exit(Number(kept(`${JOURNEY}${name}.exit`)), kept(`${JOURNEY}${name}.out`), kept(`${JOURNEY}${name}.err`));
 const hasFigures = (state: string): boolean => fs.existsSync(path.join(KEPT, "journey", `${state}.figures.out`));
-const answersOf = (state: string): Answer[] => [answerOf(`${state}.status`), ...(hasFigures(state) ? [answerOf(`${state}.figures`)] : [])];
+// The states whose document is built with the profile read beside the status read: 01, where Now shows the band and the target over time,
+// and 04, where Now holds the pending decision and no figure of the profile.
+const PROFILED = ["01-init", "04-pending"];
+const answersOf = (state: string): Answer[] => [
+  answerOf(`${state}.status`),
+  ...(hasFigures(state) ? [answerOf(`${state}.figures`)] : []),
+  ...(PROFILED.includes(state) ? [profileFor(JSON.parse(kept(`${JOURNEY}${state}.status.out`)))] : []),
+];
 
 // Each value of an answer as the panel writes it: the leaves of the object its output holds, and the keys of a map the panel shows
 // whole (the rule of panel-documents.test.ts).
@@ -601,4 +609,27 @@ test("no answer, then Send again, on state 04: the words of an unknown outcome a
   const decides = calls.filter((call) => call.args.includes("decide"));
   assert.equal(decides.length, 2);
   assert.deepEqual(decides[1].args, decides[0].args, "the held arguments, the request id included");
+});
+
+// "When the read lists no Attempt, Now shows the band and the target over time open, under the question line" (chadlis/hypotrail#262, item 3).
+test("at state 01, with the profile read, Now shows the band and the target over time open under its question line, and the step stands first in the Study so far", async (t) => {
+  const { document } = await built(t, "01-init");
+  const now = elementOf(document, '<section data-part="now"')!;
+  const figure = elementOf(now, '<div data-figure="profile-target">');
+  assert.ok(figure, "the band and the target over time in Now");
+  assert.ok(now.indexOf(figure!) > now.indexOf('<p data-element="now-question">'), "under the question line");
+  assert.ok(!elementsOf(now, "<details").some((fold) => !/^<details[^>]*\sopen/.test(fold) && fold.includes(figure!)), "in no closed fold");
+  assert.equal(elementsOf(figure!, "<svg ").length, 1, "its drawing");
+  assert.deepEqual(elementsOf(now, "<div data-figure=").length, 1, "no other figure of the profile in Now");
+  const path = elementOf(document, '<section data-part="path">')!;
+  assert.equal(path.indexOf("<details"), path.indexOf('<details data-part="profile"'), "the step first in the Study so far");
+});
+
+// "In every other state Now does not show the profile" (chadlis/hypotrail#262, item 3).
+test("at state 04, with the profile read, Now holds no figure of the profile and keeps its order to Record, and the step stands in the Study so far", async (t) => {
+  const { document, answers } = await built(t, "04-pending");
+  const now = elementOf(document, '<section data-part="now"')!;
+  assert.equal(now.includes('data-figure="profile-'), false);
+  assertNowOrder(document, JSON.parse(answers[0].stdout ?? ""));
+  assert.ok(elementOf(elementOf(document, '<section data-part="path">')!, '<details data-part="profile"'), "the step in the Study so far");
 });

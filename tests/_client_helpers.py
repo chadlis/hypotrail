@@ -441,6 +441,29 @@ def pair_outputs(tmp_path) -> dict:
     return made
 
 
+# The kept `profile` reads, each with the kept `status` read made from the same helper call: the profile of a Bike Study, and the
+# refusal of a Chinook Study, which the read does not cover.
+PROFILE_KEPT = {
+    "profile-bike": "status-success",
+    "profile-chinook": "status-chinook-pending",
+}
+
+
+def profile_outputs(tmp_path) -> dict:
+    """{name: (exit code, stdout, stderr)} of each kept `profile` read and of the kept `status` read made beside it from the same Study, both
+    replaced with one numbering, as `pair_outputs` replaces a `figures` read and its `status` read; a refusal is kept as printed."""
+    made = {}
+    for name, status in PROFILE_KEPT.items():
+        (tmp_path / name).mkdir()
+        study = STUDIES[status](tmp_path / name)
+        seen: dict = {}
+        for kept_name, command in ((status, "status"), (name, "profile")):
+            code, out, err = run_cli(command, "--study", study, "--json")
+            ok = json.loads(out)["ok"]
+            made[kept_name] = (code, replaced(out.replace(str(study), "SCRATCH"), seen) if ok else out, err.replace(str(study), "SCRATCH"))
+    return made
+
+
 # The person's words of the panel's box that the kept `panel-words` write carries: two French quotation marks, written as escapes, around a
 # French phrase inside an English sentence, a line break, a double quote and a final line break, which a trim or a re-encoding changes.
 PANEL_WORDS = 'Keep the Control, she wrote \u00ab on garde le t\u00e9moin \u00bb.\nAnd "the lag feature can wait".\n'

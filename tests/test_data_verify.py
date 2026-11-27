@@ -462,3 +462,16 @@ def test_an_argument_error_without_json_keeps_stdout_empty_and_exits_2():
     assert code == 2
     assert out == ""
     assert "usage:" in err and "--bogus" in err
+
+
+def test_an_os_error_whose_text_holds_a_key_is_reported_by_data_verify_by_its_coded_name_alone_on_stderr_and_in_json(monkeypatch):
+    def failing(*args, **kwargs):
+        raise OSError("sk-ant-secret")
+
+    monkeypatch.setattr(data, "verify_workloads", failing)
+    code, out, err = run_cli("data", "verify", "--json")
+    assert code == 4
+    assert "sk-ant-secret" not in err
+    assert err == "INFRASTRUCTURE_FAILURE [infrastructure]: OSError\n"
+    assert "sk-ant-secret" not in out
+    assert json.loads(out)["error"]["message"] == "OSError"
