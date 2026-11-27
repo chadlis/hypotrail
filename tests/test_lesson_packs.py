@@ -23,8 +23,8 @@ def kept(tmp_path):
     write_json(directory / "status-bike.out", {"ok": True, "comparisons": [{"delta": {"value": 0.5}, "reference_notes": []}]})
     write_json(directory / "journey" / "after-compare.figures.out", {"ok": True, "comparisons": [{"quartiles": {"median": 0.5}}]})
     # Neither a read of the other Track nor a refusal can satisfy an unresolved path.
-    write_json(directory / "status-chinook.out", {"ok": True, "draft_only": []})
-    write_json(directory / "status-bike-refused.out", {"ok": False, "draft_only": []})
+    write_json(directory / "status-chinook.out", {"ok": True, "comparisons": [{"interval": {"lower": 0.1}}]})
+    write_json(directory / "status-bike-refused.out", {"ok": False, "comparisons": [{"interval": {"lower": 0.1}}]})
     return directory
 
 
@@ -81,6 +81,22 @@ def test_lesson_check_also_accepts_a_pack_without_json_output(kept, monkeypatch)
     code, stdout, _ = run_cli("lesson", "check", PACKS / "minimal", "--kept", kept)
     assert code == 0
     assert stdout.strip()
+
+
+@pytest.mark.parametrize("path", ["comparisons[].paired_deltas", "comparisons[]"])
+def test_discovery_and_check_refuse_paths_that_could_return_per_item_content(tmp_path, kept, path):
+    pack = tmp_path / "pack"
+    shutil.copytree(PACKS / "minimal", pack)
+    content_file = pack / "lessons.json"
+    content = json.loads(content_file.read_text(encoding="utf-8"))
+    content["lessons"][0]["key_paths"] = [{"read": "figures", "path": path}]
+    write_json(content_file, content)
+    entry, = discover(pack)
+    assert entry["reason"] == "CHECK_FAILED"
+    assert set(entry) == {"id", "path", "valid", "reason"}
+    code, payload, _ = run_json("lesson", "check", pack, "--kept", kept)
+    assert code == 2
+    assert payload["error"]["details"]["errors"][0]["rule"] == "FORBIDDEN_PATH"
 
 
 def discover(*paths: Path):
