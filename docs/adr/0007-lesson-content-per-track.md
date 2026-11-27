@@ -48,3 +48,7 @@ The precedent for a read that one Track serves is the data profile: `hypotrail p
 ## Open
 
 - **Claude Code as a reader**: it reads `lesson` through the CLI, as the Copilot read tool reads it, or it does not read it.
+
+## Amendment — 2026-11-27
+
+D-203 supersedes D-202 and extends points 2 and 6. Track cards explain how to read the steps a Study shows. Pack lessons explain how to do a step of the method, and the product serves them beside Track cards. Packs served by the product are in English. A person can read pack stations and lessons before creating a Study through `lesson --track` (ADR 0009).
