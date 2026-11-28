@@ -69,7 +69,7 @@ uv run python -m hypotrail compare --study runs/bike --control ASSESSMENT_ID_OF_
 
 <p class="sub2" id="ranking-comparison">The ranking Comparison</p>
 <div class="prose">
-<p>On a ranking Study, <code>compare</code> requires two development Assessments of the same Items and References. A positive <code>delta</code> means the Candidate recovered a higher share of the positive Items in the top fraction of the rankings. Only the aggregate change and interval are recorded.</p>
+<p>On a ranking Study, <code>compare</code> requires two Assessments of the same Items and References in the same Partition. Ordinary ranking Comparisons use <code>dev</code>. The declared evaluator can compare <code>held_out</code> and checks both sides under the Study lock before opening either per-Item artifact. A positive <code>delta</code> means the Candidate recovered a higher share of the positive Items in the top fraction of the rankings. Only the aggregate change and interval are recorded.</p>
 <p>The <code>entity</code> interval uses the same draws of whole entities for the Control and Candidate. It keeps repeated entities in the rankings, recalculates both rankings for every draw, and omits dates with no positive Item in that draw. <code>usable_resamples</code> counts draws with at least one usable date. <code>omitted_dates</code> counts date omissions across all draws. The interval is unavailable when no draw is usable. The command and the aggregate ranking report both show the counts.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="ranking-comparison-codes"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th><th><code>details</code></th></tr></thead><tbody>

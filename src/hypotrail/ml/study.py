@@ -22,7 +22,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, data, exposure, revisions, study_write
+from hypotrail.core import artifacts, canonical, contracts, data, evaluator, exposure, revisions, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.core.study import (
@@ -118,12 +118,6 @@ def live_basis(examples_dir: Path | None = None):
     return basis
 
 
-def _exists(study: Path) -> InvalidInputError:
-    return InvalidInputError(
-        "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}
-    )
-
-
 def _derived_bytes(source: Path) -> tuple:
     """The population and the References set the Track's own writers derive from the Workload, as bytes."""
     with tempfile.TemporaryDirectory() as scratch:
@@ -196,18 +190,29 @@ def _write_spec(study: Path, workload: str, source: Path, declaration: Declarati
     return spec
 
 
-def init_study(workload: str, study: Path, examples_dir: Path | None = None, *, build_dir: Path | None = None) -> dict:
+def init_study(
+    workload: str, study: Path, examples_dir: Path | None = None, *,
+    build_dir: Path | None = None, partition: str = ranking_study.DEV,
+) -> dict:
     """Create the Study `study` for the Workload `workload` of `examples_dir`; return its StudySpec."""
     study = Path(study)
     examples = data.resolve_examples_dir(examples_dir)
+    protected = partition == evaluator.HELD_OUT
+    if protected != evaluator.inside():
+        raise evaluator.refusal("study")
     if (study / STUDY_FILE).exists():
         with study_write.locked(study, study_write.INIT):  # a Study that has a writer answers with the lock first
-            raise _exists(study)
-    # Nothing is created before the bytes match the lock or the ranking manifest.
+            layout.refuse_existing(study)
+    # An ordinary Study verifies inputs before creating its directory. A protected Study verifies its
+    # private population under the lock it takes before opening any build payload.
     source = examples / workload
     track = declared_track(source)
     frozen = None
-    if track == ranking_study.TRACK:
+    if protected:
+        if track != ranking_study.TRACK:
+            raise evaluator.refusal("study")
+        ranking_study.require_private_study(study)
+    elif track == ranking_study.TRACK:
         frozen = ranking_study.freeze(examples, workload, build_dir)
     else:
         data.verify_workloads(examples, [workload])
@@ -222,10 +227,12 @@ def init_study(workload: str, study: Path, examples_dir: Path | None = None, *, 
         declaration = load_declaration(source)
         require_keys(declaration, "data_file", "question", "objective", "limitations")
 
-    study.mkdir(parents=True, exist_ok=True)
+    study.mkdir(mode=0o700 if protected else 0o777, parents=True, exist_ok=True)
     with study_write.locked(study, study_write.INIT) as write:
         if (study / STUDY_FILE).exists():
-            raise _exists(study)
+            layout.refuse_existing(study)
+        if protected:
+            frozen = ranking_study.freeze(examples, workload, build_dir, partition=partition)
         if frozen is not None:
             return ranking_study.publish(study, workload, frozen, None, write)
         return _write_spec(study, workload, source, declaration, None, write)

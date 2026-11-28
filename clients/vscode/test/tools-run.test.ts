@@ -5,9 +5,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import contract from "../contract.json";
 import { RUN_COMMANDS, RUN_REFUSALS } from "../src/tools";
-import { CHECKOUT, FIRST, invoke, MANIFEST, toolOf, workspace } from "./tools-harness";
+import { CALLERS, CHECKOUT, FIRST, invoke, MANIFEST, toolOf, workspace } from "./tools-harness";
 import type { Answer, RecordedCall } from "./recorder";
-import { exit } from "./recorder";
+import { exit, withEvaluatorEnvironment } from "./recorder";
 
 const RUN_TOOL = "hypotrail_run";
 const FOLDER = path.join(__dirname, "..", "..");
@@ -164,6 +164,42 @@ test("the run tool refuses assess, compare and report with STATUS_UNREADABLE whe
     assert.ok(calls.every(isRead(studies[0])), command);
     t.mock.restoreAll();
   }
+});
+
+for (const [how, call] of CALLERS) {
+  for (const command of ["assess", "compare", "report"]) {
+    test(`the run tool preserves the protected ranking refusal for ${command} ${how}`, async (t) => {
+      const { studies: [study] } = workspace(t, ["ranking"]);
+      const error = { code: "RANKING_HELD_OUT_REFUSED", message: "This Study uses the protected ranking Partition." };
+      const calls = routed(t, exit(2, JSON.stringify({ ok: false, error })));
+      const text = await call(RUN_TOOL, { study, command, arguments: [], read_sequence: 0 });
+      assert.match(text, /^Refused \(RANKING_HELD_OUT_REFUSED\):/);
+      assert.equal(calls.length, 1);
+      assert.ok(isRead(study)(calls[0]));
+    });
+  }
+
+  test(`the run tool refuses a request for the held_out Partition ${how}`, async (t) => {
+    const { studies: [study] } = workspace(t, ["ranking"]);
+    const calls = routed(t, exit(0, JSON.stringify(statusOf("dev"))));
+    const text = await call(RUN_TOOL, { study, command: "run", arguments: ["ml", "--partition=held_out"], read_sequence: 0 });
+    assert.match(text, /^Refused \(RANKING_HELD_OUT_REFUSED\):/);
+    assert.equal(calls.length, 0);
+  });
+}
+
+test("the run tool preserves its own child marker without forwarding the evaluator's environment", async (t) => {
+  withEvaluatorEnvironment(t);
+  const { studies: [study] } = workspace(t, ["bike"]);
+  const calls = routed(t, exit(0, JSON.stringify(statusOf("dev"))));
+  const text = await invoke(RUN_TOOL, { study, command: "profile", arguments: [] });
+  assert.match(text, /"written":"records"/);
+  assert.equal(calls.length, 1);
+  const environment = calls[0].options.env as NodeJS.ProcessEnv;
+  assert.equal(environment.HYPOTRAIL_RUN_TOOL, "1");
+  assert.equal(environment.PATH, process.env.PATH);
+  assert.equal(environment.GITHUB_ACTIONS, undefined);
+  assert.equal(environment.GITHUB_WORKFLOW_REF, undefined);
 });
 
 test("the run tool asks VS Code to confirm the command it would start, with the Study and each argument as a JSON string, and starts nothing then", async (t) => {

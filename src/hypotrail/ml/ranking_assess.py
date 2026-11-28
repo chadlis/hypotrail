@@ -1,4 +1,4 @@
-"""Assess one frozen development ranking without fitting or calling a model."""
+"""Assess one frozen ranking without fitting or calling a model."""
 
 import csv
 import io
@@ -8,7 +8,7 @@ from collections import defaultdict
 from decimal import Decimal
 from fractions import Fraction
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, study_write
+from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import IntegrityError, InvalidInputError
@@ -25,13 +25,14 @@ def _rows(raw):
     return list(csv.DictReader(io.StringIO(raw.decode("utf-8"), newline="")))
 
 
-def _entries(study, observed, memberships, references):
+def _entries(study, observed, memberships, references, partition):
     raw = artifacts.read_verified(study, observed["normalized_ref"])
     population = canonical.loads(artifacts.read_verified(study, observed["population_ref"]))["item_ids"]
     labels = {row["item_id"]: row["label"] for row in _rows(artifacts.read_verified(study, references))}
     scores = {row["item_id"]: row["score"] for row in _rows(raw)}
     if set(population) != set(scores) or not set(population) <= (labels.keys() & memberships.keys()):
-        raise _refuse("OBSERVATIONS_INVALID", "the ranking Observation set does not align with the development Items and their References")
+        scope = "development" if partition == ranking_study.DEV else "held-out"
+        raise _refuse("OBSERVATIONS_INVALID", f"the ranking Observation set does not align with the {scope} Items and their References")
     return [
         (
             item_id,
@@ -73,7 +74,12 @@ def assess_locked(study, write, spec, observation_set_id, scorer, references_id)
             "UNSUPPORTED_CAPABILITY", "the Scorer does not match the ranking Observation set",
             scorer=scorer.id, scorer_domain=scorer.domain, observation_set_domain=observation_set["domain"],
         )
-    if observation_set["provenance"].get("partition") != ranking_study.DEV:
+    partition = spec.get("partition", ranking_study.DEV)
+    observed = observation_set["provenance"].get("partition")
+    if partition == evaluator.HELD_OUT:
+        if observed != partition or manifest["effective_config"].get("partition") != partition:
+            raise evaluator.refusal("assess")
+    elif observed != partition:
         raise _refuse("ASSESSMENT_PARTITION_NOT_DEV", "the ranking Study assesses only its development Partition")
 
     dataset, memberships = ranking_study.read_dataset(study, spec)
@@ -87,7 +93,7 @@ def assess_locked(study, write, spec, observation_set_id, scorer, references_id)
         )
     for ref in observation_set["raw_refs"]:
         artifacts.read_verified(study, ref)
-    entries = _entries(study, observation_set, memberships, references)
+    entries = _entries(study, observation_set, memberships, references, partition)
     recalls, omitted, scored_items = _measure(entries, Fraction(scorer.config["fraction"]))
     value = float(sum(recalls) / len(recalls)) if recalls else None
     metric = {
@@ -97,7 +103,7 @@ def assess_locked(study, write, spec, observation_set_id, scorer, references_id)
         "direction": "higher_is_better",
         "denominator": len(recalls),
         "status": "unscored" if value is None else "scored",
-        "reason": "no_dates_with_positives" if value is None else None,
+        "reason": scorers.RANKING_NO_POSITIVES if value is None else None,
     }
     assess_id = str(uuid.uuid4())
     folder = f"{layout.ASSESSMENTS_DIR}/{assess_id}"

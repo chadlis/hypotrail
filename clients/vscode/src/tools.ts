@@ -248,6 +248,8 @@ function lessonAnswer(outcome: Outcome): string {
 // --- The run tool ---------------------------------------------------------------------------------------------------------------
 
 const RUN = "hypotrail_run";
+const RANKING_HELD_OUT_REFUSED = "RANKING_HELD_OUT_REFUSED";
+const PROTECTED_RANKING_REASON = "the held-out ranking Partition is reserved for the evaluator CLI.";
 
 type RunInput = { study?: unknown; command?: unknown; arguments?: unknown; read_sequence?: unknown };
 
@@ -272,8 +274,9 @@ export const RUN_REFUSALS = [
   ["ARGUMENTS_NOT_VALID"],
   ["ARGUMENTS_NOT_VALID", "OPTION_NOT_ALLOWED"],
   ["OPTION_REPEATED"],
+  [RANKING_HELD_OUT_REFUSED],
   ["READ_SEQUENCE_MISSING"],
-  ["STATUS_UNREADABLE"],
+  [RANKING_HELD_OUT_REFUSED, "STATUS_UNREADABLE"],
   ["PUBLIC_CHECK_REFUSED"],
 ];
 
@@ -335,6 +338,9 @@ function built(study: string, input: RunInput): Built {
   if (row === undefined) return refused("ARGUMENTS_NOT_VALID", `run takes the Track ml or agent first, not ${json(list[0])}.`);
   const options = parsed(row.track === null ? list : list.slice(1), names);
   if ("refusal" in options) return options;
+  if (options.options.some(([name, value]) => name === "--partition" && bare(value) === "heldout")) {
+    return refused(RANKING_HELD_OUT_REFUSED, PROTECTED_RANKING_REASON);
+  }
   const sequence = input.read_sequence;
   const valid = typeof sequence === "number" && Number.isInteger(sequence) && sequence >= 0;
   if (row.read_sequence && !valid) return refused("READ_SEQUENCE_MISSING", "read_sequence, the write_sequence of the Study as last read, must be an integer of 0 or more.");
@@ -377,6 +383,9 @@ async function runChecked(input: RunInput): Promise<{ study: string; args: strin
   if ("refusal" in result) return result;
   if (!READ_FIRST.includes(result.args[0])) return { study: resolved.study, args: result.args };
   const read = await readStudy(ROOT, resolved.study);
+  if (read.outcome === "refusal" && (read.error as { code?: unknown } | null)?.code === RANKING_HELD_OUT_REFUSED) {
+    return refused(RANKING_HELD_OUT_REFUSED, PROTECTED_RANKING_REASON);
+  }
   if (read.outcome !== "success") return refused("STATUS_UNREADABLE", `the read of the Study did not succeed (${read.outcome}), so what the command would touch is not known.`);
   const touched = publicTouched(result.args, read.object);
   if (touched.length > 0) return refused("PUBLIC_CHECK_REFUSED", `the command would touch Attempts on public_check, the held-out pass, where the chat has no place: ${json(touched)}.`);

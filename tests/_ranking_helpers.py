@@ -16,7 +16,7 @@ def metadata(raw):
     return {"sha256": hashlib.sha256(raw).hexdigest(), "size_bytes": len(raw)}
 
 
-def write_build(tmp_path, *, items=None, references=None, cutoff="2011-12-10"):
+def write_build(tmp_path, *, items=None, references=None, held_out_references=None, cutoff="2011-12-10"):
     """Stage a small declared Workload and a private build in different folders."""
     build_dir = tmp_path / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -24,6 +24,8 @@ def write_build(tmp_path, *, items=None, references=None, cutoff="2011-12-10"):
         "items.csv": (CONTRACT / "items.csv").read_bytes() if items is None else items,
         "references-dev.csv": (CONTRACT / "references-dev.csv").read_bytes() if references is None else references,
     }
+    if held_out_references is not None:
+        sources["references-held_out.csv"] = held_out_references
     build = json.loads((CONTRACT / "build.json").read_bytes())
     build["label_cutoff"] = cutoff
     build["files"] = {name: metadata(raw) for name, raw in sources.items()}

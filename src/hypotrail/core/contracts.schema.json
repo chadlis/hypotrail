@@ -64,6 +64,9 @@
             "ranking"
           ]
         },
+        "partition": {
+          "const": "held_out"
+        },
         "objective": {
           "type": "string",
           "minLength": 1
@@ -210,7 +213,10 @@
         "workload",
         "artifacts"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentSchemas": {
+        "partition": {"properties": {"domain": {"const": "ranking"}}}
+      }
     },
     "AttemptManifest": {
       "type": "object",
