@@ -128,10 +128,19 @@ step "C2 MLkit CI suite" kit_suite "$mlkit" || true
 step "C2 Agentkit CI suite" kit_suite "$agentkit" || true
 report_pin agentkit
 
+mlkit_evaluator_setup() {
+    [[ ${ready[mlkit-pin]:-0} == 1 ]] || return 1
+    at "$mlkit" uv pip install ./hypotrail || return 1
+    local image
+    image=$(at "$mlkit" uv run --locked --no-sync python -m mlkit.evaluator_sandbox .) || return 1
+    [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+    printf '%s\n' "$image" > "$scratch/mlkit-worker-image"
+}
+
 # Test on the workflow's cache-hit path. The file must already exist before
 # mlkit fetch is called, so that command only checks the workbook digest.
 mlkit_prepare() {
-    [[ ${ready[mlkit-pin]:-0} == 1 ]] || return 1
+    [[ ${ready[mlkit-evaluator]:-0} == 1 ]] || return 1
     local member
     member=$(python3 - "$mlkit/data.lock.json" <<'PY'
 import json
@@ -148,8 +157,7 @@ PY
     ) || return 1
     mkdir -p "$mlkit/data" || return 1
     cp -- "$twin" "$mlkit/data/$member" || return 1
-    at "$mlkit" uv run --locked mlkit fetch || return 1
-    at "$mlkit" uv pip install ./hypotrail
+    at "$mlkit" uv run --locked --no-sync mlkit fetch
 }
 
 mlkit_gate_state() {
@@ -191,6 +199,7 @@ else:
 mlkit_e2e() {
     local gate=$1
     at "$mlkit" env MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail \
+        MLKIT_EVALUATOR_WORKER_IMAGE="$mlkit_worker_image" \
         uv run --locked --no-sync pytest -q tests/e2e -rsxX 2>&1 | python3 -c '
 import re
 import sys
@@ -233,6 +242,11 @@ check_packs() {
     done
 }
 
+mlkit_worker_image=
+if step "C2 prepare pinned MLkit and the isolated evaluator worker" mlkit_evaluator_setup; then
+    mlkit_worker_image=$(<"$scratch/mlkit-worker-image")
+    ready[mlkit-evaluator]=1
+fi
 if [[ ! -f "$twin" || ! -r "$twin" ]]; then
     fail "C2 MLkit pinned workflow: readable public twin cache required"
 elif step "C2 prepare the pinned MLkit workflow on the public twin" mlkit_prepare; then
@@ -328,6 +342,7 @@ step "C8 client panel and chat tool refusals" \
         ./out/test/panel-read.test.js ./out/test/tools-read.test.js ./out/test/tools-run.test.js || true
 step "C9 MLkit synthetic protected evaluator, proxy verdict, aggregate output and exits 8 and 9" \
     actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
+        MLKIT_EVALUATOR_WORKER_IMAGE="$mlkit_worker_image" \
         MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail uv run --locked --no-sync pytest -q \
         tests/e2e/test_held_out_rehearsal.py tests/test_evaluator_adjudication.py || true
 
