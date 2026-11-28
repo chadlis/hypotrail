@@ -65,6 +65,7 @@
 <tr data-command="compare" data-chapter="comparison"><td><code>compare</code></td><td><a href="#comparison">chapter 07</a></td><td>Compare two Assessments as Control and Candidate.</td></tr>
 <tr data-command="report" data-chapter="report"><td><code>report</code></td><td><a href="#report">chapter 14</a></td><td>Render one HTML page for a Study.</td></tr>
 <tr data-command="decide" data-chapter="decisions"><td><code>decide</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Decision in a Study.</td></tr>
+<tr data-command="review import" data-chapter="decisions"><td><code>review import</code></td><td><a href="#ranking-review">chapter 17</a></td><td>Keep the evaluator's aggregate receipt as citable Study evidence.</td></tr>
 <tr data-command="deviation" data-chapter="decisions"><td><code>deviation</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Declared deviation in a Study, or the withdrawal of one.</td></tr>
 <tr data-command="figures" data-chapter="decisions"><td><code>figures</code></td><td><a href="#decisions">chapter 17</a></td><td>Show each Comparison's paired deltas, with the bins and the five numbers of a box computed from them.</td></tr>
 <tr data-command="profile" data-chapter="temporal-regression-track"><td><code>profile</code></td><td><a href="#temporal-regression-track">chapter 02</a></td><td>Show the data profile of a Bike Study's <code>train</code> Items.</td></tr>
@@ -236,6 +237,7 @@ Study 5d85c1c9-817c-4038-8fc8-7016825a971b (bike_day); a writer is not active
 <tr data-command="recover" data-read-sequence="optional" data-advances="2" data-written="attempt"><td><code>recover</code></td><td>2</td><td>the Attempt it records as interrupted</td><td>optional</td></tr>
 <tr data-command="report" data-read-sequence="optional" data-advances="2" data-written="exposure"><td><code>report</code> when its page records an Exposure</td><td>2</td><td>the Exposure entry (and the freeze record the first time)</td><td>optional</td></tr>
 <tr data-command="decide" data-read-sequence="required" data-advances="2" data-written="decision"><td><code>decide</code> (<a href="#decisions">chapter 17</a>)</td><td>2</td><td>the Decision</td><td>required</td></tr>
+<tr data-command="review import" data-read-sequence="required" data-advances="2" data-written="ranking_review"><td><code>review import</code> (<a href="#ranking-review">chapter 17</a>)</td><td>2</td><td>the aggregate review receipt</td><td>required</td></tr>
 <tr data-command="deviation" data-read-sequence="required" data-advances="2" data-written="declared_deviation"><td><code>deviation</code> (<a href="#decisions">chapter 17</a>)</td><td>2</td><td>the Declared deviation</td><td>required</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="checks-before-the-lock"><thead><tr><th>Check</th><th>Exit</th><th>Code</th><th>Refused when</th></tr></thead><tbody>
