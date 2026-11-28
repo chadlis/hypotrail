@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, evaluator, study_write
+from hypotrail.core import artifacts, canonical, evaluator, intervals, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -43,6 +43,17 @@ def _interval(value) -> bool:
     )
 
 
+def _matches_verdict(record: dict) -> bool:
+    """Check the published values against the declared Round 5 rule (D-247)."""
+    bounds = record["interval"]
+    usable = record["usable_resamples"]
+    if usable > intervals.RESAMPLES or (bounds is None) != (usable == 0):
+        return False
+    delta = record["delta"]
+    accepted = bounds is not None and bounds[0] > 0 and delta is not None and delta >= 0.01
+    return record["option"] == ("accepted" if accepted else "keep_control")
+
+
 def _read_receipt(path: Path, *, expected_digest: str | None = None) -> dict | None:
     """Read the allowlisted projection. Malformed bytes and fields never enter a diagnostic."""
     try:
@@ -65,6 +76,7 @@ def _read_receipt(path: Path, *, expected_digest: str | None = None) -> dict | N
         or (record["delta"] is not None and not _number(record["delta"]))
         or not _interval(record["interval"])
         or not all(type(record[field]) is int and record[field] >= 0 for field in ("usable_resamples", "omitted_dates"))
+        or not _matches_verdict(record)
     ):
         return None
     return record

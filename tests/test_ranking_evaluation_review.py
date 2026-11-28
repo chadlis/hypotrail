@@ -147,6 +147,36 @@ def test_refuses_untrusted_shape_and_source_without_echo_or_writes(review_study,
     assert status(review_study)["write_sequence"] == seq
 
 
+@pytest.mark.parametrize("contradiction", [
+    {"option": "keep_control"},
+    {"delta": 0.009999},
+    {"delta": None},
+    {"interval": [0, 0.036]},
+    {"interval": [-0.001, 0.036]},
+    {"interval": None, "usable_resamples": 0},
+    {"usable_resamples": 2001},
+    {"usable_resamples": 0},
+    {"option": "keep_control", "interval": None},
+])
+def test_refuses_receipts_inconsistent_with_the_declared_rule_or_usable_draws(review_study, tmp_path, contradiction):
+    seq = status(review_study)["write_sequence"]
+    receipt = write_receipt(tmp_path, **contradiction)
+    code, refused, _ = import_receipt(review_study, receipt, seq)
+    assert (code, refused["error"]["code"]) == (2, "RANKING_REVIEW_INVALID")
+    end = status(review_study)
+    assert "ranking_reviews" not in end
+    assert end["write_sequence"] == seq
+
+
+def test_accepts_the_exact_delta_threshold_and_all_draws_usable(review_study, tmp_path):
+    seq = status(review_study)["write_sequence"]
+    receipt = write_receipt(tmp_path, delta=0.01, usable_resamples=2000)
+    code, imported, err = import_receipt(review_study, receipt, seq)
+    assert code == 0, (imported, err)
+    assert imported["review"]["option"] == "accepted"
+    assert imported["review"]["usable_resamples"] == 2000
+
+
 def test_refuses_duplicate_json_key_without_echo(review_study, tmp_path):
     seq = status(review_study)["write_sequence"]
     path = tmp_path / "bad.json"
