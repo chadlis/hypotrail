@@ -50,6 +50,19 @@ def import_receipt(study, receipt, seq):
     return run_json("review", "import", "--study", study, "--receipt", receipt, "--read-sequence", seq)
 
 
+def test_review_import_operates_without_resolving_a_workload(review_study, tmp_path, monkeypatch):
+    from hypotrail.core import data
+
+    def no_workload(*args, **kwargs):
+        pytest.fail("Review import must use the Study and receipt without a Workload read")
+
+    monkeypatch.setattr(data, "resolve_examples_dir", no_workload)
+    receipt = write_receipt(tmp_path)
+    code, imported, err = import_receipt(review_study, receipt, status(review_study)["write_sequence"])
+    assert code == 0, (imported, err)
+    assert imported["review"]["proxy_decision_id"] == RECEIPT["proxy_decision_id"]
+
+
 def decide(study, cited, seq, request, *, author="human", question=QUESTION, option="accepted",
            channel="panel", words=OWNER_WORDS, typed=False, option_id="accepted"):
     argv = ["decide", "--study", study, "--artifact", cited, "--read-sequence", seq, "--request-id", request,
