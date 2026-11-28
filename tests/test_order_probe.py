@@ -318,6 +318,7 @@ LEAF_COMMANDS = {
     "assess": WRITER,
     "compare": WRITER,
     "status": NON_WRITER,
+    "numbers check": NON_WRITER,
     "figures": NON_WRITER,
     "profile": NON_WRITER,
     "lesson": NON_WRITER,

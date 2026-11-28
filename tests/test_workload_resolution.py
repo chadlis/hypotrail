@@ -287,5 +287,5 @@ def test_every_command_the_parser_defines_either_takes_the_flag_or_reads_no_work
     # A new command must appear in the Workload list or in this inventory of commands that operate without one.
     # `review import` reads the aggregate receipt and the ordinary Study only.
     assert leaves - _parsers_taking_the_flag() == {
-        "status", "figures", "lesson", "recover", "data fetch", "decide", "deviation", "review import",
+        "status", "figures", "lesson", "recover", "data fetch", "decide", "deviation", "review import", "numbers check",
     }
