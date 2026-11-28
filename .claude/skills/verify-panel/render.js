@@ -108,16 +108,32 @@ const belowAA = (parity = false) => `(() => {
   };
   const over = (top, under) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3])).concat([1]);
   const lum = (c) => { const f = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const canvasColor = (parent, scheme) => {
+    const sample = parent.ownerDocument.createElement("span");
+    sample.style.setProperty("display", "none", "important");
+    sample.style.setProperty("color", "Canvas", "important");
+    if (scheme) sample.style.setProperty("color-scheme", scheme, "important");
+    parent.append(sample);
+    const color = parse(getComputedStyle(sample).color);
+    sample.remove();
+    return color;
+  };
+  const readBackdrop = () => {
+    const canvas = canvasColor(document.documentElement);
+    const frame = document.defaultView.frameElement;
+    if (!frame) return { canvas, frame: null };
+    const embedding = canvasColor(frame.parentElement, getComputedStyle(frame).colorScheme);
+    // A scheme mismatch makes Chromium paint the child's own opaque canvas.
+    // With the same scheme the frame remains transparent to its host.
+    if (!canvas.every((channel, i) => channel === embedding[i])) return { canvas, frame: null };
+    return { canvas: canvasColor(frame.ownerDocument.documentElement), frame };
+  };
+  const backdrop = ${parity} ? readBackdrop() : null;
   const bgOf = (el) => {
     const chain = [];
     for (let e = el; e; e = e.parentElement) chain.unshift(e);
-    let bg = parse(getComputedStyle(document.documentElement).backgroundColor);
-    if (${parity}) {
-      // A transparent iframe shows its host's canvas and styling through it.
-      // Start with Chromium's white canvas and composite each ancestor once.
-      bg = [255, 255, 255, 1];
-      for (let e = document.defaultView.frameElement; e; e = e.parentElement) chain.unshift(e);
-    }
+    let bg = backdrop?.canvas ?? parse(getComputedStyle(document.documentElement).backgroundColor);
+    for (let e = backdrop?.frame; e; e = e.parentElement) chain.unshift(e);
     for (const e of chain) {
       const b = parse(getComputedStyle(e).backgroundColor);
       if (b[3] > 0) bg = over(b, bg);
