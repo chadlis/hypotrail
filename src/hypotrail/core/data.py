@@ -4,12 +4,11 @@ Standard library and `jsonschema`. The order is fixed: the bytes of every select
 are verified first, then the licence notices, and only then the content checks
 (calendar, tables). Tampered bytes never reach a content check.
 
-A Workload whose data lives outside the repository holds a data manifest
-(`data-manifest.json`, `data-manifest/1`, described by `data-manifest.schema.json`)
-instead of a lock: each source is declared by its digest and size, with no URL and
-no local path. A manifest that does not match its schema is refused `DATA_MANIFEST_INVALID`.
-Its sources are reported `declared`; only their licence notices are checked, and no data
-file is opened.
+A Workload with a manifest-only declaration holds `data-manifest.json`
+(`data-manifest/1`, described by `data-manifest.schema.json`). Each source is declared
+by its digest and size, with no URL and no local path. A manifest that does not match
+its schema is refused `DATA_MANIFEST_INVALID`. Its sources are reported `declared`;
+only their licence notices are checked, and no data file is opened.
 
 The public Auto MPG source has a separate opt-in lock and is verified as bytes supplied
 explicitly to the command. It is outside default Workload discovery.
@@ -443,7 +442,13 @@ def _auto_mpg_source(lock_path: Path) -> dict:
             details={"file": str(lock_path), "key": key},
         )
 
-    lock = _load_json(lock_path, "lock")
+    try:
+        lock = _load_json(lock_path, "lock")
+    except UnicodeDecodeError:
+        raise InvalidInputError(
+            "FILE_NOT_JSON", f"lock is not valid JSON: {lock_path}", stage="config",
+            details={"file": str(lock_path), "line": None},
+        ) from None
     if not isinstance(lock, dict) or lock.get("schema_version") != "data-sources/1":
         raise invalid("schema_version")
     sources = lock.get("sources")

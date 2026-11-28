@@ -70,6 +70,7 @@ def test_auto_mpg_verifies_only_the_explicit_external_file_and_notice(bundle):
         ("changed_notice", 3, "LICENCE_NOTICE_CHANGED"),
         ("missing_lock", 2, "FILE_NOT_FOUND"),
         ("invalid_json", 2, "FILE_NOT_JSON"),
+        ("invalid_encoding", 2, "FILE_NOT_JSON"),
         ("invalid_source", 2, "LOCK_INVALID"),
     ],
 )
@@ -93,6 +94,8 @@ def test_auto_mpg_refuses_missing_or_tampered_inputs(bundle, fault, exit_code, e
         lock_file.unlink()
     elif fault == "invalid_json":
         lock_file.write_text("{", encoding="utf-8")
+    elif fault == "invalid_encoding":
+        lock_file.write_bytes(b"\xff")
     else:
         lock["sources"][0]["notice_sha256"] = "not a SHA-256"
         lock_file.write_text(json.dumps(lock), encoding="utf-8")
@@ -104,6 +107,9 @@ def test_auto_mpg_refuses_missing_or_tampered_inputs(bundle, fault, exit_code, e
     assert payload["error"]["code"] == error_code
     assert str(external) not in err
     assert str(external) not in json.dumps(payload)
+    if fault == "invalid_encoding":
+        assert payload["error"]["stage"] == "config"
+        assert payload["error"]["details"]["line"] is None
     if fault == "pinned_size":
         details = payload["error"]["details"]
         assert details["actual_sha256"] == details["expected_sha256"]
