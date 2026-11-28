@@ -132,14 +132,18 @@ def read_spec(study) -> dict:
     return spec
 
 
+def available_spec(study) -> dict | None:
+    """A validated StudySpec when available, for callers with their own missing or unreadable Study error order."""
+    try:
+        return read_spec(study)
+    except (OSError, HypotrailError):
+        return None
+
+
 def refuse_existing(study) -> None:
     """Refuse creation in an existing Study under the caller's writer lock."""
-    try:
-        spec = read_spec(study)
-    except (OSError, HypotrailError):
-        # An unreadable StudySpec still prevents creation at this location.
-        pass
-    else:
+    spec = available_spec(study)
+    if spec is not None:
         evaluator.refuse_protected(spec, stage="study")
     raise InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
 

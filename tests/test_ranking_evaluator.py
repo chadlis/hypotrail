@@ -339,3 +339,69 @@ def test_protected_report_refuses_nonaggregate_values_in_selected_fields(compare
     assert (code, payload["error"]["code"]) == (3, "CONTRACT_VIOLATION")
     _safe(json.dumps(payload) + err)
     assert not out.exists()
+
+
+@pytest.mark.parametrize("operation", ["assess", "assess_agent", "assess_unknown", "compare", "compare_factor", "report", "recover", "revision"])
+def test_ordinary_cli_refuses_protected_scope_before_journal_and_operation_checks(synthetic, made, monkeypatch, operation):
+    from hypotrail.core import evaluator, write_journal
+
+    _, _, study = synthetic
+    stale = ("--read-sequence", 0)
+    assessment = ("assess", "--study", study, "--observations", "unknown", "--references", made["references_id"], "--scorer")
+    comparison = ("compare", "--study", study, "--control", "unknown", "--candidate", "unknown")
+    out = study.parent / "aggregate.json"
+    args = {
+        "assess": (*assessment, "ranking_recall_at_top_v1", *stale),
+        "assess_agent": (*assessment, "text_facts_v1", *stale),
+        "assess_unknown": (*assessment, "unregistered"),
+        "compare": (*comparison, *stale),
+        "compare_factor": (*comparison, "--factor", "configuration"),
+        "report": ("report", "--study", study, "--out", out, *stale),
+        "recover": ("recover", "--study", study, "--attempt", "unknown", *stale),
+        "revision": ("init", "--study", study, "--new-revision", *stale),
+    }
+    original_refusal = evaluator.refusal
+
+    def refusal_under_lock(stage):
+        assert lock.is_held(study), "The Partition was refused outside the Study lock"
+        return original_refusal(stage)
+
+    def unread(*_):
+        pytest.fail("The journal was accessed before the protected Study was refused")
+
+    monkeypatch.setattr(evaluator, "refusal", refusal_under_lock)
+    monkeypatch.setattr(write_journal, "write_sequence", unread)
+    monkeypatch.setattr(write_journal, "entries", unread)
+    code, payload, err = command(*args[operation])
+    assert (code, payload["error"]["code"]) == (2, REFUSAL)
+    _safe(json.dumps(payload) + err)
+    assert not out.exists()
+
+
+def test_ordinary_decide_refuses_the_protected_study_before_reading_a_words_file(synthetic, made, monkeypatch):
+    from hypotrail.core import decisions
+
+    _, build, study = synthetic
+
+    def unread(*_):
+        pytest.fail("The words file was opened before the protected Study was refused")
+
+    monkeypatch.setattr(decisions, "_read_words_file", unread)
+    code, payload, err = command(
+        "decide", "--study", study, "--question", "Rule", "--option", "accepted", "--author", "proxy", "--source", "synthetic",
+        "--words-file", build / "references-held_out.csv", "--artifact", made["references_id"], "--request-id", "refused", "--read-sequence", 0,
+    )
+    assert (code, payload["error"]["code"]) == (2, REFUSAL)
+    _safe(json.dumps(payload) + err)
+
+
+def test_declared_evaluator_still_checks_stale_write_sequences_without_printing_the_journal(synthetic, made):
+    _, _, study = synthetic
+    _evaluate(*_import(synthetic, "private-request"))
+    code, payload, err = command(
+        "--evaluator", "compare", "--study", study, "--control", "unknown", "--candidate", "unknown", "--read-sequence", 0,
+    )
+    assert (code, payload["error"]["code"]) == (6, "STUDY_CHANGED")
+    assert payload["error"]["details"] == {}
+    assert "private-request" not in err
+    _safe(json.dumps(payload) + err)

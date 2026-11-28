@@ -1047,8 +1047,6 @@ def _profile_lines(read: dict) -> list:
 def _decide(args) -> int:
     from hypotrail.core import decisions
 
-    if evaluator.inside() and (args.author != "proxy" or not args.source or args.words):
-        raise evaluator.refusal("decision")
     record, replayed = decisions.decide(
         args.study,
         question=args.question,

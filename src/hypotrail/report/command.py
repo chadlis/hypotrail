@@ -77,7 +77,7 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
             artifacts.replace_atomically(out, render.render(model, links).encode("utf-8"))
             return _result(out, spec, model, entry)
 
-    with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
+    with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence, evaluator_stage=STAGE, run_tool=run_tool) as write:
         write.require_current()
         model = gather.load(study, guarded=run_tool, profile=profile if run_tool else None)
         if not run_tool and not protected:

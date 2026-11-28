@@ -23,6 +23,9 @@ the write journal. The request identity is shared with the Attempts of the Study
 the same decision (question, option, author, source, cited ids, question id, option id and words; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
 
+A protected ranking Study refuses words files before opening them. The declared evaluator may record a proxy Decision with a source.
+The Study scope is checked under the writer lock before replay or the write sequence.
+
 An id is citable when the Study holds a record with that id, of one of these kinds: Attempt, Observation set, Assessment, Comparison, Study artifact,
 revision (by its `revision` value, never its `revision_number`), freeze record, Exposure entry, decision or Declared deviation, a withdrawal included. A `request_id`, the `study_id`, a path
 and a file's content digest (`sha256`, `protocol_digest`) are not citable.
@@ -402,14 +405,20 @@ def decide(
         if not value:
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
     _check_ids(question, option, question_id, option_id)
-    recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
-    spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    evaluator.require_study(spec, stage=STAGE)
+    word_inputs = list(words)
+    if evaluator.inside() and (author != "proxy" or not source or word_inputs):
+        raise evaluator.refusal(STAGE)
+    if any(kind == "file" for kind, _ in word_inputs):
+        spec = layout.available_spec(study)
+        if spec is not None:
+            evaluator.refuse_protected(spec, stage=STAGE)
+    recorded_words = _words(word_inputs, author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
+    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     wanted = {
         "question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids)),
         "question_id": question_id, "option_id": option_id, "words": recorded_words,
     }
-    with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence) as write:
+    with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence, evaluator_stage=STAGE) as write:
         return _decide_locked(study, write, wanted, request_id, read_sequence)
 
 

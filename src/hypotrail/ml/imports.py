@@ -36,7 +36,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, evaluator, exposure, protocol_check, requests, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, requests, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
@@ -333,13 +333,12 @@ def import_ml(
     study = Path(study)
     study_write.check_arguments(COMMAND, read_sequence, request_id)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True) as write:
+    with study_write.locked(study, COMMAND, request_id, read_sequence=read_sequence, has_attempt=True, evaluator_stage=STAGE) as write:
         return _import_locked(study, write, Path(source), Path(mapping), Path(population), request_id, examples_dir=examples_dir)
 
 
 def _import_locked(study, write, source, mapping_path, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
-    evaluator.require_study(spec, stage=STAGE)
     domain = spec["domain"]
     ranking = domain == ranking_study.TRACK
     workload = spec["workload"]

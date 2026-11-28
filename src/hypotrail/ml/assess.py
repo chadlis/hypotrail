@@ -36,7 +36,7 @@ import math
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, rescoring, revisions, scorers, study_write
+from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
@@ -139,7 +139,7 @@ def assess(
     study = Path(study)
     study_write.check_read_sequence(study_write.ASSESS, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
+    with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence, evaluator_stage=STAGE, run_tool=run_tool) as write:
         write.require_current()
         return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, notes if notes is not None else [], run_tool)
 
@@ -147,7 +147,6 @@ def assess(
 def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list, run_tool: bool) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
-    evaluator.require_study(spec, stage=STAGE, run_tool=run_tool)
     if spec["domain"] == scorers.RANKING:
         return ranking_assess.assess_locked(study, write, spec, observation_set_id, scorer, references_id)
 

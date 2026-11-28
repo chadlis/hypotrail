@@ -1,11 +1,11 @@
 """The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report`, `decide` and `deviation`.
 
 A writer calls `check_arguments` (a writer with a `request_id`) or `check_read_sequence` before anything else, does its own checks that come before
-the lock, then works inside `locked(...)`, which takes the writer lock and opens the write journal. Inside it, the session it yields runs the steps
-in the order the writer keeps: for a writer with a `request_id`, the replay lookup, the guard on the Study's one `request_id` namespace, then the stale
-check; for the others, `require_current()`. Creating a Study (`init`) takes neither check, and `report` takes the lock only when its page records
-an Exposure. A writer supplies its command, what identifies its request, its own check of a record already recorded, its own checks and its writes;
-it calls `begin()` just before its first write (`exposure.record`, which `assess`, `compare` and `report` call, calls it for them when the command records an Exposure).
+the lock, then works inside `locked(...)`, which takes the writer lock, enforces the Study scope, and opens the write journal.
+A writer with a `request_id` checks replay, the Study's request ID namespace and the write sequence in that order. Other writers call
+`require_current()`. Creating a Study takes neither check. A report takes the lock when it records an Exposure or enforces a guarded scope.
+A writer supplies its command, request identity, replay check and writes. It calls `begin()` just before the first write. `exposure.record`
+calls `begin()` for `assess`, `compare` and `report` when the command records an Exposure.
 """
 
 import contextlib
@@ -70,11 +70,9 @@ class Write:
         """Append the `begin` entry, once: call it just before the command's first write."""
         self._journal.begin()
 
-    def require_current(self, *, ordinary_stage: str | None = None) -> None:
-        """Check the write sequence, then optionally require an ordinary Study before accessing records."""
+    def require_current(self) -> None:
+        """Refuse a write made on a write sequence that is not the Study's: the writer has no replay to run first."""
         write_journal.require_current(self.study, self.read_sequence)
-        if ordinary_stage is not None:
-            evaluator.refuse_protected(layout.read_spec(self.study), stage=ordinary_stage)
 
     def attempt(self, attempt_id: str) -> None:
         """Name the Attempt the command writes: its `end` entry names the Attempt and, once it exists, its Observation set."""
@@ -143,10 +141,21 @@ class Write:
 
 
 @contextlib.contextmanager
-def locked(study, command: str, request_id: str | None = None, *, read_sequence=None, has_attempt: bool = False):
+def locked(
+    study, command: str, request_id: str | None = None, *, read_sequence=None, has_attempt: bool = False,
+    evaluator_stage: str | None = None, run_tool: bool = False,
+):
     """Take the Study's writer lock and journal the command's writes; yield the `Write` of the command.
 
     `request_id` is None for a command that has none. `has_attempt` is true for a command that records an Attempt (`run`, `import`).
+    Only evaluator commands supply `evaluator_stage`. A new Study binds its scope in `init` before reading any build payload.
     """
-    with lock.writer_lock(study), write_journal.writing(study, command, request_id, has_attempt=has_attempt) as journal:
-        yield Write(study, request_id, read_sequence, journal)
+    with lock.writer_lock(study):
+        if command != INIT:
+            spec = layout.read_spec(study)
+            if evaluator_stage is None:
+                evaluator.refuse_protected(spec, stage="study")
+            else:
+                evaluator.require_study(spec, stage=evaluator_stage, run_tool=run_tool)
+        with write_journal.writing(study, command, request_id, has_attempt=has_attempt) as journal:
+            yield Write(study, request_id, read_sequence, journal)

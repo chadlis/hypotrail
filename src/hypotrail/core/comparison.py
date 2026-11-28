@@ -326,6 +326,17 @@ def compare(
     study = Path(study)
     study_write.check_read_sequence(study_write.COMPARE, read_sequence)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    protected = evaluator.is_protected(spec)
+    if not protected:
+        _check_factor(spec, factor)
+    with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence, evaluator_stage=STAGE, run_tool=run_tool) as write:
+        if protected:
+            _check_factor(spec, factor)
+        write.require_current()
+        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis, run_tool=run_tool)
+
+
+def _check_factor(spec, factor):
     if factor is not None and spec["domain"] != AGENTIC:
         raise InvalidInputError(
             "UNSUPPORTED_CAPABILITY",
@@ -333,9 +344,6 @@ def compare(
             stage=STAGE,
             details={"factor": factor, "study_domain": spec["domain"]},
         )
-    with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence) as write:
-        write.require_current()
-        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis, run_tool=run_tool)
 
 
 def date_order(study: Path, spec: dict, partition: str, row_ids: list):
