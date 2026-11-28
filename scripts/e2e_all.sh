@@ -96,14 +96,18 @@ python_suite() {
         -n 8 --dist loadfile -q -p no:cacheprovider -rE
 }
 
-client_suite() {
-    local chrome="${HYPOTRAIL_CHROME:-/usr/bin/google-chrome}"
-    [[ -x "$chrome" ]] || return 1
-    at "$product/clients/vscode" timeout 5m npm test 2>&1 | awk '
+actual_node_passes() {
+    "$@" 2>&1 | awk '
         /^(#|ℹ)[[:space:]]+pass[[:space:]]+[1-9][0-9]*[[:space:]]*$/ { passed=1 }
         /^(#|ℹ)[[:space:]]+skip(ped)?[[:space:]]+0[[:space:]]*$/ { no_skips=1 }
         END { exit !(passed && no_skips) }
     '
+}
+
+client_suite() {
+    local chrome="${HYPOTRAIL_CHROME:-/usr/bin/google-chrome}"
+    [[ -x "$chrome" ]] || return 1
+    actual_node_passes at "$product/clients/vscode" timeout 5m npm test
 }
 
 if step "C1 install and compile Hypotrail" product_setup; then
@@ -290,7 +294,7 @@ step "C6 Guide pack read and declared held-out boundary" journey test_guide_pack
 skip "C6 actual Guide reply at the held-out station: owner D-235/G6 model gate"
 
 # Pytest exits zero for a suite of skipped or expected-failing tests. Require
-# actual passes for the explicit C7 round trips. Only the aggregate terminal
+# actual passes for the proof's focused tests. Only the aggregate terminal
 # summary is inspected and no captured test output is copied to the report.
 actual_passes() {
     "$@" 2>&1 | awk '
@@ -314,9 +318,17 @@ else
 fi
 step "C7 Agentkit dev loop, Hypotrail import and Assessment, synthetic evaluator and aggregate boundary" \
     actual_passes agentkit_e2e -q tests/e2e/test_dev_end_to_end.py tests/e2e/test_evaluate.py tests/e2e/test_conduct.py || true
-step "C8 MLkit synthetic evaluator rehearsal, verdicts, reservation and publication boundary" \
+step "C8 Hypotrail protected ranking guard, lesson and ordinary CLI refusals" \
+    actual_passes at "$product" uv run --frozen python -m pytest -q -p no:cacheprovider \
+        tests/test_ranking_evaluator.py tests/test_ranking_read_surfaces.py || true
+step "C8 client panel and chat tool refusals" \
+    actual_node_passes at "$product/clients/vscode" node --require ./out/test/vscode-stub-hook.js --test \
+        --test-name-pattern='protected ranking refusal|request for the held_out Partition|without forwarding the evaluator' \
+        out/test/panel-read.test.js out/test/tools-read.test.js out/test/tools-run.test.js || true
+step "C9 MLkit synthetic protected evaluator, proxy verdict, aggregate output and exits 8 and 9" \
     actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
-        uv run --locked --no-sync pytest -q tests/test_held_out_rehearsal.py || true
+        MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail uv run --locked --no-sync pytest -q \
+        tests/e2e/test_held_out_rehearsal.py || true
 
 printf 'SUMMARY %d passed, %d failed, %d skipped\n' "$passed" "$failures" "$skipped"
 printf 'ARTIFACTS %s\n' "$scratch"
