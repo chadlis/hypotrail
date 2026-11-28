@@ -303,6 +303,9 @@ else
 fi
 step "C7 Agentkit dev loop, Hypotrail import and Assessment, synthetic evaluator and aggregate boundary" \
     actual_passes agentkit_e2e -q tests/e2e/test_dev_end_to_end.py tests/e2e/test_evaluate.py tests/e2e/test_conduct.py || true
+step "C8 MLkit synthetic evaluator rehearsal, verdicts, reservation and publication boundary" \
+    actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
+        uv run --locked --no-sync pytest -q tests/test_held_out_rehearsal.py || true
 
 printf 'SUMMARY %d passed, %d failed, %d skipped\n' "$passed" "$failures" "$skipped"
 printf 'ARTIFACTS %s\n' "$scratch"
