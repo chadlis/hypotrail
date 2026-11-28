@@ -1,4 +1,8 @@
-"""The number check uses the kept Bike MAE without taking a Study lock."""
+"""The CLI reads the kept Bike figures without a lock and matches the pinned reader.
+
+The expected findings for the numeric cases are recorded from OLD at 4ef4925.
+The tests use those literals so CI does not need an OLD checkout.
+"""
 
 import io
 from pathlib import Path
@@ -10,6 +14,26 @@ from _study_helpers import run_json
 from hypotrail.core import attempts as attempt_records
 from hypotrail.core import figures, lock
 from hypotrail.core import study as layout
+
+
+def _synthetic_results(values, *, differences=(), units=(), rates=()):
+    """Give the pinned and ported readers identical synthetic result data."""
+    def result(record_id, entries):
+        return {"result_id": record_id, "values": entries, "current": True, "integrity": "ok", "n_rows": None}
+
+    results = {"fixture.read": result("fixture", {"values": list(values), "deltas": list(differences), "rates": list(rates)})}
+    for index, unit in enumerate(units):
+        key = f"unit.{index}"
+        results[key] = result(key, {"unit": unit})
+    return results
+
+
+def _synthetic_findings(text, values, *, differences=(), units=(), rates=()):
+    from hypotrail.core.numtrace import findings
+
+    reported = findings(text, _synthetic_results(values, differences=differences, units=units, rates=rates))
+    assert all(text[item["start"]:item["end"]] == item["number"] for item in reported)
+    return reported
 
 
 def test_numbers_check_is_a_read_of_the_kept_bike_study(tmp_path, monkeypatch):
@@ -74,42 +98,36 @@ def test_protected_study_refuses_the_check_before_reading_text(tmp_path, monkeyp
 
 
 def test_english_forms_keep_the_value_and_precision_of_the_whole_number():
-    from hypotrail.core.numtrace import findings
-
     text = "The rates were twenty-one percent and one in nine. Five folds used three quarters of the rows."
-    assert findings(text, [0.209, 0.111, 4.8, 0.749]) == []
-    assert [finding["number"] for finding in findings(text, [])] == [
+    assert _synthetic_findings(text, [0.209, 0.111, 4.8, 0.749]) == []
+    assert [finding["number"] for finding in _synthetic_findings(text, [])] == [
         "twenty-one percent", "one in nine", "Five", "three quarters"
     ]
 
     text = "The difference was −2.75, the sample 1.5M, and the rate .5%. See section 6 on 2026-11-28."
-    assert findings(text, [-2.746, 1_530_000, 0.0051]) == []
-    assert [finding["number"] for finding in findings(text, [])] == ["−2.75", "1.5M", ".5%"]
+    assert _synthetic_findings(text, [-2.746, 1_530_000], rates=[0.0051]) == []
+    assert [finding["number"] for finding in _synthetic_findings(text, [])] == ["−2.75", "1.5M", ".5%"]
 
     text = "The first step fits one model and both predictors."
-    assert findings(text, []) == []
+    assert _synthetic_findings(text, []) == []
 
 
-def test_malformed_scales_are_untraceable_as_a_whole():
-    from hypotrail.core.numtrace import findings
-
+def test_malformed_scales_report_the_pinned_readers_lexemes():
     text = "The two claims are 1×10⁻⁺ and 1e999. We also wrote 241_000."
-    assert [item["number"] for item in findings(text, [1, 10, 241_000])] == ["1×10⁻⁺", "1e999", "241_000"]
+    assert [item["number"] for item in _synthetic_findings(text, [1, 10, 241_000])] == ["10⁻⁺", "1e999", "241_000"]
 
 
-def test_a_scaled_denominator_is_reported_as_one_claim():
-    from hypotrail.core.numtrace import findings
-
+def test_a_scaled_denominator_prevents_a_partial_ratio_match():
     text = "One in five hundred customers."
-    [finding] = findings(text, [0.2])
-    assert finding["code"] == "untraceable_number" and finding["number"] == "One in five hundred"
+    [finding] = _synthetic_findings(text, [0.2])
+    assert finding["code"] == "untraceable_number" and finding["number"] == "five hundred"
 
 
 @pytest.mark.parametrize(
     ("text", "value", "shown"),
     [
         ("We had five-hundred rows.", 5, "five-hundred"),
-        ("One in five-hundred customers.", 0.2, "One in five-hundred"),
+        ("One in five-hundred customers.", 0.2, "five-hundred"),
         ("We used five-hundred and twenty rows.", 20, "five-hundred and twenty"),
         ("Twenty-one-thousand calls.", 21, "Twenty-one-thousand"),
         ("We counted two thousand five-hundred clients.", 500, "two thousand five-hundred"),
@@ -118,19 +136,15 @@ def test_a_scaled_denominator_is_reported_as_one_claim():
     ],
 )
 def test_spoken_scales_joined_by_hyphens_or_spaces_are_reported_as_a_whole(text, value, shown):
-    from hypotrail.core.numtrace import findings
-
-    assert [(item["code"], item["number"]) for item in findings(text, [value])] == [("untraceable_number", shown)]
+    assert [(item["code"], item["number"]) for item in _synthetic_findings(text, [value])] == [("untraceable_number", shown)]
 
 
 def test_bare_points_use_the_studys_unit_when_it_is_points():
-    from hypotrail.core.numtrace import findings
-
-    assert findings("The result is 7 points.", [7], units=["points"]) == []
-    assert findings("The result is 7 points.", [7], units=[" Points  (score) "]) == []
-    assert findings("The result is 7 points.", [7])[0]["number"] == "7 points"
-    assert findings("The result is 7 percentage points.", [7], units=["points"])[0]["number"] == "7 percentage points"
-    assert findings("The difference is 7 percentage points.", [], differences=[0.07], units=["points"]) == []
+    assert _synthetic_findings("The result is 7 points.", [7], units=["points"]) == []
+    assert _synthetic_findings("The result is 7 points.", [7], units=[" Points  (score) "]) == []
+    assert _synthetic_findings("The result is 7 points.", [7])[0]["number"] == "7"
+    assert _synthetic_findings("The result is 7 percentage points.", [7], units=["points"])[0]["number"] == "7"
+    assert _synthetic_findings("The difference is 7 percentage points.", [], differences=[0.07], units=["points"]) == []
 
 
 @pytest.mark.parametrize(
@@ -146,18 +160,35 @@ def test_bare_points_use_the_studys_unit_when_it_is_points():
     ],
 )
 def test_written_rates_trace_as_a_whole_at_their_rate_scale(shown, value):
-    from hypotrail.core.numtrace import findings
-
     text = f"The result was {shown}."
-    assert [item["number"] for item in findings(text, [7])] == [shown]
-    assert findings(text, [value]) == []
+    assert [item["number"] for item in _synthetic_findings(text, [7])] == [shown]
+    assert _synthetic_findings(text, [value]) == []
 
 
 @pytest.mark.parametrize("shown", ["7percent", "7permille"])
 def test_glued_word_rates_are_reported_as_unsupported(shown):
-    from hypotrail.core.numtrace import findings
+    assert [item["number"] for item in _synthetic_findings(f"The result was {shown}.", [7, 0.07, 0.007])] == [shown]
 
-    assert [item["number"] for item in findings(f"The result was {shown}.", [7, 0.07, 0.007])] == [shown]
+
+@pytest.mark.parametrize(
+    ("shown", "value"),
+    [("7\t%", 0.07), ("7\n%", 0.07), ("7\u2003%", 0.07), ("7\t‰", 0.007), ("7%increase", 0.07), ("7‰increase", 0.007)],
+)
+def test_symbol_rates_keep_the_pinned_engines_legacy_boundaries(shown, value):
+    text = f"The result was {shown}."
+    [item] = _synthetic_findings(text, [7])
+    assert item["code"] == "untraceable_number"
+    assert item["number"] == shown.removesuffix("increase")
+    assert _synthetic_findings(text, [value]) == []
+
+
+def test_hyphenated_point_adjective_is_a_count_in_the_pinned_engine():
+    assert _synthetic_findings("There was a 7-point improvement.", [7]) == []
+
+
+@pytest.mark.parametrize("noun", ["steps", "pauses", "decisions"])
+def test_an_unsupplied_read_does_not_authorize_a_zero_count(noun):
+    assert [item["number"] for item in _synthetic_findings(f"The Study recorded 0 {noun}.", [])] == ["0"]
 
 
 def test_numbers_check_reads_only_a_development_comparisons_aggregate_figures(tmp_path, monkeypatch):

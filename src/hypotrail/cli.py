@@ -941,7 +941,7 @@ def _status(args) -> int:
 
 
 def _number_evidence(study, revision):
-    from hypotrail.core import attempts, comparison, figures
+    from hypotrail.core import attempts, comparison, figures, numtrace
     from hypotrail.core import study as layout
 
     # Read the same aggregate records that status lists without probing its lock or walking its Attempt artifacts.
@@ -951,35 +951,44 @@ def _number_evidence(study, revision):
         if observation_set and observation_set.get("provenance", {}).get("partition") == comparison.DEV:
             development.add(observation_set["observation_set_id"])
 
-    values, differences, units = [], [], set()
+    results = {}
     eligible = set()
     for assessment in layout.assessment_records(study):
         if assessment["observation_set_id"] not in development or (assessment.get("study_revision") or {}).get("revision") != revision:
             continue
-        eligible.add(assessment["assessment_id"])
-        values.extend(assessment["counts"].values())
+        record_id = assessment["assessment_id"]
+        eligible.add(record_id)
+        counts = {key: {"n_rows": value} for key, value in assessment["counts"].items()}
+        results[f"assessment.{record_id}"] = numtrace.evidence_result(record_id, {"counts": counts})
         for metric in assessment["metrics"]:
             if metric["status"] == "scored":
-                values.extend((metric["value"], metric["denominator"]))
-                units.add(metric["unit"])
+                metric_id = metric["id"]
+                results[f"assessment.{record_id}.{metric_id}"] = numtrace.evidence_result(record_id, {
+                    "metric": metric_id, "unit": metric["unit"], "value": metric["value"], "n_rows": metric["denominator"],
+                })
 
     for record in layout.comparison_records(study):
         if not set(record["roles"].values()) <= eligible:
             continue
+        record_id = record["comparison_id"]
         for delta in (record["delta"], *record.get("secondary_deltas", ())):
-            differences.append(delta["value"])
-            units.add(delta["unit"])
+            metric_id = delta["metric"]
+            results[f"comparison.{record_id}.{metric_id}"] = numtrace.evidence_result(record_id, {
+                "metric": metric_id, "unit": delta["unit"], "delta": delta["value"],
+            })
+        aggregates = {"coverage": {key: {"n_rows": value} for key, value in record["coverage"].items()}}
         if interval := record.get("interval"):
-            differences.extend((interval["lower"], interval["upper"]))
-            values.extend((interval["level"], interval.get("units")))
-        values.extend(record["coverage"].values())
+            aggregates["interval"] = {
+                "delta_lower": interval["lower"], "delta_upper": interval["upper"], "level": interval["level"], "n_rows": interval.get("units"),
+            }
         figure = figures.entry(study, record)
         if figure["unavailable"] is None:
-            differences.extend(figure["quartiles"].values())
-            for bucket in figure["histogram"]:
-                differences.extend((bucket["low"], bucket["high"]))
-                values.append(bucket["count"])
-    return [*values, *differences], differences, units
+            aggregates["delta_quartiles"] = figure["quartiles"]
+            aggregates["delta_histogram"] = [
+                {"low": bucket["low"], "high": bucket["high"], "n_rows": bucket["count"]} for bucket in figure["histogram"]
+            ]
+        results[f"comparison.{record_id}"] = numtrace.evidence_result(record_id, aggregates)
+    return results
 
 
 def _check_numbers(args) -> int:
@@ -989,8 +998,8 @@ def _check_numbers(args) -> int:
     evaluator.refuse_protected(spec, stage="numbers_check")
     text = sys.stdin.read() if args.text == "-" else Path(args.text).read_text(encoding="utf-8")
     user_text = args.user_text.read_text(encoding="utf-8") if args.user_text else ""
-    values, differences, units = _number_evidence(args.study, spec["revision"])
-    findings = numtrace.findings(text, values, user_text=user_text, differences=differences, units=units)
+    results = _number_evidence(args.study, spec["revision"])
+    findings = numtrace.findings(text, results, user_text=user_text)
     clean = not findings
     human = "Every number is traceable." if clean else "\n".join(finding["message"] for finding in findings)
     _emit({"ok": True, "clean": clean, "findings": findings}, args.json, human)
