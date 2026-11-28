@@ -10,6 +10,9 @@ instead of a lock: each source is declared by its digest and size, with no URL a
 no local path. A manifest that does not match its schema is refused `DATA_MANIFEST_INVALID`.
 Its sources are reported `declared`; only their licence notices are checked, and no data
 file is opened.
+
+The public Auto MPG source has a separate opt-in lock and is verified as bytes supplied
+explicitly to the command. It is outside default Workload discovery.
 """
 
 import csv
@@ -31,6 +34,7 @@ CHECKS_NAME = "data-checks.json"
 MANIFEST_NAME = "data-manifest.json"
 MANIFEST_SCHEMA = "data-manifest.schema.json"
 DECLARATION_NAME = "workload.json"
+_AUTO_MPG_LOCK = "uci-data-sources.lock.json"
 
 
 class DataCheckError(IntegrityError):
@@ -214,30 +218,34 @@ def _verify_bytes(workload: dict, *, skip_dataset: bool = False) -> None:
         if skip_dataset and source["dataset_id"] == workload["source"]["dataset_id"]:
             continue
         path = workload["directory"] / source["local_path"]
-        details = {"workload": workload["name"], "file": source["local_path"]}
-        if not path.is_file():
-            raise IntegrityError(
-                "DATA_MISSING",
-                f"data file missing: {source['local_path']}",
-                stage="integrity",
-                details=details,
-            )
-        actual_size = path.stat().st_size
-        actual_hash = sha256_file(path)
-        if actual_size != source["size_bytes"] or actual_hash != source["sha256"]:
-            raise IntegrityError(
-                "DATA_INTEGRITY",
-                f"{source['local_path']} does not match the lock "
-                f"(expected sha256 {source['sha256']}, got {actual_hash})",
-                stage="integrity",
-                details={
-                    **details,
-                    "expected_sha256": source["sha256"],
-                    "actual_sha256": actual_hash,
-                    "expected_size_bytes": source["size_bytes"],
-                    "actual_size_bytes": actual_size,
-                },
-            )
+        _verify_source_bytes(path, source, workload["name"])
+
+
+def _verify_source_bytes(path: Path, source: dict, workload_name: str) -> None:
+    details = {"workload": workload_name, "file": source["local_path"]}
+    if not path.is_file():
+        raise IntegrityError(
+            "DATA_MISSING",
+            f"data file missing: {source['local_path']}",
+            stage="integrity",
+            details=details,
+        )
+    actual_size = path.stat().st_size
+    actual_hash = sha256_file(path)
+    if actual_size != source["size_bytes"] or actual_hash != source["sha256"]:
+        raise IntegrityError(
+            "DATA_INTEGRITY",
+            f"{source['local_path']} does not match the lock "
+            f"(expected sha256 {source['sha256']}, got {actual_hash})",
+            stage="integrity",
+            details={
+                **details,
+                "expected_sha256": source["sha256"],
+                "actual_sha256": actual_hash,
+                "expected_size_bytes": source["size_bytes"],
+                "actual_size_bytes": actual_size,
+            },
+        )
 
 
 def _verify_licence(workload: dict) -> None:
@@ -426,6 +434,52 @@ def verify_workloads(examples_dir: Path, names: list[str] | None = None) -> list
             }
         )
     return reports
+
+
+def _auto_mpg_source(lock_path: Path) -> dict:
+    def invalid(key: str) -> InvalidInputError:
+        return InvalidInputError(
+            "LOCK_INVALID", f"the Auto MPG lock lacks a usable {key}", stage="config",
+            details={"file": str(lock_path), "key": key},
+        )
+
+    lock = _load_json(lock_path, "lock")
+    if not isinstance(lock, dict) or lock.get("schema_version") != "data-sources/1":
+        raise invalid("schema_version")
+    sources = lock.get("sources")
+    if not isinstance(sources, list) or len(sources) != 1 or not isinstance(sources[0], dict):
+        raise invalid("sources")
+    source, = sources
+    expected = {
+        "dataset_id": "uci-auto-mpg-v1",
+        "local_path": "data/auto-mpg.data",
+        "license": "CC-BY-4.0",
+        "notice": "licenses/Auto-MPG-attribution.md",
+    }
+    for key, value in expected.items():
+        if source.get(key) != value:
+            raise invalid(f"sources[0].{key}")
+    for key in ("sha256", "notice_sha256"):
+        digest = source.get(key)
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise invalid(f"sources[0].{key}")
+    size = source.get("size_bytes")
+    if type(size) is not int or size <= 0:
+        raise invalid("sources[0].size_bytes")
+    return source
+
+
+def verify_auto_mpg(examples_dir: Path, data_file: Path) -> dict:
+    """Verify the explicit source's bytes and attribution using the opt-in Auto MPG lock."""
+    name = "auto_mpg"
+    directory = examples_dir / name
+    source = _auto_mpg_source(directory / _AUTO_MPG_LOCK)
+    _verify_source_bytes(data_file, source, name)
+    _verify_licence({"name": name, "directory": directory, "sources": [source]})
+    return {
+        "workload": name, "status": "verified", "file": source["local_path"], "checks": [],
+        **{key: source[key] for key in ("dataset_id", "sha256", "size_bytes", "license", "notice")},
+    }
 
 
 def _declared(workload: dict) -> list[dict]:
