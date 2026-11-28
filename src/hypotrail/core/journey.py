@@ -292,14 +292,8 @@ def enrich(
     def segments(template: str) -> list[Segment]:
         return fill(template, resolver, slots=slots, facts=facts, values=values)
 
-    def text(template: str | None) -> str | list[Segment] | None:
-        if template is None:
-            return None
-        filled = segments(template)
-        visible = _visible(filled)
-        if re.search(r"\d", visible) or any("record_id" in segment for segment in filled):
-            return filled
-        return visible
+    def optional_segments(template: str | None) -> list[Segment] | None:
+        return segments(template) if template is not None else None
 
     recommended = templates.get("recommended")
     value = templates.get("value")
@@ -308,16 +302,16 @@ def enrich(
         **frame,
         "digest": _fit_digest([segments(part) for part in templates.get("digest", [])]),
         "recommended": {"value_id": recommended["value_id"], "why": segments(recommended["why"])} if recommended else None,
-        "value": {"id": value["id"], "words": text(value["words"])} if value else None,
-        "proposal": text(templates.get("proposal")),
+        "value": {"id": value["id"], "words": segments(value["words"])} if value else None,
+        "proposal": optional_segments(templates.get("proposal")),
         "explain": _join_parts([segments(part) for part in templates.get("explain", [])], "\n\n"),
-        "change_note": text(templates.get("change_note")),
+        "change_note": optional_segments(templates.get("change_note")),
         "then": {
-            "text": text(then["text"]),
+            "text": segments(then["text"]),
             "commands": [{"command": command["command"], "arguments": list(command["arguments"])} for command in then["commands"]],
         } if then else None,
-        "panel_line": text(templates.get("panel_line")),
+        "panel_line": optional_segments(templates.get("panel_line")),
         "limitations": [
-            {"code": item["code"], "text": text(item["text"])} for item in templates.get("limitations", [])[:3]
+            {"code": item["code"], "text": segments(item["text"])} for item in templates.get("limitations", [])[:3]
         ],
     }

@@ -272,13 +272,15 @@ def test_enriched_pause_matches_the_t01_split_capture_with_a_resolver():
             {"text": " folds."},
         ],
     }
-    assert result["value"] == {"id": "declared", "words": value}
-    assert result["proposal"] == proposal
+    assert result["value"] == {"id": "declared", "words": [{"text": value}]}
+    assert result["proposal"] == [{"text": proposal}]
     assert words(result["explain"]) == "\n\n".join(explanation)
-    assert result["change_note"] == note
-    assert result["then"] == {"text": next_text, "commands": commands}
-    assert result["panel_line"] == panel_line
-    assert result["limitations"] == limitations
+    assert result["change_note"] == [{"text": note}]
+    assert result["then"] == {"text": [{"text": next_text}], "commands": commands}
+    assert result["panel_line"] == [{"text": panel_line}]
+    assert result["limitations"] == [
+        {"code": item["code"], "text": [{"text": item["text"]}]} for item in limitations
+    ]
 
 
 @pytest.mark.parametrize(
@@ -299,25 +301,32 @@ def test_unavailable_slots_replace_the_individual_text(availability, message):
         "limitations": [{"code": "split", "text": template}],
     }
     result = enrich({}, templates, lambda *_: availability)
+    fallback = [{"text": message}]
     assert result == {
-        "digest": [{"text": message}],
-        "recommended": {"value_id": "declared", "why": [{"text": message}]},
-        "value": {"id": "declared", "words": message},
-        "proposal": message,
-        "explain": [{"text": message}],
-        "change_note": message,
-        "then": {"text": message, "commands": []},
-        "panel_line": message,
-        "limitations": [{"code": "split", "text": message}],
+        "digest": fallback,
+        "recommended": {"value_id": "declared", "why": fallback},
+        "value": {"id": "declared", "words": fallback},
+        "proposal": fallback,
+        "explain": fallback,
+        "change_note": fallback,
+        "then": {"text": fallback, "commands": []},
+        "panel_line": fallback,
+        "limitations": [{"code": "split", "text": fallback}],
     }
 
 
-@pytest.mark.parametrize("fold_count", ["5", "\u0665"])
+@pytest.mark.parametrize("fold_count", ["5", "\u0665", "five", "½"])
 def test_numeric_workload_facts_keep_plain_segments_without_a_record_citation(fold_count):
     template = "{{fact:folds|unknown}} folds belong to the Workload."
     result = enrich({}, {"proposal": template}, lambda *_: pytest.fail("Workload facts use no record resolver."),
                     facts={"folds": fold_count})
     assert result["proposal"] == [{"text": f"{fold_count} folds belong to the Workload."}]
+
+
+def test_literal_number_words_keep_plain_segments_without_a_record_citation():
+    template = "You evaluate with a five-fold cross-validation."
+    result = enrich({}, {"proposal": template}, lambda *_: pytest.fail("Literal text uses no record resolver."))
+    assert result["proposal"] == [{"text": template}]
 
 
 def test_digest_drops_whole_trailing_parts_as_in_the_legacy_capture():
