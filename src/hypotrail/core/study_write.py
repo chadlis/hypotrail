@@ -1,4 +1,4 @@
-"""The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report`, `decide` and `deviation`.
+"""The write protocol that every Study writer shares (ADR 0004): `init`, `init --new-revision`, `run`, `import`, `assess`, `compare`, `recover`, `report`, `decide`, `deviation` and `review import`.
 
 A writer calls `check_arguments` (a writer with a `request_id`) or `check_read_sequence` before anything else, does its own checks that come before
 the lock, then works inside `locked(...)`, which takes the writer lock, enforces the Study scope, and opens the write journal.
@@ -27,6 +27,7 @@ ASSESS = "assess"
 COMPARE = "compare"
 RECOVER = "recover"
 REPORT = "report"
+REVIEW_IMPORT = "review import"
 
 DECISION = "decision"
 DECLARED_DEVIATION = "declared_deviation"
@@ -36,6 +37,7 @@ COMPARISON = "comparison"
 ATTEMPT = "attempt"
 FREEZE = "freeze"
 EXPOSURE = "exposure"
+RANKING_REVIEW = "ranking_review"
 
 
 def invalid_arguments(message: str, command: str) -> InvalidInputError:

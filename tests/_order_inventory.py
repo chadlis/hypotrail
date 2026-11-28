@@ -20,6 +20,7 @@ RECOVER = "hypotrail.core.state:recover"
 REPORT = "hypotrail.report.command:report"
 DECIDE = "hypotrail.core.decisions:decide"
 DEVIATION = "hypotrail.core.deviations:record"
+REVIEW_IMPORT = "hypotrail.core.ranking_reviews:import_receipt"
 
 ENTERS = {
     "init data": ML_INIT,
@@ -110,6 +111,7 @@ ENTERS = {
     "deviation request_id of an Attempt": DEVIATION,
     "deviation request_id of a decision": DEVIATION,
     "deviation cited id": DEVIATION,
+    "review import receipt": REVIEW_IMPORT,
 }
 
 # A row of `CHECKS_BEFORE_THE_LOCK` or of `UNDER_THE_LOCK` whose refusal comes before the call reaches any locked function, with the reason.
@@ -172,6 +174,7 @@ LOCKED_PATHS = {
     DEVIATION: {
         "writer": "deviation", "reads_sequence": True, "lock_held": "deviation", "after": "deviation cited id", "stale_check_in": "_record_locked",
     },
+    REVIEW_IMPORT: {"writer": "review import", "reads_sequence": True, "lock_held": "review import", "after": "review import receipt"},
 }
 
 # The call each `AFTER` row provokes: the first call of its path after `require_current`, once the calls that cannot refuse are skipped (each with
@@ -214,4 +217,5 @@ SKIPPED_CALLS = {
     }),
     "decide cited id": ("held_ids", {"layout.read_spec": SPEC_READ}),
     "deviation cited id": ("_check_cited", {}),
+    "review import receipt": ("_read_receipt", {}),
 }

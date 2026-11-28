@@ -199,6 +199,7 @@ const HREF: Record<string, string> = {
   dots: "#dots-",
   since: "#since-",
   profile: "#profile-",
+  receipt: "#ranking-review-evidence-",
 };
 // The `href` of the document's top, where Read again stands: the `id` of its `main` element.
 const TOP = "#study";
@@ -415,7 +416,9 @@ export function bodyOf(view: View): string {
   const figures = view.object ? usableFigures(view.object, view.figures) : undefined;
   const profile = view.object ? profileOf(view.object, view.profile, inert) : undefined;
   const study = view.object ? studyOf(view.object, view.decision, busy, view.unanswered === true, recorded, view.sent, figures && list(figures.comparisons), profile?.step ?? "") : undefined;
-  parts.push(...[toHandleLineOf(view.object), nowOf(view.object, study?.now ?? "", study?.count ?? "", profile?.now ?? ""), toHandleListOf(view.object)].filter((part) => part !== ""));
+  const reviews = list(view.object?.ranking_reviews);
+  const now = nowOf(view.object, study?.now ?? "", study?.count ?? "", profile?.now ?? "", reviews, busy || view.unanswered === true, view.sent);
+  parts.push(...[toHandleLineOf(view.object), now, toHandleListOf(view.object)].filter((part) => part !== ""));
   if (study && study.waiting !== "") parts.push(['<section data-part="waiting">', `<h2>${label("waiting")}</h2>`, study.waiting, "</section>"].join("\n"));
   const after = ['<section data-part="path">', `<h2>${label("studySoFar")}</h2>`, ...(study ? [study.path] : []), "</section>", toolsOf(inert)].join("\n");
   // The cards stand between the two, and name the places of either that show a value of their key paths.
@@ -424,6 +427,41 @@ export function bodyOf(view: View): string {
   else if (view.object !== undefined) parts.push(pendingLessonPart());
   parts.push(after);
   return parts.join("\n");
+}
+
+function rankingReviewOf(review: Entry, index: number, locked: boolean, sent: View["sent"]): string {
+  const pending = review.pending;
+  if (typeof pending !== "boolean") return "";
+  const numeric = (input: unknown) => {
+    const finite = number(input);
+    return finite === null ? escaped(contract.withheld) : link("ranking_review", index, finite);
+  };
+  const interval = review.interval;
+  const bounds = Array.isArray(interval) && interval.length === 2
+    ? `${numeric(interval[0])} to ${numeric(interval[1])}`
+    : escaped(contract.withheld);
+  const remembered = Array.isArray(sent?.cited_ids) && sent.cited_ids.includes(review.artifact_id) && Array.isArray(sent?.words)
+    ? sent.words.join("") : "";
+  return [
+    '<section data-part="ranking-review">',
+    '<h3>Protected ranking review</h3>',
+    `<p>Proxy Decision ${value(review.proxy_decision_id)} ${marked(review.option, "strong")}</p>`,
+    `<p>${pending ? "Awaiting your confirmation" : "Confirmed by Record"}</p>`,
+    `<p>Delta ${numeric(review.delta)} · Interval ${bounds} · Usable resamples ${numeric(review.usable_resamples)} · Omitted dates ${numeric(review.omitted_dates)}</p>`,
+    `<details data-part="receipt"${anchor("receipt", index)}><summary>Receipt and acceptance rule</summary>`,
+    `<p>${marked(review.rule)}</p>`,
+    `<p>Source ${value(review.source)}</p>`,
+    `<p>Comparison ${value(review.comparison_id)}</p>`,
+    `<p>Frame digest ${value(review.frame_digest)}</p>`,
+    `<p>Study artifact ${value(review.artifact_id)}</p>`,
+    '</details>',
+    ...(pending ? [
+      `<p>${marked(review.question, "strong")}</p>`,
+      `<label>${label("yourWords")} <textarea data-review-words="${index}" rows="2"${locked ? " disabled" : ""}>${text(remembered)}</textarea></label>`,
+      `<button data-message="${contract.messages[1]}" data-review="${index}" disabled>${label("record")}</button>`,
+    ] : []),
+    '</section>',
+  ].join("\n");
 }
 
 // Tools, last on the page: Read again, then "Hand over" last: the `report` command as fixed text, which the panel never starts.
@@ -519,7 +557,7 @@ function latestOf(object: Entry): string[] {
 // Now, under its heading, from the read's `next_step`: with its kind `decide`, `pending`, the whole part of the pending decision its first
 // id names, whose question is Now's line; with `look_again`, its text; with no kind, the label that no decision waits for the person.
 // Without an object read, Now holds nothing.
-function nowOf(object: Entry | undefined, pending: string, count = "", frame = ""): string {
+function nowOf(object: Entry | undefined, pending: string, count: string, frame: string, reviews: Entry[], locked: boolean, sent: View["sent"]): string {
   const lines = [`<section data-part="now" id="now">`, `<div data-element="now-heading"><h2>${label("now")}</h2>${count === "" ? "" : ` ${count}`}</div>`];
   if (object) {
     const step = record(object.next_step);
@@ -527,8 +565,12 @@ function nowOf(object: Entry | undefined, pending: string, count = "", frame = "
     else if (step.kind === "look_again") lines.push(`<p data-element="now-question">${marked(step.text, "strong")}</p>`, ...lookAgainOf(object, step));
     // Rule 4: the sentence that no decision waits for the person, true whatever To handle lists (D-161 addendum, #75 comment
     // 7197277304), then the latest Decision (D-159).
-    else lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`, ...latestOf(object));
+    else {
+      if (!reviews.some((review) => review.pending === true)) lines.push(`<p data-element="now-question">${label("noDecisionWaits")}</p>`);
+      lines.push(...latestOf(object));
+    }
     if (frame !== "") lines.push(frame);
+    lines.push(...reviews.map((review, index) => rankingReviewOf(review, index, locked, sent)));
   }
   lines.push("</section>");
   return lines.join("\n");

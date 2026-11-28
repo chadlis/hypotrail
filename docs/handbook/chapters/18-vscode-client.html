@@ -221,7 +221,9 @@
 <p>While a read or a write is in flight the document says so, every control is inert and the document is marked busy for assistive technology; the notice is a live region, which a screen reader announces. When the CLI answers, the panel reads the Study once, the first read then the second, and builds one document: a notice above the first pending decision, then what the read gives. A write the CLI accepted shows its Decision among the others, with whether it applies as the object read says, and the notice names what was chosen in a link to that Decision, and that Decision's part is marked; the document's script moves the focus to the notice and leaves the view at the top. When the read holds no Decision of the answer's id, the notice is a fixed sentence with that id. A write it turned down shows the CLI's code and message unchanged in the notice, after the word that says it failed, then a fixed sentence that the Study was read again and the choice is to be made again, and for a Study written to since the read this is the backstop of a stale Write sequence. If that read fails, the document shows the write's answer and the read's failure, both: after an accepted write the answer is a fixed sentence with the id of the recorded Decision, and nothing of an earlier read stays.</p>
 <p>A write that gets no usable answer may still have happened, so the panel reads nothing on its own. The extension keeps that call's request id and arguments in memory; every document then names the choice sent, whose radio input stands checked, as it does while the write is in flight, and says that the write's outcome is not known, in the phrase of the bridge's table above, that the Decision may have been recorded and that sending again does not write it twice, and holds Send again beside Read again, and the controls that record are inert; the first of these documents also gives the cause after a fixed text. Send again sends the same call again: the same id, the same values and the same Write sequence as the first. A read keeps the id; it is dropped on the answer to the second sending and when the panel closes, so the next write has a new one. While a write is in flight or an id is held, opening the panel, through the command or a link, only reveals it. A write the bridge itself turns down starts nothing: the notice names the missing inputs after a fixed text, no id is kept, and no read follows.</p>
 <p>The script posts one of <a href="#panel-messages">the messages of the table below</a>, and the extension calls a handler only through one table keyed on their names.</p>
-<p>The Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited, and a Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+<p>A pending Comparison's Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited. A Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+<p>Under D-265, the evaluator delivers an aggregate review receipt. The owner uses the <a href="#ranking-review">receipt import</a> to keep it as citable evidence in an ordinary ranking Study.</p>
+<p>On its next read, the panel shows the proxy verdict, the aggregate values and the cited rule. The owner types their confirmation and presses Record. The panel uses the same Study write as for a pending Comparison. The recorded Decision cites the receipt and keeps the confirmation verbatim.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="panel-messages"><thead><tr><th>A message the document's script posts (<code>messages</code>)</th><th>What it starts</th></tr></thead><tbody>
 <tr data-entry="read-again"><td><code>read-again</code></td><td>A read, on Read again</td></tr>
@@ -270,6 +272,7 @@
 <tr data-entry="to_handle=tohandle"><td><code>to_handle=tohandle</code></td><td>The number of Attempts to handle, on the line of To handle</td><td>The full list after Now</td></tr>
 <tr data-entry="revision_number=study"><td><code>revision_number=study</code></td><td>The number of a Protocol revision, on a line of the panel's read since its last</td><td>The Study</td></tr>
 <tr data-entry="profile=profile"><td><code>profile=profile</code></td><td>A number of the third read, in the step of the Data profile or under Now</td><td>The step of the Data profile</td></tr>
+<tr data-entry="ranking_review=receipt"><td><code>ranking_review=receipt</code></td><td>A number of the aggregate ranking review</td><td>The receipt and acceptance rule of that review</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="panel-statuses"><thead><tr><th>An entry of <code>statuses</code>: a key shown beside its value</th><th>Of which record</th></tr></thead><tbody>
 <tr data-entry="status"><td><code>status</code></td><td>Of a Metric</td></tr>
@@ -345,6 +348,19 @@
 <tr data-entry="pending_decisions[].options[].consequence"><td><code>pending_decisions[].options[].consequence</code></td></tr>
 <tr data-entry="pending_decisions[].options[].text"><td><code>pending_decisions[].options[].text</code></td></tr>
 <tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
+<tr data-entry="ranking_reviews[].artifact_id"><td><code>ranking_reviews[].artifact_id</code></td></tr>
+<tr data-entry="ranking_reviews[].comparison_id"><td><code>ranking_reviews[].comparison_id</code></td></tr>
+<tr data-entry="ranking_reviews[].delta"><td><code>ranking_reviews[].delta</code></td></tr>
+<tr data-entry="ranking_reviews[].frame_digest"><td><code>ranking_reviews[].frame_digest</code></td></tr>
+<tr data-entry="ranking_reviews[].interval"><td><code>ranking_reviews[].interval</code></td></tr>
+<tr data-entry="ranking_reviews[].omitted_dates"><td><code>ranking_reviews[].omitted_dates</code></td></tr>
+<tr data-entry="ranking_reviews[].option"><td><code>ranking_reviews[].option</code></td></tr>
+<tr data-entry="ranking_reviews[].pending"><td><code>ranking_reviews[].pending</code></td></tr>
+<tr data-entry="ranking_reviews[].proxy_decision_id"><td><code>ranking_reviews[].proxy_decision_id</code></td></tr>
+<tr data-entry="ranking_reviews[].question"><td><code>ranking_reviews[].question</code></td></tr>
+<tr data-entry="ranking_reviews[].rule"><td><code>ranking_reviews[].rule</code></td></tr>
+<tr data-entry="ranking_reviews[].source"><td><code>ranking_reviews[].source</code></td></tr>
+<tr data-entry="ranking_reviews[].usable_resamples"><td><code>ranking_reviews[].usable_resamples</code></td></tr>
 <tr data-entry="record_files[].id"><td><code>record_files[].id</code></td></tr>
 <tr data-entry="record_files[].kind"><td><code>record_files[].kind</code></td></tr>
 <tr data-entry="record_files[].path"><td><code>record_files[].path</code></td></tr>

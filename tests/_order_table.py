@@ -31,6 +31,7 @@ LOCK_HELD = {
     "decide": ("decide", 6, "STUDY_LOCKED"),
     "deviation": ("deviation", 6, "STUDY_LOCKED"),
     "deviation empty text": ("deviation", 2, "DEVIATION_TEXT_EMPTY"),
+    "review import": ("review import", 6, "STUDY_LOCKED"),
 }
 
 # The checks before the lock that read more than the command's own arguments (chapter 04, table `checks-before-the-lock`): each is
@@ -136,4 +137,5 @@ UNDER_THE_LOCK = {
     "deviation request_id of an Attempt": ("deviation", BEFORE, (6, "REQUEST_CONFLICT"), None),
     "deviation request_id of a decision": ("deviation", BEFORE, (6, "REQUEST_CONFLICT"), None),
     "deviation cited id": ("deviation", AFTER, STALE, (2, "CITED_ID_NOT_FOUND")),
+    "review import receipt": ("review import", AFTER, STALE, (2, "RANKING_REVIEW_INVALID")),
 }

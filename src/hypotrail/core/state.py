@@ -33,7 +33,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, evaluator, exposure, lock, next_step, revisions, study_write, write_journal
+from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, evaluator, exposure, lock, next_step, ranking_reviews, revisions, study_write, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now, observation_set_id, observation_set_partition
 from hypotrail.core.errors import InvalidInputError
@@ -149,6 +149,7 @@ def status(study, since: int | None = None) -> dict:
         "comparisons": sorted(layout.comparison_records(study), key=write_journal.comparison_order(study)),
     }
     pending = decisions.pending(study, history)
+    reviews = ranking_reviews.listing(study, spec, history)
     return {
         "study": {
             **{key: spec[key] for key in ("study_id", "workload", "protocol_id", "protocol_digest", "revision")},
@@ -177,6 +178,7 @@ def status(study, since: int | None = None) -> dict:
         "pending_decisions": pending,
         "record_files": record_files(study, listings),
         "next_step": next_step.next_step(study, attempts, history, pending),
+        **({"ranking_reviews": reviews} if reviews else {}),
         **({} if journal is None else {"writes_since": journal[1]}),
     }
 

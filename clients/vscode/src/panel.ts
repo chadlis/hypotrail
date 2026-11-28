@@ -18,7 +18,7 @@ export type Target = { study: string; decision?: string };
 // What the document's script posts: the name of a message and, for the control that records, the indexes of the
 // pending decision and of the option selected and the text of its box of words; for a control that opens, the kind of the record's part, its index in its listing and
 // the ref.
-type Message = { message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown };
+type Message = { message?: unknown; pending?: unknown; option?: unknown; words?: unknown; kind?: unknown; index?: unknown; ref?: unknown; review?: unknown; nonce?: unknown };
 
 // The checkout that holds this extension: its compiled sources sit in `out/src/` of the extension's folder.
 const ROOT = checkoutRoot(path.resolve(__dirname, "..", ".."));
@@ -143,6 +143,10 @@ const PANEL_CHANNEL = "panel";
 // that object gives; the text of the box, sent whole when it is not empty, is the person's words.
 function record(message: Message): void {
   if (unanswered || !held) return;
+  if (message.review !== undefined) {
+    recordReview(held, message);
+    return;
+  }
   const pending = at(entries(held.pending_decisions), message.pending);
   const option = at(entries(pending?.options), message.option);
   if (!pending || !option) return;
@@ -158,6 +162,31 @@ function record(message: Message): void {
     cited_ids: [pending.comparison_id as string],
     request_id: newRequestId(),
     read_sequence: held.write_sequence as number,
+  });
+}
+
+function recordReview(object: Record<string, unknown>, message: Message): void {
+  const nonce = /<script nonce="([a-f0-9]+)">/.exec(panel!.webview.html)?.[1];
+  if (nonce === undefined || message.nonce !== nonce) return;
+  const review = at(entries(object.ranking_reviews), message.review);
+  const words = message.words;
+  if (review?.pending !== true || typeof words !== "string" || words.trim() === "") return;
+  const { artifact_id, question, question_id, option, option_id } = review;
+  if (
+    typeof artifact_id !== "string" || typeof question !== "string" || typeof question_id !== "string" ||
+    typeof option !== "string" || typeof option_id !== "string"
+  ) return;
+  void write({
+    question,
+    option,
+    author: contract.decide_author,
+    question_id,
+    option_id,
+    words: [words],
+    channel: PANEL_CHANNEL,
+    cited_ids: [artifact_id],
+    request_id: newRequestId(),
+    read_sequence: object.write_sequence as number,
   });
 }
 
@@ -270,7 +299,8 @@ async function read(written?: Outcome): Promise<void> {
   lesson = undefined;
   const failure = outcome.outcome === "success" ? undefined : outcome;
   show({ reading: false, object: held, figures, profile, lesson, failure, written, unanswered: unanswered !== undefined, sent: unanswered, decision: target!.decision, study });
-  if (object !== undefined) void readProfileOf(opened, object, study, written);
+  // Ranking reviews have no temporal-regression profile, so no later profile answer replaces the confirmation form.
+  if (object !== undefined && !Array.isArray(object.ranking_reviews)) void readProfileOf(opened, object, study, written);
   if (object !== undefined) void readLessonOf(opened, object, study);
 }
 
@@ -346,6 +376,7 @@ function newNonce(): string {
 const SCRIPT = [
   '"use strict";',
   "const api = acquireVsCodeApi();",
+  "const documentNonce = document.currentScript?.nonce;",
   'for (const control of document.querySelectorAll("button[data-message]")) {',
   '  control.addEventListener("click", () => {',
   '    const message = { message: control.getAttribute("data-message") };',
@@ -358,6 +389,12 @@ const SCRIPT = [
   "      const box = document.querySelector(`textarea[data-words=\"${pending}\"]`);",
   "      if (box !== null) message.words = box.value;",
   "    }",
+  '    const review = control.getAttribute("data-review");',
+  "    if (review !== null) {",
+  "      message.review = Number(review);",
+  "      message.nonce = documentNonce;",
+  "      message.words = document.querySelector(`textarea[data-review-words=\"${review}\"]`)?.value;",
+  "    }",
   '    const ref = control.getAttribute("data-ref");',
   "    if (ref !== null) {",
   '      message.kind = control.getAttribute("data-part-kind");',
@@ -366,6 +403,14 @@ const SCRIPT = [
   "    }",
   "    api.postMessage(message);",
   "  });",
+  "}",
+  'for (const box of document.querySelectorAll("textarea[data-review-words]:not(:disabled)")) {',
+  '  const control = document.querySelector(`button[data-review="${box.getAttribute("data-review-words")}"]`);',
+  "  if (control !== null) {",
+  '    const update = () => { control.disabled = box.value.trim() === ""; };',
+  '    box.addEventListener("input", update);',
+  "    update();",
+  "  }",
   "}",
   'for (const choice of document.querySelectorAll("input[data-option]")) {',
   '  choice.addEventListener("change", () => {',

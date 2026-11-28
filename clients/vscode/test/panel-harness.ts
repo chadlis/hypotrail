@@ -111,6 +111,39 @@ export function keptObject(name: string): Record<string, any> {
   return JSON.parse(kept(`${name}.out`));
 }
 
+export const RANKING_REVIEW = {
+  artifact_id: "ranking-review-5d41561e06f8a06b",
+  proxy_decision_id: "adb29bc9-328c-4ea6-8c4b-c5ba2b857c4c",
+  comparison_id: "5d41561e-06f8-406b-8044-648dbd1f6056",
+  frame_digest: "a".repeat(64),
+  question: "Confirm the protected ranking verdict",
+  question_id: "confirm_ranking_verdict",
+  option: "accepted",
+  option_id: "accepted",
+  rule: "Acceptance needs a positive lower bound <synthetic>.",
+  source: "https://github.com/chadlis/hypotrail/issues/75#issuecomment-7235501369",
+  delta: 0.25,
+  interval: [0.125, 0.375],
+  usable_resamples: 1997,
+  omitted_dates: 3,
+  pending: true,
+};
+
+export function rankingReviewRead(sequence: number, review?: Record<string, unknown>): Record<string, unknown> {
+  const base = keptObject("status-success");
+  return {
+    ...base,
+    attempts: [],
+    comparisons: [],
+    assessments: [],
+    pending_decisions: [],
+    next_step: { kind: null },
+    study: { ...base.study, workload: "ranking-fixture" },
+    write_sequence: sequence,
+    ...(review ? { ranking_reviews: [review] } : {}),
+  };
+}
+
 export function success(object: unknown): Answer {
   return exit(0, JSON.stringify(object));
 }

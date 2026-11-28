@@ -14,12 +14,14 @@ from _assess_helpers import assess, fresh_study, observation_set_id, references_
 from _chinook_helpers import fixture_lines, fixture_population, import_agent, init_chinook, revision_one_examples, write_lines
 from _compare_helpers import compare
 from _import_helpers import import_ml, ready
+from _ranking_helpers import initialize as initialize_ranking, write_build
 from _report_helpers import report
 from _report_tracks import TRACKS
 from _revision_helpers import corrected_chinook_references, new_revision
 from _run_agent_helpers import fixture
 from _study_helpers import examples_copy, init_study, run_json, run_ml, sha256
 from test_exposure import MAE
+from test_ranking_evaluation_review import import_receipt, write_receipt
 from test_run_ml import Instruments, killed
 from test_study_lock import held_by_another_process, recover
 
@@ -175,6 +177,15 @@ def deviation_scenario(tmp_path):
     )
 
 
+def review_import_scenario(tmp_path):
+    examples, build_dir = write_build(tmp_path)
+    study = tmp_path / "ranking"
+    code, payload, err = initialize_ranking((examples, build_dir, study))
+    assert code == 0, (payload, err)
+    receipt = write_receipt(tmp_path)
+    return study, lambda: import_receipt(study, receipt, seq(study))
+
+
 WRITERS = {
     "init": init_new,
     "init --new-revision": init_new_revision,
@@ -187,6 +198,7 @@ WRITERS = {
     "recover": recover_scenario,
     "report": report_scenario,
     "decide": decide_scenario,
+    "review import": review_import_scenario,
     "deviation": deviation_scenario,
 }
 
@@ -361,6 +373,7 @@ KEYS = {
     "recover": {"ok", "attempt"},
     "report": {"ok", "report"},
     "decide": {"ok", "replayed", "decision"},
+    "review import": {"ok", "review"},
     "deviation": {"ok", "replayed", "declared_deviation"},
 }
 

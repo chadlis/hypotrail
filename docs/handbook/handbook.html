@@ -1002,6 +1002,7 @@ uv run python -m hypotrail lesson --study runs/chinook --json</pre>
 <tr data-command="compare" data-chapter="comparison"><td><code>compare</code></td><td><a href="#comparison">chapter 07</a></td><td>Compare two Assessments as Control and Candidate.</td></tr>
 <tr data-command="report" data-chapter="report"><td><code>report</code></td><td><a href="#report">chapter 14</a></td><td>Render one HTML page for a Study.</td></tr>
 <tr data-command="decide" data-chapter="decisions"><td><code>decide</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Decision in a Study.</td></tr>
+<tr data-command="review import" data-chapter="decisions"><td><code>review import</code></td><td><a href="#ranking-review">chapter 17</a></td><td>Keep the evaluator's aggregate receipt as citable Study evidence.</td></tr>
 <tr data-command="deviation" data-chapter="decisions"><td><code>deviation</code></td><td><a href="#decisions">chapter 17</a></td><td>Record one Declared deviation in a Study, or the withdrawal of one.</td></tr>
 <tr data-command="figures" data-chapter="decisions"><td><code>figures</code></td><td><a href="#decisions">chapter 17</a></td><td>Show each Comparison's paired deltas, with the bins and the five numbers of a box computed from them.</td></tr>
 <tr data-command="profile" data-chapter="temporal-regression-track"><td><code>profile</code></td><td><a href="#temporal-regression-track">chapter 02</a></td><td>Show the data profile of a Bike Study's <code>train</code> Items.</td></tr>
@@ -1173,6 +1174,7 @@ Study 5d85c1c9-817c-4038-8fc8-7016825a971b (bike_day); a writer is not active
 <tr data-command="recover" data-read-sequence="optional" data-advances="2" data-written="attempt"><td><code>recover</code></td><td>2</td><td>the Attempt it records as interrupted</td><td>optional</td></tr>
 <tr data-command="report" data-read-sequence="optional" data-advances="2" data-written="exposure"><td><code>report</code> when its page records an Exposure</td><td>2</td><td>the Exposure entry (and the freeze record the first time)</td><td>optional</td></tr>
 <tr data-command="decide" data-read-sequence="required" data-advances="2" data-written="decision"><td><code>decide</code> (<a href="#decisions">chapter 17</a>)</td><td>2</td><td>the Decision</td><td>required</td></tr>
+<tr data-command="review import" data-read-sequence="required" data-advances="2" data-written="ranking_review"><td><code>review import</code> (<a href="#ranking-review">chapter 17</a>)</td><td>2</td><td>the aggregate review receipt</td><td>required</td></tr>
 <tr data-command="deviation" data-read-sequence="required" data-advances="2" data-written="declared_deviation"><td><code>deviation</code> (<a href="#decisions">chapter 17</a>)</td><td>2</td><td>the Declared deviation</td><td>required</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="checks-before-the-lock"><thead><tr><th>Check</th><th>Exit</th><th>Code</th><th>Refused when</th></tr></thead><tbody>
@@ -2859,8 +2861,8 @@ Attempt e8123b1b-5200-439b-bf46-8262d0daed8c completed (Mode llm_live) (model an
 <tr data-command="decide" data-required="--study --question --option --author --artifact --request-id --read-sequence" data-optional="--source --question-id --option-id --words-file --words --channel --by --json"><td><code>decide</code></td><td><code>--study DIR</code>, <code>--question TEXT</code>, <code>--option TEXT</code>, <code>--author human|proxy</code>, <code>--artifact ID</code> (repeatable), <code>--request-id ID</code>, <code>--read-sequence N</code></td><td><code>--source TEXT</code>, <code>--question-id ID</code>, <code>--option-id ID</code>, <code>--words-file FILE</code> (repeatable), <code>--words TEXT</code> (repeatable), <code>--channel panel|choice|chat_relayed|file_relayed</code>, <code>--by LABEL</code>, <code>--json</code></td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="decide-words-options"><thead><tr><th>Option</th><th>What it records</th><th>Refused, with <code>INVALID_ARGUMENTS</code>, when</th></tr></thead><tbody>
-<tr data-option="--question-id"><td><code>--question-id ID</code></td><td><code>question_id</code>, the id of the pending question; null when not given.</td><td>It is not <code>keep_after_comparison</code>; it is given without <code>--option-id</code>; <code>--question</code> is not that question's text.</td></tr>
-<tr data-option="--option-id"><td><code>--option-id ID</code></td><td><code>option_id</code>, the id of the option chosen; null when not given.</td><td>It is not one of the question's three option ids; it is given without <code>--question-id</code>; <code>--option</code> is not that option's text.</td></tr>
+<tr data-option="--question-id"><td><code>--question-id ID</code></td><td><code>question_id</code>, the id of the pending question; null when not given.</td><td>The id is neither <code>keep_after_comparison</code> nor <code>confirm_ranking_verdict</code>, or the command omits <code>--option-id</code> or uses different question text.</td></tr>
+<tr data-option="--option-id"><td><code>--option-id ID</code></td><td><code>option_id</code>, the id of the option chosen; null when not given.</td><td>The value is outside the question's declared options, the command omits <code>--question-id</code>, or <code>--option</code> differs from that option's text.</td></tr>
 <tr data-option="--words-file"><td><code>--words-file FILE</code> (repeatable)</td><td>One text of <code>words.texts</code>: the file's bytes decoded as UTF-8, whole.</td><td>The file does not exist, cannot be read or is not UTF-8; its text is empty; the author is <code>proxy</code>.</td></tr>
 <tr data-option="--words"><td><code>--words TEXT</code> (repeatable)</td><td>One text of <code>words.texts</code>: the argument, whole. With <code>--words-file</code>, the texts keep the order of the command line.</td><td>The text is empty; the author is <code>proxy</code>.</td></tr>
 <tr data-option="--channel"><td><code>--channel panel|choice|chat_relayed|file_relayed</code></td><td><code>words.channel</code>; <code>chat_relayed</code> when words are given without it. With <code>choice</code>, no text is given: the one text recorded is that of the option <code>--option-id</code> names. With <code>file_relayed</code>, the caller read the words from a file and relays them, and <code>--source</code> names the outside act the file comes from: a pull request citation, or the job's run and its account, never the file's path or digest.</td><td>It is given without words; it is <code>choice</code> without <code>--option-id</code>, or with a text; it is <code>file_relayed</code> without <code>--source</code>, or with an empty one.</td></tr>
@@ -2872,6 +2874,17 @@ uv run python -m hypotrail decide --study runs/bike --question "Which Configurat
 <span class="cm"># answer a pending decision with its ids and the person's words, kept in a file as typed</span>
 uv run python -m hypotrail decide --study runs/bike --question "Which Configuration do we keep after this Comparison?" --option "Keep the Candidate" --author human --artifact COMPARISON_ID --question-id keep_after_comparison --option-id keep_candidate --words-file words.txt --by owner --request-id decide-b --read-sequence N</pre>
 <p class="prose">With <code>--json</code>, stdout holds one object, <code>{"ok", "replayed", "decision"}</code>, the same shape as <code>run</code>'s with the Decision in place of the Attempt. Without it, the line names the Decision, its author, its option and the count of its cited ids; when words were recorded it adds their count and their channel, for example <code>(words: 2 texts, channel chat_relayed)</code>, and never a text.</p>
+
+<p class="sub2" id="ranking-review">The protected ranking review</p>
+<pre class="code">hypotrail review import --study DIR --receipt FILE --read-sequence N --json</pre>
+<div class="prose">
+<p>Import <code>review.json</code> into an ordinary ranking Study. The evaluator's receipt contains only the proxy verdict, its rule, source, frame digest, record identifiers and aggregate values. Import checks the current Write sequence before opening the file. The Study keeps one immutable, citable copy per proxy Decision. Re-importing an identical receipt on the current sequence creates no new write.</p>
+<p>When the Study holds a receipt, <code>status --json</code> includes <code>ranking_reviews</code> with the verdict and whether it is pending confirmation. In the panel the owner confirms the displayed verdict with Record and their own words. The new Decision cites the receipt in the ordinary Study. The receipt declares the proxy verdict and its source. The owner's words enter through Record, as specified in D-265 on chadlis/hypotrail#75.</p>
+</div>
+<div class="tblwrap"><table class="tbl"><thead><tr><th>Code</th><th>When</th><th>Exit</th></tr></thead><tbody>
+<tr><td><code>RANKING_REVIEW_INVALID</code></td><td>The input fails the aggregate receipt contract, or a different receipt already claims the same proxy Decision.</td><td>2</td></tr>
+<tr><td><code>RANKING_REVIEW_INTEGRITY</code></td><td>A stored receipt no longer matches its recorded artifact, or a proxy Decision appears twice.</td><td>3</td></tr>
+</tbody></table></div>
 
 <p class="sub2">The ids a Decision may cite</p>
 <div class="prose">
@@ -3377,7 +3390,9 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <p>While a read or a write is in flight the document says so, every control is inert and the document is marked busy for assistive technology; the notice is a live region, which a screen reader announces. When the CLI answers, the panel reads the Study once, the first read then the second, and builds one document: a notice above the first pending decision, then what the read gives. A write the CLI accepted shows its Decision among the others, with whether it applies as the object read says, and the notice names what was chosen in a link to that Decision, and that Decision's part is marked; the document's script moves the focus to the notice and leaves the view at the top. When the read holds no Decision of the answer's id, the notice is a fixed sentence with that id. A write it turned down shows the CLI's code and message unchanged in the notice, after the word that says it failed, then a fixed sentence that the Study was read again and the choice is to be made again, and for a Study written to since the read this is the backstop of a stale Write sequence. If that read fails, the document shows the write's answer and the read's failure, both: after an accepted write the answer is a fixed sentence with the id of the recorded Decision, and nothing of an earlier read stays.</p>
 <p>A write that gets no usable answer may still have happened, so the panel reads nothing on its own. The extension keeps that call's request id and arguments in memory; every document then names the choice sent, whose radio input stands checked, as it does while the write is in flight, and says that the write's outcome is not known, in the phrase of the bridge's table above, that the Decision may have been recorded and that sending again does not write it twice, and holds Send again beside Read again, and the controls that record are inert; the first of these documents also gives the cause after a fixed text. Send again sends the same call again: the same id, the same values and the same Write sequence as the first. A read keeps the id; it is dropped on the answer to the second sending and when the panel closes, so the next write has a new one. While a write is in flight or an id is held, opening the panel, through the command or a link, only reveals it. A write the bridge itself turns down starts nothing: the notice names the missing inputs after a fixed text, no id is kept, and no read follows.</p>
 <p>The script posts one of <a href="#panel-messages">the messages of the table below</a>, and the extension calls a handler only through one table keyed on their names.</p>
-<p>The Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited, and a Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+<p>A pending Comparison's Decision is recorded with <a href="#panel-author">the kind of decider of the table below</a>, no origin and the one Comparison cited. A Decision is never rewritten, so a Decision recorded from the panel keeps these values.</p>
+<p>Under D-265, the evaluator delivers an aggregate review receipt. The owner uses the <a href="#ranking-review">receipt import</a> to keep it as citable evidence in an ordinary ranking Study.</p>
+<p>On its next read, the panel shows the proxy verdict, the aggregate values and the cited rule. The owner types their confirmation and presses Record. The panel uses the same Study write as for a pending Comparison. The recorded Decision cites the receipt and keeps the confirmation verbatim.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="panel-messages"><thead><tr><th>A message the document's script posts (<code>messages</code>)</th><th>What it starts</th></tr></thead><tbody>
 <tr data-entry="read-again"><td><code>read-again</code></td><td>A read, on Read again</td></tr>
@@ -3426,6 +3441,7 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="to_handle=tohandle"><td><code>to_handle=tohandle</code></td><td>The number of Attempts to handle, on the line of To handle</td><td>The full list after Now</td></tr>
 <tr data-entry="revision_number=study"><td><code>revision_number=study</code></td><td>The number of a Protocol revision, on a line of the panel's read since its last</td><td>The Study</td></tr>
 <tr data-entry="profile=profile"><td><code>profile=profile</code></td><td>A number of the third read, in the step of the Data profile or under Now</td><td>The step of the Data profile</td></tr>
+<tr data-entry="ranking_review=receipt"><td><code>ranking_review=receipt</code></td><td>A number of the aggregate ranking review</td><td>The receipt and acceptance rule of that review</td></tr>
 </tbody></table></div>
 <div class="tblwrap"><table class="tbl" id="panel-statuses"><thead><tr><th>An entry of <code>statuses</code>: a key shown beside its value</th><th>Of which record</th></tr></thead><tbody>
 <tr data-entry="status"><td><code>status</code></td><td>Of a Metric</td></tr>
@@ -3501,6 +3517,19 @@ uv run python -m hypotrail figures --study runs/bike --json</pre>
 <tr data-entry="pending_decisions[].options[].consequence"><td><code>pending_decisions[].options[].consequence</code></td></tr>
 <tr data-entry="pending_decisions[].options[].text"><td><code>pending_decisions[].options[].text</code></td></tr>
 <tr data-entry="pending_decisions[].question.text"><td><code>pending_decisions[].question.text</code></td></tr>
+<tr data-entry="ranking_reviews[].artifact_id"><td><code>ranking_reviews[].artifact_id</code></td></tr>
+<tr data-entry="ranking_reviews[].comparison_id"><td><code>ranking_reviews[].comparison_id</code></td></tr>
+<tr data-entry="ranking_reviews[].delta"><td><code>ranking_reviews[].delta</code></td></tr>
+<tr data-entry="ranking_reviews[].frame_digest"><td><code>ranking_reviews[].frame_digest</code></td></tr>
+<tr data-entry="ranking_reviews[].interval"><td><code>ranking_reviews[].interval</code></td></tr>
+<tr data-entry="ranking_reviews[].omitted_dates"><td><code>ranking_reviews[].omitted_dates</code></td></tr>
+<tr data-entry="ranking_reviews[].option"><td><code>ranking_reviews[].option</code></td></tr>
+<tr data-entry="ranking_reviews[].pending"><td><code>ranking_reviews[].pending</code></td></tr>
+<tr data-entry="ranking_reviews[].proxy_decision_id"><td><code>ranking_reviews[].proxy_decision_id</code></td></tr>
+<tr data-entry="ranking_reviews[].question"><td><code>ranking_reviews[].question</code></td></tr>
+<tr data-entry="ranking_reviews[].rule"><td><code>ranking_reviews[].rule</code></td></tr>
+<tr data-entry="ranking_reviews[].source"><td><code>ranking_reviews[].source</code></td></tr>
+<tr data-entry="ranking_reviews[].usable_resamples"><td><code>ranking_reviews[].usable_resamples</code></td></tr>
 <tr data-entry="record_files[].id"><td><code>record_files[].id</code></td></tr>
 <tr data-entry="record_files[].kind"><td><code>record_files[].kind</code></td></tr>
 <tr data-entry="record_files[].path"><td><code>record_files[].path</code></td></tr>
