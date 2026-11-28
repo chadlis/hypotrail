@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { bodyOf } from "../src/content";
 import { JOURNEY, kept } from "./kept";
-import { KEPT_FIGURES, KEPT_READS, S2_INTERVAL, documentFor, profileAt, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
+import { KEPT_FIGURES, KEPT_READS, RANKING_REVIEW, S2_INTERVAL, documentFor, profileAt, elementOf, elementsOf, followLink, keptObject, lastDocument, markedTexts, panelOf, partsOf, rankingReviewRead, runCommand, settle, success, workspace, withFigures } from "./panel-harness";
 import { CHROME, START_MS, hasChrome, opened, startChrome } from "./chrome";
 import { KEPT_LESSONS, exit, recorder, type Answer } from "./recorder";
 
@@ -247,8 +247,18 @@ for (const [kind, name] of Object.entries(IN_THE_PROFILE)) {
   });
 }
 
+const RANKING_REVIEW_NUMBER = "ranking_review";
+
+test("the ranking review's aggregate numbers link to its receipt evidence", async (t) => {
+  const { document } = await documentFor(t, success(rankingReviewRead(0, RANKING_REVIEW)));
+  const links = linksOf(document).filter((link) => link.kind === RANKING_REVIEW_NUMBER);
+  const expected = [RANKING_REVIEW.delta, ...RANKING_REVIEW.interval, RANKING_REVIEW.usable_resamples, RANKING_REVIEW.omitted_dates];
+  assert.deepEqual(links.map((link) => link.text), expected.map(written));
+  for (const link of links) assert.equal(partKind(link.target), PAIRS.get(RANKING_REVIEW_NUMBER), link.href);
+});
+
 test("the pairs of contract.json are the kinds of number each read here, both ways", () => {
-  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART), ...Object.keys(IN_THE_PROFILE)].sort());
+  assert.deepEqual([...PAIRS.keys()].sort(), [...Object.keys(INSTANCES), ...Object.keys(IN_A_COMPARISON), ...Object.keys(IN_A_FIGURE), ...Object.keys(IN_THE_BAND), ...Object.keys(IN_AN_INTERVAL), ...Object.keys(IN_AN_ATTEMPT), ...Object.keys(IN_THEIR_PART), ...Object.keys(IN_THE_PROFILE), RANKING_REVIEW_NUMBER].sort());
 });
 
 for (const [kind, name] of Object.entries(IN_AN_INTERVAL)) {
@@ -508,9 +518,10 @@ function pathsRead(object: Entry): Set<string> {
   return read;
 }
 
-for (const name of KEPT_READS) {
+const RANKING_READ = rankingReviewRead(0, RANKING_REVIEW);
+for (const [name, object] of [...KEPT_READS.map((name): [string, Entry] => [name, keptObject(name)]), ["ranking review", RANKING_READ] as [string, Entry]]) {
   test(`the function that builds the document reads the top-level keys of key_paths and no other, both ways: ${name}`, () => {
-    const top = new Set([...pathsRead(keptObject(name))].map((path) => path.split(/[.[]/)[0]));
+    const top = new Set([...pathsRead(object)].map((path) => path.split(/[.[]/)[0]));
     assert.deepEqual([...top].sort(), [...new Set(contract.key_paths.map((path) => path.split(/[.[]/)[0]))].sort());
   });
 }
@@ -527,7 +538,9 @@ test("the key paths the function reads over every kept read, over status-success
   const read = new Set<string>();
   // And two reads of the journey made with `--since 0`, as the panel reads: state 08, under rule 3, and state 19, with two Attempts to handle.
   const journey = [`${JOURNEY}08-result-changed.status`, `${JOURNEY}19-two-interrupted.status`].map(keptObject);
-  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false), ...journey]) for (const path of pathsRead(object)) read.add(path);
+  for (const object of [...KEPT_READS.map(keptObject), withInterval(true), withInterval(false), ...journey, RANKING_READ]) {
+    for (const path of pathsRead(object)) read.add(path);
+  }
   assert.deepEqual(leaves(read), [...contract.key_paths].sort());
 });
 
