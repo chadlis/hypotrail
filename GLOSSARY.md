@@ -4,11 +4,14 @@ Hypotrail runs small, explicit studies of predictive and agentic systems: it pro
 
 ## Language
 
+**Scope of the _Avoid_ lines.** They bind code, records, ADRs, the handbook and commit messages. They do not bind what a person reads in the panel, the chat or a lesson page: there the usual data-science word comes first and the term of this glossary follows in parentheses the first time, as in "split (Partition)" (ADR 0010; D-278 on chadlis/hypotrail#75). Each term below that has a usual word carries an _In ML_ line.
+
 ### Study structure
 
 **Study**:
 The folder-scoped record of one investigation of one Workload under one frozen Protocol; it holds native and imported Attempts alike.
 Clarification, 2026-11-20: one frozen Protocol per revision; a Study holds successive revisions, and a Protocol change is a new revision inside the same Study (owner decision 2A on chadlis/hypotrail#9).
+_In ML_: a project or an experiment with its log.
 _Avoid_: project, run folder, experiment
 
 **Study writer**:
@@ -17,12 +20,14 @@ _Avoid_: mutating command, write command
 
 **Write sequence**:
 The value a Study keeps and every write to the Study advances: the number of entries of its write journal, two for each command that writes, or one when the writer was killed between its first write and its last. Nothing else changes it, and `status --json` shows it as `write_sequence`.
+_In ML_: the counter of changes of the experiment's state; the old tool called it "revision".
 _Avoid_: revision
 
 **Decision**:
 One choice recorded in a Study: the question it answers, the option chosen, its author (`human` or `proxy`, with a declared source if any), the ids of the Study's records it cites, its `request_id` and the write sequence its author read. It is a record of the Study, kept in a file of its own and never rewritten; the Study is the only decision authority, and recording one is a write, so it advances the write sequence.
 Clarification, 2026-11-26: a Decision may also hold the ids the core supplies for its question and its option (`question_id`, `option_id`) and the person's `words`: their own sentences, verbatim, with the channel they came through (`panel`, `choice` or `chat_relayed`) and a declared `by`; `authenticated` is false, and the agent's own wording is never `words`, it is the `source` (D-148 and D-149 on chadlis/hypotrail#75; built by chadlis/hypotrail#244).
 Clarification, 2026-11-26: the `words` may also come through `file_relayed`: the caller read them from a file a person wrote and relays them. The `source` of such a Decision names the outside act the file comes from, a pull request citation or the job's run and its account, never the file's path or digest, and `decide` refuses it without one. `authenticated` stays false: a cited pull request raises only the level that `status` derives when it reads the Study (ADR 0006; D-168 and D-172 on chadlis/hypotrail#75; built by chadlis/hypotrail#276).
+_In ML_: a recorded choice, such as the model kept or the conclusion.
 _Avoid_: note, verdict, conclusion
 
 **Declared deviation**:
@@ -35,20 +40,34 @@ _Avoid_: approval, sign-off, review (for the record)
 
 **Pending decision**:
 A Comparison of the current revision that no applying Decision cites and whose two Assessments have no later Assessment. It is derived when the Study is read and never stored, and it is not a **Decision**.
+_In ML_: a question waiting for an answer.
 _Avoid_: open decision, pending choice
 
 **Track**:
 A family of studies the software supports end to end, such as temporal regression or tool-using agent; a request outside every supported Track is refused, never routed elsewhere.
+_In ML_: the kind of task (regression, ranking, agent).
 _Avoid_: case (for this meaning), task type, family, pipeline
 
 **Workload**:
 One Track applied to concrete data, with its population, Partitions, References and declared settings (for example daily bike rentals, or the Chinook analyst questions); a demonstration Workload is still a Workload.
+_In ML_: the dataset and the declared task.
 _Avoid_: benchmark, dataset (for the whole), use case, example (as a domain term)
 
 **Protocol**:
 What a Study evaluates and how it scores it: the population, Partitions, References, Scorers and the rules on when information is available; it binds every Attempt, while how an imported Attempt's outputs were produced stays `declared` or `unknown`.
 Clarification, 2026-11-20: an Assessment applies the Protocol of its revision, also to outputs recorded under an earlier revision (owner decision 2A on chadlis/hypotrail#9).
+_In ML_: the evaluation design.
 _Avoid_: pipeline, method, setup
+
+**Journey**:
+The ordered steps a Track serves for the accompanied path, with their texts, computed into a position and a pause when the Study is read (ADR 0010). It is derived and never stored.
+_In ML_: the steps of the method, from framing to conclusion.
+_Avoid_: workflow, wizard, stations (for this meaning)
+
+**Target look**:
+An exploration that reads the target on development Items, recorded by `explore` and counted from the write journal. It is not an Exposure and refuses nothing.
+_In ML_: looking at the labels of the development set.
+_Avoid_: exposure (for this meaning), peek
 
 **Plan**:
 The record of a Study, kept outside the Protocol digest, that holds the `rule`, the `budget` and the `delegation` a person ratified, the `delegation` being the kinds of question a proxy may answer; the rules on when information is available stay in the Protocol, and a Plan is not a Campaign's `plan.json`.
@@ -62,14 +81,17 @@ _Avoid_: fact, finding, domain claim
 Any Assessment, Comparison or report that touches Items of the `public_check` Partition; every Configuration created after the first Exposure is marked `check_informed`.
 Clarification, 2026-11-21: a live view of artifacts already recorded is not a "report": such a view does not record an Exposure and does not write (D-031 item 9 on chadlis/hypotrail#75, ticket #111).
 Clarification, 2026-11-27: an Import written after the Study's first Exposure, whatever its revision, is marked `check_informed` too, and so is what uses it; the mark says when the Import came, not what its producer saw, whose exposure to `public_check` stays `unknown` (D-166 on chadlis/hypotrail#75; ticket chadlis/hypotrail#294).
+_In ML_: a look at the test set; the first one "opens the final test".
 _Avoid_: use, peek, leak
 
 **Partition**:
 A named, disjoint subset of a Track's population with a fixed role in the protocol, such as `train`, `dev` or `public_check`.
+_In ML_: a split (train, dev or validation, test). A fold is a block of the development Partition, not a Partition.
 _Avoid_: split, fold
 
 **Item**:
 The unit that is produced, scored and counted one at a time, identified by a stable ID that never depends on file order.
+_In ML_: a row, an example.
 _Avoid_: row, sample, example
 
 **Case**:
@@ -89,6 +111,7 @@ _Avoid_: epoch, retry, copy
 
 **Configuration**:
 The complete, named description of what is executed for a Track (for example `seasonal_7`, `ridge_v1`, `plain` or `verify`), excluding the role it later plays in a Comparison.
+_In ML_: a model with its settings.
 _Avoid_: variant, model (when the whole setup is meant)
 
 **Mode**:
@@ -102,6 +125,7 @@ _Avoid_: test case, fixture case
 **Attempt**:
 One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs.
 Clarification, 2026-11-20: an Attempt is always recorded in a Study, with its manifest and Observation set. A `spike live` execution and the library fixture's execution (`fixture.run_fixture`) record nothing in a Study, so they are not Attempts; the command that records the live path as an Attempt is `run agent --mode llm_live`. The `mode` and `this_attempt` values those executions write in their records are format values, not claims that they are Attempts (owner decision by proxy D-011 on chadlis/hypotrail#75, ticket #77).
+_In ML_: a run.
 _Avoid_: run, job, execution record
 
 **Import**:
@@ -115,6 +139,7 @@ _Avoid_: batch, eval set
 **Observation set**:
 The outputs of one Attempt, one per Item, each marked `produced`, `failed` (execution stopped without an output) or `missing` (absent from imported outputs); this execution status is separate from how the Item is scored.
 Clarification, 2026-11-06: a final answer cut by the output cap is not an output, so its Episode is `failed` with the Reason `output_cap`, and the cut raw text stays in the trace (owner decision D1 on chadlis/hypotrail#8).
+_In ML_: the predictions a run kept.
 _Avoid_: results, predictions (as a generic term), log
 
 ### Scoring and comparing
@@ -122,10 +147,12 @@ _Avoid_: results, predictions (as a generic term), log
 **Reference**:
 The frozen expected outcome for an Item, versioned as a whole set and never shown to the system being evaluated.
 Clarification, 2026-11-26: the Reference of the Case being answered is never shown; a later turn may receive a scripted history built from earlier turns' Reference texts, declared by the Protocol (D-154 on chadlis/hypotrail#75, item 1). The expected facts of a text Reference (`text-reference/1`) are part of the Reference, not Claims.
+_In ML_: the labels, the ground truth.
 _Avoid_: ground truth, gold, label, oracle
 
 **Scorer**:
 A versioned, registered scoring rule that turns an Observation set and a Reference set into Criteria per Item.
+_In ML_: the evaluation function.
 _Avoid_: grader, judge, evaluator
 
 **Criterion**:
@@ -150,24 +177,29 @@ _Avoid_: grader error, harness error
 
 **Metric**:
 A number aggregated over Items from one Criterion, such as MAE or the share of Items with a correct Score.
+_In ML_: the metric (MAE, RMSE).
 _Avoid_: score (for the aggregate), KPI
 
 **Assessment**:
 One application of one Scorer version to one Observation set and one Reference set; rescoring always creates a new Assessment.
 Clarification, 2026-11-22: "earlier" and "later", said of two Assessments of one Study, name one order, the order in which the Study recorded them; handbook chapter 10 states it (chadlis/hypotrail#121, B2).
+_In ML_: the evaluation of a run, its score.
 _Avoid_: evaluation, result, score
 
 **Comparison**:
 Two Assessments of the same population, Scorer, units and Mode, aligned Item by Item, with a Control and a Candidate.
 Clarification, 2026-11-20: for an agent, the Items are Episodes aligned by Case and Repeat, and the planned Repeats, tools, model and budgets are shared except for one declared intentional factor (chadlis/hypotrail#72).
+_In ML_: the comparison of two models, with its difference and its confidence interval.
 _Avoid_: benchmark, diff
 
 **Control**:
 The Assessment a Comparison measures against.
+_In ML_: the baseline.
 _Avoid_: baseline (as a role), reference (as a role)
 
 **Candidate**:
 The Assessment a Comparison measures; a positive loss delta means the Candidate is worse.
+_In ML_: the challenger, the model being tried.
 _Avoid_: variant (as a role), challenger, treatment
 
 ## Relationships

@@ -46,3 +46,13 @@ D-209 adds teaching figures to the accompanied journey. The panel can show the i
 `lesson check` applies the D-204 per-Track allowlist of exact Track, read and path triples. Each listed path names a safe aggregate or metadata leaf. A path outside the allowlist is `FORBIDDEN_PATH` even if none of its segments matches a forbidden term. Discovery applies the same rule offline, and `lesson check` additionally resolves allowed paths against the Track's kept reads.
 
 `lesson-pack/2` remains merged, pending owner approval (G1).
+
+## Amendment — 2026-11-28
+
+ADR 0010 adds the accompanied journey beside the packs (D-278 on chadlis/hypotrail#75). On a Track that serves a journey:
+
+- the panel draws the journey, not the stations: the sentences "The panel adds nothing above its first block" and "in a closed section after Record" no longer bind it;
+- the core computes the current step (ADR 0010, point 2); "The read computes no current station" still describes the `lesson` read;
+- the `DIGIT` rule still binds packs. Journey content is checked by its own lint: no hand-written digit, slots allowed.
+
+Packs, `lesson check` and `lesson --track` are unchanged. The command "Hypotrail: Show stations" stays.

@@ -23,3 +23,7 @@ The reason is what a revision does to the Decisions of a Study. A Decision no lo
 - The rule outcome beside each pending decision, the budget refusal on `assess` on `dev` with Imports counted, and the mark on a proxy Decision that differs from the rule (D-148 on chadlis/hypotrail#75, item 1) are not built.
 - A change of the rules on when information is available that a Claim causes reaches the Protocol through `init --new-revision`, which is to gain `--cites`: `--cites`, the Claim record and its command are not built. `revision_changed` already stops every Decision from applying on such a revision.
 - The Validation record, by which a person adopts or rejects a Plan, a Claim, a revision or proxy Decisions, is not built.
+
+## Dated lines
+
+- 2026-11-28: until the Plan record exists, the accompanied journey (ADR 0010; D-278 on chadlis/hypotrail#75) carries three things that belong to the Plan, each outside the Protocol digest: the variant budget of the tabular regression Track (at most three variants per revision, refused at `run` with `VARIANT_BUDGET_EXHAUSTED`); the automatic mode chosen at `init --automation`; and a delegation, written in the `source` of the Decision it produces. When the Plan is built they move into its `budget`, `rule` and `delegation`. The journey's ordered steps are called its step order, never a plan.

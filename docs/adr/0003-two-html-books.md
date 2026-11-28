@@ -24,3 +24,7 @@ Explaining a step that the product shows is not teaching a concept. A lesson car
 ## Amendment — 2026-11-27
 
 D-203 returns method lesson authorship to a separate repository. The product serves English method lessons from data packs under ADR 0009. The handbook remains a reference and teaches no concept.
+
+## Amendment — 2026-11-28
+
+The product teaches along the accompanied journey: the term first, then this Study's values (ADR 0010; D-278 on chadlis/hypotrail#75). The rule "never teaches concepts" now binds the handbook only. `report --lesson` writes a lesson page for the person who ran the Study, in English; `report` still serves a reviewer.

@@ -64,7 +64,7 @@ Supported Workloads are declarative. Missing capabilities are added explicitly t
 
 A passed control is evidence about its stated condition. Hypotrail does not certify the absence of every leak, the correctness of every assumption, or suitability for deployment. Historical or public evaluation data do not become unseen through a new folder, session or interface.
 
-The direction does not require old Study migration, complete feature parity with the old engine, a new agent execution framework or a dynamic plugin system. Each addition must earn its place in a demonstrated user journey.
+The direction does not require old Study migration, parity with the old engine's internals, a new agent execution framework or a dynamic plugin system. Parity of the accompanied experience with the old tool is the goal of its first version (ADR 0010). Each addition must earn its place in a demonstrated user journey.
 
 ## Evidence of usefulness
 

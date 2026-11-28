@@ -129,7 +129,8 @@ def test_the_attempt_definition_is_unchanged_and_a_dated_line_says_what_is_not_a
     assert lines[at + 1] == "One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs."
     clarification = lines[at + 2]
     assert clarification.startswith("Clarification, 2026-11-20: ")
-    assert lines[at + 3] == "_Avoid_: run, job, execution record"
+    assert lines[at + 3] == "_In ML_: a run."
+    assert lines[at + 4] == "_Avoid_: run, job, execution record"
     assert "recorded in a Study" in clarification and "manifest" in clarification and "Observation set" in clarification
     assert "`spike live`" in clarification and "`fixture.run_fixture`" in clarification  # the executions that are not Attempts
     assert "run agent --mode llm_live" in clarification  # the command that records the live path as an Attempt
@@ -309,7 +310,9 @@ def test_the_glossary_defines_plan_claim_and_validation_without_the_words_other_
     # "The Decision entry is followed by one line that starts "Clarification, 2026-" and names `question_id`, `option_id` and `words`, with the
     # three channels of this slice and the sentence that `authenticated` is false."
     decision = entries["Decision"]
-    assert len(decision) == 5 and decision[2].startswith("Clarification, 2026-") and decision[4] == "_Avoid_: note, verdict, conclusion", decision
+    assert len(decision) == 6 and decision[2].startswith("Clarification, 2026-"), decision
+    assert decision[4] == "_In ML_: a recorded choice, such as the model kept or the conclusion.", decision
+    assert decision[5] == "_Avoid_: note, verdict, conclusion", decision
     clarification = decision[2]
     assert all(f"`{name}`" in clarification for name in ("question_id", "option_id", "words", "panel", "choice", "chat_relayed", "by")), clarification
     assert "`authenticated` is false" in clarification and "verbatim" in clarification and "`source`" in clarification, clarification
