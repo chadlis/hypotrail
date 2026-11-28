@@ -50,10 +50,17 @@ def one_step(*, reopened=False):
 
 
 def legacy_options(captured):
-    return [
-        {"id": item, "label": captured["option_labels"][item], "recommended": item == captured["recommended_option"]}
-        for item in captured["options"]
-    ]
+    options = []
+    for item in captured["options"]:
+        option = {
+            "id": item, "label": captured["option_labels"][item],
+            "recommended": item == captured["recommended_option"],
+        }
+        if item == "adopt":
+            # The v2 option description comes from the legacy pause's restatement.
+            option["description"] = captured["proposal_text"]
+        options.append(option)
+    return options
 
 
 @pytest.mark.parametrize(
@@ -143,7 +150,9 @@ def test_reopened_unchanged_value_uses_the_pinned_old_reconfirmation_question():
     result = pause(one_step(reopened=True), REVISION, context)
     assert result["kind"] == "decision"
     assert result["question"] == f"{RECONFIRM_VALUE}\n\n{RECONFIRM_QUESTION}"
-    assert result["options"] == ADOPTION_OPTIONS
+    assert result["options"] == [
+        {**ADOPTION_OPTIONS[0], "description": RECONFIRM_VALUE}, *ADOPTION_OPTIONS[1:]
+    ]
     assert result["cited_ids"] == [REVISION, "assessment", "comparison"]
     assert context["cited_ids"] == ["assessment", REVISION, "comparison", "assessment"]
     assert not result["delegable"]
@@ -161,3 +170,42 @@ def test_review_has_the_pinned_old_adoption_question_and_no_recommendation():
     assert result["question"] == REVIEW["question"]
     assert result["options"] == legacy_options(REVIEW)
     assert not result["delegable"]
+
+
+@pytest.mark.parametrize(
+    ("reopened", "closed"),
+    [(False, "Do you adopt this decision?"), (True, RECONFIRM_QUESTION)],
+)
+def test_decision_question_and_adopt_description_keep_the_restatement_citations(reopened, closed):
+    restatement = [
+        {"text": "You call the model useful if its out-of-fold mean absolute error is at least "},
+        {"text": "10%", "value": 0.1, "path": "criterion.minimum", "record_id": "criterion", "format": "pct0"},
+        {"text": " below that of the mean baseline, with the business bar of the brief, an error of at most "},
+        {"text": "4.5", "value": 4.5, "path": "brief.business_bar", "record_id": "brief", "format": "f1"},
+        {"text": " mpg."},
+    ]
+    original = [dict(segment) for segment in restatement]
+    result = pause(one_step(reopened=reopened), REVISION, {
+        "restatement": restatement, "value_unchanged": reopened, "reconfirm_question": RECONFIRM_QUESTION,
+    })
+
+    assert result["question"] == [*original, {"text": f"\n\n{closed}"}]
+    assert result["options"] == [
+        {**ADOPTION_OPTIONS[0], "description": original}, *ADOPTION_OPTIONS[1:]
+    ]
+    assert restatement == original
+
+
+@pytest.mark.parametrize(
+    ("kind", "choices"),
+    [("action", []), ("choice", [{"id": "keep", "label": "Keep the reference"}])],
+)
+def test_action_and_choice_questions_keep_their_cited_segments(kind, choices):
+    question = [
+        {"text": "Do you evaluate with this "},
+        {"text": "5", "value": 5, "path": "folds", "record_id": "split", "format": "int"},
+        {"text": "-fold cross-validation?"},
+    ]
+    result = pause(one_step(), REVISION, {"question": question, "choice_options": choices})
+    assert result["kind"] == kind
+    assert result["question"] == question

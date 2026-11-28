@@ -3,6 +3,8 @@
 from collections.abc import Mapping, Sequence
 from typing import Literal, NotRequired, TypedDict
 
+from hypotrail.core.cite import Segment
+
 
 class Step(TypedDict):
     step: str
@@ -33,8 +35,8 @@ class Choice(TypedDict):
 
 class PauseContext(TypedDict, total=False):
     availability: Literal["ready", "running", "blocked"]
-    question: str | None
-    restatement: str
+    question: str | list[Segment] | None
+    restatement: str | list[Segment]
     choice_options: list[Choice]
     cited_ids: list[str]
     value_unchanged: bool
@@ -173,8 +175,14 @@ def pause(step_view: Mapping, revision: str, context: PauseContext) -> dict:
         closed = _ADOPTION_QUESTION
         if reopened and context.get("value_unchanged"):
             closed = context["reconfirm_question"]
-        question = f'{context["restatement"]}\n\n{closed}'
+        restatement = context["restatement"]
+        suffix = f"\n\n{closed}"
+        if isinstance(restatement, str):
+            question = restatement + suffix
+        else:
+            question = [*restatement, {"text": suffix}]
         options = _options(("adopt", "change", "explain"), None if context.get("review") else "adopt")
+        options[0]["description"] = restatement
     elif context.get("choice_options"):
         kind = "choice"
         question = context.get("question")
