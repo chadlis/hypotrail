@@ -1,0 +1,87 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Available variables (3 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Feature availability: whether a column is known at the prediction moment. A column known only later is leakage: it makes the model look better on past data than it can be in use. Recommended: The case's statement for each column, with every doubtful or undocumented column excluded: a doubt about the timing is a leakage risk. From the case: 5 columns available, 0 not available, 1 doubtful. Doubtful: acceleration."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose feature_availability … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the feature availability: \"You keep cylinders, displacement, horsepower, weight and origin, known when the technical characteristics are fixed; you exclude acceleration because its availability at the prediction moment is not documented.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Available variables",
+    "question": "You keep cylinders, displacement, horsepower, weight and origin, known when the technical characteristics are fixed; you exclude acceleration because its availability at the prediction moment is not documented.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You keep cylinders, displacement, horsepower, weight and origin, known when the technical characteristics are fixed; you exclude acceleration because its availability at the prediction moment is not documented."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Feature availability**: Whether a variable is known at the prediction time. It is a decision about the use case, not a property the data can prove."
+      },
+      {
+        "k": "eng",
+        "text": "The case describes one row as: A vehicle model for a model year. For each variable you decide whether it is known at the prediction moment."
+      },
+      {
+        "k": "eng",
+        "text": "Each candidate variable gets one status. Uncertain variables are either excluded or included and listed as a limit. A time column is not a candidate variable; it orders the rows."
+      },
+      {
+        "k": "eng",
+        "text": "Variables marked not available, or uncertain and excluded, never enter a model."
+      },
+      {
+        "k": "eng",
+        "text": "A change that alters the set of usable variables refits the linear model and asks for the model choice again."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Available variables (feature_availability)",
+      "value": "You keep cylinders, displacement, horsepower, weight and origin, known when the technical characteristics are fixed; you exclude acceleration because its availability at the prediction moment is not documented.",
+      "proposal": "p_2",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  }
+]

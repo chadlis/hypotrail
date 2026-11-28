@@ -1,0 +1,92 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run predictor.capture --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the captured model, run without asking you. Before the final test is opened, the engine captures the chosen model: it fits it once on every development row, reloads it and checks that it gives the same predictions, so that the Azure ML export carries the evaluated model. No final-test row is read."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Final test (13 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Holdout (final test): rows sealed since the start. Opened once, it measures the chosen configuration on rows no choice used; it is the study's only independent evidence. After the opening, any change is reported as made after the final test. Recommended: This is the configuration you chose; the holdout (final test) measures it once. It holds 80 rows."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose final_test … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the opening of the final test: \"You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\".\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Final test",
+    "question": "You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\".\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\"."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [],
+    "record": {
+      "decision": "Final test (final_test)",
+      "value": "You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\".",
+      "proposal": "p_9",
+      "basis": "restated",
+      "mode": "guided",
+      "capturedWords": "Yes, I open the final test now, because my choices are fixed.",
+      "capturedChannel": "chat"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run diag.final_test --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: an analysis, run without asking you. Now that the model is chosen, do you open the sealed final test, once, to measure it on rows nothing has seen? After this, any change is made after the final test."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Final test → the diagnostics"
+      }
+    ]
+  }
+]

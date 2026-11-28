@@ -1,0 +1,87 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Variants (11 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Variant: one change of the candidate model (the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family), compared under the same evaluation; at most three, each with its question. Each configuration compared on the same rows is a trial; the more trials, the more the best of them may owe to chance. Recommended: The diagnostics of the linear model flag the shape of horsepower and weight: the Explainable Boosting Machine (EBM), a readable non-linear model, is drafted beside the penalty chosen by nested cross-validation to test it. Each variant spends one trial of the budget of three and adds a little selection optimism; the EBM, chosen after the diagnostics, is recorded as data-contingent. Boosting here is tree boosting, the same family as XGBoost and LightGBM. A random forest is not offered: a random forest usually does less well than a tuned boosting on tabular data, and a variant of the same kind would spend a trial for little new information. The diagnostics of the linear model show a pattern it cannot follow; a non-linear family may be compared as one variant (a trial, chosen after seeing the diagnostics)."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose model_variant … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the variant to compare: \"You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Variants",
+    "question": "You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [],
+    "record": {
+      "decision": "Variants (model_variant)",
+      "value": "You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight.",
+      "proposal": "p_7",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run fit.variant --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the variant model, run without asking you. Once it is done, you decide: Which variants of the candidate model, at most three and each with the question it answers, should be compared with it under the same evaluation: the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family when the diagnostics show a pattern the linear model cannot follow?"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run fit.variant:2 --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the second variant model, run without asking you. Once it is done, you decide: Which variants of the candidate model, at most three and each with the question it answers, should be compared with it under the same evaluation: the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family when the diagnostics show a pattern the linear model cannot follow?"
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Variants → the variants"
+      }
+    ]
+  }
+]

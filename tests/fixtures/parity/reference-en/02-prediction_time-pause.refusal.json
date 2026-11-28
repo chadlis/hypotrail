@@ -1,0 +1,482 @@
+{
+  "refusal": {
+    "schema": "hypotrail.error/1",
+    "ok": false,
+    "command": "decide confirm",
+    "error": {
+      "code": "ambiguous_confirmation",
+      "message": "There is no proposal missing-proposal; propose first.",
+      "details": {
+        "reason": "proposal_not_found",
+        "proposal_id": "missing-proposal",
+        "open_proposals": [
+          "p_1"
+        ]
+      }
+    }
+  },
+  "summary": {
+    "schema": "hypotrail.summary/1",
+    "ok": true,
+    "study": "STUDY",
+    "revision": 2,
+    "since": null,
+    "changed": null,
+    "goal": {
+      "intended_use": {
+        "value": "Exercise: estimate a future model fuel efficiency from technical characteristics",
+        "status": "scenario_assumption"
+      },
+      "decision": {
+        "value": "Compare estimation methods without a real decision",
+        "status": "scenario_assumption"
+      },
+      "observation_unit": {
+        "value": "A vehicle model for a model year",
+        "status": "scenario_assumption"
+      },
+      "prediction_time": {
+        "value": "When technical characteristics are fixed, before measuring fuel efficiency",
+        "source": "decision",
+        "status": "proposed"
+      }
+    },
+    "current_step": "prediction_time",
+    "plan": [
+      {
+        "id": "discover_data",
+        "title": "Discover the data",
+        "status": "done"
+      },
+      {
+        "id": "prediction_time",
+        "title": "Define the prediction moment",
+        "status": "awaiting_confirmation"
+      },
+      {
+        "id": "feature_availability",
+        "title": "Decide which variables are available at prediction time",
+        "status": "blocked"
+      },
+      {
+        "id": "split",
+        "title": "Split the data before exploring it",
+        "status": "blocked"
+      },
+      {
+        "id": "error_metric",
+        "title": "Choose how the error is measured",
+        "status": "blocked"
+      },
+      {
+        "id": "success_criterion",
+        "title": "Fix the success criterion before seeing a model",
+        "status": "blocked"
+      },
+      {
+        "id": "structural_eda",
+        "title": "Check the structure of the data",
+        "status": "blocked"
+      },
+      {
+        "id": "preprocessing",
+        "title": "Decide how the model prepares the variables",
+        "status": "blocked"
+      },
+      {
+        "id": "train_eda",
+        "title": "Explore the target on the development rows",
+        "status": "blocked"
+      },
+      {
+        "id": "models",
+        "title": "Fit a mean baseline and a linear model",
+        "status": "blocked"
+      },
+      {
+        "id": "model_variant",
+        "title": "Choose the variants to compare",
+        "status": "blocked"
+      },
+      {
+        "id": "model_choice",
+        "title": "Choose the model",
+        "status": "blocked"
+      },
+      {
+        "id": "final_test",
+        "title": "Open the final test once",
+        "status": "blocked"
+      },
+      {
+        "id": "conclusion",
+        "title": "Conclude proportionately",
+        "status": "blocked"
+      }
+    ],
+    "next_action": {
+      "kind": "await_user_words",
+      "proposal_id": "p_1",
+      "decision": "prediction_time",
+      "message": "Show the restatement, then ask the closed question \"Do you adopt this decision?\" and record the reply verbatim. A bare \"ok\" before that question is not a decision.",
+      "audience": "agent",
+      "junior_message": "A proposal on the prediction moment is waiting for your answer. Read its restatement and say whether you adopt it, or what you would change.",
+      "language": "en",
+      "recommended": null,
+      "question": "Do you adopt this decision?",
+      "junior_digest": "Proposal on the prediction moment: \"You predict when the technical characteristics are fixed, before fuel efficiency is measured.\" If it suits you, say that you adopt it; otherwise say what you change.",
+      "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Prediction moment (2 of 14).",
+      "evidence": [],
+      "pause": {
+        "schema": "hypotrail.pause/1",
+        "kind": "decision",
+        "language": "en",
+        "revision": 2,
+        "position": {
+          "step_id": "prediction_time",
+          "completed": 1,
+          "total": 14
+        },
+        "learned": [],
+        "limitations": [
+          {
+            "code": "unconfirmed_decisions",
+            "text": "Not confirmed by you yet: the prediction moment, the feature availability, the split, the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+          },
+          {
+            "code": "validation_is_not_independent",
+            "text": "Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+          },
+          {
+            "code": "public_data_already_explored",
+            "text": "The data were explored or published before this study; its rows are not unseen."
+          }
+        ],
+        "proposal_id": "p_1",
+        "proposal_text": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.",
+        "recommended_option": "adopt",
+        "options": [
+          "adopt",
+          "change",
+          "explain"
+        ],
+        "option_labels": {
+          "adopt": "I adopt this decision",
+          "change": "Change something",
+          "explain": "Explain first"
+        },
+        "question": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.\n\nDo you adopt this decision?",
+        "evidence_refs": [],
+        "detail_topics": [
+          "metric",
+          "uncertainty"
+        ]
+      },
+      "panel": {
+        "version": 2,
+        "stage": "v3",
+        "title": "Hypotrail study",
+        "where": {
+          "anchor": "now",
+          "label": "Now, the question waiting for you",
+          "line": null
+        },
+        "shown": null
+      }
+    },
+    "open_proposals": [
+      {
+        "proposal_id": "p_1",
+        "decision_id": "prediction_time",
+        "value": "When technical characteristics are fixed, before measuring fuel efficiency",
+        "restatement": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.",
+        "revision": 2
+      }
+    ],
+    "decisions": {
+      "prediction_time": {
+        "status": "proposed",
+        "value": "When technical characteristics are fixed, before measuring fuel efficiency",
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [
+          "p_1"
+        ],
+        "feature_basis": null
+      },
+      "feature_availability": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "split": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "error_metric": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "success_criterion": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "preprocessing": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "model_variant": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "model_choice": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "final_test": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "conclusion": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      }
+    },
+    "results": {},
+    "artifacts": {
+      "status": "ok",
+      "items": {
+        "editable": {
+          "status": "ok",
+          "revision": 2,
+          "last_ok_revision": 2,
+          "message": "The editable study notebook (notebooks/study_editable.py) follows the generated notebook until you edit it; after that it is never overwritten and does not count as official evidence.",
+          "audience": "agent",
+          "junior_message": "The editable study notebook follows the generated notebook until your first edit; after that it is never overwritten and is not official evidence."
+        },
+        "notebook": {
+          "status": "ok",
+          "revision": 2,
+          "last_ok_revision": 2,
+          "message": "The generated notebook (notebooks/study_generated.py) is up to date.",
+          "audience": "agent",
+          "junior_message": "The generated notebook is up to date."
+        },
+        "report": {
+          "status": "ok",
+          "revision": 2,
+          "last_ok_revision": 2,
+          "message": "The report (reports/study.html) is up to date.",
+          "audience": "agent",
+          "junior_message": "The report is up to date."
+        },
+        "workbench": {
+          "status": "ok",
+          "revision": 2,
+          "last_ok_revision": 2,
+          "message": "The workbench (notebooks/workbench.py) is the junior's free space: created once, never overwritten, and not tracked by the study.",
+          "audience": "agent",
+          "junior_message": "The workbench is your free space: it is created once, never overwritten, and not tracked by the study."
+        }
+      }
+    },
+    "executions": {
+      "active": [],
+      "interrupted": [],
+      "late": [],
+      "suspected_interrupted": []
+    },
+    "not_yet_defensible": {
+      "top": [
+        {
+          "id": "unconfirmed_decisions",
+          "text": "These decisions are not confirmed: prediction_time, feature_availability, split, error_metric, success_criterion, preprocessing, model_variant, model_choice, final_test, conclusion.",
+          "audience": "agent",
+          "junior_text": "Not confirmed by you yet: the prediction moment, the feature availability, the split, the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "id": "validation_is_not_independent",
+          "text": "Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error.",
+          "audience": "junior",
+          "junior_text": null
+        },
+        {
+          "id": "final_test_sealed",
+          "text": "The final test is still sealed: every figure so far is development evidence, measured on rows used to explore, fit, and choose.",
+          "audience": "junior",
+          "junior_text": null
+        },
+        {
+          "id": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen.",
+          "audience": "junior",
+          "junior_text": null
+        },
+        {
+          "id": "grouped_split_unsupported",
+          "text": "Rows that share a value of car_name can fall in both partitions: this version has no grouped split, so a split reports how many group values its partitions share instead of preventing it. Validation rows of a shared group are not independent of the training rows.",
+          "audience": "junior",
+          "junior_text": null
+        }
+      ],
+      "more": [
+        "no_causality",
+        "workbench_not_tracked"
+      ]
+    },
+    "notes": [],
+    "holds": [],
+    "final_test": {
+      "status": "sealed",
+      "rows": 80,
+      "method": "quantile_stratified",
+      "fraction": 0.2,
+      "development_rows": 318,
+      "schema_check": "pass",
+      "opening": null,
+      "post_final_test": false,
+      "changed_after": [],
+      "excluded_prior_exposed": 0
+    },
+    "criterion": {
+      "decision_status": "open",
+      "value": null,
+      "status": "not_assessed",
+      "gain": null,
+      "low": null,
+      "high": null,
+      "minimum": null,
+      "unit": "share",
+      "rule": null,
+      "result_id": null,
+      "contradicts_verdict": false,
+      "final_test": null,
+      "model": null,
+      "judged_on": "development",
+      "judged_status": "not_assessed"
+    },
+    "eda_looks": {
+      "target_looks": 0,
+      "results": []
+    },
+    "recap": [
+      "Goal: Exercise: estimate a future model fuel efficiency from technical characteristics; the prediction is made when technical characteristics are fixed, before measuring fuel efficiency (from the case, not decided yet).",
+      "Decided: nothing yet.",
+      "Now: Define the prediction moment; the report and notebook are up to date.",
+      "Next: whether you adopt the prediction moment: \"You predict when the technical characteristics are fixed, before fuel efficiency is measured.\"",
+      "Limit: Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+    ],
+    "recap_audience": "agent",
+    "recap_junior": [
+      "Goal: Exercise: estimate a future model fuel efficiency from technical characteristics; the prediction is made when technical characteristics are fixed, before measuring fuel efficiency (from the case, not decided yet).",
+      "Decided: nothing yet.",
+      "Now: Define the prediction moment, waiting for your answer; the report and notebook are up to date.",
+      "Next: whether you adopt the prediction moment: \"You predict when the technical characteristics are fixed, before fuel efficiency is measured.\"",
+      "Limit: Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+    ],
+    "mode": "guided",
+    "deliverables": {
+      "launch": {
+        "notebook": {
+          "mode": "run",
+          "path": "notebooks/study_generated.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "run",
+            "STUDY/notebooks/study_generated.py"
+          ]
+        },
+        "editable": {
+          "mode": "edit",
+          "path": "notebooks/study_editable.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "edit",
+            "STUDY/notebooks/study_editable.py"
+          ]
+        },
+        "workbench": {
+          "mode": "edit",
+          "path": "notebooks/workbench.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "edit",
+            "STUDY/notebooks/workbench.py"
+          ]
+        }
+      }
+    },
+    "trials": {
+      "count": 0
+    },
+    "scenario_defaults": null,
+    "language": "en"
+  }
+}

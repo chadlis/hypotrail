@@ -1,0 +1,172 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run evaluate.regression --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the model comparison, run without asking you. Once it is done, you decide: Does the linear model reduce the out-of-fold error of the mean baseline, in the target unit, by enough to adopt it, given the paired intervals and the residuals?"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run diag.regression --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the development diagnostics, run without asking you. Once it is done, you decide: Does the linear model reduce the out-of-fold error of the mean baseline, in the target unit, by enough to adopt it, given the paired intervals and the residuals?"
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Model choice (12 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Model choice: keep the mean baseline or adopt the linear model, read on the mean absolute error (MAE) and its paired interval. The success criterion is met on the development set."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "choice",
+    "question": "Which model do you choose, given the errors and their intervals?",
+    "options": [
+      {
+        "id": "fit.linear",
+        "label": "The linear model",
+        "rec": false
+      },
+      {
+        "id": "fit.variant",
+        "label": "The first variant · penalty chosen by nested cross-validation",
+        "rec": false
+      },
+      {
+        "id": "fit.variant:2",
+        "label": "The second variant · an Explainable Boosting Machine",
+        "rec": false
+      },
+      {
+        "id": "fit.baseline",
+        "label": "The mean baseline",
+        "rec": false
+      }
+    ],
+    "captured": "fit.linear",
+    "capturedLabel": "The linear model",
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Mean absolute error (MAE)**: The average size of the residuals, in the unit of the target. It reads directly as the typical error of one prediction. [{'text': \"Here the linear model's out-of-fold MAE is \"}, {'text': '3.69', 'resultId': '5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7', 'path': 'models.[fit.linear].mae', 'value': 3.6936009038448265, 'format': 'f2'}, {'text': ' mpg, against '}, {'text': '7.16', 'resultId': '5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7', 'path': 'models.[fit.baseline].mae', 'value': 7.164709319770103, 'format': 'f2'}, {'text': ' mpg for the mean baseline.'}]"
+      },
+      {
+        "k": "eng",
+        "text": "The intended use is: Exercise: estimate a future model fuel efficiency from technical characteristics. A model is adopted only when it reduces the error of the mean baseline by more than the variability of these out-of-fold predictions, and its residuals do not show a bias that matters for that use."
+      },
+      {
+        "k": "eng",
+        "text": "MAE and RMSE are computed in the unit of the target on the stored out-of-fold predictions, with paired bootstrap intervals of each and of the difference with the baseline, and the residuals by period."
+      },
+      {
+        "k": "eng",
+        "text": "The linear model's MAE minus the baseline's is  -3.47  out of fold, between  -3.97  and  -2.96  on resamples of those rows. Its mean residual (bias) is  0.24 . These rows were used for the choice, so the figures are optimistic and are not a forecast."
+      },
+      {
+        "k": "eng",
+        "text": "Changing the model choice reuses the stored predictions and the evaluation; nothing is refitted."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose model_choice … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the model choice: \"You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Model choice",
+    "question": "You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Mean absolute error (MAE)**: The average size of the residuals, in the unit of the target. It reads directly as the typical error of one prediction. [{'text': \"Here the linear model's out-of-fold MAE is \"}, {'text': '3.69', 'resultId': '5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7', 'path': 'models.[fit.linear].mae', 'value': 3.6936009038448265, 'format': 'f2'}, {'text': ' mpg, against '}, {'text': '7.16', 'resultId': '5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7', 'path': 'models.[fit.baseline].mae', 'value': 7.164709319770103, 'format': 'f2'}, {'text': ' mpg for the mean baseline.'}]"
+      },
+      {
+        "k": "eng",
+        "text": "The intended use is: Exercise: estimate a future model fuel efficiency from technical characteristics. A model is adopted only when it reduces the error of the mean baseline by more than the variability of these out-of-fold predictions, and its residuals do not show a bias that matters for that use."
+      },
+      {
+        "k": "eng",
+        "text": "MAE and RMSE are computed in the unit of the target on the stored out-of-fold predictions, with paired bootstrap intervals of each and of the difference with the baseline, and the residuals by period."
+      },
+      {
+        "k": "eng",
+        "text": "The linear model's MAE minus the baseline's is  -3.47  out of fold, between  -3.97  and  -2.96  on resamples of those rows. Its mean residual (bias) is  0.24 . These rows were used for the choice, so the figures are optimistic and are not a forecast."
+      },
+      {
+        "k": "eng",
+        "text": "Changing the model choice reuses the stored predictions and the evaluation; nothing is refitted."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Model choice (model_choice)",
+      "value": "You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows.",
+      "proposal": "p_8",
+      "basis": "restated",
+      "mode": "guided",
+      "capturedWords": "Yes, I adopt the linear model, because it is the simplest within one standard error of the best.",
+      "capturedChannel": "chat"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Next: the captured model, run without asking you. Before the final test is opened, the engine captures the chosen model: it fits it once on every development row, reloads it and checks that it gives the same predictions, so that the Azure ML export carries the evaluated model. No final-test row is read."
+      }
+    ]
+  }
+]

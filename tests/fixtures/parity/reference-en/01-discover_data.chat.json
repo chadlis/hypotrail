@@ -1,0 +1,72 @@
+[
+  {
+    "t": "user",
+    "k": "translated",
+    "text": "I want to do this study, where do we start?"
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail status --summary · hypotrail data --format text"
+      },
+      {
+        "k": "eng",
+        "text": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Data (1 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Step 0, discover the data. The development set is the rows the study may explore and use to choose: 318 rows. The holdout (final test), 80 rows, stays sealed and is opened once at the end. The target is mpg (mpg). The data card shows what one row describes, the columns grouped with their meaning, and eight development rows drawn at random, target included: a look at the target, counted in the exposure ledger. Nothing is decided at this step."
+      },
+      {
+        "k": "eng",
+        "fold": "The data card as returned by the engine (the agent summarized it in at most 150 words)",
+        "pre": "One row: A vehicle model for a model year\nDevelopment rows: 318, columns: 9\nNo two development rows are identical.\ncar_name: 254 distinct values; 107 rows share their value with another row, so the folds can put a group on both sides.\nTarget: mpg (in mpg): Miles per gallon: higher values mean lower fuel consumption.\n80 rows are set aside as the final test and stay sealed: nothing here reads them.\n\n## Outcome\n- mpg (numeric, mpg, target): Miles per gallon: higher values mean lower fuel consumption.\n    fr: Miles par gallon : une valeur plus élevée signifie une consommation de carburant plus faible.\n    missing 0, distinct 117, examples 18, 15, 16\n\n## Engine\n- cylinders (integer, cylinders, feature): Number of cylinders.\n    fr: Nombre de cylindres.\n    availability (case): available_at_prediction [scenario_assumption] - Teaching scenario assumption; the dataset documentation does not establish availability at prediction time\n    missing 0, distinct 5, examples 8, 6, 4\n- displacement (numeric, cubic inches (assumed), feature): Engine displacement.\n    fr: Cylindrée du moteur.\n    availability (case): available_at_prediction [scenario_assumption] - Teaching scenario assumption; the dataset documentation does not establish availability at prediction time\n    missing 0, distinct 78, examples 307, 350, 318\n- horsepower (numeric, horsepower (assumed), feature): Engine horsepower.\n    fr: Puissance du moteur.\n    availability (case): available_at_prediction [scenario_assumption] - Teaching scenario assumption; the dataset documentation does not establish availability at prediction time\n    special value '?': Missing value. (6 rows)\n    missing 6, distinct 84, examples 130, 165, 150\n\n## Body and performance\n- weight (numeric, pounds (assumed), feature): Vehicle weight.\n    fr: Poids du véhicule.\n    availability (case): available_at_prediction [scenario_assumption] - Teaching scenario assumption; the dataset documentation does not establish availability at prediction time\n    missing 0, distinct 290, examples 3504, 3693, 3436\n- acceleration (numeric, seconds (assumed), feature): Acceleration time; not used by models in this exercise.\n    fr: Temps d'accélération ; non utilisé par les modèles dans cet exercice.\n    availability (case): unknown [unknown] - Availability at prediction time is not documented\n    missing 0, distinct 90, examples 12, 11.5, 11\n\n## Model\n- model_year (integer, year (19xx), time): Model year, coded 70 to 82 (read as 1970 to 1982).\n    fr: Année du modèle, codée de 70 à 82 (lue comme 1970 à 1982).\n    missing 0, distinct 13, examples 70, 71, 72\n- origin (category, feature): Origin code 1, 2, or 3.\n    fr: Code d'origine 1, 2 ou 3.\n    availability (case): available_at_prediction [scenario_assumption] - Teaching scenario assumption; the dataset documentation does not establish availability at prediction time\n    missing 0, distinct 3, examples 1, 2, 3\n- car_name (string, group_id): Car model name. The documentation states that it is unique for each instance, but some names occur in several rows.\n    fr: Nom du modèle de voiture. La documentation indique qu'il est unique pour chaque ligne, mais certains noms apparaissent sur plusieurs lignes.\n    missing 0, distinct 254, examples 'chevrolet chevelle malibu', 'buick skylark 320', 'plymouth satellite'\n\n8 development rows drawn at random, target included (a counted look at the target), seed 4d71c351a5cda578:\nrow | mpg | cylinders | displacement | horsepower | weight | acceleration | model_year | origin | car_name\nL3 | 18 | 8 | 318 | 150 | 3436 | 11 | 70 | 1 | plymouth satellite\nL86 | 13 | 8 | 350 | 175 | 4100 | 13 | 73 | 1 | buick century 350\nL127 | 21 | 6 | 200 | None | 2875 | 17 | 74 | 1 | ford maverick\nL144 | 26 | 4 | 97 | 78 | 2300 | 14.5 | 74 | 2 | opel manta\nL147 | 28 | 4 | 90 | 75 | 2125 | 14.5 | 74 | 1 | dodge colt\nL187 | 27 | 4 | 101 | 83 | 2202 | 15.3 | 76 | 2 | renault 12tl\nL244 | 21.5 | 3 | 80 | 110 | 2720 | 13.5 | 77 | 3 | mazda rx-4\nL347 | 32.3 | 4 | 97 | 67 | 2065 | 17.8 | 81 | 3 | subaru\n\nThese are development rows only; the final test stays sealed. The card shows what the columns mean and a few rows, never how often the outcome occurs: that is explored after the split, on the rows it leaves for exploration. The test is reserved by the protocol; the local source file remains accessible. Confirmations are agent-reported, not independently authenticated. Cross-study history is not enforced.\n"
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "action",
+    "question": "The data card is shown. Shall we move on to the prediction moment?",
+    "options": [
+      {
+        "id": "continue",
+        "label": "Let's continue",
+        "rec": true
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Development set (development rows)**: Every row outside the sealed final test, the rows the study may explore, divide into folds, and use to choose. What they show is development evidence, not final evidence. For example, the cars in the development rows feed the exploration, the model fits, and the comparison of models, while the sealed cars stay unread."
+      },
+      {
+        "k": "eng",
+        "text": "The case describes one row as: A vehicle model for a model year. The data card shows the columns grouped with their meaning and availability, and a few development rows."
+      },
+      {
+        "k": "eng",
+        "text": "Nothing is computed and nothing is decided. The rows shown are development rows, already read for their structure when the study was created; the final test stays sealed."
+      },
+      {
+        "k": "eng",
+        "text": "Reading the columns before any decision is how you know what each variable describes and when its value becomes known."
+      },
+      {
+        "k": "eng",
+        "text": "The availability decision that follows relies on this reading."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ]
+  }
+]

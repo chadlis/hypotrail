@@ -1,0 +1,163 @@
+{
+  "observation": {
+    "decision": "model_choice",
+    "selected": {
+      "id": "change",
+      "label": "Change something"
+    },
+    "prompt": "What do you want to change?",
+    "replay_note": "In the old tool, the agent proposed the decision again with your change (`hypotrail decide propose`) and asked the same closed question. This replay follows the recorded default path. Type your change to see the sequence or adopt the proposal.",
+    "repeated_question": "Do you adopt this decision?",
+    "confirmation_count": 0,
+    "revisionBefore": 60,
+    "revisionAfter": 60
+  },
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 60,
+    "position": {
+      "step_id": "model_choice",
+      "completed": 11,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_8",
+    "proposal_text": "You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You choose the linear model: it is the simplest configuration within one standard error of the best one, and it meets the success criterion on the development rows.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty",
+      "why-consider-a-nonlinear-family"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "model_choice",
+    "decision": "model_choice",
+    "message": "Does the linear model reduce the out-of-fold error of the mean baseline, in the target unit, by enough to adopt it, given the paired intervals and the residuals?",
+    "audience": "junior",
+    "junior_message": "Does the linear model reduce the out-of-fold error of the mean baseline, in the target unit, by enough to adopt it, given the paired intervals and the residuals?",
+    "language": "en",
+    "recommended": null,
+    "question": "Which model do you choose, given the errors and their intervals?",
+    "junior_digest": "Model choice: keep the mean baseline or adopt the linear model, read on the mean absolute error (MAE) and its paired interval. The success criterion is met on the development set.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Model choice (12 of 14).",
+    "evidence": [
+      "evaluate.regression",
+      "diag.regression"
+    ],
+    "choice_options": [
+      {
+        "id": "fit.linear",
+        "value": "fit.linear",
+        "label": "The linear model"
+      },
+      {
+        "id": "fit.variant",
+        "value": "fit.variant",
+        "label": "The first variant · penalty chosen by nested cross-validation"
+      },
+      {
+        "id": "fit.variant:2",
+        "value": "fit.variant:2",
+        "label": "The second variant · an Explainable Boosting Machine"
+      },
+      {
+        "id": "fit.baseline",
+        "value": "fit.baseline",
+        "label": "The mean baseline"
+      }
+    ],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "choice",
+      "language": "en",
+      "revision": 59,
+      "position": {
+        "step_id": "model_choice",
+        "completed": 11,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": null,
+      "options": [
+        "fit.linear",
+        "fit.variant",
+        "fit.variant:2",
+        "fit.baseline"
+      ],
+      "option_labels": {
+        "fit.linear": "The linear model",
+        "fit.variant": "The first variant · penalty chosen by nested cross-validation",
+        "fit.variant:2": "The second variant · an Explainable Boosting Machine",
+        "fit.baseline": "The mean baseline"
+      },
+      "question": "Which model do you choose, given the errors and their intervals?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty",
+        "why-consider-a-nonlinear-family"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the options to choose from",
+        "line": null
+      },
+      "shown": {
+        "anchor": "now",
+        "label": "Now, the options to choose from",
+        "line": null
+      }
+    }
+  }
+}

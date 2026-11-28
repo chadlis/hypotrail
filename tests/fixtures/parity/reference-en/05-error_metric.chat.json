@@ -1,0 +1,62 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Error measure (5 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Recommended: The MAE: every error weighs the same, and it reads in mpg. The RMSE is the alternative: one big miss weighs much more; choose it if one big miss costs much more than several small ones."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose error_metric … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the error measure: \"You measure the error with the mean absolute error (MAE), in mpg, the unit of the target.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Error measure",
+    "question": "You measure the error with the mean absolute error (MAE), in mpg, the unit of the target.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You measure the error with the mean absolute error (MAE), in mpg, the unit of the target."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [],
+    "record": {
+      "decision": "Error measure (error_metric)",
+      "value": "You measure the error with the mean absolute error (MAE), in mpg, the unit of the target.",
+      "proposal": "p_4",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  }
+]

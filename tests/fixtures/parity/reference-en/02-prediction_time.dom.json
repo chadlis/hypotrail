@@ -1,0 +1,6481 @@
+{
+  "current": [
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "header",
+      "classes": [
+        "ht-top"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "header"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h1",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Hypotrail study"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-headrow"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-studyname"
+      ],
+      "data": [
+        "data-study-name"
+      ],
+      "values": {},
+      "text": "study-mpg"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-btns"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-theme-control"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "ht-fill-none",
+        "ht-stroke-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "ht-fill-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-more",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "⋯"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-pills"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-pill",
+        "ht-pill-seal",
+        "ht-pill-sealed"
+      ],
+      "data": [
+        "data-pill",
+        "data-seal"
+      ],
+      "values": {},
+      "text": "🔒 Final test sealed"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-pill",
+        "ht-pill-def",
+        "ht-pill-def-pending"
+      ],
+      "data": [
+        "data-defensibility",
+        "data-focus-id",
+        "data-pill",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "Defensible at the end · 4 points"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-prog"
+      ],
+      "data": [
+        "data-block",
+        "data-progress"
+      ],
+      "values": {
+        "data-block": "progress"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-bar"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-current"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-plbl"
+      ],
+      "data": [],
+      "values": {},
+      "text": " · Frame the change"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Step 2/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Step 2 of 14, phase Frame the change."
+    },
+    {
+      "tag": "main",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-since",
+        "ht-p"
+      ],
+      "data": [
+        "data-block",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-block": "since"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Since your last visit"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-count"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1 change"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-now",
+        "sc-now"
+      ],
+      "data": [
+        "data-anchor",
+        "data-block",
+        "data-now",
+        "data-now-step",
+        "data-step-card"
+      ],
+      "values": {
+        "data-anchor": "now",
+        "data-block": "now"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [
+        "sc-nowh"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Now · Step 2/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-full"
+      ],
+      "data": [
+        "data-step-name"
+      ],
+      "values": {},
+      "text": "Prediction moment"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "picture"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The step in one picture"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-idea"
+      ],
+      "data": [
+        "data-picture"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg",
+        "sc-pic"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-warn"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": "moment"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "known before"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-warn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "measured"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "scenario assumption"
+    },
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "To predict is to stand at a moment. Only the columns known before it may serve; the target is measured after."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-more"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Read more"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "establish"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What the step must establish"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-feeds"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "This answer prepares the Available variables step, the list of allowed columns."
+    },
+    {
+      "tag": "ol",
+      "classes": [
+        "sc-qs",
+        "sc-one"
+      ],
+      "data": [
+        "data-step-questions"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "moment.when"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "At which moment is the prediction made, and what is known then?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ask"
+      ],
+      "data": [
+        "data-chat-block"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-who"
+      ],
+      "data": [],
+      "values": {},
+      "text": "The chat waits for"
+    },
+    {
+      "tag": "h3",
+      "classes": [
+        "ht-question"
+      ],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": ""
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do you adopt this decision?"
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "ht-opts"
+      ],
+      "data": [
+        "data-options"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "ht-opts-lead"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Answers offered in the chat:"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Change something"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Explain first"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-acts"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-copywrap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-copy"
+      ],
+      "data": [
+        "data-copy-question",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Copy \"What does the prediction moment change in my study?\""
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "answer"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "To answer, look"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-frame"
+      ],
+      "data": [
+        "data-frame"
+      ],
+      "values": {
+        "data-frame": "none"
+      },
+      "text": " · "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "○ No data read"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Nothing measured · case metadata, no value"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "At which moment is the prediction made, and what is known then?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-chart"
+      ],
+      "data": [
+        "data-chart"
+      ],
+      "values": {
+        "data-chart": "moment_timeline"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl"
+      ],
+      "data": [
+        "data-timeline"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl-svg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg"
+      ],
+      "data": [
+        "data-timeline-svg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "defs",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "pattern",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-hatchbg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "scenario assumption, not a fact of the data"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-shade"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "known after"
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-ink",
+        "sc-s-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Engine"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "designed"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Body and"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "weight fixed"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Performance"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "tests"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "◎ Fuel use"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "measured"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ cylinders"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ displacement"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ horsepower"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ origin"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ weight"
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-acc",
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "proposed moment"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-hatch",
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "\"?\" lane · date not documented : acceleration"
+    },
+    {
+      "tag": "label",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Move the prediction moment (for looking only)"
+    },
+    {
+      "tag": "input",
+      "classes": [],
+      "data": [
+        "data-focus-id",
+        "data-timeline-slider"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl-stops"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "after \"Engine designed\""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "after \"Body and weight fixed\""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "after \"Performance tests\""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl-lists"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-k"
+      ],
+      "data": [
+        "data-kept"
+      ],
+      "values": {},
+      "text": " cylinders, displacement, horsepower, weight, origin"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Known before the moment (5):"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-x"
+      ],
+      "data": [
+        "data-dropped"
+      ],
+      "values": {},
+      "text": " none"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Known after (0):"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-u"
+      ],
+      "data": [
+        "data-uncertain"
+      ],
+      "values": {},
+      "text": " acceleration, whatever the moment"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Uncertain (1):"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-only"
+      ],
+      "data": [
+        "data-display-only"
+      ],
+      "values": {},
+      "text": "For looking only: the decision is taken in the chat. The slider stops before the target is measured."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-readx"
+      ],
+      "data": [
+        "data-reading"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r1"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we see"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "At the proposed moment, known columns: ; columns of the question-mark lane: . The target is measured only at the last milestone."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "5"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r2"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The moment fixes the list of allowed columns; a column known after it would be a leak, information the model would not have when it serves."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r3"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we cannot conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "These milestones are a hypothesis of the scenario, not a fact of the data; the timeline does not prove when each column was known."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-src"
+      ],
+      "data": [
+        "data-cited-revision"
+      ],
+      "values": {},
+      "text": "made-up example: no number of the study"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How to read it"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Watch out"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "limit"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What it does not say · Next"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The moment is a hypothesis of the scenario; the data documentation does not establish it."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-next"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Next: the available variables, column by column, on the same timeline."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-p"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "What your answer will change"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-pathblock",
+        "sc-pathblock"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The path"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-ledger",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-ledger"
+      ],
+      "values": {
+        "data-anchor": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id",
+        "data-ledger-line"
+      ],
+      "values": {},
+      "text": "final test 0/1 opening · 1 look at the target, one of them the preview"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Ledger: "
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-path"
+      ],
+      "data": [
+        "data-step-card-path"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Frame the change"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:discover_data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1 · Data"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "398 rows read: 318 to develop, 80 sealed for the final test."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:prediction_time"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-c"
+      ],
+      "data": [],
+      "values": {},
+      "text": "●"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "current: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2 · Prediction moment"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": "in progress, see Now"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-b"
+      ],
+      "data": [],
+      "values": {},
+      "text": "waits for you"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:feature_availability"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3 · Available variables"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:split"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4 · Split"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:error_metric"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "5 · Error measure"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:success_criterion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "6 · Success criterion"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Prepare evidence"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:structural_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "7 · Quality check"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:preprocessing"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "8 · Preparation"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:train_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "9 · Exploration"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Work and compare"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:models"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "10 · Models"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_variant"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "11 · Variants"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_choice"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "12 · Model choice"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Conclude and hand over"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:final_test"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "13 · Final test"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:conclusion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "14 · Conclusion"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-tools"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "tools"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Tools"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "The data"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:notions"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "My notions"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:deliverables"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Deliverables"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-how-panel",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:how"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How this panel works"
+    },
+    {
+      "tag": "footer",
+      "classes": [
+        "ht-footer"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The panel reads the study through the hypotrail command line. Decisions are made in the chat; the chat, the report and the notebook stay complete without it."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-live"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    }
+  ],
+  "review": [
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "header",
+      "classes": [
+        "ht-top"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "header"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h1",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Hypotrail study"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-headrow"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-studyname"
+      ],
+      "data": [
+        "data-study-name"
+      ],
+      "values": {},
+      "text": "study-mpg"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-btns"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-theme-control"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "ht-fill-none",
+        "ht-stroke-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "ht-fill-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-more",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "⋯"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-pills"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-pill",
+        "ht-pill-seal",
+        "ht-pill-sealed"
+      ],
+      "data": [
+        "data-pill",
+        "data-seal"
+      ],
+      "values": {},
+      "text": "🔒 Final test sealed"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-pill",
+        "ht-pill-def",
+        "ht-pill-def-pending"
+      ],
+      "data": [
+        "data-defensibility",
+        "data-focus-id",
+        "data-pill",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "Defensible at the end · 4 points"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-prog"
+      ],
+      "data": [
+        "data-block",
+        "data-progress"
+      ],
+      "values": {
+        "data-block": "progress"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-bar"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-current"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-plbl"
+      ],
+      "data": [],
+      "values": {},
+      "text": " · Frame the change"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Step 3/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Step 3 of 14, phase Frame the change."
+    },
+    {
+      "tag": "main",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-since",
+        "ht-p"
+      ],
+      "data": [
+        "data-block",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-block": "since"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Since your last visit"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-count"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3 changes"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-now",
+        "sc-now"
+      ],
+      "data": [
+        "data-anchor",
+        "data-block",
+        "data-now",
+        "data-now-step",
+        "data-step-card"
+      ],
+      "values": {
+        "data-anchor": "now",
+        "data-block": "now"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [
+        "sc-nowh"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Now · Step 3/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-full"
+      ],
+      "data": [
+        "data-step-name"
+      ],
+      "values": {},
+      "text": "Available variables"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "picture"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The step in one picture"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-idea"
+      ],
+      "data": [
+        "data-picture"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg",
+        "sc-pic"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ok"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-ok"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-ok"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-ok"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-warn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✕"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-warn"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "—"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-none",
+        "sc-s-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "kept · excluded · neither"
+    },
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Three kinds of columns: those the model will read, those excluded, and those that are not variables."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-more"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Read more"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "establish"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What the step must establish"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-feeds"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "This answer prepares the Split and the Models, what each model may read."
+    },
+    {
+      "tag": "ol",
+      "classes": [
+        "sc-qs",
+        "sc-one"
+      ],
+      "data": [
+        "data-step-questions"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "variables.kept"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which variables are known at the moment, which are excluded, and why?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ask"
+      ],
+      "data": [
+        "data-chat-block"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-who"
+      ],
+      "data": [],
+      "values": {},
+      "text": "The chat waits for"
+    },
+    {
+      "tag": "h3",
+      "classes": [
+        "ht-question"
+      ],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": ""
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do you adopt this decision?"
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "ht-opts"
+      ],
+      "data": [
+        "data-options"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "ht-opts-lead"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Answers offered in the chat:"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Change something"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Explain first"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-acts"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-copywrap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-copy"
+      ],
+      "data": [
+        "data-copy-question",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Copy \"How do I know a variable is available at prediction time?\""
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "answer"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "To answer, look"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-frame"
+      ],
+      "data": [
+        "data-frame"
+      ],
+      "values": {
+        "data-frame": "none"
+      },
+      "text": " · "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "○ No data read"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Nothing measured · case metadata, no value"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which variables are known at the moment, which are excluded, and why?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-chart"
+      ],
+      "data": [
+        "data-chart"
+      ],
+      "values": {
+        "data-chart": "variables_board"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb"
+      ],
+      "data": [
+        "data-variables-board"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-g"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-gn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Outcome"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-cs"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-not_feature"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "— mpg"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "not a variable : the target, measured after the moment"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-g"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-gn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Engine"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-cs"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-kept"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✓ cylinders"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "kept"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-kept"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✓ displacement"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "kept"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-kept"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✓ horsepower"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "kept"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-g"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-gn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Body and performance"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-cs"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-kept"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✓ weight"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "kept"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-excluded"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✕ acceleration"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "excluded : availability at the prediction moment not documented"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-g"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-gn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Model"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-vb-cs"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-not_feature"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "— model year"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "not a variable : orders the split, not a variable"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-kept"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "✓ origin"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "kept"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-vchip",
+        "sc-vchip-not_feature"
+      ],
+      "data": [
+        "data-column",
+        "data-state"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "— car name"
+    },
+    {
+      "tag": "small",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "not a variable : an identifier: a name does not carry over to another row"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-cap"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Each state has its sign and its word, not only a colour."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-cap",
+        "sc-cap-b"
+      ],
+      "data": [],
+      "values": {},
+      "text": "On the timeline (same moment, slider fixed)"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-tl"
+      ],
+      "data": [
+        "data-timeline"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg"
+      ],
+      "data": [
+        "data-timeline-svg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "defs",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "pattern",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-hatchbg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "scenario assumption, not a fact of the data"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-shade"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "known after"
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-ink",
+        "sc-s-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Engine"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "designed"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Body and"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "weight fixed"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Performance"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "tests"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "◎ Fuel use"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-cwarn"
+      ],
+      "data": [],
+      "values": {},
+      "text": "measured"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ cylinders"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ displacement"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ horsepower"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ origin"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-leaf"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓ weight"
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-acc",
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "proposed moment"
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-hatch",
+        "sc-s-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-acc"
+      ],
+      "data": [],
+      "values": {},
+      "text": "\"?\" lane · date not documented : acceleration"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-readx"
+      ],
+      "data": [
+        "data-reading"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r1"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we see"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Kept columns: ; excluded: ; not variables: ."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "5"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r2"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The models will read only the allowed columns. Excluding an uncertain column may cost a little accuracy; including it would rest the model on information perhaps absent at the moment."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r3"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we cannot conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The board does not say how much an excluded column would have helped, nor whether the kept ones are enough."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-src"
+      ],
+      "data": [
+        "data-cited-revision"
+      ],
+      "values": {},
+      "text": "made-up example: no number of the study"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How to read it"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Watch out"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "limit"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What it does not say · Next"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The availability comes from the scenario, not from a check of the data."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-next"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Next: the split, which sets rows aside before any look at their outcomes."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-p"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "What your answer will change"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-pathblock",
+        "sc-pathblock"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The path"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-ledger",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-ledger"
+      ],
+      "values": {
+        "data-anchor": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id",
+        "data-ledger-line"
+      ],
+      "values": {},
+      "text": "final test 0/1 opening · 1 look at the target, one of them the preview"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Ledger: "
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-path"
+      ],
+      "data": [
+        "data-step-card-path"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Frame the change"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:discover_data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1 · Data"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "398 rows read: 318 to develop, 80 sealed for the final test."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:prediction_time"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2 · Prediction moment"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "“When technical characteristics are fixed, before measuring fuel efficiency”."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-rv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-review"
+      ],
+      "data": [
+        "data-review"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-decided"
+      ],
+      "data": [
+        "data-decided",
+        "data-decided-by"
+      ],
+      "values": {},
+      "text": " "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Decided:"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-who2"
+      ],
+      "data": [],
+      "values": {},
+      "text": "your words"
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-recap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-rq"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "At which moment is the prediction made, and what is known then?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ra"
+      ],
+      "data": [
+        "data-answer"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "At the proposed moment, known columns: ; columns of the question-mark lane: . The target is measured only at the last milestone."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "5"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-show"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-show-chart"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "See the chart"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit",
+        "sc-rvlimit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The moment is a hypothesis of the scenario; the data documentation does not establish it."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "dc-step-history"
+      ],
+      "data": [
+        "data-step-history"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "table",
+      "classes": [
+        "dc-history",
+        "ht-cardable"
+      ],
+      "data": [
+        "data-history"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "caption",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Confirmations recorded in the study, newest first. The revision and the time are in the hover of each decision."
+    },
+    {
+      "tag": "thead",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "tr",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Decision"
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Your words"
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "How"
+    },
+    {
+      "tag": "tbody",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "tr",
+      "classes": [],
+      "data": [
+        "data-current",
+        "data-history-row",
+        "data-nav"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-label",
+        "data-when"
+      ],
+      "values": {},
+      "text": " "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-decision"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Define the prediction moment"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-history-value"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-value-words"
+      ],
+      "data": [
+        "data-value-raw"
+      ],
+      "values": {},
+      "text": "When technical characteristics are fixed, before measuring fuel efficiency"
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-label",
+        "data-words-cell"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-quoted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "“”"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-quoted"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-basis-cell",
+        "data-label"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-basis-cell"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-status",
+        "dc-basis",
+        "ht-st-ok"
+      ],
+      "data": [
+        "data-basis"
+      ],
+      "values": {},
+      "text": "endorsed"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "muted",
+        "dc-channel"
+      ],
+      "data": [
+        "data-channel"
+      ],
+      "values": {},
+      "text": " chosen as an option in the chat"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "muted"
+      ],
+      "data": [
+        "data-not-authenticated"
+      ],
+      "values": {},
+      "text": "Recorded words, not an authenticated signature."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-small-links"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "secondary"
+      ],
+      "data": [
+        "data-ask",
+        "data-ask-step",
+        "data-focus-id",
+        "data-stage"
+      ],
+      "values": {},
+      "text": "Ask the agent about this"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:feature_availability"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-c"
+      ],
+      "data": [],
+      "values": {},
+      "text": "●"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "current: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3 · Available variables"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": "in progress, see Now"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-b"
+      ],
+      "data": [],
+      "values": {},
+      "text": "waits for you"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:split"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4 · Split"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:error_metric"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "5 · Error measure"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:success_criterion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "6 · Success criterion"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Prepare evidence"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:structural_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "7 · Quality check"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:preprocessing"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "8 · Preparation"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:train_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "9 · Exploration"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Work and compare"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:models"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "10 · Models"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_variant"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "11 · Variants"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_choice"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "12 · Model choice"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Conclude and hand over"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:final_test"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "13 · Final test"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:conclusion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "14 · Conclusion"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-tools"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "tools"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Tools"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "The data"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:notions"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "My notions"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:deliverables"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Deliverables"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-how-panel",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:how"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How this panel works"
+    },
+    {
+      "tag": "footer",
+      "classes": [
+        "ht-footer"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The panel reads the study through the hypotrail command line. Decisions are made in the chat; the chat, the report and the notebook stay complete without it."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-live"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    }
+  ]
+}

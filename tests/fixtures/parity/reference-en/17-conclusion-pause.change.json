@@ -1,0 +1,162 @@
+{
+  "observation": {
+    "decision": "conclusion",
+    "selected": {
+      "id": "change",
+      "label": "Change something"
+    },
+    "prompt": "What do you want to change?",
+    "replay_note": "In the old tool, the agent proposed the decision again with your change (`hypotrail decide propose`) and asked the same closed question. This replay follows the recorded default path. Type your change to see the sequence or adopt the proposal.",
+    "repeated_question": "Do you adopt this decision?",
+    "confirmation_count": 0,
+    "revisionBefore": 70,
+    "revisionAfter": 70
+  },
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 70,
+    "position": {
+      "step_id": "conclusion",
+      "completed": 13,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_10",
+    "proposal_text": "You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty",
+      "why-consider-a-nonlinear-family"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "conclusion",
+    "decision": "conclusion",
+    "message": "What can be said, for which use, and with which limits? Keeping the baseline is a valid result.",
+    "audience": "junior",
+    "junior_message": "What can be said, for which use, and with which limits? Keeping the baseline is a valid result.",
+    "language": "en",
+    "recommended": null,
+    "question": "What do you conclude, for which use, and with which limits?",
+    "junior_digest": "Conclusion: what the study can say, for which use, and with which limits. Keeping the baseline is a valid result. Final figures come first, development figures next to them, labelled as such. The success criterion is met on the holdout (final test).",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Conclusion (14 of 14).",
+    "evidence": [
+      "final_test.evaluation",
+      "diag.final_test"
+    ],
+    "choice_options": [
+      {
+        "id": "adopt_model",
+        "value": {
+          "verdict": "adopt_model"
+        },
+        "label": "Adopt the chosen model"
+      },
+      {
+        "id": "keep_baseline",
+        "value": {
+          "verdict": "keep_baseline"
+        },
+        "label": "Keep the reference (predict the mean)"
+      },
+      {
+        "id": "inconclusive",
+        "value": {
+          "verdict": "inconclusive"
+        },
+        "label": "Do not conclude (inconclusive)"
+      }
+    ],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "choice",
+      "language": "en",
+      "revision": 69,
+      "position": {
+        "step_id": "conclusion",
+        "completed": 13,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": null,
+      "options": [
+        "adopt_model",
+        "keep_baseline",
+        "inconclusive"
+      ],
+      "option_labels": {
+        "adopt_model": "Adopt the chosen model",
+        "keep_baseline": "Keep the reference (predict the mean)",
+        "inconclusive": "Do not conclude (inconclusive)"
+      },
+      "question": "What do you conclude, for which use, and with which limits?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty",
+        "why-consider-a-nonlinear-family"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the options to choose from",
+        "line": null
+      },
+      "shown": {
+        "anchor": "now",
+        "label": "Now, the options to choose from",
+        "line": null
+      }
+    }
+  }
+}

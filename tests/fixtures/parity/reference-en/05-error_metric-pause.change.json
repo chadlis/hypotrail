@@ -1,0 +1,136 @@
+{
+  "observation": {
+    "decision": "error_metric",
+    "selected": {
+      "id": "change",
+      "label": "Change something"
+    },
+    "prompt": "What do you want to change?",
+    "replay_note": "In the old tool, the agent proposed the decision again with your change (`hypotrail decide propose`) and asked the same closed question. This replay follows the recorded default path. Type your change to see the sequence or adopt the proposal.",
+    "repeated_question": "Do you adopt this decision?",
+    "confirmation_count": 0,
+    "revisionBefore": 10,
+    "revisionAfter": 10
+  },
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 10,
+    "position": {
+      "step_id": "error_metric",
+      "completed": 4,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_4",
+    "proposal_text": "You measure the error with the mean absolute error (MAE), in mpg, the unit of the target.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You measure the error with the mean absolute error (MAE), in mpg, the unit of the target.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "error_metric",
+    "decision": "error_metric",
+    "message": "The error of one prediction is the gap between the observed value and the predicted one. The mean absolute error (MAE) averages these gaps; the root mean squared error (RMSE) averages their squares, then takes the root, so one big miss weighs much more. Which of the two measures the error of this study? It is chosen now, before any model is fitted.",
+    "default_value": {
+      "metric": "mae"
+    },
+    "audience": "junior",
+    "junior_message": "The error of one prediction is the gap between the observed value and the predicted one. The mean absolute error (MAE) averages these gaps; the root mean squared error (RMSE) averages their squares, then takes the root, so one big miss weighs much more. Which of the two measures the error of this study? It is chosen now, before any model is fitted.",
+    "language": "en",
+    "recommended": {
+      "value": {
+        "metric": "mae"
+      },
+      "why": "The MAE: every error weighs the same, and it reads in mpg. The RMSE is the alternative: one big miss weighs much more; choose it if one big miss costs much more than several small ones."
+    },
+    "question": "Which error measure do we keep: the mean absolute error (MAE)?",
+    "junior_digest": "Recommended: The MAE: every error weighs the same, and it reads in mpg. The RMSE is the alternative: one big miss weighs much more; choose it if one big miss costs much more than several small ones.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Error measure (5 of 14).",
+    "evidence": [],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 9,
+      "position": {
+        "step_id": "error_metric",
+        "completed": 4,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "Which error measure do we keep: the mean absolute error (MAE)?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the question waiting for you",
+        "line": null
+      },
+      "shown": null
+    }
+  }
+}

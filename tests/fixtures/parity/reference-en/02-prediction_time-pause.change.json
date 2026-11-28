@@ -1,0 +1,131 @@
+{
+  "observation": {
+    "decision": "prediction_time",
+    "selected": {
+      "id": "change",
+      "label": "Change something"
+    },
+    "prompt": "What do you want to change?",
+    "replay_note": "In the old tool, the agent proposed the decision again with your change (`hypotrail decide propose`) and asked the same closed question. This replay follows the recorded default path. Type your change to see the sequence or adopt the proposal.",
+    "repeated_question": "Do you adopt this decision?",
+    "confirmation_count": 0,
+    "revisionBefore": 2,
+    "revisionAfter": 2
+  },
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 2,
+    "position": {
+      "step_id": "prediction_time",
+      "completed": 1,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the prediction moment, the feature availability, the split, the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_1",
+    "proposal_text": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty"
+    ]
+  },
+  "before_proposal": {
+    "kind": "show_data_card",
+    "step": "discover_data",
+    "message": "Before proposing anything, show the junior the data card (hypotrail data): the row unit, the grouped columns with their meaning and availability, and the eight sample rows. It is informational: nothing to confirm. Then propose the prediction moment.",
+    "audience": "agent",
+    "junior_message": "First, look at the data with the assistant: what one row describes, the columns and what each one means, and eight rows drawn at random. Nothing is decided at this step.",
+    "language": "en",
+    "recommended": null,
+    "question": "The data card is shown. Shall we move on to the prediction moment?",
+    "junior_digest": "Step 0, discover the data. The development set is the rows the study may explore and use to choose: 318 rows. The holdout (final test), 80 rows, stays sealed and is opened once at the end. The target is mpg (mpg). The data card shows what one row describes, the columns grouped with their meaning, and eight development rows drawn at random, target included: a look at the target, counted in the exposure ledger. Nothing is decided at this step.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Data (1 of 14).",
+    "evidence": [],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 1,
+      "position": {
+        "step_id": "discover_data",
+        "completed": 0,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the prediction moment, the feature availability, the split, the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "The data card is shown. Shall we move on to the prediction moment?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the data card",
+        "line": null
+      },
+      "shown": {
+        "anchor": "now",
+        "label": "Now, the data card",
+        "line": null
+      }
+    }
+  }
+}

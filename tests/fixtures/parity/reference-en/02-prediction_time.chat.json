@@ -1,0 +1,83 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Prediction moment (2 of 14)."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose prediction_time … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the prediction moment: \"You predict when the technical characteristics are fixed, before fuel efficiency is measured.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Prediction moment",
+    "question": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You predict when the technical characteristics are fixed, before fuel efficiency is measured."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Prediction time**: The moment when the prediction is made and used. Only information known at that moment may enter the model."
+      },
+      {
+        "k": "eng",
+        "text": "In this case the decision is: Compare estimation methods without a real decision. The moment of prediction decides which variables are allowed."
+      },
+      {
+        "k": "eng",
+        "text": "You state the moment; the agent restates it and records your answer. No data are read."
+      },
+      {
+        "k": "eng",
+        "text": "Every later step is judged against this moment."
+      },
+      {
+        "k": "eng",
+        "text": "Changing it later makes the availability decision, the model choice, and the conclusion need confirmation again."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Prediction moment (prediction_time)",
+      "value": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.",
+      "proposal": "p_1",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  }
+]
