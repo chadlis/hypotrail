@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from hypotrail.core.journey import pause
+from hypotrail.core.cite import CitedValue, Unavailable
+from hypotrail.core.journey import enrich, pause
 
 
 REFERENCE = Path(__file__).parent / "fixtures/parity/reference-en"
@@ -209,3 +210,145 @@ def test_action_and_choice_questions_keep_their_cited_segments(kind, choices):
     result = pause(one_step(), REVISION, {"question": question, "choice_options": choices})
     assert result["kind"] == kind
     assert result["question"] == question
+
+
+def reference(name):
+    return json.loads((REFERENCE / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def words(segments):
+    return "".join(segment["text"] for segment in segments)
+
+
+def test_enriched_pause_matches_the_t01_split_capture_with_a_resolver():
+    adopted = reference("04-split-pause")["summary"]["next_action"]
+    change = reference("04-split-pause.change")
+    offered = change["before_proposal"]
+    chat = reference("04-split.chat")
+    explanation = [part["text"] for part in chat[2]["explain"] if part["k"] == "eng"]
+    # The old replay note exercises the field as test data. The new Track's note is not declared here.
+    note = change["observation"]["replay_note"]
+    why = offered["recommended"]["why"]
+    value = adopted["pause"]["proposal_text"]
+    proposal = chat[1]["parts"][1]["text"]
+    next_text = chat[3]["parts"][1]["text"]
+    panel_line = chat[3]["parts"][2]["text"]
+    limitations = adopted["pause"]["limitations"]
+    commands = [{"command": "explore", "arguments": ["--analysis=split"]}]
+    digest = chat[0]["parts"][1]["text"]
+    digest_template = digest.replace("318", "{{slot:data:dev|int}}").replace(
+        "5 folds", "{{slot:split:folds|int}} folds"
+    ).replace("80", "{{slot:data:sealed|int}}")
+    templates = {
+        "digest": [digest_template],
+        "recommended": {"value_id": "declared", "why": why.replace("5 folds", "{{slot:split:folds|int}} folds")},
+        "value": {"id": "declared", "words": value},
+        "proposal": proposal.replace(value, "{restatement}"),
+        "explain": explanation,
+        "change_note": note,
+        "then": {"text": next_text, "commands": commands},
+        "panel_line": panel_line,
+        "limitations": limitations,
+    }
+    numeric = {
+        ("slot", "data", "dev"): CitedValue(318, "development.rows", "test-data-card"),
+        ("slot", "data", "sealed"): CitedValue(80, "final_test.rows", "test-data-card"),
+        ("slot", "split", "folds"): CitedValue(5, "provenance.folds", "test-split"),
+    }
+    frame = pause(one_step(), REVISION, {"restatement": value})
+    result = enrich(frame, templates, lambda kind, key, path: numeric[kind, key, path], values={"restatement": value})
+    assert {key: result[key] for key in frame} == frame
+    assert "digest" not in frame
+    assert words(result["digest"]) == digest
+    assert [(s["record_id"], s["path"]) for s in result["digest"] if "record_id" in s] == [
+        ("test-data-card", "development.rows"), ("test-split", "provenance.folds"),
+        ("test-split", "provenance.folds"), ("test-data-card", "final_test.rows"),
+    ]
+    assert result["recommended"] == {
+        "value_id": "declared",
+        "why": [
+            {"text": why.partition("5 folds")[0]},
+            {"text": "5", "value": 5, "format": "int", "path": "provenance.folds", "record_id": "test-split"},
+            {"text": " folds."},
+        ],
+    }
+    assert result["value"] == {"id": "declared", "words": [{"text": value}]}
+    assert result["proposal"] == [{"text": proposal}]
+    assert words(result["explain"]) == "\n\n".join(explanation)
+    assert result["change_note"] == [{"text": note}]
+    assert result["then"] == {"text": [{"text": next_text}], "commands": commands}
+    assert result["panel_line"] == [{"text": panel_line}]
+    assert result["limitations"] == [
+        {"code": item["code"], "text": [{"text": item["text"]}]} for item in limitations
+    ]
+
+
+@pytest.mark.parametrize(
+    ("availability", "message"),
+    [(Unavailable.MISSING, "Not executed yet."), (Unavailable.STALE, "Stale, not cited.")],
+)
+def test_unavailable_slots_replace_the_individual_text(availability, message):
+    template = "You evaluate with this {{slot:split:folds|int}}-fold cross-validation."
+    templates = {
+        "digest": [template],
+        "recommended": {"value_id": "declared", "why": template},
+        "value": {"id": "declared", "words": template},
+        "proposal": template,
+        "explain": [template],
+        "change_note": template,
+        "then": {"text": template, "commands": []},
+        "panel_line": template,
+        "limitations": [{"code": "split", "text": template}],
+    }
+    result = enrich({}, templates, lambda *_: availability)
+    fallback = [{"text": message}]
+    assert result == {
+        "digest": fallback,
+        "recommended": {"value_id": "declared", "why": fallback},
+        "value": {"id": "declared", "words": fallback},
+        "proposal": fallback,
+        "explain": fallback,
+        "change_note": fallback,
+        "then": {"text": fallback, "commands": []},
+        "panel_line": fallback,
+        "limitations": [{"code": "split", "text": fallback}],
+    }
+
+
+@pytest.mark.parametrize("fold_count", ["5", "\u0665", "five", "½"])
+def test_numeric_workload_facts_keep_plain_segments_without_a_record_citation(fold_count):
+    template = "{{fact:folds|unknown}} folds belong to the Workload."
+    result = enrich({}, {"proposal": template}, lambda *_: pytest.fail("Workload facts use no record resolver."),
+                    facts={"folds": fold_count})
+    assert result["proposal"] == [{"text": f"{fold_count} folds belong to the Workload."}]
+
+
+def test_literal_number_words_keep_plain_segments_without_a_record_citation():
+    template = "You evaluate with a five-fold cross-validation."
+    result = enrich({}, {"proposal": template}, lambda *_: pytest.fail("Literal text uses no record resolver."))
+    assert result["proposal"] == [{"text": template}]
+
+
+def test_digest_drops_whole_trailing_parts_as_in_the_legacy_capture():
+    expected = reference("12-model_variant-pause.change")["before_proposal"]["junior_digest"]
+    assert len(expected.split()) == 200
+    result = enrich({}, {"digest": ["", expected, "A trailing part."]}, lambda *_: Unavailable.MISSING)
+    assert words(result["digest"]) == expected
+
+
+def test_single_long_digest_is_clipped_without_losing_the_remaining_citation():
+    templates = {"digest": ["  Here\n {{slot:split:folds|int}} folds. " + " development\t" * 197 +
+                            " {{slot:data:dev|int}} rows."]}
+    numeric = {"split": CitedValue(5, "folds", "test-split"), "data": CitedValue(318, "rows", "test-data")}
+    result = enrich({}, templates, lambda _, key, __: numeric[key])
+    assert words(result["digest"]) == "Here 5 folds." + " development" * 197
+    assert [segment for segment in result["digest"] if "record_id" in segment] == [
+        {"text": "5", "value": 5, "path": "folds", "record_id": "test-split", "format": "int"},
+    ]
+
+
+def test_absent_templates_still_provide_the_enrichment_keys():
+    assert enrich({}, {}, lambda *_: Unavailable.MISSING) == {
+        "digest": [], "recommended": None, "value": None, "proposal": None, "explain": [],
+        "change_note": None, "then": None, "panel_line": None, "limitations": [],
+    }
