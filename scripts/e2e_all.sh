@@ -158,16 +158,27 @@ import sys
 
 status = int(sys.argv[1])
 reply = json.load(sys.stdin)
-if status == 0 and reply["ok"] is True:
-    details = reply
-elif status == 7 and reply["code"] == "GATE_BLOCKED":
-    details = reply["details"]
-else:
+if not isinstance(reply, dict) or type(reply.get("exit")) is not int or reply["exit"] != status:
     raise SystemExit(1)
-if {"run", "export"} <= set(details["open"]):
+if not (
+    (status == 0 and reply.get("ok") is True and reply.get("code") == "OK")
+    or (status == 7 and reply.get("ok") is False and reply.get("code") == "GATE_BLOCKED")
+):
+    raise SystemExit(1)
+details = reply.get("details")
+if not isinstance(details, dict) or "phase" not in details:
+    raise SystemExit(1)
+opened, phase = details.get("open"), details["phase"]
+if not isinstance(opened, list) or not all(isinstance(command, str) for command in opened):
+    raise SystemExit(1)
+if status == 0 and phase is not None:
+    raise SystemExit(1)
+if status == 7 and not (isinstance(phase, str) and re.fullmatch(r"[a-z_]+", phase)):
+    raise SystemExit(1)
+if {"run", "export"} <= set(opened):
     print("open")
-elif status == 7 and re.fullmatch(r"[a-z_]+", details["phase"]):
-    print("blocked:" + details["phase"])
+elif status == 7:
+    print("blocked:" + phase)
 else:
     raise SystemExit(1)
 ' "$status" <<<"$state"
