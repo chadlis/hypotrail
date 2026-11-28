@@ -329,7 +329,7 @@ step "C8 client panel and chat tool refusals" \
 step "C9 MLkit synthetic protected evaluator, proxy verdict, aggregate output and exits 8 and 9" \
     actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
         MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail uv run --locked --no-sync pytest -q \
-        tests/e2e/test_held_out_rehearsal.py || true
+        tests/e2e/test_held_out_rehearsal.py tests/test_evaluator_adjudication.py || true
 
 printf 'SUMMARY %d passed, %d failed, %d skipped\n' "$passed" "$failures" "$skipped"
 printf 'ARTIFACTS %s\n' "$scratch"
