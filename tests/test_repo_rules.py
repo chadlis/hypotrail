@@ -129,8 +129,10 @@ def test_the_attempt_definition_is_unchanged_and_a_dated_line_says_what_is_not_a
     assert lines[at + 1] == "One execution or one import of exactly one Configuration on one population, with an identity that is never derived from its inputs."
     clarification = lines[at + 2]
     assert clarification.startswith("Clarification, 2026-11-20: ")
-    assert lines[at + 3] == "_In ML_: a run."
-    assert lines[at + 4] == "_Avoid_: run, job, execution record"
+    avoid = lines[at + 4]
+    assert avoid == "_Avoid_: run, job, execution record"
+    term = avoid.removeprefix("_Avoid_: ").split(", ", 1)[0]
+    assert lines[at + 3] == f"_In ML_: a {term}."
     assert "recorded in a Study" in clarification and "manifest" in clarification and "Observation set" in clarification
     assert "`spike live`" in clarification and "`fixture.run_fixture`" in clarification  # the executions that are not Attempts
     assert "run agent --mode llm_live" in clarification  # the command that records the live path as an Attempt
