@@ -973,7 +973,7 @@ def _lesson(args) -> int:
         return _lesson_check(args)
     if args.kept is not None:
         args.lesson_parser.error("--kept applies only to lesson check")
-    from hypotrail.core import state
+    from hypotrail.core import evaluator, state
     from hypotrail.core import study as layout
     from hypotrail.lessons import discover, pack_read, station_marks
 
@@ -987,7 +987,9 @@ def _lesson(args) -> int:
         )
         return EXIT_OK
 
-    domain = layout.read_spec(args.study)["domain"]
+    spec = layout.read_spec(args.study)
+    evaluator.refuse_protected(spec, stage="lesson")
+    domain = spec["domain"]
     track = _lesson_track(domain)
     if track is None:
         raise InvalidInputError(

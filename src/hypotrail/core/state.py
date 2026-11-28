@@ -33,7 +33,7 @@ provider (`llm_live`) is recorded with `outcome_unknown: true`, whatever it held
 
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, exposure, lock, next_step, revisions, study_write, write_journal
+from hypotrail.core import artifacts, canonical, contracts, decisions, deviations, evaluator, exposure, lock, next_step, revisions, study_write, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now, observation_set_id, observation_set_partition
 from hypotrail.core.errors import InvalidInputError
@@ -113,6 +113,7 @@ def status(study, since: int | None = None) -> dict:
     write-journal entries after it, as `writes_since`."""
     study = Path(study)
     spec = layout.read_spec(study)
+    evaluator.refuse_protected(spec, stage="status")
     journal = None if since is None else write_journal.since(study, since)
     writer_alive = lock.is_held(study)  # probed before the state is read
     attempts = []

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import contract from "../contract.json";
 import { kept, KEPT } from "./kept";
-import { lesson, recorder } from "./recorder";
+import { exit, lesson, recorder, withEvaluatorEnvironment } from "./recorder";
 import { CHECKOUT, FIRST, invoke, jsonOfSecondLine, keptAnswer, NO_ANSWERS, READ_TOOL, workspace, WRITE_INPUT, WRITE_TOOL } from "./tools-harness";
 
 const STATUS_READS = fs
@@ -38,6 +38,20 @@ test("the read tool gives a refusal of the CLI with its error object as printed 
   assert.equal(calls.length, 1);
   assert.deepEqual(jsonOfSecondLine(text), JSON.parse(kept("status-not-found.out")).error);
   assert.ok(text.split("\n")[0].includes(`exit code ${Number(kept("status-not-found.exit"))}`), text);
+});
+
+test("the read tool relays the protected ranking refusal and starts no lesson read", async (t) => {
+  withEvaluatorEnvironment(t);
+  workspace(t, ["ranking"]);
+  const error = { code: "RANKING_HELD_OUT_REFUSED", message: "This Study uses the protected ranking Partition." };
+  const calls = recorder(t, exit(2, JSON.stringify({ ok: false, error })));
+  assert.deepEqual(jsonOfSecondLine(await invoke(READ_TOOL, {})), error);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].args.includes("status"));
+  const environment = calls[0].options.env as NodeJS.ProcessEnv;
+  assert.equal(environment?.PATH, process.env.PATH);
+  assert.equal(environment?.GITHUB_ACTIONS, undefined);
+  assert.equal(environment?.GITHUB_WORKFLOW_REF, undefined);
 });
 
 for (const [cause, answer] of NO_ANSWERS) {

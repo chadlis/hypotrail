@@ -14,6 +14,21 @@ export type Answer = { error?: Record<string, unknown> | null; stdout?: string; 
 
 export type RecordedCall = { program: string; args: string[]; options: Record<string, unknown> };
 
+export function withEvaluatorEnvironment(t: TestContext): void {
+  const keys = {
+    GITHUB_ACTIONS: "true",
+    GITHUB_WORKFLOW_REF: "chadlis/mlkit/.github/workflows/evaluator.yml@refs/heads/main",
+  };
+  for (const [key, value] of Object.entries(keys)) {
+    const previous = process.env[key];
+    process.env[key] = value;
+    t.after(() => {
+      if (previous === undefined) delete process.env[key];
+      else process.env[key] = previous;
+    });
+  }
+}
+
 // An answer of a process that ended with `code`, as `execFile` gives it: a non-zero exit is an error whose `code` is the exit code.
 export function exit(code: number, stdout = "", stderr = ""): Answer {
   return { error: code === 0 ? null : { code, killed: false, signal: null }, stdout, stderr };

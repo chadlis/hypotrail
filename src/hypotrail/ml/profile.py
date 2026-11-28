@@ -27,7 +27,7 @@ from scipy.spatial.distance import squareform
 from scipy.stats import rankdata, spearmanr
 from scipy.stats.contingency import crosstab
 
-from hypotrail.core import artifacts, data, write_journal
+from hypotrail.core import artifacts, data, evaluator, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.figures import figures_of
 from hypotrail.ml.declaration import load_declaration, require_keys
@@ -239,6 +239,7 @@ def profile(study, examples_dir=None) -> dict:
     """The data profile of the Study's `train` Items; refuses a Study of another domain and a Workload column the data lacks."""
     study = Path(study)
     spec = layout.read_spec(study)
+    evaluator.refuse_protected(spec, stage=COMMAND)
     layout.require_domain(spec, DOMAIN, COMMAND)
     source = data.resolve_examples_dir(examples_dir) / spec["workload"]
     declaration = load_declaration(source)
