@@ -96,14 +96,18 @@ python_suite() {
         -n 8 --dist loadfile -q -p no:cacheprovider -rE
 }
 
-client_suite() {
-    local chrome="${HYPOTRAIL_CHROME:-/usr/bin/google-chrome}"
-    [[ -x "$chrome" ]] || return 1
-    at "$product/clients/vscode" timeout 5m npm test 2>&1 | awk '
+actual_node_passes() {
+    "$@" 2>&1 | awk '
         /^(#|ℹ)[[:space:]]+pass[[:space:]]+[1-9][0-9]*[[:space:]]*$/ { passed=1 }
         /^(#|ℹ)[[:space:]]+skip(ped)?[[:space:]]+0[[:space:]]*$/ { no_skips=1 }
         END { exit !(passed && no_skips) }
     '
+}
+
+client_suite() {
+    local chrome="${HYPOTRAIL_CHROME:-/usr/bin/google-chrome}"
+    [[ -x "$chrome" ]] || return 1
+    actual_node_passes at "$product/clients/vscode" timeout 5m npm test
 }
 
 if step "C1 install and compile Hypotrail" product_setup; then
@@ -124,10 +128,19 @@ step "C2 MLkit CI suite" kit_suite "$mlkit" || true
 step "C2 Agentkit CI suite" kit_suite "$agentkit" || true
 report_pin agentkit
 
+mlkit_evaluator_setup() {
+    [[ ${ready[mlkit-pin]:-0} == 1 ]] || return 1
+    at "$mlkit" uv pip install ./hypotrail || return 1
+    local image
+    image=$(at "$mlkit" uv run --locked --no-sync python -m mlkit.evaluator_sandbox .) || return 1
+    [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+    printf '%s\n' "$image" > "$scratch/mlkit-worker-image"
+}
+
 # Test on the workflow's cache-hit path. The file must already exist before
 # mlkit fetch is called, so that command only checks the workbook digest.
 mlkit_prepare() {
-    [[ ${ready[mlkit-pin]:-0} == 1 ]] || return 1
+    [[ ${ready[mlkit-evaluator]:-0} == 1 ]] || return 1
     local member
     member=$(python3 - "$mlkit/data.lock.json" <<'PY'
 import json
@@ -144,8 +157,7 @@ PY
     ) || return 1
     mkdir -p "$mlkit/data" || return 1
     cp -- "$twin" "$mlkit/data/$member" || return 1
-    at "$mlkit" uv run --locked mlkit fetch || return 1
-    at "$mlkit" uv pip install ./hypotrail
+    at "$mlkit" uv run --locked --no-sync mlkit fetch
 }
 
 mlkit_gate_state() {
@@ -158,16 +170,27 @@ import sys
 
 status = int(sys.argv[1])
 reply = json.load(sys.stdin)
-if status == 0 and reply["ok"] is True:
-    details = reply
-elif status == 7 and reply["code"] == "GATE_BLOCKED":
-    details = reply["details"]
-else:
+if not isinstance(reply, dict) or type(reply.get("exit")) is not int or reply["exit"] != status:
     raise SystemExit(1)
-if {"run", "export"} <= set(details["open"]):
+if not (
+    (status == 0 and reply.get("ok") is True and reply.get("code") == "OK")
+    or (status == 7 and reply.get("ok") is False and reply.get("code") == "GATE_BLOCKED")
+):
+    raise SystemExit(1)
+details = reply.get("details")
+if not isinstance(details, dict) or "phase" not in details:
+    raise SystemExit(1)
+opened, phase = details.get("open"), details["phase"]
+if not isinstance(opened, list) or not all(isinstance(command, str) for command in opened):
+    raise SystemExit(1)
+if status == 0 and phase is not None:
+    raise SystemExit(1)
+if status == 7 and not (isinstance(phase, str) and re.fullmatch(r"[a-z_]+", phase)):
+    raise SystemExit(1)
+if {"run", "export"} <= set(opened):
     print("open")
-elif status == 7 and re.fullmatch(r"[a-z_]+", details["phase"]):
-    print("blocked:" + details["phase"])
+elif status == 7:
+    print("blocked:" + phase)
 else:
     raise SystemExit(1)
 ' "$status" <<<"$state"
@@ -176,6 +199,7 @@ else:
 mlkit_e2e() {
     local gate=$1
     at "$mlkit" env MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail \
+        MLKIT_EVALUATOR_WORKER_IMAGE="$mlkit_worker_image" \
         uv run --locked --no-sync pytest -q tests/e2e -rsxX 2>&1 | python3 -c '
 import re
 import sys
@@ -218,6 +242,11 @@ check_packs() {
     done
 }
 
+mlkit_worker_image=
+if step "C2 prepare pinned MLkit and the isolated evaluator worker" mlkit_evaluator_setup; then
+    mlkit_worker_image=$(<"$scratch/mlkit-worker-image")
+    ready[mlkit-evaluator]=1
+fi
 if [[ ! -f "$twin" || ! -r "$twin" ]]; then
     fail "C2 MLkit pinned workflow: readable public twin cache required"
 elif step "C2 prepare the pinned MLkit workflow on the public twin" mlkit_prepare; then
@@ -279,7 +308,7 @@ step "C6 Guide pack read and declared held-out boundary" journey test_guide_pack
 skip "C6 actual Guide reply at the held-out station: owner D-235/G6 model gate"
 
 # Pytest exits zero for a suite of skipped or expected-failing tests. Require
-# actual passes for the explicit C7 round trips. Only the aggregate terminal
+# actual passes for the proof's focused tests. Only the aggregate terminal
 # summary is inspected and no captured test output is copied to the report.
 actual_passes() {
     "$@" 2>&1 | awk '
@@ -303,6 +332,19 @@ else
 fi
 step "C7 Agentkit dev loop, Hypotrail import and Assessment, synthetic evaluator and aggregate boundary" \
     actual_passes agentkit_e2e -q tests/e2e/test_dev_end_to_end.py tests/e2e/test_evaluate.py tests/e2e/test_conduct.py || true
+step "C8 Hypotrail protected ranking guard, lesson and ordinary CLI refusals" \
+    actual_passes at "$product" uv run --frozen python -m pytest -q -p no:cacheprovider \
+        tests/test_ranking_evaluator.py tests/test_ranking_read_surfaces.py || true
+step "C8 client panel and chat tool refusals" \
+    actual_node_passes at "$product/clients/vscode" node --require ./out/test/vscode-stub-hook.js \
+        --test-name-pattern='protected ranking refusal|request for the held_out Partition|without forwarding the evaluator' \
+        -e 'for (const file of process.argv.slice(1)) require(file)' \
+        ./out/test/panel-read.test.js ./out/test/tools-read.test.js ./out/test/tools-run.test.js || true
+step "C9 MLkit synthetic protected evaluator, proxy verdict, aggregate output and exits 8 and 9" \
+    actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
+        MLKIT_EVALUATOR_WORKER_IMAGE="$mlkit_worker_image" \
+        MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail uv run --locked --no-sync pytest -q \
+        tests/e2e/test_held_out_rehearsal.py tests/test_evaluator_adjudication.py || true
 
 printf 'SUMMARY %d passed, %d failed, %d skipped\n' "$passed" "$failures" "$skipped"
 printf 'ARTIFACTS %s\n' "$scratch"
