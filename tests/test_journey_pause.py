@@ -312,6 +312,14 @@ def test_unavailable_slots_replace_the_individual_text(availability, message):
     }
 
 
+@pytest.mark.parametrize("fold_count", ["5", "\u0665"])
+def test_numeric_workload_facts_keep_plain_segments_without_a_record_citation(fold_count):
+    template = "{{fact:folds|unknown}} folds belong to the Workload."
+    result = enrich({}, {"proposal": template}, lambda *_: pytest.fail("Workload facts use no record resolver."),
+                    facts={"folds": fold_count})
+    assert result["proposal"] == [{"text": f"{fold_count} folds belong to the Workload."}]
+
+
 def test_digest_drops_whole_trailing_parts_as_in_the_legacy_capture():
     expected = reference("12-model_variant-pause.change")["before_proposal"]["junior_digest"]
     assert len(expected.split()) == 200

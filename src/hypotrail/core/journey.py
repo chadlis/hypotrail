@@ -296,7 +296,10 @@ def enrich(
         if template is None:
             return None
         filled = segments(template)
-        return filled if any("record_id" in segment for segment in filled) else _visible(filled)
+        visible = _visible(filled)
+        if re.search(r"\d", visible) or any("record_id" in segment for segment in filled):
+            return filled
+        return visible
 
     recommended = templates.get("recommended")
     value = templates.get("value")
