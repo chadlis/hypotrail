@@ -8,7 +8,7 @@ from collections import defaultdict
 from decimal import Decimal
 from fractions import Fraction
 
-from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, rescoring, revisions, study_write
+from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import IntegrityError, InvalidInputError
@@ -103,7 +103,7 @@ def assess_locked(study, write, spec, observation_set_id, scorer, references_id)
         "direction": "higher_is_better",
         "denominator": len(recalls),
         "status": "unscored" if value is None else "scored",
-        "reason": "no_dates_with_positives" if value is None else None,
+        "reason": scorers.RANKING_NO_POSITIVES if value is None else None,
     }
     assess_id = str(uuid.uuid4())
     folder = f"{layout.ASSESSMENTS_DIR}/{assess_id}"

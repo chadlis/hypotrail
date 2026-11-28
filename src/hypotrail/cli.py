@@ -72,7 +72,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = _ArgumentParser(
         prog="hypotrail",
-        allow_abbrev=False,
         description="Small, explicit studies of predictive and agentic systems.",
     )
     parser.add_argument("--evaluator", action="store_true", help="declare an eligible CLI command of the protected ranking evaluator job")
@@ -1171,7 +1170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_OK
     try:
         if args.evaluator:
-            if handler not in (_init, _import_ml, _assess, _compare, _report_command, _decide):
+            if arguments[0] != "--evaluator" or handler not in (_init, _import_ml, _assess, _compare, _report_command, _decide):
                 raise evaluator.refusal("config")
             with evaluator.entry_point():
                 return handler(args)

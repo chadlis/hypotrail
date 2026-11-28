@@ -289,10 +289,6 @@ def live_basis(examples_dir: Path | None = None):
     return basis
 
 
-def _exists(study: Path) -> InvalidInputError:
-    return InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
-
-
 def _write_spec(study: Path, workload_name: str, workload: Workload, previous: dict | None, write) -> dict:
     """Publish the Protocol artifacts and the StudySpec of the first revision, or of the one after `previous`.
 
@@ -392,7 +388,7 @@ def init_study(workload_name: str, study: Path, examples_dir: Path | None = None
     examples = data.resolve_examples_dir(examples_dir)
     if (study / STUDY_FILE).exists():
         with study_write.locked(study, study_write.INIT):  # a Study that has a writer answers with the lock first
-            raise _exists(study)
+            layout.refuse_existing(study)
     # Nothing is created before the bytes match the lock (T01 at this entry point).
     data.verify_workloads(examples, [workload_name])
     workload = load_workload(examples / workload_name)
@@ -404,7 +400,7 @@ def init_study(workload_name: str, study: Path, examples_dir: Path | None = None
     study.mkdir(parents=True, exist_ok=True)
     with study_write.locked(study, study_write.INIT) as write:
         if (study / STUDY_FILE).exists():
-            raise _exists(study)
+            layout.refuse_existing(study)
         return _write_spec(study, workload_name, workload, None, write)
 
 

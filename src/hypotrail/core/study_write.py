@@ -11,7 +11,7 @@ it calls `begin()` just before its first write (`exposure.record`, which `assess
 import contextlib
 from pathlib import Path
 
-from hypotrail.core import decisions, deviations, lock, requests, write_journal  # `decisions` and `deviations` import this module too: each uses the other only when called
+from hypotrail.core import decisions, deviations, evaluator, lock, requests, write_journal  # `decisions` and `deviations` import this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -70,9 +70,11 @@ class Write:
         """Append the `begin` entry, once: call it just before the command's first write."""
         self._journal.begin()
 
-    def require_current(self) -> None:
-        """Refuse a write made on a write sequence that is not the Study's: the writer has no replay to run first."""
+    def require_current(self, *, ordinary_stage: str | None = None) -> None:
+        """Check the write sequence, then optionally require an ordinary Study before accessing records."""
         write_journal.require_current(self.study, self.read_sequence)
+        if ordinary_stage is not None:
+            evaluator.refuse_protected(layout.read_spec(self.study), stage=ordinary_stage)
 
     def attempt(self, attempt_id: str) -> None:
         """Name the Attempt the command writes: its `end` entry names the Attempt and, once it exists, its Observation set."""

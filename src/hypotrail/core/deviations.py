@@ -31,7 +31,7 @@ when the Study is read and never stored.
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, decisions, requests, revisions, study_write, write_journal
+from hypotrail.core import artifacts, contracts, decisions, evaluator, requests, revisions, study_write, write_journal
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -92,11 +92,12 @@ def _record_locked(study: Path, write, wanted: dict, request_id: str, read_seque
         if differs:
             raise requests.conflict_between_declared_deviations(request_id, recorded["declared_deviation_id"], differs)
 
+    spec = layout.read_spec(study)
+    evaluator.refuse_protected(spec, stage=STAGE)
     recorded = write.replay_deviation(check_recorded)
     if recorded is not None:
         return recorded, True
     _check_cited(study, wanted["cited_ids"])
-    spec = layout.read_spec(study)  # read under the lock, after the stale check
     declared_deviation_id = str(uuid.uuid4())
     written = {
         "kind": "declared_deviation",

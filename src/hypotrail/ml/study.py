@@ -118,12 +118,6 @@ def live_basis(examples_dir: Path | None = None):
     return basis
 
 
-def _exists(study: Path) -> InvalidInputError:
-    return InvalidInputError(
-        "STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)}
-    )
-
-
 def _derived_bytes(source: Path) -> tuple:
     """The population and the References set the Track's own writers derive from the Workload, as bytes."""
     with tempfile.TemporaryDirectory() as scratch:
@@ -208,7 +202,7 @@ def init_study(
         raise evaluator.refusal("study")
     if (study / STUDY_FILE).exists():
         with study_write.locked(study, study_write.INIT):  # a Study that has a writer answers with the lock first
-            raise _exists(study)
+            layout.refuse_existing(study)
     # An ordinary Study verifies inputs before creating its directory. A protected Study verifies its
     # private population under the lock it takes before opening any build payload.
     source = examples / workload
@@ -236,7 +230,7 @@ def init_study(
     study.mkdir(mode=0o700 if protected else 0o777, parents=True, exist_ok=True)
     with study_write.locked(study, study_write.INIT) as write:
         if (study / STUDY_FILE).exists():
-            raise _exists(study)
+            layout.refuse_existing(study)
         if protected:
             frozen = ranking_study.freeze(examples, workload, build_dir, partition=partition)
         if frozen is not None:

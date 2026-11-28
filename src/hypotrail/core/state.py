@@ -187,7 +187,7 @@ def recover(study, attempt_id: str, *, read_sequence: int | None = None) -> dict
     study_write.check_read_sequence(study_write.RECOVER, read_sequence)
     layout.read_spec(study)
     with study_write.locked(study, study_write.RECOVER, read_sequence=read_sequence) as write:
-        write.require_current()
+        write.require_current(ordinary_stage="attempt")
         if attempt_id not in layout.attempt_ids(study):
             raise InvalidInputError(
                 "ATTEMPT_NOT_FOUND",

@@ -38,7 +38,7 @@ import json
 from pathlib import Path
 
 from hypotrail.core import artifacts, canonical, contracts, evaluator
-from hypotrail.core.errors import InvalidInputError
+from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 STUDY_FILE = "study.json"
 ARTIFACTS_DIR = "artifacts"
@@ -130,6 +130,18 @@ def read_spec(study) -> dict:
     spec = canonical.loads(path.read_bytes())
     contracts.validate(spec)
     return spec
+
+
+def refuse_existing(study) -> None:
+    """Refuse creation in an existing Study under the caller's writer lock."""
+    try:
+        spec = read_spec(study)
+    except (OSError, HypotrailError):
+        # An unreadable StudySpec still prevents creation at this location.
+        pass
+    else:
+        evaluator.refuse_protected(spec, stage="study")
+    raise InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
 
 
 def record_names(study, folder: str) -> list:

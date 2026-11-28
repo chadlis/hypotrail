@@ -220,3 +220,122 @@ def test_comparison_binds_both_sides_before_opening_either_protected_payload(syn
     code, payload, err = command("--evaluator", "compare", "--study", study, "--control", assessments[0], "--candidate", assessments[1])
     assert (code, payload["error"]["code"]) == (2, REFUSAL)
     _safe(json.dumps(payload) + err)
+
+
+@pytest.mark.parametrize("operation", ["init", "init_agent", "recover", "deviation", "assess_agent"])
+def test_other_writers_refuse_protected_studies_before_accessing_records(synthetic, made, monkeypatch, operation):
+    from hypotrail.core import evaluator, write_journal
+    from hypotrail.core import study as layout
+
+    examples, build, study = synthetic
+    imported = _evaluate(*_import(synthetic, "control"))
+    attempt_id, = layout.attempt_ids(study)
+    sequence = write_journal.write_sequence(study)
+    agent = examples / "agent-fixture"
+    agent.mkdir()
+    (agent / "workload.json").write_text('{"track":"tool_using_agent"}', encoding="utf-8")
+    args = {
+        "init": ("init", "--study", study, "--examples-dir", examples, "--workload", WORKLOAD, "--build-dir", build),
+        "init_agent": ("init", "--study", study, "--examples-dir", examples, "--workload", agent.name),
+        "recover": ("recover", "--study", study, "--attempt", attempt_id, "--read-sequence", sequence),
+        "deviation": (
+            "deviation", "--study", study, "--text", "A synthetic deviation", "--author", "proxy",
+            "--artifact", attempt_id, "--request-id", "deviation", "--read-sequence", sequence,
+        ),
+        "assess_agent": (
+            "assess", "--study", study, "--observations", imported["observation_set_id"],
+            "--references", made["references_id"], "--scorer", "text_facts_v1",
+        ),
+    }
+
+    def unread(*_):
+        pytest.fail("Writer opened a protected record before refusing the Study")
+
+    refuse_protected = evaluator.refuse_protected
+
+    def refusal_under_lock(spec, *, stage):
+        assert lock.is_held(study), "Writer refused the protected Study outside the writer lock"
+        refuse_protected(spec, stage=stage)
+
+    monkeypatch.setattr(evaluator, "refuse_protected", refusal_under_lock)
+    monkeypatch.setattr(layout, "read_manifest", unread)
+    monkeypatch.setattr(layout, "find_observation_set", unread)
+    monkeypatch.setattr(artifacts, "read_verified", unread)
+    code, payload, err = command(*args[operation])
+    assert (code, payload["error"]["code"]) == (2, REFUSAL)
+    assert write_journal.write_sequence(study) == sequence
+    _safe(json.dumps(payload) + err)
+
+
+def test_evaluator_requires_exact_prefix_and_keeps_ordinary_global_help(synthetic, evaluator_job, capsys):
+    from hypotrail import cli
+
+    with pytest.raises(SystemExit) as help_exit:
+        cli.main(["--he"])
+    assert help_exit.value.code == 0
+    assert "usage: hypotrail" in capsys.readouterr().out
+    code, payload, err = command("--eval", *_init(synthetic))
+    assert (code, payload["error"]["code"]) == (2, REFUSAL)
+    _safe(json.dumps(payload) + err)
+    assert not synthetic[2].exists()
+
+
+@pytest.fixture
+def compared(synthetic, made):
+    _, _, study = synthetic
+    assessments = []
+    for role in ("control", "candidate"):
+        observation_id = _evaluate(*_import(synthetic, role))["observation_set_id"]
+        assessment_id = _evaluate(*_assess(study, observation_id, made["references_id"]))["assessment"]["assessment_id"]
+        assessments.append(assessment_id)
+    comparison_id = _evaluate("compare", "--study", study, "--control", assessments[0], "--candidate", assessments[1])["comparison"]["comparison_id"]
+    return study, assessments[0], comparison_id
+
+
+def _change_record(path, change):
+    from hypotrail.core import canonical, contracts
+
+    record = canonical.loads(path.read_bytes())
+    change(record)
+    contracts.validate(record)
+    path.write_bytes(canonical.dumps(record))
+
+
+def test_protected_report_projects_only_known_coverage_fields_and_metric_labels(compared):
+    study, assessment_id, comparison_id = compared
+
+    def extra_assessment_labels(record):
+        record["metrics"][0].update(id=PRIVATE_IDS[0], unit=PRIVATE_IDS[1], reason=PRIVATE_IDS[0])
+
+    def extra_comparison_fields(record):
+        record["coverage"][PRIVATE_IDS[1]] = {"score": PRIVATE_SCORE}
+        record["delta"].update(metric=PRIVATE_IDS[0], unit=PRIVATE_IDS[1], definition=PRIVATE_IDS[0], reason=PRIVATE_IDS[1])
+
+    _change_record(study / "assessments" / assessment_id / "assessment.json", extra_assessment_labels)
+    _change_record(study / "comparisons" / comparison_id / "comparison.json", extra_comparison_fields)
+    out = study.parent / "aggregate.json"
+    report = _evaluate("report", "--study", study, "--out", out)["report"]
+    comparison = report["comparisons"][0]
+    assert comparison["coverage"] == {"expected": 2, "control_scored": 2, "candidate_scored": 2, "paired": 2}
+    assert comparison["delta"]["value"] == 1
+    assert comparison["delta"]["metric"] == "recall_at_top_fraction"
+    assert all(a["metrics"][0]["id"] == "recall_at_top_fraction" for a in report["assessments"])
+    _safe(out.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("field", ["identifier", "coverage"])
+def test_protected_report_refuses_nonaggregate_values_in_selected_fields(compared, field):
+    study, _, comparison_id = compared
+
+    def change(record):
+        if field == "identifier":
+            record["comparison_id"] = PRIVATE_IDS[1]
+        else:
+            record["coverage"]["paired"] = PRIVATE_IDS[1]
+
+    _change_record(study / "comparisons" / comparison_id / "comparison.json", change)
+    out = study.parent / "aggregate.json"
+    code, payload, err = command("--evaluator", "report", "--study", study, "--out", out)
+    assert (code, payload["error"]["code"]) == (3, "CONTRACT_VIOLATION")
+    _safe(json.dumps(payload) + err)
+    assert not out.exists()
