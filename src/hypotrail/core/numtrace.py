@@ -19,7 +19,8 @@ _SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺"
 _SUPERSCRIPT = str.maketrans(_SUPERSCRIPTS, "0123456789-+")
 _BARE_POINTS = r"points?|pts?"
 _POINTS = rf"percentage[- ]points?|pp|p\.p\.|{_BARE_POINTS}"
-_RATE = rf"%|percent|per cent|‰|per mille|per mil|permille|{_POINTS}"
+_UNIT_GAP = r"[ \u00a0\u202f\u2009-]"
+_RATE_WORDS = rf"(?:percent|permille|per{_UNIT_GAP}+(?:cent|mille|mil))"
 _EXPONENT = re.compile(r"(?P<sign>[-+−]?)(?P<digits>\d+)")
 _DIGITS = re.compile(
     rf"(?<![\w.])(?P<sign>{_SIGN})?(?P<body>{_BODY})"
@@ -27,7 +28,7 @@ _DIGITS = re.compile(
     r"|\s?[x×*·]\s?10(?:\^\(?(?P<power>[-+−]?\d+)\)?"
     rf"|(?P<superscript>[{_SUPERSCRIPTS}]+))"
     r"|[ \u00a0\u202f\u2009-]?(?P<scale>(?i:thousands?|millions?|billions?|trillions?|bn)|[kKMx×])(?![\w-]))?"
-    rf"(?:[ \u00a0\u202f\u2009-]?(?P<unit>(?i:{_RATE})))?(?![\w])"
+    rf"(?P<unit>(?i:{_UNIT_GAP}+{_RATE_WORDS}|{_UNIT_GAP}?(?:%|‰|{_POINTS})))?(?![\w])"
 )
 _GLUED_DIGITS = re.compile(rf"(?<=[^\W\d_]{{2}})(?P<body>{_BODY})(?![\w])(?P<unit>\s?%)?")
 _ODD_DIGITS = re.compile(
@@ -89,9 +90,12 @@ _WORD_RATIOS = re.compile(_RATIO_START + _RATIO_END, re.IGNORECASE)
 _RATIO_BEFORE = re.compile(_RATIO_START + "$", re.IGNORECASE)
 _RATIO_AFTER = re.compile(rf"(?:\s+{_WORD})?{_RATIO_LINK}{_RATIO_END}", re.IGNORECASE)
 _WORD_DOZENS = re.compile(rf"{_WORD_START}(?:(?P<count>{_CARD}|a)\s+)?dozens?{_WORD_END}", re.IGNORECASE)
+_SCALE_WORDS = {"hundred", "hundreds", "thousand", "thousands", "million", "millions", "billion", "billions", "trillion", "trillions"}
+_SCALE_WORD = _alternatives(_SCALE_WORDS)
+_SCALE_PART = rf"(?:{_CARD}|{_SCALE_WORD})(?!\w)"
+_SCALE_JOIN = r"[\s-]+(?:and\s+)?"
 _WORD_SCALES = re.compile(
-    rf"{_WORD_START}(?:(?:{_CARD}|a|an)\s+)(?:hundreds?|thousands?|millions?|billions?|trillions?)"
-    rf"(?:[\s-]+(?:and\s+)?(?:{_CARD}|hundreds?|thousands?|millions?|billions?|trillions?))*{_WORD_END}",
+    rf"{_WORD_START}(?:an?\s+(?=(?:{_SCALE_WORD})(?!\w)))?{_SCALE_PART}(?:{_SCALE_JOIN}{_SCALE_PART})*{_WORD_END}",
     re.IGNORECASE,
 )
 
@@ -146,7 +150,7 @@ def _digit_number(text: str, match: re.Match, points_unit: bool) -> _Number:
         start = match.start("body")
     elif sign in {"-", "−", "–"}:
         mantissa = mantissa.copy_negate()
-    unit = (parts.get("unit") or "").strip().lower()
+    unit = re.sub(rf"{_UNIT_GAP}+", " ", parts.get("unit") or "").strip().lower()
     if points_unit and re.fullmatch(_BARE_POINTS, unit):
         unit = ""
     points = bool(re.fullmatch(_POINTS, unit))
@@ -177,7 +181,9 @@ def _word_numbers(text: str, units: set[str]) -> Iterable[_Number]:
         re.IGNORECASE,
     )
     for match in _WORD_SCALES.finditer(text):
-        if match[0].lower() in _CARDINALS:
+        phrase = " ".join(match[0].lower().split())
+        following_words = re.split(r"[\s-]+", phrase)[1:]
+        if phrase in _CARDINALS or _SCALE_WORDS.isdisjoint(following_words):
             continue
         start, end = match.span()
         # An unsupported scale in a ratio invalidates the whole claim, including the otherwise parseable ratio prefix.

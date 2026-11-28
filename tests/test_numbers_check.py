@@ -105,6 +105,24 @@ def test_a_scaled_denominator_is_reported_as_one_claim():
     assert finding["code"] == "untraceable_number" and finding["number"] == "One in five hundred"
 
 
+@pytest.mark.parametrize(
+    ("text", "value", "shown"),
+    [
+        ("We had five-hundred rows.", 5, "five-hundred"),
+        ("One in five-hundred customers.", 0.2, "One in five-hundred"),
+        ("We used five-hundred and twenty rows.", 20, "five-hundred and twenty"),
+        ("Twenty-one-thousand calls.", 21, "Twenty-one-thousand"),
+        ("We counted two thousand five-hundred clients.", 500, "two thousand five-hundred"),
+        ("We had five and hundred rows.", 100, "five and hundred"),
+        ("We had two and five-hundred rows.", 5, "two and five-hundred"),
+    ],
+)
+def test_spoken_scales_joined_by_hyphens_or_spaces_are_reported_as_a_whole(text, value, shown):
+    from hypotrail.core.numtrace import findings
+
+    assert [(item["code"], item["number"]) for item in findings(text, [value])] == [("untraceable_number", shown)]
+
+
 def test_bare_points_use_the_studys_unit_when_it_is_points():
     from hypotrail.core.numtrace import findings
 
@@ -113,6 +131,33 @@ def test_bare_points_use_the_studys_unit_when_it_is_points():
     assert findings("The result is 7 points.", [7])[0]["number"] == "7 points"
     assert findings("The result is 7 percentage points.", [7], units=["points"])[0]["number"] == "7 percentage points"
     assert findings("The difference is 7 percentage points.", [], differences=[0.07], units=["points"]) == []
+
+
+@pytest.mark.parametrize(
+    ("shown", "value"),
+    [
+        ("7-per-cent", 0.07),
+        ("7 per-cent", 0.07),
+        ("7\u00a0per\u00a0cent", 0.07),
+        ("7 per\u00a0mille", 0.007),
+        ("7\u202f- per\u2009mil", 0.007),
+        ("7 per cent", 0.07),
+        ("7‰", 0.007),
+    ],
+)
+def test_written_rates_trace_as_a_whole_at_their_rate_scale(shown, value):
+    from hypotrail.core.numtrace import findings
+
+    text = f"The result was {shown}."
+    assert [item["number"] for item in findings(text, [7])] == [shown]
+    assert findings(text, [value]) == []
+
+
+@pytest.mark.parametrize("shown", ["7percent", "7permille"])
+def test_glued_word_rates_are_reported_as_unsupported(shown):
+    from hypotrail.core.numtrace import findings
+
+    assert [item["number"] for item in findings(f"The result was {shown}.", [7, 0.07, 0.007])] == [shown]
 
 
 def test_numbers_check_reads_only_a_development_comparisons_aggregate_figures(tmp_path, monkeypatch):
