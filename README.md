@@ -17,7 +17,7 @@ The supported install is a checkout with `uv sync`: the commands below find the 
 ```
 uv sync --locked --all-extras                 # the core (Python plus jsonschema) needs no extra: uv sync --locked
 uv run --locked --all-extras pytest           # offline: no network, no model call
-uv run python -m hypotrail data verify        # check the public datasets
+uv run python -m hypotrail data verify        # check the default datasets
 uv run python -m hypotrail data fetch --lock examples/bike_day/data-sources.lock.json --dest examples/bike_day    # acquire a missing data file from the lock's URL, checked against the lock
 uv run python -m hypotrail init --workload bike_day --study runs/bike
 uv run python -m hypotrail run ml --study runs/bike --config seasonal_7 --partition dev --request-id ml-dev-a

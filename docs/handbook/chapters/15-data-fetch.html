@@ -4,7 +4,7 @@
 <p class="sub2">The command</p>
 <div class="prose">
 <p><code>python -m hypotrail data fetch --lock LOCK --dest DIR</code>, with <code>--json</code>. With <code>--json</code>, stdout holds exactly one JSON object and the human diagnostic goes to stderr; every error has <code>code</code>, <code>message</code>, <code>stage</code> and <code>details</code>. The code is <code>src/hypotrail/core/fetch.py</code> (standard library only).</p>
-<p><strong>Amendment, 2026-11-26 (DATA-01).</strong> A Workload whose data lives outside the repository declares a manifest of digests (<code>data-manifest.json</code>) instead of a fetchable lock. <code>data verify</code> reports it <code>declared</code>, and <code>data fetch</code> has nothing to fetch for it: a manifest holds no URL. The chapter on the feasibility spike gives the manifest's keys.</p>
+<p><strong>Amendment, 2026-11-26 (DATA-01).</strong> For a Workload with a manifest-only declaration, <code>data-manifest.json</code> lists the sources' digests and sizes. <code>data verify</code> reports these sources as <code>declared</code>. The manifest holds no URL for <code>data fetch</code>. The chapter on the feasibility spike gives the manifest's keys.</p>
 <p>For a ranking Workload, pass <code>--build-dir DIR</code> and a single <code>--workload NAME</code> to <code>data verify</code> to check actual bytes. The directory is private and outside a Git worktree. The manifest and <code>build.json</code> must agree on the development Items and References digests. The manifest alone still reports <code>declared</code>. <code>init</code> and <code>init --new-revision</code> use the same explicit directory, then freeze the development References in the Study. <a href="../contracts/ranking-track.md">Ranking contract</a>.</p>
 </div>
 <div class="tblwrap"><table class="tbl" id="data-fetch-flags"><thead><tr><th>Flag</th><th>Required</th><th>Meaning</th></tr></thead><tbody>
@@ -18,6 +18,17 @@ uv run python -m hypotrail data verify
 <span class="cm"># a clean install into a directory of its own, then verified there</span>
 uv run python -m hypotrail data fetch --lock examples/chinook/data-sources.lock.json --dest my-examples/chinook
 uv run python -m hypotrail data verify --examples-dir my-examples --workload chinook</pre>
+
+<p class="sub2">External Auto MPG source</p>
+<div class="prose">
+<p>Use <code>--workload auto_mpg --data-file FILE</code> to verify a copy kept outside Git. Hypotrail checks the file's SHA-256 and byte size against the UCI lock, then checks the committed attribution notice. This path reads the file as bytes and performs no content checks. The default <code>data verify</code> selection stays the same. Give a single <code>--workload auto_mpg</code> with <code>--data-file</code>. The <code>--build-dir</code> flag is reserved for ranking builds.</p>
+</div>
+<pre class="code"><span class="cm"># acquire and verify Auto MPG in a directory outside Git</span>
+uv run python -m hypotrail data fetch --lock examples/auto_mpg/uci-data-sources.lock.json --dest ../auto-mpg-source
+uv run python -m hypotrail data verify --workload auto_mpg --data-file ../auto-mpg-source/data/auto-mpg.data</pre>
+<div class="tblwrap"><table class="tbl" id="auto-mpg-verify-refusals"><thead><tr><th>Code</th><th>When</th><th>Exit</th><th>Stage</th></tr></thead><tbody>
+<tr><td><code>DATA_FILE_NEEDS_AUTO_MPG</code></td><td><code>--data-file</code> requires exactly one <code>--workload auto_mpg</code>.</td><td>2</td><td>config</td></tr>
+</tbody></table></div>
 
 <p class="sub2">What it does, in order</p>
 <div class="prose">

@@ -94,7 +94,9 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
-    verify.add_argument("--build-dir", type=Path, metavar="DIR", help="verify the bytes of one private ranking build; a manifest alone remains declared")
+    source = verify.add_mutually_exclusive_group()
+    source.add_argument("--build-dir", type=Path, metavar="DIR", help="verify the bytes of one private ranking build; a manifest alone remains declared")
+    source.add_argument("--data-file", type=Path, metavar="FILE", help="verify the bytes of the external Auto MPG source; requires --workload auto_mpg")
     verify.add_argument("--json", action="store_true", help="print one JSON object")
     verify.set_defaults(handler=_data_verify)
 
@@ -519,8 +521,12 @@ def _emit(payload: dict, as_json: bool, human: str) -> None:
 def _data_verify(args) -> int:
     from hypotrail.core import data
 
+    if args.data_file is not None and args.workload != ["auto_mpg"]:
+        raise InvalidInputError("DATA_FILE_NEEDS_AUTO_MPG", "--data-file requires exactly one --workload auto_mpg", stage="config")
     examples = data.resolve_examples_dir(args.examples_dir)
-    if args.build_dir is None:
+    if args.data_file is not None:
+        reports = [data.verify_auto_mpg(examples, args.data_file)]
+    elif args.build_dir is None:
         reports = data.verify_workloads(examples, args.workload)
     else:
         from hypotrail.ml import ranking_study
