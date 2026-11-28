@@ -52,7 +52,7 @@ import uuid
 from decimal import Decimal
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, deviations, exposure, intervals, ranking_intervals, study_write
+from hypotrail.core import artifacts, canonical, contracts, deviations, evaluator, exposure, intervals, ranking_intervals, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 
@@ -130,6 +130,9 @@ def _population_identity(study: Path, observation_set: dict) -> tuple[str, list 
 
 
 def _side(study: Path, role: str, assessment_id: str, *, study_spec: dict | None = None, run_tool: bool = False) -> dict:
+    if study_spec is None:
+        study_spec = layout.read_spec(study)
+    evaluator.require_study(study_spec, stage=STAGE, run_tool=run_tool)
     assessment = layout.find_assessment(study, assessment_id)
     if assessment is None:
         raise _not_found(
@@ -144,8 +147,6 @@ def _side(study: Path, role: str, assessment_id: str, *, study_spec: dict | None
             observation_set_id=assessment["observation_set_id"],
         )
     observation_set, manifest = found
-    if study_spec is None:
-        study_spec = layout.read_spec(study)
     expected_domain = study_spec["domain"]
     domain = observation_set["domain"]
     if domain != expected_domain and RANKING in (domain, expected_domain):
@@ -157,25 +158,31 @@ def _side(study: Path, role: str, assessment_id: str, *, study_spec: dict | None
     declared_partition = manifest["effective_config"].get("partition")
     if run_tool:
         exposure.refuse_public_check(PUBLIC_CHECK, declared_partition, partition)
-    if expected_domain == RANKING and (partition != DEV or declared_partition != DEV):
-        raise _not_found(
-            "COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison requires dev in both the Attempt and Observation set",
-            partition=partition, declared_partition=declared_partition,
-        )
-    per_item = _rows(artifacts.read_verified(study, assessment["per_item_ref"]))
-    digest, expected = _population_identity(study, observation_set)
-    return {
+    if expected_domain == RANKING:
+        selected = study_spec.get("partition", DEV)
+        if partition != selected or declared_partition != selected:
+            if selected == evaluator.HELD_OUT:
+                raise evaluator.refusal(STAGE)
+            raise _not_found(
+                "COMPARISON_PARTITION_NOT_DEV", "a ranking Comparison requires dev in both the Attempt and Observation set",
+                partition=partition, declared_partition=declared_partition,
+            )
+    side = {
         "role": role,
         "study_spec": study_spec,
         "assessment": assessment,
         "observation_set": observation_set,
         "manifest": manifest,
         "partition": partition,
-        "population_sha256": digest,
-        "expected_items": expected,
-        "per_item": per_item,
         "metric": assessment["metrics"][0],
     }
+    return side if evaluator.is_protected(study_spec) else _read_side(study, side)
+
+
+def _read_side(study: Path, side: dict) -> dict:
+    side["per_item"] = _rows(artifacts.read_verified(study, side["assessment"]["per_item_ref"]))
+    side["population_sha256"], side["expected_items"] = _population_identity(study, side["observation_set"])
+    return side
 
 
 def _refuse(check, evaluated, control, candidate, message):
@@ -319,6 +326,17 @@ def compare(
     study = Path(study)
     study_write.check_read_sequence(study_write.COMPARE, read_sequence)
     spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    protected = evaluator.is_protected(spec)
+    if not protected:
+        _check_factor(spec, factor)
+    with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence, evaluator_stage=STAGE, run_tool=run_tool) as write:
+        if protected:
+            _check_factor(spec, factor)
+        write.require_current()
+        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis, run_tool=run_tool)
+
+
+def _check_factor(spec, factor):
     if factor is not None and spec["domain"] != AGENTIC:
         raise InvalidInputError(
             "UNSUPPORTED_CAPABILITY",
@@ -326,9 +344,6 @@ def compare(
             stage=STAGE,
             details={"factor": factor, "study_domain": spec["domain"]},
         )
-    with study_write.locked(study, study_write.COMPARE, read_sequence=read_sequence) as write:
-        write.require_current()
-        return _compare_locked(study, write, control_id, candidate_id, factor, live_basis, run_tool=run_tool)
 
 
 def date_order(study: Path, spec: dict, partition: str, row_ids: list):
@@ -403,6 +418,9 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
     control = _side(study, "control", control_id, run_tool=run_tool)
     spec = control["study_spec"]
     candidate = _side(study, "candidate", candidate_id, study_spec=spec, run_tool=run_tool)
+    if evaluator.is_protected(spec):
+        _read_side(study, control)
+        _read_side(study, candidate)
 
     if control["observation_set"]["domain"] == AGENTIC:
         from hypotrail.core import agent_comparison  # loaded for an agent Comparison only
@@ -427,7 +445,7 @@ def _compare_locked(study: Path, write, control_id: str, candidate_id: str, fact
             "not the same population",
         )
     passed("population", True)
-    exposed = check_partition(control["partition"])
+    exposed = not ranking and check_partition(control["partition"])
 
     ca, da = control["assessment"], candidate["assessment"]
     check_assessments(control, candidate, checks)

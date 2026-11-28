@@ -139,7 +139,7 @@ def assess(
     study = Path(study)
     study_write.check_read_sequence(study_write.ASSESS, read_sequence)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
-    with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence) as write:
+    with study_write.locked(study, study_write.ASSESS, read_sequence=read_sequence, evaluator_stage=STAGE, run_tool=run_tool) as write:
         write.require_current()
         return _assess_locked(study, write, observation_set_id, scorer_id, references_id, examples_dir, notes if notes is not None else [], run_tool)
 

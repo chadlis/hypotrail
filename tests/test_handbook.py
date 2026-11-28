@@ -1770,7 +1770,11 @@ def test_the_revision_field_tables_equal_what_a_revision_adds_to_the_study_spec_
     rows = attrs_of(page, "revision-fields", "data-field")
     in_study = {field for field, row in rows.items() if row["data-where"] == "study"}
     assert in_study == set(spec_definition["properties"]) - set(spec_definition["required"])
-    assert in_study - {"check_informed"} <= set(spec_of(study))  # `check_informed` is written once the Study has had an Exposure (chapter 12)
+    ranking_only = {field for field in in_study if rows[field].get("data-domain") == "ranking"}
+    assert ranking_only == {"partition"}
+    chinook_spec = spec_of(study)
+    assert ranking_only.isdisjoint(chinook_spec)
+    assert in_study - {"check_informed"} - ranking_only <= set(chinook_spec)
     entry = spec_definition["properties"]["artifacts"]["items"]
     in_artifact = {field for field, row in rows.items() if row["data-where"] == "artifact"}
     assert in_artifact == set(entry["properties"]) - set(entry["required"]) and in_artifact <= set(spec_of(study)["artifacts"][0])
@@ -4179,7 +4183,7 @@ def test_the_commands_the_parser_defines_equal_the_rows_of_the_commands_index_an
     # #88 I: a command added to the parser without its handbook row fails; so does a row whose chapter does not describe it.
     rows = attrs_of(page, "commands-index", "data-command")
     assert sorted(rows) == sorted(parser_commands())
-    assert len(parser_commands()) == 18
+    assert len(parser_commands()) == 19
     assert rows["decide"]["data-chapter"] == "decisions"  # #109 Tightened H: the new chapter describes it
     assert rows["deviation"]["data-chapter"] == "decisions"
     assert rows["figures"]["data-chapter"] == "decisions"

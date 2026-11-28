@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import contract from "../contract.json";
 import { kept } from "./kept";
 import { documentFor, followLink, heldRecorder, lastDocument, markedTexts, panelOf, partsOf, runCommand, settle, workspace } from "./panel-harness";
-import { exit, recorder, type Answer } from "./recorder";
+import { exit, recorder, withEvaluatorEnvironment, type Answer } from "./recorder";
 import * as stub from "./vscode-stub";
 
 const STATUS = kept("status-success.out");
@@ -32,6 +32,22 @@ const WAYS: [string, (study: string) => Promise<void>][] = [
   ["a link of the first form", (study) => followLink(0, study)],
   ["a link of the second form", (study) => followLink(1, study)],
 ];
+
+test("the panel reports the protected ranking refusal without starting a secondary read", async (t) => {
+  withEvaluatorEnvironment(t);
+  workspace(t, ["ranking"]);
+  const error = { code: "RANKING_HELD_OUT_REFUSED", message: "This Study uses the protected ranking Partition." };
+  const calls = recorder(t, exit(2, JSON.stringify({ ok: false, error })));
+  await runCommand();
+  await settle();
+  assert.match(partsOf(lastDocument()).between, /RANKING_HELD_OUT_REFUSED/);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].args.includes("status"));
+  const environment = calls[0].options.env as NodeJS.ProcessEnv;
+  assert.equal(environment?.PATH, process.env.PATH);
+  assert.equal(environment?.GITHUB_ACTIONS, undefined);
+  assert.equal(environment?.GITHUB_WORKFLOW_REF, undefined);
+});
 
 for (const [way, open] of WAYS) {
   test(`an opening by ${way} reads the Study once, through status, with the string the panel was opened with`, async (t) => {

@@ -12,7 +12,7 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first. `decide` writes
 `decision/2` (`DecisionRecordV2`), which holds three keys more, always present: `question_id` and `option_id`, the ids of the pending question
-and of the option chosen, checked against `PENDING_QUESTION` and `PENDING_OPTIONS`; and `words`, the person's texts kept whole with the
+and of the option chosen, checked against the offered Comparison options or the ranking review's verdict; and `words`, the person's texts kept whole with the
 channel and `by` label its caller declared and `authenticated` false, never read by a check. Each is null when not given. A `decision/1`
 record stays as it was written. Words with the channel `file_relayed` need a `source` that is not empty, which names the outside act the
 file comes from; nothing checks it.
@@ -22,6 +22,9 @@ file comes from; nothing checks it.
 the write journal. The request identity is shared with the Attempts of the Study (one namespace, `hypotrail.core.requests`): the same `request_id` with
 the same decision (question, option, author, source, cited ids, question id, option id and words; the read sequence is not part of it) returns the recorded decision and writes
 nothing, even when the sequence has moved on; with another decision, or when it names an Attempt, it is `REQUEST_CONFLICT`.
+
+A protected ranking Study refuses words files before opening them. The declared evaluator may record a proxy Decision with a source.
+The Study scope is checked under the writer lock before replay or the write sequence.
 
 An id is citable when the Study holds a record with that id, of one of these kinds: Attempt, Observation set, Assessment, Comparison, Study artifact,
 revision (by its `revision` value, never its `revision_number`), freeze record, Exposure entry, decision or Declared deviation, a withdrawal included. A `request_id`, the `study_id`, a path
@@ -59,7 +62,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, deviations, exposure, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
+from hypotrail.core import artifacts, contracts, deviations, evaluator, exposure, ranking_reviews, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -133,9 +136,11 @@ def held_ids(study) -> set:
                 found.add(layout.read_record(study, ref["path"])["observation_set_id"])
     found |= {record["assessment_id"] for record in layout.assessment_records(study)}
     found |= {record["comparison_id"] for record in layout.comparison_records(study)}
-    for spec in revisions.revision_specs(study):
+    specs = revisions.revision_specs(study)
+    for spec in specs:
         found.add(spec["revision"])
         found |= {entry["artifact_id"] for entry in spec["artifacts"]}
+    found.update(ranking_reviews.records(study, specs[-1]))
     found |= {record["freeze_id"] for record in exposure.freeze_records(study)}
     found |= {record["entry_id"] for record in exposure.entries(study)}
     found |= {record["decision_id"] for record in records(study)}
@@ -359,6 +364,9 @@ def _check_ids(question: str, option: str, question_id, option_id) -> None:
         raise _invalid("--question-id and --option-id are given together")
     if question_id is None:
         return
+    if question_id == ranking_reviews.QUESTION_ID:
+        ranking_reviews.check_choice(question, option, option_id)
+        return
     if question_id != PENDING_QUESTION["id"]:
         raise _invalid(f"the question id of a decision is {PENDING_QUESTION['id']!r}, not {question_id!r}")
     texts = {entry["id"]: entry["text"] for entry in PENDING_OPTIONS}
@@ -402,13 +410,20 @@ def decide(
         if not value:
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
     _check_ids(question, option, question_id, option_id)
-    recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
+    word_inputs = list(words)
+    if evaluator.inside() and (author != "proxy" or not source or word_inputs):
+        raise evaluator.refusal(STAGE)
+    if any(kind == "file" for kind, _ in word_inputs):
+        spec = layout.available_spec(study)
+        if spec is not None:
+            evaluator.refuse_protected(spec, stage=STAGE)
+    recorded_words = _words(word_inputs, author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
     layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
     wanted = {
         "question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids)),
         "question_id": question_id, "option_id": option_id, "words": recorded_words,
     }
-    with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence) as write:
+    with study_write.locked(study, study_write.DECIDE, request_id, read_sequence=read_sequence, evaluator_stage=STAGE) as write:
         return _decide_locked(study, write, wanted, request_id, read_sequence)
 
 
@@ -430,6 +445,8 @@ def _decide_locked(study: Path, write, wanted: dict, request_id: str, read_seque
             stage=STAGE,
             details={"ids": unknown},
         )
+    if wanted["question_id"] == ranking_reviews.QUESTION_ID:
+        ranking_reviews.require_confirmation(study, spec, wanted)
     decision_id = str(uuid.uuid4())
     five = {field: wanted[field] for field in ("question", "option", "author", "source", "cited_ids")}
     record = {

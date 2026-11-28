@@ -323,6 +323,7 @@ LEAF_COMMANDS = {
     "lesson": NON_WRITER,
     "decide": WRITER,
     "deviation": WRITER,
+    "review import": WRITER,
     "recover": WRITER,
     "report": WRITER,
     "spike live": NON_WRITER,

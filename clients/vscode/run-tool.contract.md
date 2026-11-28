@@ -78,7 +78,7 @@ The tool's `status` check gives early feedback. The bridge also sets `HYPOTRAIL_
 
 A refusal starts no command: nothing is written, and the Write sequence does not move. The tool checks the rules in the order of the table below and gives the code of the first rule that refuses. A row with two codes gives the one its text names. Only the checks after the read in the order start the read.
 
-Before any check, an argument is normalized for the two scans. It is lowercased, and every white space, `-` and `_` is removed.
+For the scans of live Mode and protected Partitions, an argument or Partition value is lowercased, and every white space, `-` and `_` is removed.
 
 | Code | When |
 |---|---|
@@ -91,11 +91,14 @@ Before any check, an argument is normalized for the two scans. It is lowercased,
 | `ARGUMENTS_NOT_VALID` | For `run`, the first argument is neither `ml` nor `agent`. |
 | `ARGUMENTS_NOT_VALID`, `OPTION_NOT_ALLOWED` | The options are read in the order given, and the first that fails gives its code. An argument that is not an option stands where no value is taken, or an option of its command's row has no value: `ARGUMENTS_NOT_VALID`. An option is not one of its command's row: `OPTION_NOT_ALLOWED`, with `--study`, `--json`, `--read-sequence`, `--examples-dir`, `--help`, `-h` and every shortened name included. |
 | `OPTION_REPEATED` | An option is given more than once. |
+| `RANKING_HELD_OUT_REFUSED` | The value of `--partition` is `heldout` once normalized. |
 | `READ_SEQUENCE_MISSING` | The command is not `profile`, and `read_sequence` is not an integer of 0 or more. |
-| `STATUS_UNREADABLE` | For `assess`, `compare` and `report`, the read of the Study did not succeed. |
+| `RANKING_HELD_OUT_REFUSED`, `STATUS_UNREADABLE` | For `assess`, `compare` and `report`, the read of the Study did not succeed. A protected ranking refusal keeps its code. Other unsuccessful reads give `STATUS_UNREADABLE`. |
 | `PUBLIC_CHECK_REFUSED` | For `assess`, `compare` and `report`, an Attempt the command would touch has the Partition `public_check` (D-174 item 4; D-165 item 3: "The chat is allowed at every station except the held-out pass."). |
 
 `decide` and `deviation` are refused because they are act writers: "The chat prepares and relays." (ADR 0006, Decision 1). `llm_live` is refused because it is a paid live run (D-174 item 4). A `public_check` read is refused because there is no chat at the held-out pass (D-165 item 3).
+
+The ranking `held_out` Partition is available only in the declared evaluator CLI context (D-264). The tool and the panel start their CLI processes without the evaluator declaration. Their status reads refuse the protected Study before opening its records.
 
 ## What the tool gives back
 

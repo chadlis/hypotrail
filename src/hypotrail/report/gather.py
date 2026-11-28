@@ -9,8 +9,9 @@ import csv
 import io
 import math
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, revisions, state, write_journal
+from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, revisions, state, write_journal
 from hypotrail.core import study as layout
+from hypotrail.report import ranking
 from hypotrail.core.attempts import SCENARIO_MODE
 from hypotrail.core.errors import InvalidInputError
 
@@ -163,9 +164,13 @@ def _verify_report_scope(study) -> None:
 
 def load(study, *, guarded: bool = False, profile=None) -> dict:
     """The model of the page: every record of the Study the page shows, verified, in a fixed order."""
+    spec = layout.read_spec(study)
+    if evaluator.inside():
+        evaluator.require_study(spec, stage="report", run_tool=guarded)
+        return ranking.aggregates(study)
+    evaluator.refuse_protected(spec, stage="report")
     if guarded:
         _verify_report_scope(study)
-    spec = layout.read_spec(study)
     reader = Reader(study)
     if spec["domain"] == RANKING:
         return _load_ranking(study, spec, reader)

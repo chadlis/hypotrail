@@ -284,5 +284,8 @@ def test_every_command_the_parser_defines_either_takes_the_flag_or_reads_no_work
             leaves.add(" ".join(path))
 
     walk(cli.build_parser(), [])
-    # the commands that read no Workload: a new command is in the list above or here, or this test fails
-    assert leaves - _parsers_taking_the_flag() == {"status", "figures", "lesson", "recover", "data fetch", "decide", "deviation"}  # `decide` and `deviation` record ids and text and read no Workload; `figures` reads what `status` reads and the Comparisons' `paired_deltas.csv`; `lesson` reads `status` and its Track's own cards; `data fetch` is given its lock and its destination, and finds no Workload (#22)
+    # A new command must appear in the Workload list or in this inventory of commands that operate without one.
+    # `review import` reads the aggregate receipt and the ordinary Study only.
+    assert leaves - _parsers_taking_the_flag() == {
+        "status", "figures", "lesson", "recover", "data fetch", "decide", "deviation", "review import",
+    }

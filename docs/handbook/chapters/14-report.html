@@ -12,6 +12,7 @@
 <li>The page is written to a temporary file beside <code>--out</code>, fsynced and renamed onto it, and the folder of <code>--out</code> is fsynced after the rename: an existing file is replaced.</li>
 </ol>
 <p>The page is rebuilt from the Study each time it is asked for; it is never stored as a record. Two reports of the same <code>public_check</code> Study record two Exposures.</p>
+<p>For a protected ranking Study, <code>hypotrail --evaluator report</code> checks the Study under its lock and writes JSON. It contains the Partition, Write sequence and aggregate Assessment and Comparison records, including their IDs. It leaves per-Item values in the private Study and creates no Exposure. Ordinary callers of <code>report</code> on this Study receive <code>RANKING_HELD_OUT_REFUSED</code>.</p>
 </div>
 <pre class="code"><span class="cm"># a page for a Study; --out is outside the Study</span>
 uv run python -m hypotrail report --study runs/bike --out runs/bike-report.html

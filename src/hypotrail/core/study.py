@@ -37,8 +37,8 @@ import io
 import json
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts
-from hypotrail.core.errors import InvalidInputError
+from hypotrail.core import artifacts, canonical, contracts, evaluator
+from hypotrail.core.errors import HypotrailError, InvalidInputError
 
 STUDY_FILE = "study.json"
 ARTIFACTS_DIR = "artifacts"
@@ -68,7 +68,8 @@ def declared_track(workload_dir: Path):
 
 
 def require_domain(spec: dict, domain: str, command: str) -> None:
-    """Refuse a command on a Study of another Track: a combination the code does not offer."""
+    """Require an ordinary Study whose Track the command supports."""
+    evaluator.refuse_protected(spec, stage="study")
     if spec["domain"] != domain:
         raise InvalidInputError(
             "UNSUPPORTED_CAPABILITY",
@@ -129,6 +130,22 @@ def read_spec(study) -> dict:
     spec = canonical.loads(path.read_bytes())
     contracts.validate(spec)
     return spec
+
+
+def available_spec(study) -> dict | None:
+    """A validated StudySpec when available, for callers with their own missing or unreadable Study error order."""
+    try:
+        return read_spec(study)
+    except (OSError, HypotrailError):
+        return None
+
+
+def refuse_existing(study) -> None:
+    """Refuse creation in an existing Study under the caller's writer lock."""
+    spec = available_spec(study)
+    if spec is not None:
+        evaluator.refuse_protected(spec, stage="study")
+    raise InvalidInputError("STUDY_EXISTS", f"a Study already exists in {study}", stage="study", details={"study": str(study)})
 
 
 def record_names(study, folder: str) -> list:
