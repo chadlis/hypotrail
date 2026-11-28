@@ -18,9 +18,11 @@ def test_client_reads_refuse_before_opening_protected_ranking_records(read, inhe
     monkeypatch.setattr(layout, "read_spec", lambda _: spec)
     if inherited_evaluator:
         monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "chadlis/mlkit")
         monkeypatch.setenv("GITHUB_WORKFLOW_REF", "chadlis/mlkit/.github/workflows/evaluator.yml@refs/heads/main")
     else:
         monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+        monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
         monkeypatch.delenv("GITHUB_WORKFLOW_REF", raising=False)
 
     with monkeypatch.context() as guarded:

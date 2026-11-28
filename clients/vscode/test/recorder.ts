@@ -17,6 +17,7 @@ export type RecordedCall = { program: string; args: string[]; options: Record<st
 export function withEvaluatorEnvironment(t: TestContext): void {
   const keys = {
     GITHUB_ACTIONS: "true",
+    GITHUB_REPOSITORY: "chadlis/mlkit",
     GITHUB_WORKFLOW_REF: "chadlis/mlkit/.github/workflows/evaluator.yml@refs/heads/main",
   };
   for (const [key, value] of Object.entries(keys)) {
