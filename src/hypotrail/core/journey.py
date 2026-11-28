@@ -1,9 +1,10 @@
 """Derive the journey's steps and pause from Study status and the Track's declarations."""
 
-from collections.abc import Mapping, Sequence
+import re
+from collections.abc import Collection, Mapping, Sequence
 from typing import Literal, NotRequired, TypedDict
 
-from hypotrail.core.cite import Segment
+from hypotrail.core.cite import NamedValue, Resolver, Segment, fill
 
 
 class Step(TypedDict):
@@ -44,6 +45,28 @@ class PauseContext(TypedDict, total=False):
     review: bool
 
 
+class Command(TypedDict):
+    command: str
+    arguments: list[str]
+
+
+class ThenTemplate(TypedDict):
+    text: str
+    commands: list[Command]
+
+
+class PauseTemplates(TypedDict, total=False):
+    digest: list[str]
+    recommended: dict[str, str]
+    value: dict[str, str]
+    proposal: str
+    explain: list[str]
+    change_note: str
+    then: ThenTemplate
+    panel_line: str
+    limitations: list[dict[str, str]]
+
+
 # English words from guidance.py at the pinned old tool's revision.
 _OPTION_LABELS = {
     "adopt": "I adopt this decision",
@@ -52,6 +75,7 @@ _OPTION_LABELS = {
     "continue": "Let's continue",
 }
 _ADOPTION_QUESTION = "Do you adopt this decision?"
+_MAX_DIGEST_WORDS = 200
 
 
 def _step_decisions(history: Sequence[dict]) -> tuple[dict, dict]:
@@ -205,4 +229,92 @@ def pause(step_view: Mapping, revision: str, context: PauseContext) -> dict:
         "choice_options": choices,
         "cited_ids": list(dict.fromkeys([revision, *context.get("cited_ids", [])])) if current else [],
         "delegable": False,
+    }
+
+
+def _visible(segments: Sequence[Segment]) -> str:
+    return "".join(segment["text"] for segment in segments)
+
+
+def _join_parts(parts: Sequence[list[Segment]], separator: str) -> list[Segment]:
+    joined = []
+    for part in parts:
+        if part:
+            if joined:
+                joined.append({"text": separator})
+            joined.extend(part)
+    return joined
+
+
+def _fit_digest(parts: list[list[Segment]]) -> list[Segment]:
+    # The pinned old junior._fit drops trailing parts before clipping one oversized part.
+    parts = [part for part in parts if part]
+    counts = [len(_visible(part).split()) for part in parts]
+    total = sum(counts)
+    while len(parts) > 1 and total > _MAX_DIGEST_WORDS:
+        parts.pop()
+        total -= counts.pop()
+    if total <= _MAX_DIGEST_WORDS:
+        return _join_parts(parts, " ")
+
+    part, = parts
+    # Legacy clipping normalizes whitespace. Cut at a word boundary in the combined
+    # text, then trim only plain segments so cited values retain their provenance.
+    remaining = list(re.finditer(r"\S+", _visible(part)))[_MAX_DIGEST_WORDS - 1].end()
+    clipped = []
+    for segment in part:
+        if remaining <= 0:
+            break
+        text = segment["text"]
+        if "record_id" in segment:
+            clipped.append(segment)
+        else:
+            plain = re.sub(r"\s+", " ", text[:remaining])
+            if not clipped:
+                plain = plain.lstrip()
+            if plain:
+                clipped.append({"text": plain})
+        remaining -= len(text)
+    return clipped
+
+
+def enrich(
+    frame: Mapping,
+    templates: PauseTemplates,
+    resolver: Resolver,
+    *,
+    slots: Collection[str] = (),
+    facts: Mapping[str, str] | None = None,
+    values: Mapping[str, NamedValue] | None = None,
+) -> dict:
+    """Fill the Track's pause templates using its resolver, without changing the frame."""
+
+    def segments(template: str) -> list[Segment]:
+        return fill(template, resolver, slots=slots, facts=facts, values=values)
+
+    def text(template: str | None) -> str | list[Segment] | None:
+        if template is None:
+            return None
+        filled = segments(template)
+        return filled if any("record_id" in segment for segment in filled) else _visible(filled)
+
+    recommended = templates.get("recommended")
+    value = templates.get("value")
+    then = templates.get("then")
+    return {
+        **frame,
+        "digest": _fit_digest([segments(part) for part in templates.get("digest", [])]),
+        "recommended": {"value_id": recommended["value_id"], "why": segments(recommended["why"])} if recommended else None,
+        "value": {"id": value["id"], "words": text(value["words"])} if value else None,
+        "proposal": text(templates.get("proposal")),
+        "explain": _join_parts([segments(part) for part in templates.get("explain", [])], "\n\n"),
+        "change_note": text(templates.get("change_note")),
+        "then": {
+            "text": text(then["text"]),
+            "commands": [{"command": command["command"], "arguments": list(command["arguments"])} for command in then["commands"]],
+        } if then else None,
+        "panel_line": text(templates.get("panel_line")),
+        "limitations": [
+            {"code": item["code"], "text": text(item["text"])} for item in templates.get("limitations", [])[:3]
+        ],
     }
