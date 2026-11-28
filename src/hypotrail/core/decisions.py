@@ -12,7 +12,7 @@ its kind only; a declared `source` text, or null; the ids it cites, de-duplicate
 Study's current StudySpec; and two numbers of the write sequence (`hypotrail.core.write_journal`): the `read_sequence` its author read and its
 own `write_sequence`, the position of the `begin` entry of the command that recorded it, always one above the first. `decide` writes
 `decision/2` (`DecisionRecordV2`), which holds three keys more, always present: `question_id` and `option_id`, the ids of the pending question
-and of the option chosen, checked against `PENDING_QUESTION` and `PENDING_OPTIONS`; and `words`, the person's texts kept whole with the
+and of the option chosen, checked against the offered Comparison options or the ranking review's verdict; and `words`, the person's texts kept whole with the
 channel and `by` label its caller declared and `authenticated` false, never read by a check. Each is null when not given. A `decision/1`
 record stays as it was written. Words with the channel `file_relayed` need a `source` that is not empty, which names the outside act the
 file comes from; nothing checks it.
@@ -62,7 +62,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, deviations, evaluator, exposure, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
+from hypotrail.core import artifacts, contracts, deviations, evaluator, exposure, ranking_reviews, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -136,9 +136,11 @@ def held_ids(study) -> set:
                 found.add(layout.read_record(study, ref["path"])["observation_set_id"])
     found |= {record["assessment_id"] for record in layout.assessment_records(study)}
     found |= {record["comparison_id"] for record in layout.comparison_records(study)}
-    for spec in revisions.revision_specs(study):
+    specs = revisions.revision_specs(study)
+    for spec in specs:
         found.add(spec["revision"])
         found |= {entry["artifact_id"] for entry in spec["artifacts"]}
+    found.update(ranking_reviews.records(study, specs[-1]))
     found |= {record["freeze_id"] for record in exposure.freeze_records(study)}
     found |= {record["entry_id"] for record in exposure.entries(study)}
     found |= {record["decision_id"] for record in records(study)}
@@ -362,6 +364,9 @@ def _check_ids(question: str, option: str, question_id, option_id) -> None:
         raise _invalid("--question-id and --option-id are given together")
     if question_id is None:
         return
+    if question_id == ranking_reviews.QUESTION_ID:
+        ranking_reviews.check_choice(question, option, option_id)
+        return
     if question_id != PENDING_QUESTION["id"]:
         raise _invalid(f"the question id of a decision is {PENDING_QUESTION['id']!r}, not {question_id!r}")
     texts = {entry["id"]: entry["text"] for entry in PENDING_OPTIONS}
@@ -440,6 +445,8 @@ def _decide_locked(study: Path, write, wanted: dict, request_id: str, read_seque
             stage=STAGE,
             details={"ids": unknown},
         )
+    if wanted["question_id"] == ranking_reviews.QUESTION_ID:
+        ranking_reviews.require_confirmation(study, spec, wanted)
     decision_id = str(uuid.uuid4())
     five = {field: wanted[field] for field in ("question", "option", "author", "source", "cited_ids")}
     record = {

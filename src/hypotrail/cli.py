@@ -356,6 +356,15 @@ def build_parser() -> argparse.ArgumentParser:
     lesson.add_argument("--json", action="store_true", help="print one JSON object")
     lesson.set_defaults(handler=_lesson, lesson_parser=lesson)
 
+    review = commands.add_parser("review", help="bring an aggregate ranking verdict to the Study for owner review")
+    review_commands = review.add_subparsers(dest="review_command", required=True)
+    review_import = review_commands.add_parser("import", help="keep an aggregate ranking review receipt as a citable Study artifact")
+    review_import.add_argument("--study", required=True, type=Path, metavar="DIR", help="the ordinary ranking Study to record the receipt in")
+    review_import.add_argument("--receipt", required=True, type=Path, metavar="FILE", help="the aggregate JSON receipt from the evaluator")
+    _add_read_sequence(review_import, required=True)
+    review_import.add_argument("--json", action="store_true", help="print one JSON object")
+    review_import.set_defaults(handler=_review_import)
+
     decide = commands.add_parser(
         "decide", help="record one decision in a Study: the question it answers, the option chosen, its author and the ids it cites"
     )
@@ -381,7 +390,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_read_sequence(decide, required=True)
     decide.add_argument(
-        "--question-id", metavar="ID", help="the id of the pending question answered (`status --json`, `pending_decisions`); given with --option-id"
+        "--question-id", metavar="ID", help="the id of the pending question answered (`status --json`); given with --option-id"
     )
     decide.add_argument("--option-id", metavar="ID", help="the id of the option chosen among the pending question's options; given with --question-id")
     decide.add_argument(
@@ -883,6 +892,14 @@ def _report_command(args) -> int:
     recorded = result["exposure"]
     human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
     _emit({"ok": True, "report": result}, args.json, human)
+    return EXIT_OK
+
+
+def _review_import(args) -> int:
+    from hypotrail.core import ranking_reviews
+
+    review = ranking_reviews.import_receipt(args.study, args.receipt, read_sequence=args.read_sequence)
+    _emit({"ok": True, "review": review}, args.json, f"Ranking review {review['artifact_id']}: {review['option']}")
     return EXIT_OK
 
 

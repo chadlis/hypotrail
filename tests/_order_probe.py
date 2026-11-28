@@ -18,6 +18,7 @@ from pathlib import Path
 from _assess_helpers import observation_set_id, references_id
 from _chinook_helpers import chinook_examples, database_of, fixture_lines, fixture_population, init_chinook, write_lines
 from _import_helpers import ready
+from _ranking_helpers import initialize, write_build
 from _report_tracks import TRACKS
 from _run_agent_helpers import MODEL, fixture
 from _study_helpers import examples_copy, init_study, run_json, run_ml
@@ -110,10 +111,23 @@ def killed_world(folder):
     return {"study": study, "stale": stale, "attempt": attempt.name}
 
 
-WORLDS = {"bike": bike_world, "chinook": chinook_world, "public": public_world, "killed": killed_world}
+def ranking_world(folder):
+    examples, build_dir = write_build(folder)
+    study = folder / "study"
+    initialized = ok(initialize((examples, build_dir, study)))
+    stale = seq(study)
+    ok(run_json(
+        "deviation", "--study", study, "--text", "Synthetic probe", "--author", "proxy",
+        "--artifact", initialized["references_id"], "--request-id", "probe", "--read-sequence", stale,
+    ))
+    return {"study": study, "stale": stale}
+
+
+WORLDS = {"bike": bike_world, "chinook": chinook_world, "public": public_world, "killed": killed_world, "ranking": ranking_world}
 WORLD_OF = {
     "init --new-revision": "bike", "run ml": "bike", "run agent": "chinook", "import ml": "bike", "import agent": "chinook", "assess": "bike",
     "compare": "bike", "recover": "killed", "report": "public", "decide": "bike", "deviation": "bike",
+    "review import": "ranking",
 }
 
 
@@ -148,6 +162,7 @@ def options_of(writer, built):
             "--question": "Which Configuration?", "--option": "seasonal_7", "--author": "human", "--artifact": facts["attempt"], "--request-id": "new",
         },
         "deviation": lambda: {"--text": "owner review of References pending", "--author": "human", "--artifact": facts["attempt"], "--request-id": "new"},
+        "review import": lambda: {"--receipt": built.tmp_path / "missing.json"},
     }[writer]()
 
 
@@ -440,4 +455,5 @@ UNDER_THE_LOCK = {
     "deviation request_id of an Attempt": of("deviation", **{"--request-id": "r1"}),
     "deviation request_id of a decision": of("deviation", **{"--request-id": "d1"}),
     "deviation cited id": of("deviation", **{"--artifact": "no_record"}),
+    "review import receipt": of("review import"),
 }
