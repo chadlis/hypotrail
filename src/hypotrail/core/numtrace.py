@@ -263,10 +263,9 @@ COUNT = re.compile(
     re.IGNORECASE)
 MULTIPLE_DOZEN = re.compile(rf"{_B}(?P<k>{_CARD})\s+(?P<d>dozen|douzaines?){_E}", re.IGNORECASE)
 
-# Review round 9 (R9E-2): scale words. A run of cardinals and scale words ("two thousand five
-# hundred", "deux cents", "a thousand") in which a scale word follows another word is a number
-# the module does not read; it is reported, never read in part. "a" / "an" open a run only
-# before an English scale word (the French "il y a cent clients" is 100).
+# Review round 9 (R9E-2): a sequence such as "two thousand five hundred" is reported
+# as unsupported when a scale word follows another word. "a" and "an" start such a
+# sequence only before an English scale word.
 WORD_SCALE_WORDS = ('hundred', 'hundreds', 'thousand', 'thousands', 'million', 'millions', 'billion',
                'billions', 'trillion', 'trillions', 'cent', 'cents', 'mille', 'milliers',
                'milliard', 'milliards')
@@ -334,8 +333,7 @@ def unit_nouns(units) -> tuple[str, ...]:
 
 
 def _scaled_phrases(text: str) -> list[re.Match]:
-    """The runs of cardinals and scale words of ``text`` in which a scale word follows another
-    word, except a run that is itself a cardinal ("one hundred", "a hundred")."""
+    """Find sequences with a scale word after another word, excluding recognized cardinals."""
     out = []
     for m in SCALED_PHRASE.finditer(text):
         words = [w for w in re.split(r'[\s-]+', m.group(0).lower()) if w not in ('and', 'et')]
@@ -669,18 +667,15 @@ DIAG_BOUNDS = ('low', 'high', 'precision_low', 'precision_high', 'recall_low', '
 # the configuration a text would claim.
 CHOICE_CHANGES = ('policy', 'model_choice', 'model_variant', 'preprocessing',
                   'feature_availability', 'split')
-# v0.3 (WP-J): a percentage that names an interval's level ("MAE (95% interval)",
-# « intervalle de confiance à 95 % », "95% CI") is that level, whatever metric the clause
-# names: it matches a registered ``level`` or the bootstrap setting, never a metric's value.
+# v0.3 (WP-J): a percentage such as "95% CI" names the interval level. It matches a
+# registered ``level`` or the bootstrap setting, regardless of the metric named.
 LEVEL_AFTER = re.compile(r'\s*(?:-\s*)?(?:confidence\s+)?(?:intervals?\b|ci\b|confidence\b|'
                          r'bootstrap\b|level\b)', re.I)
 LEVEL_BEFORE = re.compile(r'(?:intervalles?(?:\s+de\s+confiance)?|\bic|\bci|confidence(?:\s+level)?|'
                           r'niveau(?:\s+de\s+confiance)?|level)\s*(?:à|at|de|of|:)?\s*$', re.I)
 LEVEL_BINDING = ('level',)
-# v0.3 (WP-J): a number right after a threshold word ("fewer than 30 rows", « moins de 30
-# lignes ») may be one of the thresholds the engine applied and states (``min_group_rows``,
-# ``max_groups``, the numbers of a ``*_rule`` text such as a diagnostic's small-cell rule),
-# which are internals otherwise.
+# v0.3 (WP-J): a number after a threshold word may match a recorded threshold such as
+# ``min_group_rows``, ``max_groups``, or a small-cell rule. These values are otherwise internal.
 THRESHOLD_BEFORE = re.compile(r'(?:\b(?:fewer|less|more|greater)\s+than|\bat\s+(?:least|most)|'
                               r'\bunder|\bbelow|\babove|\bover|\bmoins\s+de|\bplus\s+de|'
                               r'\bau\s+(?:moins|plus)|\bmin(?:imum)?(?:\s+(?:of|de))?|'
@@ -688,9 +683,8 @@ THRESHOLD_BEFORE = re.compile(r'(?:\b(?:fewer|less|more|greater)\s+than|\bat\s+(
                               r'\bthreshold(?:\s+of)?|[<>≤≥])\s*$', re.I)
 THRESHOLD_SEGMENTS = frozenset({'min_group_rows', 'max_groups', 'min_rows',
                                 'min_segment_rows', 'min_segment_positives'})
-# v0.3 (WP-J): "333 of 459", « 333 étudiants sur 459 »: two counts of one group, the group
-# named in another language or in an earlier sentence; both must be counts of the same group
-# of a current result.
+# v0.3 (WP-J): "333 of 459" can match two counts from one group in a current result.
+# The group may be named in another language or in an earlier sentence.
 PAIR_SEPARATOR = re.compile(r'\s*(?:[^\W\d_][\w\'’-]*\s+){0,2}(?:sur|of|out\s+of|parmi|among|/)'
                             r'\s*$', re.I)
 
@@ -1739,7 +1733,7 @@ def trace_text(pool: Pool, text: str, where: str, locate=None, *,
                 LEVEL_AFTER.match(masked, tok.end)
                 or LEVEL_BEFORE.search(masked[max(0, tok.start - 40):tok.start])):
             # v0.3 (WP-J): "95% interval" names the interval's level. WP-H3: the first
-            # bound of a range (« intervalle de 7,02 % à 7,55 % ») is a value, not a level.
+            # bound of a range is the measured value at that endpoint.
             bind = dataclasses.replace(bind, segments=LEVEL_BINDING, rule=False)
         # v0.3 (WP-A): the results and groups the sentence names bind its numbers.
         bounds = _sentence_bounds(masked, tok.start, tok.end)
