@@ -1,4 +1,4 @@
-// Usage: node .claude/skills/verify-panel/render.js <output folder> <head>
+// Usage: node .claude/skills/verify-panel/render.js <output folder> <head> [--parity <reference folder>]
 //
 // Renders the Study panel of the VS Code client at <head> as headless Chrome draws it, and writes a contact sheet,
 // <output folder>/sheet.html, with the shots beside it. VS Code itself is not run: the variables of its four default themes
@@ -23,14 +23,16 @@
 // made and drawn; Chrome missing, a failed build or a failed step exits 1.
 "use strict";
 const { spawnSync } = require("node:child_process");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
-const [OUT_ARG, HEAD_ARG] = process.argv.slice(2);
-if (!OUT_ARG || !HEAD_ARG || process.argv.length !== 4) {
-  console.error("usage: node .claude/skills/verify-panel/render.js <output folder> <head>");
+const [OUT_ARG, HEAD_ARG, PARITY_FLAG, REFERENCE_ARG, ...EXTRA] = process.argv.slice(2);
+const PARITY = PARITY_FLAG === "--parity" && Boolean(REFERENCE_ARG);
+if (!OUT_ARG || !HEAD_ARG || EXTRA.length || (PARITY_FLAG !== undefined && !PARITY)) {
+  console.error("usage: node .claude/skills/verify-panel/render.js <output folder> <head> [--parity <reference folder>]");
   process.exit(2);
 }
 const OUT = path.resolve(OUT_ARG);
@@ -46,23 +48,19 @@ function ran(program, args, options = {}) {
 
 const REPO = ran("git", ["rev-parse", "--show-toplevel"]).trim();
 const HEAD = ran("git", ["-C", REPO, "rev-parse", "--short", `${HEAD_ARG}^{commit}`]).trim();
+const EXACT_HEAD = PARITY ? ran("git", ["-C", REPO, "rev-parse", `${HEAD_ARG}^{commit}`]).trim() : undefined;
 const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), "hypotrail-verify-panel-"));
 process.on("exit", () => fs.rmSync(SCRATCH, { recursive: true, force: true, maxRetries: 10 }));
-const archive = ran("git", ["-C", REPO, "archive", "--format=tar", HEAD, "clients/vscode"], { encoding: "buffer" });
+const sources = PARITY ? ["package.json", "package-lock.json", "tsconfig.json", "test/chrome.ts"].map((file) => `clients/vscode/${file}`) : ["clients/vscode"];
+const archive = ran("git", ["-C", REPO, "archive", "--format=tar", EXACT_HEAD ?? HEAD, ...sources], { encoding: "buffer" });
 ran("tar", ["-x", "-C", SCRATCH], { input: archive });
 const CLIENT = path.join(SCRATCH, "clients", "vscode");
 ran("npm", ["ci", "--no-audit", "--no-fund", "--prefer-offline"], { cwd: CLIENT });
-ran("npm", ["run", "compile"], { cwd: CLIENT });
+if (PARITY) ran(process.execPath, [path.join(CLIENT, "node_modules", "typescript", "bin", "tsc"), "-p", "."], { cwd: CLIENT });
+else ran("npm", ["run", "compile"], { cwd: CLIENT });
 
-// From here on, `require("vscode")` gives the client's stub, as in its tests.
-require(path.join(CLIENT, "out", "test", "vscode-stub-hook.js"));
 const { test } = require("node:test");
-const H = require(path.join(CLIENT, "out", "test", "panel-harness.js"));
-const { exit, recorder } = require(path.join(CLIENT, "out", "test", "recorder.js"));
-const { kept, KEPT: KEPT_FOLDER } = require(path.join(CLIENT, "out", "test", "kept.js"));
 const chrome = require(path.join(CLIENT, "out", "test", "chrome.js"));
-const contract = require(path.join(CLIENT, "contract.json"));
-const [, RECORD, SEND_AGAIN] = contract.messages;
 
 const THEMES = {
   light: { kind: "vscode-light", v: { "panel-border": "rgba(128,128,128,0.35)", foreground: "#616161", "editor-foreground": "#000000", "editor-background": "#ffffff", descriptionForeground: "#717171", "textLink-foreground": "#006ab1", focusBorder: "#0090f1",
@@ -95,8 +93,19 @@ a,a code{color:var(--vscode-textLink-foreground);}}`;
 }
 
 // Each text under AA against what it stands on, every opacity and background under it composited.
-const BELOW_AA = `(() => {
-  const parse = (c) => { const m = /rgba?\\(([^)]+)\\)/.exec(c); if (!m) return [0, 0, 0, 0]; const p = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
+const belowAA = (parity = false) => `(() => {
+  const parse = (c) => {
+    const srgb = ${parity} && /^color\\(srgb ([^)]+)\\)$/.exec(c);
+    if (srgb) {
+      const [r, g, b, alpha = 1] = srgb[1].split(/[ \\/]+/).map((value) =>
+        Math.max(0, Math.min(1, value.endsWith("%") ? parseFloat(value) / 100 : Number(value) || 0)));
+      return [r * 255, g * 255, b * 255, alpha];
+    }
+    const m = /rgba?\\(([^)]+)\\)/.exec(c);
+    if (!m) return [0, 0, 0, 0];
+    const p = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number);
+    return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+  };
   const over = (top, under) => [0, 1, 2].map((i) => top[i] * top[3] + under[i] * (1 - top[3])).concat([1]);
   const lum = (c) => { const f = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
   const bgOf = (el) => { const chain = []; for (let e = el; e; e = e.parentElement) chain.unshift(e); let bg = parse(getComputedStyle(document.documentElement).backgroundColor); for (const e of chain) { const b = parse(getComputedStyle(e).backgroundColor); if (b[3] > 0) bg = over(b, bg); } return bg; };
@@ -106,7 +115,13 @@ const BELOW_AA = `(() => {
   while (walker.nextNode()) {
     const node = walker.currentNode;
     if (!node.textContent.trim() || node.parentElement.closest("script, style")) continue;
-    const el = node.parentElement, style = getComputedStyle(el), bg = bgOf(el);
+    const el = node.parentElement, style = getComputedStyle(el);
+    if (${parity}) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      if (style.visibility !== "visible" || !range.getClientRects().length) continue;
+    }
+    const bg = bgOf(el);
     let fg = parse(style.color); fg = [fg[0], fg[1], fg[2], fg[3] * opacity(el)];
     const shown = over(fg, bg), a = lum(shown), b = lum(bg), ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     const large = parseFloat(style.fontSize) >= 24 || (parseFloat(style.fontSize) >= 18.66 && Number(style.fontWeight) >= 700);
@@ -114,6 +129,19 @@ const BELOW_AA = `(() => {
   }
   return out;
 })()`;
+
+if (PARITY) {
+  test("render parity", renderParity);
+  return;
+}
+
+// From here on, `require("vscode")` gives the client's stub, as in its tests.
+require(path.join(CLIENT, "out", "test", "vscode-stub-hook.js"));
+const H = require(path.join(CLIENT, "out", "test", "panel-harness.js"));
+const { exit, recorder } = require(path.join(CLIENT, "out", "test", "recorder.js"));
+const { kept, KEPT: KEPT_FOLDER } = require(path.join(CLIENT, "out", "test", "kept.js"));
+const contract = require(path.join(CLIENT, "contract.json"));
+const [, RECORD, SEND_AGAIN] = contract.messages;
 
 // Where the first pending question, its first number and its Record control stand, and the page's height.
 const POSITIONS = `(() => {
@@ -252,7 +280,7 @@ test("render", async (t) => {
       await view.open(name, theme);
       if (!shots.has(name)) shots.set(name, []);
       shots.get(name).push({ theme, width, file: await view.shoot(`${name}--${theme}-${width}.png`, true) });
-      const below = await view.evaluate(BELOW_AA);
+      const below = await view.evaluate(belowAA());
       if (below.length) contrast[`${name}--${theme}-${width}`] = below;
       if (width === 420) positions[`${name}--${theme}`] = await view.evaluate(POSITIONS);
     }
@@ -310,7 +338,9 @@ test("render", async (t) => {
   writeSheet();
 });
 
-const escaped = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+function escaped(text) {
+  return String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
 
 function writeSheet() {
   const count = [...shots.values()].reduce((sum, list) => sum + list.length, 0) + Object.values(keyboard).reduce((sum, k) => sum + k.steps.length, 0);
@@ -335,4 +365,239 @@ ${keys.join("\n")}
   fs.writeFileSync(path.join(OUT, "positions.json"), JSON.stringify(positions, null, 1));
   fs.writeFileSync(path.join(OUT, "keyboard.json"), JSON.stringify(keyboard, null, 1));
   console.log(`verify-panel: ${path.join(OUT, "sheet.html")} (${documents.size} documents, ${count} shots, head ${HEAD})`);
+}
+
+// The frozen HTML contains the original panel and the recorded host exchanges.
+// Use its native screen, theme and Annex controls, then photograph the panel frame.
+function readReference(root, folder, side, buttons) {
+  const file = path.join(root, folder, "index.html");
+  const html = fs.readFileSync(file, "utf8");
+  const data = /<script type="application\/json" id="d-main">([\s\S]*?)<\/script>/.exec(html);
+  const screens = data && JSON.parse(data[1]).screens;
+  if (!Array.isArray(screens) || screens.length !== 16 || screens.some(({ n, step, kind }, i) =>
+    n !== i + 1 || (i === 15 ? kind !== "annex" : kind !== "step" || !/^[a-z_]+$/.test(step)))) {
+    throw new Error(`Invalid frozen screen list in ${file}`);
+  }
+  return { html, side, buttons, screens, digest: createHash("sha256").update(html).digest("hex") };
+}
+
+// The optional build evidence is already rendered by the journey/DOM harness.
+// A full-head namespace makes a reused output folder safe across revisions.
+function keptEvidence(file) {
+  const entry = fs.lstatSync(file, { throwIfNoEntry: false });
+  if (!entry) return undefined;
+  if (!entry.isFile()) throw new Error(`Expected a regular evidence file: ${file}`);
+  return fs.readFileSync(file, "utf8");
+}
+
+async function renderParity(t) {
+  const root = path.resolve(REFERENCE_ARG);
+  const references = [
+    readReference(root, "reference", "fr", ["Tableau noir", "Tableau blanc"]),
+    readReference(root, "reference-en", "en", ["Blackboard", "Whiteboard"]),
+  ];
+  const [french, english] = references;
+  if (english.screens.some(({ id, step }, i) => id !== french.screens[i].id || step !== french.screens[i].step)) {
+    throw new Error("The frozen French and English screen lists differ");
+  }
+  if (!fs.existsSync(chrome.CHROME)) throw new Error(`no Chrome at ${chrome.CHROME}`);
+  const address = await chrome.startChrome(t);
+  if (address === undefined) throw new Error(`Chrome at ${chrome.CHROME} did not start within ${chrome.START_MS} ms`);
+  const session = await chrome.pageOf(t, address);
+  await session.send("Network.enable");
+  await session.send("Network.setBlockedURLs", { urls: ["http://*", "https://*", "file://*", "ws://*", "wss://*"] });
+  const evaluate = async (expression) => {
+    const answer = await session.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+    if (answer.exceptionDetails) throw new Error(answer.exceptionDetails.exception?.description ?? answer.exceptionDetails.text);
+    return answer.result.value;
+  };
+  const waitFor = async (expression, what) => {
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      if (await evaluate(expression)) return;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+    throw new Error(`Timed out waiting for ${what}`);
+  };
+  const blank = async () => {
+    const url = "about:blank";
+    const navigation = await session.send("Page.navigate", { url });
+    if (navigation.errorText) throw new Error(`Could not open ${url}: ${navigation.errorText}`);
+    await waitFor(`location.href === ${JSON.stringify(url)} && document.readyState === "complete"`, url);
+  };
+  const openReference = async (reference) => {
+    await blank();
+    const { frameTree } = await session.send("Page.getFrameTree");
+    await session.send("Page.setDocumentContent", { frameId: frameTree.frame.id, html: reference.html });
+    await waitFor('document.querySelectorAll(".seg.steps > button").length === 16', `${reference.side} screen controls`);
+  };
+  const FRAME = 'window.document.querySelector("#parity-build, #screen iframe")';
+  const viewport = (width, height = 900) => session.send(
+    "Emulation.setDeviceMetricsOverride", { width: width + 96, height, deviceScaleFactor: 1, mobile: false },
+  );
+  const shot = async (key, width) => {
+    // Pin the live iframe in place without reparenting it or changing its document.
+    // An origin clip also keeps fractional layout and shell scroll out of the shot.
+    const stage = await evaluate(`(async () => {
+      const frame = ${FRAME};
+      const previous = { frame: frame.getAttribute("style"), body: window.document.body.getAttribute("style") };
+      window.document.body.style.visibility = "hidden";
+      for (const [property, value] of Object.entries({
+        position: "fixed", top: "0", left: "0", margin: "0", border: "0", visibility: "visible",
+        "z-index": "2147483647", "box-sizing": "content-box", width: "${width}px", "max-width": "none",
+      })) frame.style.setProperty(property, value, "important");
+      const doc = frame.contentDocument;
+      await doc.fonts.ready;
+      // The frozen replay spaces its host responses across browser turns.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const height = Math.ceil(Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight));
+      frame.style.setProperty("height", height + "px", "important");
+      if (frame.contentWindow.innerWidth !== ${width}) throw new Error("The panel did not take the requested width");
+      return { previous, height };
+    })()`);
+    const { height, previous } = stage;
+    try {
+      await viewport(width, height);
+      const findings = await evaluate(`(async () => {
+        const frame = ${FRAME};
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        frame.contentWindow.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const r = frame.getBoundingClientRect();
+        if (r.left || r.top || r.width !== ${width} || r.height !== ${height} || frame.contentWindow.scrollY) {
+          throw new Error("The panel is outside its capture area");
+        }
+        const document = frame.contentDocument;
+        const getComputedStyle = (element) => document.defaultView.getComputedStyle(element);
+        return ${belowAA(true)};
+      })()`);
+      const clip = { x: 0, y: 0, width, height, scale: 1 };
+      const { data } = await session.send("Page.captureScreenshot", { format: "png", clip, captureBeyondViewport: true });
+      const png = Buffer.from(data, "base64");
+      if (png.readUInt32BE(16) !== width || png.readUInt32BE(20) !== height) {
+        throw new Error(`Incorrect screenshot dimensions for ${key}`);
+      }
+      const file = `parity-shots/${key}.png`;
+      fs.writeFileSync(path.join(OUT, file), png);
+      return { file, width, height, findings };
+    } finally {
+      await evaluate(`(() => {
+        const restore = (element, value) => value === null ? element.removeAttribute("style") : element.setAttribute("style", value);
+        restore(${FRAME}, ${JSON.stringify(previous.frame)});
+        restore(window.document.body, ${JSON.stringify(previous.body)});
+      })()`);
+      await viewport(width);
+    }
+  };
+  const screens = english.screens.map(({ n, step, title }) => ({
+    name: `${String(n).padStart(2, "0")}-${step ?? "annex"}`, title, rows: [],
+  }));
+  const evidenceDir = path.join(OUT, "parity-mpg", EXACT_HEAD);
+  fs.mkdirSync(path.join(OUT, "parity-shots"), { recursive: true });
+  for (const [theme, light] of [["blackboard", false], ["whiteboard", true]]) for (const width of WIDTHS) {
+    // The shell needs room for its chrome. The panel itself takes the exact width.
+    await viewport(width);
+    await session.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: light ? "light" : "dark" }] });
+    const rows = screens.map((screen) => {
+      const row = { theme, width, key: `${screen.name}--${theme}-${width}`, shots: {} };
+      screen.rows.push(row);
+      return row;
+    });
+    for (const reference of references) {
+      await openReference(reference);
+      for (const [i, source] of reference.screens.entries()) {
+        const key = rows[i].key;
+        await evaluate(`document.querySelectorAll(".seg.steps > button")[${i}].click()`);
+        if (source.kind === "annex") {
+          await waitFor(`(() => {
+            const doc = (${FRAME})?.contentDocument;
+            return doc?.readyState === "complete" &&
+              typeof doc.getElementById("themeBtn")?.onclick === "function" &&
+              typeof doc.getElementById("w${width}")?.onclick === "function";
+          })()`, `${reference.side} Annex controls`);
+          await evaluate(`(() => {
+            const doc = (${FRAME}).contentDocument;
+            const button = doc.getElementById("themeBtn");
+            if (button.getAttribute("aria-pressed") !== "${light}") button.click();
+            const size = doc.getElementById("w${width}");
+            size.click();
+            if (doc.body.classList.contains("white") !== ${light}) throw new Error("Annex theme did not apply");
+            if (size.getAttribute("aria-pressed") !== "true") throw new Error("Annex width did not apply");
+          })()`);
+        } else {
+          const label = reference.buttons[Number(light)];
+          await evaluate(`(() => {
+            const item = [...document.querySelectorAll("#screen .coltitle button")].find((button) => button.textContent === ${JSON.stringify(label)});
+            if (!item) throw new Error("The original panel theme control is missing");
+            if (item.getAttribute("aria-pressed") !== "true") item.click();
+          })()`);
+          const review = source.navAlways || source.defaultMode === "review";
+          const anchor = JSON.stringify(`[data-anchor="path:${source.step}"]`);
+          await waitFor(`(() => {
+            const doc = (${FRAME})?.contentDocument;
+            const target = doc?.querySelector(${anchor});
+            return doc?.body?.classList.contains("vscode-${light ? "light" : "dark"}")
+              && doc.querySelector('[data-anchor="now"]')
+              && ${review ? 'target?.querySelector(".sc-rv") && !target.classList.contains("ht-highlight")' : "true"};
+          })()`, `${reference.side} ${key} panel replay`);
+        }
+        rows[i].shots[reference.side] = await shot(`${key}--${reference.side}`, width);
+      }
+    }
+    for (const [i, screen] of screens.entries()) {
+      // The Annex is archival reference material (section 1.4).
+      if (i === 15) continue;
+      const document = keptEvidence(path.join(evidenceDir, `${screen.name}--${theme}.html`));
+      if (document === undefined) continue;
+      await blank();
+      await evaluate(`(() => {
+        document.body.style.margin = "0";
+        const frame = document.createElement("iframe");
+        frame.id = "parity-build";
+        frame.setAttribute("sandbox", "allow-same-origin");
+        frame.style.cssText = "display:block;border:0;height:700px";
+        frame.srcdoc = ${JSON.stringify(document)};
+        document.body.append(frame);
+      })()`);
+      await waitFor(`(${FRAME})?.contentDocument?.URL === "about:srcdoc" && (${FRAME}).contentDocument.readyState === "complete"`, `${screen.name} build document`);
+      rows[i].shots.build = await shot(`${rows[i].key}--build`, width);
+      const result = keptEvidence(path.join(evidenceDir, `${screen.name}.dom-differences.json`));
+      if (result !== undefined) {
+        const differences = JSON.parse(result);
+        if (!Array.isArray(differences) || differences.some((line) => typeof line !== "string")) {
+          throw new Error(`Invalid DOM check result for ${screen.name}`);
+        }
+        rows[i].differences = differences;
+      }
+    }
+  }
+  writeParitySheet(screens, references);
+}
+
+function writeParitySheet(screens, references) {
+  const labels = { fr: "French reference", en: "English twin", build: "Build" };
+  const figure = (side, shot) => {
+    if (!shot) return '<p data-side="build">no build state</p>';
+    const label = labels[side];
+    const aa = shot.findings.map(({ text, tag, ratio }) => `<li>${escaped(text)} (${escaped(tag)}, ${ratio})</li>`);
+    return `<figure data-side="${side}"><figcaption>${label}</figcaption>
+<a href="${shot.file}"><img loading="lazy" src="${shot.file}" alt="${label}" width="${shot.width}" height="${shot.height}"></a>
+<details><summary>WCAG AA contrast findings (${aa.length})</summary>${aa.length ? `<ul>${aa.join("")}</ul>` : "<p>No text under AA.</p>"}</details></figure>`;
+  };
+  const sections = screens.map(({ name, title, rows }) => `<section data-screen="${name}"><h2>${escaped(title)}</h2>
+${rows.map(({ theme, width, shots, differences }) => `<article data-theme="${theme}" data-width="${width}"><h3>${theme} · ${width} px</h3>
+<div class="pair"><div class="references">${figure("fr", shots.fr)}${figure("en", shots.en)}</div>${figure("build", shots.build)}</div>
+<details><summary>DOM check differences</summary>${differences === undefined ? "<p>No DOM check result.</p>" :
+    differences.length ? `<ul>${differences.map((line) => `<li>${escaped(line)}</li>`).join("")}</ul>` : "<p>No differences reported.</p>"}</details></article>`).join("\n")}
+</section>`);
+  const file = path.join(OUT, "parity.html");
+  fs.writeFileSync(file, `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Panel parity ${HEAD}</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;margin:16px;color:#182024;background:#fff}section{border-top:1px solid #999}article{margin-bottom:2rem}.pair,.references{display:grid;gap:12px;align-items:start}.pair{grid-template-columns:2fr 1fr}.references{grid-template-columns:repeat(2,minmax(0,1fr))}figure{margin:0;min-width:0}img{display:block;max-width:100%;height:auto;border:1px solid #999}figcaption{font-weight:600}code{overflow-wrap:anywhere}details{margin:.5rem 0}</style>
+</head><body><h1>Panel parity at ${HEAD}</h1>
+<p>Build head <code>${EXACT_HEAD}</code></p>
+<dl>${references.map(({ side, digest }) => `<dt>${labels[side]} SHA-256</dt><dd><code>${digest}</code></dd>`).join("")}</dl>
+${sections.join("\n")}
+</body></html>\n`);
+  console.log(`verify-panel: ${file} (${screens.length} screens, head ${HEAD})`);
 }
