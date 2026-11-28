@@ -1,0 +1,179 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.target_summary --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the target summary, run without asking you. What do the development rows show about the distribution of the target and the special values? Each of these analyses is a look at the target: it reads the variable to predict, and every look is counted. The preparation is already decided, before these looks."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.special_values --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the special-value check, run without asking you. What do the development rows show about the distribution of the target and the special values? Each of these analyses is a look at the target: it reads the variable to predict, and every look is counted. The preparation is already decided, before these looks."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.mean_by --column cylinders --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: a target mean by group (cylinders), run without asking you. The exploration continues with a target mean by group (cylinders). It reads the target of the development rows: one more look, counted."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.mean_by --column displacement --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: a target mean by group (displacement), run without asking you. The exploration continues with a target mean by group (displacement). It reads the target of the development rows: one more look, counted."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.mean_by --column horsepower --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: a target mean by group (horsepower), run without asking you. The exploration continues with a target mean by group (horsepower). It reads the target of the development rows: one more look, counted."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.mean_by --column weight --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: a target mean by group (weight), run without asking you. The exploration continues with a target mean by group (weight). It reads the target of the development rows: one more look, counted."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.mean_by --column origin --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: a target mean by group (origin), run without asking you. The exploration continues with a target mean by group (origin). It reads the target of the development rows: one more look, counted."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.correlation --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: an analysis, run without asking you. The exploration continues with an analysis. It reads no target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Correlation"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.distribution --column cylinders --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the distribution of a column (cylinders), run without asking you. The exploration continues with the distribution of a column (cylinders). It reads no target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Distribution · cylinders"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.distribution --column displacement --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the distribution of a column (displacement), run without asking you. The exploration continues with the distribution of a column (displacement). It reads no target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Distribution · displacement"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.distribution --column weight --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the distribution of a column (weight), run without asking you. The exploration continues with the distribution of a column (weight). It reads no target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Distribution · weight"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.distribution --column origin --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the distribution of a column (origin), run without asking you. The exploration continues with the distribution of a column (origin). It reads no target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Distribution · origin"
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Exploration (9 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "The exploration's charts are shown and no model is fitted yet. Read them, then say whether we move on to the models."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "action",
+    "question": "The exploration's charts are shown. Shall we move on to the models?",
+    "options": [
+      {
+        "id": "continue",
+        "label": "Let's continue",
+        "rec": true
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Target distribution**: How the values of the target spread, summarised by the mean, the standard deviation, and the quartiles. Any model is compared with the simplest guess, the mean. [{'text': \"On this study's development rows the target has a mean of \"}, {'text': '23.53', 'resultId': 'b79683e072721fa59329652bbf51974cccb1c84ec83594cac60ff0eea5b1c016', 'path': 'mean', 'value': 23.52578616352201, 'format': 'f2'}, {'text': ' mpg and a standard deviation of '}, {'text': '7.81', 'resultId': 'b79683e072721fa59329652bbf51974cccb1c84ec83594cac60ff0eea5b1c016', 'path': 'sd', 'value': 7.812420054548005, 'format': 'f2'}, {'text': ' mpg.'}]"
+      },
+      {
+        "k": "eng",
+        "text": "The target is: mpg: city-cycle fuel efficiency in miles per gallon according to the source. Exploration reads the development rows; the final test stays sealed."
+      },
+      {
+        "k": "eng",
+        "text": "The target summary and the special values are computed on the development rows, with their counts."
+      },
+      {
+        "k": "eng",
+        "text": "On the development rows the target has a mean of  23.53  and a standard deviation of  7.81 , in the unit of the target. The mean baseline predicts the mean of the rows it is fitted on; a model has to do better to be useful."
+      },
+      {
+        "k": "eng",
+        "text": "A missing-value marker on a numeric variable becomes an indicator and an imputed value in the model, never an ordinary number."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ]
+  }
+]

@@ -1,0 +1,129 @@
+{
+  "selected": "Change something",
+  "question": "What do you want to change?",
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 64,
+    "position": {
+      "step_id": "final_test",
+      "completed": 12,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_9",
+    "proposal_text": "You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\".",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You open the final test once, for the linear model and the criterion fixed in advance; its figures are the result, even a disappointing one, and any later change is labelled \"after the final test\".\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty",
+      "why-consider-a-nonlinear-family"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "final_test",
+    "decision": "final_test",
+    "message": "Now that the model is chosen, do you open the sealed final test, once, to measure it on rows nothing has seen? After this, any change is made after the final test.",
+    "default_value": {
+      "model": "fit.linear",
+      "rule": null
+    },
+    "audience": "junior",
+    "junior_message": "Now that the model is chosen, do you open the sealed final test, once, to measure it on rows nothing has seen? After this, any change is made after the final test.",
+    "language": "en",
+    "recommended": {
+      "value": {
+        "model": "fit.linear",
+        "rule": null
+      },
+      "why": "This is the configuration you chose; the holdout (final test) measures it once."
+    },
+    "question": "Do you open the holdout (final test) now, once?",
+    "junior_digest": "Holdout (final test): rows sealed since the start. Opened once, it measures the chosen configuration on rows no choice used; it is the study's only independent evidence. After the opening, any change is reported as made after the final test. Recommended: This is the configuration you chose; the holdout (final test) measures it once. It holds 80 rows.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Final test (13 of 14).",
+    "evidence": [],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 63,
+      "position": {
+        "step_id": "final_test",
+        "completed": 12,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "Do you open the holdout (final test) now, once?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty",
+        "why-consider-a-nonlinear-family"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the question waiting for you",
+        "line": null
+      },
+      "shown": null
+    }
+  }
+}

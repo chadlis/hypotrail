@@ -1,0 +1,146 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Success criterion (6 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Success criterion: a metric and a minimum, fixed now, before any model, so the result cannot move the bar. Recommended: The middle option, 10% less error than the reference (predict the mean): a moderate bar chosen by convention, not from the costs of this case. Keep it, or name the minimum your team needs. The business bar is the current method's error, 4.5 from the use-case brief: both levels are fixed now and judged on the final test. The criterion is a share of the mean baseline's mean absolute error, in mpg; the baseline's error is known once the models are fitted. 5% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.95 E mpg. 10% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.90 E mpg. 20% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.80 E mpg."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "choice",
+    "question": "Which error (MAE by default, or RMSE), and which minimum reduction of the baseline's error, would make the model worth using?",
+    "options": [
+      {
+        "id": "0.05",
+        "label": "5% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.95 E mpg.",
+        "rec": false
+      },
+      {
+        "id": "0.1",
+        "label": "10% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.90 E mpg.",
+        "rec": true
+      },
+      {
+        "id": "0.2",
+        "label": "20% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.80 E mpg.",
+        "rec": false
+      }
+    ],
+    "captured": "0.1",
+    "capturedLabel": "10% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.90 E mpg.",
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Success criterion**: The smallest reduction of the baseline's error that would make the model worth adopting, fixed before any model is fitted, so the result cannot move the bar. The conclusion is read against it. For example, deciding before the models that the linear model must make errors at least a tenth smaller than predicting the mean for every car, and keeping the mean when it does not."
+      },
+      {
+        "k": "eng",
+        "text": "The criterion is fixed at the split pause, before any model is fitted, so the result cannot shape it."
+      },
+      {
+        "k": "eng",
+        "text": "You state the smallest relative reduction of the out-of-fold mean absolute error of the mean baseline that would make the model worth using."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion is read against it. A reduction below it, or whose paired interval includes zero, does not support adopting the model."
+      },
+      {
+        "k": "eng",
+        "text": "Changing it later asks for the conclusion again."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose success_criterion … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the success criterion: \"You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Success criterion",
+    "question": "You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Success criterion**: The smallest reduction of the baseline's error that would make the model worth adopting, fixed before any model is fitted, so the result cannot move the bar. The conclusion is read against it. For example, deciding before the models that the linear model must make errors at least a tenth smaller than predicting the mean for every car, and keeping the mean when it does not."
+      },
+      {
+        "k": "eng",
+        "text": "The criterion is fixed at the split pause, before any model is fitted, so the result cannot shape it."
+      },
+      {
+        "k": "eng",
+        "text": "You state the smallest relative reduction of the out-of-fold mean absolute error of the mean baseline that would make the model worth using."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion is read against it. A reduction below it, or whose paired interval includes zero, does not support adopting the model."
+      },
+      {
+        "k": "eng",
+        "text": "Changing it later asks for the conclusion again."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Success criterion (success_criterion)",
+      "value": "You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg.",
+      "proposal": "p_5",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Next: the data quality check, run without asking you. Which columns have missing cells, rare categories, or values outside their possible range? This check reads the development rows without the target, so the preparation decided from it comes before any look at the target."
+      }
+    ]
+  }
+]

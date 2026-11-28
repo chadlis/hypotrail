@@ -1,0 +1,55 @@
+{
+  "selected": "Change something",
+  "question": "What do you want to change?",
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 2,
+    "position": {
+      "step_id": "prediction_time",
+      "completed": 1,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the prediction moment, the feature availability, the split, the error measure, the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Validation rows are used to compare the models and to choose one, so validation errors are not independent evidence of future error."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_1",
+    "proposal_text": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You predict when the technical characteristics are fixed, before fuel efficiency is measured.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "decision": "prediction_time",
+    "default_value": "When technical characteristics are fixed, before measuring fuel efficiency",
+    "_synthetic": true
+  }
+}

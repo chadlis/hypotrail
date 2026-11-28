@@ -1,0 +1,137 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Conclusion (14 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Conclusion: what the study can say, for which use, and with which limits. Keeping the baseline is a valid result. Final figures come first, development figures next to them, labelled as such. The success criterion is met on the holdout (final test)."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "choice",
+    "question": "What do you conclude, for which use, and with which limits?",
+    "options": [
+      {
+        "id": "adopt_model",
+        "label": "Adopt the chosen model",
+        "rec": false
+      },
+      {
+        "id": "keep_baseline",
+        "label": "Keep the reference (predict the mean)",
+        "rec": false
+      },
+      {
+        "id": "inconclusive",
+        "label": "Do not conclude (inconclusive)",
+        "rec": false
+      }
+    ],
+    "captured": "adopt_model",
+    "capturedLabel": "Adopt the chosen model",
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Confirmed decision**: A choice recorded with the user's own words in reply to a restatement. The engine records the words; it cannot verify who typed them."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion says what can be claimed, for which use, and with which limits."
+      },
+      {
+        "k": "eng",
+        "text": "You choose a verdict and write the text; keeping the baseline or calling the study inconclusive are valid results."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion rests on out-of-fold figures of rows used for the choice, and on the final test once it is opened."
+      },
+      {
+        "k": "eng",
+        "text": "The limits listed under \"What is not yet defensible\" stay attached to it."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose conclusion … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the conclusion: \"You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Conclusion",
+    "question": "You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Confirmed decision**: A choice recorded with the user's own words in reply to a restatement. The engine records the words; it cannot verify who typed them."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion says what can be claimed, for which use, and with which limits."
+      },
+      {
+        "k": "eng",
+        "text": "You choose a verdict and write the text; keeping the baseline or calling the study inconclusive are valid results."
+      },
+      {
+        "k": "eng",
+        "text": "The conclusion rests on out-of-fold figures of rows used for the choice, and on the final test once it is opened."
+      },
+      {
+        "k": "eng",
+        "text": "The limits listed under \"What is not yet defensible\" stay attached to it."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Conclusion (conclusion)",
+      "value": "You adopt the linear model: on the final test it is off by 2.88 mpg on average and the criterion fixed in advance is met, with its limits.",
+      "proposal": "p_10",
+      "basis": "restated",
+      "mode": "guided",
+      "capturedWords": "Yes, I adopt the linear model, because the criterion fixed in advance is met on the final test, with its limits.",
+      "capturedChannel": "chat"
+    }
+  }
+]

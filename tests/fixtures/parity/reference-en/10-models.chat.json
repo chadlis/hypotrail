@@ -1,0 +1,35 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run fit.baseline --progress"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run fit.linear --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the linear model, run without asking you. It answers this question: Which predictions do the mean baseline and a linear model give for each development row, predicted out of fold?"
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run diag.regression --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the development diagnostics, run without asking you. It answers this question: Which predictions do the mean baseline and a linear model give for each development row, predicted out of fold?"
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Models → the diagnostics"
+      },
+      {
+        "k": "rec",
+        "text": "No pause at this step: the work planned between two pauses is done without asking again, and the guide stops at the next pause (Variants)."
+      }
+    ]
+  }
+]

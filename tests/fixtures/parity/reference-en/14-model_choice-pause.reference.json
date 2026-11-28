@@ -1,0 +1,807 @@
+{
+  "proposal": {
+    "schema": "hypotrail.decide/1",
+    "ok": true,
+    "study": "STUDY",
+    "action": "decide.propose",
+    "request_id": "parity-reference",
+    "replayed": false,
+    "revision": 61,
+    "result": {
+      "proposal_id": "p_9",
+      "decision_id": "model_choice",
+      "status": "open",
+      "decision_status": "proposed",
+      "superseded": [
+        "p_8"
+      ],
+      "restatement": "Choose the mean baseline.",
+      "data_contingent": true,
+      "data_contingent_reason": {
+        "kind": "changed_after_validation",
+        "previous_value": "fit.linear",
+        "evaluation": "5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7",
+        "text": "This model choice changes the value proposed before (fit.linear) after an evaluation of that value was seen: the development figures that guided the change are slightly optimistic. Say so to the junior before presenting it.",
+        "junior_text": "This model is proposed after you saw how the earlier one did on the validation rows: a change guided by those figures makes them slightly optimistic. It is recorded, not refused."
+      }
+    },
+    "artifacts": {
+      "report": {
+        "status": "ok",
+        "path": "reports/study.html",
+        "revision": 61,
+        "last_ok_revision": 61,
+        "error": null,
+        "message": "The report (reports/study.html) is up to date."
+      },
+      "notebook": {
+        "status": "ok",
+        "path": "notebooks/study_generated.py",
+        "revision": 61,
+        "last_ok_revision": 61,
+        "error": null,
+        "message": "The generated notebook (notebooks/study_generated.py) is up to date."
+      },
+      "editable": {
+        "status": "ok",
+        "path": "notebooks/study_editable.py",
+        "revision": 61,
+        "last_ok_revision": 61,
+        "error": null,
+        "tracked": false,
+        "message": "The editable study notebook (notebooks/study_editable.py) follows the generated notebook until you edit it; after that it is never overwritten and does not count as official evidence."
+      },
+      "workbench": {
+        "status": "ok",
+        "path": "notebooks/workbench.py",
+        "revision": 2,
+        "last_ok_revision": 2,
+        "error": null,
+        "tracked": false,
+        "message": "The workbench (notebooks/workbench.py) is the junior's free space: created once, never overwritten, and not tracked by the study."
+      }
+    },
+    "next_action": {
+      "kind": "await_user_words",
+      "proposal_id": "p_9",
+      "decision": "model_choice",
+      "message": "Show the restatement, then ask the closed question \"Do you adopt this decision?\" and record the reply verbatim. A bare \"ok\" before that question is not a decision.",
+      "audience": "agent",
+      "junior_message": "A proposal on the model choice is waiting for your answer. Read its restatement and say whether you adopt it, or what you would change.",
+      "language": "en",
+      "recommended": null,
+      "question": "Do you adopt this decision?",
+      "junior_digest": "Proposal on the model choice: \"Choose the mean baseline.\" If it suits you, say that you adopt it; otherwise say what you change.",
+      "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Model choice (12 of 14).",
+      "evidence": [
+        "evaluate.regression",
+        "diag.regression"
+      ],
+      "pause": {
+        "schema": "hypotrail.pause/1",
+        "kind": "decision",
+        "language": "en",
+        "revision": 61,
+        "position": {
+          "step_id": "model_choice",
+          "completed": 11,
+          "total": 14
+        },
+        "learned": [],
+        "limitations": [
+          {
+            "code": "unconfirmed_decisions",
+            "text": "Not confirmed by you yet: the model choice, the opening of the final test and the conclusion."
+          },
+          {
+            "code": "validation_is_not_independent",
+            "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+          },
+          {
+            "code": "public_data_already_explored",
+            "text": "The data were explored or published before this study; its rows are not unseen."
+          }
+        ],
+        "proposal_id": "p_9",
+        "proposal_text": "Choose the mean baseline.",
+        "recommended_option": "adopt",
+        "options": [
+          "adopt",
+          "change",
+          "explain"
+        ],
+        "option_labels": {
+          "adopt": "I adopt this decision",
+          "change": "Change something",
+          "explain": "Explain first"
+        },
+        "question": "Choose the mean baseline.\n\nDo you adopt this decision?",
+        "evidence_refs": [],
+        "detail_topics": [
+          "metric",
+          "uncertainty",
+          "why-consider-a-nonlinear-family"
+        ]
+      },
+      "panel": {
+        "version": 2,
+        "stage": "v3",
+        "title": "Hypotrail study",
+        "where": {
+          "anchor": "now",
+          "label": "Now, the question waiting for you",
+          "line": null
+        },
+        "shown": {
+          "anchor": "now",
+          "label": "Now, the question waiting for you",
+          "line": null
+        }
+      }
+    }
+  },
+  "summary": {
+    "schema": "hypotrail.summary/1",
+    "ok": true,
+    "study": "STUDY",
+    "revision": 61,
+    "since": null,
+    "changed": null,
+    "goal": {
+      "intended_use": {
+        "value": "Exercise: estimate a future model fuel efficiency from technical characteristics",
+        "status": "scenario_assumption"
+      },
+      "decision": {
+        "value": "Compare estimation methods without a real decision",
+        "status": "scenario_assumption"
+      },
+      "observation_unit": {
+        "value": "A vehicle model for a model year",
+        "status": "scenario_assumption"
+      },
+      "prediction_time": {
+        "value": "When technical characteristics are fixed, before measuring fuel efficiency",
+        "source": "decision",
+        "status": "confirmed"
+      }
+    },
+    "current_step": "model_choice",
+    "plan": [
+      {
+        "id": "discover_data",
+        "title": "Discover the data",
+        "status": "done"
+      },
+      {
+        "id": "prediction_time",
+        "title": "Define the prediction moment",
+        "status": "done"
+      },
+      {
+        "id": "feature_availability",
+        "title": "Decide which variables are available at prediction time",
+        "status": "done"
+      },
+      {
+        "id": "split",
+        "title": "Split the data before exploring it",
+        "status": "done"
+      },
+      {
+        "id": "error_metric",
+        "title": "Choose how the error is measured",
+        "status": "done"
+      },
+      {
+        "id": "success_criterion",
+        "title": "Fix the success criterion before seeing a model",
+        "status": "done"
+      },
+      {
+        "id": "structural_eda",
+        "title": "Check the structure of the data",
+        "status": "done"
+      },
+      {
+        "id": "preprocessing",
+        "title": "Decide how the model prepares the variables",
+        "status": "done"
+      },
+      {
+        "id": "train_eda",
+        "title": "Explore the target on the development rows",
+        "status": "done"
+      },
+      {
+        "id": "models",
+        "title": "Fit a mean baseline and a linear model",
+        "status": "done"
+      },
+      {
+        "id": "model_variant",
+        "title": "Choose the variants to compare",
+        "status": "done"
+      },
+      {
+        "id": "model_choice",
+        "title": "Choose the model",
+        "status": "awaiting_confirmation"
+      },
+      {
+        "id": "final_test",
+        "title": "Open the final test once",
+        "status": "blocked"
+      },
+      {
+        "id": "conclusion",
+        "title": "Conclude proportionately",
+        "status": "ready"
+      }
+    ],
+    "next_action": {
+      "kind": "await_user_words",
+      "proposal_id": "p_9",
+      "decision": "model_choice",
+      "message": "Show the restatement, then ask the closed question \"Do you adopt this decision?\" and record the reply verbatim. A bare \"ok\" before that question is not a decision.",
+      "audience": "agent",
+      "junior_message": "A proposal on the model choice is waiting for your answer. Read its restatement and say whether you adopt it, or what you would change.",
+      "language": "en",
+      "recommended": null,
+      "question": "Do you adopt this decision?",
+      "junior_digest": "Proposal on the model choice: \"Choose the mean baseline.\" If it suits you, say that you adopt it; otherwise say what you change.",
+      "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Model choice (12 of 14).",
+      "evidence": [
+        "evaluate.regression",
+        "diag.regression"
+      ],
+      "pause": {
+        "schema": "hypotrail.pause/1",
+        "kind": "decision",
+        "language": "en",
+        "revision": 61,
+        "position": {
+          "step_id": "model_choice",
+          "completed": 11,
+          "total": 14
+        },
+        "learned": [],
+        "limitations": [
+          {
+            "code": "unconfirmed_decisions",
+            "text": "Not confirmed by you yet: the model choice, the opening of the final test and the conclusion."
+          },
+          {
+            "code": "validation_is_not_independent",
+            "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+          },
+          {
+            "code": "public_data_already_explored",
+            "text": "The data were explored or published before this study; its rows are not unseen."
+          }
+        ],
+        "proposal_id": "p_9",
+        "proposal_text": "Choose the mean baseline.",
+        "recommended_option": "adopt",
+        "options": [
+          "adopt",
+          "change",
+          "explain"
+        ],
+        "option_labels": {
+          "adopt": "I adopt this decision",
+          "change": "Change something",
+          "explain": "Explain first"
+        },
+        "question": "Choose the mean baseline.\n\nDo you adopt this decision?",
+        "evidence_refs": [],
+        "detail_topics": [
+          "metric",
+          "uncertainty",
+          "why-consider-a-nonlinear-family"
+        ]
+      },
+      "panel": {
+        "version": 2,
+        "stage": "v3",
+        "title": "Hypotrail study",
+        "where": {
+          "anchor": "now",
+          "label": "Now, the question waiting for you",
+          "line": null
+        },
+        "shown": null
+      }
+    },
+    "open_proposals": [
+      {
+        "proposal_id": "p_9",
+        "decision_id": "model_choice",
+        "value": "fit.baseline",
+        "restatement": "Choose the mean baseline.",
+        "revision": 61
+      }
+    ],
+    "decisions": {
+      "prediction_time": {
+        "status": "confirmed",
+        "value": "When technical characteristics are fixed, before measuring fuel efficiency",
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "feature_availability": {
+        "status": "confirmed",
+        "value": {
+          "uncertain_excluded": [
+            "acceleration"
+          ],
+          "available_at_prediction": [
+            "cylinders",
+            "displacement",
+            "horsepower",
+            "origin",
+            "weight"
+          ]
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": {
+          "discussed": [
+            "acceleration",
+            "cylinders",
+            "displacement",
+            "horsepower",
+            "origin",
+            "weight"
+          ]
+        }
+      },
+      "split": {
+        "status": "confirmed",
+        "value": {
+          "folds": 5,
+          "method": "temporal_folds",
+          "seed": 20261017
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "error_metric": {
+        "status": "confirmed",
+        "value": {
+          "metric": "mae"
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "success_criterion": {
+        "status": "confirmed",
+        "value": {
+          "business_max_error": 4.5,
+          "metric": "mae_reduction",
+          "min_share": 0.1
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "preprocessing": {
+        "status": "confirmed",
+        "value": {
+          "caps": {},
+          "data_contingent": false,
+          "log_transform": [
+            "horsepower"
+          ],
+          "missing": "none",
+          "motivated_by": [
+            "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e"
+          ],
+          "rare_category_min_rows": 0,
+          "target_looks_before": 0
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "model_variant": {
+        "status": "confirmed",
+        "value": {
+          "variants": [
+            {
+              "kind": "tuned",
+              "question": "Does a ridge penalty chosen by nested cross-validation predict with a smaller error than the unpenalised linear model?"
+            },
+            {
+              "family": "ebm",
+              "kind": "family",
+              "question": "Does a readable non-linear model predict with a smaller error by following what the linear model misses: the shape of horsepower and weight?"
+            }
+          ]
+        },
+        "basis": "endorsed",
+        "delegation_scope": null,
+        "user_words": "I adopt this decision",
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "model_choice": {
+        "status": "proposed",
+        "value": "fit.baseline",
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [
+          "p_9"
+        ],
+        "feature_basis": null
+      },
+      "final_test": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      },
+      "conclusion": {
+        "status": "open",
+        "value": null,
+        "basis": null,
+        "delegation_scope": null,
+        "user_words": null,
+        "reason": null,
+        "open_proposals": [],
+        "feature_basis": null
+      }
+    },
+    "results": {
+      "diag.regression": {
+        "result_id": "bf311ed15d8977754bb17ab0bd04a3e28eb7e8b6c09120e77ebaa568a43e59f3",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.correlation": {
+        "result_id": "42942f014624a1094afb37e0c4a9a25e12cf9b44eff3a368f0cd0987739a0b1e",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.distribution:cylinders": {
+        "result_id": "fb80777d019a6d88f5d090b0ad4b4fe79d8a4b7573cbe7f34a9f3a3cad6b99e8",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.distribution:displacement": {
+        "result_id": "c52ea33d7934741535769440bccd0b1ea258766a3183d51f7c70079d3fc79418",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.distribution:horsepower": {
+        "result_id": "16443debaadb78bc27897be6cf7bc39544797906c61e631ac74871531128525e",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.distribution:origin": {
+        "result_id": "58c2954187e6e712d8bc0792dc78ccc17df4f4ff0c66707e34d3e38b68569b56",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.distribution:weight": {
+        "result_id": "ce95633ba3b0a37f7049c0fcfb6677adae08770936598aa55b3e9954a49088e7",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.mean_by:cylinders": {
+        "result_id": "14f641a84a412528cfacac102cc84a2d527ddd8a9e6003b8ed4a7e2e6836b35e",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.mean_by:displacement": {
+        "result_id": "ae384a61bf51e3efb70f85d6b51811118da50ea477472641f781bdfb25ce5306",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.mean_by:horsepower": {
+        "result_id": "e8f926e1861eb12607a56d7f4da81dbd3f787a9fc969d6f38df44610805c5b6b",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.mean_by:origin": {
+        "result_id": "8f8165e176640ae7435ad8cceaae28143accdeb40d59753c8363170b7a1cc40c",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.mean_by:weight": {
+        "result_id": "4cb2f9d76b106e273a640d49bfb83e15d2fc30cb16383c482a3de08da755e0f8",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.quality": {
+        "result_id": "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.special_values": {
+        "result_id": "c9d3dd9f07d1da9bd19d2a1cc1fbc8228c04690a4ab4ed7b9b56bc2ed1e4aea7",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "eda.target_summary": {
+        "result_id": "b79683e072721fa59329652bbf51974cccb1c84ec83594cac60ff0eea5b1c016",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "evaluate.regression": {
+        "result_id": "5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "fit.baseline": {
+        "result_id": "cc8f47312d0357246662b23014923b40240123a7e0030c598f62c87152471dea",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "fit.linear": {
+        "result_id": "cd7707fafc112b03c56a6203c2bee7a4484f57375dd7ecf5a8cd91e729fcd7f5",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "fit.variant": {
+        "result_id": "2b76c2e833eab61705cc0d5850b140265462a3a17d6ffecc13cc1e6a51c295be",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "fit.variant:2": {
+        "result_id": "593cc21ab37eba297399a60c30cd157c425980c3b4a0a30fe65ced5f60e5f20b",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      },
+      "split": {
+        "result_id": "360b57b1660a216f46c10a5d10a2ec40e01ca1053c7380477683dd0b58905264",
+        "current": true,
+        "stale_reason": null,
+        "integrity": "ok"
+      }
+    },
+    "artifacts": {
+      "status": "ok",
+      "items": {
+        "editable": {
+          "status": "ok",
+          "revision": 61,
+          "last_ok_revision": 61,
+          "message": "The editable study notebook (notebooks/study_editable.py) follows the generated notebook until you edit it; after that it is never overwritten and does not count as official evidence.",
+          "audience": "agent",
+          "junior_message": "The editable study notebook follows the generated notebook until your first edit; after that it is never overwritten and is not official evidence."
+        },
+        "notebook": {
+          "status": "ok",
+          "revision": 61,
+          "last_ok_revision": 61,
+          "message": "The generated notebook (notebooks/study_generated.py) is up to date.",
+          "audience": "agent",
+          "junior_message": "The generated notebook is up to date."
+        },
+        "report": {
+          "status": "ok",
+          "revision": 61,
+          "last_ok_revision": 61,
+          "message": "The report (reports/study.html) is up to date.",
+          "audience": "agent",
+          "junior_message": "The report is up to date."
+        },
+        "workbench": {
+          "status": "ok",
+          "revision": 2,
+          "last_ok_revision": 2,
+          "message": "The workbench (notebooks/workbench.py) is the junior's free space: created once, never overwritten, and not tracked by the study.",
+          "audience": "agent",
+          "junior_message": "The workbench is your free space: it is created once, never overwritten, and not tracked by the study."
+        }
+      }
+    },
+    "executions": {
+      "active": [],
+      "interrupted": [],
+      "late": [],
+      "suspected_interrupted": []
+    },
+    "not_yet_defensible": {
+      "top": [
+        {
+          "id": "stale_results",
+          "text": "Some results are stale and must be recomputed before they are cited.",
+          "audience": "agent",
+          "junior_text": "Some results are out of date and are computed again before they are cited."
+        },
+        {
+          "id": "unconfirmed_decisions",
+          "text": "These decisions are not confirmed: model_choice, final_test, conclusion.",
+          "audience": "agent",
+          "junior_text": "Not confirmed by you yet: the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "id": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is.",
+          "audience": "junior",
+          "junior_text": null
+        },
+        {
+          "id": "final_test_sealed",
+          "text": "The final test is still sealed: every figure so far is development evidence, measured on rows used to explore, fit, and choose.",
+          "audience": "junior",
+          "junior_text": null
+        },
+        {
+          "id": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen.",
+          "audience": "junior",
+          "junior_text": null
+        }
+      ],
+      "more": [
+        "grouped_split_unsupported",
+        "no_causality",
+        "workbench_not_tracked"
+      ]
+    },
+    "notes": [],
+    "holds": [],
+    "final_test": {
+      "status": "sealed",
+      "rows": 80,
+      "method": "quantile_stratified",
+      "fraction": 0.2,
+      "development_rows": 318,
+      "schema_check": "pass",
+      "opening": null,
+      "post_final_test": false,
+      "changed_after": [],
+      "excluded_prior_exposed": 0
+    },
+    "criterion": {
+      "decision_status": "confirmed",
+      "value": {
+        "business_max_error": 4.5,
+        "metric": "mae_reduction",
+        "min_share": 0.1
+      },
+      "status": "met",
+      "gain": 0.48447302758636623,
+      "low": 0.4134216375566274,
+      "high": 0.5534609406420422,
+      "minimum": 0.1,
+      "unit": "share",
+      "rule": null,
+      "result_id": "5cb4ede72a3b13032fc12e6b3579f0351729e779a418a2735a3c9b18f2db8cd7",
+      "contradicts_verdict": false,
+      "final_test": null,
+      "model": "fit.linear",
+      "judged_on": "development",
+      "judged_status": "met"
+    },
+    "eda_looks": {
+      "target_looks": 9,
+      "results": [
+        "b79683e072721fa59329652bbf51974cccb1c84ec83594cac60ff0eea5b1c016",
+        "c9d3dd9f07d1da9bd19d2a1cc1fbc8228c04690a4ab4ed7b9b56bc2ed1e4aea7",
+        "14f641a84a412528cfacac102cc84a2d527ddd8a9e6003b8ed4a7e2e6836b35e",
+        "ae384a61bf51e3efb70f85d6b51811118da50ea477472641f781bdfb25ce5306",
+        "e8f926e1861eb12607a56d7f4da81dbd3f787a9fc969d6f38df44610805c5b6b",
+        "4cb2f9d76b106e273a640d49bfb83e15d2fc30cb16383c482a3de08da755e0f8",
+        "8f8165e176640ae7435ad8cceaae28143accdeb40d59753c8363170b7a1cc40c",
+        "7cc3a014567b36f0582d2e04b29682039de7ac8a9e9a2deafb9c79dfc2552534",
+        "bf311ed15d8977754bb17ab0bd04a3e28eb7e8b6c09120e77ebaa568a43e59f3"
+      ]
+    },
+    "recap": [
+      "Goal: Exercise: estimate a future model fuel efficiency from technical characteristics; the prediction is made when technical characteristics are fixed, before measuring fuel efficiency.",
+      "Decided: prediction moment; feature availability (excluded acceleration); split (5-fold cross-validation, temporal folds); error measure; success criterion (out-of-fold error at least 10% below the mean baseline); preprocessing (log transform of horsepower); variant (penalty chosen by nested cross-validation and an Explainable Boosting Machine).",
+      "Now: Choose the model (validation MAE: the mean baseline 7.16 mpg; the linear model 3.69 mpg; the variant 3.68 mpg; the second variant 3.40 mpg; result 5cb4ede7); the report and notebook are up to date.",
+      "Next: whether you adopt the model choice: \"Choose the mean baseline.\"",
+      "Limit: Some results are stale and must be recomputed before they are cited."
+    ],
+    "recap_audience": "agent",
+    "recap_junior": [
+      "Goal: Exercise: estimate a future model fuel efficiency from technical characteristics; the prediction is made when technical characteristics are fixed, before measuring fuel efficiency.",
+      "Decided: the prediction moment; the feature availability (excluded acceleration); the split (5-fold cross-validation, folds in time order); the error measure; the success criterion (out-of-fold error at least 10% below the mean baseline); the preparation of the variables (log transform of horsepower); the variant to compare (penalty chosen by nested cross-validation and an Explainable Boosting Machine).",
+      "Now: Choose the model, waiting for your answer (validation MAE: the mean baseline 7.16 mpg; the linear model 3.69 mpg; the variant 3.68 mpg; the second variant 3.40 mpg); the report and notebook are up to date.",
+      "Next: whether you adopt the model choice: \"Choose the mean baseline.\"",
+      "Limit: Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+    ],
+    "mode": "guided",
+    "deliverables": {
+      "launch": {
+        "notebook": {
+          "mode": "run",
+          "path": "notebooks/study_generated.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "run",
+            "STUDY/notebooks/study_generated.py"
+          ]
+        },
+        "editable": {
+          "mode": "edit",
+          "path": "notebooks/study_editable.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "edit",
+            "STUDY/notebooks/study_editable.py"
+          ]
+        },
+        "workbench": {
+          "mode": "edit",
+          "path": "notebooks/workbench.py",
+          "argv": [
+            "uv",
+            "run",
+            "--project",
+            "OLD_HYPOTRAIL/framework",
+            "marimo",
+            "edit",
+            "STUDY/notebooks/workbench.py"
+          ]
+        }
+      }
+    },
+    "trials": {
+      "count": 3
+    },
+    "scenario_defaults": null,
+    "language": "en"
+  }
+}

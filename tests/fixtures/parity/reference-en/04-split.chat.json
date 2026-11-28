@@ -1,0 +1,100 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Split (4 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "k-fold cross-validation: the development set (318 rows) is divided into 5 folds; each fold is in turn the validation fold, predicted by a model fitted on the other folds, the training folds. Every development row gets one out-of-fold prediction. Recommended: k-fold cross-validation uses every development row once as validation, so the estimate rests on more rows than one validation set. Here 5 folds. The holdout (final test), 80 rows, stays sealed and is opened once at the end."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose split … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the split: \"You evaluate with a five-fold cross-validation on the development rows, in contiguous blocks ordered by model year; the final test stays sealed.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Split",
+    "question": "You evaluate with a five-fold cross-validation on the development rows, in contiguous blocks ordered by model year; the final test stays sealed.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You evaluate with a five-fold cross-validation on the development rows, in contiguous blocks ordered by model year; the final test stays sealed."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**k-fold cross-validation**: Dividing the development set into k folds; each fold is in turn the validation fold, measured by a model fitted on the other folds, the training folds. Every development row is measured once, so the estimate rests on more rows than one validation set; a choice made with it is still optimistic. For example, with five folds of the cars, each model is fitted five times and its error measured each time on cars it did not see."
+      },
+      {
+        "k": "eng",
+        "text": "The folds are fixed before any exploration of the target. Each development row is predicted once, by a model fitted on the other folds; quantile folds keep the target's spread similar in each fold, and temporal folds follow the time order."
+      },
+      {
+        "k": "eng",
+        "text": "Folds on target quantiles with a recorded seed, or contiguous blocks in time order when the case declares a time column or an order. The rows read are recorded as exposure."
+      },
+      {
+        "k": "eng",
+        "text": "Changing the split refits both models and recomputes the exploration; rows already explored stay exposed."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Split (split)",
+      "value": "You evaluate with a five-fold cross-validation on the development rows, in contiguous blocks ordered by model year; the final test stays sealed.",
+      "proposal": "p_3",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run split --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the split, run without asking you. How is the development set divided into folds for k-fold cross-validation, before any exploration of the target? Each fold is in turn the validation fold, predicted by a model fitted on the other folds, the training folds."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Split → the split"
+      }
+    ]
+  }
+]

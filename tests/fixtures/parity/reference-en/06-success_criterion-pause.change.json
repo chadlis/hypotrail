@@ -1,0 +1,180 @@
+{
+  "selected": "Change something",
+  "question": "What do you want to change?",
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 12,
+    "position": {
+      "step_id": "success_criterion",
+      "completed": 5,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_5",
+    "proposal_text": "You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You call the model useful if its out-of-fold mean absolute error is at least 10% below that of the mean baseline, with the business bar of the brief, an error of at most 4.5 mpg.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "success_criterion",
+    "decision": "success_criterion",
+    "message": "The mean absolute error is the average size of a prediction's error, in the unit of the target. The mean baseline predicts, for every row of a validation fold, the mean of the training folds. How much smaller than the error of the mean baseline should the out-of-fold error of the model be for it to be worth using? It is fixed now, before any model is fitted.",
+    "audience": "junior",
+    "junior_message": "The mean absolute error is the average size of a prediction's error, in the unit of the target. The mean baseline predicts, for every row of a validation fold, the mean of the training folds. How much smaller than the error of the mean baseline should the out-of-fold error of the model be for it to be worth using? It is fixed now, before any model is fitted.",
+    "criterion_options": {
+      "task": "regression",
+      "action": "model_choice",
+      "default_metric": "mae_reduction",
+      "metrics": [
+        {
+          "metric": "mae_reduction",
+          "value_key": "min_share",
+          "unit": "share",
+          "default": true,
+          "term": "Mean absolute error (MAE)",
+          "explanation": "The average size of an error, in the unit of the target: every error weighs the same. The criterion is the share of the reference's (predict the mean) MAE the model must remove. Proposed by default: it reads directly in the unit of the target, and a few large errors do not dominate it."
+        }
+      ],
+      "not_criteria": [
+        {
+          "metric": "expected_value",
+          "available": false,
+          "why": "An expected value needs a cost and a value per action; this case declares none."
+        }
+      ],
+      "equivalence": null,
+      "reference": null,
+      "candidates": [
+        {
+          "value": {
+            "metric": "mae_reduction",
+            "min_share": 0.05,
+            "business_max_error": 4.5
+          },
+          "per_1000": null,
+          "text": "5% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.95 E mpg."
+        },
+        {
+          "value": {
+            "metric": "mae_reduction",
+            "min_share": 0.1,
+            "business_max_error": 4.5
+          },
+          "per_1000": null,
+          "text": "10% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.90 E mpg."
+        },
+        {
+          "value": {
+            "metric": "mae_reduction",
+            "min_share": 0.2,
+            "business_max_error": 4.5
+          },
+          "per_1000": null,
+          "text": "20% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.80 E mpg."
+        }
+      ],
+      "scale": null,
+      "illustrative": null,
+      "text": "The criterion is a share of the mean baseline's mean absolute error, in mpg; the baseline's error is known once the models are fitted."
+    },
+    "language": "en",
+    "recommended": {
+      "value": {
+        "metric": "mae_reduction",
+        "min_share": 0.1,
+        "business_max_error": 4.5
+      },
+      "why": "The middle option, 10% less error than the reference (predict the mean): a moderate bar chosen by convention, not from the costs of this case. Keep it, or name the minimum your team needs. The business bar is the current method's error, 4.5 from the use-case brief: both levels are fixed now and judged on the final test."
+    },
+    "question": "Which error (MAE by default, or RMSE), and which minimum reduction of the baseline's error, would make the model worth using?",
+    "junior_digest": "Success criterion: a metric and a minimum, fixed now, before any model, so the result cannot move the bar. Recommended: The middle option, 10% less error than the reference (predict the mean): a moderate bar chosen by convention, not from the costs of this case. Keep it, or name the minimum your team needs. The business bar is the current method's error, 4.5 from the use-case brief: both levels are fixed now and judged on the final test. The criterion is a share of the mean baseline's mean absolute error, in mpg; the baseline's error is known once the models are fitted. 5% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.95 E mpg. 10% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.90 E mpg. 20% less error: if the mean baseline errs by E mpg on average, the model must err by at most 0.80 E mpg.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Success criterion (6 of 14).",
+    "evidence": [],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 11,
+      "position": {
+        "step_id": "success_criterion",
+        "completed": 5,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the success criterion, the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "Which error (MAE by default, or RMSE), and which minimum reduction of the baseline's error, would make the model worth using?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the question waiting for you",
+        "line": null
+      },
+      "shown": null
+    }
+  }
+}

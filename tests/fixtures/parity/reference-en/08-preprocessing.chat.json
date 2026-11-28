@@ -1,0 +1,105 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Current step: Preparation (8 of 14)."
+      },
+      {
+        "k": "eng",
+        "text": "Preparation of the variables (preprocessing): how the model treats missing values, rare categories, extreme values and skewed variables. Every parameter is learnt on the training folds of each model only. Recommended: Drafted from the data quality check, which does not read the target: a signed log of horsepower. The default (nothing added) stays the comparison option. In every case, the model replaces a missing value by the median or the most frequent category, puts the numbers on the same scale and codes each category as a 0/1 column. Look at the target: an analysis that reads the variable to predict. None has come before this preparation, so it is not data-contingent."
+      },
+      {
+        "k": "eng",
+        "fold": "What the quality check found, column by column",
+        "pre": "horsepower: 6 missing of 318 (1.9%) < 5%, skewness 1.05 ≥ 1, max 230 ≤ 3 × q99 (658.35): drafted: a signed log.\ncylinders: 0 missing of 318 (0%) < 5%, skewness 0.56 < 1, max 8 ≤ 3 × q99 (24): no change.\ndisplacement: 0 missing of 318 (0%) < 5%, skewness 0.75 < 1, max 455 ≤ 3 × q99 (1314.39): no change.\nweight: 0 missing of 318 (0%) < 5%, skewness 0.55 < 1, max 5140 ≤ 3 × q99 (14830.05): no change.\norigin: 0 missing of 318 (0%) < 5%, no category under 30 rows: no change.\nacceleration: 0 missing of 318 (0%) < 5%, skewness 0.24 < 1, max 24.8 ≤ 3 × q99 (66.45): no change.\nmodel_year: 0 missing of 318 (0%) < 5%, skewness -0.02 < 1, max 82 ≤ 3 × q99 (246): no change.\ncar_name: 0 missing of 318 (0%) < 5%, 254 categories under 30 rows: no change."
+      },
+      {
+        "k": "eng",
+        "text": "Comparison option · Without transformation: Nothing is added, to compare: the model keeps only the fixed preparation."
+      }
+    ]
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail decide propose preprocessing … --restatement \"…\"  (the agent writes the restatement)"
+      },
+      {
+        "k": "eng",
+        "text": "Proposal on the preparation of the variables: \"You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap.\" If it suits you, say that you adopt it; otherwise say what you change."
+      }
+    ]
+  },
+  {
+    "t": "picker",
+    "kind": "decision",
+    "decision": "Preparation",
+    "question": "You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap.\n\nDo you adopt this decision?",
+    "options": [
+      {
+        "id": "adopt",
+        "label": "I adopt this decision",
+        "rec": true,
+        "desc": "You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap."
+      },
+      {
+        "id": "change",
+        "label": "Change something",
+        "rec": false
+      },
+      {
+        "id": "explain",
+        "label": "Explain first",
+        "rec": false
+      }
+    ],
+    "explain": [
+      {
+        "k": "eng",
+        "text": "**Data-contingent decision**: A decision chosen after looking at the outcome in the data. It is allowed, but it is recorded with the analyses that motivated it, because a choice adapted to the development rows makes the out-of-fold figures slightly optimistic. For example, capping a variable because a chart of the outcome looked odd at its extremes is a data-contingent preparation."
+      },
+      {
+        "k": "eng",
+        "text": "The exploration of the development rows can motivate how the model prepares the variables; the analyses that motivated it are recorded with it."
+      },
+      {
+        "k": "eng",
+        "text": "Missing-value indicators, the minimum rows of a category, caps at quantiles, and log transforms are learnt, fold by fold, on the rows each model is fitted on, and applied unchanged to the fold it predicts. The default changes nothing."
+      },
+      {
+        "k": "eng",
+        "text": "A preparation chosen after looking at the target is stamped data-contingent; the out-of-fold errors may then be slightly optimistic."
+      },
+      {
+        "k": "eng",
+        "text": "Changing it refits the linear model and asks for the model choice and the conclusion again; the exploration is unchanged."
+      },
+      {
+        "k": "rec",
+        "text": "Here is the decision again."
+      }
+    ],
+    "record": {
+      "decision": "Preparation (preprocessing)",
+      "value": "You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap.",
+      "proposal": "p_6",
+      "basis": "endorsed",
+      "mode": "guided",
+      "capturedWords": "I adopt this decision",
+      "capturedChannel": "choice"
+    }
+  },
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "eng",
+        "text": "Next: the target summary, run without asking you. What do the development rows show about the distribution of the target and the special values? Each of these analyses is a look at the target: it reads the variable to predict, and every look is counted. The preparation is already decided, before these looks."
+      }
+    ]
+  }
+]

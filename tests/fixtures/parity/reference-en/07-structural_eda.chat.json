@@ -1,0 +1,31 @@
+[
+  {
+    "t": "agent",
+    "parts": [
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.quality --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the data quality check, run without asking you. Which columns have missing cells, rare categories, or values outside their possible range? This check reads the development rows without the target, so the preparation decided from it comes before any look at the target."
+      },
+      {
+        "k": "rec",
+        "tool": "hypotrail run eda.distribution --column horsepower --progress"
+      },
+      {
+        "k": "eng",
+        "text": "Next: the distribution of a column (horsepower), run without asking you. Before the preparation is proposed, the distribution of horsepower is read: a column whose values span a wide range may need a log transform. Only that column is read, never the target."
+      },
+      {
+        "k": "eng",
+        "text": "> 🧭 **Panel** · the path, Quality → Distribution · horsepower"
+      },
+      {
+        "k": "rec",
+        "text": "No pause at this step: the work planned between two pauses is done without asking again, and the guide stops at the next pause (Preparation)."
+      }
+    ]
+  }
+]

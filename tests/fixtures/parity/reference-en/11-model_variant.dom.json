@@ -1,0 +1,6513 @@
+{
+  "current": [
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "header",
+      "classes": [
+        "ht-top"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "header"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h1",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Hypotrail study"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-headrow"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-studyname"
+      ],
+      "data": [
+        "data-study-name"
+      ],
+      "values": {},
+      "text": "study-mpg"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-btns"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-theme-control"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "ht-fill-none",
+        "ht-stroke-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "ht-fill-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-more",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "⋯"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-pills"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-pill",
+        "ht-pill-seal",
+        "ht-pill-sealed"
+      ],
+      "data": [
+        "data-pill",
+        "data-seal"
+      ],
+      "values": {},
+      "text": "🔒 Final test sealed"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-pill",
+        "ht-pill-def",
+        "ht-pill-def-pending"
+      ],
+      "data": [
+        "data-defensibility",
+        "data-focus-id",
+        "data-pill",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "Defensible at the end · 4 points"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-prog"
+      ],
+      "data": [
+        "data-block",
+        "data-progress"
+      ],
+      "values": {
+        "data-block": "progress"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-bar"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-current"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-plbl"
+      ],
+      "data": [],
+      "values": {},
+      "text": " · Work and compare"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Step 11/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Step 11 of 14, phase Work and compare."
+    },
+    {
+      "tag": "main",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-since",
+        "ht-p"
+      ],
+      "data": [
+        "data-block",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-block": "since"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Since your last visit"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-count"
+      ],
+      "data": [],
+      "values": {},
+      "text": "31 changes"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-now",
+        "sc-now"
+      ],
+      "data": [
+        "data-anchor",
+        "data-block",
+        "data-now",
+        "data-now-step",
+        "data-step-card"
+      ],
+      "values": {
+        "data-anchor": "now",
+        "data-block": "now"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [
+        "sc-nowh"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Now · Step 11/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-full"
+      ],
+      "data": [
+        "data-step-name"
+      ],
+      "values": {},
+      "text": "Variants"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "picture"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The step in one picture"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-idea"
+      ],
+      "data": [
+        "data-picture"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg",
+        "sc-pic"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-none",
+        "sc-s-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "line"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": "curve"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "made-up example"
+    },
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "A straight line can miss a curve. A variant tries a more flexible shape, under the same evaluation."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-more"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Read more"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "establish"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What the step must establish"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-feeds"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "These answers prepare the Model choice, the configurations it will weigh."
+    },
+    {
+      "tag": "ol",
+      "classes": [
+        "sc-qs"
+      ],
+      "data": [
+        "data-step-questions"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "variants.shape"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do the linear model's errors draw a shape?"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "variants.period"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Is the error stable from one period to the next?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-budget"
+      ],
+      "data": [
+        "data-budget-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-bb"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Variant budget: "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "0 of 3 used"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ask"
+      ],
+      "data": [
+        "data-chat-block"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-who"
+      ],
+      "data": [],
+      "values": {},
+      "text": "The chat waits for"
+    },
+    {
+      "tag": "h3",
+      "classes": [
+        "ht-question"
+      ],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": ""
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do you adopt this decision?"
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "ht-opts"
+      ],
+      "data": [
+        "data-options"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "ht-opts-lead"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Answers offered in the chat:"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Change something"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-option"
+      ],
+      "values": {},
+      "text": "Explain first"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-acts"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-copywrap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-copy"
+      ],
+      "data": [
+        "data-copy-question",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Copy \"How do I choose the variants to compare?\""
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "answer"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "To answer, look"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-frame"
+      ],
+      "data": [
+        "data-frame"
+      ],
+      "values": {
+        "data-frame": "development"
+      },
+      "text": " · "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "◐ Development evidence"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Development evidence · development rows (318) · looks at the target, counted (looks: 9)"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q1"
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do the linear model's errors draw a shape?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-chart"
+      ],
+      "data": [
+        "data-chart"
+      ],
+      "values": {
+        "data-chart": "residual_by_feature"
+      },
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg"
+      ],
+      "data": [
+        "data-residual-feature"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "zero error"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "5"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "6"
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "sc-f-none",
+        "sc-s-orange"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": "observed − predicted (mpg)"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-muted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "horsepower"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-readx"
+      ],
+      "data": [
+        "data-reading"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r1"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we see"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Along horsepower, the mean residual by band goes from  to  mpg."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "-2.4"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "2.0"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r2"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The errors draw a shape along this column, wider than the engine's bound of  mpg; a straight line misses part of the relation."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-r3"
+      ],
+      "data": [
+        "data-part"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-rl"
+      ],
+      "data": [],
+      "values": {},
+      "text": "What we cannot conclude"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "A shape in the residuals says a straight line misses something, not what would fix it."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-src"
+      ],
+      "data": [
+        "data-cited-revision"
+      ],
+      "values": {},
+      "text": "numbers cited from the registered result · revision 49"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How to read it"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Watch out"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-f"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Other charts (4)"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q2"
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Is the error stable from one period to the next?"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-pending"
+      ],
+      "data": [
+        "data-status"
+      ],
+      "values": {},
+      "text": "Not computed yet."
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "limit"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What it does not say · Next"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Development evidence; every configuration compared on the same folds flatters the best one a little."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-next"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Next: the model choice, with the noise from one fold to the next."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-p"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "What your answer will change"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-pathblock",
+        "sc-pathblock"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The path"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-ledger",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-ledger"
+      ],
+      "values": {
+        "data-anchor": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id",
+        "data-ledger-line"
+      ],
+      "values": {},
+      "text": "final test 0/1 opening · 9 looks at the target, one of them the preview · 1 configurations tried + the reference"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Ledger: "
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-path"
+      ],
+      "data": [
+        "data-step-card-path"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Frame the change"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:discover_data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1 · Data"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "398 rows read: 318 to develop, 80 sealed for the final test."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:prediction_time"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2 · Prediction moment"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "“When technical characteristics are fixed, before measuring fuel efficiency”."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:feature_availability"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3 · Available variables"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Keep cylinders, displacement, horsepower, origin and weight; exclude acceleration (its timing is uncertain)."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:split"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4 · Split"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Cross-validation on the development rows: 5 folds, blocks in time order; every row is predicted once by a model that did not see it."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:error_metric"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "5 · Error measure"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The mean absolute error (MAE)."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:success_criterion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "6 · Success criterion"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Adopt only if the model's mean absolute error is at least 10% below the mean baseline's."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Prepare evidence"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:structural_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "7 · Quality check"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "318 development rows checked, 0 duplicated."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:preprocessing"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "8 · Preparation"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Log transform of horsepower."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:train_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "9 · Exploration"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Mean target 23.53 mpg on the explored rows."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Work and compare"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:models"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "10 · Models"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "The reference and the candidate model were fitted and compared out of fold."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_variant"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-c"
+      ],
+      "data": [],
+      "values": {},
+      "text": "●"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "current: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "11 · Variants"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": "in progress, see Now"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-b"
+      ],
+      "data": [],
+      "values": {},
+      "text": "waits for you"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_choice"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "12 · Model choice"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Conclude and hand over"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:final_test"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "13 · Final test"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:conclusion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "14 · Conclusion"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-tools"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "tools"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Tools"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "The data"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:notions"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "My notions"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:deliverables"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Deliverables"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-how-panel",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:how"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How this panel works"
+    },
+    {
+      "tag": "footer",
+      "classes": [
+        "ht-footer"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The panel reads the study through the hypotrail command line. Decisions are made in the chat; the chat, the report and the notebook stay complete without it."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-live"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    }
+  ],
+  "review": [
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "header",
+      "classes": [
+        "ht-top"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "header"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h1",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Hypotrail study"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-headrow"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-studyname"
+      ],
+      "data": [
+        "data-study-name"
+      ],
+      "values": {},
+      "text": "study-mpg"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-btns"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-theme-control"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "ht-fill-none",
+        "ht-stroke-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "path",
+      "classes": [
+        "ht-fill-fg"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-ib"
+      ],
+      "data": [
+        "data-focus-id",
+        "data-more",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "⋯"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-pills"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-pill",
+        "ht-pill-seal",
+        "ht-pill-sealed"
+      ],
+      "data": [
+        "data-pill",
+        "data-seal"
+      ],
+      "values": {},
+      "text": "🔒 Final test sealed"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-pill",
+        "ht-pill-def",
+        "ht-pill-def-pending"
+      ],
+      "data": [
+        "data-defensibility",
+        "data-focus-id",
+        "data-pill",
+        "data-popover-opener"
+      ],
+      "values": {},
+      "text": "Defensible at the end · 5 points"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-prog"
+      ],
+      "data": [
+        "data-block",
+        "data-progress"
+      ],
+      "values": {
+        "data-block": "progress"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-bar"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-done"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-current"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-ph"
+      ],
+      "data": [
+        "data-moment-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "ht-seg-todo"
+      ],
+      "data": [
+        "data-seg"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-plbl"
+      ],
+      "data": [],
+      "values": {},
+      "text": " · Work and compare"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Step 12/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Step 12 of 14, phase Work and compare."
+    },
+    {
+      "tag": "main",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-since",
+        "ht-p"
+      ],
+      "data": [
+        "data-block",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-block": "since"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Since your last visit"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-count"
+      ],
+      "data": [],
+      "values": {},
+      "text": "34 changes"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-now",
+        "sc-now"
+      ],
+      "data": [
+        "data-anchor",
+        "data-block",
+        "data-now",
+        "data-now-step",
+        "data-step-card"
+      ],
+      "values": {
+        "data-anchor": "now",
+        "data-block": "now"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [
+        "sc-nowh"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Now · Step 12/14"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-full"
+      ],
+      "data": [
+        "data-step-name"
+      ],
+      "values": {},
+      "text": "Model choice"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "picture"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The step in one picture"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-idea"
+      ],
+      "data": [
+        "data-picture"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "svg",
+      "classes": [
+        "sc-svg",
+        "sc-pic"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "rect",
+      "classes": [
+        "sc-f-nowtint"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "line",
+      "classes": [
+        "sc-s-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": "best + one standard error"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "simple"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "middle"
+    },
+    {
+      "tag": "circle",
+      "classes": [
+        "sc-f-ink"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "flexible"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-now"
+      ],
+      "data": [],
+      "values": {},
+      "text": "the simplest in the band"
+    },
+    {
+      "tag": "text",
+      "classes": [
+        "sc-f-faint"
+      ],
+      "data": [],
+      "values": {},
+      "text": "made-up example"
+    },
+    {
+      "tag": "div",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The best mean is not the whole story: a simpler configuration within one standard error of the best does as well, within the noise."
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-more"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Read more"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "establish"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What the step must establish"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-feeds"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "These answers prepare the Final test, the one configuration it will measure."
+    },
+    {
+      "tag": "ol",
+      "classes": [
+        "sc-qs"
+      ],
+      "data": [
+        "data-step-questions"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "choice.best"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which configuration errs least, and is the gap larger than the noise?"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question"
+      ],
+      "values": {
+        "data-question": "choice.simplest"
+      },
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which is the simplest configuration within one standard error of the best?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-budget"
+      ],
+      "data": [
+        "data-budget-bar"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-bb"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "sc-u"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [
+        "sc-u"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "i",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Variant budget: "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "2 of 3 used"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ask"
+      ],
+      "data": [
+        "data-chat-block"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-acts"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-copywrap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "ht-copy"
+      ],
+      "data": [
+        "data-copy-question",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Copy \"How do I choose between these configurations?\""
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "answer"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "To answer, look"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-frame"
+      ],
+      "data": [
+        "data-frame"
+      ],
+      "values": {
+        "data-frame": "development"
+      },
+      "text": " · "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "◐ Development evidence"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Development evidence · development rows (318) · looks at the target, counted (looks: 9)"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q1"
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which configuration errs least, and is the gap larger than the noise?"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-pending"
+      ],
+      "data": [
+        "data-status"
+      ],
+      "values": {},
+      "text": "Computing, started from the chat. The result will show here; nothing to answer now."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "card",
+        "sc-ev"
+      ],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-lab"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q2"
+    },
+    {
+      "tag": "h4",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Which is the simplest configuration within one standard error of the best?"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-pending"
+      ],
+      "data": [
+        "data-status"
+      ],
+      "values": {},
+      "text": "Computing, started from the chat. The result will show here; nothing to answer now."
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "sc-blk"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "limit"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-bk"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-n"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "What it does not say · Next"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "These figures served to choose; the chosen one is flattered by the choice itself."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-next"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Next: the final test, opened once on the chosen configuration."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-predict-now"
+      ],
+      "data": [
+        "data-predict-now"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-predict"
+      ],
+      "data": [
+        "data-prediction"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-tag"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Optional · before you look"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-question"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Will the linear model's error be below the mean baseline's?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "secondary"
+      ],
+      "data": [
+        "data-choice",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Yes"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "secondary"
+      ],
+      "data": [
+        "data-choice",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "No"
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "secondary"
+      ],
+      "data": [
+        "data-choice",
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Not sure"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "muted"
+      ],
+      "data": [
+        "data-kept-local"
+      ],
+      "values": {},
+      "text": "Kept on this computer only. Never written to the study."
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-pathblock",
+        "sc-pathblock"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The path"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-ledger",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-ledger"
+      ],
+      "values": {
+        "data-anchor": "path"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id",
+        "data-ledger-line"
+      ],
+      "values": {},
+      "text": "final test 0/1 opening · 9 looks at the target, one of them the preview · 3 configurations tried + the reference"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Ledger: "
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-path"
+      ],
+      "data": [
+        "data-step-card-path"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Frame the change"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:discover_data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "1 · Data"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "398 rows read: 318 to develop, 80 sealed for the final test."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:prediction_time"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "2 · Prediction moment"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "“When technical characteristics are fixed, before measuring fuel efficiency”."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:feature_availability"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "3 · Available variables"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Keep cylinders, displacement, horsepower, origin and weight; exclude acceleration (its timing is uncertain)."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:split"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "4 · Split"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Cross-validation on the development rows: 5 folds, blocks in time order; every row is predicted once by a model that did not see it."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:error_metric"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "5 · Error measure"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "The mean absolute error (MAE)."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:success_criterion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "6 · Success criterion"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Adopt only if the model's mean absolute error is at least 10% below the mean baseline's."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Prepare evidence"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:structural_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "7 · Quality check"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "318 development rows checked, 0 duplicated."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:preprocessing"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "8 · Preparation"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Log transform of horsepower."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:train_eda"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "9 · Exploration"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Mean target 23.53 mpg on the explored rows."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Work and compare"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:models"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "10 · Models"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-headline-fallback"
+      ],
+      "values": {},
+      "text": "The reference and the candidate model were fitted and compared out of fold."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_variant"
+      },
+      "text": ""
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-step"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-d",
+        "ht-mk-done"
+      ],
+      "data": [],
+      "values": {},
+      "text": "✓"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "done: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "11 · Variants"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Compare the model with: penalty chosen by nested cross-validation and an Explainable Boosting Machine."
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-chev"
+      ],
+      "data": [],
+      "values": {},
+      "text": "›"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-rv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-review"
+      ],
+      "data": [
+        "data-review"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-decided"
+      ],
+      "data": [
+        "data-decided",
+        "data-decided-by"
+      ],
+      "values": {},
+      "text": " "
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Decided:"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-who2"
+      ],
+      "data": [],
+      "values": {},
+      "text": "your words"
+    },
+    {
+      "tag": "ul",
+      "classes": [
+        "sc-recap"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-rq"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q1"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Do the linear model's errors draw a shape?"
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-ra"
+      ],
+      "data": [
+        "data-answer"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Along horsepower, the mean residual by band goes from  to  mpg."
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "-2.4"
+    },
+    {
+      "tag": "b",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "data",
+      "classes": [],
+      "data": [
+        "data-path",
+        "data-result-id",
+        "data-value"
+      ],
+      "values": {},
+      "text": "2.0"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "sc-show"
+      ],
+      "data": [
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-show-chart"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "See the chart"
+    },
+    {
+      "tag": "li",
+      "classes": [],
+      "data": [
+        "data-question-id",
+        "data-question-status"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-rq"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-qn"
+      ],
+      "data": [
+        "data-q-badge"
+      ],
+      "values": {},
+      "text": "Q2"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Is the error stable from one period to the next?"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-pending"
+      ],
+      "data": [
+        "data-status"
+      ],
+      "values": {},
+      "text": "Not computed yet."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "sc-limit",
+        "sc-rvlimit"
+      ],
+      "data": [
+        "data-verbatim"
+      ],
+      "values": {},
+      "text": "Development evidence; every configuration compared on the same folds flatters the best one a little."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "dc-step-history"
+      ],
+      "data": [
+        "data-step-history"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "table",
+      "classes": [
+        "dc-history",
+        "ht-cardable"
+      ],
+      "data": [
+        "data-history"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "caption",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Confirmations recorded in the study, newest first. The revision and the time are in the hover of each decision."
+    },
+    {
+      "tag": "thead",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "tr",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Decision"
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Your words"
+    },
+    {
+      "tag": "th",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "How"
+    },
+    {
+      "tag": "tbody",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "tr",
+      "classes": [],
+      "data": [
+        "data-current",
+        "data-history-row",
+        "data-nav"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-label",
+        "data-when"
+      ],
+      "values": {},
+      "text": " "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-decision"
+      ],
+      "data": [],
+      "values": {},
+      "text": "Choose the variants to compare"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-history-value"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-value-words"
+      ],
+      "data": [
+        "data-value-raw"
+      ],
+      "values": {},
+      "text": "Compare with the penalty tuned by nested cross-validation and an Explainable Boosting Machine"
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-label",
+        "data-words-cell"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-quoted"
+      ],
+      "data": [],
+      "values": {},
+      "text": "“”"
+    },
+    {
+      "tag": "span",
+      "classes": [],
+      "data": [
+        "data-quoted"
+      ],
+      "values": {},
+      "text": "I adopt this decision"
+    },
+    {
+      "tag": "td",
+      "classes": [],
+      "data": [
+        "data-basis-cell",
+        "data-label"
+      ],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "dc-basis-cell"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "ht-status",
+        "dc-basis",
+        "ht-st-ok"
+      ],
+      "data": [
+        "data-basis"
+      ],
+      "values": {},
+      "text": "endorsed"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "muted",
+        "dc-channel"
+      ],
+      "data": [
+        "data-channel"
+      ],
+      "values": {},
+      "text": " chosen as an option in the chat"
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "muted"
+      ],
+      "data": [
+        "data-not-authenticated"
+      ],
+      "values": {},
+      "text": "Recorded words, not an authenticated signature."
+    },
+    {
+      "tag": "p",
+      "classes": [
+        "ht-small-links"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "button",
+      "classes": [
+        "secondary"
+      ],
+      "data": [
+        "data-ask",
+        "data-ask-step",
+        "data-focus-id",
+        "data-stage"
+      ],
+      "values": {},
+      "text": "Ask the agent about this"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:model_choice"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-c"
+      ],
+      "data": [],
+      "values": {},
+      "text": "●"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "current: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "12 · Model choice"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-v"
+      ],
+      "data": [],
+      "values": {},
+      "text": "in progress, see Now"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-b"
+      ],
+      "data": [],
+      "values": {},
+      "text": "waits for you"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-phl"
+      ],
+      "data": [
+        "data-phase"
+      ],
+      "values": {},
+      "text": "Conclude and hand over"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:final_test"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "13 · Final test"
+    },
+    {
+      "tag": "li",
+      "classes": [
+        "sc-st",
+        "sc-later"
+      ],
+      "data": [
+        "data-anchor",
+        "data-step",
+        "data-step-state"
+      ],
+      "values": {
+        "data-anchor": "path:conclusion"
+      },
+      "text": ""
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "sc-row"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-mk",
+        "sc-mk-l"
+      ],
+      "data": [],
+      "values": {},
+      "text": "○"
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sr-only"
+      ],
+      "data": [],
+      "values": {},
+      "text": "upcoming: "
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-tv"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "span",
+      "classes": [
+        "sc-t"
+      ],
+      "data": [],
+      "values": {},
+      "text": "14 · Conclusion"
+    },
+    {
+      "tag": "section",
+      "classes": [
+        "ht-tools"
+      ],
+      "data": [
+        "data-block"
+      ],
+      "values": {
+        "data-block": "tools"
+      },
+      "text": ""
+    },
+    {
+      "tag": "h2",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "Tools"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:data"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "The data"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy",
+        "data-stage"
+      ],
+      "values": {
+        "data-anchor": "tools:notions"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "My notions"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-drawer",
+        "data-fold-default",
+        "data-fold-id",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:deliverables"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "Deliverables"
+    },
+    {
+      "tag": "details",
+      "classes": [
+        "ht-drawer",
+        "ht-p"
+      ],
+      "data": [
+        "data-anchor",
+        "data-fold-default",
+        "data-fold-id",
+        "data-how-panel",
+        "data-lazy"
+      ],
+      "values": {
+        "data-anchor": "tools:how"
+      },
+      "text": ""
+    },
+    {
+      "tag": "summary",
+      "classes": [],
+      "data": [
+        "data-focus-id"
+      ],
+      "values": {},
+      "text": "How this panel works"
+    },
+    {
+      "tag": "footer",
+      "classes": [
+        "ht-footer"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    },
+    {
+      "tag": "p",
+      "classes": [],
+      "data": [],
+      "values": {},
+      "text": "The panel reads the study through the hypotrail command line. Decisions are made in the chat; the chat, the report and the notebook stay complete without it."
+    },
+    {
+      "tag": "div",
+      "classes": [
+        "ht-live"
+      ],
+      "data": [],
+      "values": {},
+      "text": ""
+    }
+  ]
+}

@@ -1,0 +1,423 @@
+{
+  "selected": "Change something",
+  "question": "What do you want to change?",
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 18,
+    "position": {
+      "step_id": "preprocessing",
+      "completed": 7,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_6",
+    "proposal_text": "You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You apply a signed log to horsepower because its distribution is very skewed; you change nothing else: no missing-value indicator, no rare-category grouping, no cap.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "preprocessing",
+    "decision": "preprocessing",
+    "message": "How should the model treat missing values, rare categories, extreme values and skewed variables? The draft reads the quality check, which does not read the target; every parameter is learnt only on the rows each model is fitted on.",
+    "default_value": {
+      "missing": "none",
+      "rare_category_min_rows": 0,
+      "caps": {},
+      "log_transform": [
+        "horsepower"
+      ],
+      "motivated_by": [
+        "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e"
+      ]
+    },
+    "audience": "junior",
+    "junior_message": "How should the model treat missing values, rare categories, extreme values and skewed variables? The draft reads the quality check, which does not read the target; every parameter is learnt only on the rows each model is fitted on.",
+    "alternatives": [
+      {
+        "value": {
+          "missing": "none",
+          "rare_category_min_rows": 0,
+          "caps": {},
+          "log_transform": [],
+          "motivated_by": [
+            "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e"
+          ]
+        },
+        "label": "Without transformation",
+        "why": "Nothing is added, to compare: the model keeps only the fixed preparation."
+      }
+    ],
+    "language": "en",
+    "recommended": {
+      "value": {
+        "missing": "none",
+        "rare_category_min_rows": 0,
+        "caps": {},
+        "log_transform": [
+          "horsepower"
+        ],
+        "motivated_by": [
+          "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e"
+        ]
+      },
+      "why": "Drafted from the data quality check, which does not read the target: a signed log of horsepower. The default (nothing added) stays the comparison option.",
+      "reasons": [
+        {
+          "parameter": "log_transform",
+          "column": "horsepower",
+          "rule": "signed_log",
+          "evidence": {
+            "result_id": "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e",
+            "path": "ranges.2.skewness"
+          },
+          "text": "The distribution of horsepower is strongly skewed (a long tail of large values): a signed log brings its scale closer to the others."
+        }
+      ],
+      "verdicts": [
+        {
+          "column": "horsepower",
+          "kept": true,
+          "changed": true,
+          "parameters": [
+            "log_transform"
+          ],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.018867924528301886,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.2.n_missing",
+              "words": "6 missing of 318 (1.9%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": 1.0522043350803072,
+              "threshold": 1.0,
+              "exceeds": true,
+              "path": "ranges.2.skewness",
+              "words": "skewness 1.05 ≥ 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 230,
+              "threshold": 658.3499999999998,
+              "exceeds": false,
+              "path": "ranges.2.max",
+              "words": "max 230 ≤ 3 × q99 (658.35)"
+            }
+          ],
+          "text": "horsepower: 6 missing of 318 (1.9%) < 5%, skewness 1.05 ≥ 1, max 230 ≤ 3 × q99 (658.35): drafted: a signed log."
+        },
+        {
+          "column": "cylinders",
+          "kept": true,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.0.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": 0.5592211132140309,
+              "threshold": 1.0,
+              "exceeds": false,
+              "path": "ranges.0.skewness",
+              "words": "skewness 0.56 < 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 8,
+              "threshold": 24.0,
+              "exceeds": false,
+              "path": "ranges.0.max",
+              "words": "max 8 ≤ 3 × q99 (24)"
+            }
+          ],
+          "text": "cylinders: 0 missing of 318 (0%) < 5%, skewness 0.56 < 1, max 8 ≤ 3 × q99 (24): no change."
+        },
+        {
+          "column": "displacement",
+          "kept": true,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.1.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": 0.7525518764501847,
+              "threshold": 1.0,
+              "exceeds": false,
+              "path": "ranges.1.skewness",
+              "words": "skewness 0.75 < 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 455,
+              "threshold": 1314.3899999999994,
+              "exceeds": false,
+              "path": "ranges.1.max",
+              "words": "max 455 ≤ 3 × q99 (1314.39)"
+            }
+          ],
+          "text": "displacement: 0 missing of 318 (0%) < 5%, skewness 0.75 < 1, max 455 ≤ 3 × q99 (1314.39): no change."
+        },
+        {
+          "column": "weight",
+          "kept": true,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.3.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": 0.5545371594372033,
+              "threshold": 1.0,
+              "exceeds": false,
+              "path": "ranges.3.skewness",
+              "words": "skewness 0.55 < 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 5140,
+              "threshold": 14830.05,
+              "exceeds": false,
+              "path": "ranges.3.max",
+              "words": "max 5140 ≤ 3 × q99 (14830.05)"
+            }
+          ],
+          "text": "weight: 0 missing of 318 (0%) < 5%, skewness 0.55 < 1, max 5140 ≤ 3 × q99 (14830.05): no change."
+        },
+        {
+          "column": "origin",
+          "kept": true,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.6.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "rare_categories",
+              "value": 0,
+              "threshold": 30,
+              "exceeds": false,
+              "path": "cardinality.0.rare",
+              "words": "no category under 30 rows"
+            }
+          ],
+          "text": "origin: 0 missing of 318 (0%) < 5%, no category under 30 rows: no change."
+        },
+        {
+          "column": "acceleration",
+          "kept": false,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.4.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": 0.24350896763584787,
+              "threshold": 1.0,
+              "exceeds": false,
+              "path": "ranges.4.skewness",
+              "words": "skewness 0.24 < 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 24.8,
+              "threshold": 66.44699999999997,
+              "exceeds": false,
+              "path": "ranges.4.max",
+              "words": "max 24.8 ≤ 3 × q99 (66.45)"
+            }
+          ],
+          "text": "acceleration: 0 missing of 318 (0%) < 5%, skewness 0.24 < 1, max 24.8 ≤ 3 × q99 (66.45): no change."
+        },
+        {
+          "column": "model_year",
+          "kept": false,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.5.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "signed_log",
+              "value": -0.019726195913936255,
+              "threshold": 1.0,
+              "exceeds": false,
+              "path": "ranges.5.skewness",
+              "words": "skewness -0.02 < 1"
+            },
+            {
+              "rule": "cap_extreme_tail",
+              "value": 82,
+              "threshold": 246.0,
+              "exceeds": false,
+              "path": "ranges.5.max",
+              "words": "max 82 ≤ 3 × q99 (246)"
+            }
+          ],
+          "text": "model_year: 0 missing of 318 (0%) < 5%, skewness -0.02 < 1, max 82 ≤ 3 × q99 (246): no change."
+        },
+        {
+          "column": "car_name",
+          "kept": false,
+          "changed": false,
+          "parameters": [],
+          "checks": [
+            {
+              "rule": "missing_indicator",
+              "value": 0.0,
+              "threshold": 0.05,
+              "exceeds": false,
+              "path": "missing.7.n_missing",
+              "words": "0 missing of 318 (0%) < 5%"
+            },
+            {
+              "rule": "rare_categories",
+              "value": 254,
+              "threshold": 30,
+              "exceeds": true,
+              "path": "cardinality.1.rare",
+              "words": "254 categories under 30 rows"
+            }
+          ],
+          "text": "car_name: 0 missing of 318 (0%) < 5%, 254 categories under 30 rows: no change."
+        }
+      ]
+    },
+    "question": "Do you keep this preparation, drafted from the quality check, or the default, or change one parameter for a reason you can state?",
+    "junior_digest": "Preparation of the variables (preprocessing): how the model treats missing values, rare categories, extreme values and skewed variables. Every parameter is learnt on the training folds of each model only. Recommended: Drafted from the data quality check, which does not read the target: a signed log of horsepower. The default (nothing added) stays the comparison option. In every case, the model replaces a missing value by the median or the most frequent category, puts the numbers on the same scale and codes each category as a 0/1 column. Look at the target: an analysis that reads the variable to predict. None has come before this preparation, so it is not data-contingent.",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Preparation (8 of 14).",
+    "evidence": [
+      "eda.quality",
+      "eda.distribution:horsepower"
+    ],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 17,
+      "position": {
+        "step_id": "preprocessing",
+        "completed": 7,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the preparation of the variables, the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "Do you keep this preparation, drafted from the quality check, or the default, or change one parameter for a reason you can state?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the question waiting for you",
+        "line": null
+      },
+      "shown": null
+    }
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "selected": "Change something",
+  "question": "What do you want to change?",
+  "pause": {
+    "schema": "hypotrail.pause/1",
+    "kind": "decision",
+    "language": "en",
+    "revision": 50,
+    "position": {
+      "step_id": "model_variant",
+      "completed": 10,
+      "total": 14
+    },
+    "learned": [],
+    "limitations": [
+      {
+        "code": "unconfirmed_decisions",
+        "text": "Not confirmed by you yet: the variant to compare, the model choice, the opening of the final test and the conclusion."
+      },
+      {
+        "code": "validation_is_not_independent",
+        "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+      },
+      {
+        "code": "public_data_already_explored",
+        "text": "The data were explored or published before this study; its rows are not unseen."
+      }
+    ],
+    "proposal_id": "p_7",
+    "proposal_text": "You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight.",
+    "recommended_option": "adopt",
+    "options": [
+      "adopt",
+      "change",
+      "explain"
+    ],
+    "option_labels": {
+      "adopt": "I adopt this decision",
+      "change": "Change something",
+      "explain": "Explain first"
+    },
+    "question": "You compare two variants with the linear model under the same evaluation: the ridge penalty chosen by nested cross-validation, and the Explainable Boosting Machine (EBM), because the diagnostics flag the shape of horsepower and weight.\n\nDo you adopt this decision?",
+    "evidence_refs": [],
+    "detail_topics": [
+      "metric",
+      "uncertainty",
+      "why-consider-a-nonlinear-family"
+    ]
+  },
+  "before_proposal": {
+    "kind": "propose",
+    "step": "model_variant",
+    "decision": "model_variant",
+    "message": "Which variants of the candidate model, at most three and each with the question it answers, should be compared with it under the same evaluation: the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family when the diagnostics show a pattern the linear model cannot follow?",
+    "default_value": {
+      "variants": [
+        {
+          "kind": "tuned",
+          "question": "Does a ridge penalty chosen by nested cross-validation predict with a smaller error than the unpenalised linear model?"
+        },
+        {
+          "kind": "family",
+          "family": "ebm",
+          "question": "Does a readable non-linear model predict with a smaller error by following what the linear model misses: the shape of horsepower and weight?"
+        }
+      ]
+    },
+    "audience": "junior",
+    "junior_message": "Which variants of the candidate model, at most three and each with the question it answers, should be compared with it under the same evaluation: the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family when the diagnostics show a pattern the linear model cannot follow?",
+    "language": "en",
+    "recommended": {
+      "value": {
+        "variants": [
+          {
+            "kind": "tuned",
+            "question": "Does a ridge penalty chosen by nested cross-validation predict with a smaller error than the unpenalised linear model?"
+          },
+          {
+            "kind": "family",
+            "family": "ebm",
+            "question": "Does a readable non-linear model predict with a smaller error by following what the linear model misses: the shape of horsepower and weight?"
+          }
+        ]
+      },
+      "why": "The diagnostics of the linear model flag the shape of horsepower and weight: the Explainable Boosting Machine (EBM), a readable non-linear model, is drafted beside the penalty chosen by nested cross-validation to test it. Each variant spends one trial of the budget of three and adds a little selection optimism; the EBM, chosen after the diagnostics, is recorded as data-contingent."
+    },
+    "question": "Which variants, at most three, should be compared with the candidate, and which question does each answer?",
+    "junior_digest": "Variant: one change of the candidate model (the penalty chosen by nested cross-validation, a stronger or weaker regularisation, the model without one group of variables, or another model family), compared under the same evaluation; at most three, each with its question. Each configuration compared on the same rows is a trial; the more trials, the more the best of them may owe to chance. Recommended: The diagnostics of the linear model flag the shape of horsepower and weight: the Explainable Boosting Machine (EBM), a readable non-linear model, is drafted beside the penalty chosen by nested cross-validation to test it. Each variant spends one trial of the budget of three and adds a little selection optimism; the EBM, chosen after the diagnostics, is recorded as data-contingent. Boosting here is tree boosting, the same family as XGBoost and LightGBM. A random forest is not offered: a random forest usually does less well than a tuned boosting on tabular data, and a variant of the same kind would spend a trial for little new information. The diagnostics of the linear model show a pattern it cannot follow; a non-linear family may be compared as one variant (a trial, chosen after seeing the diagnostics).",
+    "plan_recap": "The plan, in order: Frame the change (Data, Prediction moment, Available variables, Split, Error measure, Success criterion); Prepare evidence (Quality check, Preparation, Exploration); Work and compare (Models, Variants, Model choice); Conclude and hand over (Final test, Conclusion). Current step: Variants (11 of 14).",
+    "evidence": [
+      "diag.regression"
+    ],
+    "pause": {
+      "schema": "hypotrail.pause/1",
+      "kind": "action",
+      "language": "en",
+      "revision": 49,
+      "position": {
+        "step_id": "model_variant",
+        "completed": 10,
+        "total": 14
+      },
+      "learned": [],
+      "limitations": [
+        {
+          "code": "unconfirmed_decisions",
+          "text": "Not confirmed by you yet: the variant to compare, the model choice, the opening of the final test and the conclusion."
+        },
+        {
+          "code": "validation_is_not_independent",
+          "text": "Out-of-fold predictions on the development rows are used to compare the models and the variant, so they are development evidence, not independent evidence of future performance. Only the sealed final test, opened once, is."
+        },
+        {
+          "code": "public_data_already_explored",
+          "text": "The data were explored or published before this study; its rows are not unseen."
+        }
+      ],
+      "proposal_id": null,
+      "proposal_text": null,
+      "recommended_option": "continue",
+      "options": [
+        "continue",
+        "explain"
+      ],
+      "option_labels": {
+        "continue": "Let's continue",
+        "explain": "Explain first"
+      },
+      "question": "Which variants, at most three, should be compared with the candidate, and which question does each answer?",
+      "evidence_refs": [],
+      "detail_topics": [
+        "metric",
+        "uncertainty",
+        "why-consider-a-nonlinear-family"
+      ]
+    },
+    "panel": {
+      "version": 2,
+      "stage": "v3",
+      "title": "Hypotrail study",
+      "where": {
+        "anchor": "now",
+        "label": "Now, the question waiting for you",
+        "line": null
+      },
+      "shown": null
+    }
+  }
+}
