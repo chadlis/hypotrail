@@ -1,5 +1,5 @@
 // The guide's tools driven as Copilot calls them, against the real CLI. The Python tests send the workspace's folder and the input on
-// stdin. The optional tool name defaults to the run tool, and the guide test can separately simulate the person's panel Record control.
+// stdin. The optional tool name defaults to the run tool. The harness can also simulate the person's panel Record control.
 // The script activates the extension on the vscode stub and returns the response text and the arguments of calls started by the bridge,
 // omitting the common prefix. Every child process is the real one: execFile is only watched.
 import Module = require("node:module");
@@ -23,7 +23,7 @@ const stub: typeof Stub = require("./vscode-stub");
 const { activate }: typeof Extension = require("../src/extension");
 const { panelOf, runCommand }: typeof PanelHarness = require("./panel-harness");
 
-type Given = { folder: string; input: Record<string, unknown>; tool?: "hypotrail_read_study" | "hypotrail_run"; panelRecord?: boolean };
+type Given = { folder: string; input: Record<string, unknown>; tool?: "hypotrail_read_study" | "hypotrail_run"; panelRecord?: boolean | "ranking_review" };
 
 async function waitForPanel(panel: Stub.StubPanel, marker: RegExp): Promise<string> {
   const deadline = Date.now() + 120_000;
@@ -35,13 +35,20 @@ async function waitForPanel(panel: Stub.StubPanel, marker: RegExp): Promise<stri
   throw new Error(`The panel did not show ${marker}.`);
 }
 
-// This simulates the person's Record control on the temporary Study prepared by the Python guide test.
-async function recordInPanel(words: unknown): Promise<string> {
+// This simulates the person's Record control on a temporary Study prepared by Python.
+async function recordInPanel(words: unknown, target: Given["panelRecord"]): Promise<string> {
   await runCommand();
   const panel = panelOf();
   const [, record] = contract.messages;
-  await waitForPanel(panel, new RegExp(`<button data-message="${record}"`));
-  panel.send({ message: record, pending: 0, option: 0, words });
+  if (target === "ranking_review") {
+    await waitForPanel(panel, new RegExp(`<button data-message="${record}" data-review="0"`));
+    const nonce = /<script nonce="([a-f0-9]+)">/.exec(panel.webview.html)?.[1];
+    if (nonce === undefined) throw new Error("The ranking review has no active document nonce.");
+    panel.send({ message: record, review: 0, nonce, words });
+  } else {
+    await waitForPanel(panel, new RegExp(`<button data-message="${record}"`));
+    panel.send({ message: record, pending: 0, option: 0, words });
+  }
   return waitForPanel(panel, /<a href="[^"]+" data-recorded>/);
 }
 
@@ -59,7 +66,7 @@ async function main(): Promise<void> {
   let text: string;
   try {
     if (given.panelRecord) {
-      text = await recordInPanel(given.input.words);
+      text = await recordInPanel(given.input.words, given.panelRecord);
     } else {
       const tool = given.tool ?? "hypotrail_run";
       if (tool !== "hypotrail_read_study" && tool !== "hypotrail_run") throw new Error(`Tool outside the guide: ${tool}`);

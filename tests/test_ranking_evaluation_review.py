@@ -7,6 +7,7 @@ import pytest
 
 from _ranking_helpers import initialize, ranking_paths
 from _study_helpers import init_study, run_json
+from test_run_tool_end_to_end import the_tool
 
 OWNER_WORDS = "  I accept this ranking verdict.\nI checked the aggregate report.  "
 QUESTION = "Confirm the protected ranking verdict"
@@ -286,3 +287,40 @@ def test_non_ranking_study_cannot_import_a_ranking_review(tmp_path):
     code, refused, _ = import_receipt(study, write_receipt(tmp_path), before["write_sequence"])
     assert (code, refused["error"]["code"]) == (2, "UNSUPPORTED_CAPABILITY")
     assert status(study) == before
+
+
+def test_panel_record_confirms_the_imported_receipt_in_the_real_study(review_study, tmp_path):
+    receipt = write_receipt(tmp_path)
+    before = status(review_study)
+    code, imported, err = import_receipt(review_study, receipt, before["write_sequence"])
+    assert code == 0, (imported, err)
+    review = imported["review"]
+    assert review["pending"] is True
+    receipt.unlink()
+    sequence = status(review_study)["write_sequence"]
+
+    panel = the_tool(review_study.parent, {"words": OWNER_WORDS}, panel_record="ranking_review")
+    assert "data-recorded" in panel["text"], panel
+    assert panel["calls"][0][0] == "status"
+    assert sum(call[0] == "decide" for call in panel["calls"]) == 1
+
+    final = status(review_study, "--since", sequence)
+    assert final["ranking_reviews"] == [{**review, "pending": False}]
+    assert final["write_sequence"] == sequence + 2
+    [decision] = final["decisions"]
+    assert decision["applies"] is True
+    assert decision["author"] == "human"
+    assert decision["words"] == {"channel": "panel", "texts": [OWNER_WORDS], "by": None, "authenticated": False}
+    for field in ("question", "question_id", "option", "option_id"):
+        assert decision[field] == review[field]
+    assert decision["cited_ids"] == [review["artifact_id"]]
+    assert decision["read_sequence"] == sequence
+    request_id = decision["request_id"]
+    assert request_id
+    assert final["writes_since"] == [
+        {"command": "decide", "phase": "begin", "request_id": request_id},
+        {
+            "command": "decide", "phase": "end", "request_id": request_id, "outcome": "completed",
+            "written": [{"kind": "decision", "id": decision["decision_id"]}],
+        },
+    ]
