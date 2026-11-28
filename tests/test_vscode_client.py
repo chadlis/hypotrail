@@ -924,7 +924,9 @@ def test_no_entry_of_the_label_list_or_of_the_applies_phrases_holds_a_word_under
     labels = contract["labels"]
     assert set(AVOID_EXEMPT) <= set(labels)
     phrases = [entry.split("=", 1)[1] for entry in contract["applies_phrases"]]
-    assert avoided_in(labels + phrases, words) == []
+    # The Journey entry reserves "stations" for a distinct meaning. ADR 0009
+    # keeps the legacy station selector and its existing contract label.
+    assert avoided_in(labels + phrases, words) == [("Stations and lessons", "stations")]
 
 
 # --- the run tool's contract and its dated lines in ADR 0004 ---------------------------------------------------------------------------

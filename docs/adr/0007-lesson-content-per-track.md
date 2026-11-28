@@ -53,3 +53,14 @@ The precedent for a read that one Track serves is the data profile: `hypotrail p
 ## Amendment — 2026-11-27
 
 D-203 supersedes D-202 and extends points 2 and 6. Track cards explain how to read the steps a Study shows. Pack lessons explain how to do a step of the method, and the product serves them beside Track cards. Packs served by the product are in English. A person can read pack stations and lessons before creating a Study through `lesson --track` (ADR 0009).
+
+## Amendment — 2026-11-28
+
+ADR 0010 supersedes points 2, 3, 6 and 7 for a Track that serves a journey (D-278 on chadlis/hypotrail#75).
+
+- Point 2: a step card follows the current step of the journey, teaches the notion (the term first, then this Study's values) and shows the core's reasoned default. A reading's "What we conclude" still recommends no option.
+- Point 3: a card's text may hold numbers of the Study, through slots that the core fills from records. No digit is written by hand.
+- Point 6: the journey's content is English in this version, from the old tool's English source. Another language is added by an owner decision.
+- Point 7: the step card is open, in Now, before the pause's question is answered.
+
+The consequence "Whether texts copied from the old tool enter the product is a licence question" is closed: the owner owns both repositories and decided that they enter (D-278). The Track cards of points 1 to 5 stay as they are for a Track without a journey.

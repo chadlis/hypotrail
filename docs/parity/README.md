@@ -2,9 +2,17 @@
 
 The archived French reproduction is the approved reference. The English twin
 replays the same old panel and walk on Auto MPG using the old tool's English
-copy. The owner approves the twin at gate 0 before Wave 3 begins. An unsigned
-difference in [the parity table](table.md) blocks the corresponding surface
+copy. An unsigned difference in [the parity table](table.md) blocks the corresponding surface
 merge. [Translation inventory](translated.md) lists texts with no English source.
+
+## Gate 0
+
+The owner approved the English twin pinned at
+`a18b45fbfa7b089a9e415dab5179a7d605334139` in Hypotrail Learning.
+
+> c validé tu peux avancer
+
+[Owner's words, D-292](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7241003460)
 
 ## Checks for surface changes
 

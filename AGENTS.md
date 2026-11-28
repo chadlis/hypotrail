@@ -12,6 +12,10 @@
 - Text you add or change quotes English with "…"; « » quotes French only. ADRs keep their recorded quotations (D-043 on chadlis/hypotrail#75).
 - Keep `README.md` short and true: update it in the same pull request when a change affects what it says (purpose, status, install, usage, layout or where to look).
 
+- The accompanied journey's texts are data ported from the old tool (ADR 0010). Do not reword them. A change quotes the owner in a dated ADR line.
+- Journey content is English in this version. A person-facing text may use the usual data-science word, with the GLOSSARY term in parentheses the first time.
+- A change to a user-facing surface of the journey is accepted against the approved reference (`docs/parity/README.md`), by a reviewer who did not build it. No agent approves a design or signs a parity difference on the owner's behalf.
+
 ## Agent skills
 
 ### Issue tracker
