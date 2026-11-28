@@ -35,11 +35,22 @@ The capture uses the bundle's scripted answers for the old Auto MPG Study.
 The four French-only scripted inputs use the English text of the specification.
 No old engine or live model runs in CI.
 
+The French CLI pause signature is compared with the original walk. The old
+panel's recording supplies the action kind, position and ordered options. The
+fresh French digest supplies the same panel-facing options, including the
+empty picker on automatic runs.
+
+The private English twin includes `observe-change.js`. Run it against the
+twin and the English snapshots to keep the ten browser observations with
+the legacy revision read before and after each selection. Supply that
+folder to include the "Change something" fixtures.
+
 ```sh
 python scripts/parity/capture_old.py \
   --old-hypotrail /path/to/legacy-checkout \
   --replay /path/to/parity-v1/replay \
   --scratch /path/to/empty-capture-directory \
+  --change-observations /path/to/browser-observations \
   --out tests/fixtures/parity/reference-en
 uv run --frozen python -m pytest tests/test_parity_reference.py
 ```

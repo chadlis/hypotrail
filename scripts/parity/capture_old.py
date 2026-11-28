@@ -56,21 +56,40 @@ def _log(replay):
     return json.loads((replay / "cap/log.json").read_text(encoding="utf-8"))
 
 
-def verify_french_replay(bundle, french):
-    recorded = replay_signature(_log(bundle))
+def verify_french_replay(old, bundle, french):
+    approved_log = _log(bundle)
+    recorded = replay_signature(approved_log)
     current = replay_signature(_log(french))
     if len(recorded) != 18 or current != recorded:
         raise RuntimeError("The French walk differs from the approved replay signature")
-    for name, kind, *_ in recorded:
+    summaries = {entry["name"]: entry["payload"]["summary"] for entry in approved_log
+                 if STATE.fullmatch(entry["name"])}
+    for name, kind, _, position, _ in recorded:
         recording = bundle / "rec" / f"{name}.json"
         tape = json.loads(recording.read_text(encoding="utf-8"))["tape"]
-        initial = next(
+        panel = next(
             response["model"]
             for exchange in tape
             for response in exchange["res"]
             if response["type"] == "snapshot"
         )
-        if initial["nextAction"]["kind"] != kind:
+        panel_position = {
+            "step_id": (panel["currentStep"] or {}).get("id"),
+            "completed": sum(step["status"] == "done" for step in panel["plan"]),
+            "total": len(panel["plan"]),
+        }
+        panel_options = panel["texts"]["fr"]["options"]
+        summary = summaries[name]
+        digest = json.loads(_legacy(
+            old, french, french / "snaps" / name, "status", "--summary", "--digest", "--fields", "texts",
+        ))
+        # The digest omits options on automatic runs, just as the panel does.
+        options = digest["texts"]["fr"]["options"] or {}
+        if (panel["revision"] != summary["revision"]
+                or digest["revision"] != panel["revision"]
+                or panel["nextAction"]["kind"] != kind
+                or panel_position != position
+                or panel_options != [{"id": key, "label": label} for key, label in options.items()]):
             raise RuntimeError(f"The {name} panel recording disagrees with its French CLI state")
 
 
@@ -132,7 +151,7 @@ def write_fixtures(old, capture, out):
         )
 
 
-def write_branches(old, capture, out):
+def write_branches(old, capture, out, change_observations=None):
     """Capture the old options, alternative proposals and a real refusal."""
     choices = {
         "success_criterion": {
@@ -161,15 +180,21 @@ def write_branches(old, capture, out):
         decision = action["decision"]
         source = capture / "snaps" / state
         scrub = ((source, "STUDY"), (capture, "REPLAY"), (old, "OLD_HYPOTRAIL"))
-        if "change" not in action["pause"]["options"]:
-            raise RuntimeError(f"{state} has no change option")
-        # The original guide asks what to change before it writes a new proposal.
-        _keep(out, f"{state}.change", {
-            "selected": action["pause"]["option_labels"]["change"],
-            "question": "What do you want to change?",
-            "pause": action["pause"],
-            "before_proposal": payload["pre"],
-        }, scrub)
+        if change_observations is not None:
+            observation = json.loads((change_observations / f"{decision}.json").read_text(encoding="utf-8"))
+            revision = payload["summary"]["revision"]
+            if (observation["decision"] != decision
+                    or observation["selected"] != {"id": "change", "label": action["pause"]["option_labels"]["change"]}
+                    or observation["confirmation_count"] != 0
+                    or not observation["prompt"]
+                    or observation["revisionBefore"] != revision
+                    or observation["revisionAfter"] != revision):
+                raise RuntimeError(f"{state} does not match the observed Change branch")
+            _keep(out, f"{state}.change", {
+                "observation": observation,
+                "pause": action["pause"],
+                "before_proposal": payload["pre_summary"]["next_action"],
+            }, scrub)
         for branch, (value, label) in choices.get(decision, {}).items():
             study = branches / f"{state}.{branch}"
             shutil.copytree(source, study)
@@ -211,6 +236,8 @@ def main():
     parser.add_argument("--replay", required=True, type=Path)
     parser.add_argument("--scratch", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--change-observations", type=Path,
+                        help="browser evidence from observe-change.js in the private English twin")
     args = parser.parse_args()
     old, bundle, scratch, out = (path.resolve() for path in
                                  (args.old_hypotrail, args.replay, args.scratch, args.out))
@@ -219,12 +246,12 @@ def main():
     scratch.mkdir(parents=True, exist_ok=True)
     french, english = scratch / "fr", scratch / "en"
     walk(old, bundle, french, "fr")
-    verify_french_replay(bundle, french)
+    verify_french_replay(old, bundle, french)
     walk(old, bundle, english, "en")
     if replay_signature(_log(english)) != replay_signature(_log(bundle)):
         raise RuntimeError("The English walk differs from the approved replay signature")
     write_fixtures(old, english, out)
-    write_branches(old, english, out)
+    write_branches(old, english, out, args.change_observations)
 
 
 if __name__ == "__main__":

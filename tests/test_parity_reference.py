@@ -73,9 +73,13 @@ def test_off_default_captures_keep_every_legacy_change_and_choice():
         assert (proposal["value"][field] if field else proposal["value"]) == value, fixture
     for file in folder.glob("*.change.json"):
         change = json.loads(file.read_text(encoding="utf-8"))
-        assert change["selected"] == "Change something", file.name
-        assert change["question"] == "What do you want to change?", file.name
-        assert change["pause"]["option_labels"]["change"] == change["selected"], file.name
+        observation = change["observation"]
+        assert observation["selected"] == {"id": "change", "label": "Change something"}, file.name
+        assert observation["prompt"] == "What do you want to change?", file.name
+        assert observation["revisionBefore"] == observation["revisionAfter"], file.name
+        assert observation["confirmation_count"] == 0, file.name
+        assert change["pause"]["option_labels"]["change"] == observation["selected"]["label"], file.name
+        assert "_synthetic" not in change["before_proposal"], file.name
     refusal = json.loads((folder / "02-prediction_time-pause.refusal.json").read_text(encoding="utf-8"))
     assert refusal["refusal"]["ok"] is False
     assert refusal["refusal"]["error"]["code"] == "ambiguous_confirmation"

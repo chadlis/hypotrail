@@ -1,6 +1,17 @@
 {
-  "selected": "Change something",
-  "question": "What do you want to change?",
+  "observation": {
+    "decision": "final_test",
+    "selected": {
+      "id": "change",
+      "label": "Change something"
+    },
+    "prompt": "What do you want to change?",
+    "replay_note": "In the old tool, the agent proposed the decision again with your change (`hypotrail decide propose`) and asked the same closed question. This replay follows the recorded default path. Type your change to see the sequence or adopt the proposal.",
+    "repeated_question": "Do you adopt this decision?",
+    "confirmation_count": 0,
+    "revisionBefore": 64,
+    "revisionAfter": 64
+  },
   "pause": {
     "schema": "hypotrail.pause/1",
     "kind": "decision",
