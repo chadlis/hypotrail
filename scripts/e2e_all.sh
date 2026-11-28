@@ -322,9 +322,10 @@ step "C8 Hypotrail protected ranking guard, lesson and ordinary CLI refusals" \
     actual_passes at "$product" uv run --frozen python -m pytest -q -p no:cacheprovider \
         tests/test_ranking_evaluator.py tests/test_ranking_read_surfaces.py || true
 step "C8 client panel and chat tool refusals" \
-    actual_node_passes at "$product/clients/vscode" node --require ./out/test/vscode-stub-hook.js --test \
+    actual_node_passes at "$product/clients/vscode" node --require ./out/test/vscode-stub-hook.js \
         --test-name-pattern='protected ranking refusal|request for the held_out Partition|without forwarding the evaluator' \
-        out/test/panel-read.test.js out/test/tools-read.test.js out/test/tools-run.test.js || true
+        -e 'for (const file of process.argv.slice(1)) require(file)' \
+        ./out/test/panel-read.test.js ./out/test/tools-read.test.js ./out/test/tools-run.test.js || true
 step "C9 MLkit synthetic protected evaluator, proxy verdict, aggregate output and exits 8 and 9" \
     actual_passes at "$mlkit" env -u GITHUB_ACTIONS -u GITHUB_TOKEN -u GH_TOKEN \
         MLKIT_E2E=1 HYPOTRAIL_CHECKOUT=hypotrail uv run --locked --no-sync pytest -q \
