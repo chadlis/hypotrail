@@ -941,7 +941,7 @@ def _status(args) -> int:
 
 
 def _number_evidence(study, revision):
-    from hypotrail.core import attempts, comparison
+    from hypotrail.core import attempts, comparison, figures
     from hypotrail.core import study as layout
 
     # Read the same aggregate records that status lists without probing its lock or walking its Attempt artifacts.
@@ -973,6 +973,12 @@ def _number_evidence(study, revision):
             differences.extend((interval["lower"], interval["upper"]))
             values.extend((interval["level"], interval.get("units")))
         values.extend(record["coverage"].values())
+        figure = figures.entry(study, record)
+        if figure["unavailable"] is None:
+            differences.extend(figure["quartiles"].values())
+            for bucket in figure["histogram"]:
+                differences.extend((bucket["low"], bucket["high"]))
+                values.append(bucket["count"])
     return [*values, *differences], differences, units
 
 

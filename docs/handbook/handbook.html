@@ -4181,7 +4181,7 @@ uv run python -m hypotrail assess --study runs/bike --observations OBSERVATION_S
 <div class="prose">
 <p>Check whether the numbers in an English draft can be traced to the Study. Give the command a UTF-8 file, or pass <code>--text -</code> to read the draft from standard input.</p>
 <pre><code>hypotrail numbers check --study ./bike-study --text draft.txt --json</code></pre>
-<p>The check uses aggregate Assessment and Comparison values from the current Study revision on the development Partition. It accepts a number at the precision shown. For example, a recorded mean absolute error of 1090.7912 supports "1,090.79", and "five folds" also counts as a numeric claim. Give <code>--user-text user.txt</code> to allow the draft to repeat numbers from the person's own words, such as a target they supplied.</p>
+<p>The check uses aggregate Assessment and Comparison values from the current Study revision on the development Partition, including quartiles and histogram values from the Comparison figures. It accepts a number at the precision shown. For example, a recorded mean absolute error of 1090.7912 supports "1,090.79", and "five folds" also counts as a numeric claim. Give <code>--user-text user.txt</code> to allow the draft to repeat numbers from the person's own words, such as a target they supplied.</p>
 <p>The JSON has <code>clean: true</code> and an empty <code>findings</code> list when all numbers are traceable. Each <code>untraceable_number</code> finding gives the text of the occurrence and its start and end offsets. The command takes no Study lock, records no Exposure and writes nothing.</p>
 </div>
 </section>

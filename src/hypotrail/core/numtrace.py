@@ -17,7 +17,8 @@ _COMMA_GROUP = re.compile(r"[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?")
 _SCALE = {"k": 3, "K": 3, "M": 6, "x": 0, "×": 0, "thousand": 3, "million": 6, "bn": 9, "billion": 9, "trillion": 12}
 _SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺"
 _SUPERSCRIPT = str.maketrans(_SUPERSCRIPTS, "0123456789-+")
-_POINTS = r"percentage[- ]points?|pp|p\.p\.|points?|pts?"
+_BARE_POINTS = r"points?|pts?"
+_POINTS = rf"percentage[- ]points?|pp|p\.p\.|{_BARE_POINTS}"
 _RATE = rf"%|percent|per cent|‰|per mille|per mil|permille|{_POINTS}"
 _EXPONENT = re.compile(r"(?P<sign>[-+−]?)(?P<digits>\d+)")
 _DIGITS = re.compile(
@@ -81,7 +82,12 @@ _CARD = _alternatives(_CARDINALS)
 _WORD = r"[^\W\d_][\w'’-]*"
 _WORD_START = r"(?<![\w-])"
 _WORD_END = r"(?![\w-])"
-_WORD_RATIOS = re.compile(rf"{_WORD_START}(?P<numerator>{_CARD})(?:\s+{_WORD})?\s+(?:in|out of)\s+(?P<denominator>{_CARD}){_WORD_END}", re.IGNORECASE)
+_RATIO_LINK = r"\s+(?:in|out of)\s+"
+_RATIO_START = rf"{_WORD_START}(?P<numerator>{_CARD})(?:\s+{_WORD})?{_RATIO_LINK}"
+_RATIO_END = rf"(?P<denominator>{_CARD}){_WORD_END}"
+_WORD_RATIOS = re.compile(_RATIO_START + _RATIO_END, re.IGNORECASE)
+_RATIO_BEFORE = re.compile(_RATIO_START + "$", re.IGNORECASE)
+_RATIO_AFTER = re.compile(rf"(?:\s+{_WORD})?{_RATIO_LINK}{_RATIO_END}", re.IGNORECASE)
 _WORD_DOZENS = re.compile(rf"{_WORD_START}(?:(?P<count>{_CARD}|a)\s+)?dozens?{_WORD_END}", re.IGNORECASE)
 _WORD_SCALES = re.compile(
     rf"{_WORD_START}(?:(?:{_CARD}|a|an)\s+)(?:hundreds?|thousands?|millions?|billions?|trillions?)"
@@ -108,7 +114,7 @@ class _Number:
         return abs(value - self.value) <= self.tolerance
 
 
-def _digit_number(text: str, match: re.Match) -> _Number:
+def _digit_number(text: str, match: re.Match, points_unit: bool) -> _Number:
     parts = match.groupdict()
     start, end = match.span()
     body = parts["body"]
@@ -141,6 +147,8 @@ def _digit_number(text: str, match: re.Match) -> _Number:
     elif sign in {"-", "−", "–"}:
         mantissa = mantissa.copy_negate()
     unit = (parts.get("unit") or "").strip().lower()
+    if points_unit and re.fullmatch(_BARE_POINTS, unit):
+        unit = ""
     points = bool(re.fullmatch(_POINTS, unit))
     if unit in {"‰", "per mille", "per mil", "permille"}:
         scale -= 3
@@ -155,9 +163,13 @@ def _digit_number(text: str, match: re.Match) -> _Number:
     return _Number(start, end, number, Decimal((0, (5,), quantum - 1)), points)
 
 
-def _word_numbers(text: str, units: Iterable[str]) -> Iterable[_Number]:
-    nouns = tuple(dict.fromkeys([*_COUNT_NOUNS, *(item.lower() for item in units if item)]))
-    noun = _alternatives(nouns)
+def _unit_nouns(units: Iterable[str]) -> set[str]:
+    cleaned = (re.sub(r"\([^)]*\)", " ", unit) for unit in units if isinstance(unit, str))
+    return {" ".join(unit.lower().split()) for unit in cleaned if re.search(r"[^\W\d_]", unit)}
+
+
+def _word_numbers(text: str, units: set[str]) -> Iterable[_Number]:
+    noun = _alternatives(set(_COUNT_NOUNS) | units)
     counts = re.compile(rf"{_WORD_START}(?P<count>{_CARD}){_WORD_END}(?:\s+(?P<modifier>{_WORD}))?\s+(?P<noun>{noun})(?!\w)", re.IGNORECASE)
     fractions = re.compile(
         rf"{_WORD_START}(?:(?P<count>{_CARD}|a|an)\s+)?(?P<denominator>{_alternatives(_FRACTIONS)}){_WORD_END}"
@@ -165,9 +177,16 @@ def _word_numbers(text: str, units: Iterable[str]) -> Iterable[_Number]:
         re.IGNORECASE,
     )
     for match in _WORD_SCALES.finditer(text):
-        phrase = match[0].lower()
-        if phrase not in _CARDINALS and (counts.match(text, match.start()) or re.match(rf"\s+(?:{_WORD}\s+)?(?:{noun})(?!\w)", text[match.end():], re.IGNORECASE)):
-            yield _Number(*match.span(), None)
+        if match[0].lower() in _CARDINALS:
+            continue
+        start, end = match.span()
+        # An unsupported scale in a ratio invalidates the whole claim, including the otherwise parseable ratio prefix.
+        if before := _RATIO_BEFORE.search(text, 0, start):
+            yield _Number(before.start(), end, None)
+        elif after := _RATIO_AFTER.match(text, end):
+            yield _Number(start, after.end(), None)
+        elif counts.match(text, start) or re.match(rf"\s+(?:{_WORD}\s+)?(?:{noun})(?!\w)", text[end:], re.IGNORECASE):
+            yield _Number(start, end, None)
     for match in _WORD_RATIOS.finditer(text):
         numerator = _CARDINALS[match["numerator"].lower()]
         denominator = _CARDINALS[match["denominator"].lower()]
@@ -198,11 +217,12 @@ def _word_numbers(text: str, units: Iterable[str]) -> Iterable[_Number]:
             yield _Number(*match.span("count"), count)
 
 
-def _numbers(text: str, units: Iterable[str]) -> Iterable[_Number]:
+def _numbers(text: str, units: set[str]) -> Iterable[_Number]:
     masked = _EXEMPT_SPANS.sub(lambda match: " " * len(match[0]), text)
+    points_unit = bool({"point", "points"} & units)
     candidates = [
-        *(_digit_number(masked, match) for match in _DIGITS.finditer(masked)),
-        *(_digit_number(masked, match) for match in _GLUED_DIGITS.finditer(masked)),
+        *(_digit_number(masked, match, points_unit) for match in _DIGITS.finditer(masked)),
+        *(_digit_number(masked, match, points_unit) for match in _GLUED_DIGITS.finditer(masked)),
         *(_Number(*match.span(), None) for match in _ODD_DIGITS.finditer(masked) if not _ORDINAL.fullmatch(match[0])),
         *_word_numbers(masked, units),
     ]
@@ -234,12 +254,12 @@ def findings(
     units: Iterable[str] = (),
 ) -> list[dict]:
     """Report every quantitative occurrence that cannot be traced at its shown precision."""
-    units = tuple(units)
-    supplied = {token.value for token in _numbers(user_text, units) if token.value is not None}
+    unit_nouns = _unit_nouns(units)
+    supplied = {token.value for token in _numbers(user_text, unit_nouns) if token.value is not None}
     recorded = _decimal_values(values) | supplied
     differences = _decimal_values(differences) | supplied
     output = []
-    for token in _numbers(text, units):
+    for token in _numbers(text, unit_nouns):
         if any(token.matches(value) for value in (differences if token.points else recorded)):
             continue
         shown = text[token.start:token.end]
