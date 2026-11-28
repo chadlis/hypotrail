@@ -36,7 +36,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-from hypotrail.core import artifacts, attempts, canonical, data, environment, exposure, protocol_check, requests, study_write
+from hypotrail.core import artifacts, attempts, canonical, data, environment, evaluator, exposure, protocol_check, requests, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.core.imports import UNKNOWN, producer_entry, read_input, require_not_serialized, strict_json_or_none
@@ -188,7 +188,7 @@ def _checked_population(raw: bytes, population_path, partition_of: dict):
     return partitions[0], sorted(items)
 
 
-def _ranking_population(raw, population_path, partition_of, dataset):
+def _ranking_population(raw, population_path, partition_of, dataset, partition):
     items = _population_ids(raw, population_path)
     try:
         dates = [ranking_study.item_date(item) for item in items]
@@ -198,20 +198,21 @@ def _ranking_population(raw, population_path, partition_of, dataset):
     if any((cutoff - as_of).days < dataset["horizon_days"] for as_of in dates):
         raise _refuse("POPULATION_ITEM_IMMATURE", "the population contains an immature Item")
 
+    scope = "development" if partition == ranking_study.DEV else "held-out"
     known_other = set(dataset["other_partition_items"])
     outside = set(items) - set(partition_of)
     known = {item for item in outside if ranking_study.item_digest(item) in known_other}
     if known and len(outside) != len(items):
-        raise _refuse("POPULATION_MIXED_PARTITIONS", "the ranking population mixes development and other Items")
+        raise _refuse("POPULATION_MIXED_PARTITIONS", f"the ranking population mixes {scope} and other Items")
     if outside:
-        raise _refuse("POPULATION_ITEM_UNKNOWN", "the ranking population contains an Item outside the Study's development Partition")
-    return ranking_study.DEV, sorted(items)
+        raise _refuse("POPULATION_ITEM_UNKNOWN", f"the ranking population contains an Item outside the Study's {scope} Partition")
+    return sorted(items)
 
 
-def _ranking_preflight(write, request_id, path, partition_of, dataset):
+def _ranking_preflight(write, request_id, path, partition_of, dataset, partition):
     raw = read_input(path, "POPULATION_NOT_FOUND", "population")
     try:
-        return raw, _ranking_population(raw, path, partition_of, dataset)
+        return raw, _ranking_population(raw, path, partition_of, dataset, partition)
     except InvalidInputError:
         def refuse_reused_request(recorded):
             raise requests.conflict(request_id, recorded["attempt_id"], ["input_digests"])
@@ -338,6 +339,7 @@ def import_ml(
 
 def _import_locked(study, write, source, mapping_path, population_path, request_id, *, examples_dir):
     spec = layout.read_spec(study)
+    evaluator.require_study(spec, stage=STAGE)
     domain = spec["domain"]
     ranking = domain == ranking_study.TRACK
     workload = spec["workload"]
@@ -361,7 +363,8 @@ def _import_locked(study, write, source, mapping_path, population_path, request_
         partition_of = layout.partition_of(memberships, "row_id")
 
     if ranking:
-        population_bytes, (partition, items) = _ranking_preflight(write, request_id, population_path, partition_of, dataset)
+        partition = spec.get("partition", ranking_study.DEV)
+        population_bytes, items = _ranking_preflight(write, request_id, population_path, partition_of, dataset, partition)
     source_bytes = read_input(source, "SOURCE_NOT_FOUND", "source")
     mapping_bytes = read_input(mapping_path, "MAPPING_NOT_FOUND", "mapping")
     if not ranking:

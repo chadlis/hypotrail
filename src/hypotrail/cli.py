@@ -12,6 +12,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from hypotrail.core import evaluator
 from hypotrail.core.errors import (
     EXIT_OK,
     HypotrailError,
@@ -67,10 +68,14 @@ def _add_read_sequence(parser, *, required: bool = False) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from hypotrail.ml.partitions import DEV
+
     parser = _ArgumentParser(
         prog="hypotrail",
+        allow_abbrev=False,
         description="Small, explicit studies of predictive and agentic systems.",
     )
+    parser.add_argument("--evaluator", action="store_true", help="declare an eligible CLI command of the protected ranking evaluator job")
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     data = commands.add_parser("data", help="check the public datasets")
@@ -124,6 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="directory holding the Workloads (default: the source checkout's examples/ when it holds a Workload; any other install gives this flag)",
     )
     init.add_argument("--build-dir", type=Path, metavar="DIR", help="private build outside Git, required for a ranking Study")
+    init.add_argument("--partition", choices=(DEV, evaluator.HELD_OUT), help="ranking Study Partition (default: dev; held_out requires the declared evaluator)")
     _add_read_sequence(init)
     init.add_argument("--json", action="store_true", help="print one JSON object")
     init.set_defaults(handler=_init)
@@ -533,6 +539,8 @@ def _init(args) -> int:
     from hypotrail.core import data
     from hypotrail.core.study import declared_track
 
+    if (args.partition == evaluator.HELD_OUT) != evaluator.inside() or (args.partition is not None and args.new_revision):
+        raise evaluator.refusal("study")
     if args.new_revision:
         return _new_revision(args)
     if args.read_sequence is not None:
@@ -552,6 +560,10 @@ def _init(args) -> int:
     examples = data.resolve_examples_dir(args.examples_dir)
     track = declared_track(Path(examples) / args.workload)
     build = {}
+    if args.partition is not None:
+        if track != "ranking":
+            raise evaluator.refusal("study")
+        build["partition"] = args.partition
     if args.build_dir is not None:
         if track != "ranking":
             raise InvalidInputError("RANKING_BUILD_UNSUPPORTED", "--build-dir is for ranking Workloads", stage="config")
@@ -563,6 +575,9 @@ def _init(args) -> int:
 
     spec = study.init_study(args.workload, args.study, examples, **build)
     references = _references_id(spec)
+    if evaluator.inside():
+        _emit({"ok": True, "references_id": references}, args.json, "Protected ranking Study created.")
+        return EXIT_OK
     human = (
         f"Study created in {args.study}: Workload {spec['workload']}, "
         f"protocol {spec['protocol_digest'][:12]}..., study_id {spec['study_id']}, references_id {references}"
@@ -684,6 +699,9 @@ def _import_ml(args) -> int:
     )
     observation_set = attempts.read_observation_set(args.study, manifest)
     observation_set_id = observation_set["observation_set_id"] if observation_set is not None else None
+    if evaluator.inside():
+        _emit({"ok": True, "observation_set_id": observation_set_id}, args.json, "Protected ranking Import recorded.")
+        return EXIT_OK
     counts = manifest["item_counts"]
     human = (
         f"Import {manifest['attempt_id']} {manifest['technical_status']} "
@@ -732,7 +750,7 @@ def _assess(args) -> int:
     from hypotrail.core import scorers
 
     scorer = scorers.REGISTRY.get(args.scorer) if isinstance(args.scorer, str) else None
-    if scorer is not None and scorer.domain == scorers.AGENTIC:
+    if not evaluator.inside() and scorer is not None and scorer.domain == scorers.AGENTIC:
         return _assess_agent(args)
     from hypotrail.ml import assess
 
@@ -740,6 +758,11 @@ def _assess(args) -> int:
     record = assess.assess(
         args.study, args.observations, args.scorer, args.references, examples_dir=args.examples_dir, read_sequence=args.read_sequence, notes=notes, run_tool=_from_run_tool()
     )
+    if evaluator.inside():
+        from hypotrail.report import ranking
+
+        _emit({"ok": True, "assessment": ranking.assessment(record)}, args.json, "Protected ranking Assessment recorded.")
+        return EXIT_OK
     for note in notes:
         print(note, file=sys.stderr)
     counts, metric = record["counts"], record["metrics"][0]
@@ -811,6 +834,11 @@ def _compare(args) -> int:
     record = comparison.compare(
         args.study, args.control, args.candidate, args.factor, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, run_tool=_from_run_tool()
     )
+    if evaluator.inside():
+        from hypotrail.report import ranking
+
+        _emit({"ok": True, "comparison": ranking.comparison(record)}, args.json, "Protected ranking Comparison recorded.")
+        return EXIT_OK
     delta, coverage = record["delta"], record["coverage"]
     value = "no value" if delta["value"] is None else f"{delta['value']:+.6g} {delta['unit']}"
     if delta.get("reason"):
@@ -850,6 +878,9 @@ def _report_command(args) -> int:
     result = command.report(
         args.study, args.out, live_basis=_live_basis(args.examples_dir), read_sequence=args.read_sequence, profile=_profile_read(args.examples_dir), run_tool=_from_run_tool()
     )
+    if evaluator.inside():
+        _emit({"ok": True, "report": result}, args.json, "Protected ranking aggregate report written.")
+        return EXIT_OK
     recorded = result["exposure"]
     human = f"Report written to {result['out']}" + (f" (an Exposure: journal entry {recorded['entry_id']})" if recorded["recorded"] else " (no public_check Item shown: no Exposure recorded)")
     _emit({"ok": True, "report": result}, args.json, human)
@@ -1015,6 +1046,8 @@ def _profile_lines(read: dict) -> list:
 def _decide(args) -> int:
     from hypotrail.core import decisions
 
+    if evaluator.inside() and (args.author != "proxy" or not args.source or args.words):
+        raise evaluator.refusal("decision")
     record, replayed = decisions.decide(
         args.study,
         question=args.question,
@@ -1030,6 +1063,10 @@ def _decide(args) -> int:
         channel=args.channel,
         by=args.by,
     )
+    if evaluator.inside():
+        receipt = {key: record[key] for key in ("kind", "schema_version", "decision_id", "author", "source", "option", "question", "cited_ids", "write_sequence")}
+        _emit({"ok": True, "replayed": replayed, "decision": receipt}, args.json, "Protected ranking proxy Decision recorded.")
+        return EXIT_OK
     words = record.get("words")  # a replayed `decision/1` record holds no `words`
     human = (
         f"Decision {record['decision_id']} by {record['author']}: {record['option']} "
@@ -1120,20 +1157,35 @@ def _spike_live(args) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     arguments = list(sys.argv[1:] if argv is None else argv)
+    protected = "--evaluator" in arguments
     try:
         args = parser.parse_args(arguments)
     except InvalidInputError as error:
         # No namespace exists yet: `--json` is looked for in the arguments.
-        return _report(error, "--json" in arguments)
+        return _report(_evaluator_failure(error) if protected else error, "--json" in arguments)
     handler = getattr(args, "handler", None)
     if handler is None:
         parser.print_help()
         return EXIT_OK
     try:
+        if args.evaluator:
+            if handler not in (_init, _import_ml, _assess, _compare, _report_command, _decide):
+                raise evaluator.refusal("config")
+            with evaluator.entry_point():
+                return handler(args)
         return handler(args)
     except Exception as error:
         failure = coded_error(error)
-    return _report(failure, getattr(args, "json", False))
+    return _report(_evaluator_failure(failure) if protected else failure, getattr(args, "json", False))
+
+
+def _evaluator_failure(failure: HypotrailError) -> HypotrailError:
+    # Command diagnostics can contain argument values or fields read from a private payload.
+    if failure.code == "RANKING_HELD_OUT_REFUSED":
+        return failure
+    return HypotrailError(
+        failure.code, "The protected evaluator command failed", stage=failure.stage, exit_code=failure.exit_code
+    )
 
 
 def _print_warnings(warnings) -> None:

@@ -36,7 +36,7 @@ import math
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts, exposure, rescoring, revisions, scorers, study_write
+from hypotrail.core import artifacts, canonical, contracts, evaluator, exposure, rescoring, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.attempts import now
 from hypotrail.core.errors import InvalidInputError
@@ -147,6 +147,7 @@ def assess(
 def _assess_locked(study: Path, write, observation_set_id: str, scorer_id: str, references_id: str, examples_dir, notes: list, run_tool: bool) -> dict:
     spec = layout.read_spec(study)
     scorer = scorers.get(scorer_id)
+    evaluator.require_study(spec, stage=STAGE, run_tool=run_tool)
     if spec["domain"] == scorers.RANKING:
         return ranking_assess.assess_locked(study, write, spec, observation_set_id, scorer, references_id)
 

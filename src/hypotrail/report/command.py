@@ -9,12 +9,13 @@ The order (nothing is written before the checks that precede it):
    exit 6), `--read-sequence` is compared with the Study's write sequence (`STUDY_CHANGED`, exit 6, or `WRITE_SEQUENCE_AHEAD`, exit 2;
    a page of `dev` Items only is written as without the option), then the freeze record is written first if the revision has none, then one journal entry names the Attempts,
    Assessments and Comparisons the page shows of those Items. A Study with `dev` Items only records nothing and takes no lock;
-4. the page is written to a temporary file beside `--out` and renamed onto it by `artifacts.replace_atomically`, which then fsyncs the folder of `--out`; an existing file is replaced.
+4. a protected ranking Study is checked under the writer lock before reading records. Its evaluator report is JSON containing only aggregates and record identifiers;
+5. the report is written to a temporary file beside `--out` and renamed onto it by `artifacts.replace_atomically`, which then fsyncs the folder of `--out`; an existing file is replaced.
 """
 
 from pathlib import Path
 
-from hypotrail.core import artifacts, exposure, study_write
+from hypotrail.core import artifacts, canonical, evaluator, exposure, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 from hypotrail.report import gather, render
@@ -50,7 +51,7 @@ def _result(out, spec, model, entry) -> dict:
 
 
 def report(study, out, *, live_basis=None, read_sequence: int | None = None, profile=None, run_tool: bool = False) -> dict:
-    """Render the page of `study` at `out`; return what was done (`out`, `sections`, `exposure`).
+    """Publish the Study report at `out`; return the evaluator aggregates or the ordinary page metadata.
 
     `live_basis` is what `exposure.record` calls to digest the Workload; the command passes it, the package imports no Track.
     `profile` is what the page of a regression Study draws in its Data profile section: a function of the Study's folder that
@@ -61,11 +62,13 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
     study, out = Path(study), Path(out)
     study_write.check_read_sequence(study_write.REPORT, read_sequence)
     spec = layout.read_spec(study)
-    check_output(study, out)
+    protected = evaluator.is_protected(spec) or evaluator.inside()
+    if not protected:
+        check_output(study, out)
     entry = None
-    links = render.Links(study, out)
+    links = None if protected else render.Links(study, out)
     drawn = None
-    if not run_tool:
+    if not run_tool and not protected:
         model = gather.load(study)
         shown = gather.touched(model)
         drawn = profile(study) if profile is not None and spec["domain"] == gather.REGRESSION else None
@@ -77,7 +80,7 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
     with study_write.locked(study, study_write.REPORT, read_sequence=read_sequence) as write:
         write.require_current()
         model = gather.load(study, guarded=run_tool, profile=profile if run_tool else None)
-        if not run_tool:
+        if not run_tool and not protected:
             model["profile"] = drawn
             shown = gather.touched(model)
             entry = exposure.record(
@@ -90,5 +93,9 @@ def report(study, out, *, live_basis=None, read_sequence: int | None = None, pro
                 comparison_ids=shown["comparisons"],
             )
             model["exposure"] = gather.exposure_of(study)  # the count includes this report's own entry
+        if protected:
+            check_output(study, out)
+            artifacts.replace_atomically(out, canonical.dumps(model))
+            return model
         artifacts.replace_atomically(out, render.render(model, links, entry).encode("utf-8"))
     return _result(out, model["spec"] if run_tool else spec, model, entry)

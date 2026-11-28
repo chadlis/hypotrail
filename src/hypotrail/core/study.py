@@ -37,7 +37,7 @@ import io
 import json
 from pathlib import Path
 
-from hypotrail.core import artifacts, canonical, contracts
+from hypotrail.core import artifacts, canonical, contracts, evaluator
 from hypotrail.core.errors import InvalidInputError
 
 STUDY_FILE = "study.json"
@@ -68,7 +68,8 @@ def declared_track(workload_dir: Path):
 
 
 def require_domain(spec: dict, domain: str, command: str) -> None:
-    """Refuse a command on a Study of another Track: a combination the code does not offer."""
+    """Require an ordinary Study whose Track the command supports."""
+    evaluator.refuse_protected(spec, stage="study")
     if spec["domain"] != domain:
         raise InvalidInputError(
             "UNSUPPORTED_CAPABILITY",

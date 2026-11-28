@@ -1,4 +1,4 @@
-"""Verify a private ranking build and freeze only its development population and References."""
+"""Verify a private ranking build and freeze only the selected Partition and References."""
 
 import csv
 import io
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from hypotrail.core import artifacts, canonical, contracts, data, revisions, scorers, study_write
+from hypotrail.core import artifacts, canonical, contracts, data, evaluator, revisions, scorers, study_write
 from hypotrail.core import study as layout
 from hypotrail.core.errors import IntegrityError, InvalidInputError
 from hypotrail.ml.partitions import DEV
@@ -24,6 +24,7 @@ TRACK = scorers.RANKING
 BUILD = "build.json"
 ITEMS = "items.csv"
 REFERENCES = "references-dev.csv"
+PROTECTED_REFERENCES = "references-held_out.csv"
 DEV_FILES = {ITEMS, REFERENCES}
 ITEM_ID_PATTERN = re.compile(r"([A-Za-z0-9_-]+)@([0-9]{4}-[0-9]{2}-[0-9]{2})")
 ITEM_COLUMNS = ("item_id", "entity_id", "as_of", "partition", "mature")
@@ -61,10 +62,19 @@ def _private_directory(path):
         raise _refuse("RANKING_BUILD_NOT_FOUND", "the private ranking build directory is missing") from None
     if not resolved.is_dir():
         raise _refuse("RANKING_BUILD_NOT_FOUND", "the private ranking build directory is missing")
-    git_markers = (parent / ".git" for parent in (resolved, *resolved.parents))
-    if any(marker.is_file() or (marker / "HEAD").is_file() for marker in git_markers):
+    if _in_checkout(resolved):
         raise _refuse("RANKING_BUILD_IN_REPOSITORY", "stage the private ranking build outside every Git worktree")
     return resolved
+
+
+def _in_checkout(path):
+    git_markers = (parent / ".git" for parent in (path, *path.parents))
+    return any(marker.is_file() or (marker / "HEAD").is_file() for marker in git_markers)
+
+
+def require_private_study(path):
+    if _in_checkout(Path(path).resolve()):
+        raise evaluator.refusal("study")
 
 
 def _read_source(folder, source):
@@ -99,18 +109,23 @@ def _read_source(folder, source):
     return raw
 
 
-def _verified_build(examples, workload, build_dir):
+def _verified_build(examples, workload, build_dir, *, partition=DEV):
     folder = _private_directory(build_dir)
     declaration = _declaration(examples, workload)
     reports = data.verify_workloads(examples, [workload])
     names = [report["dataset_id"] for report in reports]
-    if set(names) != DEV_FILES | {BUILD} or len(names) != len(set(names)) or any(report["status"] != "declared" for report in reports):
+    files = DEV_FILES | {BUILD}
+    if partition == evaluator.HELD_OUT:
+        files.add(PROTECTED_REFERENCES)
+    if set(names) != files or len(names) != len(set(names)) or any(report["status"] != "declared" for report in reports):
         raise _refuse(
             "RANKING_MANIFEST_INVALID",
-            "the development manifest must declare build.json, items.csv and references-dev.csv once each",
+            "the development manifest must declare build.json, items.csv and references-dev.csv once each" if partition == DEV
+            else "the protected manifest must also declare references-held_out.csv",
             workload=workload,
         )
-    raw = {report["dataset_id"]: _read_source(folder, report) for report in reports}
+    selected = files - {REFERENCES} if partition == evaluator.HELD_OUT else files
+    raw = {report["dataset_id"]: _read_source(folder, report) for report in reports if report["dataset_id"] in selected}
     try:
         build = canonical.loads(raw[BUILD])
         valid = _validator("contracts/ml-scores-1/ranking-build.schema.json").is_valid(build)
@@ -125,7 +140,8 @@ def _verified_build(examples, workload, build_dir):
     if expected != actual:
         raise IntegrityError(
             "DATA_INTEGRITY",
-            "build.json and the manifest do not declare the same development files and digests",
+            "build.json and the manifest do not declare the same development files and digests" if partition == DEV
+            else "build.json and the manifest do not declare the same protected build files and digests",
             stage="integrity",
             details={"file": BUILD},
         )
@@ -181,32 +197,33 @@ def _items(raw, cutoff, horizon):
     return items
 
 
-def _verify_references(raw, items):
+def _verify_references(raw, items, partition):
+    scope = "development" if partition == DEV else "held-out"
     seen = set()
     for row in _table(raw, REFERENCE_COLUMNS, "RANKING_REFERENCES_INVALID"):
         item_id = row["item_id"]
         if item_id in seen:
-            raise _refuse("REFERENCE_ROW_DUPLICATE", "the development References list an Item twice")
+            raise _refuse("REFERENCE_ROW_DUPLICATE", f"the {scope} References list an Item twice")
         item = items.get(item_id)
         if item is None:
             raise _refuse("REFERENCE_ITEM_UNKNOWN", "a Reference has an Item absent from items.csv")
         if item["mature"] != "true":
             raise _refuse("REFERENCE_ITEM_IMMATURE", "a Reference has an immature Item")
-        if item["partition"] != DEV:
-            raise _refuse("REFERENCE_ITEM_UNKNOWN", "the development References hold an Item outside their Partition")
+        if item["partition"] != partition:
+            raise _refuse("REFERENCE_ITEM_UNKNOWN", f"the {scope} References hold an Item outside their Partition")
         if row["label"] not in ("0", "1"):
             raise _refuse("REFERENCE_LABEL_NOT_BINARY", "a Reference label must be 0 or 1")
         seen.add(item_id)
-    if seen != {item_id for item_id, item in items.items() if item["partition"] == DEV}:
-        raise _refuse("RANKING_REFERENCES_INVALID", "the development References do not cover the development Partition")
+    if seen != {item_id for item_id, item in items.items() if item["partition"] == partition}:
+        raise _refuse("RANKING_REFERENCES_INVALID", f"the {scope} References do not cover the {scope} Partition")
 
 
-def _dev_memberships(items):
+def _memberships(items, partition):
     out = io.StringIO()
     columns = ITEM_COLUMNS[:-1]
     writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
     writer.writeheader()
-    writer.writerows(items[item_id] for item_id in sorted(items) if items[item_id]["partition"] == DEV)
+    writer.writerows(items[item_id] for item_id in sorted(items) if items[item_id]["partition"] == partition)
     return out.getvalue().encode("utf-8")
 
 
@@ -216,27 +233,31 @@ class FrozenBuild:
     dataset: bytes
     memberships: bytes
     references: bytes
+    partition: str
 
 
-def freeze(examples, workload, build_dir):
-    declaration, raw, build, cutoff, _ = _verified_build(examples, workload, build_dir)
+def freeze(examples, workload, build_dir, *, partition=DEV):
+    if (partition == evaluator.HELD_OUT) != evaluator.inside():
+        raise evaluator.refusal("study")
+    declaration, raw, build, cutoff, _ = _verified_build(examples, workload, build_dir, partition=partition)
     horizon = declaration["horizon_days"]
     items = _items(raw[ITEMS], cutoff, horizon)
-    _verify_references(raw[REFERENCES], items)
-    # Only the development Items are published in the Study. The digest lookup
-    # identifies a cross-Partition request without copying other Item IDs.
+    references = raw[PROTECTED_REFERENCES if partition == evaluator.HELD_OUT else REFERENCES]
+    _verify_references(references, items, partition)
+    # The Study keeps Items from its selected Partition. The digest lookup identifies a
+    # cross-Partition request without copying other Item IDs.
     dataset = {
         "items_sha256": canonical.sha256_hex(raw[ITEMS]),
         "label_cutoff": cutoff.isoformat(),
         "horizon_days": horizon,
         "frame_digest": build["frame_digest"],
-        "other_partition_items": sorted(item_digest(item) for item, row in items.items() if row["partition"] not in ("", DEV)),
+        "other_partition_items": sorted(item_digest(item) for item, row in items.items() if row["partition"] not in ("", partition)),
     }
-    return FrozenBuild(declaration, canonical.dumps(dataset), _dev_memberships(items), raw[REFERENCES])
+    return FrozenBuild(declaration, canonical.dumps(dataset), _memberships(items, partition), references, partition)
 
 
 def read_dataset(study, spec):
-    """Read the frozen metadata and dev memberships through their Study digests."""
+    """Read the frozen metadata and memberships through their Study digests."""
     dataset = canonical.loads(artifacts.read_verified(study, layout.dataset_ref(spec)))
     ref = next(entry["ref"] for entry in spec["artifacts"] if entry["ref"]["role"] == "memberships")
     members = _table(artifacts.read_verified(study, ref), ITEM_COLUMNS[:-1], "RANKING_ITEMS_INVALID")
@@ -284,6 +305,8 @@ def publish(study, workload, frozen, previous, write):
         "artifacts": [memberships, references],
         "revision_number": 1,
     }
+    if frozen.partition == evaluator.HELD_OUT:
+        spec["partition"] = frozen.partition
     if previous is not None:
         spec.update(revisions.next_fields(study, previous))
     spec["revision"] = canonical.digest({key: value for key, value in spec.items() if key != "study_id"})

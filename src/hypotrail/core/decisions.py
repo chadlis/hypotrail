@@ -59,7 +59,7 @@ import re
 import uuid
 from pathlib import Path
 
-from hypotrail.core import artifacts, contracts, deviations, exposure, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
+from hypotrail.core import artifacts, contracts, deviations, evaluator, exposure, requests, revisions, study_write, write_journal  # `deviations` imports this module too: each uses the other only when called
 from hypotrail.core import study as layout
 from hypotrail.core.errors import InvalidInputError
 
@@ -403,7 +403,8 @@ def decide(
             raise InvalidInputError("DECISION_FIELD_EMPTY", f"the {field} of a decision must not be empty", stage=STAGE, details={"field": field})
     _check_ids(question, option, question_id, option_id)
     recorded_words = _words(list(words), author=author, option=option, option_id=option_id, channel=channel, by=by, source=source)
-    layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    spec = layout.read_spec(study)  # a folder that is no Study is refused before a lock file is created in it
+    evaluator.require_study(spec, stage=STAGE)
     wanted = {
         "question": question, "option": option, "author": author, "source": source, "cited_ids": sorted(set(cited_ids)),
         "question_id": question_id, "option_id": option_id, "words": recorded_words,
