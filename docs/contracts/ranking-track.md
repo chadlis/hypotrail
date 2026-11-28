@@ -7,6 +7,7 @@ The ranking Track evaluates a score per (entity, as-of date) that a kit writes o
 This page fixes the file formats and the rules for the ranking Track:
 - M1 verifies the private build, initializes a development Study, and imports and assesses scores;
 - M2 compares, and builds the interval's estimator;
+- M2b applies that estimator to the held-out Partition through the protected evaluator CLI;
 - M3 compares two populations.
 
 The formats are in [`src/hypotrail/ml/contracts/ml-scores-1/`](../../src/hypotrail/ml/contracts/ml-scores-1/README.md):
@@ -99,6 +100,8 @@ Sources: D-172 on chadlis/hypotrail#75 (recall among the top 10 % of scores per 
 ## 4. The held-out References and the group rule
 
 **Held-out References.** `references-held_out.csv` is written and read inside the evaluator job only. It enters a second Study in the job's workspace, with the same Workload and its own References set. The dev Study never holds a held-out Reference.
+
+**M2b protected evaluation.** `hypotrail --evaluator init --partition held_out` binds a separate ranking Study to the held-out Partition. The explicit CLI declaration is checked against the evaluator workflow context. The kit and GitHub admit the owner-dispatched run before protected input is read. Import, Assessment, Comparison and aggregate report use the Study's recorded Partition. The Assessment and Comparison check it under the Study lock before reading the protected Items. The evaluator report exports aggregate values only. An ordinary CLI, the panel, chat tools and lesson reads refuse the protected Study. [D-264](https://github.com/chadlis/hypotrail/issues/75#issuecomment-7237036855)
 
 **The group rule.** "A group in two Partitions is refused" is a rule a Workload declares, as `group_partition_rule: disjoint`. When it is not declared, there is no such rule. A ranking Workload does not declare it: in a panel, every entity is in several Partitions by construction, with dev dates and held-out dates. The entity is still the interval's unit (point 3).
 
