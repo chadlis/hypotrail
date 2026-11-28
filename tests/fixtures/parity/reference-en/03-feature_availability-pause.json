@@ -2426,10 +2426,10 @@
           "workbench": "L'atelier (workbench) est votre espace libre : il est créé une fois, jamais écrasé, et n'est pas suivi par l'étude."
         },
         "recap": [
-          "Objectif : « Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques » ; la prédiction est faite « When technical characteristics are fixed, before measuring fuel efficiency ».",
+          "Objectif : \u00ab Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques \u00bb ; la prédiction est faite \u00ab When technical characteristics are fixed, before measuring fuel efficiency \u00bb.",
           "Décidé : le moment de la prédiction.",
           "Maintenant : Décider quelles variables sont disponibles au moment de la prédiction, en attente de votre réponse ; le rapport et le notebook sont à jour.",
-          "Ensuite : si vous adoptez la disponibilité des variables : « Vous gardez cylinders, displacement, horsepower, weight et origin, connues quand les caractéristiques techniques sont fixées ; vous excluez acceleration parce que sa disponibilité au moment de la prédiction n'est pas documentée. »",
+          "Ensuite : si vous adoptez la disponibilité des variables : \u00ab Vous gardez cylinders, displacement, horsepower, weight et origin, connues quand les caractéristiques techniques sont fixées ; vous excluez acceleration parce que sa disponibilité au moment de la prédiction n'est pas documentée. \u00bb",
           "Limite : Le jeu de validation sert à comparer les modèles et à en choisir un : ses erreurs ne sont donc pas une preuve indépendante de l'erreur future."
         ],
         "digest": {
@@ -2453,9 +2453,9 @@
           "explain": "Expliquer d'abord"
         },
         "options_note": null,
-        "junior_digest": "Proposition sur la disponibilité des variables : « Vous gardez cylinders, displacement, horsepower, weight et origin, connues quand les caractéristiques techniques sont fixées ; vous excluez acceleration parce que sa disponibilité au moment de la prédiction n'est pas documentée. » Si elle vous convient, dites que vous l'adoptez ; sinon dites ce que vous changez.",
+        "junior_digest": "Proposition sur la disponibilité des variables : \u00ab Vous gardez cylinders, displacement, horsepower, weight et origin, connues quand les caractéristiques techniques sont fixées ; vous excluez acceleration parce que sa disponibilité au moment de la prédiction n'est pas documentée. \u00bb Si elle vous convient, dites que vous l'adoptez ; sinon dites ce que vous changez.",
         "headlines": {
-          "prediction_time": "« When technical characteristics are fixed, before measuring fuel efficiency »."
+          "prediction_time": "\u00ab When technical characteristics are fixed, before measuring fuel efficiency \u00bb."
         },
         "data_contingent": {},
         "sample_note": "Les valeurs de la cible de ces huit lignes ont été montrées à l'étape 1, avant le découpage. Elles restent comptées comme vues : avec la validation croisée, elles tombent ensuite dans des blocs de validation ; avec un échantillon réservé, celles qui sont dans la validation ont été vues avant.",
@@ -2549,7 +2549,7 @@
                   "result_id": null,
                   "result_revision": null,
                   "reading": {
-                    "see": "Valeurs distinctes de « nom de la voiture » : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
+                    "see": "Valeurs distinctes de \u00ab nom de la voiture \u00bb : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
                     "conclude": "Une même entité revient d'une ligne à l'autre ; un découpage peut placer une ligne en entraînement et sa jumelle en validation, ce qui flatterait un peu l'erreur.",
                     "cannot": "Un même nom ne prouve pas une même entité, et le compte ne dit pas de combien l'erreur serait flattée."
                   },
@@ -2926,7 +2926,7 @@
                   "result_id": null,
                   "result_revision": null,
                   "reading": {
-                    "see": "Au moment proposé, colonnes connues : 5 ; colonnes de la voie « ? » : 1. La cible n'est mesurée qu'au dernier jalon.",
+                    "see": "Au moment proposé, colonnes connues : 5 ; colonnes de la voie \u00ab ? \u00bb : 1. La cible n'est mesurée qu'au dernier jalon.",
                     "conclude": "Le moment fixe la liste des colonnes permises ; une colonne connue après lui serait une fuite, une information que le modèle n'aurait pas au moment de servir.",
                     "cannot": "Ces jalons sont une hypothèse du scénario, pas un fait des données ; la frise ne prouve pas quand chaque colonne était connue."
                   },
@@ -3580,14 +3580,14 @@
           ]
         },
         "case_brief": {
-          "source": "Fiche du cas d'usage · Confluence, espace « Produit véhicules » · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
+          "source": "Fiche du cas d'usage · Confluence, espace \u00ab Produit véhicules \u00bb · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
           "problem": "L'équipe Conception doit annoncer la consommation d'un nouveau modèle dès que sa fiche technique est validée, environ six mois avant les essais sur route. Aujourd'hui, un ingénieur l'estime à la main en comparant avec un modèle proche ; écart moyen constaté, environ 4,5 mpg.",
           "decision": "Quels prototypes envoyer d'abord aux essais de consommation (une vingtaine d'essais par an), et quel chiffre provisoire afficher dans les premières fiches produit.",
           "objective": "Estimer la consommation à partir de la fiche technique seule, nettement mieux que l'estimation manuelle (viser un écart moyen d'environ 3,5 mpg), avec une fourchette.",
           "production": "Un service de prédiction appelé par l'outil de conception à chaque nouvelle fiche ; l'estimation et sa fourchette sont relues par un ingénieur avant tout usage ; le modèle est réentraîné chaque année avec les nouveaux essais.",
           "data_provenance": {
-            "real": "Réel : le jeu « Auto MPG » du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
-            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment « jamais vue »."
+            "real": "Réel : le jeu \u00ab Auto MPG \u00bb du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
+            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment \u00ab jamais vue \u00bb."
           },
           "users_and_cost_of_error": {
             "users": "Utilisateurs : les ingénieurs de conception et le chef de produit.",

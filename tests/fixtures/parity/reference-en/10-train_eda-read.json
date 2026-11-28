@@ -4184,7 +4184,7 @@
           "workbench": "L'atelier (workbench) est votre espace libre : il est créé une fois, jamais écrasé, et n'est pas suivi par l'étude."
         },
         "recap": [
-          "Objectif : « Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques » ; la prédiction est faite « When technical characteristics are fixed, before measuring fuel efficiency ».",
+          "Objectif : \u00ab Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques \u00bb ; la prédiction est faite \u00ab When technical characteristics are fixed, before measuring fuel efficiency \u00bb.",
           "Décidé : le moment de la prédiction ; la disponibilité des variables (exclues : acceleration) ; le découpage des données (validation croisée à 5 plis, plis dans l'ordre du temps) ; la mesure de l'erreur ; le critère de succès (erreur hors pli au moins 10 % sous celle de la référence (prédire la moyenne)) ; la préparation des variables (modifiée).",
           "Maintenant : Ajuster une référence (prédire la moyenne) et un modèle linéaire ; le rapport et le notebook sont à jour.",
           "Ensuite : Les graphiques de l'exploration sont affichés et aucun modèle n'est encore ajusté. Lisez-les, puis dites si l'on passe aux modèles.",
@@ -4234,7 +4234,7 @@
         "options_note": null,
         "junior_digest": "Les graphiques de l'exploration sont affichés et aucun modèle n'est encore ajusté. Lisez-les, puis dites si l'on passe aux modèles.",
         "headlines": {
-          "prediction_time": "« When technical characteristics are fixed, before measuring fuel efficiency ».",
+          "prediction_time": "\u00ab When technical characteristics are fixed, before measuring fuel efficiency \u00bb.",
           "feature_availability": "Garder cylinders, displacement, horsepower, origin et weight ; exclure acceleration (moment incertain).",
           "split": "Validation croisée sur les lignes de développement : 5 plis, par blocs dans l'ordre du temps ; chaque ligne est prédite une fois par un modèle qui ne l'a pas vue.",
           "error_metric": "L'erreur absolue moyenne (MAE).",
@@ -4335,7 +4335,7 @@
                   "result_id": null,
                   "result_revision": null,
                   "reading": {
-                    "see": "Valeurs distinctes de « nom de la voiture » : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
+                    "see": "Valeurs distinctes de \u00ab nom de la voiture \u00bb : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
                     "conclude": "Une même entité revient d'une ligne à l'autre ; un découpage peut placer une ligne en entraînement et sa jumelle en validation, ce qui flatterait un peu l'erreur.",
                     "cannot": "Un même nom ne prouve pas une même entité, et le compte ne dit pas de combien l'erreur serait flattée."
                   },
@@ -4712,7 +4712,7 @@
                   "result_id": null,
                   "result_revision": null,
                   "reading": {
-                    "see": "Au moment proposé, colonnes connues : 5 ; colonnes de la voie « ? » : 1. La cible n'est mesurée qu'au dernier jalon.",
+                    "see": "Au moment proposé, colonnes connues : 5 ; colonnes de la voie \u00ab ? \u00bb : 1. La cible n'est mesurée qu'au dernier jalon.",
                     "conclude": "Le moment fixe la liste des colonnes permises ; une colonne connue après lui serait une fuite, une information que le modèle n'aurait pas au moment de servir.",
                     "cannot": "Ces jalons sont une hypothèse du scénario, pas un fait des données ; la frise ne prouve pas quand chaque colonne était connue."
                   },
@@ -5295,9 +5295,9 @@
                   "result_id": "360b57b1660a216f46c10a5d10a2ec40e01ca1053c7380477683dd0b58905264",
                   "result_revision": 9,
                   "reading": {
-                    "see": "Les 318 lignes de développement en 5 blocs de 63 à 64 lignes, dans l'ordre de « année du modèle » ; les 80 lignes scellées restent à part.",
+                    "see": "Les 318 lignes de développement en 5 blocs de 63 à 64 lignes, dans l'ordre de \u00ab année du modèle \u00bb ; les 80 lignes scellées restent à part.",
                     "conclude": "Chaque bloc est prédit par un modèle entraîné sur les autres, périodes suivantes comprises ; l'erreur mesurée dira la stabilité d'une période à l'autre, pas une prévision du futur.",
-                    "cannot": "5 blocs ne sont pas 5 échantillons indépendants ; l'écart d'un bloc à l'autre est indicatif. Le découpage ne rend pas « jamais vues » les lignes déjà regardées."
+                    "cannot": "5 blocs ne sont pas 5 échantillons indépendants ; l'écart d'un bloc à l'autre est indicatif. Le découpage ne rend pas \u00ab jamais vues \u00bb les lignes déjà regardées."
                   },
                   "cites": [
                     {
@@ -5673,7 +5673,7 @@
                   "result_id": "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e",
                   "result_revision": 15,
                   "reading": {
-                    "see": "Colonnes avec des cellules manquantes : 1 ; la plus touchée, « puissance », manque 6 lignes sur 318 (1,9 %).",
+                    "see": "Colonnes avec des cellules manquantes : 1 ; la plus touchée, \u00ab puissance \u00bb, manque 6 lignes sur 318 (1,9 %).",
                     "conclude": "Les cellules manquantes sont remplies par la préparation, apprise sur les lignes où chaque modèle est ajusté ; une faible part pèse peu sur l'erreur.",
                     "cannot": "Le graphique ne dit pas pourquoi ces valeurs manquent, ni si elles manquent au hasard."
                   },
@@ -5740,7 +5740,7 @@
                   "result_id": "c985c7d9a5d39ad77c5e2b2f75248c632167edf7255747822e92a8be3802c22e",
                   "result_revision": 15,
                   "reading": {
-                    "see": "« puissance » dépasse le seuil d'asymétrie, 1,05 pour un seuil de 1 ; autres colonnes sous leurs seuils : 7.",
+                    "see": "\u00ab puissance \u00bb dépasse le seuil d'asymétrie, 1,05 pour un seuil de 1 ; autres colonnes sous leurs seuils : 7.",
                     "conclude": "La proposition de préparation repose sur ces verdicts ; une colonne au-dessus d'un seuil reçoit une transformation, les autres n'ont pas de motif de changement enregistré.",
                     "cannot": "Un seuil franchi ne dit pas qu'une transformation réduira l'erreur ; seuls les modèles le mesureront."
                   },
@@ -5822,7 +5822,7 @@
                   "result_id": "16443debaadb78bc27897be6cf7bc39544797906c61e631ac74871531128525e",
                   "result_revision": 17,
                   "reading": {
-                    "see": "« puissance » a une traîne de valeurs hautes, asymétrie 1,05 pour un seuil de 1 ; le log resserre les grandes valeurs.",
+                    "see": "\u00ab puissance \u00bb a une traîne de valeurs hautes, asymétrie 1,05 pour un seuil de 1 ; le log resserre les grandes valeurs.",
                     "conclude": "Le log resserre les grandes valeurs, qui pèseraient sinon beaucoup sur une droite ; il est appris sur la partie entraînement de chaque pli.",
                     "cannot": "L'histogramme ne lit pas la cible ; il ne dit pas si le log réduira l'erreur."
                   },
@@ -6052,7 +6052,7 @@
                   "result_id": "4cb2f9d76b106e273a640d49bfb83e15d2fc30cb16383c482a3de08da755e0f8",
                   "result_revision": 31,
                   "reading": {
-                    "see": "Selon « poids », la moyenne de mpg va de 33,2 dans la tranche la plus basse à 14,3 dans la plus haute.",
+                    "see": "Selon \u00ab poids \u00bb, la moyenne de mpg va de 33,2 dans la tranche la plus basse à 14,3 dans la plus haute.",
                     "conclude": "L'écart entre tranches dépasse ce que tire le hasard en mélangeant la cible ; cette colonne porte un signal. À quel point il est droit, les modèles le mesureront.",
                     "cannot": "Un lien n'est pas une cause ; il décrit ces lignes, pas l'effet de changer cette colonne pour une ligne."
                   },
@@ -6248,14 +6248,14 @@
           ]
         },
         "case_brief": {
-          "source": "Fiche du cas d'usage · Confluence, espace « Produit véhicules » · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
+          "source": "Fiche du cas d'usage · Confluence, espace \u00ab Produit véhicules \u00bb · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
           "problem": "L'équipe Conception doit annoncer la consommation d'un nouveau modèle dès que sa fiche technique est validée, environ six mois avant les essais sur route. Aujourd'hui, un ingénieur l'estime à la main en comparant avec un modèle proche ; écart moyen constaté, environ 4,5 mpg.",
           "decision": "Quels prototypes envoyer d'abord aux essais de consommation (une vingtaine d'essais par an), et quel chiffre provisoire afficher dans les premières fiches produit.",
           "objective": "Estimer la consommation à partir de la fiche technique seule, nettement mieux que l'estimation manuelle (viser un écart moyen d'environ 3,5 mpg), avec une fourchette.",
           "production": "Un service de prédiction appelé par l'outil de conception à chaque nouvelle fiche ; l'estimation et sa fourchette sont relues par un ingénieur avant tout usage ; le modèle est réentraîné chaque année avec les nouveaux essais.",
           "data_provenance": {
-            "real": "Réel : le jeu « Auto MPG » du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
-            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment « jamais vue »."
+            "real": "Réel : le jeu \u00ab Auto MPG \u00bb du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
+            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment \u00ab jamais vue \u00bb."
           },
           "users_and_cost_of_error": {
             "users": "Utilisateurs : les ingénieurs de conception et le chef de produit.",

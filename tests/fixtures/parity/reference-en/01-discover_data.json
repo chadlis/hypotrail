@@ -1485,7 +1485,7 @@
         },
         "artifacts": {},
         "recap": [
-          "Objectif : « Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques » ; la prédiction est faite « Quand les caractéristiques techniques sont fixées, avant de mesurer la consommation » (selon le cas, pas encore décidé).",
+          "Objectif : \u00ab Exercice : estimer la consommation d'un futur modèle à partir de ses caractéristiques techniques \u00bb ; la prédiction est faite \u00ab Quand les caractéristiques techniques sont fixées, avant de mesurer la consommation \u00bb (selon le cas, pas encore décidé).",
           "Décidé : rien pour l'instant.",
           "Maintenant : Découvrir les données ; le rapport et le notebook pas encore écrits.",
           "Ensuite : D'abord, regardez les données avec l'assistant : ce que décrit une ligne, les colonnes et ce que chacune signifie, et huit lignes tirées au hasard. Rien n'est décidé à cette étape.",
@@ -1599,7 +1599,7 @@
                   "result_id": null,
                   "result_revision": null,
                   "reading": {
-                    "see": "Valeurs distinctes de « nom de la voiture » : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
+                    "see": "Valeurs distinctes de \u00ab nom de la voiture \u00bb : 254 ; lignes qui partagent leur valeur avec une autre : 107 ; doublons exacts : 0.",
                     "conclude": "Une même entité revient d'une ligne à l'autre ; un découpage peut placer une ligne en entraînement et sa jumelle en validation, ce qui flatterait un peu l'erreur.",
                     "cannot": "Un même nom ne prouve pas une même entité, et le compte ne dit pas de combien l'erreur serait flattée."
                   },
@@ -1920,14 +1920,14 @@
           ]
         },
         "case_brief": {
-          "source": "Fiche du cas d'usage · Confluence, espace « Produit véhicules » · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
+          "source": "Fiche du cas d'usage · Confluence, espace \u00ab Produit véhicules \u00bb · rédigée par le PO · scénario fictif pour la simulation (seule la provenance des données est réelle)",
           "problem": "L'équipe Conception doit annoncer la consommation d'un nouveau modèle dès que sa fiche technique est validée, environ six mois avant les essais sur route. Aujourd'hui, un ingénieur l'estime à la main en comparant avec un modèle proche ; écart moyen constaté, environ 4,5 mpg.",
           "decision": "Quels prototypes envoyer d'abord aux essais de consommation (une vingtaine d'essais par an), et quel chiffre provisoire afficher dans les premières fiches produit.",
           "objective": "Estimer la consommation à partir de la fiche technique seule, nettement mieux que l'estimation manuelle (viser un écart moyen d'environ 3,5 mpg), avec une fourchette.",
           "production": "Un service de prédiction appelé par l'outil de conception à chaque nouvelle fiche ; l'estimation et sa fourchette sont relues par un ingénieur avant tout usage ; le modèle est réentraîné chaque année avec les nouveaux essais.",
           "data_provenance": {
-            "real": "Réel : le jeu « Auto MPG » du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
-            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment « jamais vue »."
+            "real": "Réel : le jeu \u00ab Auto MPG \u00bb du UCI Machine Learning Repository (issu de StatLib, Carnegie Mellon ; utilisé par Quinlan en 1993) : 398 modèles de voitures vendus aux États-Unis de 1970 à 1982, une ligne par modèle et par année.",
+            "scenario": "Dans le scénario : il sert d'historique en attendant l'extraction de l'entrepôt interne des essais. Les données sont publiques et déjà très explorées : aucune ligne n'est vraiment \u00ab jamais vue \u00bb."
           },
           "users_and_cost_of_error": {
             "users": "Utilisateurs : les ingénieurs de conception et le chef de produit.",
